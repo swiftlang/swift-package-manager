@@ -41,7 +41,7 @@ class MiscellaneousTestCase: XCTestCase {
         // Tests that a package with no source files doesn't error.
         fixture(name: "Miscellaneous/Empty") { prefix in
             let output = try executeSwiftBuild(prefix, configuration: .Debug)
-            let expected = "warning: The target Empty in package Empty does not contain any valid source files."
+            let expected = "warning: target 'Empty' in package 'Empty' contains no valid source files"
             XCTAssert(output.contains(expected), "unexpected output: \(output)")
         }
     }
@@ -50,7 +50,7 @@ class MiscellaneousTestCase: XCTestCase {
         // Tests a package with no source files but a dependency.
         fixture(name: "Miscellaneous/ExactDependencies") { prefix in
             let output = try executeSwiftBuild(prefix.appending(component: "EmptyWithDependency"))
-            let expected = "warning: The target EmptyWithDependency in package EmptyWithDependency does not contain any valid source files."
+            let expected = "warning: target 'EmptyWithDependency' in package 'EmptyWithDependency' contains no valid source files"
             XCTAssert(output.contains(expected), "unexpected output: \(output)")
             // We should only build the modules that are needed to be built. If
             // we have a dependency package but no way to reach some module in

@@ -57,7 +57,7 @@ public enum ResolverDiagnostics {
             type: Unsatisfiable.self,
             name: "org.swift.diags.resolver.unsatisfiable",
             description: {
-                $0 <<< "The dependency graph is unresolvable."
+                $0 <<< "dependency graph is unresolvable;"
                 $0 <<< .substitution({
                     let `self` = $0 as! Unsatisfiable
 
@@ -65,7 +65,7 @@ public enum ResolverDiagnostics {
                     if self.dependencies.isEmpty && self.pins.isEmpty {
                         return ""
                     }
-                    var diag = "Found these conflicting requirements:"
+                    var diag = "found these conflicting requirements:"
                     let indent = "    "
 
                     if !self.dependencies.isEmpty {
@@ -124,9 +124,7 @@ public enum WorkspaceDiagnostics {
             type: UncommitedChanges.self,
             name: "org.swift.diags.workspace.uncommited-changes",
             description: {
-                $0 <<< "The repository"
-                $0 <<< { "'\($0.repositoryPath.asString)'" }
-                $0 <<< "has uncommited changes"
+                $0 <<< "repository" <<< { "'\($0.repositoryPath.asString)'" } <<< "has uncommited changes"
             })
     
         /// The local path to the repository.
@@ -140,9 +138,7 @@ public enum WorkspaceDiagnostics {
             type: UnpushedChanges.self,
             name: "org.swift.diags.workspace.unpushed-changes",
             description: {
-                $0 <<< "The repository"
-                $0 <<< { "'\($0.repositoryPath.asString)'" }
-                $0 <<< "has unpushed changes"
+                $0 <<< "repository" <<< { "'\($0.repositoryPath.asString)'" } <<< "has unpushed changes"
             })
         
         /// The local path to the repository.
@@ -156,13 +152,11 @@ public enum WorkspaceDiagnostics {
             type: DependencyAlreadyInEditMode.self,
             name: "org.swift.diags.workspace.dependency-already-in-edit-mode",
             description: {
-                $0 <<< "The dependency"
-                $0 <<< { "'\($0.dependencyURL)'" }
-                $0 <<< "is already in edit mode"
+                $0 <<< "dependency" <<< { "'\($0.dependencyName)'" } <<< "already in edit mode"
             })
         
-        /// The URL of the dependency being edited.
-        public let dependencyURL: String
+        /// The name of the dependency being edited.
+        public let dependencyName: String
     }
     
     /// The diagnostic triggered when the unedit operation fails because the dependency
@@ -172,13 +166,11 @@ public enum WorkspaceDiagnostics {
             type: DependencyNotInEditMode.self,
             name: "org.swift.diags.workspace.dependency-not-in-edit-mode",
             description: {
-                $0 <<< "The dependency"
-                $0 <<< { "'\($0.dependencyURL)'" }
-                $0 <<< "is not in edit mode"
+                $0 <<< "dependency" <<< { "'\($0.dependencyName)'" } <<< "not in edit mode"
             })
         
-        /// The URL of the dependency being unedited.
-        public let dependencyURL: String
+        /// The name of the dependency being unedited.
+        public let dependencyName: String
     }
     
     /// The diagnostic triggered when the edit operation fails because the branch
@@ -188,14 +180,8 @@ public enum WorkspaceDiagnostics {
             type: BranchAlreadyExists.self,
             name: "org.swift.diags.workspace.branch-already-exists",
             description: {
-                $0 <<< "The branch"
-                $0 <<< { $0.branch }
-                $0 <<< "already exists on dependency"
-                $0 <<< { "'\($0.dependencyURL)'" }
+                $0 <<< "branch" <<< { $0.branch } <<< "already exists"
             })
-        
-        /// The URL of the dependency being edited.
-        public let dependencyURL: String
         
         /// The branch to create.
         public let branch: String
@@ -208,14 +194,8 @@ public enum WorkspaceDiagnostics {
             type: RevisionDoesNotExist.self,
             name: "org.swift.diags.workspace.revision-does-not-exist",
             description: {
-                $0 <<< "The revision"
-                $0 <<< { $0.revision }
-                $0 <<< "does not exist on dependency"
-                $0 <<< { "'\($0.dependencyURL)'" }
+                $0 <<< "revision" <<< { $0.revision } <<< "does not exist"
             })
-        
-        /// The URL of the dependency being edited.
-        public let dependencyURL: String
         
         /// The revision requested.
         public let revision: String
@@ -227,12 +207,9 @@ public enum WorkspaceDiagnostics {
             type: IncompatibleToolsVersion.self,
             name: "org.swift.diags.workspace.incompatible-tools-version",
             description: {
-                $0 <<< "The package at"
-                $0 <<< { "'\($0.rootPackagePath.asString)'" }
-                $0 <<< "requires a minimum Swift tools version of"
-                $0 <<< { $0.requiredToolsVersion.description }
-                $0 <<< "but currently at"
-                $0 <<< { $0.currentToolsVersion.description }
+                $0 <<< "package at" <<< { "'\($0.rootPackagePath.asString)'" }
+                $0 <<< "requires a minimum Swift tools version of" <<< { $0.requiredToolsVersion.description }
+                $0 <<< "but currently at" <<< { $0.currentToolsVersion.description }
             })
         
         /// The path of the package.
@@ -252,12 +229,9 @@ public enum WorkspaceDiagnostics {
             type: MismatchingDestinationPackage.self,
             name: "org.swift.diags.workspace.mismatching-destination-package",
             description: {
-                $0 <<< "The package at"
-                $0 <<< { "'\($0.editPath.asString)'" }
-                $0 <<< "is"
-                $0 <<< { $0.destinationPackage ?? "<unknown>" }
-                $0 <<< "but was expecting"
-                $0 <<< { $0.expectedPackage }
+                $0 <<< "package at" <<< { "'\($0.editPath.asString)'" }
+                $0 <<< "is" <<< { $0.destinationPackage ?? "<unknown>" }
+                $0 <<< "but was expecting" <<< { $0.expectedPackage }
             })
         
         /// The path to be edited to.
@@ -280,9 +254,8 @@ public enum WorkspaceDiagnostics {
             name: "org.swift.diags.workspace.checked-out-dependency-missing",
             defaultBehavior: .warning,
             description: {
-                $0 <<< "The dependency"
-                $0 <<< { "'\($0.packageName)'" }
-                $0 <<< "is missing and has been cloned again."
+                $0 <<< "dependency" <<< { "'\($0.packageName)'" } <<< "is missing;"
+                $0 <<< "cloning again"
             })
 
         /// The package name of the dependency.
@@ -297,9 +270,8 @@ public enum WorkspaceDiagnostics {
             name: "org.swift.diags.workspace.edited-dependency-missing",
             defaultBehavior: .warning,
             description: {
-                $0 <<< "The dependency"
-                $0 <<< { "'\($0.packageName)'" }
-                $0 <<< "was being edited but is missing. Falling back to original checkout."
+                $0 <<< "dependency" <<< { "'\($0.packageName)'" } <<< "was being edited but is missing;"
+                $0 <<< "falling back to original checkout"
             })
         
         /// The package name of the dependency.
@@ -314,13 +286,10 @@ public enum WorkspaceDiagnostics {
             name: "org.swift.diags.workspace.edit-revision-not-used",
             defaultBehavior: .warning,
             description: {
-                $0 <<< "The dependency"
-                $0 <<< { "'\($0.packageName)'" }
-                $0 <<< "already exists at the edit destination. Not using revision"
-                $0 <<< { "'\($0.revisionIdentifier)'" }
-                $0 <<< "."
+                $0 <<< "dependency" <<< { "'\($0.packageName)'" } <<< "already exists at the edit destination;"
+                $0 <<< "not using revision" <<< { "'\($0.revisionIdentifier)'" }
             })
-        
+
         /// The package name of the dependency.
         public let packageName: String
 
@@ -336,13 +305,10 @@ public enum WorkspaceDiagnostics {
             name: "org.swift.diags.workspace.edit-branch-not-used",
             defaultBehavior: .warning,
             description: {
-                $0 <<< "The dependency"
-                $0 <<< { "'\($0.packageName)'" }
-                $0 <<< "already exists at the edit destination. Not checking-out branch"
-                $0 <<< { "'\($0.branchName)'" }
-                $0 <<< "."
+                $0 <<< "dependency" <<< { "'\($0.packageName)'" } <<< "already exists at the edit destination;"
+                $0 <<< "not checking-out branch" <<< { "'\($0.branchName)'" }
             })
-        
+
         /// The package name of the dependency.
         public let packageName: String
 

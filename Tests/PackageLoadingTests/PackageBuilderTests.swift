@@ -417,7 +417,7 @@ class PackageBuilderTests: XCTestCase {
 
     func testNoSources() throws {
         PackageBuilderTester("NoSources", in: InMemoryFileSystem()) { result in
-            result.checkDiagnostic("The target NoSources in package NoSources does not contain any valid source files.")
+            result.checkDiagnostic("target 'NoSources' in package 'NoSources' contains no valid source files")
         }
     }
 
@@ -466,7 +466,7 @@ class PackageBuilderTests: XCTestCase {
             }
 
           #if os(Linux)
-            result.checkDiagnostic("Ignoring target MyPackageTests in package MyPackage as C language in tests is not supported yet.")
+            result.checkDiagnostic("ignoring target 'MyPackageTests' in package 'MyPackage'; C language in tests is not yet supported")
           #endif
         }
     }
@@ -683,7 +683,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/pkg2/readme.txt")
         package = PackageDescription.Package(name: "pkg", targets: [.init(name: "pkg1", dependencies: ["pkg2"])])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("The target pkg2 in package pkg does not contain any valid source files.")
+            result.checkDiagnostic("target 'pkg2' in package 'pkg' contains no valid source files")
             result.checkModule("pkg1") { moduleResult in
                 moduleResult.check(c99name: "pkg1", type: .library)
                 moduleResult.checkSources(root: "/Sources/pkg1", paths: "Foo.swift")
@@ -918,14 +918,14 @@ class PackageBuilderTests: XCTestCase {
         var fs = InMemoryFileSystem()
         try fs.createDirectory(AbsolutePath("/Sources/Module"), recursive: true)
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("The target Module in package MyPackage does not contain any valid source files.")
+            result.checkDiagnostic("target 'Module' in package 'MyPackage' contains no valid source files")
         }
 
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Module/foo.swift")
         try fs.createDirectory(AbsolutePath("/Tests/ModuleTests"), recursive: true)
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("The target ModuleTests in package MyPackage does not contain any valid source files.")
+            result.checkDiagnostic("target 'ModuleTests' in package 'MyPackage' contains no valid source files")
             result.checkModule("Module")
         }
     }

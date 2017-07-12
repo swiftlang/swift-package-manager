@@ -25,7 +25,7 @@ struct ChdirDeprecatedDiagnostic: DiagnosticData {
         name: "org.swift.diags.chdir-deprecated",
         defaultBehavior: .warning,
         description: {
-            $0 <<< "the '--chdir/-C' option is deprecated; use '--package-path' instead"
+            $0 <<< "'--chdir/-C' option is deprecated; use '--package-path' instead"
         }
     )
 }

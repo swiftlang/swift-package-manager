@@ -1472,7 +1472,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssertTrue(diagnostics.diagnostics.contains(where: {
                 $0.behavior == .warning &&
-                $0.localizedDescription == "The dependency 'A' was being edited but is missing. Falling back to original checkout."
+                $0.localizedDescription == "dependency 'A' was being edited but is missing; falling back to original checkout"
             }))
         }
     }
@@ -1616,7 +1616,7 @@ final class WorkspaceTests: XCTestCase {
             let diagnostics = DiagnosticsEngine()
             workspace.loadPackageGraph(rootPackages: roots, diagnostics: diagnostics)
             let errorDesc = diagnostics.diagnostics[0].localizedDescription
-            XCTAssertEqual(errorDesc, "The package at '/root1' requires a minimum Swift tools version of 4.0.0 but currently at 3.1.0")
+            XCTAssertEqual(errorDesc, "package at '/root1' requires a minimum Swift tools version of 4.0.0 but currently at 3.1.0")
         }
     }
 
@@ -1802,7 +1802,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssertTrue(diagnostics.diagnostics.contains(where: {
                 $0.behavior == .warning &&
-                $0.localizedDescription == "The dependency 'Foo' is missing and has been cloned again."
+                $0.localizedDescription == "dependency 'Foo' is missing; cloning again"
             }))
             XCTAssertTrue(isDirectory(workspace.checkoutsPath))
         }
@@ -1994,7 +1994,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Check that we produce error.
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: .contains("graph is unresolvable."), behavior: .error)
+            result.check(diagnostic: .contains("dependency graph is unresolvable;"), behavior: .error)
         }
 
         // There should be no extra fetches.
