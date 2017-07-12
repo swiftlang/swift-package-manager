@@ -147,10 +147,22 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
         if env["TOOLCHAINS"] == nil {
             env["TOOLCHAINS"] = "default"
         }
+        let xcconfig = project.appending(component: "overrides.xcconfig")
+        let swiftCompilerPath = Resources.default.swiftCompiler.asString
+        try localFileSystem.writeFileContents(xcconfig) {
+            $0 <<< "SWIFT_EXEC = " <<< swiftCompilerPath
+        }
         try Process.checkNonZeroExit(
-            args: "xcodebuild", "-project", project.asString, "-alltargets", environment: env)
+            args: "xcodebuild", "-project", project.asString, "-alltargets", "-xcconfig", xcconfig.asString, environment: env)
     } catch {
         XCTFail("xcodebuild failed:\n\n\(error)\n", file: file, line: line)
+        switch error {
+        case ProcessResult.Error.nonZeroExit(let result):
+            try? print("stdout: " + result.utf8Output())
+            try? print("stderr: " + result.utf8stderrOutput())
+        default:
+            break
+        }
     }
 }
 
