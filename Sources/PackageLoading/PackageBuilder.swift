@@ -821,11 +821,20 @@ public final class PackageBuilder {
             guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path.asString) }
             let cSources = Array(cSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: cSources)
+
+            let sources = Sources(paths: cSources, root: potentialModule.path)
+
+            // Select the right language standard.
+            let isCXX = sources.containsCXXFiles
+            let languageStandard = isCXX ? manifest.package.cxxLanguageStandard?.rawValue : manifest.package.cLanguageStandard?.rawValue 
+
             return ClangTarget(
                 name: potentialModule.name,
+                isCXX: isCXX,
+                languageStandard: languageStandard,
                 includeDir: publicHeadersPath,
                 isTest: potentialModule.isTest,
-                sources: Sources(paths: cSources, root: potentialModule.path),
+                sources: sources,
                 dependencies: moduleDependencies,
                 productDependencies: productDeps)
         }

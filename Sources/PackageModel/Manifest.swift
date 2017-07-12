@@ -210,6 +210,20 @@ extension Manifest.RawPackage {
         case .v4(let package): return package.swiftLanguageVersions
         }
     }
+
+    public var cLanguageStandard: PackageDescription4.CLanguageStandard? {
+        switch self {
+        case .v3: return nil
+        case .v4(let package): return package.cLanguageStandard
+        }
+    }
+
+    public var cxxLanguageStandard: PackageDescription4.CXXLanguageStandard? {
+        switch self {
+        case .v3: return nil
+        case .v4(let package): return package.cxxLanguageStandard
+        }
+    }
 }
 
 // MARK: - Version shim for PackageDescription4 -> PackageDescription.

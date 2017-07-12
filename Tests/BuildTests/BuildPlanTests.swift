@@ -197,6 +197,52 @@ final class BuildPlanTests: XCTestCase {
       #endif
     }
 
+    func testCLanguageStandard() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.cpp",
+            "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/include/lib.h"
+        )
+        let pkg = PackageDescription4.Package(
+            name: "Pkg",
+            targets: [
+                .target(name: "lib"),
+                .target(name: "exe", dependencies: ["lib"]),
+            ],
+            cLanguageStandard: .gnu99,
+            cxxLanguageStandard: .cxx1z
+        )
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadMockPackageGraph4(["/Pkg": pkg], root: "/Pkg", diagnostics: diagnostics, in: fs)
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
+ 
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+
+        let lib = try result.target(for: "lib").clangTarget()
+        XCTAssertTrue(lib.basicArguments().contains("-std=gnu99"))
+
+        let exe = try result.target(for: "exe").clangTarget()
+        XCTAssertTrue(exe.basicArguments().contains("-std=c++1z"))
+
+      #if os(macOS)
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
+            "/fake/path/to/swiftc", "-lc++", "-g", "-L", "/path/to/build/debug", "-o",
+            "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
+            "/path/to/build/debug/exe.build/main.cpp.o",
+            "/path/to/build/debug/lib.build/lib.c.o"
+        ])
+      #else
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
+            "/fake/path/to/swiftc", "-lstdc++", "-g", "-L", "/path/to/build/debug", "-o",
+            "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
+            "-Xlinker", "-rpath=$ORIGIN",
+            "/path/to/build/debug/exe.build/main.cpp.o",
+            "/path/to/build/debug/lib.build/lib.c.o"
+        ])
+      #endif
+    }
+
     func testSwiftCMixed() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -417,6 +463,7 @@ final class BuildPlanTests: XCTestCase {
         ("testBasicReleasePackage", testBasicReleasePackage),
         ("testBasicSwiftPackage", testBasicSwiftPackage),
         ("testCModule", testCModule),
+        ("testCLanguageStandard", testCLanguageStandard),
         ("testCppModule", testCppModule),
         ("testDynamicProducts", testDynamicProducts),
         ("testSwiftCMixed", testSwiftCMixed),
