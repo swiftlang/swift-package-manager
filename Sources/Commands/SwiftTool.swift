@@ -433,20 +433,31 @@ public class SwiftTool<Options: ToolOptions> {
         guard result.exitStatus == .terminated(code: 0) else {
             throw ProcessResult.Error.nonZeroExit(result)
         }
+
+        // Create backwards-compatibilty symlink to old build path.
+        let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
+        if exists(oldBuildPath) {
+            try removeFileTree(oldBuildPath)
+        }
+        try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
     }
 
     /// Generates a BuildPlan based on the tool's options.
     func buildPlan() throws -> BuildPlan {
         return try BuildPlan(
-            buildParameters: BuildParameters(
-                dataPath: buildPath,
-                configuration: options.configuration,
-                toolchain: try getToolchain(),
-                flags: options.buildFlags,
-                shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib
-            ),
-            graph: try loadPackageGraph(),
+            buildParameters: buildParameters(),
+            graph: loadPackageGraph(),
             delegate: self)
+    }
+
+    /// Create build parameters.
+    func buildParameters() throws -> BuildParameters {
+        let toolchain = try getToolchain()
+        return BuildParameters(
+            dataPath: buildPath.appending(component: toolchain.destination.target),
+            configuration: options.configuration,
+            toolchain: toolchain,
+            flags: options.buildFlags)
     }
 
     /// Lazily compute the destination toolchain.

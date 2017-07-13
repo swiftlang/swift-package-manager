@@ -72,9 +72,10 @@ class MiscellaneousTestCase: XCTestCase {
 
         fixture(name: "Miscellaneous/ExcludeDiagnostic1") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "BarLib.swiftmodule"))
-            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "FooBarLib.swiftmodule"))
-            XCTAssertNoSuchPath(prefix.appending(components: ".build", "debug", "FooLib.swiftmodule"))
+            let binPath = prefix.appending(components: ".build", Destination.host.target, "debug")
+            XCTAssertFileExists(binPath.appending(component: "BarLib.swiftmodule"))
+            XCTAssertFileExists(binPath.appending(component: "FooBarLib.swiftmodule"))
+            XCTAssertNoSuchPath(binPath.appending(component: "FooLib.swiftmodule"))
         }
     }
 
@@ -95,7 +96,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         fixture(name: "Miscellaneous/ExcludeDiagnostic3") { prefix in
             XCTAssertBuilds(prefix.appending(component: "App"))
-            let buildDir = prefix.appending(components: "App", ".build", "debug")
+            let buildDir = prefix.appending(components: "App", ".build", Destination.host.target, "debug")
             XCTAssertFileExists(buildDir.appending(component: "App"))
             XCTAssertFileExists(buildDir.appending(component: "top"))
             XCTAssertFileExists(buildDir.appending(component: "bottom.swiftmodule"))
@@ -109,7 +110,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         fixture(name: "Miscellaneous/ExcludeDiagnostic4") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "FooPackage.swiftmodule"))
+            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target, "debug", "FooPackage.swiftmodule"))
         }
     }
 
@@ -119,7 +120,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         fixture(name: "Miscellaneous/ExcludeDiagnostic5") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "FooPackage.swiftmodule"))
+            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target, "debug", "FooPackage.swiftmodule"))
         }
     }
 
@@ -130,7 +131,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         fixture(name: "Miscellaneous/ExactDependencies") { prefix in
             XCTAssertBuilds(prefix.appending(component: "app"))
-            let buildDir = prefix.appending(components: "app", ".build", "debug")
+            let buildDir = prefix.appending(components: "app", ".build", Destination.host.target, "debug")
             XCTAssertFileExists(buildDir.appending(component: "FooExec"))
             XCTAssertFileExists(buildDir.appending(component: "FooLib1.swiftmodule"))
             XCTAssertFileExists(buildDir.appending(component: "FooLib2.swiftmodule"))
@@ -249,7 +250,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testInternalDependencyEdges() {
         fixture(name: "Miscellaneous/DependencyEdges/Internal") { prefix in
-            let execpath = prefix.appending(components: ".build", "debug", "Foo").asString
+            let execpath = prefix.appending(components: ".build", Destination.host.target, "debug", "Foo").asString
 
             XCTAssertBuilds(prefix)
             var output = try Process.checkNonZeroExit(args: execpath)
@@ -273,7 +274,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testExternalDependencyEdges1() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            let execpath = prefix.appending(components: "app", ".build", "debug", "Dealer").asString
+            let execpath = prefix.appending(components: "app", ".build", Destination.host.target, "debug", "Dealer").asString
 
             let packageRoot = prefix.appending(component: "app")
             XCTAssertBuilds(packageRoot)
@@ -300,7 +301,7 @@ class MiscellaneousTestCase: XCTestCase {
      */
     func testExternalDependencyEdges2() {
         fixture(name: "Miscellaneous/DependencyEdges/External") { prefix in
-            let execpath = [prefix.appending(components: "root", ".build", "debug", "dep2").asString]
+            let execpath = [prefix.appending(components: "root", ".build", Destination.host.target, "debug", "dep2").asString]
 
             let packageRoot = prefix.appending(component: "root")
             XCTAssertBuilds(prefix.appending(component: "root"))
@@ -324,11 +325,11 @@ class MiscellaneousTestCase: XCTestCase {
     func testProducts() {
         fixture(name: "Products/StaticLibrary") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "libProductName.a"))
+            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target, "debug", "libProductName.a"))
         }
         fixture(name: "Products/DynamicLibrary") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "libProductName.\(dynamicLibraryExtension)"))
+            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target, "debug", "libProductName.\(dynamicLibraryExtension)"))
         }
     }
 
@@ -347,7 +348,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testSpaces() {
         fixture(name: "Miscellaneous/Spaces Fixture") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "Module_Name_1.build", "Foo.swift.o"))
+            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target, "debug", "Module_Name_1.build", "Foo.swift.o"))
         }
     }
 
@@ -428,7 +429,7 @@ class MiscellaneousTestCase: XCTestCase {
             let env = ["PKG_CONFIG_PATH": prefix.asString]
             _ = try executeSwiftBuild(moduleUser, env: env)
 
-            XCTAssertFileExists(moduleUser.appending(components: ".build", "debug", "SystemModuleUserClang"))
+            XCTAssertFileExists(moduleUser.appending(components: ".build", Destination.host.target, "debug", "SystemModuleUserClang"))
         }
     }
 

@@ -12,7 +12,7 @@ import XCTest
 
 import TestSupport
 import Basic
-@testable import Commands
+import Commands
 
 final class BuildToolTests: XCTestCase {
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
@@ -30,10 +30,26 @@ final class BuildToolTests: XCTestCase {
     func testBinPath() throws {
         fixture(name: "ValidLayouts/SingleModule/Executable") { path in
             let fullPath = resolveSymlinks(path)
+            let targetPath = fullPath.appending(components: ".build", Destination.host.target)
             XCTAssertEqual(try execute(["--show-bin-path"], packagePath: fullPath),
-                           fullPath.appending(RelativePath(".build/debug")).asString + "\n")
+                           targetPath.appending(components: "debug").asString + "\n")
             XCTAssertEqual(try execute(["-c", "release", "--show-bin-path"], packagePath: fullPath),
-                           fullPath.appending(RelativePath(".build/release")).asString + "\n")
+                           targetPath.appending(components: "release").asString + "\n")
+        }
+    }
+
+    func testBackwardsCompatibilitySymlink() throws {
+        fixture(name: "ValidLayouts/SingleModule/Executable") { path in
+            let fullPath = resolveSymlinks(path)
+            let targetPath = fullPath.appending(components: ".build", Destination.host.target)
+
+            _ = try execute([], packagePath: fullPath)
+            XCTAssertEqual(resolveSymlinks(fullPath.appending(components: ".build", "debug")),
+                           targetPath.appending(component: "debug"))
+
+            _ = try execute(["-c", "release"], packagePath: fullPath)
+            XCTAssertEqual(resolveSymlinks(fullPath.appending(components: ".build", "release")),
+                           targetPath.appending(component: "release"))
         }
     }
 
@@ -41,5 +57,6 @@ final class BuildToolTests: XCTestCase {
         ("testUsage", testUsage),
         ("testVersion", testVersion),
         ("testBinPath", testBinPath),
+        ("testBackwardsCompatibilitySymlink", testBackwardsCompatibilitySymlink),
     ]
 }

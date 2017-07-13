@@ -13,6 +13,7 @@ import TestSupport
 import Basic
 import PackageModel
 import Workspace
+import Commands
 
 class InitTests: XCTestCase {
 
@@ -78,8 +79,9 @@ class InitTests: XCTestCase {
             
             // Try building it
             XCTAssertBuilds(path)
-            XCTAssertFileExists(path.appending(components: ".build", "debug", "Foo"))
-            XCTAssertFileExists(path.appending(components: ".build", "debug", "Foo.swiftmodule"))
+            let binPath = path.appending(components: ".build", Destination.host.target, "debug")
+            XCTAssertFileExists(binPath.appending(component: "Foo"))
+            XCTAssertFileExists(binPath.appending(component: "Foo.swiftmodule"))
         }
     }
 
@@ -119,7 +121,7 @@ class InitTests: XCTestCase {
 
             // Try building it
             XCTAssertBuilds(path)
-            XCTAssertFileExists(path.appending(components: ".build", "debug", "Foo.swiftmodule"))
+            XCTAssertFileExists(path.appending(components: ".build", Destination.host.target, "debug", "Foo.swiftmodule"))
         }
     }
     
@@ -166,7 +168,7 @@ class InitTests: XCTestCase {
 
         // Try building it.
         XCTAssertBuilds(packageRoot)
-        XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "some_package.swiftmodule"))
+        XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.host.target, "debug", "some_package.swiftmodule"))
     }
     
     static var allTests = [

@@ -9,7 +9,7 @@
 */
 
 import XCTest
-
+import Commands
 import TestSupport
 import Basic
 import PackageModel
@@ -34,7 +34,7 @@ class ClangModulesTestCase: XCTestCase {
     func testSingleModuleFlatCLibrary() {
         fixture(name: "ClangModules/CLibraryFlat") { prefix in
             XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
         }
     }
@@ -42,7 +42,7 @@ class ClangModulesTestCase: XCTestCase {
     func testSingleModuleCLibraryInSources() {
         fixture(name: "ClangModules/CLibrarySources") { prefix in
             XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
         }
     }
@@ -50,7 +50,7 @@ class ClangModulesTestCase: XCTestCase {
     func testMixedSwiftAndC() {
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
             XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertFileExists(debugPath.appending(component: "SeaExec"))
             var output = try Process.checkNonZeroExit(args: debugPath.appending(component: "SeaExec").asString)
             XCTAssertEqual(output, "a = 5\n")
@@ -62,7 +62,7 @@ class ClangModulesTestCase: XCTestCase {
         // This also has a user provided modulemap i.e. package manager will not generate it.
         fixture(name: "ClangModules/SwiftCMixed2") { prefix in
             XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             let output = try Process.checkNonZeroExit(args: debugPath.appending(component: "SeaExec").asString)
             XCTAssertEqual(output, "a = 5\n")
         }
@@ -72,7 +72,7 @@ class ClangModulesTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/SimpleCDep") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             XCTAssertBuilds(packageRoot)
-            let debugPath = prefix.appending(components: "Bar", ".build", "debug")
+            let debugPath = prefix.appending(components: "Bar", ".build", Destination.host.target, "debug")
             XCTAssertFileExists(debugPath.appending(component: "Bar"))
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
@@ -82,7 +82,7 @@ class ClangModulesTestCase: XCTestCase {
     func testiquoteDep() {
         fixture(name: "ClangModules/CLibraryiquote") { prefix in
             XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Bar.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
         }
@@ -92,7 +92,7 @@ class ClangModulesTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/CUsingCDep") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             XCTAssertBuilds(packageRoot)
-            let debugPath = prefix.appending(components: "Bar", ".build", "debug")
+            let debugPath = prefix.appending(components: "Bar", ".build", Destination.host.target, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Sea.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
@@ -103,7 +103,7 @@ class ClangModulesTestCase: XCTestCase {
     func testCExecutable() {
         fixture(name: "ValidLayouts/SingleModule/CExecutable") { prefix in
             XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertFileExists(debugPath.appending(component: "CExecutable"))
             let output = try Process.checkNonZeroExit(args: debugPath.appending(component: "CExecutable").asString)
             XCTAssertEqual(output, "hello 5")
@@ -115,7 +115,7 @@ class ClangModulesTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/CUsingCDep2") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             XCTAssertBuilds(packageRoot)
-            let debugPath = prefix.appending(components: "Bar", ".build", "debug")
+            let debugPath = prefix.appending(components: "Bar", ".build", Destination.host.target, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Sea.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
@@ -126,7 +126,7 @@ class ClangModulesTestCase: XCTestCase {
     func testModuleMapGenerationCases() {
         fixture(name: "ClangModules/ModuleMapGenerationCases") { prefix in
             XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Jaz.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "main.swift.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "FlatInclude.c.o")
@@ -138,7 +138,7 @@ class ClangModulesTestCase: XCTestCase {
         // Try building a fixture which needs extra flags to be able to build.
         fixture(name: "ClangModules/CDynamicLookup") { prefix in
             XCTAssertBuilds(prefix, Xld: ["-undefined", "dynamic_lookup"])
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
         }
     }
@@ -148,7 +148,7 @@ class ClangModulesTestCase: XCTestCase {
         fixture(name: "ClangModules/ObjCmacOSPackage") { prefix in
             // Build the package.
             XCTAssertBuilds(prefix)
-            XCTAssertDirectoryContainsFile(dir: prefix.appending(components: ".build", "debug"), filename: "HelloWorldExample.m.o")
+            XCTAssertDirectoryContainsFile(dir: prefix.appending(components: ".build", Destination.host.target, "debug"), filename: "HelloWorldExample.m.o")
             // Run swift-test on package.
             XCTAssertSwiftTest(prefix)
         }
