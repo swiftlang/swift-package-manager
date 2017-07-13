@@ -203,8 +203,9 @@ find "$linux_sdk_name" -type l | while read -r line; do
     dst=$(readlink "$line")
     if [[ "${dst:0:1}" = / ]]; then
         rm "$line"
-        echo ln -s "$dest/$cross_tc_basename/$linux_sdk_name$dst" "$line"
-        ln -s "$dest/$cross_tc_basename/$linux_sdk_name$dst" "$line"
+        fixedlink=$(echo "./$(dirname "${line#${linux_sdk_name}/}")" | sed 's:/[^/]*:/..:g')"${dst}"
+        echo ln -s "${fixedlink#./}" "${line#./}"
+        ln -s "${fixedlink#./}" "${line#./}"
     fi
 done
 ln -s 5 "$linux_sdk_name/usr/lib/gcc/x86_64-linux-gnu/5.4.0"
@@ -223,12 +224,11 @@ rsync -a "$tmp/usr/lib/swift/os" "$linux_sdk_name/usr/include/"
 rsync -a "$tmp/usr/lib/swift/CoreFoundation" "$linux_sdk_name/usr/include/"
 rm -rf "$tmp"
 curl --fail -s -o "$linux_sdk_name/usr/include/Block.h" "$blocks_h_url"
-ln -s swift "$xc_tc_name/usr/bin/swift-autolink-extract"
-ln -s "$dest/$cross_tc_basename/$xc_tc_name/usr/lib/swift/linux/libdispatch.so" "$linux_sdk_name/usr/lib/"
-ln -s "$dest/$cross_tc_basename/$xc_tc_name/usr/lib/swift/linux/libdispatch.a" "$linux_sdk_name/usr/lib/"
-
-# fix up
+if [ ! -e "$xc_tc_name/usr/bin/swift-autolink-extract" ]; then
+    ln -s swift "$xc_tc_name/usr/bin/swift-autolink-extract"
+fi
 )
+# fix up glibc modulemap
 fix_glibc_modulemap "$cross_tc_basename/$xc_tc_name/usr/lib/swift/linux/x86_64/glibc.modulemap"
 
 cat > "$cross_tc_basename/ubuntu-xenial-destination.json" <<EOF
