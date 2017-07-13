@@ -48,7 +48,7 @@ public class Resources: ManifestResourceProvider {
       #if Xcode
         // Always point to fake toolchain when in Xcode.
         binDir = AbsolutePath(#file).parentDirectory
-            .parentDirectory.parentDirectory.appending(components: ".build", "debug")
+            .parentDirectory.parentDirectory.appending(components: ".build", Destination.host.target, "debug")
       #elseif os(macOS)
         binDir = bundleRoot()
       #else
