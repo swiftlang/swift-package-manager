@@ -38,11 +38,21 @@ class GenerateXcodeprojTests: XCTestCase {
             let output = try Process.checkNonZeroExit(
                 args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.asString).chomp()
 
-            let expectedOutput = "Information about project \"DummyProjectName\":\n    Targets:\n        DummyModuleName\n\n    Build Configurations:\n        Debug\n        Release\n\n    If no build configuration is specified and -scheme is not passed then \"Debug\" is used.\n\n    Schemes:\n        DummyProjectName\n".chomp()
-
-            // FIXME: This should compare the outputs instead of contains() once we can capture
-            // just stdout from subprocess's output stream.
-            XCTAssert(output.contains(expectedOutput))
+            XCTAssertEqual(output, """
+               Information about project "DummyProjectName":
+                   Targets:
+                       FooPackageDescription
+                       DummyModuleName
+               
+                   Build Configurations:
+                       Debug
+                       Release
+               
+                   If no build configuration is specified and -scheme is not passed then "Debug" is used.
+               
+                   Schemes:
+                       DummyProjectName-Package
+               """)
         }
       #endif
     }

@@ -64,6 +64,18 @@ func xcodeProject(
     // Create the project.
     let project = Xcode.Project()
 
+    // Generates a dummy target to provide autocompletion for the manifest file.
+    func createPackageDescriptionTarget(for package: ResolvedPackage, manifestFileRef: Xcode.FileReference) {
+        let pdTarget = project.addTarget(
+            objectID: "\(package.name)::SwiftPMPackageDescription",
+            productType: .framework, name: "\(package.name)PackageDescription")
+        let compilePhase = pdTarget.addSourcesBuildPhase()
+        compilePhase.addBuildFile(fileRef: manifestFileRef)
+        pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS += package.manifest.interpreterFlags
+        pdTarget.buildSettings.common.SWIFT_VERSION = "\(package.manifest.manifestVersion.rawValue).0"
+        pdTarget.buildSettings.common.LD = "/usr/bin/true"
+    }
+
     // Determine the source root directory (which is NOT necessarily related in
     // any way to `xcodeprojPath`, i.e. we cannot assume that the Xcode project
     // will be generated into to the source root directory).
@@ -156,7 +168,8 @@ func xcodeProject(
     // Add a file reference for the package manifest itself.
     // FIXME: We should parameterize this so that a package can return the path
     // of its manifest file.
-    project.mainGroup.addFileReference(path: "Package.swift", fileType: "sourcecode.swift")
+    let manifestFileRef = project.mainGroup.addFileReference(path: "Package.swift", fileType: "sourcecode.swift")
+    createPackageDescriptionTarget(for: graph.rootPackages[0], manifestFileRef: manifestFileRef)
 
     // Add a group for the overriding .xcconfig file, if we have one.
     let xcconfigOverridesFileRef: Xcode.FileReference?
@@ -251,7 +264,8 @@ func xcodeProject(
     // Regardless of the layout case, this function adds a mapping from the
     // source directory of each target to the corresponding group, so that
     // source files added later will be able to find the right group.
-    func createSourceGroup(named groupName: String, for targets: [ResolvedTarget], in parentGroup: Xcode.Group) {
+    @discardableResult
+    func createSourceGroup(named groupName: String, for targets: [ResolvedTarget], in parentGroup: Xcode.Group) -> Xcode.Group? {
         // Look for the special case of a single target in a flat layout.
         let needsSourcesGroup: Bool
         if let target = targets.only {
@@ -278,6 +292,8 @@ func xcodeProject(
             // Associate the group with the target's root path.
             srcPathsToGroups[target.sources.root] = group
         }
+
+        return sourcesGroup ?? srcPathsToGroups[targets[0].sources.root]
     }
 
     let (rootModules, testModules) = graph.rootPackages[0].targets.split{ $0.type != .test }
@@ -312,7 +328,12 @@ func xcodeProject(
             }
             // Create the source group for all the targets in the package.
             // FIXME: Eliminate filtering test from here.
-            createSourceGroup(named: groupName, for: package.targets.filter({ $0.type != .test }), in: dependenciesGroup)
+            let group = createSourceGroup(named: groupName, for: package.targets.filter({ $0.type != .test }), in: dependenciesGroup)
+            if let group = group {
+                let manifestPath = package.path.appending(component: "Package.swift")
+                let manifestFileRef = group.addFileReference(path: manifestPath.asString, name: "Package.swift", fileType: "sourcecode.swift")
+                createPackageDescriptionTarget(for: package, manifestFileRef: manifestFileRef)
+            }
         }
     }
 
