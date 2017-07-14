@@ -26,17 +26,6 @@ protocol ToolProtocol {
     func append(to stream: OutputByteStream)
 }
 
-struct PhonyTool: ToolProtocol {
-    let inputs: [String]
-    let outputs: [String]
-
-    func append(to stream: OutputByteStream) {
-        stream <<< "    tool: phony\n"
-        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
-        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
-    }
-}
-
 struct ShellTool: ToolProtocol {
     let description: String
     let inputs: [String]
