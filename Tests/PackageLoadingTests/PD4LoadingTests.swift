@@ -22,24 +22,32 @@ import PackageLoading
 class PackageDescription4LoadingTests: XCTestCase {
     let manifestLoader = ManifestLoader(resources: Resources.default)
 
+    private func loadManifestThrowing(
+        _ contents: ByteString,
+        line: UInt = #line,
+        body: (Manifest) -> Void) throws
+    {
+        let fs = InMemoryFileSystem()
+        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+        try fs.writeFileContents(manifestPath, bytes: contents)
+        let m = try manifestLoader.load(
+            package: AbsolutePath.root,
+            baseURL: AbsolutePath.root.asString,
+            manifestVersion: .four,
+            fileSystem: fs)
+        if case .v4 = m.package {} else {
+            return XCTFail("Invalid manfiest version")
+        }
+        body(m)
+    }
+
     private func loadManifest(
         _ contents: ByteString,
         line: UInt = #line,
-        body: (Manifest) -> Void
-    ) {
+        body: (Manifest) -> Void)
+    {
         do {
-            let fs = InMemoryFileSystem()
-            let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
-            try fs.writeFileContents(manifestPath, bytes: contents)
-            let m = try manifestLoader.load(
-                package: AbsolutePath.root,
-                baseURL: AbsolutePath.root.asString,
-                manifestVersion: .four,
-                fileSystem: fs)
-            if case .v4 = m.package {} else {
-                return XCTFail("Invalid manfiest version")
-            }
-            body(m)
+            try loadManifestThrowing(contents, line: line, body: body)
         } catch ManifestParseError.invalidManifestFormat(let error) {
             print(error)
             XCTFail(file: #file, line: line)
@@ -300,6 +308,33 @@ class PackageDescription4LoadingTests: XCTestCase {
         }
     }
 
+    func testUnavailableAPIs() throws {
+        let stream = BufferedOutputByteStream()
+        stream.write("""
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               dependencies: [
+                   .package(url: "/foo1", version: "1.0.0"),
+                   .package(url: "/foo2", branch: "master"),
+                   .package(url: "/foo3", revision: "rev"),
+                   .package(url: "/foo4", range: "1.0.0"..<"1.5.0"),
+               ]
+            )
+            """)
+        do {
+            try loadManifestThrowing(stream.bytes) { manifest in
+                XCTFail("this package should not load succesfully")
+            }
+            XCTFail("this package should not load succesfully")
+        } catch ManifestParseError.invalidManifestFormat(let error) {
+            XCTAssert(error.contains("error: 'package(url:version:)' is unavailable: use package(url:_:) with the .exact(Version) initializer instead\n"))
+            XCTAssert(error.contains("error: 'package(url:branch:)' is unavailable: use package(url:_:) with the .branch(String) initializer instead\n"))
+            XCTAssert(error.contains("error: 'package(url:revision:)' is unavailable: use package(url:_:) with the .revision(String) initializer instead\n"))
+            XCTAssert(error.contains("error: 'package(url:range:)' is unavailable: use package(url:_:) without the range label instead\n"))
+        }
+    }
+
     static var allTests = [
         ("testCTarget", testCTarget),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
@@ -310,5 +345,6 @@ class PackageDescription4LoadingTests: XCTestCase {
         ("testTargetDependencies", testTargetDependencies),
         ("testTargetProperties", testTargetProperties),
         ("testTrivial", testTrivial),
+        ("testUnavailableAPIs", testUnavailableAPIs)
     ]
 }
