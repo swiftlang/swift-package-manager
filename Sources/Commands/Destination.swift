@@ -84,8 +84,8 @@ public struct Destination {
         originalWorkingDirectory: AbsolutePath = currentWorkingDirectory
     ) throws -> Destination {
         // Select the correct binDir.
-        let binDir = binDir ?? Destination.hostBinDir(
-            originalWorkingDirectory: originalWorkingDirectory)
+        let binDir = resolveSymlinks(binDir ?? Destination.hostBinDir(
+            originalWorkingDirectory: originalWorkingDirectory))
 
       #if os(macOS)
         // Get the SDK.
