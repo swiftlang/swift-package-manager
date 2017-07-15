@@ -60,3 +60,26 @@ extension Package.Dependency: Equatable {
         ])
     }
 }
+
+// Mark common APIs used by mistake as unavailable to provide better error messages.
+extension Package.Dependency {
+    @available(*, unavailable, message: "use package(url:_:) with the .exact(Version) initializer instead")
+    public static func package(url: String, version: Version) -> Package.Dependency {
+        fatalError()
+    }
+
+    @available(*, unavailable, message: "use package(url:_:) with the .branch(String) initializer instead")
+    public static func package(url: String, branch: String) -> Package.Dependency {
+        fatalError()
+    }
+
+    @available(*, unavailable, message: "use package(url:_:) with the .revision(String) initializer instead")
+    public static func package(url: String, revision: String) -> Package.Dependency {
+        fatalError()
+    }
+
+    @available(*, unavailable, message: "use package(url:_:) without the range label instead")
+    public static func package(url: String, range: Range<Version>) -> Package.Dependency {
+        fatalError()
+    }
+}
