@@ -32,9 +32,11 @@ func describe(_ package: Package, in mode: DescribeMode, on stream: OutputByteSt
 extension Package: JSONSerializable {
 
     func describe(on stream: OutputByteStream) {
-        stream <<< "Name: " <<< name <<< "\n"
-        stream <<< "Path: " <<< path.asString <<< "\n"
-        stream <<< "Modules: " <<< "\n"
+        stream <<< """
+            Name: \(name)
+            Path: \(path.asString)
+            Modules:\n
+            """
         for target in targets {
             target.describe(on: stream, indent: 4)
             stream <<< "\n"

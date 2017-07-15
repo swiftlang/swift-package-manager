@@ -172,7 +172,11 @@ class GitRepositoryTests: XCTestCase {
             // Add a few files and a directory.
             let test1FileContents: ByteString = "Hello, world!"
             let test2FileContents: ByteString = "Hello, happy world!"
-            let test3FileContents: ByteString = "#!/bin/sh\nset -e\nexit 0\n"
+            let test3FileContents: ByteString = """
+                #!/bin/sh
+                set -e
+                exit 0
+                """
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test-file-1.txt"), bytes: test1FileContents)
             try localFileSystem.createDirectory(testRepoPath.appending(component: "subdir"))
             try localFileSystem.writeFileContents(testRepoPath.appending(components: "subdir", "test-file-2.txt"), bytes: test2FileContents)

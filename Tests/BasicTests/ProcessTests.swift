@@ -78,7 +78,11 @@ class ProcessTests: XCTestCase {
 
             // Create a local nonexecutable file to test.
             let tempExecutable = path.appending(component: "nonExecutableProgram")
-            try localFileSystem.writeFileContents(tempExecutable, bytes: "#!/bin/sh\nexit\n")
+            try localFileSystem.writeFileContents(tempExecutable, bytes: """
+                #!/bin/sh
+                exit
+                
+                """)
 
             try withCustomEnv(["PATH": path.asString]) {
                 XCTAssertFalse(Process().findExecutable("nonExecutableProgram"))
@@ -90,7 +94,11 @@ class ProcessTests: XCTestCase {
         mktmpdir { path in
             // Create a local nonexecutable file to test.
             let tempExecutable = path.appending(component: "nonExecutableProgram")
-            try localFileSystem.writeFileContents(tempExecutable, bytes: "#!/bin/sh\nexit\n")
+            try localFileSystem.writeFileContents(tempExecutable, bytes: """
+                #!/bin/sh
+                exit
+                
+                """)
 
             try withCustomEnv(["PATH": path.asString]) {
                 do {

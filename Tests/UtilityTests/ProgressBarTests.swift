@@ -65,7 +65,16 @@ final class ProgressBarTests: XCTestCase {
         XCTAssertTrue(bar is SimpleProgressBar)
 
         runProgressBar(bar)
-        XCTAssertEqual(outStream.bytes.asString, "test\n0%: 0\n1%: 1\n2%: 2\n3%: 3\n4%: 4\n5%: 5\n")
+        XCTAssertEqual(outStream.bytes.asString, """
+            test
+            0%: 0
+            1%: 1
+            2%: 2
+            3%: 3
+            4%: 4
+            5%: 5
+            
+            """)
 
         // Test progress bar when writing a tty stream.
         bar = createProgressBar(forStream: pty.outStream, header: "TestHeader")

@@ -22,10 +22,13 @@ class ModuleMapGeneration: XCTestCase {
             "/Foo.c")
 
         let expected = BufferedOutputByteStream()
-        expected <<< "module Foo {\n"
-        expected <<< "    umbrella header \"/include/Foo.h\"\n"
-        expected <<< "    export *\n"
-        expected <<< "}\n"
+        expected <<< """
+            module Foo {
+                umbrella header "/include/Foo.h"
+                export *
+            }
+
+            """
 
         ModuleMapTester("Foo", in: fs) { result in
             result.check(value: expected.bytes)
@@ -38,10 +41,13 @@ class ModuleMapGeneration: XCTestCase {
             "/Foo.c")
 
         let expected = BufferedOutputByteStream()
-        expected <<< "module Foo {\n"
-        expected <<< "    umbrella header \"/include/Foo/Foo.h\"\n"
-        expected <<< "    export *\n"
-        expected <<< "}\n"
+        expected <<< """
+            module Foo {
+                umbrella header "/include/Foo/Foo.h"
+                export *
+            }
+
+            """
 
         ModuleMapTester("Foo", in: fs) { result in
             result.check(value: expected.bytes)
@@ -51,10 +57,13 @@ class ModuleMapGeneration: XCTestCase {
     func testOtherCases() throws {
 
         let expected = BufferedOutputByteStream()
-        expected <<< "module Foo {\n"
-        expected <<< "    umbrella \"/include\"\n"
-        expected <<< "    export *\n"
-        expected <<< "}\n"
+        expected <<< """
+            module Foo {
+                umbrella "/include"
+                export *
+            }
+
+            """
 
         var fs: InMemoryFileSystem
         func checkExpected() {

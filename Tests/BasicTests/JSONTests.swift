@@ -71,28 +71,28 @@ class JSONTests: XCTestCase {
             "houses": .array([1, 2].map(JSON.int)),
         ])
 
-        let str = 
-            "{"                           + "\n" +
-            "  \"age\": 22,"              + "\n" +
-            "  \"children\": ["           + "\n" +
-            "    {"                       + "\n" +
-            "      \"age\": 2,"           + "\n" +
-            "      \"name\": \"child1\""  + "\n" +
-            "    },"                      + "\n" +
-            "    {"                       + "\n" +
-            "      \"age\": 3,"           + "\n" +
-            "      \"name\": \"child2\""  + "\n" +
-            "    }"                       + "\n" +
-            "  ],"                        + "\n" +
-            "  \"first\": \"john\","      + "\n" +
-            "  \"houses\": ["             + "\n" +
-            "    1,"                      + "\n" +
-            "    2"                       + "\n" +
-            "  ],"                        + "\n" +
-            "  \"last\": \"doe\""         + "\n" +
-            "}"                           + "\n"
+        XCTAssertEqual(person.toString(prettyPrint: true), """
+            {
+              "age": 22,
+              "children": [
+                {
+                  "age": 2,
+                  "name": "child1"
+                },
+                {
+                  "age": 3,
+                  "name": "child2"
+                }
+              ],
+              "first": "john",
+              "houses": [
+                1,
+                2
+              ],
+              "last": "doe"
+            }
 
-        XCTAssertEqual(person.toString(prettyPrint: true), str)
+            """)
     }
 
     static var allTests = [

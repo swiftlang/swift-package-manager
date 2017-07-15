@@ -27,9 +27,10 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
 
     func testTrivialManifestLoading_X1() {
         let N = 1
-        let trivialManifest = ByteString(encodingAsUTF8: (
-            "import PackageDescription\n" +
-            "let package = Package(name: \"Trivial\")"))
+        let trivialManifest = ByteString(encodingAsUTF8: ("""
+            import PackageDescription
+            let package = Package(name: "Trivial")
+            """))
         write(trivialManifest) { path in
             measure {
                 for _ in 0..<N {
@@ -42,19 +43,18 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
 
     func testNonTrivialManifestLoading_X1() {
         let N = 1
-        let manifest = ByteString(encodingAsUTF8:
-        "import PackageDescription\n" +
-        "let package = Package(" +
-        "    name: \"Foo\"," +
-        "    targets: [" +
-        "        Target(" +
-        "            name: \"sys\"," +
-        "            dependencies: [\"libc\"])," +
-        "        Target(" +
-        "            name: \"dep\"," +
-        "            dependencies: [\"sys\", \"libc\"])]," +
-        "    dependencies: [" +
-        "        .Package(url: \"https://example.com/example\", majorVersion: 1)])")
+        let manifest = ByteString(encodingAsUTF8: """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    Target(name: "sys", dependencies: ["libc"]),
+                    Target(name: "dep", dependencies: ["sys", "libc"])],
+                dependencies: [
+                    .Package(url: "https://example.com/example", majorVersion: 1)
+                ]
+            )
+            """)
 
         write(manifest) { path in
             measure {

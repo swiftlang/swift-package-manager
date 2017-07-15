@@ -92,11 +92,11 @@ public struct ProcessResult: CustomStringConvertible {
     }
 
     public var description: String {
-        var str = "<ProcessResult: "
-        str += "exit: \(exitStatus), "
-        str += "output:\n \((try? utf8Output()) ?? "")\n"
-        str += ">"
-        return str
+        return """
+            <ProcessResult: exit: \(exitStatus), output:
+             \((try? utf8Output()) ?? "")
+            >
+            """
     }
 }
 

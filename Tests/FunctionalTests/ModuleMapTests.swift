@@ -52,9 +52,14 @@ class ModuleMapsTestCase: XCTestCase {
             XCTAssertBuilds(prefix.appending(component: "packageA"), Xld: Xld)
 
             func verify(_ conf: String, file: StaticString = #file, line: UInt = #line) throws {
-                let expectedOutput = "calling Y.bar()\nY.bar() called\nX.foo() called\n123\n"
                 let out = try Process.checkNonZeroExit(args: prefix.appending(components: "packageA", ".build", Destination.host.target, conf, "packageA").asString)
-                XCTAssertEqual(out, expectedOutput)
+                XCTAssertEqual(out, """
+                    calling Y.bar()
+                    Y.bar() called
+                    X.foo() called
+                    123
+                    
+                    """)
             }
 
             try verify("debug")
