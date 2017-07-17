@@ -159,10 +159,12 @@ final class WorkspaceTests: XCTestCase {
             let testRepo = GitRepository(path: testRepoPath)
 
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "Package.swift")) {
-                $0 <<< "import PackageDescription" <<< "\n"
-                $0 <<< "let package = Package(" <<< "\n"
-                $0 <<< "    name: \"test-repo\"" <<< "\n"
-                $0 <<< ")" <<< "\n"
+                $0 <<< """
+                    import PackageDescription
+                    let package = Package(
+                        name: "test-repo"
+                    )
+                    """
             }
             try testRepo.stage(file: "Package.swift")
             try testRepo.commit()
@@ -425,25 +427,30 @@ final class WorkspaceTests: XCTestCase {
             // Create root package.
             try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
             try fs.writeFileContents(root.appending(component: "Package.swift")) {
-                $0 <<< "// swift-tools-version:4.0" <<< "\n"
-                $0 <<< "import PackageDescription" <<< "\n"
-                $0 <<< "let package = Package(" <<< "\n"
-                $0 <<< "    name: \"root\"," <<< "\n"
-                $0 <<< "    dependencies: [.package(url: \"../depSym\", from: \"1.0.0\")]," <<< "\n"
-                $0 <<< "    targets: [.target(name: \"root\", dependencies: [\"dep\"])]" <<< "\n"
-                $0 <<< ")" <<< "\n"
+                $0 <<< """
+                    // swift-tools-version:4.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "root",
+                        dependencies: [.package(url: "../depSym", from: "1.0.0")],
+                        targets: [.target(name: "root", dependencies: ["dep"])]
+                    )
+
+                    """
             }
 
             // Create dependency.
             try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
             try fs.writeFileContents(dep.appending(component: "Package.swift")) {
-                $0 <<< "// swift-tools-version:4.0" <<< "\n"
-                $0 <<< "import PackageDescription" <<< "\n"
-                $0 <<< "let package = Package(" <<< "\n"
-                $0 <<< "    name: \"dep\"," <<< "\n"
-                $0 <<< "    products: [.library(name: \"dep\", targets: [\"dep\"])]," <<< "\n"
-                $0 <<< "    targets: [.target(name: \"dep\")]" <<< "\n"
-                $0 <<< ")" <<< "\n"
+                $0 <<< """
+                    // swift-tools-version:4.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "dep",
+                        products: [.library(name: "dep", targets: ["dep"])],
+                        targets: [.target(name: "dep")]
+                    )
+                    """
             }
             do {
                 let depGit = GitRepository(path: dep)
@@ -621,10 +628,12 @@ final class WorkspaceTests: XCTestCase {
 
             let testRepo = GitRepository(path: testRepoPath)
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "Package.swift")) {
-                $0 <<< "import PackageDescription" <<< "\n"
-                $0 <<< "let package = Package(" <<< "\n"
-                $0 <<< "    name: \"test-repo\"" <<< "\n"
-                $0 <<< ")" <<< "\n"
+                $0 <<< """
+                    import PackageDescription
+                    let package = Package(
+                        name: "test-repo"
+                    )
+                    """
             }
             try testRepo.stage(file: "Package.swift")
             try testRepo.commit()
@@ -1628,8 +1637,10 @@ final class WorkspaceTests: XCTestCase {
             }
 
             try localFileSystem.writeFileContents(roots[2].appending(components: Manifest.filename)) { stream in
-                stream <<< "import PackageDescription" <<< "\n"
-                stream <<< "let package = Package(name: \"root0\")"
+                stream <<< """
+                    import PackageDescription
+                    let package = Package(name: "root0")
+                    """
             }
 
             let workspace = Workspace.createWith(rootPackage: roots[0])

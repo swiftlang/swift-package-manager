@@ -67,7 +67,9 @@ private final class DotDumper: DependenciesDumper {
             printNode(rootpkg)
             for dependency in rootpkg.dependencies {
                 printNode(dependency)
-                print("\"\(rootpkg.manifest.url)\" -> \"\(dependency.manifest.url)\"")
+                print("""
+                    "\(rootpkg.manifest.url)" -> "\(dependency.manifest.url)"
+                    """)
 
                 if !dependency.dependencies.isEmpty {
                     recursiveWalk(rootpkg: dependency)
@@ -77,7 +79,9 @@ private final class DotDumper: DependenciesDumper {
 
         func printNode(_ package: ResolvedPackage) {
             let pkgVersion = package.manifest.version?.description ?? "unspecified"
-            print("\"\(package.manifest.url)\"[label=\"\(package.name)\\n\(package.manifest.url)\\n\(pkgVersion)\"]")
+            print("""
+                "\(package.manifest.url)"[label="\(package.name)\\n\(package.manifest.url)\\n\(pkgVersion)"]
+                """)
         }
 
         if !rootpkg.dependencies.isEmpty {

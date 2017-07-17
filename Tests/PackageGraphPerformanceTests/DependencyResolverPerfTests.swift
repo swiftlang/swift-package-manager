@@ -61,13 +61,15 @@ class DependencyResolverPerfTests: XCTestCasePerf {
             // Create dependency.
             try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
             try fs.writeFileContents(dep.appending(component: "Package.swift")) {
-                $0 <<< "// swift-tools-version:4.0" <<< "\n"
-                $0 <<< "import PackageDescription" <<< "\n"
-                $0 <<< "let package = Package(" <<< "\n"
-                $0 <<< "    name: \"dep\"," <<< "\n"
-                $0 <<< "    products: [.library(name: \"dep\", targets: [\"dep\"])]," <<< "\n"
-                $0 <<< "    targets: [.target(name: \"dep\")]" <<< "\n"
-                $0 <<< ")" <<< "\n"
+                $0 <<< """
+                    // swift-tools-version:4.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "dep",
+                        products: [.library(name: "dep", targets: ["dep"])],
+                        targets: [.target(name: "dep")]
+                    )
+                    """
             }
 
             let depGit = GitRepository(path: dep)
