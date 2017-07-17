@@ -115,7 +115,7 @@ class PackageBuilderV4Tests: XCTestCase {
         )
 
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("The package pkg has multiple linux main files: /LinuxMain.swift, /swift/LinuxMain.swift")
+            result.checkDiagnostic("package 'pkg' has multiple linux main files: /LinuxMain.swift, /swift/LinuxMain.swift")
         }
     }
 
@@ -198,7 +198,7 @@ class PackageBuilderV4Tests: XCTestCase {
             ]
         )
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("The target barTests has sources overlapping sources: /target/bar/Tests/barTests.swift")
+            result.checkDiagnostic("target 'barTests' has sources overlapping sources: /target/bar/Tests/barTests.swift")
         }
 
         package.targets[0].exclude = ["Tests"]
@@ -462,7 +462,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 "/Foo.swift")
             let package = Package(name: "pkg", targets: [.target(name: "Random")])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("could not find target(s): Random. Use \'path\' property in Swift 4 manifest to set a custom target path.")
+                result.checkDiagnostic("could not find target(s): Random; use the 'path' property in the Swift 4 manifest to set a custom target path")
             }
         }
 
@@ -476,7 +476,7 @@ class PackageBuilderV4Tests: XCTestCase {
                     .target(name: "pkg", dependencies: [.target(name: "Foo")]),
                 ])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("could not find target(s): Foo. Use 'path' property in Swift 4 manifest to set a custom target path.")
+                result.checkDiagnostic("could not find target(s): Foo; use the 'path' property in the Swift 4 manifest to set a custom target path")
             }
         }
 
@@ -486,7 +486,7 @@ class PackageBuilderV4Tests: XCTestCase {
             // Reference self in dependencies.
             let package = Package(name: "pkg", targets: [.target(name: "pkg", dependencies: ["pkg"])])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("found cyclic dependency declaration: pkg -> pkg")
+                result.checkDiagnostic("cyclic dependency declaration found: pkg -> pkg")
             }
         }
 
@@ -496,7 +496,7 @@ class PackageBuilderV4Tests: XCTestCase {
             // Reference invalid target.
             let package = Package(name: "pkg", targets: [.target(name: "foo")])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("could not find target(s): foo. Use 'path' property in Swift 4 manifest to set a custom target path.")
+                result.checkDiagnostic("could not find target(s): foo; use the 'path' property in the Swift 4 manifest to set a custom target path")
             }
         }
 
@@ -513,7 +513,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 .target(name: "pkg3", dependencies: ["pkg1"]),
             ])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("found cyclic dependency declaration: pkg1 -> pkg2 -> pkg3 -> pkg1")
+                result.checkDiagnostic("cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg1")
             }
 
             package = Package(name: "pkg", targets: [
@@ -522,7 +522,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 .target(name: "pkg3", dependencies: ["pkg2"]),
             ])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("found cyclic dependency declaration: pkg1 -> pkg2 -> pkg3 -> pkg2")
+                result.checkDiagnostic("cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg2")
             }
         }
 
@@ -558,12 +558,12 @@ class PackageBuilderV4Tests: XCTestCase {
                 ])
 
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("The public headers diretory path for Foo is invalid or not contained in the target")
+                result.checkDiagnostic("public headers directory path for 'Foo' is invalid or not contained in the target")
             }
 
             package.targets = [.target(name: "Bar", publicHeadersPath: "inc/../../../foo")]
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("The public headers diretory path for Bar is invalid or not contained in the target")
+                result.checkDiagnostic("public headers directory path for 'Bar' is invalid or not contained in the target")
             }
         }
 
@@ -579,7 +579,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 ])
 
             PackageBuilderTester(package, path: AbsolutePath("/pkg"), in: fs) { result in
-                result.checkDiagnostic("The target Foo in package Foo is outside the package root.")
+                result.checkDiagnostic("target 'Foo' in package 'Foo' is outside the package root")
             }
         }
     }
@@ -615,7 +615,7 @@ class PackageBuilderV4Tests: XCTestCase {
         var package = Package(name: "pkg", pkgConfig: "foo")
 
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("invalid configuration in 'pkg': pkgConfig should only be used with a System Module Package")
+            result.checkDiagnostic("configuration of package 'pkg' is invalid; the 'pkgConfig' property can only be used with a System Module Package")
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -624,7 +624,7 @@ class PackageBuilderV4Tests: XCTestCase {
         package = Package(name: "pkg", providers: [.brew(["foo"])])
 
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("invalid configuration in 'pkg': providers should only be used with a System Module Package")
+            result.checkDiagnostic("configuration of package 'pkg' is invalid; the 'providers' property can only be used with a System Module Package")
         }
     }
 
@@ -680,12 +680,12 @@ class PackageBuilderV4Tests: XCTestCase {
 
         package.swiftLanguageVersions = []
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("The supported Swift language versions should not be empty.")
+            result.checkDiagnostic("package 'pkg' supported Swift language versions is empty")
         }
 
         package.swiftLanguageVersions = [500, 600]
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("The current tools version (4) is not compatible with the package pkg. It supports swift versions: 500, 600.")
+            result.checkDiagnostic("package \'pkg\' not compatible with current tools version (4); it supports: 500, 600")
         }
     }
 
@@ -706,7 +706,7 @@ class PackageBuilderV4Tests: XCTestCase {
             )
 
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("could not find target(s): Bar. Use \'path\' property in Swift 4 manifest to set a custom target path.")
+                result.checkDiagnostic("could not find target(s): Bar; use the 'path' property in the Swift 4 manifest to set a custom target path")
             }
         }
 
@@ -726,7 +726,7 @@ class PackageBuilderV4Tests: XCTestCase {
             )
 
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("could not find target(s): BarTests. Use \'path\' property in Swift 4 manifest to set a custom target path.")
+                result.checkDiagnostic("could not find target(s): BarTests; use the 'path' property in the Swift 4 manifest to set a custom target path")
             }
 
             // We should be able to fix this by using custom paths.

@@ -67,35 +67,35 @@ extension ModuleError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .duplicateModule(let name):
-            return "found multiple targets named \(name)"
+            return "multiple targets named '\(name)'"
         case .modulesNotFound(let targets):
             let targets = targets.joined(separator: ", ")
-            return "could not find target(s): \(targets). Use 'path' property in Swift 4 manifest to set a custom target path."
+            return "could not find target(s): \(targets); use the 'path' property in the Swift 4 manifest to set a custom target path"
         case .invalidLayout(let type):
-            return "the package has an unsupported layout, \(type)"
+            return "package has unsupported layout; \(type)"
         case .invalidManifestConfig(let package, let message):
-            return "invalid configuration in '\(package)': \(message)"
+            return "configuration of package '\(package)' is invalid; \(message)"
         case .cycleDetected(let cycle):
-            return "found cyclic dependency declaration: " +
+            return "cyclic dependency declaration found: " +
                 (cycle.path + cycle.cycle).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0]
         case .invalidPublicHeadersDirectory(let name):
-            return "The public headers diretory path for \(name) is invalid or not contained in the target"
+            return "public headers directory path for '\(name)' is invalid or not contained in the target"
         case .overlappingSources(let target, let sources):
-            return "The target \(target) has sources overlapping sources: \(sources.map({$0.asString}).joined(separator: ", "))"
+            return "target '\(target)' has sources overlapping sources: \(sources.map({$0.asString}).joined(separator: ", "))"
         case .multipleLinuxMainFound(let package, let linuxMainFiles):
             let files = linuxMainFiles.map({ $0.asString }).sorted().joined(separator: ", ")
-            return "The package \(package) has multiple linux main files: \(files)"
+            return "package '\(package)' has multiple linux main files: \(files)"
         case .mustSupportSwift3Compiler(let package):
-            return "The package \(package) should support Swift 3 because its minimum tools version is 3."
+            return "package '\(package)' must support Swift 3 because its minimum tools version is 3"
         case .incompatibleToolsVersions(let package, let required, let current):
             if required.isEmpty {
-                return "The supported Swift language versions should not be empty."
+                return "package '\(package)' supported Swift language versions is empty"
             }
             let required = required.map(String.init).joined(separator: ", ")
-            return "The current tools version (\(current)) is not compatible with the package \(package). It supports swift versions: \(required)."
+            return "package '\(package)' not compatible with current tools version (\(current)); it supports: \(required)"
         case .targetOutsidePackage(let package, let target):
-            return "The target \(target) in package \(package) is outside the package root."
+            return "target '\(target)' in package '\(package)' is outside the package root"
         }
     }
 }
@@ -108,7 +108,7 @@ extension ModuleError.InvalidLayoutType: CustomStringConvertible {
         case .unexpectedSourceFiles(let paths):
             return "found loose source files: " + paths.sorted().joined(separator: ", ")
         case .modulemapInSources(let path):
-            return "the modulemap \(path) should be inside the 'include' directory"
+            return "modulemap '\(path)' should be inside the 'include' directory"
         }
     }
 }
@@ -119,7 +119,7 @@ extension Target {
     enum Error: Swift.Error {
 
         /// The target's name is invalid.
-        case invalidName(path: String, name: String, problem: ModuleNameProblem)
+        case invalidName(path: String, problem: ModuleNameProblem)
         enum ModuleNameProblem {
             /// Empty target name.
             case emptyName
@@ -137,49 +137,28 @@ extension Target {
     }
 }
 
-extension Target.Error: FixableError {
-    var error: String {
+extension Target.Error: CustomStringConvertible {
+    var description: String {
         switch self {
-          case .invalidName(let path, let name, let problem):
-            return "the directory \(path) has an invalid name ('\(name)'): \(problem.error)"
-          case .mixedSources(let path):
-            return "the target at \(path) contains mixed language source files"
+        case .invalidName(let path, let problem):
+            return "invalid target name at '\(path)'; \(problem)"
+        case .mixedSources(let path):
+            return "target at '\(path)' contains mixed language source files; feature not supported"
         case .duplicateTargets(let targets):
             return "duplicate targets found: " + targets.joined(separator: ", ")
         }
     }
-
-    var fix: String? {
-        switch self {
-        case .invalidName(let path, _, let problem):
-            return "rename the directory '\(path)'\(problem.fix ?? "")"
-        case .mixedSources(_):
-            return "use only a single language within a target"
-        case .duplicateTargets:
-            return nil
-        }
-    }
 }
 
-extension Target.Error.ModuleNameProblem : FixableError {
-    var error: String {
+extension Target.Error.ModuleNameProblem: CustomStringConvertible {
+    var description: String {
         switch self {
           case .emptyName:
-            return "the target name is empty"
+            return "target names can not be empty"
           case .noTestSuffix:
-            return "the name of a test target has no 'Tests' suffix"
+            return "name of test targets must end in 'Tests'"
           case .hasTestSuffix:
-            return "the name of a non-test target has a 'Tests' suffix"
-        }
-    }
-    var fix: String? {
-        switch self {
-          case .emptyName:
-            return " to have a non-empty name"
-          case .noTestSuffix:
-            return " to have a 'Tests' suffix"
-          case .hasTestSuffix:
-            return " to not have a 'Tests' suffix"
+            return "name of non-test targets cannot end in 'Tests'"
         }
     }
 }
@@ -192,22 +171,13 @@ extension Product {
     }
 }
 
-extension Product.Error: FixableError {
-    var error: String {
+extension Product.Error: CustomStringConvertible {
+    var description: String {
         switch self {
         case .noModules(let product):
-            return "the product named \(product) doesn't reference any targets"
+            return "product '\(product)' doesn't reference any targets"
         case .moduleNotFound(let product, let target):
-            return "the product named \(product) references a target that could not be found: \(target)"
-        }
-    }
-
-    var fix: String? {
-        switch self {
-        case .noModules(_):
-            return "reference one or more targets from the product"
-        case .moduleNotFound(_):
-            return "reference only valid targets from the product"
+            return "target '\(target)' referenced in product '\(product)' could not be found"
         }
     }
 }
@@ -452,12 +422,12 @@ public final class PackageBuilder {
         // system target specific configuration.
         guard manifest.package.pkgConfig == nil else {
             throw ModuleError.invalidManifestConfig(
-                manifest.name, "pkgConfig should only be used with a System Module Package")
+                manifest.name, "the 'pkgConfig' property can only be used with a System Module Package")
         }
 
         guard manifest.package.providers == nil else {
             throw ModuleError.invalidManifestConfig(
-                manifest.name, "providers should only be used with a System Module Package")
+                manifest.name, "the 'providers' property can only be used with a System Module Package")
         }
 
         // Depending on the manifest version, use the correct convention system.
@@ -694,7 +664,6 @@ public final class PackageBuilder {
         if name.isEmpty {
             throw Target.Error.invalidName(
                 path: path.relative(to: packagePath).asString,
-                name: name,
                 problem: .emptyName)
         }
         // We only need to do the below checks for PackageDescription 3.
@@ -703,14 +672,12 @@ public final class PackageBuilder {
         if name.hasSuffix(Target.testModuleNameSuffix) && !isTest {
             throw Target.Error.invalidName(
                 path: path.relative(to: packagePath).asString,
-                name: name,
                 problem: .hasTestSuffix)
         }
 
         if !name.hasSuffix(Target.testModuleNameSuffix) && isTest {
             throw Target.Error.invalidName(
                 path: path.relative(to: packagePath).asString,
-                name: name,
                 problem: .noTestSuffix)
         }
     }

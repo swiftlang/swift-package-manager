@@ -239,13 +239,13 @@ public enum FileAccessError: Swift.Error {
     case fileDoesNotExist(path: String)
 }
 
-extension FileAccessError : CustomStringConvertible {
+extension FileAccessError: CustomStringConvertible {
     public var description: String {
         switch self {
-          case .unicodeDecodingError: return "Could not decode input file into unicode"
-          case .unicodeEncodingError: return "Could not encode string into unicode"
-          case .couldNotCreateFile(let path): return "Could not create file: \(path)"
-          case .fileDoesNotExist(let path): return "File does not exist: \(path)"
+          case .unicodeDecodingError: return "could not decode input file into unicode"
+          case .unicodeEncodingError: return "could not encode string into unicode"
+          case .couldNotCreateFile(let path): return "could not create file: \(path)"
+          case .fileDoesNotExist(let path): return "file does not exist: \(path)"
         }
     }
 }

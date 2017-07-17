@@ -31,18 +31,18 @@ extension PackageGraphError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .noModules(let package):
-            return "the package \(package) contains no targets"
+            return "package '\(package)' contains no targets"
 
         case .cycleDetected(let cycle):
-            return "found cyclic dependency declaration: " +
+            return "cyclic dependency declaration found: " +
                 (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0].name
 
         case .productDependencyNotFound(let name, _):
-            return "The product dependency '\(name)' was not found."
+            return "product dependency '\(name)' not found"
 
         case .productDependencyIncorrectPackage(let name, let package):
-            return "The product dependency '\(name)' on package '\(package)' was not found."
+            return "product dependency '\(name)' in package '\(package)' not found"
         }
     }
 }

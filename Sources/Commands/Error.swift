@@ -33,7 +33,7 @@ extension Error: CustomStringConvertible {
         case .invalidToolchain(let problem):
             return problem
         case .rootManifestFileNotFound:
-            return "The root manifest was not found"
+            return "root manifest not found"
         case .hasFatalDiagnostics:
             return ""
         }
@@ -63,12 +63,6 @@ private func _handle(_ error: Any) {
         print(error: error)
         parser.printUsage(on: stderrStream)
 
-    case let error as FixableError:
-        print(error: error.error)
-        if let fix = error.fix {
-            print(fix: fix)
-        }
-
     case Package.Error.noManifest(let url, let version):
         var string = "\(url) has no manifest"
         if let version = version {
@@ -85,13 +79,6 @@ func print(error: Any) {
     let writer = InteractiveWriter.stderr
     writer.write("error: ", inColor: .red, bold: true)
     writer.write("\(error)")
-    writer.write("\n")
-}
-
-private func print(fix: String) {
-    let writer = InteractiveWriter.stderr
-    writer.write("fix: ", inColor: .yellow, bold: true)
-    writer.write(fix)
     writer.write("\n")
 }
 
