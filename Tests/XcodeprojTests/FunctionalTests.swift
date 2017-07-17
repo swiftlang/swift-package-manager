@@ -61,17 +61,18 @@ class FunctionalTests: XCTestCase {
 
             let pcFile = prefix.appending(component: "libSystemModule.pc")
             try! write(path: pcFile) { stream in
-                stream <<< "prefix=\(prefix.appending(component: "SystemModule").asString)\n"
-                stream <<< "exec_prefix=${prefix}\n"
-                stream <<< "libdir=${exec_prefix}\n"
-                stream <<< "includedir=${prefix}/Sources/include\n"
-
-                stream <<< "Name: SystemModule\n"
-                stream <<< "URL: http://127.0.0.1/\n"
-                stream <<< "Description: The one and only SystemModule\n"
-                stream <<< "Version: 1.10.0\n"
-                stream <<< "Cflags: -I${includedir}\n"
-                stream <<< "Libs: -L${libdir} -lSystemModule\n"
+                stream <<< """
+                    prefix=\(prefix.appending(component: "SystemModule").asString)
+                    exec_prefix=${prefix}
+                    libdir=${exec_prefix}
+                    includedir=${prefix}/Sources/include
+                    Name: SystemModule
+                    URL: http://127.0.0.1/
+                    Description: The one and only SystemModule
+                    Version: 1.10.0
+                    Cflags: -I${includedir}
+                    Libs: -L${libdir} -lSystemModule
+                    """
             }
             let moduleUser = prefix.appending(component: "SystemModuleUser")
             let env = ["PKG_CONFIG_PATH": prefix.asString]

@@ -433,51 +433,53 @@ class ArgumentParserTests: XCTestCase {
 
         var output = BufferedOutputByteStream()
         parser.generateCompletionScript(for: .bash, on: output)
-        XCTAssertEqual(output.bytes, ByteString(encodingAsUTF8: [
-            "# Generates completions for SomeBinary",
-            "#",
-            "# Parameters",
-            "# - the start position of this parser; set to 1 if unknown",
-            "function _SomeBinary",
-            "{",
-            "    if [[ $COMP_CWORD == $(($1+0)) ]]; then",
-            "            return",
-            "    fi",
-            "    if [[ $COMP_CWORD == $1 ]]; then",
-            "        COMPREPLY=( $(compgen -W \"--revision\" -- $cur) )",
-            "        return",
-            "    fi",
-            "    case $prev in",
-            "        (--revision)",
-            "            return",
-            "        ;;",
-            "    esac",
-            "    case ${COMP_WORDS[$1]} in",
-            "    esac",
-            "    COMPREPLY=( $(compgen -W \"--revision\" -- $cur) )",
-            "}",
-            "",
-            ""].joined(separator: "\n")))
+        XCTAssertEqual(output.bytes, ByteString(encodingAsUTF8: """
+            # Generates completions for SomeBinary
+            #
+            # Parameters
+            # - the start position of this parser; set to 1 if unknown
+            function _SomeBinary
+            {
+                if [[ $COMP_CWORD == $(($1+0)) ]]; then
+                        return
+                fi
+                if [[ $COMP_CWORD == $1 ]]; then
+                    COMPREPLY=( $(compgen -W "--revision" -- $cur) )
+                    return
+                fi
+                case $prev in
+                    (--revision)
+                        return
+                    ;;
+                esac
+                case ${COMP_WORDS[$1]} in
+                esac
+                COMPREPLY=( $(compgen -W "--revision" -- $cur) )
+            }
+            
+
+            """))
 
         output = BufferedOutputByteStream()
         parser.generateCompletionScript(for: .zsh, on: output)
-        XCTAssertEqual(output.bytes, ByteString(encodingAsUTF8: [
-            "# Generates completions for SomeBinary",
-            "#",
-            "# In the final compdef file, set the following file header:",
-            "#",
-            "#     #compdef _SomeBinary",
-            "#     local context state state_descr line",
-            "#     typeset -A opt_args",
-            "_SomeBinary() {",
-            "    arguments=(",
-            "        \":The name of the package: \"",
-            "        \"--revision[The revision]:The revision: \"",
-            "    )",
-            "    _arguments $arguments && return",
-            "}",
-            "",
-            ""].joined(separator: "\n")))
+        XCTAssertEqual(output.bytes, ByteString(encodingAsUTF8: """
+            # Generates completions for SomeBinary
+            #
+            # In the final compdef file, set the following file header:
+            #
+            #     #compdef _SomeBinary
+            #     local context state state_descr line
+            #     typeset -A opt_args
+            _SomeBinary() {
+                arguments=(
+                    ":The name of the package: "
+                    "--revision[The revision]:The revision: "
+                )
+                _arguments $arguments && return
+            }
+            
+            
+            """))
     }
 
     func testUpToNextOptionStrategy() throws {

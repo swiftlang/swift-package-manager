@@ -30,8 +30,10 @@ class VersionSpecificTests: XCTestCase {
 
             // Create the initial commit.
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
-                $0 <<< "import PackageDescription\n"
-                $0 <<< "let package = Package(name: \"Dep\")\n"
+                $0 <<< """
+                    import PackageDescription
+                    let package = Package(name: "Dep")
+                    """
             }
             try repo.stage(file: "Package.swift")
             try repo.commit(message: "Initial")
@@ -42,7 +44,9 @@ class VersionSpecificTests: XCTestCase {
                 $0 <<< "NOT_A_VALID_PACKAGE"
             }
             try fs.writeFileContents(depPath.appending(component: "foo.swift")) {
-                $0 <<< "public func foo() { print(\"foo\\n\") }\n"
+                $0 <<< """
+                    public func foo() { print("foo\\n") }
+                    """
             }
             try repo.stage(file: "Package.swift")
             try repo.stage(file: "foo.swift")
@@ -52,22 +56,28 @@ class VersionSpecificTests: XCTestCase {
             // Create the primary repository.
             let primaryPath = path.appending(component: "Primary")
             try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
-                $0 <<< "import PackageDescription\n"
-                $0 <<< "let package = Package(name: \"Primary\", dependencies: [.Package(url: \"../Dep\", majorVersion: 1)])\n"
+                $0 <<< """
+                    import PackageDescription
+                    let package = Package(name: "Primary", dependencies: [.Package(url: "../Dep", majorVersion: 1)])
+                    """
             }
             // This build should fail, because of the invalid package.
             XCTAssertBuildFails(primaryPath)
 
             // Create a file which requires a version 1.1.0 resolution.
             try fs.writeFileContents(primaryPath.appending(component: "main.swift")) {
-                $0 <<< "import Dep\n"
-                $0 <<< "Dep.foo()\n"
+                $0 <<< """
+                    import Dep
+                    Dep.foo()
+                    """
             }
 
             // Create a version-specific tag, which should work.
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
-                $0 <<< "import PackageDescription\n"
-                $0 <<< "let package = Package(name: \"Dep\")\n"
+                $0 <<< """
+                    import PackageDescription
+                    let package = Package(name: \"Dep\")
+                    """
             }
             try repo.stage(file: "Package.swift")
             try repo.commit(message: "OK v1.1.0")

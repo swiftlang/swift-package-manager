@@ -93,18 +93,20 @@ public func generate(
     // We generate this file to ensure our main scheme is listed before any
     // inferred schemes Xcode may autocreate.
     try open(schemesDir.appending(component: "xcschememanagement.plist")) { print in
-        print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-        print("<plist version=\"1.0\">")
-        print("<dict>")
-        print("  <key>SchemeUserState</key>")
-        print("  <dict>")
-        print("    <key>\(schemeName)</key>")
-        print("    <dict></dict>")
-        print("  </dict>")
-        print("  <key>SuppressBuildableAutocreation</key>")
-        print("  <dict></dict>")
-        print("</dict>")
-        print("</plist>")
+        print("""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <plist version="1.0">
+            <dict>
+              <key>SchemeUserState</key>
+              <dict>
+                <key>\(schemeName)</key>
+                <dict></dict>
+              </dict>
+              <key>SuppressBuildableAutocreation</key>
+              <dict></dict>
+            </dict>
+            </plist>
+            """)
     }
 
     for target in graph.targets where target.type == .library || target.type == .test {
@@ -112,35 +114,33 @@ public func generate(
         ///// directory that Xcode project is generated
         let name = target.infoPlistFileName
         try open(xcodeprojPath.appending(RelativePath(name))) { print in
-            print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-            print("<plist version=\"1.0\">")
-            print("<dict>")
-            print("  <key>CFBundleDevelopmentRegion</key>")
-            print("  <string>en</string>")
-            print("  <key>CFBundleExecutable</key>")
-            print("  <string>$(EXECUTABLE_NAME)</string>")
-            print("  <key>CFBundleIdentifier</key>")
-            print("  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>")
-            print("  <key>CFBundleInfoDictionaryVersion</key>")
-            print("  <string>6.0</string>")
-            print("  <key>CFBundleName</key>")
-            print("  <string>$(PRODUCT_NAME)</string>")
-            print("  <key>CFBundlePackageType</key>")
-            if target.type == .test {
-                print("  <string>BNDL</string>")
-            } else {
-                print("  <string>FMWK</string>")
-            }
-            print("  <key>CFBundleShortVersionString</key>")
-            print("  <string>1.0</string>")
-            print("  <key>CFBundleSignature</key>")
-            print("  <string>????</string>")
-            print("  <key>CFBundleVersion</key>")
-            print("  <string>$(CURRENT_PROJECT_VERSION)</string>")
-            print("  <key>NSPrincipalClass</key>")
-            print("  <string></string>")
-            print("</dict>")
-            print("</plist>")
+            print("""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <plist version="1.0">
+                <dict>
+                  <key>CFBundleDevelopmentRegion</key>
+                  <string>en</string>
+                  <key>CFBundleExecutable</key>
+                  <string>$(EXECUTABLE_NAME)</string>
+                  <key>CFBundleIdentifier</key>
+                  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+                  <key>CFBundleInfoDictionaryVersion</key>
+                  <string>6.0</string>
+                  <key>CFBundleName</key>
+                  <string>$(PRODUCT_NAME)</string>
+                  <key>CFBundlePackageType</key>
+                  <string>\(target.type == .test ? "BNDL" : "FMWK")</string>
+                  <key>CFBundleShortVersionString</key>
+                  <string>1.0</string>
+                  <key>CFBundleSignature</key>
+                  <string>????</string>
+                  <key>CFBundleVersion</key>
+                  <string>$(CURRENT_PROJECT_VERSION)</string>
+                  <key>NSPrincipalClass</key>
+                  <string></string>
+                </dict>
+                </plist>
+                """)
         }
     }
 

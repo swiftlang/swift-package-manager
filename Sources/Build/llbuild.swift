@@ -90,10 +90,12 @@ public struct LLBuildManifestGenerator {
 
         // Write the manifest.
         let stream = BufferedOutputByteStream()
-        stream <<< "client:\n"
-        stream <<< "  name: swift-build\n"
-        stream <<< "tools: {}\n"
-        stream <<< "targets:\n"
+        stream <<< """
+            client:
+              name: swift-build
+            tools: {}
+            targets:\n
+            """
         for target in targets.allTargets {
             stream <<< "  " <<< Format.asJSON(target.name)
             stream <<< ": " <<< Format.asJSON(target.outputs) <<< "\n"

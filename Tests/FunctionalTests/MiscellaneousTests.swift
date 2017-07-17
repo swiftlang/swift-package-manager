@@ -413,16 +413,19 @@ class MiscellaneousTestCase: XCTestCase {
             let pcFile = prefix.appending(component: "libSystemModule.pc")
 
             let stream = BufferedOutputByteStream()
-            stream <<< "prefix=\(systemModule.asString)\n"
-            stream <<< "exec_prefix=${prefix}\n"
-            stream <<< "libdir=${exec_prefix}\n"
-            stream <<< "includedir=${prefix}/Sources/include\n"
-            stream <<< "Name: SystemModule\n"
-            stream <<< "URL: http://127.0.0.1/\n"
-            stream <<< "Description: The one and only SystemModule\n"
-            stream <<< "Version: 1.10.0\n"
-            stream <<< "Cflags: -I${includedir}\n"
-            stream <<< "Libs: -L${libdir} -lSystemModule\n"
+            stream <<< """
+                prefix=\(systemModule.asString)
+                exec_prefix=${prefix}
+                libdir=${exec_prefix}
+                includedir=${prefix}/Sources/include
+                Name: SystemModule
+                URL: http://127.0.0.1/
+                Description: The one and only SystemModule
+                Version: 1.10.0
+                Cflags: -I${includedir}
+                Libs: -L${libdir} -lSystemModule
+
+                """
             try localFileSystem.writeFileContents(pcFile, bytes: stream.bytes)
 
             let moduleUser = prefix.appending(component: "SystemModuleUserClang")
@@ -445,10 +448,13 @@ class MiscellaneousTestCase: XCTestCase {
 
             // Write out fake git.
             let stream = BufferedOutputByteStream()
-            stream <<< "#!/bin/sh" <<< "\n"
-            stream <<< "set -e" <<< "\n"
-            stream <<< "printf \"$$\" >> " <<< waitFile.asString <<< "\n"
-            stream <<< "while true; do sleep 1; done" <<< "\n"
+            stream <<< """
+                #!/bin/sh
+                set -e
+                printf "$$" >> \(waitFile.asString)
+                while true; do sleep 1; done
+
+                """
             try localFileSystem.writeFileContents(fakeGit, bytes: stream.bytes)
 
             // Make it executable.
