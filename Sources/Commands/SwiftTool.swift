@@ -550,6 +550,9 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
         stream <<< "    (regex #\"^\(directory.asString)/xcrun.*\")" <<< "\n"
         // For autolink files.
         stream <<< "    (regex #\"^\(directory.asString)/.*\\.(swift|c)-[0-9a-f]+\\.autolink\")" <<< "\n"
+        // These paths are used the Switch compiler.
+        stream <<< "    (regex #\"^\(directory.asString)/inputs.*\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory.asString)/sources.*\")" <<< "\n"
     }
     for directory in allowedDirectories {
         stream <<< "    (subpath \"\(directory.asString)\")" <<< "\n"
