@@ -33,12 +33,12 @@ extension RunError: CustomStringConvertible {
     var description: String {
         switch self {
         case .noExecutableFound:
-            return "no executable product in the package"
+            return "no executable product available"
         case .executableNotFound(let executable):
-            return "could not find executable product '\(executable)' in the package"
+            return "no executable product named '\(executable)'"
         case .multipleExecutables(let executables):
             let joinedExecutables = executables.joined(separator: ", ")
-            return "multiple executable products in the package. Use `swift run ` followed by one of: \(joinedExecutables)"
+            return "multiple executable products available: \(joinedExecutables)"
         }
     }
 }

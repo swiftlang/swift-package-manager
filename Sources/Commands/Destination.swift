@@ -97,7 +97,7 @@ public struct Destination {
             let sdkPathStr = try Process.checkNonZeroExit(
                 args: "xcrun", "--sdk", "macosx", "--show-sdk-path").chomp()
             guard !sdkPathStr.isEmpty else {
-                throw DestinationError.invalidInstallation("could not find default SDK")
+                throw DestinationError.invalidInstallation("default SDK not found")
             }
             sdkPath = AbsolutePath(sdkPathStr)
         }

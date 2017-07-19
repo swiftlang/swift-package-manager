@@ -13,7 +13,7 @@ import Dispatch
 import Utility
 
 public enum GitRepositoryProviderError: Swift.Error {
-    case gitCloneFailure(url: String, path: AbsolutePath, errorOutput: String)
+    case gitCloneFailure(errorOutput: String)
 }
 
 /// A `git` repository provider.
@@ -49,7 +49,7 @@ public class GitRepositoryProvider: RepositoryProvider {
         // Throw if cloning failed.
         guard result.exitStatus == .terminated(code: 0) else {
             let errorOutput = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
-            throw GitRepositoryProviderError.gitCloneFailure(url: repository.url, path: path, errorOutput: errorOutput)
+            throw GitRepositoryProviderError.gitCloneFailure(errorOutput: errorOutput)
         }
     }
 
@@ -659,8 +659,8 @@ private class GitFileSystemView: FileSystem {
 extension GitRepositoryProviderError: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .gitCloneFailure(let url, let path, let errorOutput):
-            return "Failed to clone \(url) to \(path.asString):\n\(errorOutput)"
+        case .gitCloneFailure(let errorOutput):
+            return "failed to clone; \(errorOutput)"
         }
     }
 }

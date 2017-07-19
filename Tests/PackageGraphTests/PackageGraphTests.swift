@@ -96,7 +96,7 @@ class PackageGraphTests: XCTestCase {
             "/Baz": Package(name: "Baz", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
         ], root: "/Foo", diagnostics: diagnostics, in: fs)
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "found cyclic dependency declaration: Foo -> Bar -> Baz -> Bar")
+        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar")
     }
 
     // Make sure there is no error when we reference Test targets in a package and then
@@ -133,7 +133,7 @@ class PackageGraphTests: XCTestCase {
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
         ], root: "/Bar", diagnostics: diagnostics, in: fs)
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "found multiple targets named Bar")
+        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple targets named 'Bar'")
     }
 
     static var allTests = [

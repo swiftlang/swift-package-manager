@@ -180,7 +180,7 @@ public enum WorkspaceDiagnostics {
             type: BranchAlreadyExists.self,
             name: "org.swift.diags.workspace.branch-already-exists",
             description: {
-                $0 <<< "branch" <<< { $0.branch } <<< "already exists"
+                $0 <<< "branch" <<< { "'\($0.branch)''" } <<< "already exists"
             })
         
         /// The branch to create.
@@ -194,7 +194,7 @@ public enum WorkspaceDiagnostics {
             type: RevisionDoesNotExist.self,
             name: "org.swift.diags.workspace.revision-does-not-exist",
             description: {
-                $0 <<< "revision" <<< { $0.revision } <<< "does not exist"
+                $0 <<< "revision" <<< { "'\($0.revision)'" } <<< "does not exist"
             })
         
         /// The revision requested.
@@ -209,7 +209,7 @@ public enum WorkspaceDiagnostics {
             description: {
                 $0 <<< "package at" <<< { "'\($0.rootPackagePath.asString)'" }
                 $0 <<< "requires a minimum Swift tools version of" <<< { $0.requiredToolsVersion.description }
-                $0 <<< "but currently at" <<< { $0.currentToolsVersion.description }
+                $0 <<< { "(currently \($0.currentToolsVersion.description))" }
             })
         
         /// The path of the package.
