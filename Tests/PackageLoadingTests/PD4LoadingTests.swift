@@ -351,6 +351,26 @@ class PackageDescription4LoadingTests: XCTestCase {
         }
     }
 
+    func testLanguageStandards() {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+                name: "testPackage",
+                targets: [
+                    .target(name: "Foo"),
+                ],
+                cLanguageStandard: .iso9899_199409,
+                cxxLanguageStandard: .gnucxx14
+            )
+        """
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.package.name, "testPackage")
+            XCTAssertEqual(manifest.package.cLanguageStandard, .iso9899_199409)
+            XCTAssertEqual(manifest.package.cxxLanguageStandard, .gnucxx14)
+        }
+    }
+
     static var allTests = [
         ("testCTarget", testCTarget),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
@@ -361,6 +381,7 @@ class PackageDescription4LoadingTests: XCTestCase {
         ("testTargetDependencies", testTargetDependencies),
         ("testTargetProperties", testTargetProperties),
         ("testTrivial", testTrivial),
-        ("testUnavailableAPIs", testUnavailableAPIs)
+        ("testUnavailableAPIs", testUnavailableAPIs),
+        ("testLanguageStandards", testLanguageStandards),
     ]
 }

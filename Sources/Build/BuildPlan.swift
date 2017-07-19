@@ -176,7 +176,7 @@ public final class ClangTargetDescription {
         args += optimizationArguments
 
         // Add extra C++ flags if this target contains C++ files.
-        if clangTarget.containsCppFiles {
+        if clangTarget.isCXX {
             args += self.buildParameters.flags.cxxCompilerFlags
         }
 
@@ -185,6 +185,9 @@ public final class ClangTargetDescription {
         args += ["-fobjc-arc"]
       #endif
         args += ["-fmodules", "-fmodule-name=" + target.c99name]
+        if let languageStandard = clangTarget.languageStandard {
+            args += ["-std=\(languageStandard)"]
+        }
         args += ["-I", clangTarget.includeDir.asString]
         args += additionalFlags
         args += moduleCacheArgs
@@ -556,7 +559,7 @@ public class BuildPlan {
         // Link C++ if needed.
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
-            if case let target as ClangTarget = target.underlyingTarget, target.containsCppFiles {
+            if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
                 buildProduct.additionalFlags += self.buildParameters.toolchain.extraCPPFlags
                 break
             }
