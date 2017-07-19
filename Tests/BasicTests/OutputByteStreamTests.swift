@@ -124,7 +124,11 @@ class OutputByteStreamTests: XCTestCase {
         }
 
         do {
-            let stream = BufferedOutputByteStream()
+            var stream = BufferedOutputByteStream()
+            stream <<< Format.asSeparatedList(["hello"], separator: ", ")
+            XCTAssertEqual(stream.bytes, "hello")
+
+            stream = BufferedOutputByteStream()
             stream <<< Format.asSeparatedList(["hello", "world"], separator: ", ")
             XCTAssertEqual(stream.bytes, "hello, world")
         }
@@ -134,9 +138,71 @@ class OutputByteStreamTests: XCTestCase {
                 let value: String
                 init(_ value: String) { self.value = value }
             }
-            let stream = BufferedOutputByteStream()
+            
+            var stream = BufferedOutputByteStream()
+            stream <<< Format.asSeparatedList([MyThing("hello")], transform: { $0.value }, separator: ", ")
+            XCTAssertEqual(stream.bytes, "hello")
+
+            stream = BufferedOutputByteStream()
             stream <<< Format.asSeparatedList([MyThing("hello"), MyThing("world")], transform: { $0.value }, separator: ", ")
             XCTAssertEqual(stream.bytes, "hello, world")
+        }
+
+        do {
+            var stream = BufferedOutputByteStream()
+            stream <<< Format.asEnglishList(["blue"], type: .conjunction)
+            XCTAssertEqual(stream.bytes, "blue")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asEnglishList(["blue"], type: .disjunction)
+            XCTAssertEqual(stream.bytes, "blue")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asEnglishList(["blue", "white"], type: .conjunction)
+            XCTAssertEqual(stream.bytes, "blue and white")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asEnglishList(["blue", "white"], type: .disjunction)
+            XCTAssertEqual(stream.bytes, "blue or white")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asEnglishList(["blue", "white", "red"], type: .conjunction)
+            XCTAssertEqual(stream.bytes, "blue, white, and red")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asEnglishList(["blue", "white", "red"], type: .disjunction)
+            XCTAssertEqual(stream.bytes, "blue, white, or red")
+        }
+        
+        do {
+            struct MyThing {
+                let value: String
+                init(_ value: String) { self.value = value }
+            }
+
+            var stream = BufferedOutputByteStream()
+            stream <<< Format.asEnglishList([MyThing("blue")], transform: { $0.value }, type: .conjunction)
+            XCTAssertEqual(stream.bytes, "blue")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asEnglishList([MyThing("blue")], transform: { $0.value }, type: .disjunction)
+            XCTAssertEqual(stream.bytes, "blue")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asEnglishList([MyThing("blue"), MyThing("white")], transform: { $0.value }, type: .conjunction)
+            XCTAssertEqual(stream.bytes, "blue and white")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asEnglishList([MyThing("blue"), MyThing("white")], transform: { $0.value }, type: .disjunction)
+            XCTAssertEqual(stream.bytes, "blue or white")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asEnglishList([MyThing("blue"), MyThing("white"), MyThing("red")], transform: { $0.value }, type: .conjunction)
+            XCTAssertEqual(stream.bytes, "blue, white, and red")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asEnglishList([MyThing("blue"), MyThing("white"), MyThing("red")], transform: { $0.value }, type: .disjunction)
+            XCTAssertEqual(stream.bytes, "blue, white, or red")
         }
 
         do {

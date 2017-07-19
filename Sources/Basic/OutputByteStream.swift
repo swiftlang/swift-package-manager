@@ -355,54 +355,17 @@ extension String: ByteStreamable {
 
 // MARK: Formatted Streaming Output
 
-// Not nested because it is generic.
-private struct SeparatedListStreamable<T: ByteStreamable>: ByteStreamable {
-    let items: [T]
-    let separator: String
-
-    func write(to stream: OutputByteStream) {
-        for (i, item) in items.enumerated() {
-            // Add the separator, if necessary.
-            if i != 0 {
-                stream <<< separator
-            }
-
-            stream <<< item
-        }
-    }
-}
-
-// Not nested because it is generic.
-private struct TransformedSeparatedListStreamable<T>: ByteStreamable {
-    let items: [T]
-    let transform: (T) -> ByteStreamable
-    let separator: String
-
-    func write(to stream: OutputByteStream) {
-        for (i, item) in items.enumerated() {
-            if i != 0 { stream <<< separator }
-            stream <<< transform(item)
-        }
-    }
-}
-
-// Not nested because it is generic.
-private struct JSONEscapedTransformedStringListStreamable<T>: ByteStreamable {
-    let items: [T]
-    let transform: (T) -> String
-
-    func write(to stream: OutputByteStream) {
-        stream <<< UInt8(ascii: "[")
-        for (i, item) in items.enumerated() {
-            if i != 0 { stream <<< "," }
-            stream <<< Format.asJSON(transform(item))
-        }
-        stream <<< UInt8(ascii: "]")
-    }
-}
-
 /// Provides operations for returning derived streamable objects to implement various forms of formatted output.
 public struct Format {
+    /// Type of english list formatted list.
+    public enum EnglishListType: String {
+        /// Represents a conjunction of items (eg: a, b, and c)
+        case conjunction = "and"
+
+        /// Represents a disjunction of items (eg: a, b, or c)
+        case disjunction = "or"
+    }
+
     /// Write the input boolean encoded as a JSON object.
     static public func asJSON(_ value: Bool) -> ByteStreamable {
         return JSONEscapedBoolStreamable(value: value)
@@ -499,10 +462,38 @@ public struct Format {
     static public func asJSON<T>(_ items: [T], transform: @escaping (T) -> String) -> ByteStreamable {
         return JSONEscapedTransformedStringListStreamable(items: items, transform: transform)
     }
+    private struct JSONEscapedTransformedStringListStreamable<T>: ByteStreamable {
+        let items: [T]
+        let transform: (T) -> String
+
+        func write(to stream: OutputByteStream) {
+            stream <<< UInt8(ascii: "[")
+            for (i, item) in items.enumerated() {
+                if i != 0 { stream <<< "," }
+                stream <<< Format.asJSON(transform(item))
+            }
+            stream <<< UInt8(ascii: "]")
+        }
+    }
 
     /// Write the input list to the stream with the given separator between items.
     static public func asSeparatedList<T: ByteStreamable>(_ items: [T], separator: String) -> ByteStreamable {
         return SeparatedListStreamable(items: items, separator: separator)
+    }
+    private struct SeparatedListStreamable<T: ByteStreamable>: ByteStreamable {
+        let items: [T]
+        let separator: String
+
+        func write(to stream: OutputByteStream) {
+            for (i, item) in items.enumerated() {
+                // Add the separator, if necessary.
+                if i != 0 {
+                    stream <<< separator
+                }
+
+                stream <<< item
+            }
+        }
     }
 
     /// Write the input list to the stream (after applying a transform to each item) with the given separator between
@@ -513,6 +504,81 @@ public struct Format {
         separator: String
     ) -> ByteStreamable {
         return TransformedSeparatedListStreamable(items: items, transform: transform, separator: separator)
+    }
+    private struct TransformedSeparatedListStreamable<T>: ByteStreamable {
+        let items: [T]
+        let transform: (T) -> ByteStreamable
+        let separator: String
+
+        func write(to stream: OutputByteStream) {
+            for (i, item) in items.enumerated() {
+                if i != 0 { stream <<< separator }
+                stream <<< transform(item)
+            }
+        }
+    }
+
+    /// Write the input list to the stream as an english list of items.
+    static public func asEnglishList<T: ByteStreamable>(_ items: [T], type: EnglishListType) -> ByteStreamable {
+        return EnglishListStreamable(items: items, type: type)
+    }
+    private struct EnglishListStreamable<T: ByteStreamable>: ByteStreamable {
+        let items: [T]
+        let type: EnglishListType
+
+        func write(to stream: OutputByteStream) {
+            for (i, item) in items.enumerated() {
+                // Add the separator, if necessary.
+                if i == items.count - 1 {
+                    switch items.count {
+                    case 1:
+                        break
+                    case 2:
+                        stream <<< " " <<< type.rawValue <<< " "
+                    default:
+                        stream <<< ", " <<< type.rawValue <<< " "
+                    }
+                } else if i != 0 {
+                    stream <<< ", "
+                }
+
+                stream <<< item
+            }
+        }
+    }
+
+    /// Write the input list to the stream (after applying a transform to each item) as an english list of items.
+    static public func asEnglishList<T>(
+        _ items: [T],
+        transform: @escaping (T) -> ByteStreamable,
+        type: EnglishListType
+    ) -> ByteStreamable {
+        return TransformedEnglishListStreamable(items: items, transform: transform, type: type)
+    }
+    private struct TransformedEnglishListStreamable<T>: ByteStreamable {
+        let items: [T]
+        let transform: (T) -> ByteStreamable
+        let type: EnglishListType
+
+        func write(to stream: OutputByteStream) {
+            for (i, item) in items.enumerated() {
+                // Add the separator, if necessary.
+                if i == items.count - 1 {
+                    switch items.count {
+                    case 1:
+                        break
+                    case 2:
+                        stream <<< " " <<< type.rawValue <<< " "
+                    default:
+                        stream <<< ", " <<< type.rawValue <<< " "
+                    }
+                } else if i != 0 {
+                    stream <<< ", "
+                }
+
+                stream <<< transform(item)
+            }
+        }
     }
 
     static public func asRepeating(string: String, count: Int) -> ByteStreamable {

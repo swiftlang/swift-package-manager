@@ -224,7 +224,8 @@ public final class Process: ObjectIdentifierProtocol {
 
         // Print the arguments if we are verbose.
         if self.verbose {
-            stdoutStream <<< arguments.map({ $0.shellEscaped() }).joined(separator: " ") <<< "\n"
+            stdoutStream <<< Format.asSeparatedList(arguments, transform: { $0.shellEscaped() }, separator: " ")
+            stdoutStream <<< "\n"
             stdoutStream.flush()
         }
 
@@ -560,7 +561,7 @@ extension ProcessResult.Error: CustomStringConvertible {
             if args.first == "sandbox-exec", args.count > 3 {
                 args = args.suffix(from: 3).map({$0})
             }
-            stream <<< args.map({ $0.shellEscaped() }).joined(separator: " ")
+            stream <<< Format.asSeparatedList(args, transform: { $0.shellEscaped() }, separator: " ")
             return stream.bytes.asString!
         }
     }

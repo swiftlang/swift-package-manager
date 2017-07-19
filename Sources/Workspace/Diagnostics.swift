@@ -93,7 +93,7 @@ public enum ResolverDiagnostics {
                 stream <<< revision
             case .unversioned(let constraints):
                 stream <<< "unversioned ("
-                stream <<< constraints.map({ $0.description }).joined(separator: ", ")
+                stream <<< Format.asSeparatedList(constraints, transform: { $0.description }, separator: ", ")
                 stream <<< ")"
             }
 

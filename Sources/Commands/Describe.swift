@@ -66,7 +66,8 @@ extension Target: JSONSerializable {
         stream <<< Format.asRepeating(string: " ", count: indent)
             <<< "Path: " <<< sources.root.asString <<< "\n"
         stream <<< Format.asRepeating(string: " ", count: indent)
-            <<< "Sources: " <<< sources.relativePaths.map({ $0.asString }).joined(separator: ", ") <<< "\n"
+            <<< "Sources: " <<< Format.asSeparatedList(sources.relativePaths, transform: { $0.asString }, separator: ", ")
+            <<< "\n"
     }
 
     public func toJSON() -> JSON {
