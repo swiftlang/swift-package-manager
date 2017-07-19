@@ -24,6 +24,7 @@
     * [Release](#release)
   * [Depending on Apple Modules](#depending-on-apple-modules)
   * [C language targets](#c-language-targets)
+  * [Shell completion scripts](#shell-completion-scripts)
 * [PackageDescription API Version 3](PackageDescriptionV3.md)
 * [PackageDescription API Version 4](PackageDescriptionV4.md)
 * [Resources](Resources.md)
@@ -795,3 +796,28 @@ a modulemap w.r.t the above rules.
 
 For executable targets, only one valid C language main file is allowed i.e. it
 is invalid to have `main.c` and `main.cpp` in the same target.
+
+## Shell completion scripts
+
+SwiftPM ships with completion scripts for both Bash and ZSH. These files should be generated in order to use them.
+
+### Bash
+
+Use the following commands to install the Bash completions to `~/.swift-package-complete.bash` and automatically load them using your `~/.bash_profile` file.
+
+```bash
+swift package generate-completion-script bash > ~/.swift-package-complete.bash
+echo -e "source ~/.swift-package-complete.bash\n" >> ~/.bash_profile
+source ~/.swift-package-complete.bash
+```
+
+### ZSH
+
+Use the following commands to install the ZSH completions to `~/.zsh/_swift`. You can chose a different folder, but the filename should be `_swift`. This will also add `~/.zsh` to your `$fpath` using your `~/.zshrc` file.
+
+```bash
+mkdir ~/.zsh
+swift package generate-completion-script zsh > ~/.zsh/_swift
+echo -e "fpath=(~/.zsh \$fpath)\n" >> ~/.zshrc
+compinit
+```
