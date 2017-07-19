@@ -20,6 +20,7 @@ import POSIX
 import SourceControl
 import Utility
 import Workspace
+import Commands
 
 #if os(macOS)
 import class Foundation.Bundle
@@ -314,4 +315,8 @@ extension Process {
         }
         return !exited
     }
+}
+
+extension Destination {
+    public static let host = try! hostDestination()
 }

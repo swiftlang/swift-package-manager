@@ -372,7 +372,7 @@ extension Workspace {
             return
         }
         guard case .checkout(let currentState) = dependency.state else {
-            let error = WorkspaceDiagnostics.DependencyAlreadyInEditMode(dependencyURL: dependency.repository.url)
+            let error = WorkspaceDiagnostics.DependencyAlreadyInEditMode(dependencyName: packageName)
             return diagnostics.emit(error)
         }
 
@@ -590,7 +590,7 @@ extension Workspace {
         let dependency = try managedDependencies.dependency(forName: packageName)
 
         guard case .checkout(let checkoutState) = dependency.state else {
-            throw WorkspaceDiagnostics.DependencyAlreadyInEditMode(dependencyURL: dependency.repository.url)
+            throw WorkspaceDiagnostics.DependencyAlreadyInEditMode(dependencyName: packageName)
         }
 
         // If a path is provided then we use it as destination. If not, we
@@ -633,14 +633,10 @@ extension Workspace {
 
             // Do preliminary checks on branch and revision, if provided.
             if let branch = checkoutBranch, repo.exists(revision: Revision(identifier: branch)) {
-                throw WorkspaceDiagnostics.BranchAlreadyExists(
-                    dependencyURL: dependency.repository.url,
-                    branch: branch)
+                throw WorkspaceDiagnostics.BranchAlreadyExists(branch: branch)
             }
             if let revision = revision, !repo.exists(revision: revision) {
-                throw WorkspaceDiagnostics.RevisionDoesNotExist(
-                    dependencyURL: dependency.repository.url,
-                    revision: revision.identifier)
+                throw WorkspaceDiagnostics.RevisionDoesNotExist(revision: revision.identifier)
             }
 
             try handle.cloneCheckout(to: destination, editable: true)
@@ -683,7 +679,7 @@ extension Workspace {
         switch dependency.state {
         // If the dependency isn't in edit mode, we can't unedit it.
         case .checkout:
-            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyURL: dependency.repository.url)
+            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyName: dependency.name)
 
         case .edited(let path):
             if path != nil {

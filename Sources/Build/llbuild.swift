@@ -14,7 +14,7 @@ import PackageModel
 import PackageGraph
 
 /// llbuild manifest file generator for a build plan.
-public struct LLbuildManifestGenerator {
+public struct LLBuildManifestGenerator {
 
     /// The build plan to work on.
     public let plan: BuildPlan
@@ -33,22 +33,39 @@ public struct LLbuildManifestGenerator {
         /// Test target.
         private(set) var test = Target(name: "test")
 
+        /// All targets.
+        var allTargets: [Target] {
+            return [main, test] + otherTargets
+        }
+
         /// All commands.
         private(set) var allCommands = SortedArray<Command>(areInIncreasingOrder: <)
 
-        /// Append a command.
-        mutating func append(_ command: Command, isTest: Bool) {
-            append([command], isTest: isTest)
-        }
+        /// Other targets.
+        private var otherTargets: [Target] = []
 
-        /// Append an array of commands.
-        mutating func append(_ commands: [Command], isTest: Bool) {
+        /// Append a command.
+        mutating func append(_ target: Target, isTest: Bool) {
+            // Create a phony command with a virtual output node that represents the target.
+            let virtualNodeName = "<\(target.name)>"
+            let phonyTool = PhonyTool(inputs: target.outputs, outputs: [virtualNodeName])
+            let phonyCommand = Command(name: "<C.\(target.name)>", tool: phonyTool)
+
+            // Use the phony command as dependency.
+            var newTarget = target
+            newTarget.outputs = [virtualNodeName]
+            newTarget.cmds.insert(phonyCommand)
+            otherTargets.append(newTarget)
+
             if !isTest {
-                main.cmds += commands
+                main.outputs += newTarget.outputs
+                main.cmds += newTarget.cmds
             }
+
             // Always build everything for the test target.
-            test.cmds += commands
-            allCommands += commands
+            test.outputs += newTarget.outputs
+            test.cmds += newTarget.cmds
+            allCommands += newTarget.cmds
         }
     }
 
@@ -60,26 +77,28 @@ public struct LLbuildManifestGenerator {
         for buildTarget in plan.targets {
             switch buildTarget {
             case .swift(let target):
-                targets.append(createSwiftCommand(target), isTest: target.isTestTarget)
+                targets.append(createSwiftCompileTarget(target), isTest: target.isTestTarget)
             case .clang(let target):
-                targets.append(createClangCommands(target), isTest: target.isTestTarget)
+                targets.append(createClangCompileTarget(target), isTest: target.isTestTarget)
             }
         }
 
         // Create command for all products in the plan.
         for buildProduct in plan.buildProducts {
-            targets.append(createLinkCommand(buildProduct), isTest: buildProduct.product.type == .test)
+            targets.append(createProductTarget(buildProduct), isTest: buildProduct.product.type == .test)
         }
 
         // Write the manifest.
         let stream = BufferedOutputByteStream()
-        stream <<< "client:\n"
-        stream <<< "  name: swift-build\n"
-        stream <<< "tools: {}\n"
-        stream <<< "targets:\n"
-        for target in [targets.test, targets.main] {
+        stream <<< """
+            client:
+              name: swift-build
+            tools: {}
+            targets:\n
+            """
+        for target in targets.allTargets {
             stream <<< "  " <<< Format.asJSON(target.name)
-            stream <<< ": " <<< Format.asJSON(target.cmds.flatMap({ $0.tool.outputs })) <<< "\n"
+            stream <<< ": " <<< Format.asJSON(target.outputs) <<< "\n"
         }
         stream <<< "default: " <<< Format.asJSON(targets.main.name) <<< "\n"
         stream <<< "commands: \n"
@@ -91,8 +110,8 @@ public struct LLbuildManifestGenerator {
         try localFileSystem.writeFileContents(path, bytes: stream.bytes)
     }
 
-    /// Create link command for products.
-    private func createLinkCommand(_ buildProduct: ProductBuildDescription) -> Command {
+    /// Create a llbuild target for a product description.
+    private func createProductTarget(_ buildProduct: ProductBuildDescription) -> Target {
         let tool: ToolProtocol
         // Create archive tool for static library and shell tool for rest of the products.
         if buildProduct.product.type == .library(.static) {
@@ -107,11 +126,15 @@ public struct LLbuildManifestGenerator {
                 outputs: [buildProduct.binary.asString],
                 args: buildProduct.linkArguments())
         }
-        return Command(name: buildProduct.targetName, tool: tool)
+
+        var target = Target(name: buildProduct.targetName)
+        target.outputs = tool.outputs
+        target.cmds.insert(Command(name: buildProduct.commandName, tool: tool))
+        return target
     }
 
-    /// Create command for Swift target description.
-    private func createSwiftCommand(_ target: SwiftTargetDescription) -> Command {
+    /// Create a llbuild target for a Swift target description.
+    private func createSwiftCompileTarget(_ target: SwiftTargetDescription) -> Target {
         // Compute inital inputs.
         var inputs = SortedArray<String>()
         inputs += target.target.sources.paths.map({ $0.asString })
@@ -151,13 +174,17 @@ public struct LLbuildManifestGenerator {
             }
         }
 
+        var buildTarget = Target(name: target.target.targetName)
+        // The target only cares about the module output.
+        buildTarget.outputs = [target.moduleOutputPath.asString]
         let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
-        return Command(name: target.target.targetName, tool: tool)
+        buildTarget.cmds.insert(Command(name: target.target.commandName, tool: tool))
+        return buildTarget
     }
 
-    /// Create commands for Clang targets.
-    private func createClangCommands(_ target: ClangTargetDescription) -> [Command] {
-        return target.compilePaths().map({ path in
+    /// Create a llbuild target for a Clang target description.
+    private func createClangCompileTarget(_ target: ClangTargetDescription) -> Target {
+        let commands: [Command] = target.compilePaths().map({ path in
             var args = target.basicArguments()
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.asString]
             args += ["-c", path.source.asString, "-o", path.object.asString]
@@ -170,12 +197,22 @@ public struct LLbuildManifestGenerator {
                 deps: path.deps.asString)
             return Command(name: path.object.asString, tool: clang)
         })
+
+        // For Clang, the target requires all command outputs.
+        var buildTarget = Target(name: target.target.targetName)            
+        buildTarget.outputs = commands.flatMap({ $0.tool.outputs })
+        buildTarget.cmds += commands
+        return buildTarget
     }
 }
 
 extension ResolvedTarget {
     var targetName: String {
-        return "<\(name).module>"
+        return "\(name).module"
+    }
+
+    var commandName: String {
+        return "C.\(targetName)"
     }
 }
 
@@ -183,15 +220,19 @@ extension ProductBuildDescription {
     public var targetName: String {
         switch product.type {
         case .library(.dynamic):
-            return "<\(product.name).dylib>"
+            return "\(product.name).dylib"
         case .test:
-            return "<\(product.name).test>"
+            return "\(product.name).test"
         case .library(.static):
-            return "<\(product.name).a>"
+            return "\(product.name).a"
         case .library(.automatic):
             fatalError()
         case .executable:
-            return "<\(product.name).exe>"
+            return "\(product.name).exe"
         }
+    }
+
+    var commandName: String {
+        return "C.\(targetName)"
     }
 }

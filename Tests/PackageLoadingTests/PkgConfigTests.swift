@@ -28,6 +28,8 @@ extension CTarget {
 
 class PkgConfigTests: XCTestCase {
 
+    let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
+    
     func testBasics() throws {
         // No pkgConfig name.
         do {
@@ -64,7 +66,6 @@ class PkgConfigTests: XCTestCase {
             }
         }
 
-    let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
         // Pc file.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.asString]) {
             let result = pkgConfigArgs(for: CTarget(pkgConfig: "Foo"))!
@@ -93,7 +94,18 @@ class PkgConfigTests: XCTestCase {
         }
     }
 
+    func testDependencies() throws {
+        // Use additionalSearchPaths instead of pkgConfigArgs to test handling
+        // of search paths when loading dependencies.
+        let result = try PkgConfig(name: "Dependent", additionalSearchPaths: [inputsDir])
+
+        XCTAssertEqual(result.name, "Dependent")
+        XCTAssertEqual(result.cFlags, ["-I/path/to/dependent/include", "-I/path/to/dependency/include"])
+        XCTAssertEqual(result.libs, ["-L/path/to/dependent/lib", "-L/path/to/dependency/lib"])
+    }
+    
     static var allTests = [
         ("testBasics", testBasics),
+        ("testDependencies", testDependencies),
     ]
 }

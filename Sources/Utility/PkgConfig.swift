@@ -86,7 +86,11 @@ public struct PkgConfig {
         if !parser.dependencies.isEmpty {
             for dep in parser.dependencies {
                 // FIXME: This is wasteful, we should be caching the PkgConfig result.
-                let pkg = try PkgConfig(name: dep)
+                let pkg = try PkgConfig(
+                    name: dep, 
+                    additionalSearchPaths: additionalSearchPaths, 
+                    fileSystem: fileSystem
+                )
                 cFlags += pkg.cFlags
                 libs += pkg.libs
             }

@@ -10,8 +10,9 @@
 
 import XCTest
 
-import TestSupport
 import Basic
+import Commands
+import TestSupport
 import PackageModel
 import Utility
 import Xcodeproj
@@ -60,17 +61,18 @@ class FunctionalTests: XCTestCase {
 
             let pcFile = prefix.appending(component: "libSystemModule.pc")
             try! write(path: pcFile) { stream in
-                stream <<< "prefix=\(prefix.appending(component: "SystemModule").asString)\n"
-                stream <<< "exec_prefix=${prefix}\n"
-                stream <<< "libdir=${exec_prefix}\n"
-                stream <<< "includedir=${prefix}/Sources/include\n"
-
-                stream <<< "Name: SystemModule\n"
-                stream <<< "URL: http://127.0.0.1/\n"
-                stream <<< "Description: The one and only SystemModule\n"
-                stream <<< "Version: 1.10.0\n"
-                stream <<< "Cflags: -I${includedir}\n"
-                stream <<< "Libs: -L${libdir} -lSystemModule\n"
+                stream <<< """
+                    prefix=\(prefix.appending(component: "SystemModule").asString)
+                    exec_prefix=${prefix}
+                    libdir=${exec_prefix}
+                    includedir=${prefix}/Sources/include
+                    Name: SystemModule
+                    URL: http://127.0.0.1/
+                    Description: The one and only SystemModule
+                    Version: 1.10.0
+                    Cflags: -I${includedir}
+                    Libs: -L${libdir} -lSystemModule
+                    """
             }
             let moduleUser = prefix.appending(component: "SystemModuleUser")
             let env = ["PKG_CONFIG_PATH": prefix.asString]
@@ -113,7 +115,7 @@ class FunctionalTests: XCTestCase {
         // Now we use a fixture for both the system library wrapper and the text executable.
         fixture(name: "Miscellaneous/SystemModules") { prefix in
             XCTAssertBuilds(prefix.appending(component: "TestExec"), Xld: ["-L/tmp/"])
-            XCTAssertFileExists(prefix.appending(components: "TestExec", ".build", "debug", "TestExec"))
+            XCTAssertFileExists(prefix.appending(components: "TestExec", ".build", Destination.host.target, "debug", "TestExec"))
             let fakeDir = prefix.appending(component: "CFake")
             XCTAssertDirectoryExists(fakeDir)
             let execDir = prefix.appending(component: "TestExec")
@@ -147,10 +149,22 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
         if env["TOOLCHAINS"] == nil {
             env["TOOLCHAINS"] = "default"
         }
+        let xcconfig = project.appending(component: "overrides.xcconfig")
+        let swiftCompilerPath = Resources.default.swiftCompiler.asString
+        try localFileSystem.writeFileContents(xcconfig) {
+            $0 <<< "SWIFT_EXEC = " <<< swiftCompilerPath
+        }
         try Process.checkNonZeroExit(
-            args: "xcodebuild", "-project", project.asString, "-alltargets", environment: env)
+            args: "xcodebuild", "-project", project.asString, "-alltargets", "-xcconfig", xcconfig.asString, environment: env)
     } catch {
         XCTFail("xcodebuild failed:\n\n\(error)\n", file: file, line: line)
+        switch error {
+        case ProcessResult.Error.nonZeroExit(let result):
+            try? print("stdout: " + result.utf8Output())
+            try? print("stderr: " + result.utf8stderrOutput())
+        default:
+            break
+        }
     }
 }
 

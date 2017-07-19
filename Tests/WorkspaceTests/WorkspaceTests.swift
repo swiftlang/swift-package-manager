@@ -159,10 +159,12 @@ final class WorkspaceTests: XCTestCase {
             let testRepo = GitRepository(path: testRepoPath)
 
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "Package.swift")) {
-                $0 <<< "import PackageDescription" <<< "\n"
-                $0 <<< "let package = Package(" <<< "\n"
-                $0 <<< "    name: \"test-repo\"" <<< "\n"
-                $0 <<< ")" <<< "\n"
+                $0 <<< """
+                    import PackageDescription
+                    let package = Package(
+                        name: "test-repo"
+                    )
+                    """
             }
             try testRepo.stage(file: "Package.swift")
             try testRepo.commit()
@@ -425,25 +427,30 @@ final class WorkspaceTests: XCTestCase {
             // Create root package.
             try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
             try fs.writeFileContents(root.appending(component: "Package.swift")) {
-                $0 <<< "// swift-tools-version:4.0" <<< "\n"
-                $0 <<< "import PackageDescription" <<< "\n"
-                $0 <<< "let package = Package(" <<< "\n"
-                $0 <<< "    name: \"root\"," <<< "\n"
-                $0 <<< "    dependencies: [.package(url: \"../depSym\", from: \"1.0.0\")]," <<< "\n"
-                $0 <<< "    targets: [.target(name: \"root\", dependencies: [\"dep\"])]" <<< "\n"
-                $0 <<< ")" <<< "\n"
+                $0 <<< """
+                    // swift-tools-version:4.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "root",
+                        dependencies: [.package(url: "../depSym", from: "1.0.0")],
+                        targets: [.target(name: "root", dependencies: ["dep"])]
+                    )
+
+                    """
             }
 
             // Create dependency.
             try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
             try fs.writeFileContents(dep.appending(component: "Package.swift")) {
-                $0 <<< "// swift-tools-version:4.0" <<< "\n"
-                $0 <<< "import PackageDescription" <<< "\n"
-                $0 <<< "let package = Package(" <<< "\n"
-                $0 <<< "    name: \"dep\"," <<< "\n"
-                $0 <<< "    products: [.library(name: \"dep\", targets: [\"dep\"])]," <<< "\n"
-                $0 <<< "    targets: [.target(name: \"dep\")]" <<< "\n"
-                $0 <<< ")" <<< "\n"
+                $0 <<< """
+                    // swift-tools-version:4.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "dep",
+                        products: [.library(name: "dep", targets: ["dep"])],
+                        targets: [.target(name: "dep")]
+                    )
+                    """
             }
             do {
                 let depGit = GitRepository(path: dep)
@@ -621,10 +628,12 @@ final class WorkspaceTests: XCTestCase {
 
             let testRepo = GitRepository(path: testRepoPath)
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "Package.swift")) {
-                $0 <<< "import PackageDescription" <<< "\n"
-                $0 <<< "let package = Package(" <<< "\n"
-                $0 <<< "    name: \"test-repo\"" <<< "\n"
-                $0 <<< ")" <<< "\n"
+                $0 <<< """
+                    import PackageDescription
+                    let package = Package(
+                        name: "test-repo"
+                    )
+                    """
             }
             try testRepo.stage(file: "Package.swift")
             try testRepo.commit()
@@ -1472,7 +1481,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssertTrue(diagnostics.diagnostics.contains(where: {
                 $0.behavior == .warning &&
-                $0.localizedDescription == "The dependency 'A' was being edited but is missing. Falling back to original checkout."
+                $0.localizedDescription == "dependency 'A' was being edited but is missing; falling back to original checkout"
             }))
         }
     }
@@ -1616,7 +1625,7 @@ final class WorkspaceTests: XCTestCase {
             let diagnostics = DiagnosticsEngine()
             workspace.loadPackageGraph(rootPackages: roots, diagnostics: diagnostics)
             let errorDesc = diagnostics.diagnostics[0].localizedDescription
-            XCTAssertEqual(errorDesc, "The package at '/root1' requires a minimum Swift tools version of 4.0.0 but currently at 3.1.0")
+            XCTAssertEqual(errorDesc, "package at '/root1' requires a minimum Swift tools version of 4.0.0 but currently at 3.1.0")
         }
     }
 
@@ -1628,8 +1637,10 @@ final class WorkspaceTests: XCTestCase {
             }
 
             try localFileSystem.writeFileContents(roots[2].appending(components: Manifest.filename)) { stream in
-                stream <<< "import PackageDescription" <<< "\n"
-                stream <<< "let package = Package(name: \"root0\")"
+                stream <<< """
+                    import PackageDescription
+                    let package = Package(name: "root0")
+                    """
             }
 
             let workspace = Workspace.createWith(rootPackage: roots[0])
@@ -1802,7 +1813,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssertTrue(diagnostics.diagnostics.contains(where: {
                 $0.behavior == .warning &&
-                $0.localizedDescription == "The dependency 'Foo' is missing and has been cloned again."
+                $0.localizedDescription == "dependency 'Foo' is missing; cloning again"
             }))
             XCTAssertTrue(isDirectory(workspace.checkoutsPath))
         }
@@ -1994,7 +2005,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Check that we produce error.
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: .contains("graph is unresolvable."), behavior: .error)
+            result.check(diagnostic: .contains("dependency graph is unresolvable;"), behavior: .error)
         }
 
         // There should be no extra fetches.

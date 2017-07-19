@@ -9,25 +9,19 @@
 */
 
 import XCTest
-
+import Commands
 import TestSupport
 import Basic
 import Utility
-
-#if os(macOS)
-private let dylib = "dylib"
-#else
-private let dylib = "so"
-#endif
 
 class ModuleMapsTestCase: XCTestCase {
 
     private func fixture(name: String, cModuleName: String, rootpkg: String, body: @escaping (AbsolutePath, [String]) throws -> Void) {
         TestSupport.fixture(name: name) { prefix in
             let input = prefix.appending(components: cModuleName, "C", "foo.c")
-            let outdir = prefix.appending(components: rootpkg, ".build", "debug")
+            let outdir = prefix.appending(components: rootpkg, ".build", Destination.host.target, "debug")
             try makeDirectories(outdir)
-            let output = outdir.appending(component: "libfoo.\(dylib)")
+            let output = outdir.appending(component: "libfoo.\(Destination.host.dynamicLibraryExtension)")
             try systemQuietly(["clang", "-shared", input.asString, "-o", output.asString])
 
             var Xld = ["-L", outdir.asString]
@@ -44,9 +38,10 @@ class ModuleMapsTestCase: XCTestCase {
 
             XCTAssertBuilds(prefix.appending(component: "App"), Xld: Xld)
 
-            let debugout = try Process.checkNonZeroExit(args: prefix.appending(RelativePath("App/.build/debug/App")).asString)
+            let targetPath = prefix.appending(components: "App", ".build", Destination.host.target)
+            let debugout = try Process.checkNonZeroExit(args: targetPath.appending(components: "debug", "App").asString)
             XCTAssertEqual(debugout, "123\n")
-            let releaseout = try Process.checkNonZeroExit(args: prefix.appending(RelativePath("App/.build/release/App")).asString)
+            let releaseout = try Process.checkNonZeroExit(args: targetPath.appending(components: "release", "App").asString)
             XCTAssertEqual(releaseout, "123\n")
         }
     }
@@ -57,9 +52,14 @@ class ModuleMapsTestCase: XCTestCase {
             XCTAssertBuilds(prefix.appending(component: "packageA"), Xld: Xld)
 
             func verify(_ conf: String, file: StaticString = #file, line: UInt = #line) throws {
-                let expectedOutput = "calling Y.bar()\nY.bar() called\nX.foo() called\n123\n"
-                let out = try Process.checkNonZeroExit(args: prefix.appending(components: "packageA", ".build", conf, "packageA").asString)
-                XCTAssertEqual(out, expectedOutput)
+                let out = try Process.checkNonZeroExit(args: prefix.appending(components: "packageA", ".build", Destination.host.target, conf, "packageA").asString)
+                XCTAssertEqual(out, """
+                    calling Y.bar()
+                    Y.bar() called
+                    X.foo() called
+                    123
+                    
+                    """)
             }
 
             try verify("debug")

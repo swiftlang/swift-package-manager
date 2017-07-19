@@ -43,6 +43,18 @@ extension RunError: CustomStringConvertible {
     }
 }
 
+struct RunFileDeprecatedDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: AnyDiagnostic.self,
+        name: "org.swift.diags.run-file-deprecated",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "'swift run file.swift' command to interpret swift files is deprecated;"
+            $0 <<< "use 'swift file.swift' instead"
+        }
+    )
+}
+
 public class RunToolOptions: ToolOptions {
     /// Returns the mode in with the tool command should run.
     var mode: RunMode {
@@ -87,13 +99,26 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             print(Versioning.currentVersion.completeDisplayString)
 
         case .run:
+            // Detect deprecated uses of swift run to interpret scripts.
+            if let executable = options.executable, isValidSwiftFilePath(executable) {
+                print(diagnostic: Diagnostic(
+                    location: UnknownLocation.location,
+                    data: RunFileDeprecatedDiagnostic()))
+                // Redirect execution to the toolchain's swift executable.
+                let swiftInterpreterPath = try getToolchain().swiftInterpreter
+                // Prepend the script to interpret to the arguments.
+                let arguments = [executable] + options.arguments
+                try run(swiftInterpreterPath, arguments: arguments)
+                return
+            }
+                    
             let plan = try buildPlan()
 
             if options.shouldBuild {
                 try build(plan: plan, includingTests: false)
             }
 
-            try run(findExecutable(in: plan))
+            try run(findExecutable(in: plan), arguments: options.arguments)
         }
     }
 
@@ -128,9 +153,23 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
     }
     
     /// Executes the executable at the specified path.
-    private func run(_ excutablePath: AbsolutePath) throws {
+    private func run(_ excutablePath: AbsolutePath, arguments: [String]) throws {
+        // Make sure we are running from the original working directory.
+        if originalWorkingDirectory != currentWorkingDirectory {
+            try POSIX.chdir(originalWorkingDirectory.asString)
+        }
+
         let pathRelativeToWorkingDirectory = excutablePath.relative(to: originalWorkingDirectory)
-        try exec(path: excutablePath.asString, args: [pathRelativeToWorkingDirectory.asString] + options.arguments)
+        try exec(path: excutablePath.asString, args: [pathRelativeToWorkingDirectory.asString] + arguments)
+    }
+
+    /// Determines if a path points to a valid swift file.
+    private func isValidSwiftFilePath(_ path: String) -> Bool {
+        guard path.hasSuffix(".swift") else { return false }
+        //FIXME: Return false when the path is not a valid path string.
+        let absolutePath = path.characters.first == "/" ?
+            AbsolutePath(path) : AbsolutePath(currentWorkingDirectory, path)
+        return localFileSystem.isFile(absolutePath)
     }
 
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<RunToolOptions>) {

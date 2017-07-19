@@ -881,8 +881,14 @@ def main():
             raise SystemExit("unknown build action: %r" % (action,))
 
     # Compute the build paths.
+    if platform.system() == 'Darwin':
+        build_target = "x86_64-apple-macosx10.10"
+    else:
+        build_target = 'x86_64-unknown-linux'
+
     build_path = os.path.join(g_project_root, args.build_path)
     sandbox_path = os.path.join(build_path, ".bootstrap")
+    target_path = os.path.join(build_path, build_target)
 
     # If the action is "clean", just remove the bootstrap and build directories.
     if "clean" in build_actions:
@@ -926,14 +932,16 @@ def main():
         processed_runtimes[version] = process_runtime_libraries(
                 build, args, lib_path)
 
-    libdir = os.path.join(build_path, "lib")
-    bindir = os.path.join(build_path, conf)
+    
+    libdir = os.path.join(target_path, "lib")
+    bindir = os.path.join(target_path, conf)
     mkdir_p(bindir)
     bootstrapped_product = os.path.join(bindir, "swift-build-stage1")
 
     # Construct a fake toolchain so swift-build can build itself
     # without requiring it to have hacky-edge-case logic
     def make_fake_toolchain():
+        symlink_force(args.swiftc_path, os.path.join(bindir, "swift"))
         symlink_force(args.swiftc_path, os.path.join(bindir, "swiftc"))
         symlink_force(args.sbt_path, os.path.join(bindir, "swift-build-tool"))
         symlink_force(os.path.join(sandbox_path, "bin", "swift-build"),
@@ -941,7 +949,7 @@ def main():
         if os.path.isdir(libdir) and not os.path.islink(libdir):
             # TODO remove, here to prevent revlock incremental CI build failures
             shutil.rmtree(libdir)
-        symlink_force(os.path.join(sandbox_path, "lib"), build_path)
+        symlink_force(os.path.join(sandbox_path, "lib"), target_path)
 
         if args.foundation_path:
             libswiftdir = os.path.join(sandbox_path, "lib", "swift", "linux")
@@ -1038,12 +1046,12 @@ def main():
     if result != 0:
         error("build failed with exit status %d" % (result,))
 
-    swift_package_path = os.path.join(build_path, conf, "swift-package")
-    swift_build_path = os.path.join(build_path, conf, "swift-build")
-    swift_test_path = os.path.join(build_path, conf, "swift-test")
-    swift_run_path = os.path.join(build_path, conf, "swift-run")
+    swift_package_path = os.path.join(target_path, conf, "swift-package")
+    swift_build_path = os.path.join(target_path, conf, "swift-build")
+    swift_test_path = os.path.join(target_path, conf, "swift-test")
+    swift_run_path = os.path.join(target_path, conf, "swift-run")
     swiftpm_xctest_helper_path = os.path.join(
-        build_path, conf, "swiftpm-xctest-helper")
+        target_path, conf, "swiftpm-xctest-helper")
 
     # If testing, run each of the test bundles.
     if "test" in build_actions:
@@ -1122,7 +1130,7 @@ def main():
         # Copy the libSwiftPM library.
         # FIXME: This shouldn't require so much knowledge of the manifest.
         # FIXME: We should handle what happens if it's a static library.
-        src_path = os.path.join(build_path, conf, libswiftpm_product.product_name)
+        src_path = os.path.join(target_path, conf, libswiftpm_product.product_name)
         installBinary(src_path, libswiftpm_library_dir, args.swiftc_path)
         
         # If it's a dynamic library, and if we're on Darwin, fix the dylib id.
@@ -1174,7 +1182,7 @@ def main():
             elif target.is_swift:
                 # Copy swiftmodule and swiftdoc i.e. headers of the Swift target.
                 for suffix in [".swiftmodule", ".swiftdoc"]:
-                    src_path = os.path.join(build_path, conf, target.name + suffix)
+                    src_path = os.path.join(target_path, conf, target.name + suffix)
                     if not os.path.exists(src_path):
                         continue
                     dst_path = os.path.join(libswiftpm_modules_dir, target.name + suffix)

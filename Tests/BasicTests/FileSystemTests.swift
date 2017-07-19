@@ -44,9 +44,12 @@ class FileSystemTests: XCTestCase {
         // isExecutableFile
         let executable = tempDir.path.appending(component: "exec-foo")
         let stream = BufferedOutputByteStream()
-        stream <<< "#!/bin/sh" <<< "\n"
-        stream <<< "set -e" <<< "\n"
-        stream <<< "exit" <<< "\n"
+        stream <<< """
+            #!/bin/sh
+            set -e
+            exit
+
+            """
         try! localFileSystem.writeFileContents(executable, bytes: stream.bytes)
         try! Process.checkNonZeroExit(args: "chmod", "+x", executable.asString)
         XCTAssertTrue(fs.isExecutableFile(executable))

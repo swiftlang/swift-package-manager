@@ -20,8 +20,9 @@ public enum PackageBuilderDiagnostics {
             name: "org.swift.diags.pkg-builder.nosources",
             defaultBehavior: .warning,
             description: {
-                $0 <<< "The target" <<< { $0.target } <<< "in package" <<< { $0.package }
-                $0 <<< "does not contain any valid source files."
+                $0 <<< "target" <<< { "'\($0.target)'" }
+                $0 <<< "in package" <<< { "'\($0.package)'" }
+                $0 <<< "contains no valid source files"
             }
         )
     
@@ -39,8 +40,9 @@ public enum PackageBuilderDiagnostics {
             name: "org.swift.diags.pkg-builder.nosources",
             defaultBehavior: .warning,
             description: {
-                $0 <<< "Ignoring target" <<< { $0.target } <<< "in package" <<< { $0.package }
-                $0 <<< "as C language in tests is not supported yet." 
+                $0 <<< "ignoring target" <<< { "'\($0.target)'" }
+                $0 <<< "in package" <<< { "'\($0.package)';" }
+                $0 <<< "C language in tests is not yet supported"
             }
         )
 

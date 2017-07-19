@@ -192,7 +192,7 @@ final class PackageToolTests: XCTestCase {
             _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath, printIfError: true)
 
             // Path to the executable.
-            let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
+            let exec = [fooPath.appending(components: ".build", Destination.host.target, "debug", "foo").asString]
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -207,7 +207,7 @@ final class PackageToolTests: XCTestCase {
             try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 88888\n")
             let buildOutput = try build()
 
-            XCTAssert(buildOutput.contains("The dependency 'baz' was being edited but is missing. Falling back to original checkout."))
+            XCTAssert(buildOutput.contains("dependency 'baz' was being edited but is missing; falling back to original checkout"))
             // We should be able to see that modification now.
             XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec), "88888\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.
@@ -265,12 +265,14 @@ final class PackageToolTests: XCTestCase {
 
             // Build it.
             XCTAssertBuilds(packageRoot)
-            XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "Bar"))
-            XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
+            let buildPath = packageRoot.appending(component: ".build")
+            let binFile = buildPath.appending(components: Destination.host.target, "debug", "Bar")
+            XCTAssertFileExists(binFile)
+            XCTAssert(isDirectory(buildPath))
 
             // Clean, and check for removal of the build directory but not Packages.
             _ = try execute(["clean"], packagePath: packageRoot)
-            XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
+            XCTAssert(!exists(binFile))
             // Clean again to ensure we get no error.
             _ = try execute(["clean"], packagePath: packageRoot)
         }
@@ -282,17 +284,19 @@ final class PackageToolTests: XCTestCase {
 
             // Build it.
             XCTAssertBuilds(packageRoot)
-            XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "Bar"))
-            XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
+            let buildPath = packageRoot.appending(component: ".build")
+            let binFile = buildPath.appending(components: Destination.host.target, "debug", "Bar")
+            XCTAssertFileExists(binFile)
+            XCTAssert(isDirectory(buildPath))
             // Clean, and check for removal of the build directory but not Packages.
 
             _ = try execute(["clean"], packagePath: packageRoot)
-            XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
-            XCTAssertFalse(try localFileSystem.getDirectoryContents(packageRoot.appending(components: ".build", "repositories")).isEmpty)
+            XCTAssert(!exists(binFile))
+            XCTAssertFalse(try localFileSystem.getDirectoryContents(buildPath.appending(component: "repositories")).isEmpty)
 
             // Fully clean.
             _ = try execute(["reset"], packagePath: packageRoot)
-            XCTAssertFalse(isDirectory(packageRoot.appending(component: ".build")))
+            XCTAssertFalse(isDirectory(buildPath))
         }
     }
 
@@ -347,7 +351,7 @@ final class PackageToolTests: XCTestCase {
                 let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath, printIfError: true)
                 return buildOutput
             }
-            let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
+            let exec = [fooPath.appending(components: ".build", Destination.host.target, "debug", "foo").asString]
 
             // Build and sanity check.
             _ = try build()
@@ -421,7 +425,7 @@ final class PackageToolTests: XCTestCase {
                     try execute("resolve", "bar", printError: false)
                     XCTFail("This should have been an error")
                 } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                    XCTAssert(stderr.contains("bar' is already in edit mode"), stderr)
+                    XCTAssertEqual(stderr, "error: dependency 'bar' already in edit mode\n")
                 }
                 try execute("unedit", "bar")
             }

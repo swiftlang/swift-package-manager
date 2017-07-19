@@ -24,7 +24,7 @@ struct SpecifierDeprecatedDiagnostic: DiagnosticData {
         name: "org.swift.diags.specifier-deprecated",
         defaultBehavior: .warning,
         description: {
-            $0 <<< "'--specifier' option is deprecated, use '--filter' instead."
+            $0 <<< "'--specifier' option is deprecated; use '--filter' instead"
         }
     )
 }
@@ -36,7 +36,7 @@ struct NoMatchingTestsWarning: DiagnosticData {
         name: "org.swift.diags.no-matching-tests",
         defaultBehavior: .note,
         description: {
-            $0 <<< "the filter predicate did not match any test case"
+            $0 <<< "'--filter' predicate did not match any test case"
         }
     )
 }
@@ -137,7 +137,6 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         case .runSerial:
             let testPath = try buildTestsIfNeeded(options)
-            let testSuites = try getTestSuites(path: testPath)
             var ranSuccessfully = true
 
             switch options.testCaseSpecifier {
@@ -152,6 +151,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 }
 
                 // Find the tests we need to run.
+                let testSuites = try getTestSuites(path: testPath)
                 let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
                 // If there were no matches, emit a warning.

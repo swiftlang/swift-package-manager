@@ -25,7 +25,7 @@ struct ChdirDeprecatedDiagnostic: DiagnosticData {
         name: "org.swift.diags.chdir-deprecated",
         defaultBehavior: .warning,
         description: {
-            $0 <<< "the '--chdir/-C' option is deprecated; use '--package-path' instead"
+            $0 <<< "'--chdir/-C' option is deprecated; use '--package-path' instead"
         }
     )
 }
@@ -204,6 +204,16 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--verbose", shortName: "-v", kind: Bool.self,
                 usage: "Increase verbosity of informational output"),
             to: { $0.verbosity = $1 ? 1 : 0 })
+
+        binder.bind(
+            option: parser.add(option: "--no-static-swift-stdlib", kind: Bool.self,
+                usage: "Do not link Swift stdlib statically"),
+            to: { $0.shouldLinkStaticSwiftStdlib = !$1 })
+
+        binder.bind(
+            option: parser.add(option: "--static-swift-stdlib", kind: Bool.self,
+                usage: "Link Swift stdlib statically"),
+            to: { $0.shouldLinkStaticSwiftStdlib = $1 })
 
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
@@ -389,7 +399,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         let yaml = buildPath.appending(component: plan.buildParameters.configuration.dirname + ".yaml")
         // Generate llbuild manifest.
-        let llbuild = LLbuildManifestGenerator(plan)
+        let llbuild = LLBuildManifestGenerator(plan)
         try llbuild.generateManifest(at: yaml)
         assert(isFile(yaml), "llbuild manifest not present: \(yaml.asString)")
 
@@ -423,18 +433,31 @@ public class SwiftTool<Options: ToolOptions> {
         guard result.exitStatus == .terminated(code: 0) else {
             throw ProcessResult.Error.nonZeroExit(result)
         }
+
+        // Create backwards-compatibilty symlink to old build path.
+        let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
+        if exists(oldBuildPath) {
+            try removeFileTree(oldBuildPath)
+        }
+        try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
     }
 
     /// Generates a BuildPlan based on the tool's options.
     func buildPlan() throws -> BuildPlan {
         return try BuildPlan(
-            buildParameters: BuildParameters(
-                dataPath: buildPath,
-                configuration: options.configuration,
-                toolchain: try getToolchain(),
-                flags: options.buildFlags),
-            graph: try loadPackageGraph(),
+            buildParameters: buildParameters(),
+            graph: loadPackageGraph(),
             delegate: self)
+    }
+
+    /// Create build parameters.
+    func buildParameters() throws -> BuildParameters {
+        let toolchain = try getToolchain()
+        return BuildParameters(
+            dataPath: buildPath.appending(component: toolchain.destination.target),
+            configuration: options.configuration,
+            toolchain: toolchain,
+            flags: options.buildFlags)
     }
 
     /// Lazily compute the destination toolchain.
@@ -526,7 +549,7 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
         // For xcrun cache.
         stream <<< "    (regex #\"^\(directory.asString)/xcrun.*\")" <<< "\n"
         // For autolink files.
-        stream <<< "    (regex #\"^\(directory.asString)/.*\\.swift-[0-9a-f]+\\.autolink\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory.asString)/.*\\.(swift|c)-[0-9a-f]+\\.autolink\")" <<< "\n"
     }
     for directory in allowedDirectories {
         stream <<< "    (subpath \"\(directory.asString)\")" <<< "\n"

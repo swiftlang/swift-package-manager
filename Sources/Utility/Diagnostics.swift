@@ -141,7 +141,7 @@ public enum PackageLocation {
         public var localizedDescription: String {
             let stream = BufferedOutputByteStream()
             if let name = name {
-                stream <<< "Package: " <<< name <<< " "
+                stream <<< "Package: \(name) "
             }
             stream <<< packagePath.asString
             return stream.bytes.asString!

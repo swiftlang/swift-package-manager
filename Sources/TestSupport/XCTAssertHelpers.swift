@@ -40,7 +40,12 @@ public func XCTAssertBuilds(
                 Xswiftc: Xswiftc,
                 env: env)
         } catch {
-            XCTFail("`swift build -c \(conf)' failed:\n\n\(error)\n", file: file, line: line)
+            XCTFail("""
+                `swift build -c \(conf)' failed:
+                
+                \(error)
+
+                """, file: file, line: line)
         }
     }
 }
@@ -54,7 +59,12 @@ public func XCTAssertSwiftTest(
     do {
         _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: path, env: env, printIfError: true)
     } catch {
-        XCTFail("`swift test' failed:\n\n\(error)\n", file: file, line: line)
+        XCTFail("""
+            `swift test' failed:
+            
+            \(error)
+
+            """, file: file, line: line)
     }
 }
 
