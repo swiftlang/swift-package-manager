@@ -403,6 +403,10 @@ public class SwiftTool<Options: ToolOptions> {
         try llbuild.generateManifest(at: yaml)
         assert(isFile(yaml), "llbuild manifest not present: \(yaml.asString)")
 
+        // Create a temporary directory for the build process.
+        let tempDir = Basic.determineTempDirectory().appending(component: "swiftpm")
+        try localFileSystem.createDirectory(tempDir, recursive: true)
+
         // Run the swift-build-tool with the generated manifest.
         var args = [String]()
 
@@ -411,7 +415,11 @@ public class SwiftTool<Options: ToolOptions> {
         // against arbitrary code execution. We only allow the permissions which
         // are absolutely necessary for performing a build.
         if !options.shouldDisableSandbox {
-            let allowedDirectories = [buildPath, BuildParameters.swiftpmTestCache].map(resolveSymlinks)
+            let allowedDirectories = [
+                tempDir,
+                buildPath,
+                BuildParameters.swiftpmTestCache
+            ].map(resolveSymlinks)
             args += ["sandbox-exec", "-p", sandboxProfile(allowedDirectories: allowedDirectories)]
         }
       #endif
@@ -424,8 +432,15 @@ public class SwiftTool<Options: ToolOptions> {
             args.append("-v")
         }
 
+        // Create the environment for llbuild.
+        var env = Process.env
+        // We override the temporary directory so tools assuming full access to
+        // the tmp dir can create files here freely, provided they respect this
+        // variable.
+        env["TMPDIR"] = tempDir.asString
+
         // Run llbuild and print output on standard streams.
-        let process = Process(arguments: args, redirectOutput: false)
+        let process = Process(arguments: args, environment: env, redirectOutput: false)
         try process.launch()
         try processSet.add(process)
         let result = try process.waitUntilExit()
