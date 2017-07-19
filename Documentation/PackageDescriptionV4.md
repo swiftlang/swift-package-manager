@@ -20,7 +20,7 @@ relative path of the target is declared, the Package Manager will look for
 a directory matching the name of the target in these places:
 
 Regular targets: package root, Sources, Source, src, srcs.  
-Regular targets: Tests, package root, Sources, Source, src, srcs. 
+Test targets: Tests, package root, Sources, Source, src, srcs. 
 
 ## Package Manifest File Format Reference
 
