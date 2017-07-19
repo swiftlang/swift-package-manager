@@ -33,8 +33,8 @@ func bash_template(on stream: OutputByteStream) {
     // If we're on the second completion word: `swift #`, then we'll complete
     // the names of the tools and compiler flags.
     stream <<< "    if [[ $COMP_CWORD == 1 ]]; then\n"
-    stream <<< "        COMPREPLY=( $(compgen -W \"build run package test\" -- $cur) )\n"
     stream <<< "        _swift_compiler\n"
+    stream <<< "        COMPREPLY+=( $(compgen -W \"build run package test\" -- $cur) )\n"
     stream <<< "        return\n"
     stream <<< "    fi\n"
 
@@ -68,11 +68,13 @@ func bash_template(on stream: OutputByteStream) {
     SwiftPackageTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
     SwiftTestTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
 
-    // Figure out how to forward to swift compiler's bash completion.
+    // Forward to swift compiler completion, if defined.
     stream <<< """
                _swift_compiler()
                {
-                   return 0
+                   if [[ `type -t _swift_complete`"" == 'function' ]]; then
+                       _swift_complete
+                   fi
                }
 
 
