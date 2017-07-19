@@ -34,7 +34,7 @@ final class RunToolTests: XCTestCase {
                 _ = try execute(["unknown"], packagePath: path)
                 XCTFail("Unexpected success")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: could not find executable product 'unknown' in the package\n")
+                XCTAssertEqual(stderr, "error: no executable product named 'unknown'\n")
             }
 
             let runOutput = try execute(["secho", "1", "--hello", "world"], packagePath: path)
@@ -49,7 +49,7 @@ final class RunToolTests: XCTestCase {
                 _ = try execute([], packagePath: path)
                 XCTFail("Unexpected success")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: multiple executable products in the package. Use `swift run ` followed by one of: exec1, exec2\n")
+                XCTAssertEqual(stderr, "error: multiple executable products available: exec1, exec2\n")
             }
             
             var runOutput = try execute(["exec1"], packagePath: path)

@@ -29,18 +29,6 @@ struct FetchDeprecatedDiagnostic: DiagnosticData {
     )
 }
 
-/// Errors encountered duing the package tool operations.
-enum PackageToolOperationError: Swift.Error {
-    /// The provided package name doesn't exist in package graph.
-    case packageNotFound
-
-    /// The current mode does not have all the options it requires.
-    case insufficientOptions(usage: String)
-
-    /// The package is in editable state.
-    case packageInEditableState
-}
-
 /// swift-package tool namespace
 public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
@@ -454,18 +442,5 @@ extension PackageToolOptions.ResolveToolMode: StringEnumArgument {
             (text.rawValue, "resolve using text format"),
             (json.rawValue, "resolve using JSON format"),
         ])
-    }
-}
-
-extension PackageToolOperationError: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .packageInEditableState:
-            return "The provided package is in editable state"
-        case .packageNotFound:
-            return "The provided package was not found"
-        case .insufficientOptions(let usage):
-            return usage
-        }
     }
 }

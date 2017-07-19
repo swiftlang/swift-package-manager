@@ -21,10 +21,10 @@ extension SimplePersistence.Error: CustomStringConvertible {
     public var description: String {
         switch self {
         case let .invalidSchemaVersion(version):
-            return "Unsupported schema version (\(version))"
+            return "unsupported schema version \(version)"
 
         case let .restoreFailure(stateFile, error):
-            return "Unable to restore state from \(stateFile.asString). \(error)"
+            return "unable to restore state from \(stateFile.asString); \(error)"
         }
     }
 }

@@ -184,7 +184,7 @@ class PackageBuilderTests: XCTestCase {
 
         package = Package(name: "pkg", swiftLanguageVersions: [4])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("The package pkg should support Swift 3 because its minimum tools version is 3.")
+            result.checkDiagnostic("package 'pkg' must support Swift 3 because its minimum tools version is 3")
         }
 
         package = Package(name: "pkg")
@@ -426,7 +426,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/main.swift",
             "/Sources/main.c")
         PackageBuilderTester("MixedSources", in: fs) { result in
-            result.checkDiagnostic("the target at /Sources contains mixed language source files fix: use only a single language within a target")
+            result.checkDiagnostic("target at '/Sources' contains mixed language source files; feature not supported")
         }
     }
 
@@ -557,7 +557,7 @@ class PackageBuilderTests: XCTestCase {
             ])
 
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("could not find target(s): Bam. Use \'path\' property in Swift 4 manifest to set a custom target path.")
+            result.checkDiagnostic("could not find target(s): Bam; use the 'path' property in the Swift 4 manifest to set a custom target path")
         }
     }
 
@@ -593,7 +593,7 @@ class PackageBuilderTests: XCTestCase {
         var fs = InMemoryFileSystem(emptyFiles:
             "/Sources/FooTests/source.swift")
         PackageBuilderTester("TestsInSources", in: fs) { result in
-            result.checkDiagnostic("the directory Sources/FooTests has an invalid name (\'FooTests\'): the name of a non-test target has a 'Tests' suffix fix: rename the directory 'Sources/FooTests' to not have a 'Tests' suffix")
+            result.checkDiagnostic("invalid target name at 'Sources/FooTests'; name of non-test targets cannot end in 'Tests'")
         }
 
         // Normal target in Tests/
@@ -601,7 +601,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/main.swift",
             "/Tests/Foo/source.swift")
         PackageBuilderTester("TestsInSources", in: fs) { result in
-            result.checkDiagnostic("the directory Tests/Foo has an invalid name (\'Foo\'): the name of a test target has no 'Tests' suffix fix: rename the directory 'Tests/Foo' to have a 'Tests' suffix")
+            result.checkDiagnostic("invalid target name at 'Tests/Foo'; name of test targets must end in 'Tests'")
         }
     }
 
@@ -611,7 +611,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/main.swift",
             "/Tests/source.swift")
         PackageBuilderTester("LooseSourceFileInTestsDir", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /Tests/source.swift")
+            result.checkDiagnostic("package has unsupported layout; found loose source files: /Tests/source.swift")
         }
     }
     
@@ -621,19 +621,19 @@ class PackageBuilderTests: XCTestCase {
             "/Foo.swift")
         var package = PackageDescription.Package(name: "pkg", targets: [.init(name: "Random")])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("could not find target(s): Random. Use \'path\' property in Swift 4 manifest to set a custom target path.")
+            result.checkDiagnostic("could not find target(s): Random; use the 'path' property in the Swift 4 manifest to set a custom target path")
         }
 
         // Reference an invalid dependency.
         package = PackageDescription.Package(name: "pkg", targets: [.init(name: "pkg", dependencies: ["Foo"])])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("could not find target(s): Foo. Use \'path\' property in Swift 4 manifest to set a custom target path.")
+            result.checkDiagnostic("could not find target(s): Foo; use the 'path' property in the Swift 4 manifest to set a custom target path")
         }
 
         // Reference self in dependencies.
         package = PackageDescription.Package(name: "pkg", targets: [.init(name: "pkg", dependencies: ["pkg"])])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("found cyclic dependency declaration: pkg -> pkg")
+            result.checkDiagnostic("cyclic dependency declaration found: pkg -> pkg")
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -648,7 +648,7 @@ class PackageBuilderTests: XCTestCase {
             .init(name: "pkg3", dependencies: ["pkg1"]),
         ])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("found cyclic dependency declaration: pkg1 -> pkg2 -> pkg3 -> pkg1")
+            result.checkDiagnostic("cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg1")
         }
 
         package = PackageDescription.Package(name: "pkg", targets: [
@@ -657,7 +657,7 @@ class PackageBuilderTests: XCTestCase {
             .init(name: "pkg3", dependencies: ["pkg2"]),
         ])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("found cyclic dependency declaration: pkg1 -> pkg2 -> pkg3 -> pkg2")
+            result.checkDiagnostic("cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg2")
         }
 
         // Executable as dependency.
@@ -770,7 +770,7 @@ class PackageBuilderTests: XCTestCase {
             "/src/FooBarLib/FooBar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /Foo.swift, /main.swift")
+            result.checkDiagnostic("package has unsupported layout; found loose source files: /Foo.swift, /main.swift")
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -779,7 +779,7 @@ class PackageBuilderTests: XCTestCase {
             "/src/FooBarLib/FooBar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, multiple source roots found: /Sources, /src")
+            result.checkDiagnostic("package has unsupported layout; multiple source roots found: /Sources, /src")
         }
     }
 
@@ -795,7 +795,7 @@ class PackageBuilderTests: XCTestCase {
             "/main.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /main.swift")
+            result.checkDiagnostic("package has unsupported layout; found loose source files: /main.swift")
         }
     }
 
@@ -813,7 +813,7 @@ class PackageBuilderTests: XCTestCase {
             "/main.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /main.swift")
+            result.checkDiagnostic("package has unsupported layout; found loose source files: /main.swift")
         }
     }
 
@@ -830,7 +830,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Bar/File2.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /Sources/main.swift")
+            result.checkDiagnostic("package has unsupported layout; found loose source files: /Sources/main.swift")
         }
     }
 
@@ -847,7 +847,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Bar/File2.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /main.swift")
+            result.checkDiagnostic("package has unsupported layout; found loose source files: /main.swift")
         }
     }
 
@@ -868,7 +868,7 @@ class PackageBuilderTests: XCTestCase {
             "/Foo/Foo.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /File1.swift")
+            result.checkDiagnostic("package has unsupported layout; found loose source files: /File1.swift")
         }
     }
 
@@ -879,7 +879,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/bar/bar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /Sources/file.swift")
+            result.checkDiagnostic("package has unsupported layout; found loose source files: /Sources/file.swift")
         }
     }
 
@@ -901,7 +901,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/foo.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, the modulemap /Sources/module.modulemap should be inside the \'include\' directory")
+            result.checkDiagnostic("package has unsupported layout; modulemap '/Sources/module.modulemap' should be inside the 'include' directory")
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -910,7 +910,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Bar/bar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, the modulemap /Sources/Foo/module.modulemap should be inside the \'include\' directory")
+            result.checkDiagnostic("package has unsupported layout; modulemap '/Sources/Foo/module.modulemap' should be inside the 'include' directory")
         }
     }
 
@@ -976,7 +976,7 @@ class PackageBuilderTests: XCTestCase {
         var package = PackageDescription.Package(name: "pkg", pkgConfig: "foo")
 
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("invalid configuration in 'pkg': pkgConfig should only be used with a System Module Package")
+            result.checkDiagnostic("configuration of package 'pkg' is invalid; the 'pkgConfig' property can only be used with a System Module Package")
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -985,7 +985,7 @@ class PackageBuilderTests: XCTestCase {
         package = PackageDescription.Package(name: "pkg", providers: [.Brew("foo")])
 
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("invalid configuration in 'pkg': providers should only be used with a System Module Package")
+            result.checkDiagnostic("configuration of package 'pkg' is invalid; the 'providers' property can only be used with a System Module Package")
         }
     }
 

@@ -133,7 +133,7 @@ class SimplePersistenceTests: XCTestCase {
             XCTFail()
         } catch {
             let error = String(describing: error)
-            XCTAssert(error.contains("Unsupported schema version (2)"), error)
+            XCTAssert(error.contains("unsupported schema version 2"), error)
         }
     }
 

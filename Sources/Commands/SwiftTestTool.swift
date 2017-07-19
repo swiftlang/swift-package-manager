@@ -50,9 +50,9 @@ extension TestError: CustomStringConvertible {
     var description: String {
         switch self {
         case .testsExecutableNotFound:
-            return "no tests found to execute, create a target in your `Tests' directory"
+            return "no tests found; create a target in the 'Tests' directory"
         case .invalidListTestJSONData:
-            return "Invalid list test JSON structure."
+            return "invalid list test JSON structure"
         }
     }
 }
