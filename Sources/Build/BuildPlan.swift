@@ -404,6 +404,11 @@ public final class ProductBuildDescription {
             }
             args += ["-emit-executable"]
         }
+      #if os(Linux)
+        // On linux, set rpath such that dynamic libraries are looked up
+        // adjacent to the product. This happens by default on macOS.
+        args += ["-Xlinker", "-rpath=$ORIGIN"]
+      #endif
         args += objects.map({ $0.asString })
         return args
     }
