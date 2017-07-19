@@ -30,6 +30,30 @@ struct ChdirDeprecatedDiagnostic: DiagnosticData {
     )
 }
 
+/// Diagnostic error when the tool could not find a named product.
+struct ProductNotFoundDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: ProductNotFoundDiagnostic.self,
+        name: "org.swift.diags.product-not-found",
+        defaultBehavior: .error,
+        description: { $0 <<< "no product named" <<< { "'\($0.productName)'" } }
+    )
+
+    let productName: String
+}
+
+/// Diagnostic error when the tool could not find a named target.
+struct TargetNotFoundDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: TargetNotFoundDiagnostic.self,
+        name: "org.swift.diags.target-not-found",
+        defaultBehavior: .error,
+        description: { $0 <<< "no target named" <<< { "'\($0.targetName)'" } }
+    )
+
+    let targetName: String
+}
+
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     func packageGraphWillLoad(
@@ -385,15 +409,19 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.dematerialize()
     }
 
-    /// Build the package graph using swift-build-tool.
-    func build(includingTests: Bool) throws {
-        try build(plan: buildPlan(), includingTests: includingTests)
+    /// Build a subset of products and targets using swift-build-tool.
+    func build(subset: BuildSubset) throws {
+        try build(plan: buildPlan(), subset: subset)
     }
     
-    /// Build the package graph using swift-build-tool.
-    func build(plan: BuildPlan, includingTests: Bool) throws {
+    /// Build a subset of products and targets using swift-build-tool.
+    func build(plan: BuildPlan, subset: BuildSubset) throws {
         guard !plan.graph.rootPackages[0].targets.isEmpty else {
             warning(message: "no targets to build in package")
+            return
+        }
+
+        guard let llbuildTargetName = subset.llbuildTargetName(for: plan.graph, diagnostics: diagnostics) else {
             return
         }
 
@@ -424,10 +452,7 @@ public class SwiftTool<Options: ToolOptions> {
         }
       #endif
 
-        args += [try getToolchain().llbuild.asString, "-f", yaml.asString]
-        if includingTests {
-            args.append("test")
-        }
+        args += [try getToolchain().llbuild.asString, "-f", yaml.asString, llbuildTargetName]
         if verbosity != .concise {
             args.append("-v")
         }
@@ -512,10 +537,49 @@ public class SwiftTool<Options: ToolOptions> {
     }
 }
 
+/// An enum representing what subset of the package to build.
+enum BuildSubset {
+    /// Represents the subset of all products and non-test targets.
+    case allExcludingTests
+
+    /// Represents the subset of all products and targets.
+    case allIncludingTests
+
+    /// Represents a specific product.
+    case product(String)
+
+    /// Represents a specific target.
+    case target(String)
+}
+
 extension SwiftTool: BuildPlanDelegate {
     public func warning(message: String) {
         // FIXME: Coloring would be nice.
         print("warning: " + message)
+    }
+}
+
+extension BuildSubset {
+    /// Returns the name of the llbuild target that corresponds to the build subset.
+    func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine) -> String? {
+        switch self {
+        case .allExcludingTests:
+            return LLBuildManifestGenerator.llbuildMainTargetName
+        case .allIncludingTests:
+            return LLBuildManifestGenerator.llbuildTestTargetName
+        case .product(let productName):
+            guard let product = graph.products.first(where: { $0.name == productName }) else {
+                diagnostics.emit(data: ProductNotFoundDiagnostic(productName: productName))
+                return nil
+            }
+            return product.llbuildTargetName
+        case .target(let targetName):
+            guard let target = graph.targets.first(where: { $0.name == targetName }) else {
+                diagnostics.emit(data: TargetNotFoundDiagnostic(targetName: targetName))
+                return nil
+            }
+            return target.llbuildTargetName
+        }
     }
 }
 

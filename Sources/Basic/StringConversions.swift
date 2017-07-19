@@ -75,3 +75,40 @@ public extension String {
         self = shellEscaped()
     }
 }
+
+/// Type of localized join operator.
+public enum LocalizedJoinType: String {
+    /// A conjunction join operator (ie: blue, white, and red)
+    case conjunction = "and"
+
+    /// A disjunction join operator (ie: blue, white, or red)
+    case disjunction = "or"
+}
+
+//FIXME: Migrate to DiagnosticFragmentBuilder
+public extension Array where Element == String {
+    /// Returns a localized list of terms representing a conjunction or disjunction.
+    func localizedJoin(type: LocalizedJoinType) -> String {
+        var result = ""
+        
+        for (i, item) in enumerated() {
+            // Add the separator, if necessary.
+            if i == count - 1 {
+                switch count {
+                case 1:
+                    break
+                case 2:
+                    result += " \(type.rawValue) "
+                default:
+                    result += ", \(type.rawValue) "
+                }
+            } else if i != 0 {
+                result += ", "
+            }
+
+            result += item
+        }
+
+        return result
+    }
+}
