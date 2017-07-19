@@ -16,51 +16,55 @@ import Utility
 ///
 /// - Parameter stream: output stream to write the script to.
 func zsh_template(on stream: OutputByteStream) {
-    stream <<< "#compdef swift\n"
-    stream <<< "local context state state_descr line\n"
-    stream <<< "typeset -A opt_args\n"
-    stream <<< "\n"
-    stream <<< "_swift() {\n"
-    stream <<< "    _arguments -C \\\n"
-    stream <<< "        '(- :)--help[prints the synopsis and a list of the most commonly used commands]: :->arg' \\\n"
-    stream <<< "        '(-): :->command' \\\n"
-    stream <<< "        '(-)*:: :->arg' && return\n"
-    stream <<< "\n"
-    stream <<< "    case $state in\n"
-    stream <<< "        (command)\n"
-    stream <<< "            local tools\n"
-    stream <<< "            tools=(\n"
-    stream <<< "                'build:build sources into binary products'\n"
-    stream <<< "                'run:build and run an executable product'\n"
-    stream <<< "                'package:perform operations on Swift packages'\n"
-    stream <<< "                'test:build and run tests'\n"
-    stream <<< "            )\n"
-    stream <<< "            _alternative \\\n"
-    stream <<< "                'tools:common:{_describe \"tool\" tools }' \\\n"
-    stream <<< "                'compiler: :_swift_compiler' && _ret=0\n"
-    stream <<< "            ;;\n"
-    stream <<< "        (arg)\n"
-    stream <<< "            case ${words[1]} in\n"
-    stream <<< "                (build)\n"
-    stream <<< "                    _swift_build\n"
-    stream <<< "                    ;;\n"
-    stream <<< "                (run)\n"
-    stream <<< "                    _swift_run\n"
-    stream <<< "                    ;;\n"
-    stream <<< "                (package)\n"
-    stream <<< "                    _swift_package\n"
-    stream <<< "                    ;;\n"
-    stream <<< "                (test)\n"
-    stream <<< "                    _swift_test\n"
-    stream <<< "                    ;;\n"
-    stream <<< "                (*)\n"
-    stream <<< "                    _swift_compiler\n"
-    stream <<< "                    ;;\n"
-    stream <<< "            esac\n"
-    stream <<< "            ;;\n"
-    stream <<< "    esac\n"
-    stream <<< "}\n"
-    stream <<< "\n"
+    stream <<< """
+        #compdef swift
+        local context state state_descr line
+        typeset -A opt_args
+
+        _swift() {
+            _arguments -C \\
+                '(- :)--help[prints the synopsis and a list of the most commonly used commands]: :->arg' \\
+                '(-): :->command' \\
+                '(-)*:: :->arg' && return
+
+            case $state in
+                (command)
+                    local tools
+                    tools=(
+                        'build:build sources into binary products'
+                        'run:build and run an executable product'
+                        'package:perform operations on Swift packages'
+                        'test:build and run tests'
+                    )
+                    _alternative \\
+                        'tools:common:{_describe \"tool\" tools }' \\
+                        'compiler: :_swift_compiler' && _ret=0
+                    ;;
+                (arg)
+                    case ${words[1]} in
+                        (build)
+                            _swift_build
+                            ;;
+                        (run)
+                            _swift_run
+                            ;;
+                        (package)
+                            _swift_package
+                            ;;
+                        (test)
+                            _swift_test
+                            ;;
+                        (*)
+                            _swift_compiler
+                            ;;
+                    esac
+                    ;;
+            esac
+        }
+
+
+        """
+
 
     SwiftBuildTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
     SwiftRunTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
@@ -69,11 +73,11 @@ func zsh_template(on stream: OutputByteStream) {
 
     // Figure out how to forward to swift compiler's bash completion.
     stream <<< """
-               _swift_compiler() {
-               }
+        _swift_compiler() {
+        }
 
 
-               """
+        """
 
     // Run the `_swift` function to register the completions.
     stream <<< "_swift\n"

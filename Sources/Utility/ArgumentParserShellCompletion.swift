@@ -57,8 +57,11 @@ extension ArgumentParser {
     // MARK: - BASH
 
     fileprivate func generateBashSwiftTool(name: String, on stream: OutputByteStream) {
-        stream <<< "function \(name)\n"
-        stream <<< "{\n"
+        stream <<< """
+            function \(name)
+            {
+
+            """
 
         // Suggest positional arguments. Beware that this forces positional arguments
         // before options. For example [swift package pin <TAB>] expects a name as the

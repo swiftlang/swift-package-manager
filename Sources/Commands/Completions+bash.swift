@@ -16,52 +16,67 @@ import Utility
 ///
 /// - Parameter stream: output stream to write the script to.
 func bash_template(on stream: OutputByteStream) {
-    stream <<< "#!/bin/bash\n"
+    stream <<< """
+        #!/bin/bash
 
-    stream <<< "_swift() \n"
-    stream <<< "{\n"
-    stream <<< "    declare -a cur prev\n"
+        _swift()
+        {
+            declare -a cur prev
+
+        """
 
     // Setup `cur` and `prev` variables, these will be used in the various
     // functions this script will contain. For example if the user requests
     // completions for `swift pack⇥`, `$cur` is `pack` and `$prev` is `swift`.
-    stream <<< "    cur=\"${COMP_WORDS[COMP_CWORD]}\"\n"
-    stream <<< "    prev=\"${COMP_WORDS[COMP_CWORD-1]}\"\n"
+    stream <<< """
+            cur=\"${COMP_WORDS[COMP_CWORD]}\"
+            prev=\"${COMP_WORDS[COMP_CWORD-1]}\"
 
-    stream <<< "    COMPREPLY=()\n"
+            COMPREPLY=()
+
+        """
 
     // If we're on the second completion word: `swift #`, then we'll complete
     // the names of the tools and compiler flags.
-    stream <<< "    if [[ $COMP_CWORD == 1 ]]; then\n"
-    stream <<< "        _swift_compiler\n"
-    stream <<< "        COMPREPLY+=( $(compgen -W \"build run package test\" -- $cur) )\n"
-    stream <<< "        return\n"
-    stream <<< "    fi\n"
+    stream <<< """
+            if [[ $COMP_CWORD == 1 ]]; then
+                _swift_compiler
+                COMPREPLY+=( $(compgen -W \"build run package test\" -- $cur) )
+                return
+            fi
+
+        """
 
     // For subsequent words; we'll look at the second word.  In all other
     // cases, try to complete compiler flags.
     stream <<< "    case ${COMP_WORDS[1]} in\n"
 
     // If it is a tool name, forward completion to the specific tool's completion.
-    stream <<< "        (build)\n"
-    stream <<< "            _swift_build 2\n"
-    stream <<< "            ;;\n"
-    stream <<< "        (run)\n"
-    stream <<< "            _swift_run 2\n"
-    stream <<< "            ;;\n"
-    stream <<< "        (package)\n"
-    stream <<< "            _swift_package 2\n"
-    stream <<< "            ;;\n"
-    stream <<< "        (test)\n"
-    stream <<< "            _swift_test 2\n"
-    stream <<< "            ;;\n"
+    stream <<< """
+                (build)
+                    _swift_build 2
+                    ;;
+                (run)
+                    _swift_run 2
+                    ;;
+                (package)
+                    _swift_package 2
+                    ;;
+                (test)
+                    _swift_test 2
+                    ;;
+
+        """
 
     // Otherwise; forward completion to the compiler's completion.
-    stream <<< "        (*)\n"
-    stream <<< "            _swift_compiler\n"
-    stream <<< "            ;;\n"
-    stream <<< "    esac\n"
-    stream <<< "}\n"
+    stream <<< """
+                (*)
+                    _swift_compiler
+                    ;;
+            esac
+        }
+
+        """
 
     SwiftBuildTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
     SwiftRunTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
@@ -70,15 +85,15 @@ func bash_template(on stream: OutputByteStream) {
 
     // Forward to swift compiler completion, if defined.
     stream <<< """
-               _swift_compiler()
-               {
-                   if [[ `type -t _swift_complete`"" == 'function' ]]; then
-                       _swift_complete
-                   fi
-               }
+        _swift_compiler()
+        {
+            if [[ `type -t _swift_complete`"" == 'function' ]]; then
+                _swift_complete
+            fi
+        }
 
 
-               """
+        """
 
     // Link the `_swift` function to the `swift` command.
     stream <<< "complete -F _swift swift\n"
