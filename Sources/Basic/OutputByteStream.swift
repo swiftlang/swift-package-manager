@@ -355,52 +355,6 @@ extension String: ByteStreamable {
 
 // MARK: Formatted Streaming Output
 
-// Not nested because it is generic.
-private struct SeparatedListStreamable<T: ByteStreamable>: ByteStreamable {
-    let items: [T]
-    let separator: String
-
-    func write(to stream: OutputByteStream) {
-        for (i, item) in items.enumerated() {
-            // Add the separator, if necessary.
-            if i != 0 {
-                stream <<< separator
-            }
-
-            stream <<< item
-        }
-    }
-}
-
-// Not nested because it is generic.
-private struct TransformedSeparatedListStreamable<T>: ByteStreamable {
-    let items: [T]
-    let transform: (T) -> ByteStreamable
-    let separator: String
-
-    func write(to stream: OutputByteStream) {
-        for (i, item) in items.enumerated() {
-            if i != 0 { stream <<< separator }
-            stream <<< transform(item)
-        }
-    }
-}
-
-// Not nested because it is generic.
-private struct JSONEscapedTransformedStringListStreamable<T>: ByteStreamable {
-    let items: [T]
-    let transform: (T) -> String
-
-    func write(to stream: OutputByteStream) {
-        stream <<< UInt8(ascii: "[")
-        for (i, item) in items.enumerated() {
-            if i != 0 { stream <<< "," }
-            stream <<< Format.asJSON(transform(item))
-        }
-        stream <<< UInt8(ascii: "]")
-    }
-}
-
 /// Provides operations for returning derived streamable objects to implement various forms of formatted output.
 public struct Format {
     /// Write the input boolean encoded as a JSON object.
@@ -499,10 +453,38 @@ public struct Format {
     static public func asJSON<T>(_ items: [T], transform: @escaping (T) -> String) -> ByteStreamable {
         return JSONEscapedTransformedStringListStreamable(items: items, transform: transform)
     }
+    private struct JSONEscapedTransformedStringListStreamable<T>: ByteStreamable {
+        let items: [T]
+        let transform: (T) -> String
+
+        func write(to stream: OutputByteStream) {
+            stream <<< UInt8(ascii: "[")
+            for (i, item) in items.enumerated() {
+                if i != 0 { stream <<< "," }
+                stream <<< Format.asJSON(transform(item))
+            }
+            stream <<< UInt8(ascii: "]")
+        }
+    }
 
     /// Write the input list to the stream with the given separator between items.
     static public func asSeparatedList<T: ByteStreamable>(_ items: [T], separator: String) -> ByteStreamable {
         return SeparatedListStreamable(items: items, separator: separator)
+    }
+    private struct SeparatedListStreamable<T: ByteStreamable>: ByteStreamable {
+        let items: [T]
+        let separator: String
+
+        func write(to stream: OutputByteStream) {
+            for (i, item) in items.enumerated() {
+                // Add the separator, if necessary.
+                if i != 0 {
+                    stream <<< separator
+                }
+
+                stream <<< item
+            }
+        }
     }
 
     /// Write the input list to the stream (after applying a transform to each item) with the given separator between
@@ -513,6 +495,18 @@ public struct Format {
         separator: String
     ) -> ByteStreamable {
         return TransformedSeparatedListStreamable(items: items, transform: transform, separator: separator)
+    }
+    private struct TransformedSeparatedListStreamable<T>: ByteStreamable {
+        let items: [T]
+        let transform: (T) -> ByteStreamable
+        let separator: String
+
+        func write(to stream: OutputByteStream) {
+            for (i, item) in items.enumerated() {
+                if i != 0 { stream <<< separator }
+                stream <<< transform(item)
+            }
+        }
     }
 
     static public func asRepeating(string: String, count: Int) -> ByteStreamable {
