@@ -310,6 +310,10 @@ func xcodeProject(
         project.mainGroup.addFileReference(path: extraDir.relative(to: sourceRootDir).asString, pathBase: .projectDir)
     }
 
+    // Determine the set of targets to generate in the project by excluding
+    // any system targets.
+    let targets = graph.targets.filter({ $0.type != .systemModule })
+
     // If we have any external packages, we also add a `Dependencies` group at
     // the top level, along with a sources subgroup for each package.
     if !externalPackages.isEmpty {
@@ -319,8 +323,15 @@ func xcodeProject(
         // path.
         let dependenciesGroup = project.mainGroup.addGroup(path: "", pathBase: .groupDir, name: "Dependencies")
 
+        // Create set of the targets.
+        let targetSet = Set(targets)
+
         // Add a subgroup for each external package.
         for package in externalPackages {
+            // Skip if there are no targets in this package that needs to be built.
+            if targetSet.intersection(package.targets).isEmpty {
+                continue
+            }
             // Construct a group name from the package name and optional version.
             var groupName = package.name
             if let version = package.manifest.version {
@@ -344,10 +355,6 @@ func xcodeProject(
     // Set the newly created `Products` group as the official products group of
     // the project.
     project.productGroup = productsGroup
-
-    // Determine the set of targets to generate in the project by excluding
-    // any system targets.
-    let targets = graph.targets.filter({ $0.type != .systemModule })
 
     // We'll need a mapping of targets to the corresponding targets.
     var modulesToTargets: [ResolvedTarget: Xcode.Target] = [:]
