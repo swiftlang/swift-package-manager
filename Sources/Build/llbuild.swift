@@ -16,6 +16,12 @@ import PackageGraph
 /// llbuild manifest file generator for a build plan.
 public struct LLBuildManifestGenerator {
 
+    /// The name of the llbuild target that builds all products and targets (excluding tests).
+    public static let llbuildMainTargetName = "main"
+
+    /// The name of the llbuild target that builds all products and targets (including tests).
+    public static let llbuildTestTargetName = "test"
+
     /// The build plan to work on.
     public let plan: BuildPlan
 
@@ -28,10 +34,10 @@ public struct LLBuildManifestGenerator {
     private struct Targets {
 
         /// Main target.
-        private(set) var main = Target(name: "main")
+        private(set) var main = Target(name: LLBuildManifestGenerator.llbuildMainTargetName)
 
         /// Test target.
-        private(set) var test = Target(name: "test")
+        private(set) var test = Target(name: LLBuildManifestGenerator.llbuildTestTargetName)
 
         /// All targets.
         var allTargets: [Target] {
@@ -127,9 +133,9 @@ public struct LLBuildManifestGenerator {
                 args: buildProduct.linkArguments())
         }
 
-        var target = Target(name: buildProduct.targetName)
+        var target = Target(name: buildProduct.product.llbuildTargetName)
         target.outputs = tool.outputs
-        target.cmds.insert(Command(name: buildProduct.commandName, tool: tool))
+        target.cmds.insert(Command(name: buildProduct.product.commandName, tool: tool))
         return target
     }
 
@@ -174,7 +180,7 @@ public struct LLBuildManifestGenerator {
             }
         }
 
-        var buildTarget = Target(name: target.target.targetName)
+        var buildTarget = Target(name: target.target.llbuildTargetName)
         // The target only cares about the module output.
         buildTarget.outputs = [target.moduleOutputPath.asString]
         let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
@@ -199,7 +205,7 @@ public struct LLBuildManifestGenerator {
         })
 
         // For Clang, the target requires all command outputs.
-        var buildTarget = Target(name: target.target.targetName)            
+        var buildTarget = Target(name: target.target.llbuildTargetName)            
         buildTarget.outputs = commands.flatMap({ $0.tool.outputs })
         buildTarget.cmds += commands
         return buildTarget
@@ -207,32 +213,32 @@ public struct LLBuildManifestGenerator {
 }
 
 extension ResolvedTarget {
-    var targetName: String {
+    public var llbuildTargetName: String {
         return "\(name).module"
     }
 
     var commandName: String {
-        return "C.\(targetName)"
+        return "C.\(llbuildTargetName)"
     }
 }
 
-extension ProductBuildDescription {
-    public var targetName: String {
-        switch product.type {
+extension ResolvedProduct {
+    public var llbuildTargetName: String {
+        switch type {
         case .library(.dynamic):
-            return "\(product.name).dylib"
+            return "\(name).dylib"
         case .test:
-            return "\(product.name).test"
+            return "\(name).test"
         case .library(.static):
-            return "\(product.name).a"
+            return "\(name).a"
         case .library(.automatic):
             fatalError()
         case .executable:
-            return "\(product.name).exe"
+            return "\(name).exe"
         }
     }
 
     var commandName: String {
-        return "C.\(targetName)"
+        return "C.\(llbuildTargetName)"
     }
 }

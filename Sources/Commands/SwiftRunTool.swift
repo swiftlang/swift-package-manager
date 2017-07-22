@@ -113,17 +113,19 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             }
                     
             let plan = try buildPlan()
+            let product = try findProduct(in: plan)
 
             if options.shouldBuild {
-                try build(plan: plan, includingTests: false)
+                try build(plan: plan, subset: .product(product.name))
             }
 
-            try run(findExecutable(in: plan), arguments: options.arguments)
+            let executablePath = plan.buildParameters.buildPath.appending(component: product.name)
+            try run(executablePath, arguments: options.arguments)
         }
     }
 
     /// Returns the path to the correct executable based on options.
-    private func findExecutable(in plan: BuildPlan) throws -> AbsolutePath {
+    private func findProduct(in plan: BuildPlan) throws -> ResolvedProduct {
         let executableProducts = plan.graph.products.filter({ $0.type == .executable })
 
         // Error out if the product contains no executable.        
@@ -131,25 +133,21 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             throw RunError.noExecutableFound
         }
 
-        let product: ResolvedProduct
         if let executable = options.executable {
             // If the exectuable is explicitly specified, verify that it exists.
             guard let executableProduct = executableProducts.first(where: { $0.name == executable }) else {
                 throw RunError.executableNotFound(executable)
             }
             
-            product = executableProduct
+            return executableProduct
         } else {
             // Only implicitly deduce the executable if it is the only one.
             guard executableProducts.count == 1 else {
                 throw RunError.multipleExecutables(executableProducts.map({ $0.name }))
             }
             
-            product = executableProducts[0]
+            return executableProducts[0]
         }
-
-        // Build the path to the executable from the build directory.
-        return plan.buildParameters.buildPath.appending(component: product.name)
     }
     
     /// Executes the executable at the specified path.

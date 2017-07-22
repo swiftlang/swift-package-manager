@@ -189,7 +189,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
         let buildPlan = try self.buildPlan()
         if options.shouldBuildTests {
-            try build(plan: buildPlan, includingTests: true)
+            try build(plan: buildPlan, subset: .allIncludingTests)
         }
 
         guard let testProduct = buildPlan.buildProducts.first(where: { $0.product.type == .test }) else {
