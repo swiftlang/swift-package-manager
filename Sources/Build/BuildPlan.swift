@@ -474,7 +474,7 @@ public class BuildPlan {
 
         // Create build target description for each target which we need to plan.
         var targetMap = [ResolvedTarget: TargetDescription]()
-        for target in graph.targets {
+        for target in graph.allTargets {
              switch target.underlyingTarget {
              case is SwiftTarget:
                  targetMap[target] = .swift(SwiftTargetDescription(target: target, buildParameters: buildParameters))
@@ -511,7 +511,7 @@ public class BuildPlan {
         var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
         // Create product description for each product we have in the package graph except
         // for automatic libraries because they don't produce any output.
-        for product in graph.products where product.type != .library(.automatic) {
+        for product in graph.allProducts where product.type != .library(.automatic) {
             productMap[product] = ProductBuildDescription(
                 product: product, buildParameters: buildParameters)
         }
