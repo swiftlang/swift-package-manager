@@ -111,11 +111,67 @@ final class BuildToolTests: XCTestCase {
         }
     }
 
+    func testNonReachableProductsAndTargetsFunctional() {
+        fixture(name: "Miscellaneous/UnreachableTargets") { path in
+            do {
+                let aPath = path.appending(component: "A")
+                let output = try execute([], packagePath: aPath)
+                XCTAssert(!output.contains("bexec"))
+                XCTAssert(!output.contains("BTarget2"))
+                XCTAssert(!output.contains("cexec"))
+                XCTAssert(!output.contains("CTarget"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
+
+            let buildPath = path.appending(component: ".build")
+            try localFileSystem.removeFileTree(buildPath)
+
+            // Dependency contains a dependent product
+
+            do {
+                let aPath = path.appending(component: "A")
+                let output = try execute(["--product", "bexec"], packagePath: aPath)
+                XCTAssert(output.contains("Compile") && output.contains("BTarget2"))
+                XCTAssert(output.contains("Linking") && output.contains("bexec"))
+                XCTAssert(!output.contains("aexec"))
+                XCTAssert(!output.contains("ATarget"))
+                XCTAssert(!output.contains("BLibrary"))
+                XCTAssert(!output.contains("BTarget1"))
+                XCTAssert(!output.contains("cexec"))
+                XCTAssert(!output.contains("CTarget"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
+
+            try localFileSystem.removeFileTree(buildPath)
+
+            // Dependency does not contain a dependent product
+
+            do {
+                let aPath = path.appending(component: "A")
+                let output = try execute(["--target", "CTarget"], packagePath: aPath)
+                XCTAssert(output.contains("Compile") && output.contains("CTarget"))
+                XCTAssert(!output.contains("Linking"))
+                XCTAssert(!output.contains("aexec"))
+                XCTAssert(!output.contains("ATarget"))
+                XCTAssert(!output.contains("BLibrary"))
+                XCTAssert(!output.contains("bexec"))
+                XCTAssert(!output.contains("BTarget1"))
+                XCTAssert(!output.contains("BTarget2"))
+                XCTAssert(!output.contains("cexec"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
+        }
+    }
+
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
         ("testBinPath", testBinPath),
         ("testBackwardsCompatibilitySymlink", testBackwardsCompatibilitySymlink),
-        ("testProductAndTarget", testProductAndTarget)
+        ("testProductAndTarget", testProductAndTarget),
+        ("testNonReachableProductsAndTargetsFunctional", testNonReachableProductsAndTargetsFunctional)
     ]
 }
