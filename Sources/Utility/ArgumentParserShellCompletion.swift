@@ -154,15 +154,9 @@ extension ArgumentParser {
                             return
 
                 """
-        case .dependency:
+        case .function(let name):
             stream <<< """
-                            _swift_dependency
-                            return
-
-                """
-        case .executable:
-            stream <<< """
-                            _swift_executable
+                            \(name)
                             return
 
                 """
@@ -280,8 +274,7 @@ extension ArgumentParser {
                 stream <<< " '\(value)[\(description)]'"
             }
             stream <<< "}"
-        case .dependency: stream <<< ":\(message):_swift_dependency"
-        case .executable: stream <<< ":\(message):_swift_executable"
+        case .function(let name): stream <<< ":\(message):\(name)"
         }
     }
 }

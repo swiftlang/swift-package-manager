@@ -110,14 +110,15 @@ public enum Shell: String, StringEnumArgument {
 /// - none:        Offers no completions at all; e.g. for string identifier
 /// - unspecified: No specific completions, will offer tool's completions
 /// - filename:    Offers filename completions
+/// - function:    Custom function for generating completions. Must be
+///                provided in the script's scope.
 /// - values:      Offers completions from predefined list. A description
 ///                can be provided which is shown in some shells, like zsh.
 public enum ShellCompletion {
     case none
     case unspecified
     case filename
-    case executable
-    case dependency
+    case function(String)
     case values([(value: String, description: String)])
 }
 
@@ -209,7 +210,7 @@ public struct ExecutableName: ArgumentKind {
         name = argument
     }
 
-    public static var completion: ShellCompletion = .executable
+    public static var completion: ShellCompletion = .function("_swift_executable")
 }
 
 public struct DependencyName: ArgumentKind {
@@ -219,7 +220,7 @@ public struct DependencyName: ArgumentKind {
         name = argument
     }
 
-    public static var completion: ShellCompletion = .dependency
+    public static var completion: ShellCompletion = .function("_swift_dependency")
 }
 
 /// An enum representing the strategy to parse argument values.
