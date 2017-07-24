@@ -154,6 +154,18 @@ extension ArgumentParser {
                             return
 
                 """
+        case .dependency:
+            stream <<< """
+                            _swift_dependency
+                            return
+
+                """
+        case .executable:
+            stream <<< """
+                            _swift_executable
+                            return
+
+                """
         }
     }
 
@@ -268,6 +280,8 @@ extension ArgumentParser {
                 stream <<< " '\(value)[\(description)]'"
             }
             stream <<< "}"
+        case .dependency: stream <<< ":\(message):_swift_dependency"
+        case .executable: stream <<< ":\(message):_swift_executable"
         }
     }
 }

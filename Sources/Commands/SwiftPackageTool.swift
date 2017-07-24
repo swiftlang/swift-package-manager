@@ -206,9 +206,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         let editParser = parser.add(subparser: PackageMode.edit.rawValue, overview: "Put a package in editable mode")
         binder.bind(
             positional: editParser.add(
-                positional: "name", kind: String.self,
+                positional: "name", kind: DependencyName.self,
                 usage: "The name of the package to edit"),
-            to: { $0.editOptions.packageName = $1 })
+            to: { $0.editOptions.packageName = $1.name })
         binder.bind(
             editParser.add(
                 option: "--revision", kind: String.self,
@@ -245,9 +245,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             overview: "Remove a package from editable mode")
         binder.bind(
             positional: uneditParser.add(
-                positional: "name", kind: String.self,
+                positional: "name", kind: DependencyName.self,
                 usage: "The name of the package to unedit"),
-            to: { $0.editOptions.packageName = $1 })
+            to: { $0.editOptions.packageName = $1.name })
         binder.bind(
             option: uneditParser.add(
                 option: "--force", kind: Bool.self,
@@ -316,9 +316,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             overview: "Resolve package dependencies")
         binder.bind(
             positional: resolveParser.add(
-                positional: "name", kind: String.self, optional: true,
+                positional: "name", kind: DependencyName.self, optional: true,
                 usage: "The name of the package to resolve"),
-            to: { $0.resolveOptions.packageName = $1 })
+            to: { $0.resolveOptions.packageName = $1.name })
 
         binder.bind(
             resolveParser.add(

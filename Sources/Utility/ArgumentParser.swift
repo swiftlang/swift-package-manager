@@ -116,6 +116,8 @@ public enum ShellCompletion {
     case none
     case unspecified
     case filename
+    case executable
+    case dependency
     case values([(value: String, description: String)])
 }
 
@@ -198,6 +200,26 @@ public struct PathArgument: ArgumentKind {
     }
 
     public static var completion: ShellCompletion = .filename
+}
+
+public struct ExecutableName: ArgumentKind {
+    public let name: String
+
+    public init(argument: String) throws {
+        name = argument
+    }
+
+    public static var completion: ShellCompletion = .executable
+}
+
+public struct DependencyName: ArgumentKind {
+    public let name: String
+
+    public init(argument: String) throws {
+        name = argument
+    }
+
+    public static var completion: ShellCompletion = .dependency
 }
 
 /// An enum representing the strategy to parse argument values.

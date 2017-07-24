@@ -76,6 +76,15 @@ func bash_template(on stream: OutputByteStream) {
             esac
         }
 
+        _swift_dependency() {
+            COMPREPLY=( $(compgen -W "$(\(dependencies))" -- $cur) )
+        }
+
+        _swift_executable() {
+            COMPREPLY=( $(compgen -W "$(\(executables))" -- $cur) )
+        }
+
+
         """
 
     SwiftBuildTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
