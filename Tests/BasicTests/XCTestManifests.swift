@@ -39,6 +39,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(PathTests.allTests),
         testCase(ProcessTests.allTests),
         testCase(ProcessSetTests.allTests),
+        testCase(RegExTests.allTests),
         testCase(ResultTests.allTests),
         testCase(SortedArrayTests.allTests),
         testCase(StringConversionTests.allTests),
