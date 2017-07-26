@@ -51,7 +51,7 @@ public struct LLBuildManifestGenerator {
         private var otherTargets: [Target] = []
 
         /// Append a command.
-        mutating func append(_ target: Target, isTest: Bool) {
+        mutating func append(_ target: Target, buildByDefault: Bool, isTest: Bool) {
             // Create a phony command with a virtual output node that represents the target.
             let virtualNodeName = "<\(target.name)>"
             let phonyTool = PhonyTool(inputs: target.outputs, outputs: [virtualNodeName])
@@ -63,14 +63,17 @@ public struct LLBuildManifestGenerator {
             newTarget.cmds.insert(phonyCommand)
             otherTargets.append(newTarget)
 
-            if !isTest {
-                main.outputs += newTarget.outputs
-                main.cmds += newTarget.cmds
+            if buildByDefault {
+                if !isTest {
+                    main.outputs += newTarget.outputs
+                    main.cmds += newTarget.cmds
+                }
+
+                // Always build everything for the test target.
+                test.outputs += newTarget.outputs
+                test.cmds += newTarget.cmds
             }
 
-            // Always build everything for the test target.
-            test.outputs += newTarget.outputs
-            test.cmds += newTarget.cmds
             allCommands += newTarget.cmds
         }
     }
@@ -80,18 +83,26 @@ public struct LLBuildManifestGenerator {
         var targets = Targets()
 
         // Create commands for all target description in the plan.
-        for buildTarget in plan.targets {
-            switch buildTarget {
-            case .swift(let target):
-                targets.append(createSwiftCompileTarget(target), isTest: target.isTestTarget)
-            case .clang(let target):
-                targets.append(createClangCompileTarget(target), isTest: target.isTestTarget)
+        for (target, description) in plan.targetMap {
+            switch description {
+            case .swift(let description):
+                // Only build targets by default if they are reachabe from a root target.
+                targets.append(createSwiftCompileTarget(description),
+                    buildByDefault: plan.graph.targets.contains(target),
+                    isTest: description.isTestTarget)
+            case .clang(let description):
+                targets.append(createClangCompileTarget(description),
+                    buildByDefault: plan.graph.targets.contains(target),
+                    isTest: description.isTestTarget)
             }
         }
 
         // Create command for all products in the plan.
-        for buildProduct in plan.buildProducts {
-            targets.append(createProductTarget(buildProduct), isTest: buildProduct.product.type == .test)
+        for (product, description) in plan.productMap {
+            // Only build products by default if they are reachabe from a root target.
+            targets.append(createProductTarget(description),
+                buildByDefault: plan.graph.products.contains(product),
+                isTest: product.type == .test)
         }
 
         // Write the manifest.
