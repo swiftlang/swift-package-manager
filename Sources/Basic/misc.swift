@@ -87,3 +87,11 @@ public func lookupExecutablePath(
     }
     return nil
 }
+
+// <rdar://problem/28497980> error: binary operator '==' cannot be applied to two '[[String]]' operands
+public func ==<E: Equatable>(a: [[E]], b: [[E]]) -> Bool {
+    if a.count != b.count {
+        return false
+    }
+    return !zip(a, b).contains { $0 != $1 }
+}

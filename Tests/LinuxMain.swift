@@ -20,6 +20,7 @@ import PackageGraphTests
 import PackageLoadingTests
 import PackageModelTests
 import SourceControlTests
+import TestSupportTests 
 import UtilityTests
 import WorkspaceTests 
 import XcodeprojTests
@@ -35,6 +36,7 @@ tests += PackageGraphTests.allTests()
 tests += PackageLoadingTests.allTests()
 tests += PackageModelTests.allTests()
 tests += SourceControlTests.allTests()
+tests += TestSupportTests.allTests()
 tests += UtilityTests.allTests()
 tests += WorkspaceTests.allTests()
 tests += XcodeprojTests.allTests()
