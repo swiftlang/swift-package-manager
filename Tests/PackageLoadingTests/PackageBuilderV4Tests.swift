@@ -57,6 +57,19 @@ class PackageBuilderV4Tests: XCTestCase {
                 productResult.check(type: .executable, targets: ["exec"])
             }
         }
+
+        // If we already have an explicit product, we shouldn't create an
+        // implicit one.
+        package.products = [
+            .executable(name: "exec1", targets: ["exec"]),
+        ]
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("foo") { _ in }
+            result.checkModule("exec") { _ in }
+            result.checkProduct("exec1") { productResult in
+                productResult.check(type: .executable, targets: ["exec"])
+            }
+        }
     }
 
     func testLinuxMain() {
@@ -177,6 +190,8 @@ class PackageBuilderV4Tests: XCTestCase {
                 moduleResult.check(c99name: "bar", type: .library)
                 moduleResult.checkSources(root: "/bar", paths: "bar/foo.swift")
             }
+
+            result.checkProduct("exe") { _ in }
         }
     }
 
@@ -215,6 +230,8 @@ class PackageBuilderV4Tests: XCTestCase {
                 moduleResult.check(c99name: "barTests", type: .test)
                 moduleResult.checkSources(root: "/target/bar/Tests", paths: "barTests.swift")
             }
+
+            result.checkProduct("pkgPackageTests")
         }
     }
 
@@ -295,6 +312,9 @@ class PackageBuilderV4Tests: XCTestCase {
                 moduleResult.checkSources(root: "/Tests/ATests", paths: "Foo.swift")
                 moduleResult.check(dependencies: [])
             }
+
+            result.checkProduct("FooPackageTests") { _ in }
+            result.checkProduct("A") { _ in }
         }
     }
 
@@ -605,6 +625,8 @@ class PackageBuilderV4Tests: XCTestCase {
                 moduleResult.check(c99name: "lib", type: .library)
                 moduleResult.checkSources(root: "/Sources/lib", paths: "lib.swift")
             }
+
+            result.checkProduct("exec")
         }
     }
 
@@ -655,6 +677,7 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkModule("foo") { moduleResult in
                 moduleResult.check(swiftVersion: 4)
             }
+            result.checkProduct("foo") { _ in }
         }
 
         package.swiftLanguageVersions = [3]
@@ -662,6 +685,7 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkModule("foo") { moduleResult in
                 moduleResult.check(swiftVersion: 3)
             }
+            result.checkProduct("foo") { _ in }
         }
 
         package.swiftLanguageVersions = [4]
@@ -669,6 +693,7 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkModule("foo") { moduleResult in
                 moduleResult.check(swiftVersion: 4)
             }
+            result.checkProduct("foo") { _ in }
         }
 
         package.swiftLanguageVersions = nil
@@ -676,6 +701,7 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkModule("foo") { moduleResult in
                 moduleResult.check(swiftVersion: 4)
             }
+            result.checkProduct("foo") { _ in }
         }
 
         package.swiftLanguageVersions = []
@@ -738,6 +764,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 result.checkModule("FooTests") { moduleResult in
                     moduleResult.check(c99name: "FooTests", type: .test)
                 }
+                result.checkProduct("pkgPackageTests") { _ in }
             }
         }
     }
@@ -766,6 +793,8 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkModule("ATests") { moduleResult in
                 moduleResult.check(c99name: "ATests", type: .test)
             }
+
+            result.checkProduct("FooPackageTests") { _ in }
         }
     }
 

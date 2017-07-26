@@ -971,15 +971,13 @@ public final class PackageBuilder {
             products.append(product)
         }
 
-        // Auto creates executable products from executables targets if there
-        // isn't already a product with same name.
-        func createExecutables(declaredProducts: Set<String> = []) {
+        // Auto creates executable products from executables targets if that
+        // target isn't already present in the declaredProductsTargets set.
+        func createExecutables(declaredProductsTargets: Set<String> = []) {
             for target in targets where target.type == .executable {
-                // If this target already has a product, skip generating a
-                // product for it.
-                if declaredProducts.contains(target.name) {
-                    // FIXME: We should probably check and warn in case this is
-                    // not an executable product.
+                // If this target already has an executable product, skip
+                // generating a product for it.
+                if declaredProductsTargets.contains(target.name) {
                     continue
                 }
                 let product = Product(name: target.name, type: .executable, targets: [target])
@@ -1004,7 +1002,20 @@ public final class PackageBuilder {
         case .v4(let package):
             // Only create implicit executables for root packages in v4.
             if isRootPackage {
-                createExecutables(declaredProducts: Set(package.products.map({ $0.name })))
+                // Compute the list of targets which are being used in an
+                // executable product so we don't create implicit executables
+                // for them.
+                let executableProductTargets = package.products.flatMap({ product -> [String] in
+                    switch product {
+                    case let product as PackageDescription4.Product.Executable:
+                        return product.targets
+                    case is PackageDescription4.Product.Library:
+                        return []
+                    default:
+                        fatalError("Unreachable")
+                    }
+                })
+                createExecutables(declaredProductsTargets: Set(executableProductTargets))
             }
 
             for product in package.products {

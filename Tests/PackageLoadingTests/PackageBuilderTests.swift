@@ -136,6 +136,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.checkSources(root: "/", paths: "main.swift", "Bar.swift")
                 moduleResult.check(swiftVersion: 3)
             }
+            result.checkProduct(name) { _ in }
         }
 
         // Single swift executable target inside Sources.
@@ -147,6 +148,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/Sources", paths: "main.swift")
             }
+            result.checkProduct(name) { _ in }
         }
 
         // Single swift executable target inside its own directory.
@@ -158,6 +160,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "exec", type: .executable)
                 moduleResult.checkSources(root: "/Sources/exec", paths: "main.swift")
             }
+            result.checkProduct("exec") { _ in }
         }
     }
 
@@ -173,6 +176,7 @@ class PackageBuilderTests: XCTestCase {
             result.checkModule("foo") { moduleResult in
                 moduleResult.check(swiftVersion: 4)
             }
+            result.checkProduct("foo") { _ in }
         }
 
         package = Package(name: "pkg", swiftLanguageVersions: [3])
@@ -180,6 +184,7 @@ class PackageBuilderTests: XCTestCase {
             result.checkModule("foo") { moduleResult in
                 moduleResult.check(swiftVersion: 3)
             }
+            result.checkProduct("foo") { _ in }
         }
 
         package = Package(name: "pkg", swiftLanguageVersions: [4])
@@ -192,6 +197,7 @@ class PackageBuilderTests: XCTestCase {
             result.checkModule("foo") { moduleResult in
                 moduleResult.check(swiftVersion: 3)
             }
+            result.checkProduct("foo") { _ in }
         }
     }
 
@@ -207,6 +213,8 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/", paths: "main.c", "Bar.c")
             }
+
+            result.checkProduct(name) { _ in }
         }
 
         // Single swift executable target inside Sources.
@@ -218,6 +226,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/Sources", paths: "main.cpp")
             }
+            result.checkProduct(name) { _ in }
         }
 
         // Single swift executable target inside its own directory.
@@ -229,6 +238,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "c", type: .executable)
                 moduleResult.checkSources(root: "/Sources/c", paths: "main.c")
             }
+            result.checkProduct("c") { _ in }
         }
     }
 
@@ -259,6 +269,8 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/Sources", paths: "main.swift", "Bar.swift")
             }
+
+            result.checkProduct(name) { _ in }
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -271,6 +283,8 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "exe", type: .executable)
                 moduleResult.checkSources(root: "/Sources/exe", paths: "main.swift", "Bar.swift")
             }
+
+            result.checkProduct("exe") { _ in }
         }
     }
 
@@ -296,6 +310,9 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "C", type: .library)
                 moduleResult.checkSources(root: "/Sources/C", paths: "Foo.swift")
             }
+
+            result.checkProduct("A") { _ in }
+            result.checkProduct("B") { _ in }
         }
     }
 
@@ -324,6 +341,9 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "C", type: .executable)
                 moduleResult.checkSources(root: "/Sources/C", paths: "main.cpp")
             }
+
+            result.checkProduct("A") { _ in }
+            result.checkProduct("C") { _ in }
         }
     }
 
@@ -355,6 +375,8 @@ class PackageBuilderTests: XCTestCase {
                     moduleResult.checkSources(root: "/Tests/BarTests", paths: "BazTests.swift")
                     moduleResult.check(dependencies: [])
                 }
+
+                result.checkProduct("FooPackageTests") { _ in }
             }
         }
 
@@ -412,6 +434,10 @@ class PackageBuilderTests: XCTestCase {
                moduleResult.checkSources(root: "/Tests/ETests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["E"])
            }
+
+            result.checkProduct("E") { _ in }
+            result.checkProduct("FooPackageTests") { _ in }
+            result.checkProduct("A") { _ in }
        }
     }
 
@@ -446,6 +472,9 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "ModuleB", type: .executable)
                 moduleResult.checkSources(root: "/Sources/ModuleB", paths: "main.c", "foo.c")
             }
+
+            result.checkProduct("ModuleA") { _ in }
+            result.checkProduct("ModuleB") { _ in }
         }
     }
 
@@ -465,8 +494,12 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.checkSources(root: "/Tests/MyPackageTests", paths: "abc.c")
             }
 
+            result.checkProduct("MyPackage") { _ in }
+
           #if os(Linux)
             result.checkDiagnostic("ignoring target 'MyPackageTests' in package 'MyPackage'; C language in tests is not yet supported")
+          #elseif os(macOS)
+            result.checkProduct("MyPackagePackageTests") { _ in }
           #endif
         }
     }
@@ -487,6 +520,8 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(type: .executable)
                 moduleResult.checkSources(root: "/", paths: "main.swift")
             }
+
+            result.checkProduct("pkg") { _ in }
         }
     }
 
@@ -585,6 +620,8 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.checkSources(root: "/Tests/FooTests", paths: "source.swift")
                 moduleResult.check(dependencies: ["Bar"])
             }
+
+            result.checkProduct("pkgPackageTests") { _ in }
         }
     }
 
@@ -675,6 +712,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "lib", type: .library)
                 moduleResult.checkSources(root: "/Sources/lib", paths: "lib.swift")
             }
+            result.checkProduct("exec") { _ in }
         }
 
         // Reference a target which doesn't have sources.
@@ -966,6 +1004,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(type: .executable)
                 moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
             }
+            result.checkProduct("A") { _ in }
         }
     }
 
@@ -1029,6 +1068,8 @@ class PackageBuilderTests: XCTestCase {
     ]
 }
 
+extension PackageModel.Product: ObjectIdentifierProtocol {}
+
 final class PackageBuilderTester {
     private enum Result {
         case package(PackageModel.Package)
@@ -1043,6 +1084,9 @@ final class PackageBuilderTester {
 
     /// Contains the targets which have not been checked yet.
     private var uncheckedModules = Set<PackageModel.Target>()
+
+    /// Contains the products which have not been checked yet.
+    private var uncheckedProducts = Set<PackageModel.Product>()
 
     @discardableResult
     convenience init(
@@ -1100,6 +1144,7 @@ final class PackageBuilderTester {
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.targets)
+            uncheckedProducts = Set(loadedPackage.products)
         } catch {
             let errorStr = String(describing: error)
             result = .error(errorStr)
@@ -1117,8 +1162,13 @@ final class PackageBuilderTester {
     }
 
     private func validateCheckedModules(file: StaticString, line: UInt) {
-        guard !uncheckedModules.isEmpty else { return }
-        XCTFail("Unchecked targets: \(uncheckedModules)", file: file, line: line)
+        if !uncheckedModules.isEmpty {
+            XCTFail("Unchecked targets: \(uncheckedModules)", file: file, line: line)
+        }
+
+        if !uncheckedProducts.isEmpty {
+            XCTFail("Unchecked products: \(uncheckedProducts)", file: file, line: line)
+        }
     }
 
     func checkDiagnostic(_ str: String, file: StaticString = #file, line: UInt = #line) {
@@ -1156,6 +1206,7 @@ final class PackageBuilderTester {
         guard foundProducts.count == 1 else {
             return XCTFail("Couldn't get the product: \(name). Found products \(foundProducts)", file: file, line: line)
         }
+        uncheckedProducts.remove(foundProducts[0])
         body?(ProductResult(foundProducts[0]))
     }
 
