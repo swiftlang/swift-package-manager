@@ -193,6 +193,9 @@ let package = Package(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "TestSupport"]),
         .testTarget(
+            name: "TestSupportTests",
+            dependencies: ["TestSupport"]),
+        .testTarget(
             name: "UtilityTests",
             dependencies: ["Utility", "TestSupport", "TestSupportExecutable"]),
         .testTarget(
