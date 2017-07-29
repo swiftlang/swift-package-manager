@@ -20,6 +20,8 @@ func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode
         dumper = DotDumper()
     case .json:
         dumper = JSONDumper()
+    case .flatlist:
+        dumper = FlatListDumper()
     }
     dumper.dump(dependenciesOf: rootPackage)
 }
@@ -57,6 +59,22 @@ private final class PlainTextDumper: DependenciesDumper {
             recursiveWalk(packages: rootpkg.dependencies)
         } else {
             print("No external dependencies found")
+        }
+    }
+}
+
+private final class FlatListDumper: DependenciesDumper {
+    func dump(dependenciesOf rootpkg: ResolvedPackage) {
+        func recursiveWalk(packages: [ResolvedPackage]) {
+            for package in packages {
+                print(package.name)
+                if !package.dependencies.isEmpty {
+                    recursiveWalk(packages: package.dependencies)
+                }
+            }
+        }
+        if !rootpkg.dependencies.isEmpty {
+            recursiveWalk(packages: rootpkg.dependencies)
         }
     }
 }
@@ -112,7 +130,7 @@ private final class JSONDumper: DependenciesDumper {
 }
 
 enum ShowDependenciesMode: CustomStringConvertible {
-    case text, dot, json
+    case text, dot, json, flatlist
 
     init?(rawValue: String) {
         switch rawValue.lowercased() {
@@ -122,6 +140,8 @@ enum ShowDependenciesMode: CustomStringConvertible {
            self = .dot
         case "json":
            self = .json
+        case "flatlist":
+            self = .flatlist
         default:
             return nil
         }
@@ -132,6 +152,7 @@ enum ShowDependenciesMode: CustomStringConvertible {
         case .text: return "text"
         case .dot: return "dot"
         case .json: return "json"
+        case .flatlist: return "flatlist"
         }
     }
 }

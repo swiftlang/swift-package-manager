@@ -12,9 +12,6 @@ import Foundation
 import Basic
 import Utility
 
-let dependencies = "swift package show-dependencies | grep -oE '── (.*)<' | sed -E 's/── (.*)</\\1/'"
-let executables = "swift package describe | grep 'Type: executable' -B 3 | grep 'Name:' | sed -e 's/    Name: //'"
-
 /// Template for ZSH completion script.
 ///
 /// - Parameter stream: output stream to write the script to.
@@ -67,13 +64,13 @@ func zsh_template(on stream: OutputByteStream) {
 
         _swift_dependency() {
             local dependencies
-            dependencies=( $(\(dependencies)) )
+            dependencies=( $(swift package show-dependencies --format flatlist) )
             _describe '' dependencies
         }
 
         _swift_executable() {
             local executables
-            executables=( $(\(executables)) )
+            executables=( $(swift package describe --executables) )
             _describe '' executables
         }
 

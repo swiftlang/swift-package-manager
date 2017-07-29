@@ -171,7 +171,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .describe:
             let graph = try loadPackageGraph()
-            describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
+            switch options.describeExecutableNamesOnly {
+            case false:
+                describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
+            case true:
+                describeExecutableNames(graph.rootPackages[0].underlyingPackage, on: stdoutStream)
+            }
 
         case .dumpPackage:
             let graph = try loadPackageGraph()
@@ -200,6 +205,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             option: describeParser.add(option: "--type", kind: DescribeMode.self, usage: "json|text"),
             to: { $0.describeMode = $1 })
+        binder.bind(
+            option: describeParser.add(option: "--executables", kind: Bool.self, usage: "only list names of executable targets (ignores --type argument)"),
+            to: { $0.describeExecutableNamesOnly = $1 })
 
         _ = parser.add(subparser: PackageMode.dumpPackage.rawValue, overview: "Print parsed Package.swift as JSON")
 
@@ -260,7 +268,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             option: showDependenciesParser.add(
                 option: "--format", kind: ShowDependenciesMode.self,
-                usage: "text|dot|json"),
+                usage: "text|dot|json|flatlist"),
             to: {
                 $0.showDepsMode = $1})
 
@@ -353,6 +361,8 @@ public class PackageToolOptions: ToolOptions {
     }
 
     var describeMode: DescribeMode = .text
+    var describeExecutableNamesOnly = false
+
     var initMode: InitPackage.PackageType = .library
 
     var inputPath: AbsolutePath?
