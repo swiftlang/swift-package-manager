@@ -214,9 +214,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         let editParser = parser.add(subparser: PackageMode.edit.rawValue, overview: "Put a package in editable mode")
         binder.bind(
             positional: editParser.add(
-                positional: "name", kind: DependencyName.self,
-                usage: "The name of the package to edit"),
-            to: { $0.editOptions.packageName = $1.name })
+                positional: "name", kind: String.self,
+                usage: "The name of the package to edit",
+                completion: .function("_swift_dependency")),
+            to: { $0.editOptions.packageName = $1 })
         binder.bind(
             editParser.add(
                 option: "--revision", kind: String.self,
@@ -253,9 +254,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             overview: "Remove a package from editable mode")
         binder.bind(
             positional: uneditParser.add(
-                positional: "name", kind: DependencyName.self,
-                usage: "The name of the package to unedit"),
-            to: { $0.editOptions.packageName = $1.name })
+                positional: "name", kind: String.self,
+                usage: "The name of the package to unedit",
+                completion: .function("_swift_dependency")),
+            to: { $0.editOptions.packageName = $1 })
         binder.bind(
             option: uneditParser.add(
                 option: "--force", kind: Bool.self,
@@ -324,9 +326,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             overview: "Resolve package dependencies")
         binder.bind(
             positional: resolveParser.add(
-                positional: "name", kind: DependencyName.self, optional: true,
-                usage: "The name of the package to resolve"),
-            to: { $0.resolveOptions.packageName = $1.name })
+                positional: "name", kind: String.self, optional: true,
+                usage: "The name of the package to resolve",
+                completion: .function("_swift_dependency")),
+            to: { $0.resolveOptions.packageName = $1 })
 
         binder.bind(
             resolveParser.add(

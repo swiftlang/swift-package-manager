@@ -177,11 +177,12 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             to: { $0.shouldBuild = !$1 })
         
         binder.bindArray(
-            positional: parser.add(positional: "executable", kind: [ExecutableName].self, optional: true, strategy: .remaining,
-                usage: "The executable to run"),
+            positional: parser.add(
+                positional: "executable", kind: [String].self, optional: true, strategy: .remaining,
+                usage: "The executable to run", completion: .function("_swift_executable")),
             to: {
-                $0.executable = $1.first!.name
-                $0.arguments = Array($1.dropFirst().map { $0.name })
+                $0.executable = $1.first!
+                $0.arguments = Array($1.dropFirst())
             })
     }
 }
