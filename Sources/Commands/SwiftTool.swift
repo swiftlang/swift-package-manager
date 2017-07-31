@@ -568,13 +568,13 @@ extension BuildSubset {
         case .allIncludingTests:
             return LLBuildManifestGenerator.llbuildTestTargetName
         case .product(let productName):
-            guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
+            guard let product = graph.products.first(where: { $0.name == productName }) else {
                 diagnostics.emit(data: ProductNotFoundDiagnostic(productName: productName))
                 return nil
             }
             return product.llbuildTargetName
         case .target(let targetName):
-            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
+            guard let target = graph.targets.first(where: { $0.name == targetName }) else {
                 diagnostics.emit(data: TargetNotFoundDiagnostic(targetName: targetName))
                 return nil
             }

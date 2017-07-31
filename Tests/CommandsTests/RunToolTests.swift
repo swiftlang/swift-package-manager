@@ -28,7 +28,7 @@ final class RunToolTests: XCTestCase {
         XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
     }
 
-    func testUnkownProductAndArgumentPassing() throws {
+    func testFunctional() throws {
         fixture(name: "Miscellaneous/EchoExecutable") { path in
             do {
                 _ = try execute(["unknown"], packagePath: path)
@@ -43,9 +43,7 @@ final class RunToolTests: XCTestCase {
                 "\(getcwd())" "1" "--hello" "world"
                 """)
         }
-    }
 
-    func testMultipleExecutableAndExplicitExecutable() throws {
         fixture(name: "Miscellaneous/MultipleExecutables") { path in
             do {
                 _ = try execute([], packagePath: path)
@@ -63,14 +61,6 @@ final class RunToolTests: XCTestCase {
         }
     }
 
-    func testUnreachableExecutable() throws {
-        fixture(name: "Miscellaneous/UnreachableTargets") { path in
-            let output = try execute(["bexec"], packagePath: path.appending(component: "A"))
-            let outputLines = output.split(separator: "\n")
-            XCTAssertEqual(outputLines.last!, "BTarget2")
-        }
-    }
-
     func testFileDeprecation() throws {
         fixture(name: "Miscellaneous/EchoExecutable") { path in
             let filePath = AbsolutePath(path, "Sources/secho/main.swift").asString
@@ -85,9 +75,7 @@ final class RunToolTests: XCTestCase {
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
-        ("testUnkownProductAndArgumentPassing", testUnkownProductAndArgumentPassing),
-        ("testMultipleExecutableAndExplicitExecutable", testMultipleExecutableAndExplicitExecutable),
-        ("testUnreachableExecutable", testUnreachableExecutable),
+        ("testFunctional", testFunctional),
         ("testFileDeprecation", testFileDeprecation)
     ]
 }
