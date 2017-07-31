@@ -458,64 +458,6 @@ final class BuildPlanTests: XCTestCase {
 
     }
 
-    func testNonReachableProductsAndTargets() throws {
-        let fileSystem = InMemoryFileSystem(emptyFiles:
-            "/A/Sources/ATarget/main.swift",
-            "/B/Sources/BTarget1/BTarget1.swift",
-            "/B/Sources/BTarget2/main.swift",
-            "/C/Sources/CTarget/main.swift"
-        )
-
-        let diagnostics = DiagnosticsEngine()
-        let graph = loadMockPackageGraph4([
-            "/A": Package(
-                name: "A",
-                products: [
-                    .executable(name: "aexec", targets: ["ATarget"])
-                ],
-                dependencies: [
-                    .package(url: "/B", from: "1.0.0"),
-                    .package(url: "/C", from: "1.0.0")
-                ],
-                targets: [
-                    .target(name: "ATarget", dependencies: [
-                        .product(name: "BLibrary")
-                    ])
-                ]),
-            "/B": Package(
-                name: "B",
-                products: [
-                    .library(name: "BLibrary", type: .static, targets: ["BTarget1"]),
-                    .executable(name: "bexec", targets: ["BTarget2"])
-                ],
-                targets: [
-                    .target(name: "BTarget1", dependencies: []),
-                    .target(name: "BTarget2", dependencies: [])
-                ]),
-            "/C": Package(
-                name: "C",
-                products: [
-                    .executable(name: "cexec", targets: ["CTarget"])
-                ],
-                targets: [
-                    .target(name: "CTarget", dependencies: [])
-                ])
-        ], root: "/A", diagnostics: diagnostics, in: fileSystem)
-
-        XCTAssertEqual(Set(graph.products.map({ $0.name })), ["aexec", "BLibrary"])
-        XCTAssertEqual(Set(graph.targets.map({ $0.name })), ["ATarget", "BTarget1"])
-        XCTAssertEqual(Set(graph.allProducts.map({ $0.name })), ["aexec", "BLibrary", "bexec", "cexec"])
-        XCTAssertEqual(Set(graph.allTargets.map({ $0.name })), ["ATarget", "BTarget1", "BTarget2", "CTarget"])
-
-        let result = BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(),
-            graph: graph,
-            fileSystem: fileSystem))
-
-        XCTAssertEqual(Set(result.productMap.keys), ["aexec", "BLibrary", "bexec", "cexec"])
-        XCTAssertEqual(Set(result.targetMap.keys), ["ATarget", "BTarget1", "BTarget2", "CTarget"])
-    }
-
     static var allTests = [
         ("testBasicClangPackage", testBasicClangPackage),
         ("testBasicReleasePackage", testBasicReleasePackage),
@@ -526,7 +468,6 @@ final class BuildPlanTests: XCTestCase {
         ("testDynamicProducts", testDynamicProducts),
         ("testSwiftCMixed", testSwiftCMixed),
         ("testTestModule", testTestModule),
-        ("testNonReachableProductsAndTargets", testNonReachableProductsAndTargets)
     ]
 }
 
