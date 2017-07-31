@@ -126,30 +126,27 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
 
     /// Returns the path to the correct executable based on options.
     private func findProduct(in plan: BuildPlan) throws -> ResolvedProduct {
+        let executableProducts = plan.graph.products.filter({ $0.type == .executable })
+
+        // Error out if the product contains no executable.        
+        guard executableProducts.count > 0 else {
+            throw RunError.noExecutableFound
+        }
+
         if let executable = options.executable {
-            // If the exectuable is explicitly specified, search through all products.
-            guard let executableProduct = plan.graph.allProducts.first(where: {
-                $0.type == .executable && $0.name == executable
-            }) else {
+            // If the exectuable is explicitly specified, verify that it exists.
+            guard let executableProduct = executableProducts.first(where: { $0.name == executable }) else {
                 throw RunError.executableNotFound(executable)
             }
             
             return executableProduct
         } else {
-            // If the executably is implicit, search through root products.
-            let rootExecutables = plan.graph.rootPackages.flatMap({ $0.products }).filter({ $0.type == .executable })
-
-            // Error out if the package contains no executables.
-            guard rootExecutables.count > 0 else {
-                throw RunError.noExecutableFound
-            }
-
             // Only implicitly deduce the executable if it is the only one.
-            guard rootExecutables.count == 1 else {
-                throw RunError.multipleExecutables(rootExecutables.map({ $0.name }))
+            guard executableProducts.count == 1 else {
+                throw RunError.multipleExecutables(executableProducts.map({ $0.name }))
             }
             
-            return rootExecutables[0]
+            return executableProducts[0]
         }
     }
     
