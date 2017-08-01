@@ -36,6 +36,14 @@ public struct PackageGraphRoot {
         /// The requirement of the package.
         public let requirement: Requirement
 
+        /// Create the package reference object for the dependency.
+        public func createPackageRef() -> PackageReference {
+            return PackageReference(
+                identity: PackageReference.computeIdentity(packageURL: url),
+                repository: RepositorySpecifier(url: url)
+            )
+        }
+
         public init(
             url: String,
             requirement: Requirement,
@@ -64,7 +72,9 @@ public struct PackageGraphRoot {
         let constraints = manifests.flatMap({ $0.package.dependencyConstraints() })
         return constraints + dependencies.map({
             RepositoryPackageConstraint(
-                container: RepositorySpecifier(url: $0.url), requirement: $0.requirement.toConstraintRequirement())
+                container: $0.createPackageRef(),
+                requirement: $0.requirement.toConstraintRequirement()
+            )
         })
     }
 }

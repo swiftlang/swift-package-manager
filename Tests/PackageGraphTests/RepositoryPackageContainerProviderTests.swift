@@ -35,6 +35,10 @@ private class MockRepository: Repository {
         return RepositorySpecifier(url: url)
     }
 
+    var packageRef: PackageReference {
+        return PackageReference(identity: url.lowercased(), repository: specifier)
+    }
+
     var tags: [String] {
         return versions.keys.map{ String(describing: $0) }
     }
@@ -136,7 +140,7 @@ private struct MockDependencyResolver {
         self.resolver = DependencyResolver(provider, delegate)
     }
 
-    func resolve(constraints: [RepositoryPackageConstraint]) throws -> [(container: RepositorySpecifier, binding: BoundVersion)] {
+    func resolve(constraints: [RepositoryPackageConstraint]) throws -> [(container: PackageReference, binding: BoundVersion)] {
         return try resolver.resolve(constraints: constraints)
     }
 }
@@ -151,6 +155,24 @@ private let v2: Version = "2.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
 class RepositoryPackageContainerProviderTests: XCTestCase {
+
+    func testPackageReference() {
+        func assertIdentity(_ url: String, _ identity: String, file: StaticString = #file, line: UInt = #line) {
+            let computedIdentity = PackageReference.computeIdentity(packageURL: url)
+            XCTAssertEqual(computedIdentity, identity, file: file, line: line)
+        }
+        assertIdentity("foo", "foo")
+        assertIdentity("/foo", "foo")
+        assertIdentity("/foo/bar", "bar")
+        assertIdentity("foo/bar", "bar")
+        assertIdentity("https://foo/bar/baz", "baz")
+        assertIdentity("git@github.com/foo/bar/baz", "baz")
+        assertIdentity("/path/to/foo/bar/baz/", "baz")
+        assertIdentity("https://foo/bar/baz.git", "baz")
+        assertIdentity("git@github.com/foo/bar/baz.git", "baz")
+        assertIdentity("/path/to/foo/bar/baz.git", "baz")
+    }
+
     func testBasics() {
         mktmpdir{ path in
             let repoA = MockRepository(
@@ -183,10 +205,10 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             let constraints = [
                 RepositoryPackageConstraint(
-                    container: repoA.specifier,
+                    container: repoA.packageRef,
                     versionRequirement: v1Range)
             ]
-            let result: [(RepositorySpecifier, Version)] = try resolver.resolve(constraints: constraints).flatMap {
+            let result: [(PackageReference, Version)] = try resolver.resolve(constraints: constraints).flatMap {
                 guard case .version(let version) = $0.binding else {
                     XCTFail("Unexpecting non version binding \($0.binding)")
                     return nil
@@ -194,8 +216,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 return ($0.container, version)
             }
             XCTAssertEqual(result, [
-                    repoA.specifier: v1,
-                    repoB.specifier: v2,
+                    repoA.packageRef: v1,
+                    repoB.packageRef: v2,
                 ])
             XCTAssertEqual(resolver.delegate.fetched, [repoA.specifier, repoB.specifier])
         }
@@ -225,14 +247,15 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         try fs.createDirectory(p, recursive: true)
         let repositoryManager = RepositoryManager(
             path: p,
-            provider: inMemRepoProvider, 
+            provider: inMemRepoProvider,
             delegate: MockResolverDelegate(),
             fileSystem: fs)
 
         let provider = RepositoryPackageContainerProvider(
                 repositoryManager: repositoryManager,
                 manifestLoader: MockManifestLoader(manifests: [:]))
-        let container = try await { provider.getContainer(for: specifier, completion: $0) }
+        let ref = PackageReference(identity: "foo", repository: specifier)
+        let container = try await { provider.getContainer(for: ref, completion: $0) }
         let v = container.versions(filter: { _ in true }).map{$0}
         XCTAssertEqual(v, ["2.0.3", "1.0.3", "1.0.2", "1.0.1", "1.0.0"])
     }
@@ -267,7 +290,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         try fs.createDirectory(p, recursive: true)
         let repositoryManager = RepositoryManager(
             path: p,
-            provider: inMemRepoProvider, 
+            provider: inMemRepoProvider,
             delegate: MockResolverDelegate(),
             fileSystem: fs)
 
@@ -280,27 +303,31 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         do {
             let provider = createProvider(ToolsVersion(version: "3.1.0"))
-            let container = try await { provider.getContainer(for: specifier, completion: $0) }
+            let ref = PackageReference(identity: "foo", repository: specifier)
+            let container = try await { provider.getContainer(for: ref, completion: $0) }
             let v = container.versions(filter: { _ in true }).map{$0}
             XCTAssertEqual(v, ["1.0.1", "1.0.0"])
         }
 
         do {
             let provider = createProvider(ToolsVersion(version: "4.0.0"))
-            let container = try await { provider.getContainer(for: specifier, completion: $0) }
+            let ref = PackageReference(identity: "foo", repository: specifier)
+            let container = try await { provider.getContainer(for: ref, completion: $0) }
             let v = container.versions(filter: { _ in true }).map{$0}
             XCTAssertEqual(v, ["1.0.2", "1.0.1", "1.0.0"])
         }
 
         do {
             let provider = createProvider(ToolsVersion(version: "3.0.0"))
-            let container = try await { provider.getContainer(for: specifier, completion: $0) }
+            let ref = PackageReference(identity: "foo", repository: specifier)
+            let container = try await { provider.getContainer(for: ref, completion: $0) }
             let v = container.versions(filter: { _ in true }).map{$0}
             XCTAssertEqual(v, [])
         }
     }
 
     static var allTests = [
+        ("testPackageReference", testPackageReference),
         ("testBasics", testBasics),
         ("testVersions", testVersions),
         ("testVprefixVersions", testVprefixVersions),

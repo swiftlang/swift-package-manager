@@ -186,11 +186,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
         let json = try JSON(string: jsonString)
 
+        // The loaded manifest object.
+        let manifest: Manifest
+
         // Load the correct version from JSON.
         switch manifestVersion {
         case .three:
             let pd = try loadPackageDescription(json, baseURL: baseURL)
-            return Manifest(
+            manifest = Manifest(
                 path: inputPath,
                 url: baseURL,
                 package: .v3(pd.package),
@@ -200,10 +203,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         case .four:
             let package = try loadPackageDescription4(json, baseURL: baseURL)
-            return Manifest(
-                path: inputPath, url: baseURL, package: .v4(package),
-                version: version, interpreterFlags: parseResult.interpreterFlags)
+            manifest = Manifest(
+                path: inputPath,
+                url: baseURL,
+                package: .v4(package),
+                version: version,
+                interpreterFlags: parseResult.interpreterFlags)
         }
+
+        return manifest
     }
 
     /// Parse the manifest at the given path to JSON.

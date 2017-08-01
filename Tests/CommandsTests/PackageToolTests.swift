@@ -376,8 +376,8 @@ final class PackageToolTests: XCTestCase {
                 XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
                 for pkg in ["bar", "baz"] {
                     let pin = pinsStore.pinsMap[pkg]!
-                    XCTAssertEqual(pin.package, pkg)
-                    XCTAssert(pin.repository.url.hasSuffix(pkg))
+                    XCTAssertEqual(pin.packageRef.identity, pkg)
+                    XCTAssert(pin.packageRef.repository.url.hasSuffix(pkg))
                     XCTAssertEqual(pin.state.version, "1.2.3")
                 }
             }

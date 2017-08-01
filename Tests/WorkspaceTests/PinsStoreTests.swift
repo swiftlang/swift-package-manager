@@ -12,6 +12,7 @@ import XCTest
 
 import Basic
 import Utility
+import PackageGraph
 import TestSupport
 import SourceControl
 @testable import Workspace
@@ -26,12 +27,14 @@ final class PinsStoreTests: XCTestCase {
         let fooRepo = RepositorySpecifier(url: "/foo")
         let barRepo = RepositorySpecifier(url: "/bar")
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
+        let fooRef = PackageReference(identity: foo, repository: fooRepo)
+        let barRef = PackageReference(identity: bar, repository: barRepo)
 
         let state = CheckoutState(revision: revision, version: v1)
-        let pin = PinsStore.Pin(package: foo, repository: fooRepo, state: state)
+        let pin = PinsStore.Pin(packageRef: fooRef, state: state)
         // We should be able to round trip from JSON.
         XCTAssertEqual(try PinsStore.Pin(json: pin.toJSON()), pin)
-        
+
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
         var store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
@@ -39,7 +42,7 @@ final class PinsStoreTests: XCTestCase {
         XCTAssert(!fs.exists(pinsFile))
         XCTAssert(store.pins.map{$0}.isEmpty)
 
-        store.pin(package: foo, repository: fooRepo, state: state)
+        store.pin(packageRef: fooRef, state: state)
         try store.saveState()
 
         XCTAssert(fs.exists(pinsFile))
@@ -51,16 +54,16 @@ final class PinsStoreTests: XCTestCase {
             XCTAssert(s.pins.map{$0}.count == 1)
             XCTAssertEqual(s.pinsMap[bar], nil)
             let fooPin = s.pinsMap[foo]!
-            XCTAssertEqual(fooPin.package, foo)
+            XCTAssertEqual(fooPin.packageRef, fooRef)
             XCTAssertEqual(fooPin.state.version, v1)
             XCTAssertEqual(fooPin.state.revision, revision)
             XCTAssertEqual(fooPin.state.description, v1.description)
         }
-        
+
         // We should be able to pin again.
-        store.pin(package: foo, repository: fooRepo, state: state)
-        store.pin(package: foo, repository: fooRepo, state: CheckoutState(revision: revision, version: "1.0.2"))
-        store.pin(package: bar, repository: barRepo, state: state)
+        store.pin(packageRef: fooRef, state: state)
+        store.pin(packageRef: fooRef, state: CheckoutState(revision: revision, version: "1.0.2"))
+        store.pin(packageRef: barRef, state: state)
         try store.saveState()
 
         store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
@@ -68,7 +71,7 @@ final class PinsStoreTests: XCTestCase {
 
         // Test branch pin.
         do {
-            store.pin(package: bar, repository: barRepo, state: CheckoutState(revision: revision, branch: "develop"))
+            store.pin(packageRef: barRef, state: CheckoutState(revision: revision, branch: "develop"))
             try store.saveState()
             store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
 
@@ -81,7 +84,7 @@ final class PinsStoreTests: XCTestCase {
 
         // Test revision pin.
         do {
-            store.pin(package: bar, repository: barRepo, state: CheckoutState(revision: revision))
+            store.pin(packageRef: barRef, state: CheckoutState(revision: revision))
             try store.saveState()
             store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
 
