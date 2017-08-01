@@ -11,7 +11,7 @@
 import Basic
 import Utility
 import SourceControl
-import typealias PackageGraph.RepositoryPackageConstraint
+import PackageGraph
 
 public enum PinOperationError: Swift.Error, CustomStringConvertible {
     case notPinned
@@ -26,25 +26,26 @@ public enum PinOperationError: Swift.Error, CustomStringConvertible {
 
 public final class PinsStore {
     public struct Pin {
-        /// The package name of the pinned dependency.
-        public let package: String
-
-        /// The repository specifier of the pinned dependency.
-        public let repository: RepositorySpecifier
+        /// The package reference of the pinned dependency.
+        public let packageRef: PackageReference
 
         /// The pinned state.
         public let state: CheckoutState
 
         init(
-            package: String,
-            repository: RepositorySpecifier,
+            packageRef: PackageReference,
             state: CheckoutState
         ) {
-            self.package = package
-            self.repository = repository
+            self.packageRef = packageRef 
             self.state = state
         }
     }
+
+    /// The schema version of the resolved file.
+    ///
+    /// * 2: Package identity.
+    /// * 1: Initial version.
+    static let schemaVersion: Int = 2
 
     /// The path to the pins file.
     fileprivate let pinsFile: AbsolutePath
@@ -53,6 +54,8 @@ public final class PinsStore {
     fileprivate var fileSystem: FileSystem
 
     /// The pins map.
+    ///
+    /// Key -> Package Identity.
     fileprivate(set) var pinsMap: [String: Pin]
 
     /// The current pins.
@@ -72,7 +75,7 @@ public final class PinsStore {
         self.fileSystem = fileSystem
         self.persistence = SimplePersistence(
             fileSystem: fileSystem,
-            schemaVersion: 1,
+            schemaVersion: PinsStore.schemaVersion,
             statePath: pinsFile,
             prettyPrint: true)
         pinsMap = [:]
@@ -84,17 +87,14 @@ public final class PinsStore {
     /// This method does not automatically write to state file.
     ///
     /// - Parameters:
-    ///   - package: The name of the package to pin.
-    ///   - repository: The repository to pin.
+    ///   - packageRef: The package reference to pin.
     ///   - state: The state to pin at.
     public func pin(
-        package: String,
-        repository: RepositorySpecifier,
+        packageRef: PackageReference,
         state: CheckoutState
     ) {
-        pinsMap[package] = Pin(
-            package: package,
-            repository: repository,
+        pinsMap[packageRef.identity] = Pin(
+            packageRef: packageRef,
             state: state
         )
     }
@@ -103,7 +103,7 @@ public final class PinsStore {
     ///
     /// This will replace any previous pin with same package name.
     public func add(_ pin: Pin) {
-        pinsMap[pin.package] = pin
+        pinsMap[pin.packageRef.identity] = pin
     }
 
     /// Pin a managed dependency at its checkout state.
@@ -121,8 +121,7 @@ public final class PinsStore {
         }
 
         self.pin(
-            package: dependency.name,
-            repository: dependency.repository,
+            packageRef: dependency.packageRef,
             state: checkoutState)
     }
 
@@ -138,7 +137,7 @@ public final class PinsStore {
     public func createConstraints() -> [RepositoryPackageConstraint] {
         return pins.map({ pin in
             return RepositoryPackageConstraint(
-                container: pin.repository, requirement: pin.state.requirement())
+                container: pin.packageRef, requirement: pin.state.requirement())
         })
     }
 }
@@ -151,13 +150,13 @@ extension PinsStore: SimplePersistanceProtocol {
     }
 
     public func restore(from json: JSON) throws {
-        self.pinsMap = try Dictionary(items: json.get("pins").map({ ($0.package, $0) }))
+        self.pinsMap = try Dictionary(items: json.get("pins").map({ ($0.packageRef.identity, $0) }))
     }
 
     /// Saves the current state of pins.
     public func toJSON() -> JSON {
         return JSON([
-            "pins": pins.sorted(by: { $0.package < $1.package }).toJSON(),
+            "pins": pins.sorted(by: { $0.packageRef.identity < $1.packageRef.identity }).toJSON(),
         ])
     }
 }
@@ -166,23 +165,20 @@ extension PinsStore: SimplePersistanceProtocol {
 extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
     /// Create an instance from JSON data.
     public init(json: JSON) throws {
-        self.package = try json.get("package")
-        self.repository = try json.get("repositoryURL")
+        self.packageRef = try json.get("reference")
         self.state = try json.get("state")
     }
 
     /// Convert the pin to JSON.
     public func toJSON() -> JSON {
         return .init([
-            "package": package,
-            "repositoryURL": repository,
+            "reference": packageRef,
             "state": state,
         ])
     }
 
     public static func == (lhs: PinsStore.Pin, rhs: PinsStore.Pin) -> Bool {
-        return lhs.package == rhs.package &&
-               lhs.repository == rhs.repository &&
+        return lhs.packageRef == rhs.packageRef &&
                lhs.state == rhs.state
     }
 }

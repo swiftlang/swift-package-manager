@@ -154,6 +154,7 @@ final class WorkspaceTests: XCTestCase {
             // Create a test repository.
             let testRepoPath = path.appending(component: "test-repo")
             let testRepoSpec = RepositorySpecifier(url: testRepoPath.asString)
+            let testRepoRef = PackageReference(identity: "test-repo", repository: testRepoSpec)
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
             let testRepo = GitRepository(path: testRepoPath)
@@ -192,7 +193,7 @@ final class WorkspaceTests: XCTestCase {
 
                 // Do a low-level clone.
                 let state = CheckoutState(revision: currentRevision)
-                let checkoutPath = try workspace.clone(repository: testRepoSpec, at: state)
+                let checkoutPath = try workspace.clone(package: testRepoRef, at: state)
                 XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "test.txt")))
             }
 
@@ -200,16 +201,15 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let workspace = Workspace.createWith(rootPackage: path)
                 let dependencies = workspace.managedDependencies
-                XCTAssertEqual(dependencies.values.map{ $0.repository }, [testRepoSpec])
-                if let dependency = dependencies[testRepoSpec] {
-                    XCTAssertEqual(dependency.name, "test-repo")
-                    XCTAssertEqual(dependency.repository, testRepoSpec)
+                XCTAssertEqual(dependencies.values.map{ $0.packageRef.repository }, [testRepoSpec])
+                if let dependency = dependencies[forIdentity: testRepoRef.identity] {
+                    XCTAssertEqual(dependency.packageRef, testRepoRef)
                     XCTAssertEqual(dependency.checkoutState?.revision, currentRevision)
                 }
 
                 // Check we can move to a different revision.
                 let state = CheckoutState(revision: initialRevision)
-                let checkoutPath = try workspace.clone(repository: testRepoSpec, at: state)
+                let checkoutPath = try workspace.clone(package: testRepoRef, at: state)
                 XCTAssert(!localFileSystem.exists(checkoutPath.appending(component: "test.txt")))
             }
 
@@ -219,10 +219,9 @@ final class WorkspaceTests: XCTestCase {
                 let workspace = Workspace.createWith(rootPackage: path)
                 let dependencies = workspace.managedDependencies
                 statePath = dependencies.statePath
-                XCTAssertEqual(dependencies.values.map{ $0.repository }, [testRepoSpec])
-                if let dependency = dependencies[testRepoSpec] {
-                    XCTAssertEqual(dependency.name, "test-repo")
-                    XCTAssertEqual(dependency.repository, testRepoSpec)
+                XCTAssertEqual(dependencies.values.map{ $0.packageRef.repository }, [testRepoSpec])
+                if let dependency = dependencies[forIdentity: testRepoRef.identity] {
+                    XCTAssertEqual(dependency.packageRef, testRepoRef)
                     XCTAssertEqual(dependency.checkoutState?.revision, initialRevision)
                 }
             }
@@ -233,8 +232,8 @@ final class WorkspaceTests: XCTestCase {
                 let workspace = Workspace.createWith(rootPackage: path)
                 XCTAssert(workspace.managedDependencies.values.map{$0}.isEmpty)
                 let state = CheckoutState(revision: currentRevision)
-                _ = try workspace.clone(repository: testRepoSpec, at: state)
-                XCTAssertEqual(workspace.managedDependencies.values.map{$0.repository}, [testRepoSpec])
+                _ = try workspace.clone(package: testRepoRef, at: state)
+                XCTAssertEqual(workspace.managedDependencies.values.map{$0.packageRef.repository}, [testRepoSpec])
             }
         }
     }
@@ -266,7 +265,8 @@ final class WorkspaceTests: XCTestCase {
             for name in ["A", "AA"] {
                 let revision = try GitRepository(path: AbsolutePath(graph.repo(name).url)).getCurrentRevision()
                 let state = CheckoutState(revision: revision, version: v1)
-                _ = try workspace.clone(repository: graph.repo(name), at: state)
+                let packageRef = PackageReference(identity: name.lowercased(), repository: graph.repo(name))
+                _ = try workspace.clone(package: packageRef, at: state)
             }
 
             // Load the "current" manifests.
@@ -311,7 +311,8 @@ final class WorkspaceTests: XCTestCase {
             for name in ["A"] {
                 let revision = try GitRepository(path: AbsolutePath(manifestGraph.repo(name).url)).getCurrentRevision()
                 let state = CheckoutState(revision: revision, version: v1)
-                _ = try workspace.clone(repository: manifestGraph.repo(name), at: state)
+                let packageRef = PackageReference(identity: name.lowercased(), repository: manifestGraph.repo(name))
+                _ = try workspace.clone(package: packageRef, at: state)
             }
 
             // Load the package graph.
@@ -394,7 +395,8 @@ final class WorkspaceTests: XCTestCase {
             for name in ["A"] {
                 let revision = try GitRepository(path: AbsolutePath(manifestGraph.repo(name).url)).getCurrentRevision()
                 let state = CheckoutState(revision: revision, version: v1)
-                _ = try workspace.clone(repository: manifestGraph.repo(name), at: state)
+                let packageRef = PackageReference(identity: name.lowercased(), repository: manifestGraph.repo(name))
+                _ = try workspace.clone(package: packageRef, at: state)
             }
 
             // Load the package graph.
@@ -566,7 +568,7 @@ final class WorkspaceTests: XCTestCase {
             }
         }
     }
-    
+
     func testCanUneditRemovedDependencies() throws {
 
         mktmpdir { path in
@@ -578,9 +580,9 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: v1)
                 ]
             )
-            
+
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader)
-            
+
             // Load the package graph.
             let diagnostics = DiagnosticsEngine()
             workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
@@ -590,21 +592,21 @@ final class WorkspaceTests: XCTestCase {
             workspace.edit(packageName: "A", diagnostics: diagnostics)
             XCTAssertNoDiagnostics(diagnostics)
 
-            let editedDependency = try workspace.managedDependencies.dependency(forName: "A")
+            let editedDependency = try workspace.managedDependencies.dependency(forIdentity: "a")
             let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
-            
+
             // Its basedon should not be nil
             XCTAssertNotNil(editedDependency.basedOn)
-            
+
             // Create an empty root to remove the dependency requirement
             let root = WorkspaceRoot(packages: [])
-            
+
             workspace.updateDependencies(root: root, diagnostics: diagnostics)
             XCTAssertNoDiagnostics(diagnostics)
-            
+
             // Its basedon should be nil
             XCTAssertNil(editedDependency.basedOn)
-            
+
             // Unedit the package
             try workspace.unedit(
                 packageName: "A",
@@ -623,6 +625,7 @@ final class WorkspaceTests: XCTestCase {
             // Create a test repository.
             let testRepoPath = path.appending(component: "test-repo")
             let testRepoSpec = RepositorySpecifier(url: testRepoPath.asString)
+            let testRepoRef = PackageReference(identity: "test-repo", repository: testRepoSpec)
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
 
@@ -641,8 +644,8 @@ final class WorkspaceTests: XCTestCase {
 
             let workspace = Workspace.createWith(rootPackage: path)
             let state = CheckoutState(revision: Revision(identifier: "initial"))
-            let checkoutPath = try workspace.clone(repository: testRepoSpec, at: state)
-            XCTAssertEqual(workspace.managedDependencies.values.map{ $0.repository }, [testRepoSpec])
+            let checkoutPath = try workspace.clone(package: testRepoRef, at: state)
+            XCTAssertEqual(workspace.managedDependencies.values.map{ $0.packageRef.repository }, [testRepoSpec])
 
             // Drop a build artifact in data directory.
             let buildArtifact = workspace.dataPath.appending(component: "test.o")
@@ -656,7 +659,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.clean(with: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
 
-            XCTAssertEqual(workspace.managedDependencies.values.map{ $0.repository }, [testRepoSpec])
+            XCTAssertEqual(workspace.managedDependencies.values.map{ $0.packageRef.repository }, [testRepoSpec])
             XCTAssert(localFileSystem.exists(workspace.dataPath))
             // The checkout should be safe.
             XCTAssert(localFileSystem.exists(checkoutPath))
@@ -707,9 +710,9 @@ final class WorkspaceTests: XCTestCase {
             }
 
             func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return workspace.managedDependencies[manifest.url]!
+                return workspace.managedDependencies[forIdentity: manifest.name.lowercased()]!
             }
-            
+
             let dependency = getDependency(aManifest)
 
             // Put the dependency in edit mode at its current revision.
@@ -750,7 +753,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 // Reopen workspace and check if we maintained the state.
                 let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
-                let dependency = workspace.managedDependencies[aManifest.url]!
+                let dependency = workspace.managedDependencies[forIdentity: aManifest.name.lowercased()]!
                 XCTAssert(dependency.state == .edited(nil))
             }
 
@@ -800,11 +803,11 @@ final class WorkspaceTests: XCTestCase {
                 return XCTFail("Expected manifest for package A not found")
             }
             func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return workspace.managedDependencies[manifest.url]!
+                return workspace.managedDependencies[forIdentity: manifest.name.lowercased()]!
             }
-            
+
             let dependency = getDependency(aManifest)
-            
+
             do {
                 // We should error out if we try to edit on a non existent revision.
                 let diagnostics = DiagnosticsEngine()
@@ -876,9 +879,9 @@ final class WorkspaceTests: XCTestCase {
                 return XCTFail("Expected manifest for package A not found")
             }
             func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return workspace.managedDependencies[manifest.url]!
+                return workspace.managedDependencies[forIdentity: manifest.name.lowercased()]!
             }
-            
+
             // Put the dependency in edit mode.
             workspace.edit(
                 packageName: aManifest.name,
@@ -914,11 +917,11 @@ final class WorkspaceTests: XCTestCase {
 
             // Run package update which should remove the entry from pins store.
             do {
-                XCTAssertNotNil(try workspace.pinsStore.load().pinsMap[aManifest.name])
+                XCTAssertNotNil(try workspace.pinsStore.load().pinsMap[aManifest.name.lowercased()])
                 let diagnostics = DiagnosticsEngine()
                 workspace.updateDependencies(root: root, diagnostics: diagnostics)
                 XCTAssertNoDiagnostics(diagnostics)
-                XCTAssertNil(try workspace.pinsStore.load().pinsMap[aManifest.name])
+                XCTAssertNil(try workspace.pinsStore.load().pinsMap[aManifest.name.lowercased()])
             }
 
             // Force remove.
@@ -930,7 +933,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertFalse(exists(editRepoPath))
                 XCTAssertFalse(exists(workspace.editablesPath))
                 // We should get the entry back in pinsStore.
-                XCTAssertNotNil(try workspace.pinsStore.load().pinsMap[aManifest.name])
+                XCTAssertNotNil(try workspace.pinsStore.load().pinsMap[aManifest.name.lowercased()])
             }
         }
     }
@@ -970,9 +973,9 @@ final class WorkspaceTests: XCTestCase {
         }
 
         func getDependency(_ manifest: Manifest) -> ManagedDependency {
-            return workspace.managedDependencies[manifest.url]!
+            return workspace.managedDependencies[forIdentity: manifest.name.lowercased()]!
         }
-        
+
         // Put the dependency in edit mode at its current revision.
         workspace.edit(
             packageName: aManifest.name,
@@ -1261,7 +1264,7 @@ final class WorkspaceTests: XCTestCase {
             // Check dep1.
             do {
                 let workspace = getWorkspace()
-                let dependency = workspace.managedDependencies[dep1.asString]!
+                let dependency = workspace.managedDependencies[forIdentity: dep1.basename]!
                 XCTAssertEqual(dependency.checkoutState, CheckoutState(revision: dep1Revision, branch: "develop"))
                 XCTAssertEqual(dep1Revision,
                     try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
@@ -1271,7 +1274,7 @@ final class WorkspaceTests: XCTestCase {
             // Check dep2.
             do {
                 let workspace = getWorkspace()
-                let dependency = workspace.managedDependencies[dep2.asString]!
+                let dependency = workspace.managedDependencies[forIdentity: dep2.basename]!
                 XCTAssertEqual(dependency.checkoutState, CheckoutState(revision: dep2Revision, branch: nil))
                 XCTAssertEqual(dep2Revision,
                     try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
@@ -1304,7 +1307,7 @@ final class WorkspaceTests: XCTestCase {
                 workspace.loadPackageGraph(rootPackages: [root], diagnostics: diagnostics)
                 XCTAssertFalse(diagnostics.hasErrors)
 
-                let dependency = workspace.managedDependencies[dep1.asString]!
+                let dependency = workspace.managedDependencies[forIdentity: dep1.basename]!
                 XCTAssertEqual(dependency.checkoutState, CheckoutState(revision: dep1Revision, branch: "develop"))
                 XCTAssertEqual(dep1Revision,
                     try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
@@ -1316,7 +1319,7 @@ final class WorkspaceTests: XCTestCase {
                 let diagnostics = DiagnosticsEngine()
                 workspace.updateDependencies(rootPackages: [root], diagnostics: diagnostics)
                 XCTAssertFalse(diagnostics.hasErrors)
-                let dependency = workspace.managedDependencies[dep1.asString]!
+                let dependency = workspace.managedDependencies[forIdentity: dep1.basename]!
                 let revision = try repo1.getCurrentRevision()
                 XCTAssertEqual(dependency.checkoutState, CheckoutState(revision: revision, branch: "develop"))
                 XCTAssertEqual(revision,
@@ -1473,7 +1476,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
 
             // We should retain the original pin for a package which is in edit mode.
-            XCTAssertEqual(try workspace.pinsStore.load().pinsMap["A"]?.state.version, v1)
+            XCTAssertEqual(try workspace.pinsStore.load().pinsMap["a"]?.state.version, v1)
 
             // Remove edited checkout.
             try removeFileTree(workspace.editablesPath)
@@ -1481,7 +1484,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssertTrue(diagnostics.diagnostics.contains(where: {
                 $0.behavior == .warning &&
-                $0.localizedDescription == "dependency 'A' was being edited but is missing; falling back to original checkout"
+                $0.localizedDescription == "dependency 'a' was being edited but is missing; falling back to original checkout"
             }))
         }
     }
@@ -1521,8 +1524,8 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertFalse(diagnostics.hasErrors)
 
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, v1)
-                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["A"]?.state.version, v1)
-                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["B"]?.state.version, v1)
+                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["a"]?.state.version, v1)
+                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["b"]?.state.version, v1)
 
                 // Create update.
                 let repoPath = AbsolutePath(manifestGraph.repo("A").url)
@@ -1543,10 +1546,10 @@ final class WorkspaceTests: XCTestCase {
                 let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
                 XCTAssertFalse(diagnostics.hasErrors)
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, "1.0.1")
-                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["A"]?.state.version, "1.0.1")
+                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["a"]?.state.version, "1.0.1")
                 XCTAssertTrue(manifests.lookup(package: "B")!.dependency.state == .edited(nil))
                 // We should not have a pin for B anymore.
-                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["B"]?.state.version, nil)
+                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["b"]?.state.version, nil)
             }
         }
     }
@@ -1670,7 +1673,7 @@ final class WorkspaceTests: XCTestCase {
                 rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
 
             func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return workspace.managedDependencies[manifest.url]!
+                return workspace.managedDependencies[forIdentity: manifest.name.lowercased()]!
             }
 
             // Load the package graph.
@@ -1683,9 +1686,9 @@ final class WorkspaceTests: XCTestCase {
             let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             let aManifest = manifests.lookup(manifest: "A")!
-            
+
             let dependency = getDependency(aManifest)
-            
+
             // Edit it at ToT path.
             let tot = path.appending(component: "tot")
             workspace.edit(
@@ -1813,7 +1816,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssertTrue(diagnostics.diagnostics.contains(where: {
                 $0.behavior == .warning &&
-                $0.localizedDescription == "dependency 'Foo' is missing; cloning again"
+                $0.localizedDescription == "dependency 'foo' is missing; cloning again"
             }))
             XCTAssertTrue(isDirectory(workspace.checkoutsPath))
         }
@@ -1854,22 +1857,22 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(data.graph.packages.map{$0.name}.sorted(), ["A", "B"])
 
         // Check package association.
-        XCTAssertEqual(data.dependencyMap[data.graph.lookup("A")]?.name, "A")
-        XCTAssertEqual(data.dependencyMap[data.graph.lookup("B")]?.name, "B")
+        XCTAssertEqual(data.dependencyMap[data.graph.lookup("A")]?.packageRef.identity, "a")
+        XCTAssertEqual(data.dependencyMap[data.graph.lookup("B")]?.packageRef.identity, "b")
 
-        let currentDeps = workspace.managedDependencies.values.map{$0.name}
+        let currentDeps = workspace.managedDependencies.values.map{$0.packageRef}
         // Check delegates.
-        XCTAssertEqual(delegate.managedDependenciesData[0].map{$0.name}, currentDeps)
+        XCTAssertEqual(delegate.managedDependenciesData[0].map{$0.packageRef}, currentDeps)
 
         // Load graph data again.
         do {
             let data = workspace.loadGraphData(root: root, diagnostics: diagnostics)
             // Check package association.
-            XCTAssertEqual(data.dependencyMap[data.graph.lookup("A")]?.name, "A")
-            XCTAssertEqual(data.dependencyMap[data.graph.lookup("B")]?.name, "B")
+            XCTAssertEqual(data.dependencyMap[data.graph.lookup("A")]?.packageRef.identity, "a")
+            XCTAssertEqual(data.dependencyMap[data.graph.lookup("B")]?.packageRef.identity, "b")
         }
 
-        XCTAssertEqual(delegate.managedDependenciesData[1].map{$0.name}, currentDeps)
+        XCTAssertEqual(delegate.managedDependenciesData[1].map{$0.packageRef}, currentDeps)
         XCTAssertEqual(delegate.managedDependenciesData.count, 2)
     }
 
@@ -1877,6 +1880,9 @@ final class WorkspaceTests: XCTestCase {
         let aRepo = RepositorySpecifier(url: "/A")
         let bRepo = RepositorySpecifier(url: "/B")
         let cRepo = RepositorySpecifier(url: "/C")
+        let aRef = PackageReference(identity: "a", repository: aRepo)
+        let bRef = PackageReference(identity: "b", repository: bRepo)
+        let cRef = PackageReference(identity: "c", repository: cRepo)
         let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
         let v1_1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.1")
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
@@ -1897,24 +1903,24 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Fill the pinsStore.
-        pinsStore.pin(package: "A", repository: aRepo, state: v1)
-        pinsStore.pin(package: "B", repository: bRepo, state: v1_5)
-        pinsStore.pin(package: "C", repository: cRepo, state: v2)
+        pinsStore.pin(packageRef: aRef, state: v1)
+        pinsStore.pin(packageRef: bRef, state: v1_5)
+        pinsStore.pin(packageRef: cRef, state: v2)
 
         // Fill ManagedDependencies (all different than pins).
         let managedDependencies = workspace.managedDependencies
-        managedDependencies[aRepo] = ManagedDependency(
-            name: "A", repository: aRepo, subpath: RelativePath("A"), checkoutState: v1_1)
-        managedDependencies[bRepo] = ManagedDependency(
-            name: "B", repository: bRepo, subpath: RelativePath("B"), checkoutState: v1_5)
-        managedDependencies[bRepo] = managedDependencies[bRepo]?.editedDependency(
+        managedDependencies[forIdentity: aRef.identity] = ManagedDependency(
+            packageRef: aRef, subpath: RelativePath("A"), checkoutState: v1_1)
+        managedDependencies[forIdentity: bRef.identity] = ManagedDependency(
+            packageRef: bRef, subpath: RelativePath("B"), checkoutState: v1_5)
+        managedDependencies[forIdentity: bRef.identity] = managedDependencies[forIdentity: bRef.identity]?.editedDependency(
             subpath: RelativePath("B"), unmanagedPath: nil)
 
         // We should need to resolve if input is not satisfiable.
         do {
             let result = workspace.isResolutionRequired(dependencies: [
-                RepositoryPackageConstraint(container: aRepo, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: aRepo, versionRequirement: v2Range),
+                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: aRef, versionRequirement: v2Range),
             ], pinsStore: pinsStore)
 
             XCTAssertEqual(result.resolve, true)
@@ -1924,40 +1930,40 @@ final class WorkspaceTests: XCTestCase {
         // We should need to resolve when pins don't satisfy the inputs.
         do {
             let result = workspace.isResolutionRequired(dependencies: [
-                RepositoryPackageConstraint(container: aRepo, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: bRepo, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: cRepo, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: cRef, versionRequirement: v1Range),
             ], pinsStore: pinsStore)
 
             XCTAssertEqual(result.resolve, true)
-            XCTAssertEqual(result.validPins.map({$0.identifier.url}).sorted(), ["/A", "/B"])
+            XCTAssertEqual(result.validPins.map({$0.identifier.repository.url}).sorted(), ["/A", "/B"])
         }
 
         // We should need to resolve if managed dependencies is out of sync with pins.
         do {
             let result = workspace.isResolutionRequired(dependencies: [
-                RepositoryPackageConstraint(container: aRepo, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: bRepo, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: cRepo, versionRequirement: v2Range),
+                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: cRef, versionRequirement: v2Range),
             ], pinsStore: pinsStore)
 
             XCTAssertEqual(result.resolve, true)
-            XCTAssertEqual(result.validPins.map({$0.identifier.url}).sorted(), ["/A", "/B", "/C"])
+            XCTAssertEqual(result.validPins.map({$0.identifier.repository.url}).sorted(), ["/A", "/B", "/C"])
         }
 
         // We shouldn't need to resolve if everything is fine.
         do {
-            managedDependencies[aRepo] = ManagedDependency(
-                name: "A", repository: aRepo, subpath: RelativePath("A"), checkoutState: v1)
-            managedDependencies[bRepo] = ManagedDependency(
-                name: "B", repository: bRepo, subpath: RelativePath("B"), checkoutState: v1_5)
-            managedDependencies[cRepo] = ManagedDependency(
-                name: "C", repository: cRepo, subpath: RelativePath("C"), checkoutState: v2)
+            managedDependencies[forIdentity: aRef.identity] = ManagedDependency(
+                packageRef: aRef, subpath: RelativePath("A"), checkoutState: v1)
+            managedDependencies[forIdentity: bRef.identity] = ManagedDependency(
+                packageRef: bRef, subpath: RelativePath("B"), checkoutState: v1_5)
+            managedDependencies[forIdentity: cRef.identity] = ManagedDependency(
+                packageRef: cRef, subpath: RelativePath("C"), checkoutState: v2)
 
             let result = workspace.isResolutionRequired(dependencies: [
-                RepositoryPackageConstraint(container: aRepo, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: bRepo, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: cRepo, versionRequirement: v2Range),
+                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: cRef, versionRequirement: v2Range),
             ], pinsStore: pinsStore)
 
             XCTAssertEqual(result.resolve, false)
@@ -2054,14 +2060,14 @@ final class WorkspaceTests: XCTestCase {
 
         // This pin will become unresolvable when A is at 1.0.1.
         // We should still be able to resolve in that case.
-        XCTAssertEqual(try workspace.pinsStore.load().pinsMap["AA"]?.state.version, v1)
+        XCTAssertEqual(try workspace.pinsStore.load().pinsMap["aa"]?.state.version, v1)
 
         root = WorkspaceRoot(packages: [], dependencies: [
             .init(url: "/RootPkg/A", requirement: .exact("1.0.1"), location: "A"),
         ])
         workspace.resolve(root: root, diagnostics: diagnostics)
         XCTAssertFalse(diagnostics.hasErrors)
-        XCTAssertEqual(try workspace.pinsStore.load().pinsMap["AA"]?.state.version, v2)
+        XCTAssertEqual(try workspace.pinsStore.load().pinsMap["aa"]?.state.version, v2)
         // There should be only one update per dependency.
         XCTAssertEqual(delegate.repoUpdates.sorted(), ["/RootPkg/A", "/RootPkg/AA"])
     }

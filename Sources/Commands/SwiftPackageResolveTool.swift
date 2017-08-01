@@ -60,14 +60,14 @@ extension SwiftPackageTool {
                 // FIXME: It would be nice to show information on the resulting
                 // constraints, e.g., how much latitude do we have on particular
                 // dependencies.
-                print("  \(container.url): \(binding.description)")
+                print("  \(container.repository.url): \(binding.description)")
             }
         case .json:
             let json = JSON.dictionary([
                 "name": .string(manifest.name),
                 "constraints": .array(constraints.map({ $0.toJSON() })),
                 "containers": .array(resolver.containers.values.map({ $0.toJSON() })),
-                "result": .dictionary(Dictionary(items: result.map({ ($0.0.url, JSON.string($0.1.description)) }))),
+                "result": .dictionary(Dictionary(items: result.map({ ($0.0.repository.url, JSON.string($0.1.description)) }))),
             ])
             print(json.toString())
         }
@@ -76,7 +76,7 @@ extension SwiftPackageTool {
 
 // MARK: - JSON Convertible
 
-extension PackageContainerConstraint where T == RepositorySpecifier {
+extension PackageContainerConstraint where T == PackageReference {
     public func toJSON() -> JSON {
         let requirement: JSON
         switch self.requirement {
@@ -89,7 +89,7 @@ extension PackageContainerConstraint where T == RepositorySpecifier {
             requirement = .string("revision")
         }
         return .dictionary([
-            "identifier": .string(identifier.url),
+            "identifier": .string(identifier.repository.url),
             "requirement": requirement,
         ])
     }
@@ -127,7 +127,7 @@ extension RepositoryPackageContainer: JSONSerializable {
         })
 
         return .dictionary([
-            "identifier": .string(identifier.url),
+            "identifier": .string(identifier.repository.url),
             "versions": .dictionary(Dictionary(items: depByVersions)),
         ])
     }

@@ -12,6 +12,7 @@ import Basic
 import PackageLoading
 import PackageModel
 import SourceControl
+import class PackageDescription4.Package
 import Utility
 
 /// Adaptor for exposing repositories as PackageContainerProvider instances.
@@ -56,7 +57,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         completion: @escaping (Result<Container, AnyError>) -> Void
     ) {
         // Resolve the container using the repository manager.
-        repositoryManager.lookup(repository: identifier, skipUpdate: skipUpdate) { result in
+        repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate) { result in
             // Create the container wrapper.
             let container = result.mapAny { handle -> Container in
                 // Open the repository.
@@ -81,14 +82,65 @@ enum RepositoryPackageResolutionError: Swift.Error {
     case unavailableRepository
 }
 
-/// Abstract repository identifier.
-extension RepositorySpecifier: PackageContainerIdentifier {}
+/// A package reference.
+///
+/// This represents a reference to a package containing its identity and location.
+public struct PackageReference: PackageContainerIdentifier, JSONMappable, JSONSerializable {
 
-public typealias RepositoryPackageConstraint = PackageContainerConstraint<RepositorySpecifier>
+    /// Compute identity of a package given its URL.
+    public static func computeIdentity(packageURL: String) -> String {
+        // Get the last path component of the URL.
+        var lastComponent = packageURL.split(separator: "/", omittingEmptySubsequences: true).last!
+
+        // Strip `.git` suffix if present.
+        //
+        // FIXME: We need String() here because of https://bugs.swift.org/browse/SR-5627
+        if String(lastComponent).hasSuffix(".git") {
+            lastComponent = lastComponent[...lastComponent.index(lastComponent.endIndex, offsetBy: -5)]
+        }
+
+        return String(lastComponent).lowercased()
+    }
+
+    /// The identity of the package.
+    public let identity: String
+
+    /// The repository of the package.
+    public let repository: RepositorySpecifier
+
+    /// Create a package reference given its identity and repository.
+    public init(identity: String, repository: RepositorySpecifier) {
+		assert(identity == identity.lowercased(), "The identity is expected to be lowercased")
+        self.identity = identity
+        self.repository = repository
+    }
+
+    public static func ==(lhs: PackageReference, rhs: PackageReference) -> Bool {
+        return lhs.identity == rhs.identity
+    }
+
+    public var hashValue: Int {
+        return identity.hashValue
+    }
+
+    public init(json: JSON) throws {
+        self.identity = try json.get("identity")
+        self.repository = try json.get("repository")
+    }
+
+    public func toJSON() -> JSON {
+        return .init([
+            "identity": identity,
+            "repository": repository,
+        ])
+    }
+}
+
+public typealias RepositoryPackageConstraint = PackageContainerConstraint<PackageReference>
 
 /// Adaptor to expose an individual repository as a package container.
 public class RepositoryPackageContainer: PackageContainer, CustomStringConvertible {
-    public typealias Identifier = RepositorySpecifier
+    public typealias Identifier = PackageReference
 
     // A wrapper for getDependencies() errors. This adds additional information
     // about the container to identify it for diagnostics.
@@ -105,7 +157,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
 
     /// The identifier of the repository.
-    public let identifier: RepositorySpecifier
+    public let identifier: PackageReference
 
     /// The available version list (in reverse order).
     public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
@@ -140,7 +192,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     private var dependenciesCacheLock = Lock()
 
     init(
-        identifier: RepositorySpecifier,
+        identifier: PackageReference,
         repository: Repository,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
@@ -160,7 +212,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
 
     public var description: String {
-        return "RepositoryPackageContainer(\(identifier.url.debugDescription))"
+        return "RepositoryPackageContainer(\(identifier.repository.url.debugDescription))"
     }
 
     public func getTag(for version: Version) -> String? {
@@ -194,7 +246,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             }
         } catch {
             throw GetDependenciesErrorWrapper(
-                containerIdentifier: identifier.url, reference: version.description, underlyingError: error)
+                containerIdentifier: identifier.repository.url, reference: version.description, underlyingError: error)
         }
     }
 
@@ -207,7 +259,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             }
         } catch {
             throw GetDependenciesErrorWrapper(
-                containerIdentifier: identifier.url, reference: revision, underlyingError: error)
+                containerIdentifier: identifier.repository.url, reference: revision, underlyingError: error)
         }
     }
 
@@ -238,7 +290,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         // Load the manifest.
         let manifest = try manifestLoader.load(
             package: AbsolutePath.root,
-            baseURL: identifier.url,
+            baseURL: identifier.repository.url,
             version: version,
             manifestVersion: toolsVersion.manifestVersion,
             fileSystem: fs)
