@@ -313,9 +313,16 @@ public class SwiftTool<Options: ToolOptions> {
         if let workspace = _workspace {
             return workspace
         }
+
         let delegate = ToolWorkspaceDelegate()
         let rootPackage = try getPackageRoot()
-        let provider = GitRepositoryProvider(processSet: processSet)
+
+        // Create git provider.
+        let gitOverrides = rootPackage.appending(component: "git-overrides.json")
+        let substitutionHelper = localFileSystem.isFile(gitOverrides) ? try GitURLSubstitutionHelper(file: gitOverrides) : nil
+        let provider = GitRepositoryProvider(processSet: processSet, substitutionHelper: substitutionHelper)
+
+        // Create the workspace.
         let workspace = Workspace(
             dataPath: buildPath,
             editablesPath: rootPackage.appending(component: "Packages"),
