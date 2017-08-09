@@ -773,7 +773,7 @@ watchOS, or tvOS platforms.
 
 ## C language targets
 
-The C language targets are similar to Swift targets except that the C langauge
+The C language targets are similar to Swift targets except that the C language
 libraries should contain a directory named `include` to hold the public headers.  
 
 To allow a Swift target to import a C language target, add a [target
