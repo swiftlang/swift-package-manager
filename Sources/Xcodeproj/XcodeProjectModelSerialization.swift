@@ -590,28 +590,6 @@ fileprivate struct Indentation: CustomStringConvertible {
     }
 }
 
-/// Escapes the string for plist.
-/// Finds the instances of quote (") and backward slash (\) and prepends
-/// the escape character backward slash (\).
-/// FIXME: Reconcile this with the one that Ankit has meanwhile checked in.
-fileprivate func escape(string: String) -> String {
-    func needsEscape(_ char: UInt8) -> Bool {
-        return char == UInt8(ascii: "\\") || char == UInt8(ascii: "\"")
-    }
-
-    guard let pos = string.utf8.index(where: needsEscape) else {
-        return string
-    }
-    var newString = String(string.utf8[string.utf8.startIndex..<pos])!
-    for char in string.utf8[pos..<string.utf8.endIndex] {
-        if needsEscape(char) {
-            newString += "\\"
-        }
-        newString += String(UnicodeScalar(char))
-    }
-    return newString
-}
-
 /// Private function to generate OPENSTEP-style plist representation.
 fileprivate func generatePlistRepresentation(plist: PropertyList, indentation: Indentation) -> String {
     // Do the appropriate thing for each type of plist node.
@@ -622,7 +600,7 @@ fileprivate func generatePlistRepresentation(plist: PropertyList, indentation: I
         return ident
 
       case .string(let string):
-        return "\"" + escape(string: string) + "\""
+        return "\"" + Plist.escape(string: string) + "\""
 
       case .array(let array):
         var indent = indentation
