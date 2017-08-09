@@ -58,8 +58,8 @@ extension Plist {
         guard let pos = string.utf8.index(where: needsEscape) else {
             return string
         }
-        var newString = String(string.utf8[string.utf8.startIndex..<pos])!
-        for char in string.utf8[pos..<string.utf8.endIndex] {
+        var newString = String(string[..<pos])
+        for char in string.utf8[pos...] {
             if needsEscape(char) {
                 newString += "\\"
             }
