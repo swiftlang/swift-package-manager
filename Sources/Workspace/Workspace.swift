@@ -808,7 +808,6 @@ extension Workspace {
         })
         let inputManifests = root.manifests + rootDependencyManifests
 
-
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.name) })) { node in
             return node.item.package.dependencies.flatMap({ dependency in
@@ -816,7 +815,7 @@ extension Workspace {
                 return manifest.flatMap({ KeyedPair($0, key: $0.name) })
             })
         }
-        let allManifests = rootDependencyManifests + dependencies.map({ $0.item })
+        let allManifests = Set(rootDependencyManifests + dependencies.map({ $0.item }))
         let deps: [(Manifest, ManagedDependency)] = allManifests.map({
             // FIXME: We should use package name directly once this radar is fixed:
             // <rdar://problem/33693433> Ensure that identity and package name

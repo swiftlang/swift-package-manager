@@ -61,15 +61,26 @@ public struct PackageGraphLoader {
         shouldCreateMultipleTestProducts: Bool = false
     ) -> PackageGraph {
 
-        // Manifest url to manifest map.
-        let manifestURLMap = Dictionary(items: (externalManifests + root.manifests).map({ ($0.url, $0) }))
+        // Create a map of the manifests, keyed by their identity.
+        //
+        // FIXME: For now, we have to compute the identity of dependencies from
+        // the URL but that shouldn't be needed after <rdar://problem/33693433>
+        // Ensure that identity and package name are the same once we have an
+        // API to specify identity in the manifest file
+        let manifestMapSequence = root.manifests.map({ ($0.name.lowercased(), $0) }) + 
+            externalManifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
+        let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (Manifest) -> [Manifest] = { manifest in
-            manifest.package.dependencies.flatMap({ manifestURLMap[$0.url] })
+            manifest.package.dependencies.flatMap({ 
+                manifestMap[PackageReference.computeIdentity(packageURL: $0.url)] 
+            })
         }
 
         // Construct the root manifest and root dependencies set.
         let rootManifestSet = Set(root.manifests)
-        let rootDependencies = Set(root.dependencies.flatMap({ manifestURLMap[$0.url] }))
+        let rootDependencies = Set(root.dependencies.flatMap({
+            manifestMap[PackageReference.computeIdentity(packageURL: $0.url)]
+        }))
         let inputManifests = root.manifests + rootDependencies
 
         // Collect the manifests for which we are going to build packages.
@@ -117,7 +128,11 @@ public struct PackageGraphLoader {
 
         // Resolve dependencies and create resolved packages.
         let resolvedPackages = createResolvedPackages(
-            allManifests: allManifests, manifestToPackage: manifestToPackage, diagnostics: diagnostics)
+            allManifests: allManifests,
+            manifestToPackage: manifestToPackage,
+            rootManifestSet: rootManifestSet,
+            diagnostics: diagnostics
+        )
 
         return PackageGraph(
             rootPackages: resolvedPackages.filter({ rootManifestSet.contains($0.manifest) }),
@@ -130,10 +145,13 @@ public struct PackageGraphLoader {
 private func createResolvedPackages(
     allManifests: [Manifest],
     manifestToPackage: [Manifest: Package],
+    // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
+    rootManifestSet: Set<Manifest>,
     diagnostics: DiagnosticsEngine
 ) -> [ResolvedPackage] {
 
-    var packageURLMap: [String: ResolvedPackage] = [:]
+    // Package map keyed by their identity.
+    var packageMap: [String: ResolvedPackage] = [:]
 
     var resolvedPackages: [ResolvedPackage] = []
 
@@ -152,7 +170,9 @@ private func createResolvedPackages(
 
         // Get all the external dependencies of this package, ignoring any
         // dependency we couldn't load.
-        let dependencies = manifest.package.dependencies.flatMap({ packageURLMap[$0.url] })
+        let dependencies = manifest.package.dependencies.flatMap({
+            packageMap[PackageReference.computeIdentity(packageURL: $0.url)]
+        })
 
         // Topologically Sort all the local targets in this package.
         let targets = try! topologicalSort(package.targets, successors: { $0.dependencies })
@@ -227,7 +247,11 @@ private func createResolvedPackages(
         // Create resolved package.
         let resolvedPackage = ResolvedPackage(
             package: package, dependencies: dependencies, targets: resolvedModules, products: resolvedProducts)
-        packageURLMap[package.manifest.url] = resolvedPackage
+
+        // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
+        let identity = rootManifestSet.contains(manifest) ? manifest.name.lowercased() : PackageReference.computeIdentity(packageURL: manifest.url)
+        packageMap[identity] = resolvedPackage
+
         resolvedPackages.append(resolvedPackage)
     }
     return resolvedPackages
