@@ -77,11 +77,11 @@ func bash_template(on stream: OutputByteStream) {
         }
 
         _swift_dependency() {
-            COMPREPLY=( $(compgen -W "$(swift package show-dependencies --format flatlist)" -- $cur) )
+            COMPREPLY=( $(compgen -W "$(swift package completion-tool --list-dependencies)" -- $cur) )
         }
 
         _swift_executable() {
-            COMPREPLY=( $(compgen -W "$(swift package describe --executables)" -- $cur) )
+            COMPREPLY=( $(compgen -W "$(swift package completion-tool --list-executables)" -- $cur) )
         }
 
 

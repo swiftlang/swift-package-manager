@@ -64,13 +64,13 @@ func zsh_template(on stream: OutputByteStream) {
 
         _swift_dependency() {
             local dependencies
-            dependencies=( $(swift package show-dependencies --format flatlist) )
+            dependencies=( $(swift package completion-tool --list-dependencies) )
             _describe '' dependencies
         }
 
         _swift_executable() {
             local executables
-            executables=( $(swift package describe --executables) )
+            executables=( $(swift package completion-tool --list-executables) )
             _describe '' executables
         }
 

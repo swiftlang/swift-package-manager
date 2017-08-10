@@ -171,28 +171,32 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .describe:
             let graph = try loadPackageGraph()
-            switch options.describeExecutableNamesOnly {
-            case false:
-                describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
-            case true:
-                describeExecutableNames(graph.rootPackages[0].underlyingPackage, on: stdoutStream)
-            }
+            describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
             let graph = try loadPackageGraph()
             let manifest = graph.rootPackages[0].manifest
             print(try manifest.jsonString())
 
-        case .generateCompletionScript:
-            switch options.shell {
-            case .bash?:
-                bash_template(on: stdoutStream)
-            case .zsh?:
-                zsh_template(on: stdoutStream)
+        case .completionTool:
+            switch options.completionToolMode {
+            case let .generateShellScript(shell)?:
+                switch shell {
+                case .bash:
+                    bash_template(on: stdoutStream)
+                case .zsh:
+                    zsh_template(on: stdoutStream)
+                }
+            case .listDependencies?:
+                let graph = try loadPackageGraph()
+                dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist)
+            case .listExecutables?:
+                let graph = try loadPackageGraph()
+                describeExecutableNames(graph.rootPackages[0].underlyingPackage, on: stdoutStream)
             default:
-                preconditionFailure("somehow we ended up with an invalid positional argument")
+                stderrStream <<< "Please provide a mode: (--generate-shell-script|--list-dependencies|--list-executables)\n"
+                stderrStream.flush()
             }
-            
         case .help:
             parser.printUsage(on: stdoutStream)
         }
@@ -205,9 +209,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             option: describeParser.add(option: "--type", kind: DescribeMode.self, usage: "json|text"),
             to: { $0.describeMode = $1 })
-        binder.bind(
-            option: describeParser.add(option: "--executables", kind: Bool.self, usage: "only list names of executable targets (ignores --type argument)"),
-            to: { $0.describeExecutableNamesOnly = $1 })
 
         _ = parser.add(subparser: PackageMode.dumpPackage.rawValue, overview: "Print parsed Package.swift as JSON")
 
@@ -309,17 +310,23 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                     isCodeCoverageEnabled: $2)
                 $0.outputPath = $3?.path
             })
-        
-        let generateCompletionScript = parser.add(
-            subparser: PackageMode.generateCompletionScript.rawValue,
-            overview: "Generate completion script (Bash or ZSH)")
+
+        let completionToolParser = parser.add(subparser: PackageMode.completionTool.rawValue, overview: "Completion tool (for shell completions)")
         binder.bind(
-            positional: generateCompletionScript.add(
-                positional: "flavor", kind: Shell.self,
+            option: completionToolParser.add(
+                option: "--generate-shell-script", kind: Shell.self,
                 usage: "Shell flavor (bash or zsh)"),
-            to: {
-                $0.shell = $1
-            })
+            to: { $0.completionToolMode = .generateShellScript($1) })
+        binder.bind(
+            option: completionToolParser.add(
+                option: "--list-dependencies", kind: Bool.self,
+                usage: "List all dependencies"),
+            to: { $0.completionToolMode = .listDependencies; _ = $1 })
+        binder.bind(
+            option: completionToolParser.add(
+                option: "--list-executables", kind: Bool.self,
+                usage: "List all executables"),
+            to: { $0.completionToolMode = .listExecutables; _ = $1 })
 
         let resolveParser = parser.add(
             subparser: PackageMode.resolve.rawValue,
@@ -364,7 +371,6 @@ public class PackageToolOptions: ToolOptions {
     }
 
     var describeMode: DescribeMode = .text
-    var describeExecutableNamesOnly = false
 
     var initMode: InitPackage.PackageType = .library
 
@@ -383,7 +389,13 @@ public class PackageToolOptions: ToolOptions {
 
     var outputPath: AbsolutePath?
     var xcodeprojOptions = XcodeprojOptions()
-    var shell: Shell?
+
+    enum CompletionToolMode {
+        case generateShellScript(Shell)
+        case listDependencies
+        case listExecutables
+    }
+    var completionToolMode: CompletionToolMode?
 
     struct ResolveOptions {
         var packageName: String?
@@ -408,7 +420,7 @@ public enum PackageMode: String, StringEnumArgument {
     case edit
     case fetch
     case generateXcodeproj = "generate-xcodeproj"
-    case generateCompletionScript = "generate-completion-script"
+    case completionTool = "completion-tool"
     case initPackage = "init"
     case reset
     case resolve
