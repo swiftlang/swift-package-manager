@@ -40,7 +40,7 @@ public struct PackageGraphRoot {
         public func createPackageRef() -> PackageReference {
             return PackageReference(
                 identity: PackageReference.computeIdentity(packageURL: url),
-                repository: RepositorySpecifier(url: url)
+                path: url
             )
         }
 

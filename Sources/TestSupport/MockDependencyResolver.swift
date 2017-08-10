@@ -80,6 +80,8 @@ public final class MockPackageContainer: PackageContainer {
 
     let dependencies: [String: [Dependency]]
 
+    public var unversionedDeps: [MockPackageConstraint] = []
+
     /// Contains the versions for which the dependencies were requested by resolver using getDependencies().
     public var requestedVersions: Set<Version> = []
 
@@ -102,6 +104,10 @@ public final class MockPackageContainer: PackageContainer {
             let (name, requirement) = value
             return MockPackageConstraint(container: name, requirement: requirement)
         })
+    }
+
+    public func getUnversionedDependencies() -> [MockPackageConstraint] {
+        return unversionedDeps
     }
 
     public convenience init(

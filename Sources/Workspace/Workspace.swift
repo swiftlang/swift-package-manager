@@ -114,9 +114,12 @@ public class Workspace {
         /// The dependency manifests in the transitive closure of root manifest.
         let dependencies: [(manifest: Manifest, dependency: ManagedDependency)]
 
-        fileprivate init(root: PackageGraphRoot, dependencies: [(Manifest, ManagedDependency)]) {
+        let workspace: Workspace
+
+        fileprivate init(root: PackageGraphRoot, dependencies: [(Manifest, ManagedDependency)], workspace: Workspace) {
             self.root = root
             self.dependencies = dependencies
+            self.workspace = workspace
         }
 
         /// Find a package given its name.
@@ -155,20 +158,25 @@ public class Workspace {
             var allConstraints = [RepositoryPackageConstraint]()
 
             for (externalManifest, managedDependency) in dependencies {
-                // Get the constraints from the manifest.
-                let constraints = externalManifest.package.dependencyConstraints()
 
                 switch managedDependency.state {
                 case .edited:
+                    // FIXME: We shouldn't need to construct a new package reference object here.
+                    // We should get the correct one from managed dependency object.
+                    let ref = PackageReference(
+                        identity: managedDependency.packageRef.identity,
+                        path: workspace.path(for: managedDependency).asString,
+                        isLocal: true
+                    )
                     // Add an unversioned constraint if the dependency is in edited state.
                     let constraint = RepositoryPackageConstraint(
-                        container: managedDependency.packageRef,
-                        requirement: .unversioned(constraints))
+                        container: ref,
+                        requirement: .unversioned)
                     allConstraints.append(constraint)
 
                 case .checkout: 
                     // For checkouts, add all the constraints in the manifest.
-                    allConstraints += constraints
+                    allConstraints += externalManifest.package.dependencyConstraints()
                 }
             }
             return allConstraints
@@ -178,16 +186,22 @@ public class Workspace {
         fileprivate func editedPackagesConstraints() -> [RepositoryPackageConstraint] {
             var constraints = [RepositoryPackageConstraint]()
 
-            for (externalManifest, managedDependency) in dependencies {
+            for (_, managedDependency) in dependencies {
                 switch managedDependency.state {
                 case .checkout: continue
                 case .edited: break
                 }
-                let dependencies = externalManifest.package.dependencyConstraints()
-                constraints.append(RepositoryPackageConstraint(
-                    container: managedDependency.packageRef,
-                    requirement: .unversioned(dependencies))
+                // FIXME: We shouldn't need to construct a new package reference object here.
+                // We should get the correct one from managed dependency object.
+                let ref = PackageReference(
+                    identity: managedDependency.packageRef.identity,
+                    path: workspace.path(for: managedDependency).asString,
+                    isLocal: true
                 )
+                let constraint = RepositoryPackageConstraint(
+                    container: ref,
+                    requirement: .unversioned)
+                constraints.append(constraint)
             }
             return constraints
         }
@@ -473,11 +487,11 @@ extension Workspace {
         // Ensure we don't have any error at this point.
         guard !diagnostics.hasErrors else { return }
 
-        // Create constraints based on root manifest and pins for the update resolution.
-        var updateConstraints = graphRoot.constraints
-
         // Add unversioned constraints for edited packages.
-        updateConstraints += currentManifests.editedPackagesConstraints()
+        var updateConstraints = currentManifests.editedPackagesConstraints()
+
+        // Create constraints based on root manifest and pins for the update resolution.
+        updateConstraints += graphRoot.constraints
 
         // Resolve the dependencies.
         let updateResults = resolveDependencies(dependencies: updateConstraints, diagnostics: diagnostics)
@@ -801,7 +815,7 @@ extension Workspace {
         // Try to load current managed dependencies, or emit and return.
         fixManagedDependencies(with: diagnostics)
         guard !diagnostics.hasErrors else {
-            return DependencyManifests(root: root, dependencies: [])
+            return DependencyManifests(root: root, dependencies: [], workspace: self)
         }
 
         let rootDependencyManifests = root.dependencies.flatMap({
@@ -825,7 +839,7 @@ extension Workspace {
             let identity = PackageReference.computeIdentity(packageURL: $0.url)
             return ($0, managedDependencies[forIdentity: identity]!) 
         })
-        return DependencyManifests(root: root, dependencies: deps)
+        return DependencyManifests(root: root, dependencies: deps, workspace: self)
     }
 
 
@@ -950,8 +964,8 @@ extension Workspace {
 
         // Create the constraints.
         var constraints = [RepositoryPackageConstraint]()
-        constraints += graphRoot.constraints + extraConstraints
         constraints += currentManifests.editedPackagesConstraints()
+        constraints += graphRoot.constraints + extraConstraints
 
         // Perform dependency resolution.
         let resolverDiagnostics = DiagnosticsEngine()
@@ -1130,7 +1144,7 @@ extension Workspace {
                 // Get the latest revision from the container.
                 let container = try await {
                     containerProvider.getContainer(for: packageRef, skipUpdate: true, completion: $0) 
-                }
+                } as! RepositoryPackageContainer 
                 var revision = try container.getRevision(forIdentifier: identifier)
                 let branch = identifier == revision.identifier ? nil : identifier
 
@@ -1386,7 +1400,7 @@ extension Workspace {
         // way to get it back out of the resolver which is very
         // annoying. Maybe we should make an SPI on the provider for
         // this?
-        let container = try await { containerProvider.getContainer(for: package, skipUpdate: true, completion: $0) }
+        let container = try await { containerProvider.getContainer(for: package, skipUpdate: true, completion: $0) } as! RepositoryPackageContainer
         let checkoutState: CheckoutState
 
         switch requirement {

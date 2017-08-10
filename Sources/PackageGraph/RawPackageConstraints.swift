@@ -17,7 +17,7 @@ extension PackageDescription4.Package.Dependency {
     public func createPackageRef() -> PackageReference {
         return PackageReference(
             identity: PackageReference.computeIdentity(packageURL: url),
-            repository: RepositorySpecifier(url: url)
+            path: url
         )
     }
 }

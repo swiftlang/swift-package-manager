@@ -154,7 +154,7 @@ final class WorkspaceTests: XCTestCase {
             // Create a test repository.
             let testRepoPath = path.appending(component: "test-repo")
             let testRepoSpec = RepositorySpecifier(url: testRepoPath.asString)
-            let testRepoRef = PackageReference(identity: "test-repo", repository: testRepoSpec)
+            let testRepoRef = PackageReference(identity: "test-repo", path: testRepoSpec.url)
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
             let testRepo = GitRepository(path: testRepoPath)
@@ -265,7 +265,7 @@ final class WorkspaceTests: XCTestCase {
             for name in ["A", "AA"] {
                 let revision = try GitRepository(path: AbsolutePath(graph.repo(name).url)).getCurrentRevision()
                 let state = CheckoutState(revision: revision, version: v1)
-                let packageRef = PackageReference(identity: name.lowercased(), repository: graph.repo(name))
+                let packageRef = PackageReference(identity: name.lowercased(), path: graph.repo(name).url)
                 _ = try workspace.clone(package: packageRef, at: state)
             }
 
@@ -311,7 +311,7 @@ final class WorkspaceTests: XCTestCase {
             for name in ["A"] {
                 let revision = try GitRepository(path: AbsolutePath(manifestGraph.repo(name).url)).getCurrentRevision()
                 let state = CheckoutState(revision: revision, version: v1)
-                let packageRef = PackageReference(identity: name.lowercased(), repository: manifestGraph.repo(name))
+                let packageRef = PackageReference(identity: name.lowercased(), path: manifestGraph.repo(name).url)
                 _ = try workspace.clone(package: packageRef, at: state)
             }
 
@@ -395,7 +395,7 @@ final class WorkspaceTests: XCTestCase {
             for name in ["A"] {
                 let revision = try GitRepository(path: AbsolutePath(manifestGraph.repo(name).url)).getCurrentRevision()
                 let state = CheckoutState(revision: revision, version: v1)
-                let packageRef = PackageReference(identity: name.lowercased(), repository: manifestGraph.repo(name))
+                let packageRef = PackageReference(identity: name.lowercased(), path: manifestGraph.repo(name).url)
                 _ = try workspace.clone(package: packageRef, at: state)
             }
 
@@ -625,7 +625,7 @@ final class WorkspaceTests: XCTestCase {
             // Create a test repository.
             let testRepoPath = path.appending(component: "test-repo")
             let testRepoSpec = RepositorySpecifier(url: testRepoPath.asString)
-            let testRepoRef = PackageReference(identity: "test-repo", repository: testRepoSpec)
+            let testRepoRef = PackageReference(identity: "test-repo", path: testRepoSpec.url)
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
 
@@ -1880,9 +1880,9 @@ final class WorkspaceTests: XCTestCase {
         let aRepo = RepositorySpecifier(url: "/A")
         let bRepo = RepositorySpecifier(url: "/B")
         let cRepo = RepositorySpecifier(url: "/C")
-        let aRef = PackageReference(identity: "a", repository: aRepo)
-        let bRef = PackageReference(identity: "b", repository: bRepo)
-        let cRef = PackageReference(identity: "c", repository: cRepo)
+        let aRef = PackageReference(identity: "a", path: aRepo.url)
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
         let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
         let v1_1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.1")
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")

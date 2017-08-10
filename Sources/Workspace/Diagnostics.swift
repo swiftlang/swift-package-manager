@@ -91,10 +91,8 @@ public enum ResolverDiagnostics {
                 stream <<< set.description
             case .revision(let revision):
                 stream <<< revision
-            case .unversioned(let constraints):
-                stream <<< "unversioned ("
-                stream <<< constraints.map({ $0.description }).joined(separator: ", ")
-                stream <<< ")"
+            case .unversioned:
+                stream <<< "unversioned"
             }
 
             return stream.bytes.asString!
