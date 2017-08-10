@@ -1844,7 +1844,7 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: fs,
             repositoryProvider: provider)
         let diagnostics = DiagnosticsEngine()
-        let root = WorkspaceRoot(packages: [], dependencies: [
+        let root = WorkspaceRoot(packages: [path], dependencies: [
             .init(url: "/RootPkg/B", requirement: .exact(v1.asPD4Version), location: "rootB"),
             .init(url: "/RootPkg/A", requirement: .exact(v1.asPD4Version), location: "rootA"),
         ])
@@ -1853,8 +1853,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Sanity.
         XCTAssertFalse(diagnostics.hasErrors)
-        XCTAssertEqual(data.graph.rootPackages, [])
-        XCTAssertEqual(data.graph.packages.map{$0.name}.sorted(), ["A", "B"])
+        XCTAssertEqual(data.graph.rootPackages.map{$0.name}, ["Root"])
+        XCTAssertEqual(data.graph.packages.map{$0.name}.sorted(), ["A", "B", "Root"])
 
         // Check package association.
         XCTAssertEqual(data.dependencyMap[data.graph.lookup("A")]?.packageRef.identity, "a")
