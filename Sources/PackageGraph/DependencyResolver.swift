@@ -97,9 +97,6 @@ public enum VersionSetSpecifier: Equatable, CustomStringConvertible {
                 return rhs
             }
             return .empty
-        default:
-            // FIXME: Compiler should be able to prove this? https://bugs.swift.org/browse/SR-2221
-            fatalError("not reachable: \(self), \(rhs)")
         }
     }
 
@@ -475,9 +472,6 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
         case (_, .revision):
             // The revision requirement *wins*.
             return self
-
-        default:
-            fatalError("Unreachable \(requirement) \(self[identifier])")
         }
     }
 
