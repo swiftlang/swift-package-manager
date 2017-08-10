@@ -556,16 +556,17 @@ extension Workspace {
 
         // Create the dependency map by associating each resolved package with its corresponding managed dependency.
         let managedDependenciesByIdentity = Dictionary(items: managedDependencies.values.map({ ($0.packageRef.identity, $0) }))
-        let dependencyMap: [ResolvedPackage: ManagedDependency] = Dictionary(items: graph.packages.map({ package in
+        let dependencyMap = graph.packages.flatMap({ package -> (ResolvedPackage, ManagedDependency)? in
             // FIXME: We should use package name directly once this radar is fixed:
             // <rdar://problem/33693433> Ensure that identity and package name
             // are the same once we have an API to specify identity in the
             // manifest file
             let identity = PackageReference.computeIdentity(packageURL: package.manifest.url)
-            return (package, managedDependenciesByIdentity[identity]!)
-        }))
+            guard let dependency = managedDependenciesByIdentity[identity] else { return nil }
+            return (package, dependency)
+        })
 
-        return (graph, dependencyMap)
+        return (graph, Dictionary(items: dependencyMap))
     }
 
     /// Loads and returns manifests at the given paths.
