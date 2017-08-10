@@ -58,9 +58,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .reset:
             try getActiveWorkspace().reset(with: diagnostics)
 
-        case .resolveTool:
-            try executeResolve(options)
-
         case .update:
             let workspace = try getActiveWorkspace()
             try workspace.updateDependencies(
@@ -232,14 +229,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
-
-        let resolveToolParser = parser.add(subparser: PackageMode.resolveTool.rawValue, overview: "")
-        binder.bind(
-            option: resolveToolParser.add(
-                option: "--type", kind: PackageToolOptions.ResolveToolMode.self,
-                usage: "text|json"),
-            to: { $0.resolveToolMode = $1 })
-
         parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
 
         let initPackageParser = parser.add(
@@ -391,12 +380,6 @@ public class PackageToolOptions: ToolOptions {
     }
     var resolveOptions = ResolveOptions()
 
-    enum ResolveToolMode: String {
-        case text
-        case json
-    }
-    var resolveToolMode: ResolveToolMode = .text
-
     enum ToolsVersionMode {
         case display
         case set(String)
@@ -416,7 +399,6 @@ public enum PackageMode: String, StringEnumArgument {
     case initPackage = "init"
     case reset
     case resolve
-    case resolveTool = "resolve-tool"
     case showDependencies = "show-dependencies"
     case toolsVersion = "tools-version"
     case unedit
@@ -455,15 +437,6 @@ extension DescribeMode: StringEnumArgument {
         return .values([
             (text.rawValue, "describe using text format"),
             (json.rawValue, "describe using JSON format"),
-        ])
-    }
-}
-
-extension PackageToolOptions.ResolveToolMode: StringEnumArgument {
-    static var completion: ShellCompletion {
-        return .values([
-            (text.rawValue, "resolve using text format"),
-            (json.rawValue, "resolve using JSON format"),
         ])
     }
 }
