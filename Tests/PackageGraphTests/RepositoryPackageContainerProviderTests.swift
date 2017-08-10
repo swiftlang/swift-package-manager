@@ -36,7 +36,7 @@ private class MockRepository: Repository {
     }
 
     var packageRef: PackageReference {
-        return PackageReference(identity: url.lowercased(), repository: specifier)
+        return PackageReference(identity: url.lowercased(), path: url)
     }
 
     var tags: [String] {
@@ -254,7 +254,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let provider = RepositoryPackageContainerProvider(
                 repositoryManager: repositoryManager,
                 manifestLoader: MockManifestLoader(manifests: [:]))
-        let ref = PackageReference(identity: "foo", repository: specifier)
+        let ref = PackageReference(identity: "foo", path: repoPath.asString)
         let container = try await { provider.getContainer(for: ref, completion: $0) }
         let v = container.versions(filter: { _ in true }).map{$0}
         XCTAssertEqual(v, ["2.0.3", "1.0.3", "1.0.2", "1.0.1", "1.0.0"])
@@ -303,7 +303,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         do {
             let provider = createProvider(ToolsVersion(version: "3.1.0"))
-            let ref = PackageReference(identity: "foo", repository: specifier)
+            let ref = PackageReference(identity: "foo", path: specifier.url)
             let container = try await { provider.getContainer(for: ref, completion: $0) }
             let v = container.versions(filter: { _ in true }).map{$0}
             XCTAssertEqual(v, ["1.0.1", "1.0.0"])
@@ -311,7 +311,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         do {
             let provider = createProvider(ToolsVersion(version: "4.0.0"))
-            let ref = PackageReference(identity: "foo", repository: specifier)
+            let ref = PackageReference(identity: "foo", path: specifier.url)
             let container = try await { provider.getContainer(for: ref, completion: $0) }
             let v = container.versions(filter: { _ in true }).map{$0}
             XCTAssertEqual(v, ["1.0.2", "1.0.1", "1.0.0"])
@@ -319,7 +319,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         do {
             let provider = createProvider(ToolsVersion(version: "3.0.0"))
-            let ref = PackageReference(identity: "foo", repository: specifier)
+            let ref = PackageReference(identity: "foo", path: specifier.url)
             let container = try await { provider.getContainer(for: ref, completion: $0) }
             let v = container.versions(filter: { _ in true }).map{$0}
             XCTAssertEqual(v, [])

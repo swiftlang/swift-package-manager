@@ -27,8 +27,8 @@ final class PinsStoreTests: XCTestCase {
         let fooRepo = RepositorySpecifier(url: "/foo")
         let barRepo = RepositorySpecifier(url: "/bar")
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
-        let fooRef = PackageReference(identity: foo, repository: fooRepo)
-        let barRef = PackageReference(identity: bar, repository: barRepo)
+        let fooRef = PackageReference(identity: foo, path: fooRepo.url)
+        let barRef = PackageReference(identity: bar, path: barRepo.url)
 
         let state = CheckoutState(revision: revision, version: v1)
         let pin = PinsStore.Pin(packageRef: fooRef, state: state)

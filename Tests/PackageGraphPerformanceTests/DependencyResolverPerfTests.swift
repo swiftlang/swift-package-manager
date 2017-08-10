@@ -98,7 +98,7 @@ class DependencyResolverPerfTests: XCTestCasePerf {
                 repositoryManager: repositoryManager, manifestLoader: ManifestLoader(resources: Resources.default))
 
             let resolver = DependencyResolver(containerProvider, GitRepositoryResolutionHelper.DummyResolverDelegate())
-            let container = PackageReference(identity: "dep", repository: RepositorySpecifier(url: dep.asString))
+            let container = PackageReference(identity: "dep", path: dep.asString)
             let constraints = RepositoryPackageConstraint(container: container, versionRequirement: .range("1.0.0"..<"2.0.0"))
             let result = try! resolver.resolve(constraints: [constraints])
             XCTAssert(result.count == 1)

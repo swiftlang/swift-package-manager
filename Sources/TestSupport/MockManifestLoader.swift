@@ -13,6 +13,7 @@ import func XCTest.XCTFail
 import Basic
 import PackageModel
 import PackageLoading
+import PackageGraph
 import Utility
 
 public enum MockManifestLoaderError: Swift.Error {
@@ -34,7 +35,7 @@ public struct MockManifestLoader: ManifestLoaderProtocol {
         public let version: Version?
 
         public init(url: String, version: Version? = nil) {
-            self.url = url
+            self.url = PackageReference.computeIdentity(packageURL: url)
             self.version = version
         }
 
@@ -60,7 +61,7 @@ public struct MockManifestLoader: ManifestLoaderProtocol {
         manifestVersion: ManifestVersion,
         fileSystem: FileSystem?
     ) throws -> PackageModel.Manifest {
-        let key = Key(url: baseURL, version: version)
+        let key = Key(url: PackageReference.computeIdentity(packageURL: baseURL), version: version)
         if let result = manifests[key] {
             return result
         }
