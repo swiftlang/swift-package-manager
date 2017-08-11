@@ -189,7 +189,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist)
             case .listExecutables?:
                 let graph = try loadPackageGraph()
-                describeExecutableNames(graph.rootPackages[0].underlyingPackage, on: stdoutStream)
+                let package = graph.rootPackages[0].underlyingPackage
+                let executables = package.targets.filter { $0.type == .executable }
+                for executable in executables {
+                    stdoutStream <<< "\(executable.name)\n"
+                }
+                stdoutStream.flush()
             default:
                 preconditionFailure("somehow we ended up with an invalid positional argument")
             }

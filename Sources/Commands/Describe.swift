@@ -29,14 +29,6 @@ func describe(_ package: Package, in mode: DescribeMode, on stream: OutputByteSt
     stream.flush()
 }
 
-func describeExecutableNames(_ package: Package, on stream: OutputByteStream) {
-    let executables = package.targets.filter { $0.type == .executable }
-    for executable in executables {
-        stream <<< "\(executable.name)\n"
-    }
-    stream.flush()
-}
-
 extension Package: JSONSerializable {
 
     func describe(on stream: OutputByteStream) {
