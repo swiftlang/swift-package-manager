@@ -180,13 +180,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .completionTool:
             switch options.completionToolMode {
-            case let .generateShellScript(shell)?:
-                switch shell {
-                case .bash:
-                    bash_template(on: stdoutStream)
-                case .zsh:
-                    zsh_template(on: stdoutStream)
-                }
+            case .generateBashScript?:
+                bash_template(on: stdoutStream)
+            case .generateZshScript?:
+                zsh_template(on: stdoutStream)
             case .listDependencies?:
                 let graph = try loadPackageGraph()
                 dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist)
@@ -194,8 +191,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 let graph = try loadPackageGraph()
                 describeExecutableNames(graph.rootPackages[0].underlyingPackage, on: stdoutStream)
             default:
-                stderrStream <<< "Please provide a mode: (--generate-shell-script|--list-dependencies|--list-executables)\n"
-                stderrStream.flush()
+                preconditionFailure("somehow we ended up with an invalid positional argument")
             }
         case .help:
             parser.printUsage(on: stdoutStream)
@@ -311,22 +307,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.outputPath = $3?.path
             })
 
-        let completionToolParser = parser.add(subparser: PackageMode.completionTool.rawValue, overview: "Completion tool (for shell completions)")
+        let completionToolParser = parser.add(
+            subparser: PackageMode.completionTool.rawValue,
+            overview: "Completion tool (for shell completions)")
         binder.bind(
-            option: completionToolParser.add(
-                option: "--generate-shell-script", kind: Shell.self,
-                usage: "Shell flavor (bash or zsh)"),
-            to: { $0.completionToolMode = .generateShellScript($1) })
-        binder.bind(
-            option: completionToolParser.add(
-                option: "--list-dependencies", kind: Bool.self,
-                usage: "List all dependencies"),
-            to: { $0.completionToolMode = .listDependencies; _ = $1 })
-        binder.bind(
-            option: completionToolParser.add(
-                option: "--list-executables", kind: Bool.self,
-                usage: "List all executables"),
-            to: { $0.completionToolMode = .listExecutables; _ = $1 })
+            positional: completionToolParser.add(
+                positional: "mode",
+                kind: PackageToolOptions.CompletionToolMode.self),
+            to: { $0.completionToolMode = $1 })
 
         let resolveParser = parser.add(
             subparser: PackageMode.resolve.rawValue,
@@ -390,10 +378,11 @@ public class PackageToolOptions: ToolOptions {
     var outputPath: AbsolutePath?
     var xcodeprojOptions = XcodeprojOptions()
 
-    enum CompletionToolMode {
-        case generateShellScript(Shell)
-        case listDependencies
-        case listExecutables
+    enum CompletionToolMode: String {
+        case generateBashScript = "generate-bash-script"
+        case generateZshScript = "generate-zsh-script"
+        case listDependencies = "list-dependencies"
+        case listExecutables = "list-executables"
     }
     var completionToolMode: CompletionToolMode?
 
@@ -462,6 +451,17 @@ extension DescribeMode: StringEnumArgument {
         return .values([
             (text.rawValue, "describe using text format"),
             (json.rawValue, "describe using JSON format"),
+        ])
+    }
+}
+
+extension PackageToolOptions.CompletionToolMode: StringEnumArgument {
+    static var completion: ShellCompletion {
+        return .values([
+            (generateBashScript.rawValue, "generate Bash completion script"),
+            (generateZshScript.rawValue, "generate Bash completion script"),
+            (listDependencies.rawValue, "list all dependencies' names"),
+            (listExecutables.rawValue, "list all executables' names"),
         ])
     }
 }
