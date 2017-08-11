@@ -84,7 +84,7 @@ public enum ResolverDiagnostics {
 
         static func toString(_ constraint: RepositoryPackageConstraint) -> String {
             let stream = BufferedOutputByteStream()
-            stream <<< constraint.identifier.repository.url <<< " @ "
+            stream <<< constraint.identifier.path <<< " @ "
 
             switch constraint.requirement {
             case .versionSet(let set):

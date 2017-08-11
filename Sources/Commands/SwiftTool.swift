@@ -118,8 +118,8 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     /// Get the current workspace root object.
-    func getWorkspaceRoot() throws -> WorkspaceRoot {
-        return try WorkspaceRoot(packages: [getPackageRoot()])
+    func getWorkspaceRoot() throws -> PackageGraphRootInput {
+        return try PackageGraphRootInput(packages: [getPackageRoot()])
     }
 
     /// Path to the build directory.

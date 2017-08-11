@@ -53,7 +53,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
         measure {
             let diagnostics = DiagnosticsEngine()
             let g = PackageGraphLoader().load(
-                root: PackageGraphRoot(manifests: rootManifests),
+                root: PackageGraphRoot(input: PackageGraphRootInput(packages: rootManifests.map({$0.path})), manifests: rootManifests),
                 externalManifests: externalManifests,
                 diagnostics: diagnostics,
                 fileSystem: fs)
