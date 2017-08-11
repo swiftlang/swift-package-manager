@@ -98,11 +98,11 @@ extension Workspace {
 
     @discardableResult
     fileprivate func loadPackageGraph(rootPackages: [AbsolutePath], diagnostics: DiagnosticsEngine) -> PackageGraph {
-        return loadPackageGraph(root: WorkspaceRoot(packages: rootPackages), diagnostics: diagnostics)
+        return loadPackageGraph(root: PackageGraphRootInput(packages: rootPackages), diagnostics: diagnostics)
     }
 
     fileprivate func updateDependencies(rootPackages: [AbsolutePath], diagnostics: DiagnosticsEngine) {
-        return updateDependencies(root: WorkspaceRoot(packages: rootPackages), diagnostics: diagnostics)
+        return updateDependencies(root: PackageGraphRootInput(packages: rootPackages), diagnostics: diagnostics)
     }
 
     fileprivate func resolve(
@@ -115,7 +115,7 @@ extension Workspace {
     ) {
         resolve(
             packageName: packageName,
-            root: WorkspaceRoot(packages: rootPackages),
+            root: PackageGraphRootInput(packages: rootPackages),
             version: version,
             branch: branch,
             revision: revision,
@@ -126,7 +126,7 @@ extension Workspace {
         rootManifests: [Manifest],
         diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
-        return loadDependencyManifests(root: PackageGraphRoot(manifests: rootManifests), diagnostics: diagnostics)
+        return loadDependencyManifests(root: PackageGraphRoot(input: PackageGraphRootInput(packages: rootManifests.map({$0.path})), manifests: rootManifests), diagnostics: diagnostics)
     }
 
     fileprivate func resetPinsStore() throws {
@@ -599,7 +599,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNotNil(editedDependency.basedOn)
 
             // Create an empty root to remove the dependency requirement
-            let root = WorkspaceRoot(packages: [])
+            let root = PackageGraphRootInput(packages: [])
 
             workspace.updateDependencies(root: root, diagnostics: diagnostics)
             XCTAssertNoDiagnostics(diagnostics)
@@ -691,7 +691,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil), // To load the edited package manifest.
                 ]
             )
-            let root = WorkspaceRoot(packages: [path])
+            let root = PackageGraphRootInput(packages: [path])
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
@@ -788,7 +788,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil), // To load the edited package manifest.
                 ]
             )
-            let root = WorkspaceRoot(packages: [path])
+            let root = PackageGraphRootInput(packages: [path])
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
@@ -861,7 +861,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil), // To load the edited package manifest.
                 ]
             )
-            let root = WorkspaceRoot(packages: [path])
+            let root = PackageGraphRootInput(packages: [path])
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
@@ -1173,7 +1173,7 @@ final class WorkspaceTests: XCTestCase {
             let diagnostics = DiagnosticsEngine()
             newWorkspace().loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             // This output diagnostics isn't stable. It could be either A or B.
-            XCTAssertTrue(diagnostics.diagnostics[0].localizedDescription.contains("@ 1.0.0..<1.0.1"))
+            XCTAssertTrue(diagnostics.diagnostics[0].localizedDescription.contains("@ 1.0.0..<1.0.1"), diagnostics.diagnostics[0].localizedDescription)
         }
     }
 
@@ -1541,10 +1541,10 @@ final class WorkspaceTests: XCTestCase {
                 let workspace = createWorkspace()
                 let diagnostics = DiagnosticsEngine()
                 workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
+                XCTAssertNoDiagnostics(diagnostics)
                 let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
                 let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
+                XCTAssertNoDiagnostics(diagnostics)
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, "1.0.1")
                 XCTAssertEqual(try workspace.pinsStore.load().pinsMap["a"]?.state.version, "1.0.1")
                 XCTAssertTrue(manifests.lookup(package: "B")!.dependency.state == .edited(nil))
@@ -1667,7 +1667,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil),
                 ]
             )
-            let root = WorkspaceRoot(packages: [path])
+            let root = PackageGraphRootInput(packages: [path])
             // Create the workspace.
             let workspace = Workspace.createWith(
                 rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
@@ -1748,7 +1748,7 @@ final class WorkspaceTests: XCTestCase {
             repositoryProvider: provider
         )
         let diagnostics = DiagnosticsEngine()
-        let root = WorkspaceRoot(packages: [path], dependencies: [
+        let root = PackageGraphRootInput(packages: [path], dependencies: [
             .init(url: "/RootPkg/B", requirement: .exact(v1.asPD4Version), location: "rootB"),
         ])
 
@@ -1785,7 +1785,7 @@ final class WorkspaceTests: XCTestCase {
             repositoryProvider: provider
         )
         let diagnostics = DiagnosticsEngine()
-        let root = WorkspaceRoot(packages: [path], dependencies: [
+        let root = PackageGraphRootInput(packages: [path], dependencies: [
             .init(url: "/RootPkg/B", requirement: .exact(v1.asPD4Version), location: "rootB"),
             .init(url: "/RootPkg/A", requirement: .exact(v1.asPD4Version), location: "rootA"),
         ])
@@ -1844,7 +1844,7 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: fs,
             repositoryProvider: provider)
         let diagnostics = DiagnosticsEngine()
-        let root = WorkspaceRoot(packages: [path], dependencies: [
+        let root = PackageGraphRootInput(packages: [path], dependencies: [
             .init(url: "/RootPkg/B", requirement: .exact(v1.asPD4Version), location: "rootB"),
             .init(url: "/RootPkg/A", requirement: .exact(v1.asPD4Version), location: "rootA"),
         ])
@@ -2001,7 +2001,7 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: fs,
             repositoryProvider: provider)
 
-        let root = WorkspaceRoot(packages: [], dependencies: [
+        let root = PackageGraphRootInput(packages: [], dependencies: [
             .init(url: "/RootPkg/A", requirement: .exact(v1.asPD4Version), location: "A"),
             .init(url: "/RootPkg/B", requirement: .exact(v1.asPD4Version), location: "B"),
         ])
@@ -2049,7 +2049,7 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: fs,
             repositoryProvider: provider)
 
-        var root = WorkspaceRoot(packages: [], dependencies: [
+        var root = PackageGraphRootInput(packages: [], dependencies: [
             .init(url: "/RootPkg/A", requirement: .exact(v1.asPD4Version), location: "A"),
         ])
 
@@ -2062,7 +2062,7 @@ final class WorkspaceTests: XCTestCase {
         // We should still be able to resolve in that case.
         XCTAssertEqual(try workspace.pinsStore.load().pinsMap["aa"]?.state.version, v1)
 
-        root = WorkspaceRoot(packages: [], dependencies: [
+        root = PackageGraphRootInput(packages: [], dependencies: [
             .init(url: "/RootPkg/A", requirement: .exact("1.0.1"), location: "A"),
         ])
         workspace.resolve(root: root, diagnostics: diagnostics)

@@ -1170,7 +1170,7 @@ public class DependencyResolver<
     private var _prefetchingContainers: Set<Identifier> = []
 
     /// Get the container for the given identifier, loading it if necessary.
-    private func getContainer(for identifier: Identifier) throws -> Container {
+    fileprivate func getContainer(for identifier: Identifier) throws -> Container {
         return try fetchCondition.whileLocked {
             // Return the cached container, if available.
             if let container = _fetchedContainers[identifier] {
@@ -1258,9 +1258,28 @@ private struct ResolverDebugger<
     ///
     /// This algorithm can be exponential, so we abort after the predefined time limit.
     func debug(
-        dependencies: [Constraint],
+        dependencies inputDependencies: [Constraint],
         pins: [Constraint]
     ) throws -> (dependencies: [Constraint], pins: [Constraint]) {
+
+        // Form the dependencies array.
+        //
+		// We iterate over the inputs and fetch all the dependencies for
+		// unversioned requirements as the unversioned requirements are not
+		// relevant to the dependency resolution.
+        var dependencies = [Constraint]()
+        for constraint in inputDependencies {
+            if constraint.requirement == .unversioned {
+                // Ignore the errors here.
+                do {
+                    let container = try resolver.getContainer(for: constraint.identifier)
+                    dependencies += try container.getUnversionedDependencies()
+                } catch {}
+            } else {
+                dependencies.append(constraint)
+            }
+        }
+
         // Put the resolver in incomplete mode to avoid cloning new repositories.
         resolver.isInIncompleteMode = true
 

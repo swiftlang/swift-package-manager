@@ -222,7 +222,7 @@ public func loadMockPackageGraph(
             externalManifests.append(manifest)
         }
     }
-    let root = PackageGraphRoot(manifests: [rootManifest])
+    let root = PackageGraphRoot(input: PackageGraphRootInput(packages: [AbsolutePath(root)]), manifests: [rootManifest])
     return PackageGraphLoader().load(root: root, externalManifests: externalManifests, diagnostics: diagnostics, fileSystem: fs)
 }
 
@@ -247,7 +247,7 @@ public func loadMockPackageGraph4(
             externalManifests.append(manifest)
         }
     }
-    let root = PackageGraphRoot(manifests: [rootManifest])
+    let root = PackageGraphRoot(input: PackageGraphRootInput(packages: [AbsolutePath(root)]), manifests: [rootManifest])
     return PackageGraphLoader().load(root: root, externalManifests: externalManifests, diagnostics: diagnostics, fileSystem: fs)
 }
 

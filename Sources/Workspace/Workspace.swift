@@ -352,7 +352,7 @@ extension Workspace {
     public func unedit(
         packageName: String,
         forceRemove: Bool,
-        root: WorkspaceRoot,
+        root: PackageGraphRootInput,
         diagnostics: DiagnosticsEngine
     ) throws {
         let dependency = try managedDependencies.dependency(forIdentity: packageName.lowercased())
@@ -375,7 +375,7 @@ extension Workspace {
     ///     and notes.
     public func resolve(
         packageName: String,
-        root: WorkspaceRoot,
+        root: PackageGraphRootInput,
         version: Version? = nil,
         branch: String? = nil,
         revision: String? = nil,
@@ -466,7 +466,7 @@ extension Workspace {
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
     public func updateDependencies(
-        root: WorkspaceRoot,
+        root: PackageGraphRootInput,
         diagnostics: DiagnosticsEngine
     ) {
         // Create cache directories.
@@ -476,7 +476,7 @@ extension Workspace {
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
+        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
         let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Abort if we're unable to load the pinsStore or have any diagnostics.
@@ -515,7 +515,7 @@ extension Workspace {
     /// - Returns: The loaded package graph.
     @discardableResult
     public func loadPackageGraph(
-        root: WorkspaceRoot,
+        root: PackageGraphRootInput,
         createMultipleTestProducts: Bool = false,
         diagnostics: DiagnosticsEngine
     ) -> PackageGraph {
@@ -540,7 +540,7 @@ extension Workspace {
     /// satisfied by the root manifest closure requirements.  Any outdated
     /// checkout will be restored according to its pin.
     public func resolve(
-        root: WorkspaceRoot,
+        root: PackageGraphRootInput,
         diagnostics: DiagnosticsEngine
     ) {
         _resolve(root: root, diagnostics: diagnostics)
@@ -554,7 +554,7 @@ extension Workspace {
 	/// The current managed dependencies will be reported via the delegate
 	/// before and after loading the package graph.
     public func loadGraphData(
-        root: WorkspaceRoot,
+        root: PackageGraphRootInput,
         createMultipleTestProducts: Bool = false,
         diagnostics: DiagnosticsEngine
     ) -> (graph: PackageGraph, dependencyMap: [ResolvedPackage: ManagedDependency]) {
@@ -690,7 +690,7 @@ extension Workspace {
     fileprivate func unedit(
         dependency: ManagedDependency,
         forceRemove: Bool,
-        root: WorkspaceRoot? = nil,
+        root: PackageGraphRootInput? = nil,
         diagnostics: DiagnosticsEngine
     ) throws {
 
@@ -917,7 +917,7 @@ extension Workspace {
     /// like `$ swift package resolve foo --version 1.0.0`.
     @discardableResult
     fileprivate func _resolve(
-        root: WorkspaceRoot,
+        root: PackageGraphRootInput,
         extraConstraints: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
@@ -929,7 +929,7 @@ extension Workspace {
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
+        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
         let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Abort if pinsStore is unloadable or if diagnostics has errors.
@@ -1135,9 +1135,6 @@ extension Workspace {
                 fatalError("Unexpected excluded binding")
 
             case .unversioned:
-                // Right not it is only possible to get unversioned binding if
-                // a dependency is in editable state.
-                assert(managedDependencies[forIdentity: packageRef.identity]?.state.isCheckout == false)
                 packageStateChanges[packageRef] = .unchanged
 
             case .revision(let identifier):

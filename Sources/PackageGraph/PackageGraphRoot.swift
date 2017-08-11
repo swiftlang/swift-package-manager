@@ -15,6 +15,24 @@ import PackageModel
 import PackageDescription4
 import SourceControl
 
+/// Represents the input to the package graph root.
+public struct PackageGraphRootInput {
+
+    public typealias PackageDependency = PackageGraphRoot.PackageDependency
+
+    /// The list of root packages.
+    public let packages: [AbsolutePath]
+
+    /// Top level dependencies to the graph.
+    public let dependencies: [PackageDependency]
+
+    /// Create a package graph root.
+    public init(packages: [AbsolutePath], dependencies: [PackageDependency] = []) {
+        self.packages = packages
+        self.dependencies = dependencies
+    }
+}
+
 /// Represents the inputs to the package graph.
 public struct PackageGraphRoot {
 
@@ -58,18 +76,26 @@ public struct PackageGraphRoot {
     /// The list of root manifests.
     public let manifests: [Manifest]
 
+    /// The root package references.
+     public let packageRefs: [PackageReference]
+
     /// The top level dependencies.
     public let dependencies: [PackageDependency]
 
     /// Create a package graph root.
-    public init(manifests: [Manifest], dependencies: [PackageDependency] = []) {
+    public init(input: PackageGraphRootInput, manifests: [Manifest]) {
+        self.packageRefs = zip(input.packages, manifests).map { (path, manifest) in
+            PackageReference(identity: manifest.name.lowercased(), path: path.asString, isLocal: true)
+        }
         self.manifests = manifests
-        self.dependencies = dependencies
+        self.dependencies = input.dependencies
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
     public var constraints: [RepositoryPackageConstraint] {
-        let constraints = manifests.flatMap({ $0.package.dependencyConstraints() })
+        let constraints = packageRefs.map({
+            RepositoryPackageConstraint(container: $0, requirement: .unversioned)
+        })
         return constraints + dependencies.map({
             RepositoryPackageConstraint(
                 container: $0.createPackageRef(),
