@@ -301,7 +301,7 @@ Version(
 	_ minor: Int,
 	_ patch: Int,
 	prereleaseIdentifiers: [String] = [],
-	buildMetadataIdentifier: [String] = []
+	buildMetadataIdentifiers: [String] = []
 )
 ```
 
@@ -313,7 +313,7 @@ backwards-compatible manner.
 bug fixes.  
 \- *prereleaseIdentifiers*: Used to denote a pre-released version for eg:
 alpha, beta, etc.  
-\- *buildMetadataIdentifier*: Optional build meta data for eg: timestamp, hash,
+\- *buildMetadataIdentifiers*: Optional build meta data for eg: timestamp, hash,
 etc.  
 
 A `Version` struct can be initialized using a string literal in following
