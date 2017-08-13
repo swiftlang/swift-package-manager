@@ -30,12 +30,12 @@ class JSONTests: XCTestCase {
     func testEncodingWithContentsKeyOrder() {
         // Test encoding with customized contents key order.
         func encode(_ item: JSON) -> String {
-            /// See: https://bugs.swift.org/browse/SR-5624
-            func contentsKeyOrder(a: String, b: String) -> Bool {
-                return b == "dependencies" ? a > b : a < b
+            // See: https://bugs.swift.org/browse/SR-5624
+            func sortingKeysBy(a: String, b: String) -> Bool {
+                return (a < b && a != "dependencies") || b == "dependencies"
             }
 
-            return item.toBytes(contentsKeyOrder: contentsKeyOrder(a:b:)).asString ?? "<unrepresentable>"
+            return item.toBytes(sortingKeysBy: sortingKeysBy(a:b:)).asString ?? "<unrepresentable>"
         }
 
         XCTAssertEqual(encode(.dictionary(["name": .string("name"), "url": .string("url"), "version": .string("version"), "path": .string("path"), "dependencies": .array([.string("dependencies")])])),
