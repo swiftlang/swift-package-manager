@@ -25,6 +25,7 @@ class JSONTests: XCTestCase {
         XCTAssertEqual(encode(.string("hi")), "\"hi\"")
         XCTAssertEqual(encode(.array([.int(1), .string("hi")])), "[1, \"hi\"]")
         XCTAssertEqual(encode(.dictionary(["a": .int(1), "b": .string("hi")])), "{\"a\": 1, \"b\": \"hi\"}")
+        XCTAssertEqual(encode(.orderedDictionary(["b": .string("hi"), "a": .int(1)])), "{\"b\": \"hi\", \"a\": 1}")
     }
     
     func testDecoding() {

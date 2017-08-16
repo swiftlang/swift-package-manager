@@ -116,7 +116,7 @@ private final class DotDumper: DependenciesDumper {
 private final class JSONDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage) {
         func convert(_ package: ResolvedPackage) -> JSON {
-            return .dictionary([
+            return .orderedDictionary([
                     "name": .string(package.name),
                     "url": .string(package.manifest.url),
                     "version": .string(package.manifest.version?.description ?? "unspecified"),

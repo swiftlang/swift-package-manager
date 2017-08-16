@@ -43,6 +43,9 @@ public enum JSON {
 
     /// A dictionary.
     case dictionary([String: JSON])
+
+    /// An ordered dictionary.
+    case orderedDictionary(DictionaryLiteral<String, JSON>)
 }
 
 /// A JSON representation of an element.
@@ -62,6 +65,7 @@ extension JSON: CustomStringConvertible {
         case .string(let value): return value.debugDescription
         case .array(let values): return values.description
         case .dictionary(let values): return values.description
+        case .orderedDictionary(let values): return values.description
         }
     }
 }
@@ -84,6 +88,8 @@ extension JSON: Equatable {
         case (.array, _): return false
         case (.dictionary(let a), .dictionary(let b)): return a == b
         case (.dictionary, _): return false
+        case (.orderedDictionary(let a), .orderedDictionary(let b)): return a == b
+        case (.orderedDictionary, _): return false
         }
     }
 }
@@ -146,8 +152,16 @@ extension JSON: ByteStreamable {
             stream <<< "{" <<< (shouldIndent ? "\n" : "")
             for (i, key) in contents.keys.sorted().enumerated() {
                 if i != 0 { stream <<< "," <<< (shouldIndent ? "\n" : " ") }
-                stream <<<  indentStreamable(offset: 2) <<< Format.asJSON(key) <<< ": "
+                stream <<< indentStreamable(offset: 2) <<< Format.asJSON(key) <<< ": "
                 contents[key]!.write(to: stream, indent: indent.flatMap({ $0 + 2 }))
+            }
+            stream <<< (shouldIndent ? "\n" : "") <<< indentStreamable() <<< "}"
+        case .orderedDictionary(let contents):
+            stream <<< "{" <<< (shouldIndent ? "\n" : "")
+            for (i, item) in contents.enumerated() {
+                if i != 0 { stream <<< "," <<< (shouldIndent ? "\n" : " ") }
+                stream <<< indentStreamable(offset: 2) <<< Format.asJSON(item.key) <<< ": "
+                item.value.write(to: stream, indent: indent.flatMap({ $0 + 2 }))
             }
             stream <<< (shouldIndent ? "\n" : "") <<< indentStreamable() <<< "}"
         }

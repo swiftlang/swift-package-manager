@@ -22,6 +22,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(DeltaAlgorithmTests.allTests),
         testCase(DiagnosticsEngineTests.allTests),
         testCase(DictionaryExtensionTests.allTests),
+        testCase(DictionaryLiteralExtensionsTests.allTests),
         testCase(FileAccessTests.allTests),
         testCase(FileSystemTests.allTests),
         testCase(GraphAlgorithmsTests.allTests),
