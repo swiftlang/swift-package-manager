@@ -107,7 +107,13 @@ private final class JSONDumper: DependenciesDumper {
                 ])
         }
 
-        print(convert(rootpkg).toString(prettyPrint: true))
+        print(convert(rootpkg).toString(prettyPrint: true, sortingKeysBy: sortingKeysBy(a:b:)))
+    }
+
+    /// To bring `dependencies` key to the last order.
+    /// See: https://bugs.swift.org/browse/SR-5624
+    func sortingKeysBy(a: String, b: String) -> Bool {
+        return (a < b && a != "dependencies") || b == "dependencies"
     }
 }
 

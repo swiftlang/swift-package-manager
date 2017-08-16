@@ -26,6 +26,21 @@ class JSONTests: XCTestCase {
         XCTAssertEqual(encode(.array([.int(1), .string("hi")])), "[1, \"hi\"]")
         XCTAssertEqual(encode(.dictionary(["a": .int(1), "b": .string("hi")])), "{\"a\": 1, \"b\": \"hi\"}")
     }
+
+    func testEncodingWithContentsKeyOrder() {
+        // Test encoding with customized contents key order.
+        func encode(_ item: JSON) -> String {
+            // See: https://bugs.swift.org/browse/SR-5624
+            func sortingKeysBy(a: String, b: String) -> Bool {
+                return (a < b && a != "dependencies") || b == "dependencies"
+            }
+
+            return item.toBytes(sortingKeysBy: sortingKeysBy(a:b:)).asString ?? "<unrepresentable>"
+        }
+
+        XCTAssertEqual(encode(.dictionary(["name": .string("name"), "url": .string("url"), "version": .string("version"), "path": .string("path"), "dependencies": .array([.string("dependencies")])])),
+                       "{\"name\": \"name\", \"path\": \"path\", \"url\": \"url\", \"version\": \"version\", \"dependencies\": [\"dependencies\"]}")
+    }
     
     func testDecoding() {
         // Test the basics of encoding each object type.
@@ -97,6 +112,7 @@ class JSONTests: XCTestCase {
 
     static var allTests = [
         ("testEncoding", testEncoding),
+        ("testEncodingWithContentsKeyOrder", testEncodingWithContentsKeyOrder),
         ("testDecoding", testDecoding),
         ("testStringInitalizer", testStringInitalizer),
         ("testPrettyPrinting", testPrettyPrinting),

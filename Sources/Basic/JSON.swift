@@ -92,9 +92,9 @@ extension JSON: Equatable {
 
 extension JSON {
     /// Encode a JSON item into a string of bytes.
-    public func toBytes(prettyPrint: Bool = false) -> ByteString {
+    public func toBytes(prettyPrint: Bool = false, sortingKeysBy: (String, String) -> Bool = { $0 < $1 }) -> ByteString {
         let stream = BufferedOutputByteStream()
-        write(to: stream, indent: prettyPrint ? 0 : nil)
+        write(to: stream, indent: prettyPrint ? 0 : nil, sortingKeysBy: sortingKeysBy)
         if prettyPrint {
             stream.write("\n")
         }
@@ -102,8 +102,8 @@ extension JSON {
     }
 
     /// Encode a JSON item into a JSON string
-    public func toString(prettyPrint: Bool = false) -> String {
-        guard let contents = self.toBytes(prettyPrint: prettyPrint).asString else {
+    public func toString(prettyPrint: Bool = false, sortingKeysBy: (String, String) -> Bool = { $0 < $1 }) -> String {
+        guard let contents = self.toBytes(prettyPrint: prettyPrint, sortingKeysBy: sortingKeysBy).asString else {
             fatalError("Failed to serialize JSON: \(self)")
         }
         return contents
@@ -116,7 +116,7 @@ extension JSON: ByteStreamable {
         write(to: stream, indent: nil)
     }
 
-    public func write(to stream: OutputByteStream, indent: Int?) {
+    public func write(to stream: OutputByteStream, indent: Int?, sortingKeysBy areInIncreasingOrder: (String, String) -> Bool = { $0 < $1 }) {
         func indentStreamable(offset: Int? = nil) -> ByteStreamable {
             return Format.asRepeating(string: " ", count: indent.flatMap({ $0 + (offset ?? 0) }) ?? 0)
         }
@@ -142,9 +142,8 @@ extension JSON: ByteStreamable {
             }
             stream <<< (shouldIndent ? "\n" : "") <<< indentStreamable() <<< "]"
         case .dictionary(let contents):
-            // We always output in a deterministic order.
             stream <<< "{" <<< (shouldIndent ? "\n" : "")
-            for (i, key) in contents.keys.sorted().enumerated() {
+            for (i, key) in contents.keys.sorted(by: areInIncreasingOrder).enumerated() {
                 if i != 0 { stream <<< "," <<< (shouldIndent ? "\n" : " ") }
                 stream <<<  indentStreamable(offset: 2) <<< Format.asJSON(key) <<< ": "
                 contents[key]!.write(to: stream, indent: indent.flatMap({ $0 + 2 }))
