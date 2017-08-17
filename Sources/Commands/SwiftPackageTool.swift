@@ -178,16 +178,26 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let manifest = graph.rootPackages[0].manifest
             print(try manifest.jsonString())
 
-        case .generateCompletionScript:
-            switch options.shell {
-            case .bash?:
+        case .completionTool:
+            switch options.completionToolMode {
+            case .generateBashScript?:
                 bash_template(on: stdoutStream)
-            case .zsh?:
+            case .generateZshScript?:
                 zsh_template(on: stdoutStream)
+            case .listDependencies?:
+                let graph = try loadPackageGraph()
+                dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist)
+            case .listExecutables?:
+                let graph = try loadPackageGraph()
+                let package = graph.rootPackages[0].underlyingPackage
+                let executables = package.targets.filter { $0.type == .executable }
+                for executable in executables {
+                    stdoutStream <<< "\(executable.name)\n"
+                }
+                stdoutStream.flush()
             default:
                 preconditionFailure("somehow we ended up with an invalid positional argument")
             }
-            
         case .help:
             parser.printUsage(on: stdoutStream)
         }
@@ -207,7 +217,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             positional: editParser.add(
                 positional: "name", kind: String.self,
-                usage: "The name of the package to edit"),
+                usage: "The name of the package to edit",
+                completion: .function("_swift_dependency")),
             to: { $0.editOptions.packageName = $1 })
         binder.bind(
             editParser.add(
@@ -246,7 +257,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             positional: uneditParser.add(
                 positional: "name", kind: String.self,
-                usage: "The name of the package to unedit"),
+                usage: "The name of the package to unedit",
+                completion: .function("_swift_dependency")),
             to: { $0.editOptions.packageName = $1 })
         binder.bind(
             option: uneditParser.add(
@@ -260,7 +272,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             option: showDependenciesParser.add(
                 option: "--format", kind: ShowDependenciesMode.self,
-                usage: "text|dot|json"),
+                usage: "text|dot|json|flatlist"),
             to: {
                 $0.showDepsMode = $1})
 
@@ -299,17 +311,15 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                     isCodeCoverageEnabled: $2)
                 $0.outputPath = $3?.path
             })
-        
-        let generateCompletionScript = parser.add(
-            subparser: PackageMode.generateCompletionScript.rawValue,
-            overview: "Generate completion script (Bash or ZSH)")
+
+        let completionToolParser = parser.add(
+            subparser: PackageMode.completionTool.rawValue,
+            overview: "Completion tool (for shell completions)")
         binder.bind(
-            positional: generateCompletionScript.add(
-                positional: "flavor", kind: Shell.self,
-                usage: "Shell flavor (bash or zsh)"),
-            to: {
-                $0.shell = $1
-            })
+            positional: completionToolParser.add(
+                positional: "mode",
+                kind: PackageToolOptions.CompletionToolMode.self),
+            to: { $0.completionToolMode = $1 })
 
         let resolveParser = parser.add(
             subparser: PackageMode.resolve.rawValue,
@@ -317,7 +327,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             positional: resolveParser.add(
                 positional: "name", kind: String.self, optional: true,
-                usage: "The name of the package to resolve"),
+                usage: "The name of the package to resolve",
+                completion: .function("_swift_dependency")),
             to: { $0.resolveOptions.packageName = $1 })
 
         binder.bind(
@@ -353,6 +364,7 @@ public class PackageToolOptions: ToolOptions {
     }
 
     var describeMode: DescribeMode = .text
+
     var initMode: InitPackage.PackageType = .library
 
     var inputPath: AbsolutePath?
@@ -370,7 +382,14 @@ public class PackageToolOptions: ToolOptions {
 
     var outputPath: AbsolutePath?
     var xcodeprojOptions = XcodeprojOptions()
-    var shell: Shell?
+
+    enum CompletionToolMode: String {
+        case generateBashScript = "generate-bash-script"
+        case generateZshScript = "generate-zsh-script"
+        case listDependencies = "list-dependencies"
+        case listExecutables = "list-executables"
+    }
+    var completionToolMode: CompletionToolMode?
 
     struct ResolveOptions {
         var packageName: String?
@@ -395,7 +414,7 @@ public enum PackageMode: String, StringEnumArgument {
     case edit
     case fetch
     case generateXcodeproj = "generate-xcodeproj"
-    case generateCompletionScript = "generate-completion-script"
+    case completionTool = "completion-tool"
     case initPackage = "init"
     case reset
     case resolve
@@ -437,6 +456,17 @@ extension DescribeMode: StringEnumArgument {
         return .values([
             (text.rawValue, "describe using text format"),
             (json.rawValue, "describe using JSON format"),
+        ])
+    }
+}
+
+extension PackageToolOptions.CompletionToolMode: StringEnumArgument {
+    static var completion: ShellCompletion {
+        return .values([
+            (generateBashScript.rawValue, "generate Bash completion script"),
+            (generateZshScript.rawValue, "generate Bash completion script"),
+            (listDependencies.rawValue, "list all dependencies' names"),
+            (listExecutables.rawValue, "list all executables' names"),
         ])
     }
 }

@@ -62,6 +62,18 @@ func zsh_template(on stream: OutputByteStream) {
             esac
         }
 
+        _swift_dependency() {
+            local dependencies
+            dependencies=( $(\(listDependenciesCommand)) )
+            _describe '' dependencies
+        }
+
+        _swift_executable() {
+            local executables
+            executables=( $(\(listExecutablesCommand)) )
+            _describe '' executables
+        }
+
 
         """
 

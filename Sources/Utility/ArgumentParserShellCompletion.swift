@@ -135,7 +135,7 @@ extension ArgumentParser {
     }
 
     fileprivate func generateBashCompletion(_ argument: AnyArgument, on stream: OutputByteStream) {
-        switch argument.kind.completion {
+        switch argument.completion {
         case .none:
             // return; no value to complete
             stream <<< "            return\n"
@@ -151,6 +151,12 @@ extension ArgumentParser {
         case .filename:
             stream <<< """
                             _filedir
+                            return
+
+                """
+        case .function(let name):
+            stream <<< """
+                            \(name)
                             return
 
                 """
@@ -258,7 +264,7 @@ extension ArgumentParser {
             .replace(in: argument.usage ?? " ", with: "")
             .replacingOccurrences(of: "\"", with: "\\\"")
 
-        switch argument.kind.completion {
+        switch argument.completion {
         case .none: stream <<< ":\(message): "
         case .unspecified: break
         case .filename: stream <<< ":\(message):_files"
@@ -268,6 +274,7 @@ extension ArgumentParser {
                 stream <<< " '\(value)[\(description)]'"
             }
             stream <<< "}"
+        case .function(let name): stream <<< ":\(message):\(name)"
         }
     }
 }

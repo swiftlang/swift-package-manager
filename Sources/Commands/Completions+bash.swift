@@ -12,6 +12,9 @@ import Foundation
 import Basic
 import Utility
 
+let listDependenciesCommand = "swift package \(PackageMode.completionTool.rawValue) \(PackageToolOptions.CompletionToolMode.listDependencies.rawValue)"
+let listExecutablesCommand = "swift package \(PackageMode.completionTool.rawValue) \(PackageToolOptions.CompletionToolMode.listExecutables.rawValue)"
+
 /// Template for Bash completion script.
 ///
 /// - Parameter stream: output stream to write the script to.
@@ -75,6 +78,15 @@ func bash_template(on stream: OutputByteStream) {
                     ;;
             esac
         }
+
+        _swift_dependency() {
+            COMPREPLY=( $(compgen -W "$(\(listDependenciesCommand))" -- $cur) )
+        }
+
+        _swift_executable() {
+            COMPREPLY=( $(compgen -W "$(\(listExecutablesCommand))" -- $cur) )
+        }
+
 
         """
 

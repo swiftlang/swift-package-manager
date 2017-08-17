@@ -806,7 +806,7 @@ SwiftPM ships with completion scripts for both Bash and ZSH. These files should 
 Use the following commands to install the Bash completions to `~/.swift-package-complete.bash` and automatically load them using your `~/.bash_profile` file.
 
 ```bash
-swift package generate-completion-script bash > ~/.swift-package-complete.bash
+swift package completion-tool generate-bash-script > ~/.swift-package-complete.bash
 echo -e "source ~/.swift-package-complete.bash\n" >> ~/.bash_profile
 source ~/.swift-package-complete.bash
 ```
@@ -817,7 +817,7 @@ Use the following commands to install the ZSH completions to `~/.zsh/_swift`. Yo
 
 ```bash
 mkdir ~/.zsh
-swift package generate-completion-script zsh > ~/.zsh/_swift
+swift package completion-tool generate-zsh-script > ~/.zsh/_swift
 echo -e "fpath=(~/.zsh \$fpath)\n" >> ~/.zshrc
 compinit
 ```
