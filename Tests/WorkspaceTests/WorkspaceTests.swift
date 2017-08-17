@@ -1572,7 +1572,7 @@ final class WorkspaceTests: XCTestCase {
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
         for root in roots {
             let rootManifest = Manifest(
-                path: AbsolutePath.root.appending(component: Manifest.filename),
+                path: root.appending(component: Manifest.filename),
                 url: root.asString,
                 package: .v3(.init(name: root.asString)),
                 version: nil
@@ -1597,7 +1597,7 @@ final class WorkspaceTests: XCTestCase {
             let workspace = try createWorkspace(ToolsVersion(version: "3.1.0"))
             let diagnostics = DiagnosticsEngine()
             workspace.loadPackageGraph(rootPackages: roots, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
+            XCTAssertNoDiagnostics(diagnostics)
         }
 
         // Limit root0 to 3.1.0
@@ -1608,7 +1608,7 @@ final class WorkspaceTests: XCTestCase {
             let workspace = try createWorkspace(ToolsVersion(version: "4.0.0"))
             let diagnostics = DiagnosticsEngine()
             workspace.loadPackageGraph(rootPackages: roots, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
+            XCTAssertNoDiagnostics(diagnostics)
         }
 
         // Limit root1 to 4.0.0
@@ -1619,7 +1619,7 @@ final class WorkspaceTests: XCTestCase {
             let workspace = try createWorkspace(ToolsVersion(version: "4.0.0"))
             let diagnostics = DiagnosticsEngine()
             workspace.loadPackageGraph(rootPackages: roots, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
+            XCTAssertNoDiagnostics(diagnostics)
         }
 
         // Failing case.
