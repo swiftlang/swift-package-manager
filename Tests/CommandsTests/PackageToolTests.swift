@@ -297,6 +297,9 @@ final class PackageToolTests: XCTestCase {
             // Fully clean.
             _ = try execute(["reset"], packagePath: packageRoot)
             XCTAssertFalse(isDirectory(buildPath))
+
+            // Test that we can successfully run reset again.
+            _ = try execute(["reset"], packagePath: packageRoot)
         }
     }
 
