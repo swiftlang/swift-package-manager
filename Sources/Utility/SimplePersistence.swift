@@ -123,6 +123,7 @@ public final class SimplePersistence {
         // Set the object, keeping any keys in object which we don't know about.
         json["object"] = merge(old: json["object"], new: object.toJSON())
 
+        try fileSystem.createDirectory(statePath.parentDirectory, recursive: true)
         // FIXME: This should write atomically.
         try fileSystem.writeFileContents(
             statePath, bytes: JSON(json).toBytes(prettyPrint: self.prettyPrint))
