@@ -22,8 +22,14 @@ class DictionaryExtensionTests: XCTestCase {
 
         XCTAssertEqual(["foo": "1", "bar": "2", "baz": "f"].flatMapValues({ Int($0) }), ["foo": 1, "bar": 2])
     }
+
+    func testCreateDictionary() {
+        XCTAssertEqual([("foo", 1), ("bar", 2)].createDictionary({ $0 }), ["foo": 1, "bar": 2])
+        XCTAssertEqual(["foo", "bar"].createDictionary({ ($0[$0.startIndex], $0) }), ["f": "foo", "b": "bar"])
+    }
     
     static var allTests = [
         ("testBasics", testBasics),
+        ("testCreateDictionary", testCreateDictionary),
     ]
 }
