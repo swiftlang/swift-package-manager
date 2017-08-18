@@ -32,6 +32,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: name, type: .library)
                 moduleResult.checkSources(root: "/", paths: "Foo.swift")
             }
+            result.checkProduct(name) { _ in }
         }
     }
 
@@ -45,6 +46,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: name, type: .library)
                 moduleResult.checkSources(root: "/", paths: "Foo.swift")
             }
+            result.checkProduct(name) { _ in }
         }
 
         // Single swift target inside Sources.
@@ -57,6 +59,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: name, type: .library)
                 moduleResult.checkSources(root: "/Sources", paths: "Foo.swift", "Bar.swift")
             }
+            result.checkProduct(name) { _ in }
         }
 
         // Single swift target inside its own directory.
@@ -69,6 +72,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "lib", type: .library)
                 moduleResult.checkSources(root: "/Sources/lib", paths: "Foo.swift", "Bar.swift")
             }
+            result.checkProduct(name) { _ in }
         }
     }
 
@@ -96,6 +100,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: name, type: .library)
                 moduleResult.checkSources(root: "/", paths: "Foo.c")
             }
+            result.checkProduct(name) { _ in }
         }
 
         // Single clang target inside Sources.
@@ -108,6 +113,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: name, type: .library)
                 moduleResult.checkSources(root: "/Sources", paths: "Foo.c")
             }
+            result.checkProduct(name) { _ in }
         }
 
         // Single clang target inside its own directory.
@@ -120,6 +126,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "lib", type: .library)
                 moduleResult.checkSources(root: "/Sources/lib", paths: "Foo.c")
             }
+            result.checkProduct(name) { _ in }
         }
     }
 
@@ -313,6 +320,7 @@ class PackageBuilderTests: XCTestCase {
 
             result.checkProduct("A") { _ in }
             result.checkProduct("B") { _ in }
+            result.checkProduct("MultipleModules") { _ in }
         }
     }
 
@@ -344,6 +352,7 @@ class PackageBuilderTests: XCTestCase {
 
             result.checkProduct("A") { _ in }
             result.checkProduct("C") { _ in }
+            result.checkProduct("MultipleModules") { _ in }
         }
     }
 
@@ -377,6 +386,7 @@ class PackageBuilderTests: XCTestCase {
                 }
 
                 result.checkProduct("FooPackageTests") { _ in }
+                result.checkProduct("Foo") { _ in }
             }
         }
 
@@ -437,6 +447,7 @@ class PackageBuilderTests: XCTestCase {
 
             result.checkProduct("E") { _ in }
             result.checkProduct("FooPackageTests") { _ in }
+            result.checkProduct("Foo") { _ in }
             result.checkProduct("A") { _ in }
        }
     }
@@ -546,6 +557,7 @@ class PackageBuilderTests: XCTestCase {
                     moduleResult.checkSources(root: "/Sources/\(target)", paths: "\(target).swift")
                 }
             }
+            result.checkProduct("pkg") { _ in }
         }
 
         // Transitive.
@@ -573,6 +585,8 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "Baz", type: .library)
                 moduleResult.checkSources(root: "/Sources/Baz", paths: "Baz.swift")
             }
+
+            result.checkProduct("pkg") { _ in }
         }
     }
 
@@ -622,6 +636,7 @@ class PackageBuilderTests: XCTestCase {
             }
 
             result.checkProduct("pkgPackageTests") { _ in }
+            result.checkProduct("pkg") { _ in }
         }
     }
 
@@ -713,6 +728,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.checkSources(root: "/Sources/lib", paths: "lib.swift")
             }
             result.checkProduct("exec") { _ in }
+            result.checkProduct("pkg") { _ in }
         }
 
         // Reference a target which doesn't have sources.
@@ -726,6 +742,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "pkg1", type: .library)
                 moduleResult.checkSources(root: "/Sources/pkg1", paths: "Foo.swift")
             }
+            result.checkProduct("pkg") { _ in }
         }
     }
 
@@ -749,6 +766,7 @@ class PackageBuilderTests: XCTestCase {
             result.checkProduct("FooPackageTests") { productResult in
                 productResult.check(type: .test, targets: ["FooTests"])
             }
+            result.checkProduct("Foo") { _ in }
         }
 
         // Multi target tests package.
@@ -782,6 +800,7 @@ class PackageBuilderTests: XCTestCase {
             result.checkProduct("FooPackageTests") { productResult in
                 productResult.check(type: .test, targets: ["BarTests", "FooTests"])
             }
+            result.checkProduct("Foo") { _ in }
         }
     }
 
@@ -798,6 +817,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: name, type: .library)
                 moduleResult.checkSources(root: "/Sources", paths: "Package.swift", "Package@swift-1.swift")
             }
+            result.checkProduct(name) { _ in }
         }
     }
 
@@ -932,6 +952,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "clib", type: .library)
                 moduleResult.checkSources(root: "/Sources/clib", paths: "clib.c")
             }
+            result.checkProduct("MyPackage") { _ in }
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -965,6 +986,7 @@ class PackageBuilderTests: XCTestCase {
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkDiagnostic("target 'ModuleTests' in package 'MyPackage' contains no valid source files")
             result.checkModule("Module")
+            result.checkProduct("MyPackage") { _ in }
         }
     }
 

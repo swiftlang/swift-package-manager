@@ -43,6 +43,7 @@ class GenerateXcodeprojTests: XCTestCase {
                    Targets:
                        FooPackageDescription
                        DummyModuleName
+                       Foo
                
                    Build Configurations:
                        Debug

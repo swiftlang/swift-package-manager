@@ -992,11 +992,9 @@ public final class PackageBuilder {
             createExecutables()
 
             // Create one product containing all of the package's library targets.
-            if !isRootPackage {
-                let libraryModules = targets.filter({ $0.type == .library })
-                if !libraryModules.isEmpty {
-                    products += [Product(name: manifest.name, type: .library(.automatic), targets: libraryModules)]
-                }
+            let libraryModules = targets.filter({ $0.type == .library })
+            if !libraryModules.isEmpty {
+                products += [Product(name: manifest.name, type: .library(.automatic), targets: libraryModules)]
             }
 
         case .v4(let package):
