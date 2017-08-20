@@ -20,7 +20,7 @@ relative path of the target is declared, the Package Manager will look for
 a directory matching the name of the target in these places:
 
 Regular targets: package root, Sources, Source, src, srcs.  
-Test targets: Tests, package root, Sources, Source, src, srcs. 
+Test targets: Tests, package root, Sources, Source, src, srcs.
 
 ## Package Manifest File Format Reference
 
@@ -311,10 +311,9 @@ changes.
 backwards-compatible manner.  
 \- *patch*: The patch version, incremented when you make backwards-compatible
 bug fixes.  
-\- *prereleaseIdentifiers*: Used to denote a pre-released version for eg:
-alpha, beta, etc.  
-\- *buildMetadataIdentifiers*: Optional build meta data for eg: timestamp, hash,
-etc.  
+\- *prereleaseIdentifiers*: Used to denote a pre-release version; for example,
+alpha, beta.  
+\- *buildMetadataIdentifiers*: Optional build metadata; for example, timestamp, hash.  
 
 A `Version` struct can be initialized using a string literal in following
 format:
