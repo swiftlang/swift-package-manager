@@ -818,6 +818,15 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
 
+        // Remove any managed dependency which has become a root.
+        for dependency in managedDependencies.values {
+            if root.packageRefs.contains(dependency.packageRef) {
+                diagnostics.wrap {
+                    try self.remove(package: dependency.packageRef)
+                }
+            }
+        }
+
         // Try to load current managed dependencies, or emit and return.
         fixManagedDependencies(with: diagnostics)
         guard !diagnostics.hasErrors else {
@@ -1423,7 +1432,7 @@ extension Workspace {
     }
 
     /// Removes the clone and checkout of the provided specifier.
-    private func remove(package: PackageReference) throws {
+    fileprivate func remove(package: PackageReference) throws {
         
         guard let dependency = managedDependencies[forIdentity: package.identity] else {
             fatalError("This should never happen, trying to remove \(package.identity) which isn't in workspace")
