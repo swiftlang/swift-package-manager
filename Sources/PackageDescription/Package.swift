@@ -207,7 +207,7 @@ struct Errors {
     mutating func add(_ str: String) {
         // FIXME: This will produce invalid JSON if string contains quotes. Assert it for now
         // and fix when we have escaping in JSON.
-        assert(!str.characters.contains("\""), "Error string shouldn't have quotes in it.")
+        assert(!str.contains("\""), "Error string shouldn't have quotes in it.")
         errors += [str]
     }
 

@@ -230,7 +230,7 @@ extension Manifest.RawPackage {
 
 extension PackageDescription4.Version {
     fileprivate init(pdVersion version: PackageDescription.Version) {
-        let buildMetadata = version.buildMetadataIdentifier?.characters.split(separator: ".").map(String.init)
+        let buildMetadata = version.buildMetadataIdentifier?.split(separator: ".").map(String.init)
         self.init(
             version.major,
             version.minor,

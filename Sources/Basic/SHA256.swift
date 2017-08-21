@@ -61,7 +61,7 @@ public final class SHA256 {
         return digest().reduce("") {
             var str = String($1, radix: 16)
             // The above method does not do zero padding.
-            if str.characters.count == 1 {
+            if str.count == 1 {
                 str = "0" + str
             }
             return $0 + str

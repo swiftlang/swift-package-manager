@@ -37,9 +37,9 @@ public func getEnvSearchPaths(
     currentWorkingDirectory cwd: AbsolutePath
 ) -> [AbsolutePath] {
     // Compute search paths from PATH variable.
-    return (pathString ?? "").characters.split(separator: ":").map(String.init).map({ pathString in
+    return (pathString ?? "").split(separator: ":").map(String.init).map({ pathString in
         // If this is an absolute path, we're done.
-        if pathString.characters.first == "/" {
+        if pathString.first == "/" {
             return AbsolutePath(pathString)
         }
         // Otherwise convert it into absolute path relative to the working directory.
@@ -75,7 +75,7 @@ public func lookupExecutablePath(
         return path
     }
     // Ensure the value is not a path.
-    guard !value.characters.contains("/") else {
+    guard !value.contains("/") else {
         return nil
     }
     // Try to locate in search paths.

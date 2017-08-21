@@ -50,7 +50,7 @@ class ProcessTests: XCTestCase {
         let stream = BufferedOutputByteStream()
         stream <<< Format.asRepeating(string: "a", count: count)
         try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
-        let outputCount = try Process.popen(args: "cat", file.path.asString).utf8Output().characters.count
+        let outputCount = try Process.popen(args: "cat", file.path.asString).utf8Output().count
         XCTAssert(outputCount == count)
     }
 

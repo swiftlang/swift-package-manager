@@ -293,7 +293,7 @@ extension Xcode.Reference {
         if path.isEmpty {
             return ""
         }
-        if path.characters.first == "/" {
+        if path.first == "/" {
             return AbsolutePath(path).basename
         }
         return RelativePath(path).basename

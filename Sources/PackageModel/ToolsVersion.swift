@@ -57,7 +57,7 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
     /// Create an instance of tools version from a given string.
     public init?(string: String) {
         guard let match = ToolsVersion.toolsVersionRegex.firstMatch(
-            in: string, options: [], range: NSRange(location: 0, length: string.characters.count)) else {
+            in: string, options: [], range: NSRange(location: 0, length: string.count)) else {
             return nil
         }
         // The regex succeeded, compute individual components.
