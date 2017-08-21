@@ -284,7 +284,7 @@ fileprivate extension NSRegularExpression {
         return stringByReplacingMatches(
             in: original,
             options: [],
-            range: NSRange(location: 0, length: original.characters.count),
+            range: NSRange(location: 0, length: original.count),
             withTemplate: replacement)
     }
 }

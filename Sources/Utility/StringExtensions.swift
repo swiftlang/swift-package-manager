@@ -44,14 +44,14 @@ extension String {
          return userInput.chuzzle() ?? "default value"
     */
     public func chuzzle() -> String? {
-        var cc = characters
+        var cc = self
 
         loop: while true {
             switch cc.first {
             case nil:
                 return nil
             case "\n"?, "\r"?, " "?, "\t"?, "\r\n"?:
-                cc = cc.dropFirst()
+                cc = String(cc.dropFirst())
             default:
                 break loop
             }
@@ -62,7 +62,7 @@ extension String {
             case nil:
                 return nil
             case "\n"?, "\r"?, " "?, "\t"?, "\r\n"?:
-                cc = cc.dropLast()
+                cc = String(cc.dropLast())
             default:
                 break loop
             }
@@ -74,7 +74,7 @@ extension String {
     /// Splits string around a delimiter string into up to two substrings
     /// If delimiter is not found, the second returned substring is nil
     public func split(around delimiter: String) -> (String, String?) {
-        let comps = self.characters.split(around: Array(delimiter.characters))
+        let comps = self.split(around: Array(delimiter))
         let head = String(comps.0)
         if let tail = comps.1 {
             return (head, String(tail))

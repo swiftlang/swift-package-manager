@@ -1060,7 +1060,7 @@ private struct PotentialModule: Hashable {
             fatalError("\(type(of: self)) should be a test target to access basename.")
         }
         precondition(name.hasSuffix(Target.testModuleNameSuffix))
-        let endIndex = name.index(name.endIndex, offsetBy: -Target.testModuleNameSuffix.characters.count)
+        let endIndex = name.index(name.endIndex, offsetBy: -Target.testModuleNameSuffix.count)
         return String(name[name.startIndex..<endIndex])
     }
 

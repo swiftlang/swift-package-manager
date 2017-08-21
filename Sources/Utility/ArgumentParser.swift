@@ -831,7 +831,7 @@ public final class ArgumentParser {
         let maxWidth: Int
         // Figure out the max width based on argument length or choose the default width if max width is longer
         // than the default width.
-        if let maxArgument = (positionalArguments + optionArguments).map({ $0.name.characters.count }).max(),
+        if let maxArgument = (positionalArguments + optionArguments).map({ $0.name.count }).max(),
             maxArgument < maxWidthDefault {
             maxWidth = maxArgument + padding + 1
         } else {
@@ -842,7 +842,7 @@ public final class ArgumentParser {
         func print(formatted argument: String, usage: String, on stream: OutputByteStream) {
             // Start with a new line and add some padding.
             stream <<< "\n" <<< Format.asRepeating(string: " ", count: padding)
-            let count = argument.characters.count
+            let count = argument.count
             // If the argument name is more than the set width take the whole
             // line for it, otherwise we can fit everything in one line.
             if count >= maxWidth - padding {
