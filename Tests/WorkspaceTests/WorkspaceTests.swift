@@ -948,6 +948,7 @@ final class WorkspaceTests: XCTestCase {
             ],
             packages: [
                 MockPackage("A", version: v1),
+                MockPackage("A", version: nil),
                 MockPackage("B", version: v1),
             ],
             fs: fs
@@ -988,11 +989,11 @@ final class WorkspaceTests: XCTestCase {
 
         // Attempt to pin dependency B.
         workspace.resolve(packageName: "B", rootPackages: [path], version: v1, diagnostics: diagnostics)
-        XCTAssertFalse(diagnostics.hasErrors)
+        XCTAssertNoDiagnostics(diagnostics)
         // Validate the versions.
         let reloadedGraph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-        XCTAssertFalse(diagnostics.hasErrors)
-        XCTAssert(reloadedGraph.lookup("A").version == v1)
+        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssert(reloadedGraph.lookup("A").version == nil)
         XCTAssert(reloadedGraph.lookup("B").version == v1)
     }
 
