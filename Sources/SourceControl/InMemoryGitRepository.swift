@@ -78,7 +78,9 @@ public final class InMemoryGitRepository {
     }
 
     /// Copy/clone this repository.
-    fileprivate func copy() -> InMemoryGitRepository {
+    fileprivate func copy(at newPath: AbsolutePath? = nil) -> InMemoryGitRepository {
+        let path = newPath ?? self.path
+        try! fs.createDirectory(path, recursive: true)
         let repo = InMemoryGitRepository(path: path, fs: fs)
         for (revision, state) in history {
             repo.history[revision] = state.copy()
@@ -129,7 +131,7 @@ public final class InMemoryGitRepository {
     }
 
     /// Installs (or checks out) current head on the filesystem on which this repository exists.
-    private func installHead() throws {
+    fileprivate func installHead() throws {
         // Remove the old state.
         try fs.removeFileTree(path)
         // Create the repository directory.
@@ -139,6 +141,7 @@ public final class InMemoryGitRepository {
 
         /// Recursively copies the content at HEAD to fs.
         func install(at path: AbsolutePath) throws {
+            guard headFs.isDirectory(path) else { return }
             for entry in try headFs.getDirectoryContents(path) {
                 // The full path of the entry.
                 let entryPath = path.appending(component: entry)
@@ -302,7 +305,9 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         to destinationPath: AbsolutePath,
         editable: Bool
     ) throws {
-        checkoutsMap[destinationPath] = fetchedMap[sourcePath]!.copy()
+        let checkout = fetchedMap[sourcePath]!.copy(at: destinationPath)
+        checkoutsMap[destinationPath] = checkout
+        try checkout.installHead()
     }
 
     public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
