@@ -82,7 +82,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         // Try to match our regex and see if a valid specifier line.
         guard let firstLine = ByteString(splitted[0]).asString,
               let match = ToolsVersionLoader.regex.firstMatch(
-                  in: firstLine, options: [], range: NSRange(location: 0, length: firstLine.characters.count)),
+                  in: firstLine, options: [], range: NSRange(location: 0, length: firstLine.count)),
               match.numberOfRanges >= 2 else {
             return (nil, bytes.contents)
         }

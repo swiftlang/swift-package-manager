@@ -665,7 +665,7 @@ private extension ResolvedTarget {
             }
             // Suffix includes `.` so drop it.
             assert(suffix.hasPrefix("."))
-            let fileExtension = String(suffix.characters.dropFirst())
+            let fileExtension = String(suffix.dropFirst())
             guard let ext = SupportedLanguageExtension(rawValue: fileExtension) else {
                 fatalError("Unknown source extension \(source) in ClangModule \(name)")
             }

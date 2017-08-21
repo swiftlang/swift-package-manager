@@ -78,7 +78,7 @@ extension PackageDescription4.Package.Dependency.Requirement {
             return .versionSet(.range(range.asUtilityVersion))
 
         case .revisionItem(let identifier):
-            assert(identifier.characters.count == 40)
+            assert(identifier.count == 40)
             assert(Git.checkRefFormat(ref: identifier))
 
             return .revision(identifier)

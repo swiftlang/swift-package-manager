@@ -247,7 +247,7 @@ public class GitRepository: Repository, WorkingCheckout {
             // Get the remote names.
             let remoteNamesOutput = try Process.checkNonZeroExit(
                 args: Git.tool, "-C", path.asString, "remote").chomp()
-            let remoteNames = remoteNamesOutput.characters.split(separator: "\n").map(String.init)
+            let remoteNames = remoteNamesOutput.split(separator: "\n").map(String.init)
             return try remoteNames.map({ name in
                 // For each remote get the url.
                 let url = try Process.checkNonZeroExit(
@@ -279,7 +279,7 @@ public class GitRepository: Repository, WorkingCheckout {
         // FIXME: Error handling.
         let tagList = try! Process.checkNonZeroExit(
             args: Git.tool, "-C", path.asString, "tag", "-l").chomp()
-        return tagList.characters.split(separator: "\n").map(String.init)
+        return tagList.split(separator: "\n").map(String.init)
     }
 
     public func resolveRevision(tag: String) throws -> Revision {
