@@ -43,7 +43,7 @@ final class WorkspaceTests2: XCTestCase {
                         TestProduct(name: "Foo", targets: ["Foo", "Bar"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Baz", requirement: "1.0.0"),
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -70,6 +70,60 @@ final class WorkspaceTests2: XCTestCase {
                 result.check(dependencies: "Bar", target: "Foo")
                 result.check(dependencies: "Baz", target: "Bar")
                 result.check(dependencies: "Bar", target: "BarTests")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
+	func testMultipleRootPackages() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Baz"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar", dependencies: ["Baz"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .exact("1.0.1")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.0.1", "1.0.3", "1.0.5", "1.0.8"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Bar", "Foo")
+                result.check(packages: "Bar", "Baz", "Foo")
+                result.check(dependencies: "Baz", target: "Foo")
+                result.check(dependencies: "Baz", target: "Bar")
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -120,6 +174,7 @@ private final class TestWorkspace {
         roots: [TestPackage],
         packages: [TestPackage]
     ) throws {
+        precondition(Set(roots.map({$0.name})).count == roots.count, "Root packages should be unique")
         self.sandbox = sandbox
         self.fs = fs
         self.roots = roots
@@ -174,9 +229,7 @@ private final class TestWorkspace {
                     package: .v4(.init(
                         name: package.name,
                         products: package.products.map({ .library(name: $0.name, targets: $0.targets) }),
-                        dependencies: package.dependencies.map({
-                            .package(url: packagesDir.appending(component: $0.name).asString, from: .init(stringLiteral: $0.requirement)) 
-                        }),
+                        dependencies: package.dependencies.map({ $0.convert(baseURL: packagesDir) }),
                         targets: package.targets.map({ $0.convert() })
                     )),
                     version: v
@@ -276,11 +329,16 @@ private struct TestProduct {
 
 private struct TestDependency {
     let name: String
-    let requirement: String
+    let requirement: Requirement
+    typealias Requirement = PackageDescription4.Package.Dependency.Requirement
 
-    fileprivate init(name: String, requirement: String) {
+    fileprivate init(name: String, requirement: Requirement) {
         self.name = name
         self.requirement = requirement
+    }
+
+    func convert(baseURL: AbsolutePath) -> PackageDescription4.Package.Dependency {
+        return .package(url: baseURL.appending(component: name).asString, requirement)
     }
 }
 
