@@ -700,7 +700,7 @@ public struct RerootedFileSystemView: FileSystem {
             return root
         } else {
             // FIXME: Optimize?
-            return root.appending(RelativePath(String(path.asString.characters.dropFirst(1))))
+            return root.appending(RelativePath(String(path.asString.dropFirst(1))))
         }
     }
 

@@ -131,8 +131,7 @@ public struct AbsolutePath {
 
     /// True if the path is the root directory.
     public var isRoot: Bool {
-        let chars = _impl.string.characters
-        return chars.only == "/"
+        return _impl.string.only == "/"
     }
 
     /// Returns the absolute path with the relative path applied.
@@ -366,40 +365,38 @@ struct PathImpl {
     fileprivate var dirname: String {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
-        let chars = string.characters
         // Find the last path separator.
-        guard let idx = chars.rindex(of: "/") else {
+        guard let idx = string.rindex(of: "/") else {
             // No path separators, so the directory name is `.`.
             return "."
         }
         // Check if it's the only one in the string.
-        if idx == chars.startIndex {
+        if idx == string.startIndex {
             // Just one path separator, so the directory name is `/`.
             return "/"
         }
         // Otherwise, it's the string up to (but not including) the last path
         // separator.
-        return String(chars.prefix(upTo: idx))
+        return String(string.prefix(upTo: idx))
     }
 
     fileprivate var basename: String {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
-        let chars = string.characters
         // Check for a special case of the root directory.
-        if chars.only == "/" {
+        if string.only == "/" {
             // Root directory, so the basename is a single path separator (the
             // root directory is special in this regard).
             return "/"
         }
         // Find the last path separator.
-        guard let idx = chars.rindex(of: "/") else {
+        guard let idx = string.rindex(of: "/") else {
             // No path separators, so the basename is the whole string.
             return string
         }
         // Otherwise, it's the string from (but not including) the last path
         // separator.
-        return String(chars.suffix(from: chars.index(after: idx)))
+        return String(string.suffix(from: string.index(after: idx)))
     }
 
     fileprivate var suffix: String? {
@@ -414,20 +411,19 @@ struct PathImpl {
     private func suffix(withDot: Bool) -> String? {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
-        let chars = string.characters
         // Find the last path separator, if any.
-        let sIdx = chars.rindex(of: "/")
+        let sIdx = string.rindex(of: "/")
         // Find the start of the basename.
-        let bIdx = (sIdx != nil) ? chars.index(after: sIdx!) : chars.startIndex
+        let bIdx = (sIdx != nil) ? string.index(after: sIdx!) : string.startIndex
         // Find the last `.` (if any), starting from the second character of
         // the basename (a leading `.` does not make the whole path component
         // a suffix).
-        let fIdx = chars.index(bIdx, offsetBy: 1, limitedBy: chars.endIndex)
-        if let idx = chars.rindex(of: ".", from: fIdx) {
+        let fIdx = string.index(bIdx, offsetBy: 1, limitedBy: string.endIndex)
+        if let idx = string.rindex(of: ".", from: fIdx) {
             // Unless it's just a `.` at the end, we have found a suffix.
-            if chars.distance(from: idx, to: chars.endIndex) > 1 {
-                let fromIndex = withDot ? idx : chars.index(idx, offsetBy: 1)
-                return String(chars.suffix(from: fromIndex))
+            if string.distance(from: idx, to: string.endIndex) > 1 {
+                let fromIndex = withDot ? idx : string.index(idx, offsetBy: 1)
+                return String(string.suffix(from: fromIndex))
             } else {
                 return nil
             }
@@ -503,14 +499,10 @@ extension AbsolutePath {
 ///
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(absolute string: String) -> String {
-    precondition(string.characters.first == "/", "Failure normalizing \(string), absolute paths should start with '/'")
-
-    // Get a hold of the character view.
-    // FIXME: Switch to use the UTF-8 view, which is more efficient.
-    let chars = string.characters
+    precondition(string.first == "/", "Failure normalizing \(string), absolute paths should start with '/'")
 
     // At this point we expect to have a path separator as first character.
-    assert(chars.first == "/")
+    assert(string.first == "/")
 
     // FIXME: Here we should also keep track of whether anything actually has
     // to be changed in the string, and if not, just return the existing one.
@@ -518,9 +510,9 @@ private func normalize(absolute string: String) -> String {
     // Split the character array into parts, folding components as we go.
     // As we do so, we count the number of characters we'll end up with in
     // the normalized string representation.
-    var parts: [String.CharacterView] = []
+    var parts: [String] = []
     var capacity = 0
-    for part in chars.split(separator: "/") {
+    for part in string.split(separator: "/") {
         switch part.count {
           case 0:
             // Ignore empty path components.
@@ -536,7 +528,7 @@ private func normalize(absolute string: String) -> String {
             }
           default:
             // Any other component gets appended.
-            parts.append(part)
+            parts.append(String(part))
             capacity += part.count
         }
     }
@@ -560,8 +552,8 @@ private func normalize(absolute string: String) -> String {
 
     // Sanity-check the result (including the capacity we reserved).
     assert(!result.isEmpty, "unexpected empty string")
-    assert(result.characters.count == capacity, "count: " +
-        "\(result.characters.count), cap: \(capacity)")
+    assert(result.count == capacity, "count: " +
+        "\(result.count), cap: \(capacity)")
 
     // Use the result as our stored string.
     return result
@@ -572,11 +564,7 @@ private func normalize(absolute string: String) -> String {
 ///
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(relative string: String) -> String {
-    precondition(string.characters.first != "/")
-
-    // Get a hold of the character view.
-    // FIXME: Switch to use the UTF-8 view, which is more efficient.
-    let chars = string.characters
+    precondition(string.first != "/")
 
     // FIXME: Here we should also keep track of whether anything actually has
     // to be changed in the string, and if not, just return the existing one.
@@ -584,9 +572,9 @@ private func normalize(relative string: String) -> String {
     // Split the character array into parts, folding components as we go.
     // As we do so, we count the number of characters we'll end up with in
     // the normalized string representation.
-    var parts: [String.CharacterView] = []
+    var parts: [String] = []
     var capacity = 0
-    for part in chars.split(separator: "/") {
+    for part in string.split(separator: "/") {
         switch part.count {
         case 0:
             // Ignore empty path components.
@@ -609,7 +597,7 @@ private func normalize(relative string: String) -> String {
             fallthrough
         default:
             // Any other component gets appended.
-            parts.append(part)
+            parts.append(String(part))
             capacity += part.count
         }
     }
@@ -631,8 +619,8 @@ private func normalize(relative string: String) -> String {
     }
 
     // Sanity-check the result (including the capacity we reserved).
-    assert(result.characters.count == capacity, "count: " +
-        "\(result.characters.count), cap: \(capacity)")
+    assert(result.count == capacity, "count: " +
+        "\(result.count), cap: \(capacity)")
 
     // If the result is empty, return `.`, otherwise we return it as a string.
     return result.isEmpty ? "." : result

@@ -165,7 +165,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
     private func isValidSwiftFilePath(_ path: String) -> Bool {
         guard path.hasSuffix(".swift") else { return false }
         //FIXME: Return false when the path is not a valid path string.
-        let absolutePath = path.characters.first == "/" ?
+        let absolutePath = path.first == "/" ?
             AbsolutePath(path) : AbsolutePath(currentWorkingDirectory, path)
         return localFileSystem.isFile(absolutePath)
     }

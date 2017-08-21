@@ -155,7 +155,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             switch options.outputPath {
             case let outpath? where outpath.suffix == ".xcodeproj":
                 // if user specified path ending with .xcodeproj, use that
-                projectName = String(outpath.basename.characters.dropLast(10))
+                projectName = String(outpath.basename.dropLast(10))
                 dstdir = outpath.parentDirectory
             case let outpath?:
                 dstdir = outpath

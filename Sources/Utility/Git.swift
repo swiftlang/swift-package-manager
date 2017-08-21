@@ -13,8 +13,8 @@ import Basic
 
 extension Version {
     static func vprefix(_ string: String) -> Version? {
-        if string.characters.first == "v" {
-            return Version(string: String(string.characters.dropFirst()))
+        if string.first == "v" {
+            return Version(string: String(string.dropFirst()))
         } else {
             return nil
         }
@@ -28,7 +28,7 @@ public class Git {
         var knownVersions: [Version: String] = [:]
         for versionSpecificKey in Versioning.currentVersionSpecificKeys {
             for tag in tags where tag.hasSuffix(versionSpecificKey) {
-                let specifier = String(tag.characters.dropLast(versionSpecificKey.characters.count))
+                let specifier = String(tag.dropLast(versionSpecificKey.count))
                 if let version = Version(string: specifier) ?? Version.vprefix(specifier) {
                     knownVersions[version] = tag
                 }
