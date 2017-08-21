@@ -131,31 +131,102 @@ final class WorkspaceTests2: XCTestCase {
             result.check(dependency: "baz", at: .checkout(.version("1.0.1")))
         }
     }
+
+    /// Test that the remote repository is not resolved when a root package with same name is already present.
+    func testRootAsDependency1() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["BazAB"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "BazA"),
+                        TestTarget(name: "BazB"),
+                    ],
+                    products: [
+                        TestProduct(name: "BazAB", targets: ["BazA", "BazB"]),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Baz", "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(dependencies: "BazAB", target: "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(notPresent: "baz")
+        }
+        XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching repo: /tmp/ws/pkgs/Baz")])
+        XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
+    }
 }
 
 // MARK:- Test Infrastructure
 
 private class TestWorkspaceDelegate: WorkspaceDelegate {
 
+    var events = [String]()
+
     func packageGraphWillLoad(currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>) {
     }
 
     func repositoryWillUpdate(_ repository: String) {
+        events.append("updating repo: \(repository)")
     }
 
     func fetchingWillBegin(repository: String) {
+        events.append("fetching repo: \(repository)")
     }
 
     func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
+        events.append("finished fetching repo: \(repository)")
     }
 
     func cloning(repository: String) {
+        events.append("cloning repo: \(repository)")
     }
 
     func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
+        events.append("checking out repo: \(repository)")
     }
 
     func removing(repository: String) {
+        events.append("removing repo: \(repository)")
+    }
+
+    func willResolveDependencies() {
+        events.append("will resolve dependencies")
     }
 
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
@@ -170,6 +241,7 @@ private final class TestWorkspace {
     let packages: [TestPackage]
     var manifestLoader: MockManifestLoader
     var repoProvider: InMemoryGitRepositoryProvider
+    let delegate = TestWorkspaceDelegate()
 
     fileprivate init(
         sandbox: AbsolutePath,
@@ -268,7 +340,7 @@ private final class TestWorkspace {
             pinsFile: sandbox.appending(component: "Package.resolved"),
             manifestLoader: manifestLoader,
             toolsVersionLoader: ToolsVersionLoader(),
-            delegate: TestWorkspaceDelegate(),
+            delegate: delegate,
             fileSystem: fs,
             repositoryProvider: repoProvider
         )
@@ -303,6 +375,10 @@ private final class TestWorkspace {
             }
             case checkout(CheckoutState)
             case edited
+        }
+
+        func check(notPresent name: String) {
+            XCTAssert(managedDependencies[forIdentity: name] == nil, "Unexpectedly found \(name) in managed dependencies")
         }
 
         func check(dependency name: String, at state: State) {

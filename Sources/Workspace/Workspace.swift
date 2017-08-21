@@ -27,6 +27,7 @@ public protocol WorkspaceDelegate: class {
     ///   - currentGraph: The current package graph. This is most likely a partial package graph.
     ///   - dependencies: The current managed dependencies in the workspace.
     ///   - missingURLs: The top-level missing packages we need to fetch. This will never be empty.
+    // FIXME: This is defunct.
     func packageGraphWillLoad(currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>)
 
     /// The workspace has started fetching this repository.
@@ -52,12 +53,16 @@ public protocol WorkspaceDelegate: class {
 
     /// Called when the managed dependencies are updated.
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>)
+
+    /// Called when the resolver is about to be run.
+    func willResolveDependencies()
 }
 
 public extension WorkspaceDelegate {
     func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {}
     func repositoryWillUpdate(_ repository: String) {}
     func repositoryDidUpdate(_ repository: String) {}
+    func willResolveDependencies() {}
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -132,25 +137,26 @@ public class Workspace {
             return lookup(package: name)?.manifest
         }
 
-        /// Computes the URLs which are declared in the manifests but aren't present in dependencies.
-        func missingURLs() -> Set<String> {
+        /// Computes the identities which are declared in the manifests but aren't present in dependencies.
+        func missingPackageIdentities() -> Set<String> {
             let manifestsMap = Dictionary(items:
-                root.manifests.map({ ($0.url, $0) }) +
-                dependencies.map({ ($0.manifest.url, $0.manifest) }))
+                root.manifests.map({ ($0.name.lowercased(), $0) }) +
+                dependencies.map({ (PackageReference.computeIdentity(packageURL: $0.manifest.url), $0.manifest) }))
 
-            let inputURLs = root.manifests.map({ $0.url }) + root.dependencies.map({ $0.url })
+            let inputIdentities = root.manifests.map({ $0.name.lowercased() }) +
+                root.dependencies.map({ PackageReference.computeIdentity(packageURL: $0.url) })
 
-            var requiredURLs = transitiveClosure(inputURLs) { url in
-                guard let manifest = manifestsMap[url] else { return [] }
-                return manifest.package.dependencies.map({ $0.url })
+            var requiredIdentities = transitiveClosure(inputIdentities) { identity in
+                guard let manifest = manifestsMap[identity] else { return [] }
+                return manifest.package.dependencies.map({ PackageReference.computeIdentity(packageURL: $0.url) })
             }
-            requiredURLs.formUnion(inputURLs)
+            requiredIdentities.formUnion(inputIdentities)
 
-            let availableURLs = Set<String>(manifestsMap.keys)
+            let availableIdentities = Set<String>(manifestsMap.keys)
             // We should never have loaded a manifest we don't need.
-            assert(availableURLs.isSubset(of: requiredURLs))
-            // These are the missing URLs.
-            return requiredURLs.subtracting(availableURLs)
+            assert(availableIdentities.isSubset(of: requiredIdentities))
+            // These are the missing package identities.
+            return requiredIdentities.subtracting(availableIdentities)
         }
 
         /// Returns constraints of the dependencies, including edited package constraints.
@@ -937,15 +943,15 @@ extension Workspace {
             return currentManifests
         }
 
-        // Compute the missing URLs.
-        let missingURLs = currentManifests.missingURLs()
+        // Compute the missing package identities.
+        let missingPackageIdentities = currentManifests.missingPackageIdentities()
 
         // The pins to use in case we need to run the resolution.
         var validPins = pinsStore.createConstraints()
 
         // Compute if we need to run the resolver. We always run the resolver if
         // there are extra constraints.
-        if missingURLs.isEmpty {
+        if missingPackageIdentities.isEmpty {
             // Use root constraints, dependency manifest constraints and extra
             // constraints to compute if a new resolution is required.
             let dependencies = graphRoot.constraints + currentManifests.dependencyConstraints() + extraConstraints
@@ -961,6 +967,9 @@ extension Workspace {
 
             validPins = result.validPins
         }
+
+        // Inform delegate that we will resolve dependencies now.
+        delegate.willResolveDependencies()
 
         // Create the constraints.
         var constraints = [RepositoryPackageConstraint]()

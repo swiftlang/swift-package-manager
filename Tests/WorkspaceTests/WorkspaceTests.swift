@@ -267,7 +267,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssertEqual(manifests.root.manifests[0], graph.rootManifest)
             // B should be missing.
-            XCTAssertEqual(manifests.missingURLs(), ["//B"])
+            XCTAssertEqual(manifests.missingPackageIdentities(), ["b"])
             XCTAssertEqual(manifests.dependencies.map{$0.manifest.name}.sorted(), ["A", "AA"])
             let aManifest = graph.manifest("A", version: v1)
             XCTAssertEqual(manifests.lookup(manifest: "A"), aManifest)
