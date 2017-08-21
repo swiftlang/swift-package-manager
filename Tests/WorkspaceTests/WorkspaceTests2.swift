@@ -17,7 +17,7 @@ import PackageModel
 import PackageGraph
 import SourceControl
 import Utility
-import Workspace
+@testable import Workspace
 
 import TestSupport
 
@@ -126,6 +126,9 @@ final class WorkspaceTests2: XCTestCase {
                 result.check(dependencies: "Baz", target: "Bar")
             }
             XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.1")))
         }
     }
 }
@@ -283,6 +286,51 @@ private final class TestWorkspace {
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
         let graph = workspace.loadPackageGraph(root: rootInput, diagnostics: diagnostics)
         result(graph, diagnostics)
+    }
+
+    struct ManagedDependencyResult {
+
+        let managedDependencies: ManagedDependencies
+
+        init(_ managedDependencies: ManagedDependencies) {
+            self.managedDependencies = managedDependencies
+        }
+
+        enum State {
+            enum CheckoutState {
+                case version(Utility.Version)
+                case revision(String)
+            }
+            case checkout(CheckoutState)
+            case edited
+        }
+
+        func check(dependency name: String, at state: State) {
+            guard let dependency = managedDependencies[forIdentity: name] else {
+                XCTFail("\(name) does not exists")
+                return
+            }
+            switch state {
+            case .checkout(let state):
+                switch state {
+                case .version(let version):
+                    XCTAssertEqual(dependency.checkoutState?.version, version)
+                case .revision:
+                    XCTFail("Unimplemented")
+                }
+            case .edited:
+                XCTFail("Unimplemented")
+            }
+        }
+    }
+
+    func checkManagedDependencies(_ result: (ManagedDependencyResult) throws -> ()) {
+        do {
+            let workspace = createWorkspace()
+            try result(ManagedDependencyResult(workspace.managedDependencies))
+        } catch {
+            XCTFail("Failed with error \(error)")
+        }
     }
 }
 

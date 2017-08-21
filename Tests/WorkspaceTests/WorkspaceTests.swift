@@ -136,15 +136,6 @@ extension Workspace {
     }
 }
 
-extension ManagedDependency {
-    var checkoutState: CheckoutState? {
-        if case .checkout(let checkoutState) = state {
-            return checkoutState
-        }
-        return nil
-    }
-}
-
 private let v1: Version = "1.0.0"
 
 final class WorkspaceTests: XCTestCase {
