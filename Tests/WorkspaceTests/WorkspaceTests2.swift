@@ -180,6 +180,7 @@ final class WorkspaceTests2: XCTestCase {
             PackageGraphTester(graph) { result in
                 result.check(roots: "Baz", "Foo")
                 result.check(packages: "Baz", "Foo")
+                result.check(targets: "BazA", "BazB", "Foo")
                 result.check(dependencies: "BazAB", target: "Foo")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -190,6 +191,92 @@ final class WorkspaceTests2: XCTestCase {
         XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching repo: /tmp/ws/pkgs/Baz")])
         XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
     }
+
+    /// Test that a root package can be used as a dependency when the remote version was resolved previously.
+    func testRootAsDependency2() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Baz"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "BazA"),
+                        TestTarget(name: "BazB"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["BazA", "BazB"]),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // Load only Foo right now so Baz is loaded from remote.
+        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(targets: "Baz", "Foo")
+                result.check(dependencies: "Baz", target: "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+        }
+        XCTAssertMatch(workspace.delegate.events, [.equal("fetching repo: /tmp/ws/pkgs/Baz")])
+        XCTAssertMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
+
+        // Now load with Baz as a root package.
+        workspace.delegate.events = []
+        workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Baz", "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(targets: "BazA", "BazB", "Foo")
+                result.check(dependencies: "Baz", target: "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(notPresent: "baz")
+        }
+        XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching repo: /tmp/ws/pkgs/Baz")])
+        XCTAssertMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
+        XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Baz")])
+    }
+
+    static var allTests = [
+        ("testBasics", testBasics),
+        ("testMultipleRootPackages", testMultipleRootPackages),
+        ("testRootAsDependency1", testRootAsDependency1),
+        ("testRootAsDependency2", testRootAsDependency1),
+    ]
 }
 
 // MARK:- Test Infrastructure
