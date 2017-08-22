@@ -497,7 +497,9 @@ public class SwiftTool<Options: ToolOptions> {
             dataPath: buildPath.appending(component: toolchain.destination.target),
             configuration: options.configuration,
             toolchain: toolchain,
-            flags: options.buildFlags)
+            flags: options.buildFlags,
+            shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib
+        )
     }
 
     /// Lazily compute the destination toolchain.
