@@ -41,7 +41,7 @@ public struct LLBuildManifestGenerator {
 
         /// All targets.
         var allTargets: [Target] {
-            return [main, test] + otherTargets
+            return [main, test] + otherTargets.sorted(by: { $0.name < $1.name })
         }
 
         /// All commands.
@@ -54,12 +54,12 @@ public struct LLBuildManifestGenerator {
         mutating func append(_ target: Target, isTest: Bool) {
             // Create a phony command with a virtual output node that represents the target.
             let virtualNodeName = "<\(target.name)>"
-            let phonyTool = PhonyTool(inputs: target.outputs, outputs: [virtualNodeName])
+            let phonyTool = PhonyTool(inputs: target.outputs.values, outputs: [virtualNodeName])
             let phonyCommand = Command(name: "<C.\(target.name)>", tool: phonyTool)
 
             // Use the phony command as dependency.
             var newTarget = target
-            newTarget.outputs = [virtualNodeName]
+            newTarget.outputs.insert(virtualNodeName)
             newTarget.cmds.insert(phonyCommand)
             otherTargets.append(newTarget)
 
@@ -104,7 +104,7 @@ public struct LLBuildManifestGenerator {
             """
         for target in targets.allTargets {
             stream <<< "  " <<< Format.asJSON(target.name)
-            stream <<< ": " <<< Format.asJSON(target.outputs) <<< "\n"
+            stream <<< ": " <<< Format.asJSON(target.outputs.values) <<< "\n"
         }
         stream <<< "default: " <<< Format.asJSON(targets.main.name) <<< "\n"
         stream <<< "commands: \n"
@@ -134,7 +134,7 @@ public struct LLBuildManifestGenerator {
         }
 
         var target = Target(name: buildProduct.product.llbuildTargetName)
-        target.outputs = tool.outputs
+        target.outputs.insert(contentsOf: tool.outputs)
         target.cmds.insert(Command(name: buildProduct.product.commandName, tool: tool))
         return target
     }
@@ -182,7 +182,7 @@ public struct LLBuildManifestGenerator {
 
         var buildTarget = Target(name: target.target.llbuildTargetName)
         // The target only cares about the module output.
-        buildTarget.outputs = [target.moduleOutputPath.asString]
+        buildTarget.outputs.insert(target.moduleOutputPath.asString)
         let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
         buildTarget.cmds.insert(Command(name: target.target.commandName, tool: tool))
         return buildTarget
@@ -206,7 +206,7 @@ public struct LLBuildManifestGenerator {
 
         // For Clang, the target requires all command outputs.
         var buildTarget = Target(name: target.target.llbuildTargetName)            
-        buildTarget.outputs = commands.flatMap({ $0.tool.outputs })
+        buildTarget.outputs.insert(contentsOf: commands.flatMap({ $0.tool.outputs }))
         buildTarget.cmds += commands
         return buildTarget
     }

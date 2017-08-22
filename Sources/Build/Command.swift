@@ -30,7 +30,7 @@ struct Target {
     let name: String
 
     /// A list of outputs that represent the target.
-    var outputs: [String]
+    var outputs: SortedArray<String>
 
     /// A list of commands the target requires. A command may be
     /// in multiple targets, or might not be in any target at all.
@@ -38,7 +38,7 @@ struct Target {
 
     init(name: String) {
         self.name = name
-        self.outputs = []
+        self.outputs = SortedArray<String>(areInIncreasingOrder: <)
         self.cmds = SortedArray<Command>(areInIncreasingOrder: <)
     }
 }
