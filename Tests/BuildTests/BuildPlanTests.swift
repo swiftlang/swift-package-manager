@@ -100,6 +100,52 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), linkArguments)
     }
 
+    func testBasicExtPackages() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/ATarget/foo.swift",
+            "/A/Tests/ATargetTests/foo.swift",
+            "/A/Tests/LinuxMain.swift",
+            "/B/Sources/BTarget/foo.swift",
+            "/B/Tests/BTargetTests/foo.swift",
+            "/B/Tests/LinuxMain.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadMockPackageGraph4([
+            "/A": Package(
+                name: "A",
+                dependencies: [
+                    .package(url: "/B", from: "1.0.0"),
+                ],
+                targets: [
+                    .target(name: "ATarget", dependencies: ["BLibrary"]),
+                    .testTarget(name: "ATargetTests", dependencies: ["ATarget"]),
+                ]),
+            "/B": Package(
+                name: "B",
+                products: [
+                    .library(name: "BLibrary", targets: ["BTarget"]),
+                ],
+                targets: [
+                    .target(name: "BTarget", dependencies: []),
+                    .testTarget(name: "BTargetTests", dependencies: ["BTarget"])
+                ]),
+        ], root: "/A", diagnostics: diagnostics, in: fileSystem)
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(),
+            graph: graph,
+            fileSystem: fileSystem))
+
+        XCTAssertEqual(Set(result.productMap.keys), ["APackageTests"])
+      #if os(macOS)
+        XCTAssertEqual(Set(result.targetMap.keys), ["ATarget", "BTarget", "ATargetTests"])
+      #else
+        XCTAssertEqual(Set(result.targetMap.keys), ["ATarget", "BTarget", "APackageTests", "ATargetTests"])
+      #endif
+    }
+
     func testBasicReleasePackage() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift"
@@ -460,6 +506,7 @@ final class BuildPlanTests: XCTestCase {
 
     static var allTests = [
         ("testBasicClangPackage", testBasicClangPackage),
+        ("testBasicExtPackages", testBasicExtPackages),
         ("testBasicReleasePackage", testBasicReleasePackage),
         ("testBasicSwiftPackage", testBasicSwiftPackage),
         ("testCModule", testCModule),
