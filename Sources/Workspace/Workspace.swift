@@ -845,7 +845,9 @@ extension Workspace {
                 return manifest.flatMap({ KeyedPair($0, key: $0.name) })
             })
         }
-        let allManifests = Set(rootDependencyManifests + dependencies.map({ $0.item }))
+        // It is possible that some root dependency is also present as a regular dependency, so we
+        // form a unique set of all dependency manifests.
+        let allManifests = Set(rootDependencyManifests.map({ KeyedPair($0, key: $0.name) }) + dependencies).map({ $0.item })
         let deps: [(Manifest, ManagedDependency)] = allManifests.map({
             // FIXME: We should use package name directly once this radar is fixed:
             // <rdar://problem/33693433> Ensure that identity and package name

@@ -271,6 +271,68 @@ final class WorkspaceTests2: XCTestCase {
         XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Baz")])
     }
 
+    func testGraphRootDependencies() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let dependencies: [PackageGraphRootInput.PackageDependency] = [
+            .init(
+                url: workspace.packagesDir.appending(component: "Bar").asString,
+                requirement: .upToNextMajor(from: "1.0.0"),
+                location: ""
+            ),
+            .init(
+                url: "file://" + workspace.packagesDir.appending(component: "Foo").asString + "/",
+                requirement: .upToNextMajor(from: "1.0.0"),
+                location: ""
+            ),
+        ]
+
+        workspace.checkPackageGraph(dependencies: dependencies) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(packages: "Bar", "Foo")
+                result.check(targets: "Bar", "Foo")
+                result.check(dependencies: "Bar", target: "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testMultipleRootPackages", testMultipleRootPackages),
@@ -439,10 +501,15 @@ private final class TestWorkspace {
         return packages.map({ rootsDir.appending(component: $0) })
     }
 
-    func checkPackageGraph(roots: [String], _ result: (PackageGraph, DiagnosticsEngine) -> ()) {
+    func checkPackageGraph(
+        roots: [String] = [],
+        dependencies: [PackageGraphRootInput.PackageDependency] = [],
+        _ result: (PackageGraph, DiagnosticsEngine) -> ()
+    ) {
         let diagnostics = DiagnosticsEngine()
         let workspace = createWorkspace()
-        let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
+        let rootInput = PackageGraphRootInput(
+            packages: rootPaths(for: roots), dependencies: dependencies)
         let graph = workspace.loadPackageGraph(root: rootInput, diagnostics: diagnostics)
         result(graph, diagnostics)
     }
