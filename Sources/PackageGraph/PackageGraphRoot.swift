@@ -67,7 +67,14 @@ public struct PackageGraphRoot {
             requirement: Requirement,
             location: String
         ) {
-            self.url = url
+            // FIXME: SwiftPM can't handle file URLs with file:// scheme so we need to
+            // strip that. We need to design a URL data structure for SwiftPM.
+            let filePrefix = "file://"
+            if url.hasPrefix(filePrefix) {
+                self.url = AbsolutePath(String(url.dropFirst(filePrefix.count))).asString
+            } else {
+                self.url = url
+            }
             self.requirement = requirement
             self.location = location
         }
