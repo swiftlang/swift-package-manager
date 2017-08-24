@@ -225,7 +225,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                "Manifest files must contain .swift suffix in their name, given: \(manifestPath.asString).")
 
         // For now, we load the manifest by having Swift interpret it directly.
-        // Eventually, we should have two loading processes, one that loads only the
+        // Eventually, we should have two loading processes, one that loads only
         // the declarative package specification using the Swift compiler directly
         // and validates it.
 
