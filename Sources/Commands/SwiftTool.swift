@@ -298,7 +298,7 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<Options>) {
-        fatalError("Must be implmented by subclasses")
+        fatalError("Must be implemented by subclasses")
     }
 
     /// Holds the currently active workspace.
@@ -366,9 +366,9 @@ public class SwiftTool<Options: ToolOptions> {
         }
     }
 
-    /// Run method implmentation to be overridden by subclasses.
+    /// Run method implementation to be overridden by subclasses.
     func runImpl() throws {
-        fatalError("Must be implmented by subclasses")
+        fatalError("Must be implemented by subclasses")
     }
 
     /// Resolve the dependencies.
