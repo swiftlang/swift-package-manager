@@ -243,7 +243,7 @@ which depends on `Foo`. The Package Manager will automatically search for the
 targets inside package in the [predefined search paths](#target-format-reference).
 
 A target dependency can either be another target in the same package or a target
-in one of its package dependencies. All target depenencies, internal or
+in one of its package dependencies. All target dependencies, internal or
 external, must be explicitly declared.
 
 A target can be further customized with these properties:
