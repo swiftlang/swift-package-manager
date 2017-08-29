@@ -41,10 +41,10 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertEqual(output, """
                Information about project "DummyProjectName":
                    Targets:
-                       FooPackageDescription
                        DummyModuleName
                        Foo
-               
+                       FooPackageDescription
+
                    Build Configurations:
                        Debug
                        Release
