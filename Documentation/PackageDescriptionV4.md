@@ -141,9 +141,9 @@ let package = Package(
         .library(name: "PaperDynamic", type: .dynamic, targets: ["Paper"]),
     ],
     dependencies: [
-        .package(url: "http://github.com/SwiftyJSON/SwiftyJSON", from: "1.2.3"),
-        .package(url: "../CHTTPParser", .upToNextMinor(from: "2.2.0")),
-        .package(url: "http://some/other/lib", .exact("1.2.3")),
+        .Package(url: "http://github.com/SwiftyJSON/SwiftyJSON", from: "1.2.3"),
+        .Package(url: "../CHTTPParser", .upToNextMinor(from: "2.2.0")),
+        .Package(url: "http://some/other/lib", .exact("1.2.3")),
     ],
     targets: [
         .target(
@@ -174,7 +174,7 @@ import PackageDescription
 let package = Package(
     name: "Example",
     dependencies: [
-        .package(url: "https://github.com/SwiftyJSON/SwiftyJSON.git", from: "1.0.0"),
+        .Package(url: "https://github.com/SwiftyJSON/SwiftyJSON.git", from: "1.0.0"),
     ],
     target: [
         .target(name: "Foo", dependencies: ["SwiftyJSON"]),
@@ -194,32 +194,32 @@ The following options are available for declaring a package dependency:
 ```swift
 
 // 1.0.0 ..< 2.0.0
-.package(url: "/SwiftyJSON", from: "1.0.0"),
+.Package(url: "/SwiftyJSON", from: "1.0.0"),
 
 // 1.2.0 ..< 2.0.0
-.package(url: "/SwiftyJSON", from: "1.2.0"),
+.Package(url: "/SwiftyJSON", from: "1.2.0"),
 
 // 1.5.8 ..< 2.0.0
-.package(url: "/SwiftyJSON", from: "1.5.8"),
+.Package(url: "/SwiftyJSON", from: "1.5.8"),
 
 // 1.5.8 ..< 2.0.0
-.package(url: "/SwiftyJSON", .upToNextMajor(from: "1.5.8")),
+.Package(url: "/SwiftyJSON", .upToNextMajor(from: "1.5.8")),
 
 // 1.5.8 ..< 1.6.0
-.package(url: "/SwiftyJSON", .upToNextMinor(from: "1.5.8")),
+.Package(url: "/SwiftyJSON", .upToNextMinor(from: "1.5.8")),
 
 // 1.5.8
-.package(url: "/SwiftyJSON", .exact("1.5.8")),
+.Package(url: "/SwiftyJSON", .exact("1.5.8")),
 
 // Constraint to an arbitrary open range.
-.package(url: "/SwiftyJSON", "1.2.3"..<"1.2.6"),
+.Package(url: "/SwiftyJSON", "1.2.3"..<"1.2.6"),
 
 // Constraint to an arbitrary closed range.
-.package(url: "/SwiftyJSON", "1.2.3"..."1.2.8"),
+.Package(url: "/SwiftyJSON", "1.2.3"..."1.2.8"),
 
 // Branch and revision.
-.package(url: "/SwiftyJSON", .branch("develop")),
-.package(url: "/SwiftyJSON", .revision("e74b07278b926c9ec6f9643455ea00d1ce04a021"))
+.Package(url: "/SwiftyJSON", .branch("develop")),
+.Package(url: "/SwiftyJSON", .revision("e74b07278b926c9ec6f9643455ea00d1ce04a021"))
 ```
 
 #### targets
