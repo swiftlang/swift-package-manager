@@ -661,7 +661,7 @@ def process_runtime_libraries(build, args, lib_path):
         # We include an RPATH entry so that the Swift libraries can be found
         # relative to where it will be installed (in 'lib/swift/pm/...').
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.so")
-        cmd = [args.swiftc_path, "-Xlinker", "-shared", "-o", runtime_lib_path,
+        cmd = [args.swiftc_path, "-emit-library", "-o", runtime_lib_path,
                "-Xlinker", "--whole-archive",
                "-Xlinker", input_lib_path,
                "-Xlinker", "--no-whole-archive", "-lswiftGlibc",
@@ -680,14 +680,7 @@ def process_runtime_libraries(build, args, lib_path):
         # Unqoute any quoted characters.
         link_cmd = [arg.replace("\\", "") for arg in link_cmd]
 
-        # Drop any .o files, and the -Xlinker which precedes '-shared'.
-        try:
-            idx = link_cmd.index("-shared")
-        except:
-            idx = -1
-        if idx == -1 or link_cmd[idx - 1] != "-Xlinker":
-            raise SystemExit("unable to understand 'swiftc' driver commands")
-        del link_cmd[idx - 1]
+        # Drop any .o files
         cmd = [arg for arg in link_cmd
                if arg.endswith(("swift_begin.o", "swift_end.o")) or
                (not arg.endswith((".o", ".autolink")))]
