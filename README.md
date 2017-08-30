@@ -87,7 +87,7 @@ The `SWIFT_EXEC` environment variable specifies the `swiftc` executable path use
 
 For extensive documentation on using Swift Package Manager, creating packages, and more, see [Documentation](Documentation).
 
-For additional documentation on developing the Swift Package Manager itself, see [Documentation/Internals](Documentation/Internals).
+For additional documentation on developing the Swift Package Manager itself, see [Documentation/Development](Documentation/Development.md).
 
 ---
 
