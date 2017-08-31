@@ -18,6 +18,7 @@ import SourceControl
 import Utility
 import Workspace
 import libc
+import func Foundation.NSUserName
 
 struct ChdirDeprecatedDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
@@ -432,7 +433,8 @@ public class SwiftTool<Options: ToolOptions> {
         assert(isFile(yaml), "llbuild manifest not present: \(yaml.asString)")
 
         // Create a temporary directory for the build process.
-        let tempDir = Basic.determineTempDirectory().appending(component: "swiftpm")
+        let tempDirName = "org.swift.swiftpm.\(NSUserName())"
+        let tempDir = Basic.determineTempDirectory().appending(component: tempDirName)
         try localFileSystem.createDirectory(tempDir, recursive: true)
 
         // Run the swift-build-tool with the generated manifest.
