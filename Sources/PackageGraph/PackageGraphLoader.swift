@@ -25,6 +25,9 @@ enum PackageGraphError: Swift.Error {
 
     /// The product dependency was found but the package name did not match.
     case productDependencyIncorrectPackage(name: String, package: String)
+
+    /// Multiple manifests with same names were found.
+    case duplicateManifests(packages: [(String, [Manifest])])
 }
 
 extension PackageGraphError: CustomStringConvertible {
@@ -43,6 +46,13 @@ extension PackageGraphError: CustomStringConvertible {
 
         case .productDependencyIncorrectPackage(let name, let package):
             return "product dependency '\(name)' in package '\(package)' not found"
+
+        case .duplicateManifests(let packages):
+            var msg = ""
+            for (name, manifests) in packages {
+                msg += "Found multiple packages with the name \(name): \(manifests.map({ $0.url }).joined(separator: ", "))\n"
+            }
+            return String(msg.dropLast(1))
         }
     }
 }
@@ -82,6 +92,12 @@ public struct PackageGraphLoader {
         } else {
             // Sort all manifests toplogically.
             allManifests = try! topologicalSort(inputManifests, successors: successors)
+        }
+
+        // Emit diagnostics if we find duplicate manifests.
+        let duplicateManifests = Dictionary(grouping: allManifests, by: { $0.name }).filter({ $0.value.count > 1 })
+        if !duplicateManifests.isEmpty {
+            diagnostics.emit(PackageGraphError.duplicateManifests(packages: duplicateManifests))
         }
 
         // Create the packages.
