@@ -136,9 +136,61 @@ class PackageGraphTests: XCTestCase {
         XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple targets named 'Bar'")
     }
 
+    func testDuplicatePackages() throws {
+        typealias Package = PackageDescription4.Package
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/TargetA/source.swift",
+            "/Bar/Sources/TargetB/source.swift"
+        )
+
+        let root = Manifest(
+            path: AbsolutePath("/Foo").appending(component: Manifest.filename),
+            url: "/Foo",
+            package: .v4(
+                Package(
+                    name: "Foo",
+                    dependencies: [
+                        .package(url: "/Bar", from: "1.0.0"),
+                    ],
+                    targets: [
+                        .target(name: "TargetA", dependencies: ["Bar"]),
+                    ]
+                )
+            ),
+            version: "1.0.0"
+        )
+
+        let dep = Manifest(
+            path: AbsolutePath("/Bar").appending(component: Manifest.filename),
+            url: "/Bar",
+            package: .v4(
+                Package(
+                    name: "Foo",
+                    products: [
+                        .library(name: "Bar", targets: ["TargetB"]),
+                    ],
+                    targets: [
+                        .target(name: "TargetB"),
+                    ]
+                )
+            ),
+            version: "1.0.0"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graphRoot = PackageGraphRoot(manifests: [root])
+        _ = PackageGraphLoader().load(
+            root: graphRoot, externalManifests: [dep], diagnostics: diagnostics, fileSystem: fs)
+
+        // Check that we get a diagnostic about duplicate manifests names.
+        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "Found multiple packages with the name Foo: /Foo, /Bar")
+    }
+
     static var allTests = [
         ("testBasic", testBasic),
         ("testDuplicateModules", testDuplicateModules),
+        ("testDuplicatePackages", testDuplicatePackages),
         ("testCycle", testCycle),
         ("testProductDependencies", testProductDependencies),
         ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
