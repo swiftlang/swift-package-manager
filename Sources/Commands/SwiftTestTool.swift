@@ -349,16 +349,20 @@ final class TestRunner {
     ///            and second argument containing the output of the execution.
     func test() -> (Bool, String) {
         var output = ""
-        var success = true
+        var success = false
         do {
             let process = Process(arguments: args(), redirectOutput: true, verbose: false)
             try process.launch()
             let result = try process.waitUntilExit()
             output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
-            success = result.exitStatus == .terminated(code: 0)
-        } catch {
-            success = false
-        }
+            switch result.exitStatus {
+            case .terminated(code: 0):
+                success = true
+            case .signalled(let signal):
+                output += "\n" + exitSignalText(code: signal)
+            default: break
+            }
+        } catch {}
         return (success, output)
     }
 
@@ -369,10 +373,19 @@ final class TestRunner {
             try processSet.add(process)
             try process.launch()
             let result = try process.waitUntilExit()
-            return result.exitStatus == .terminated(code: 0)
-        } catch {
-            return false
-        }
+            switch result.exitStatus {
+            case .terminated(code: 0):
+                return true
+            case .signalled(let signal):
+                print(exitSignalText(code: signal))
+            default: break
+            }
+        } catch {}
+        return false
+    }
+
+    private func exitSignalText(code: Int32) -> String {
+        return "Exited with signal code \(code)"
     }
 }
 
@@ -493,6 +506,9 @@ final class ParallelTestRunner {
         stdoutStream <<< "\n"
         for error in failureOutput {
             stdoutStream <<< error
+        }
+        if !failureOutput.isEmpty {
+            stdoutStream <<< "\n"
         }
         stdoutStream.flush()
     }
