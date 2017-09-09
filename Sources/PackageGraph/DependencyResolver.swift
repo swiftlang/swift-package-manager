@@ -97,9 +97,6 @@ public enum VersionSetSpecifier: Equatable, CustomStringConvertible {
                 return rhs
             }
             return .empty
-        default:
-            // FIXME: Compiler should be able to prove this? https://bugs.swift.org/browse/SR-2221
-            fatalError("not reachable: \(self), \(rhs)")
         }
     }
 
@@ -241,6 +238,11 @@ public protocol PackageContainer {
     /// - Throws: If the revision could not be resolved; this will abort
     ///   dependency resolution completely.
     func getDependencies(at revision: String) throws -> [PackageContainerConstraint<Identifier>]
+
+    /// Fetch the dependencies of an unversioned package container.
+    ///
+    /// NOTE: This method should not be called on a versioned container.
+    func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>]
 }
 
 /// An interface for resolving package containers.
@@ -276,12 +278,12 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
         case revision(String)
 
         /// Un-versioned requirement i.e. a version should not resolved.
-        case unversioned([PackageContainerConstraint<Identifier>])
+        case unversioned
 
         public static func == (lhs: Requirement, rhs: Requirement) -> Bool {
             switch (lhs, rhs) {
-            case (.unversioned(let lhs), .unversioned(let rhs)):
-                return lhs == rhs
+            case (.unversioned, .unversioned):
+                return true
             case (.unversioned, _):
                 return false
             case (.revision(let lhs), .revision(let rhs)):
@@ -444,12 +446,8 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
             var result = self
             result.constraints[identifier] = .versionSet(intersection)
             return result
-        case (.unversioned(let newConstraints), .unversioned(let currentConstraints)):
-            // Two unversioned requirements can only merge if they both impose the same constraints.
-            if newConstraints == currentConstraints {
-                return self
-            }
-            return nil
+        case (.unversioned, .unversioned):
+            return self
         case (.unversioned, _):
             // Unversioned requirements always *wins*.
             var result = self
@@ -475,9 +473,6 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
         case (_, .revision):
             // The revision requirement *wins*.
             return self
-
-        default:
-            fatalError("Unreachable \(requirement) \(self[identifier])")
         }
     }
 
@@ -983,7 +978,10 @@ public class DependencyResolver<
         }
 
         switch allConstraints[container.identifier] {
-        case .unversioned(let constraints):
+        case .unversioned:
+            guard let constraints = self.safely({ try container.getUnversionedDependencies() }) else {
+                return AnySequence([])
+            }
             // Merge the dependencies of unversioned constraint into the assignment.
             return merge(constraints: constraints, binding: .unversioned)
 
@@ -1172,7 +1170,7 @@ public class DependencyResolver<
     private var _prefetchingContainers: Set<Identifier> = []
 
     /// Get the container for the given identifier, loading it if necessary.
-    private func getContainer(for identifier: Identifier) throws -> Container {
+    fileprivate func getContainer(for identifier: Identifier) throws -> Container {
         return try fetchCondition.whileLocked {
             // Return the cached container, if available.
             if let container = _fetchedContainers[identifier] {
@@ -1260,9 +1258,28 @@ private struct ResolverDebugger<
     ///
     /// This algorithm can be exponential, so we abort after the predefined time limit.
     func debug(
-        dependencies: [Constraint],
+        dependencies inputDependencies: [Constraint],
         pins: [Constraint]
     ) throws -> (dependencies: [Constraint], pins: [Constraint]) {
+
+        // Form the dependencies array.
+        //
+		// We iterate over the inputs and fetch all the dependencies for
+		// unversioned requirements as the unversioned requirements are not
+		// relevant to the dependency resolution.
+        var dependencies = [Constraint]()
+        for constraint in inputDependencies {
+            if constraint.requirement == .unversioned {
+                // Ignore the errors here.
+                do {
+                    let container = try resolver.getContainer(for: constraint.identifier)
+                    dependencies += try container.getUnversionedDependencies()
+                } catch {}
+            } else {
+                dependencies.append(constraint)
+            }
+        }
+
         // Put the resolver in incomplete mode to avoid cloning new repositories.
         resolver.isInIncompleteMode = true
 
@@ -1305,7 +1322,7 @@ private struct ResolverDebugger<
 
             // Set all disallowed packages to unversioned, so they stay out of resolution.
             constraints += disallowedPackages.map({
-                Constraint(container: $0, requirement: .unversioned([]))
+                Constraint(container: $0, requirement: .unversioned)
             })
 
             let allowedPins = Set(allowedChanges.flatMap({ $0.allowedPin }))

@@ -74,6 +74,28 @@ extension PackageDescription4.Package {
             })
         }
 
+        // Parse the C and C++ language standard.
+        let cLanguageStandard: CLanguageStandard? = package["cLanguageStandard"].flatMap {
+            switch $0 {
+            case .string(let rawValue):
+                return CLanguageStandard(rawValue: rawValue)!
+            case .null:
+                return nil
+            default:
+                fatalError()
+            }
+        }
+        let cxxLanguageStandard: CXXLanguageStandard? = package["cxxLanguageStandard"].flatMap {
+            switch $0 {
+            case .string(let rawValue):
+                return CXXLanguageStandard(rawValue: rawValue)!
+            case .null:
+                return nil
+            default:
+                fatalError()
+            }
+        }
+
         return PackageDescription4.Package(
             name: name,
             pkgConfig: pkgConfig,
@@ -81,7 +103,10 @@ extension PackageDescription4.Package {
             products: products,
             dependencies: dependencies,
             targets: targets,
-            swiftLanguageVersions: swiftLanguageVersions)
+            swiftLanguageVersions: swiftLanguageVersions,
+            cLanguageStandard: cLanguageStandard,
+            cxxLanguageStandard: cxxLanguageStandard
+        )
     }
 }
 

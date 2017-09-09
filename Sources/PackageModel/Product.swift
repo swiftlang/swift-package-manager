@@ -71,7 +71,7 @@ public class Product {
 
 extension Product: CustomStringConvertible {
     public var description: String {
-        return "<Product: \(name)"
+        return "<Product: \(name)>"
     }
 }
 

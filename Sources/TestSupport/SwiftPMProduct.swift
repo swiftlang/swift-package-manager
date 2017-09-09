@@ -31,6 +31,7 @@ public enum SwiftPMProduct {
     case SwiftBuild
     case SwiftPackage
     case SwiftTest
+    case SwiftRun
     case XCTestHelper
     case TestSupportExecutable
 
@@ -56,6 +57,8 @@ public enum SwiftPMProduct {
             return RelativePath("swift-package")
         case .SwiftTest:
             return RelativePath("swift-test")
+        case .SwiftRun:
+            return RelativePath("swift-run")
         case .XCTestHelper:
             return RelativePath("swiftpm-xctest-helper")
         case .TestSupportExecutable:
@@ -68,14 +71,14 @@ public enum SwiftPMProduct {
     /// - Parameters:
     ///         - args: The arguments to pass.
     ///         - env: Additional environment variables to pass. The values here are merged with default env.
-    ///         - chdir: Adds argument `--chdir <path>` if not nil.
+    ///         - packagePath: Adds argument `--package-path <path>` if not nil.
     ///         - printIfError: Print the output on non-zero exit.
     ///
     /// - Returns: The output of the process.
     @discardableResult
     public func execute(
         _ args: [String],
-        chdir: AbsolutePath? = nil,
+        packagePath: AbsolutePath? = nil,
         env: [String: String]? = nil,
         printIfError: Bool = false
     ) throws -> String {
@@ -93,8 +96,8 @@ public enum SwiftPMProduct {
         environment["IS_SWIFTPM_TEST"] = "1"
 
         var completeArgs = [path.asString]
-        if let chdir = chdir {
-            completeArgs += ["--chdir", chdir.asString]
+        if let packagePath = packagePath {
+            completeArgs += ["--package-path", packagePath.asString]
         }
         completeArgs += args
 

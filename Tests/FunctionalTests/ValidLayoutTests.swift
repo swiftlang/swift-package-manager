@@ -9,7 +9,7 @@
 */
 
 import XCTest
-
+import Commands
 import TestSupport
 import Basic
 import Utility
@@ -22,7 +22,7 @@ class ValidLayoutsTests: XCTestCase {
     func testSingleModuleLibrary() {
         runLayoutFixture(name: "SingleModule/Library") { prefix in
             XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertFileExists(debugPath.appending(component: "Library.swiftmodule"))
         }
     }
@@ -30,7 +30,7 @@ class ValidLayoutsTests: XCTestCase {
     func testSingleModuleExecutable() {
         runLayoutFixture(name: "SingleModule/Executable") { prefix in
             XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertFileExists(debugPath.appending(component: "Executable"))
         }
     }
@@ -38,7 +38,7 @@ class ValidLayoutsTests: XCTestCase {
     func testSingleModuleSubfolderWithSwiftSuffix() {
         fixture(name: "ValidLayouts/SingleModule/SubfolderWithSwiftSuffix", file: #file, line: #line) { prefix in
             XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertFileExists(debugPath.appending(component: "Bar.swiftmodule"))
         }
     }
@@ -46,7 +46,7 @@ class ValidLayoutsTests: XCTestCase {
     func testMultipleModulesLibraries() {
         runLayoutFixture(name: "MultipleModules/Libraries") { prefix in
             XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             for x in ["Bar", "Baz", "Foo"] {
                 XCTAssertFileExists(debugPath.appending(component: "\(x).swiftmodule"))
             }
@@ -56,7 +56,7 @@ class ValidLayoutsTests: XCTestCase {
     func testMultipleModulesExecutables() {
         runLayoutFixture(name: "MultipleModules/Executables") { prefix in
             XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
+            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             for x in ["Bar", "Baz", "Foo"] {
                 let output = try Process.checkNonZeroExit(args: debugPath.appending(component: x).asString)
                 XCTAssertEqual(output, "\(x)\n")

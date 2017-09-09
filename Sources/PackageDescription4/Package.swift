@@ -64,6 +64,12 @@ public final class Package {
     /// The list of swift versions, this package is compatible with.
     public var swiftLanguageVersions: [Int]?
 
+    /// The C language standard to use for all C targets in this package.
+    public var cLanguageStandard: CLanguageStandard?
+
+    /// The C++ language standard to use for all C++ targets in this package.
+    public var cxxLanguageStandard: CXXLanguageStandard?
+
     /// Construct a package.
     public init(
         name: String,
@@ -72,7 +78,9 @@ public final class Package {
         products: [Product] = [],
         dependencies: [Dependency] = [],
         targets: [Target] = [],
-        swiftLanguageVersions: [Int]? = nil
+        swiftLanguageVersions: [Int]? = nil,
+        cLanguageStandard: CLanguageStandard? = nil,
+        cxxLanguageStandard: CXXLanguageStandard? = nil
     ) {
         self.name = name
         self.pkgConfig = pkgConfig
@@ -81,6 +89,8 @@ public final class Package {
         self.dependencies = dependencies
         self.targets = targets
         self.swiftLanguageVersions = swiftLanguageVersions
+        self.cLanguageStandard = cLanguageStandard
+        self.cxxLanguageStandard = cxxLanguageStandard
 
         // Add custom exit handler to cause package to be dumped at exit, if
         // requested.
@@ -165,6 +175,8 @@ extension Package {
         if let swiftLanguageVersions = self.swiftLanguageVersions {
             dict["swiftLanguageVersions"] = .array(swiftLanguageVersions.map(JSON.int))
         }
+        dict["cLanguageStandard"] = cLanguageStandard?.toJSON() ?? .null
+        dict["cxxLanguageStandard"] = cxxLanguageStandard?.toJSON() ?? .null
         return .dictionary(dict)
     }
 }
@@ -213,7 +225,7 @@ struct Errors {
     mutating func add(_ str: String) {
         // FIXME: This will produce invalid JSON if string contains quotes.
         // Assert it for now and fix when we have escaping in JSON.
-        assert(!str.characters.contains("\""), "Error string shouldn't have quotes in it.")
+        assert(!str.contains("\""), "Error string shouldn't have quotes in it.")
         errors += [str]
     }
 

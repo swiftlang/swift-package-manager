@@ -25,7 +25,7 @@ fileprivate class Foo: SimplePersistanceProtocol {
         self.persistence = SimplePersistence(
             fileSystem: fileSystem,
             schemaVersion: 1,
-            statePath: AbsolutePath.root.appending(component: "state.json")
+            statePath: AbsolutePath.root.appending(components: "subdir", "state.json")
         )
     }
 
@@ -60,7 +60,7 @@ fileprivate enum Bar {
             self.persistence = SimplePersistence(
                 fileSystem: fileSystem,
                 schemaVersion: 1,
-                statePath: AbsolutePath.root.appending(component: "state.json")
+                statePath: AbsolutePath.root.appending(components: "subdir", "state.json")
             )
         }
 
@@ -86,7 +86,7 @@ fileprivate enum Bar {
             self.persistence = SimplePersistence(
                 fileSystem: fileSystem,
                 schemaVersion: 1,
-                statePath: AbsolutePath.root.appending(component: "state.json")
+                statePath: AbsolutePath.root.appending(components: "subdir", "state.json")
             )
         }
 
@@ -107,7 +107,7 @@ fileprivate enum Bar {
 class SimplePersistenceTests: XCTestCase {
     func testBasics() throws {
         let fs = InMemoryFileSystem()
-        let stateFile = AbsolutePath.root.appending(component: "state.json")
+        let stateFile = AbsolutePath.root.appending(components: "subdir", "state.json")
         let foo = Foo(int: 1, path: AbsolutePath("/hello"), fileSystem: fs)
         // Restoring right now should return false because state is not present.
         XCTAssertFalse(try foo.restore())
@@ -133,7 +133,7 @@ class SimplePersistenceTests: XCTestCase {
             XCTFail()
         } catch {
             let error = String(describing: error)
-            XCTAssert(error.contains("Unsupported schema version (2)"), error)
+            XCTAssert(error.contains("unsupported schema version 2"), error)
         }
     }
 
@@ -141,7 +141,7 @@ class SimplePersistenceTests: XCTestCase {
         // Test that we don't overwrite the json in case we find keys we don't need.
 
         let fs = InMemoryFileSystem()
-        let stateFile = AbsolutePath.root.appending(component: "state.json")
+        let stateFile = AbsolutePath.root.appending(components: "subdir", "state.json")
 
         // Create and save v2 object.
         let v2 = Bar.V2(int: 100, string: "hello", fileSystem: fs)

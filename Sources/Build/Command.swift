@@ -29,12 +29,16 @@ struct Target {
     /// to a client wanting to control the build.
     let name: String
 
-    /// A list of commands to run when building the target.  A command may be
+    /// A list of outputs that represent the target.
+    var outputs: SortedArray<String>
+
+    /// A list of commands the target requires. A command may be
     /// in multiple targets, or might not be in any target at all.
     var cmds: SortedArray<Command>
 
     init(name: String) {
         self.name = name
+        self.outputs = SortedArray<String>(areInIncreasingOrder: <)
         self.cmds = SortedArray<Command>(areInIncreasingOrder: <)
     }
 }

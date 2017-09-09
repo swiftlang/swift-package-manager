@@ -11,7 +11,7 @@
 extension Version: ExpressibleByStringLiteral {
 
     public init(stringLiteral value: String) {
-        if let version = Version(value.characters) {
+        if let version = Version(value) {
             self.init(version)
         } else {
             // If version can't be initialized using the string literal, report
@@ -43,15 +43,11 @@ extension Version {
     }
 
     public init?(_ versionString: String) {
-        self.init(versionString.characters)
-    }
+        let prereleaseStartIndex = versionString.index(of: "-")
+        let metadataStartIndex = versionString.index(of: "+")
 
-    public init?(_ characters: String.CharacterView) {
-        let prereleaseStartIndex = characters.index(of: "-")
-        let metadataStartIndex = characters.index(of: "+")
-
-        let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? characters.endIndex
-        let requiredCharacters = characters.prefix(upTo: requiredEndIndex)
+        let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? versionString.endIndex
+        let requiredCharacters = versionString.prefix(upTo: requiredEndIndex)
         let requiredComponents = requiredCharacters
             .split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
             .map(String.init)
@@ -66,13 +62,13 @@ extension Version {
 
         func identifiers(start: String.Index?, end: String.Index) -> [String] {
             guard let start = start else { return [] }
-            let identifiers = characters[characters.index(after: start)..<end]
+            let identifiers = versionString[versionString.index(after: start)..<end]
             return identifiers.split(separator: ".").map(String.init)
         }
 
         self.prereleaseIdentifiers = identifiers(
             start: prereleaseStartIndex,
-            end: metadataStartIndex ?? characters.endIndex)
-        self.buildMetadataIdentifiers = identifiers(start: metadataStartIndex, end: characters.endIndex)
+            end: metadataStartIndex ?? versionString.endIndex)
+        self.buildMetadataIdentifiers = identifiers(start: metadataStartIndex, end: versionString.endIndex)
     }
 }

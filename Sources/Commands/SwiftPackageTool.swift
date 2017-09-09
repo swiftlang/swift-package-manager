@@ -24,21 +24,9 @@ struct FetchDeprecatedDiagnostic: DiagnosticData {
         name: "org.swift.diags.fetch-deprecated",
         defaultBehavior: .warning,
         description: {
-            $0 <<< "'fetch' command is deprecated, use 'resolve' command instead."
+            $0 <<< "'fetch' command is deprecated; use 'resolve' instead"
         }
     )
-}
-
-/// Errors encountered duing the package tool operations.
-enum PackageToolOperationError: Swift.Error {
-    /// The provided package name doesn't exist in package graph.
-    case packageNotFound
-
-    /// The current mode does not have all the options it requires.
-    case insufficientOptions(usage: String)
-
-    /// The package is in editable state.
-    case packageInEditableState
 }
 
 /// swift-package tool namespace
@@ -69,9 +57,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .reset:
             try getActiveWorkspace().reset(with: diagnostics)
-
-        case .resolveTool:
-            try executeResolve(options)
 
         case .update:
             let workspace = try getActiveWorkspace()
@@ -167,7 +152,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             switch options.outputPath {
             case let outpath? where outpath.suffix == ".xcodeproj":
                 // if user specified path ending with .xcodeproj, use that
-                projectName = String(outpath.basename.characters.dropLast(10))
+                projectName = String(outpath.basename.dropLast(10))
                 dstdir = outpath.parentDirectory
             case let outpath?:
                 dstdir = outpath
@@ -193,6 +178,26 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let manifest = graph.rootPackages[0].manifest
             print(try manifest.jsonString())
 
+        case .completionTool:
+            switch options.completionToolMode {
+            case .generateBashScript?:
+                bash_template(on: stdoutStream)
+            case .generateZshScript?:
+                zsh_template(on: stdoutStream)
+            case .listDependencies?:
+                let graph = try loadPackageGraph()
+                dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist)
+            case .listExecutables?:
+                let graph = try loadPackageGraph()
+                let package = graph.rootPackages[0].underlyingPackage
+                let executables = package.targets.filter { $0.type == .executable }
+                for executable in executables {
+                    stdoutStream <<< "\(executable.name)\n"
+                }
+                stdoutStream.flush()
+            default:
+                preconditionFailure("somehow we ended up with an invalid positional argument")
+            }
         case .help:
             parser.printUsage(on: stdoutStream)
         }
@@ -212,7 +217,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             positional: editParser.add(
                 positional: "name", kind: String.self,
-                usage: "The name of the package to edit"),
+                usage: "The name of the package to edit",
+                completion: .function("_swift_dependency")),
             to: { $0.editOptions.packageName = $1 })
         binder.bind(
             editParser.add(
@@ -234,14 +240,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
-
-        let resolveToolParser = parser.add(subparser: PackageMode.resolveTool.rawValue, overview: "")
-        binder.bind(
-            option: resolveToolParser.add(
-                option: "--type", kind: PackageToolOptions.ResolveToolMode.self,
-                usage: "text|json"),
-            to: { $0.resolveToolMode = $1 })
-
         parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
 
         let initPackageParser = parser.add(
@@ -259,7 +257,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             positional: uneditParser.add(
                 positional: "name", kind: String.self,
-                usage: "The name of the package to unedit"),
+                usage: "The name of the package to unedit",
+                completion: .function("_swift_dependency")),
             to: { $0.editOptions.packageName = $1 })
         binder.bind(
             option: uneditParser.add(
@@ -273,7 +272,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             option: showDependenciesParser.add(
                 option: "--format", kind: ShowDependenciesMode.self,
-                usage: "text|dot|json"),
+                usage: "text|dot|json|flatlist"),
             to: {
                 $0.showDepsMode = $1})
 
@@ -313,13 +312,23 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.outputPath = $3?.path
             })
 
+        let completionToolParser = parser.add(
+            subparser: PackageMode.completionTool.rawValue,
+            overview: "Completion tool (for shell completions)")
+        binder.bind(
+            positional: completionToolParser.add(
+                positional: "mode",
+                kind: PackageToolOptions.CompletionToolMode.self),
+            to: { $0.completionToolMode = $1 })
+
         let resolveParser = parser.add(
             subparser: PackageMode.resolve.rawValue,
             overview: "Resolve package dependencies")
         binder.bind(
             positional: resolveParser.add(
                 positional: "name", kind: String.self, optional: true,
-                usage: "The name of the package to resolve"),
+                usage: "The name of the package to resolve",
+                completion: .function("_swift_dependency")),
             to: { $0.resolveOptions.packageName = $1 })
 
         binder.bind(
@@ -355,6 +364,7 @@ public class PackageToolOptions: ToolOptions {
     }
 
     var describeMode: DescribeMode = .text
+
     var initMode: InitPackage.PackageType = .library
 
     var inputPath: AbsolutePath?
@@ -373,6 +383,14 @@ public class PackageToolOptions: ToolOptions {
     var outputPath: AbsolutePath?
     var xcodeprojOptions = XcodeprojOptions()
 
+    enum CompletionToolMode: String {
+        case generateBashScript = "generate-bash-script"
+        case generateZshScript = "generate-zsh-script"
+        case listDependencies = "list-dependencies"
+        case listExecutables = "list-executables"
+    }
+    var completionToolMode: CompletionToolMode?
+
     struct ResolveOptions {
         var packageName: String?
         var version: String?
@@ -380,12 +398,6 @@ public class PackageToolOptions: ToolOptions {
         var branch: String?
     }
     var resolveOptions = ResolveOptions()
-
-    enum ResolveToolMode: String {
-        case text
-        case json
-    }
-    var resolveToolMode: ResolveToolMode = .text
 
     enum ToolsVersionMode {
         case display
@@ -402,10 +414,10 @@ public enum PackageMode: String, StringEnumArgument {
     case edit
     case fetch
     case generateXcodeproj = "generate-xcodeproj"
+    case completionTool = "completion-tool"
     case initPackage = "init"
     case reset
     case resolve
-    case resolveTool = "resolve-tool"
     case showDependencies = "show-dependencies"
     case toolsVersion = "tools-version"
     case unedit
@@ -448,24 +460,13 @@ extension DescribeMode: StringEnumArgument {
     }
 }
 
-extension PackageToolOptions.ResolveToolMode: StringEnumArgument {
+extension PackageToolOptions.CompletionToolMode: StringEnumArgument {
     static var completion: ShellCompletion {
         return .values([
-            (text.rawValue, "resolve using text format"),
-            (json.rawValue, "resolve using JSON format"),
+            (generateBashScript.rawValue, "generate Bash completion script"),
+            (generateZshScript.rawValue, "generate Bash completion script"),
+            (listDependencies.rawValue, "list all dependencies' names"),
+            (listExecutables.rawValue, "list all executables' names"),
         ])
-    }
-}
-
-extension PackageToolOperationError: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .packageInEditableState:
-            return "The provided package is in editable state"
-        case .packageNotFound:
-            return "The provided package was not found"
-        case .insufficientOptions(let usage):
-            return usage
-        }
     }
 }

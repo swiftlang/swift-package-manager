@@ -44,9 +44,12 @@ class FileSystemTests: XCTestCase {
         // isExecutableFile
         let executable = tempDir.path.appending(component: "exec-foo")
         let stream = BufferedOutputByteStream()
-        stream <<< "#!/bin/sh" <<< "\n"
-        stream <<< "set -e" <<< "\n"
-        stream <<< "exit" <<< "\n"
+        stream <<< """
+            #!/bin/sh
+            set -e
+            exit
+
+            """
         try! localFileSystem.writeFileContents(executable, bytes: stream.bytes)
         try! Process.checkNonZeroExit(args: "chmod", "+x", executable.asString)
         XCTAssertTrue(fs.isExecutableFile(executable))
@@ -357,15 +360,15 @@ class FileSystemTests: XCTestCase {
                 try fs.writeFileContents(dir.appending(component: "new2"), bytes: "")
             }
 
-            fs.removeFileTree(bar)
-            fs.removeFileTree(dir)
+            try? fs.removeFileTree(bar)
+            try? fs.removeFileTree(dir)
             XCTAssertTrue(fs.exists(dir))
             XCTAssertTrue(fs.exists(bar))
 
             // Set the entire directory as writable.
             try fs.chmod(.userWritable, path: dir, options: [.recursive])
             try fs.writeFileContents(foo, bytes: "test")
-            fs.removeFileTree(dir)
+            try fs.removeFileTree(dir)
             XCTAssertFalse(fs.exists(dir))
         }
       #endif
@@ -396,7 +399,7 @@ private func removeFileTreeTester(fs: inout FileSystem, basePath path: AbsoluteP
     let folders = path.appending(components: "foo", "bar", "baz")
     try fs.createDirectory(folders, recursive: true)
     XCTAssert(fs.exists(folders), file: file, line: line)
-    fs.removeFileTree(folders)
+    try fs.removeFileTree(folders)
     XCTAssertFalse(fs.exists(folders), file: file, line: line)
 
     // Test removing file.
@@ -404,6 +407,6 @@ private func removeFileTreeTester(fs: inout FileSystem, basePath path: AbsoluteP
     try fs.createDirectory(folders, recursive: true)
     try fs.writeFileContents(filePath, bytes: "foo")
     XCTAssert(fs.exists(filePath), file: file, line: line)
-    fs.removeFileTree(filePath)
+    try fs.removeFileTree(filePath)
     XCTAssertFalse(fs.exists(filePath), file: file, line: line)
 }

@@ -21,10 +21,10 @@ extension SimplePersistence.Error: CustomStringConvertible {
     public var description: String {
         switch self {
         case let .invalidSchemaVersion(version):
-            return "Unsupported schema version (\(version))"
+            return "unsupported schema version \(version)"
 
         case let .restoreFailure(stateFile, error):
-            return "Unable to restore state from \(stateFile.asString). \(error)"
+            return "unable to restore state from \(stateFile.asString); \(error)"
         }
     }
 }
@@ -123,6 +123,7 @@ public final class SimplePersistence {
         // Set the object, keeping any keys in object which we don't know about.
         json["object"] = merge(old: json["object"], new: object.toJSON())
 
+        try fileSystem.createDirectory(statePath.parentDirectory, recursive: true)
         // FIXME: This should write atomically.
         try fileSystem.writeFileContents(
             statePath, bytes: JSON(json).toBytes(prettyPrint: self.prettyPrint))

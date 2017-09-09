@@ -157,9 +157,15 @@ public class DiagnosticID: ObjectIdentifierProtocol {
 }
 
 /// The payload of a diagnostic.
-public protocol DiagnosticData {
+public protocol DiagnosticData: CustomStringConvertible {
     /// The identifier of the diagnostic this payload corresponds to.
     static var id: DiagnosticID { get }
+}
+
+extension DiagnosticData {
+    public var description: String {
+        return localizedDescription(for: self)
+    }
 }
 
 /// The location of the diagnostic.
@@ -187,7 +193,9 @@ public struct Diagnostic {
     }
 
     /// The diagnostic identifier.
-    public let id: DiagnosticID
+    public var id: DiagnosticID {
+        return type(of: data).id
+    }
 
     /// The diagnostic's behavior.
     public let behavior: Behavior
@@ -208,34 +216,19 @@ public struct Diagnostic {
     /// Create a new diagnostic.
     ///
     /// - Parameters:
-    ///   - id: The identifier of the diagnostic.
     ///   - location: The abstract location of the issue which triggered the diagnostic.
     ///   - parameters: The parameters to the diagnostic conveying additional information.
     /// - Precondition: The bindings must match those declared by the identifier.
-    public init(id: DiagnosticID, location: Location, data: DiagnosticData) {
-        self.id = id
+    public init(location: Location, data: DiagnosticData) {
         // FIXME: Implement behavior overrides.
-        self.behavior = id.defaultBehavior
+        self.behavior = type(of: data).id.defaultBehavior
         self.location = location
         self.data = data
     }
 
     /// The human readable summary description for the diagnostic.
     public var localizedDescription: String {
-        var result = ""
-        for (i, fragment) in id.description.enumerated() {
-            if i != 0 {
-                result += " "
-            }
-
-            switch fragment {
-            case let .literalItem(string, _):
-                result += string
-            case let .substitutionItem(accessor, _):
-                result += accessor(data).diagnosticDescription
-            }
-        }
-        return result
+        return Basic.localizedDescription(for: data)
     }
 }
 
@@ -268,7 +261,7 @@ public class DiagnosticsEngine: CustomStringConvertible {
     }
 
     public func emit(data: DiagnosticData, location: DiagnosticLocation) {
-        diagnostics.append(Diagnostic(id: type(of: data).id, location: location, data: data))
+        diagnostics.append(Diagnostic(location: location, data: data))
     }
 
     /// Merges contents of given engine.
@@ -287,4 +280,22 @@ public class DiagnosticsEngine: CustomStringConvertible {
         stream <<< "]"
         return stream.bytes.asString!
     }
+}
+
+/// Returns localized description of a diagnostic data.
+fileprivate func localizedDescription(for data: DiagnosticData) -> String {
+    var result = ""
+    for (i, fragment) in type(of: data).id.description.enumerated() {
+        if i != 0 {
+            result += " "
+        }
+
+        switch fragment {
+        case let .literalItem(string, _):
+            result += string
+        case let .substitutionItem(accessor, _):
+            result += accessor(data).diagnosticDescription
+        }
+    }
+    return result
 }

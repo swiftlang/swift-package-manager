@@ -61,13 +61,15 @@ class DependencyResolverPerfTests: XCTestCasePerf {
             // Create dependency.
             try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
             try fs.writeFileContents(dep.appending(component: "Package.swift")) {
-                $0 <<< "// swift-tools-version:4.0" <<< "\n"
-                $0 <<< "import PackageDescription" <<< "\n"
-                $0 <<< "let package = Package(" <<< "\n"
-                $0 <<< "    name: \"dep\"," <<< "\n"
-                $0 <<< "    products: [.library(name: \"dep\", targets: [\"dep\"])]," <<< "\n"
-                $0 <<< "    targets: [.target(name: \"dep\")]" <<< "\n"
-                $0 <<< ")" <<< "\n"
+                $0 <<< """
+                    // swift-tools-version:4.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "dep",
+                        products: [.library(name: "dep", targets: ["dep"])],
+                        targets: [.target(name: "dep")]
+                    )
+                    """
             }
 
             let depGit = GitRepository(path: dep)
@@ -96,7 +98,8 @@ class DependencyResolverPerfTests: XCTestCasePerf {
                 repositoryManager: repositoryManager, manifestLoader: ManifestLoader(resources: Resources.default))
 
             let resolver = DependencyResolver(containerProvider, GitRepositoryResolutionHelper.DummyResolverDelegate())
-            let constraints = RepositoryPackageConstraint(container: RepositorySpecifier(url: dep.asString), versionRequirement: .range("1.0.0"..<"2.0.0"))
+            let container = PackageReference(identity: "dep", path: dep.asString)
+            let constraints = RepositoryPackageConstraint(container: container, versionRequirement: .range("1.0.0"..<"2.0.0"))
             let result = try! resolver.resolve(constraints: [constraints])
             XCTAssert(result.count == 1)
 
@@ -314,7 +317,7 @@ struct GitRepositoryResolutionHelper {
         return manifestGraph.rootManifest.package.dependencyConstraints()
     }
 
-    func resolve(prefetchingEnabled: Bool = false) -> [(container: RepositorySpecifier, binding: BoundVersion)] {
+    func resolve(prefetchingEnabled: Bool = false) -> [(container: PackageReference, binding: BoundVersion)] {
         let repositoriesPath = path.appending(component: "repositories")
         _ = try? systemQuietly(["rm", "-r", repositoriesPath.asString])
         let repositoryManager = RepositoryManager(path: repositoriesPath, provider: GitRepositoryProvider(), delegate: DummyRepositoryManagerDelegate())

@@ -20,6 +20,7 @@ import POSIX
 import SourceControl
 import Utility
 import Workspace
+import Commands
 
 #if os(macOS)
 import class Foundation.Bundle
@@ -48,7 +49,7 @@ public func fixture(
         defer {
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDir.path, options: [.recursive])
-            localFileSystem.removeFileTree(tmpDir.path)
+            try? localFileSystem.removeFileTree(tmpDir.path)
         }
 
         // Construct the expected path of the fixture.
@@ -142,7 +143,7 @@ private var globalSymbolInMainBinary = 0
 
 @discardableResult
 public func executeSwiftBuild(
-    _ chdir: AbsolutePath,
+    _ packagePath: AbsolutePath,
     configuration: Configuration = .Debug,
     printIfError: Bool = false,
     Xcc: [String] = [],
@@ -161,7 +162,7 @@ public func executeSwiftBuild(
     args += Xld.flatMap({ ["-Xlinker", $0] })
     args += Xswiftc.flatMap({ ["-Xswiftc", $0] })
 
-    return try SwiftPMProduct.SwiftBuild.execute(args, chdir: chdir, env: env, printIfError: printIfError)
+    return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env, printIfError: printIfError)
 }
 
 /// Test helper utility for executing a block with a temporary directory.
@@ -180,7 +181,7 @@ public func mktmpdir(
         defer {
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDir.path, options: [.recursive])
-            localFileSystem.removeFileTree(tmpDir.path)
+            try? localFileSystem.removeFileTree(tmpDir.path)
         }
         try body(tmpDir.path)
     } catch {
@@ -221,7 +222,7 @@ public func loadMockPackageGraph(
             externalManifests.append(manifest)
         }
     }
-    let root = PackageGraphRoot(manifests: [rootManifest])
+    let root = PackageGraphRoot(input: PackageGraphRootInput(packages: [AbsolutePath(root)]), manifests: [rootManifest])
     return PackageGraphLoader().load(root: root, externalManifests: externalManifests, diagnostics: diagnostics, fileSystem: fs)
 }
 
@@ -246,7 +247,7 @@ public func loadMockPackageGraph4(
             externalManifests.append(manifest)
         }
     }
-    let root = PackageGraphRoot(manifests: [rootManifest])
+    let root = PackageGraphRoot(input: PackageGraphRootInput(packages: [AbsolutePath(root)]), manifests: [rootManifest])
     return PackageGraphLoader().load(root: root, externalManifests: externalManifests, diagnostics: diagnostics, fileSystem: fs)
 }
 
@@ -314,4 +315,8 @@ extension Process {
         }
         return !exited
     }
+}
+
+extension Destination {
+    public static let host = try! hostDestination()
 }

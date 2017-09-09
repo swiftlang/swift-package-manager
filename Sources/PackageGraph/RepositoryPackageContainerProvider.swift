@@ -8,10 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Dispatch
+
 import Basic
 import PackageLoading
 import PackageModel
 import SourceControl
+import class PackageDescription4.Package
 import Utility
 
 /// Adaptor for exposing repositories as PackageContainerProvider instances.
@@ -19,7 +22,7 @@ import Utility
 /// This is the root class for bridging the manifest & SCM systems into the
 /// interfaces used by the `DependencyResolver` algorithm.
 public class RepositoryPackageContainerProvider: PackageContainerProvider {
-    public typealias Container = RepositoryPackageContainer
+    public typealias Container = BasePackageContainer
 
     let repositoryManager: RepositoryManager
     let manifestLoader: ManifestLoaderProtocol
@@ -30,6 +33,9 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
 
     /// The tools version loader.
     let toolsVersionLoader: ToolsVersionLoaderProtocol
+
+    /// Queue for callbacks.
+    private let callbacksQueue = DispatchQueue(label: "org.swift.swiftpm.container-provider")
 
     /// Create a repository-based package provider.
     ///
@@ -55,8 +61,20 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         skipUpdate: Bool,
         completion: @escaping (Result<Container, AnyError>) -> Void
     ) {
+        // If the container is local, just create and return a local package container.
+        if identifier.isLocal {
+            callbacksQueue.async {
+                let container = LocalPackageContainer(identifier,
+                    manifestLoader: self.manifestLoader,
+                    toolsVersionLoader: self.toolsVersionLoader,
+                    currentToolsVersion: self.currentToolsVersion)
+                completion(Result(container))
+            }
+            return
+        }
+
         // Resolve the container using the repository manager.
-        repositoryManager.lookup(repository: identifier, skipUpdate: skipUpdate) { result in
+        repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate) { result in
             // Create the container wrapper.
             let container = result.mapAny { handle -> Container in
                 // Open the repository.
@@ -81,14 +99,179 @@ enum RepositoryPackageResolutionError: Swift.Error {
     case unavailableRepository
 }
 
-/// Abstract repository identifier.
-extension RepositorySpecifier: PackageContainerIdentifier {}
+/// A package reference.
+///
+/// This represents a reference to a package containing its identity and location.
+public struct PackageReference: PackageContainerIdentifier, JSONMappable, JSONSerializable {
 
-public typealias RepositoryPackageConstraint = PackageContainerConstraint<RepositorySpecifier>
+    /// Compute identity of a package given its URL.
+    public static func computeIdentity(packageURL: String) -> String {
+        // Get the last path component of the URL.
+        var lastComponent = packageURL.split(separator: "/", omittingEmptySubsequences: true).last!
+
+        // Strip `.git` suffix if present.
+        //
+        // FIXME: We need String() here because of https://bugs.swift.org/browse/SR-5627
+        if String(lastComponent).hasSuffix(".git") {
+            lastComponent = lastComponent[...lastComponent.index(lastComponent.endIndex, offsetBy: -5)]
+        }
+
+        return String(lastComponent).lowercased()
+    }
+
+    /// The identity of the package.
+    public let identity: String
+
+    /// The repository of the package.
+    ///
+    /// This should only be accessed when the reference is not local.
+    public var repository: RepositorySpecifier {
+        precondition(!isLocal)
+        return RepositorySpecifier(url: path)
+    }
+
+    /// The path of the package.
+    /// 
+    /// This could be a remote repository, local repository or local package.
+    public let path: String
+
+    /// The package reference is a local package, i.e., it does not reference
+    /// a git repository.
+    public let isLocal: Bool
+
+    /// Create a package reference given its identity and repository.
+    public init(identity: String, path: String, isLocal: Bool = false) {
+		assert(identity == identity.lowercased(), "The identity is expected to be lowercased")
+        self.identity = identity
+        self.path = path
+        self.isLocal = isLocal
+    }
+
+    public static func ==(lhs: PackageReference, rhs: PackageReference) -> Bool {
+        return lhs.identity == rhs.identity
+    }
+
+    public var hashValue: Int {
+        return identity.hashValue
+    }
+
+    public init(json: JSON) throws {
+        self.identity = try json.get("identity")
+        self.path = try json.get("path")
+        self.isLocal = try json.get("isLocal")
+    }
+
+    public func toJSON() -> JSON {
+        return .init([
+            "identity": identity,
+            "path": path,
+            "isLocal": isLocal,
+        ])
+    }
+}
+
+public typealias RepositoryPackageConstraint = PackageContainerConstraint<PackageReference>
+
+/// Base class for the package container.
+public class BasePackageContainer: PackageContainer {
+    public typealias Identifier = PackageReference
+
+    public let identifier: Identifier
+
+    /// The manifest loader.
+    let manifestLoader: ManifestLoaderProtocol
+
+    /// The tools version loader.
+    let toolsVersionLoader: ToolsVersionLoaderProtocol
+
+    /// The current tools version in use.
+    let currentToolsVersion: ToolsVersion
+
+    public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
+        fatalError("This should never be called")
+    }
+
+    public func getDependencies(at version: Version) throws -> [PackageContainerConstraint<Identifier>] {
+        fatalError("This should never be called")
+    }
+
+    public func getDependencies(at revision: String) throws -> [PackageContainerConstraint<Identifier>] {
+        fatalError("This should never be called")
+    }
+
+    public func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {
+        fatalError("This should never be called")
+    }
+
+    fileprivate init(
+        _ identifier: Identifier,
+        manifestLoader: ManifestLoaderProtocol,
+        toolsVersionLoader: ToolsVersionLoaderProtocol,
+        currentToolsVersion: ToolsVersion
+    ) {
+        self.identifier = identifier
+        self.manifestLoader = manifestLoader
+        self.toolsVersionLoader = toolsVersionLoader
+        self.currentToolsVersion = currentToolsVersion
+    }
+}
+
+/// Local package container.
+///
+/// This class represent packages that are referenced locally in the file system.
+/// There is no need to perform any git operations on such packages and they
+/// should be used as-is. Infact, they might not even have a git repository.
+/// Examples: Root packages, local dependencies, edited packages.
+public class LocalPackageContainer: BasePackageContainer, CustomStringConvertible  {
+
+    /// The file system that shoud be used to load this package.
+    let fs: FileSystem
+
+    public override func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {
+        // Load the tools version.
+        let toolsVersion = try toolsVersionLoader.load(at: AbsolutePath(identifier.path), fileSystem: fs)
+
+        // Ensure current tools supports this package.
+        guard self.currentToolsVersion >= toolsVersion else {
+            // FIXME: Throw from here
+            fatalError()
+        }
+
+        // Load the manifest.
+        let manifest = try manifestLoader.load(
+            packagePath: AbsolutePath(identifier.path),
+            baseURL: identifier.path,
+            version: nil,
+            manifestVersion: toolsVersion.manifestVersion,
+            fileSystem: fs)
+
+        return manifest.package.dependencyConstraints()
+    }
+
+    public init(
+        _ identifier: Identifier,
+        manifestLoader: ManifestLoaderProtocol,
+        toolsVersionLoader: ToolsVersionLoaderProtocol,
+        currentToolsVersion: ToolsVersion,
+        fs: FileSystem = localFileSystem
+    ) {
+        assert(URL.scheme(identifier.path) == nil)
+        self.fs = fs
+        super.init(
+            identifier,
+            manifestLoader: manifestLoader,
+            toolsVersionLoader: toolsVersionLoader,
+            currentToolsVersion: currentToolsVersion
+        )
+    }
+
+    public var description: String {
+        return "LocalPackageContainer(\(identifier.path))"
+    }
+}
 
 /// Adaptor to expose an individual repository as a package container.
-public class RepositoryPackageContainer: PackageContainer, CustomStringConvertible {
-    public typealias Identifier = RepositorySpecifier
+public class RepositoryPackageContainer: BasePackageContainer, CustomStringConvertible {
 
     // A wrapper for getDependencies() errors. This adds additional information
     // about the container to identify it for diagnostics.
@@ -104,11 +287,8 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         public let underlyingError: Swift.Error
     }
 
-    /// The identifier of the repository.
-    public let identifier: RepositorySpecifier
-
     /// The available version list (in reverse order).
-    public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
+    public override func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
         return AnySequence(reversedVersions.filter(isIncluded).lazy.filter({
             guard let toolsVersion = try? self.toolsVersion(for: $0),
                   self.currentToolsVersion >= toolsVersion else {
@@ -119,15 +299,6 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
     /// The opened repository.
     let repository: Repository
-
-    /// The manifest loader.
-    let manifestLoader: ManifestLoaderProtocol
-
-    /// The tools version loader.
-    let toolsVersionLoader: ToolsVersionLoaderProtocol
-
-    /// The current tools version in use.
-    let currentToolsVersion: ToolsVersion
 
     /// The versions in the repository and their corresponding tags.
     let knownVersions: [Version: String]
@@ -140,27 +311,30 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     private var dependenciesCacheLock = Lock()
 
     init(
-        identifier: RepositorySpecifier,
+        identifier: PackageReference,
         repository: Repository,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion
     ) {
-        self.identifier = identifier
         self.repository = repository
-        self.manifestLoader = manifestLoader
-        self.toolsVersionLoader = toolsVersionLoader
-        self.currentToolsVersion = currentToolsVersion
 
         // Compute the map of known versions.
         //
         // FIXME: Move this utility to a more stable location.
-        self.knownVersions = Git.convertTagsToVersionMap(repository.tags)
-        self.reversedVersions = [Version](self.knownVersions.keys).sorted().reversed()
+        let knownVersions = Git.convertTagsToVersionMap(repository.tags)
+        self.knownVersions = knownVersions
+        self.reversedVersions = [Version](knownVersions.keys).sorted().reversed()
+        super.init(
+            identifier,
+            manifestLoader: manifestLoader,
+            toolsVersionLoader: toolsVersionLoader,
+            currentToolsVersion: currentToolsVersion
+        )
     }
 
     public var description: String {
-        return "RepositoryPackageContainer(\(identifier.url.debugDescription))"
+        return "RepositoryPackageContainer(\(identifier.repository.url.debugDescription))"
     }
 
     public func getTag(for version: Version) -> String? {
@@ -185,7 +359,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         return try toolsVersionLoader.load(at: .root, fileSystem: fs)
     }
 
-    public func getDependencies(at version: Version) throws -> [RepositoryPackageConstraint] {
+    public override func getDependencies(at version: Version) throws -> [RepositoryPackageConstraint] {
         do {
             return try cachedDependencies(forIdentifier: version.description) {
                 let tag = knownVersions[version]!
@@ -194,11 +368,11 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             }
         } catch {
             throw GetDependenciesErrorWrapper(
-                containerIdentifier: identifier.url, reference: version.description, underlyingError: error)
+                containerIdentifier: identifier.repository.url, reference: version.description, underlyingError: error)
         }
     }
 
-    public func getDependencies(at revision: String) throws -> [RepositoryPackageConstraint] {
+    public override func getDependencies(at revision: String) throws -> [RepositoryPackageConstraint] {
         do {
             return try cachedDependencies(forIdentifier: revision) {
                 // resolve the revision identifier and return its dependencies.
@@ -207,7 +381,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             }
         } catch {
             throw GetDependenciesErrorWrapper(
-                containerIdentifier: identifier.url, reference: revision, underlyingError: error)
+                containerIdentifier: identifier.repository.url, reference: revision, underlyingError: error)
         }
     }
 
@@ -238,11 +412,16 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         // Load the manifest.
         let manifest = try manifestLoader.load(
             package: AbsolutePath.root,
-            baseURL: identifier.url,
+            baseURL: identifier.repository.url,
             version: version,
             manifestVersion: toolsVersion.manifestVersion,
             fileSystem: fs)
 
         return manifest.package.dependencyConstraints()
+    }
+
+    public override func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {
+        // We just return an empty array if requested for unversioned dependencies.
+        return []
     }
 }

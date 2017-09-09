@@ -18,11 +18,13 @@
   * [Swift Tools Version](#swift-tools-version)
   * [Prefetching Dependencies](#prefetching-dependencies)
   * [Testing](#testing)
+  * [Running](#running)
   * [Build Configurations](#build-configurations)
     * [Debug](#debug)
     * [Release](#release)
   * [Depending on Apple Modules](#depending-on-apple-modules)
   * [C language targets](#c-language-targets)
+  * [Shell completion scripts](#shell-completion-scripts)
 * [PackageDescription API Version 3](PackageDescriptionV3.md)
 * [PackageDescription API Version 4](PackageDescriptionV4.md)
 * [Resources](Resources.md)
@@ -720,6 +722,13 @@ $ swift build --enable-prefetching
 Use `swift test` tool to run tests of a Swift package. For more information on
 the test tool, run `swift test --help`.
 
+## Running
+
+Use `swift run [executable [arguments...]]` tool to run an executable product of a Swift
+package. The executable's name is optional when running without arguments and when there
+is only one executable product. For more information on the run tool, run
+`swift run --help`.
+
 ## Build Configurations
 
 SwiftPM allows two build configurations: Debug (default) and Release.
@@ -764,7 +773,7 @@ watchOS, or tvOS platforms.
 
 ## C language targets
 
-The C language targets are similar to Swift targets except that the C langauge
+The C language targets are similar to Swift targets except that the C language
 libraries should contain a directory named `include` to hold the public headers.  
 
 To allow a Swift target to import a C language target, add a [target
@@ -787,3 +796,28 @@ a modulemap w.r.t the above rules.
 
 For executable targets, only one valid C language main file is allowed i.e. it
 is invalid to have `main.c` and `main.cpp` in the same target.
+
+## Shell completion scripts
+
+SwiftPM ships with completion scripts for both Bash and ZSH. These files should be generated in order to use them.
+
+### Bash
+
+Use the following commands to install the Bash completions to `~/.swift-package-complete.bash` and automatically load them using your `~/.bash_profile` file.
+
+```bash
+swift package completion-tool generate-bash-script > ~/.swift-package-complete.bash
+echo -e "source ~/.swift-package-complete.bash\n" >> ~/.bash_profile
+source ~/.swift-package-complete.bash
+```
+
+### ZSH
+
+Use the following commands to install the ZSH completions to `~/.zsh/_swift`. You can chose a different folder, but the filename should be `_swift`. This will also add `~/.zsh` to your `$fpath` using your `~/.zshrc` file.
+
+```bash
+mkdir ~/.zsh
+swift package completion-tool generate-zsh-script > ~/.zsh/_swift
+echo -e "fpath=(~/.zsh \$fpath)\n" >> ~/.zshrc
+compinit
+```

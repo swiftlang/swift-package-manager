@@ -85,62 +85,63 @@ public final class InitPackage {
 
         try writePackageFile(manifest) { stream in
             stream <<< """
-            // The swift-tools-version declares the minimum version of Swift required to build this package.
+                // The swift-tools-version declares the minimum version of Swift required to build this package.
 
-            import PackageDescription
+                import PackageDescription
 
-            let package = Package(
-                name: "\(pkgname)",
-            """
+                let package = Package(
+                    name: "\(pkgname)",
+
+                """
 
             if packageType == .library {
                 stream <<< """
+                        products: [
+                            // Products define the executables and libraries produced by a package, and make them visible to other packages.
+                            .library(
+                                name: "\(pkgname)",
+                                targets: ["\(pkgname)"]),
+                        ],
 
-                    products: [
-                        // Products define the executables and libraries produced by a package, and make them visible to other packages.
-                        .library(
-                            name: "\(pkgname)",
-                            targets: ["\(pkgname)"]),
-                    ],
-                """
+                    """
             }
 
             stream <<< """
+                    dependencies: [
+                        // Dependencies declare other packages that this package depends on.
+                        // .package(url: /* package url */, from: "1.0.0"),
+                    ],
 
-                dependencies: [
-                    // Dependencies declare other packages that this package depends on.
-                    // .package(url: /* package url */, from: "1.0.0"),
-                ],
-            """
+                """
 
             if packageType == .library {
                 stream <<< """
+                        targets: [
+                            // Targets are the basic building blocks of a package. A target can define a module or a test suite.
+                            // Targets can depend on other targets in this package, and on products in packages which this package depends on.
+                            .target(
+                                name: "\(pkgname)",
+                                dependencies: []),
+                            .testTarget(
+                                name: "\(pkgname)Tests",
+                                dependencies: ["\(pkgname)"]),
+                        ]
 
-                    targets: [
-                        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-                        // Targets can depend on other targets in this package, and on products in packages which this package depends on.
-                        .target(
-                            name: "\(pkgname)",
-                            dependencies: []),
-                        .testTarget(
-                            name: "\(pkgname)Tests",
-                            dependencies: ["\(pkgname)"]),
-                    ]
-                """
+                    """
             }
             if packageType == .executable {
                 stream <<< """
+                        targets: [
+                            // Targets are the basic building blocks of a package. A target can define a module or a test suite.
+                            // Targets can depend on other targets in this package, and on products in packages which this package depends on.
+                            .target(
+                                name: "\(pkgname)",
+                                dependencies: []),
+                        ]
 
-                    targets: [
-                        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-                        // Targets can depend on other targets in this package, and on products in packages which this package depends on.
-                        .target(
-                            name: "\(pkgname)",
-                            dependencies: []),
-                    ]
-                """
+                    """
             }
-            stream <<< "\n)\n"
+            stream <<< ")\n"
         }
 
         // Create a tools version with current version but with patch set to zero.
@@ -160,9 +161,12 @@ public final class InitPackage {
         }
 
         try writePackageFile(readme) { stream in
-            stream <<< "# \(pkgname)\n"
-            stream <<< "\n"
-            stream <<< "A description of this package.\n"
+            stream <<< """
+                # \(pkgname)
+
+                A description of this package.
+
+                """
         }
     }
 
@@ -173,10 +177,13 @@ public final class InitPackage {
         }
 
         try writePackageFile(gitignore) { stream in
-            stream <<< ".DS_Store\n"
-            stream <<< "/.build\n"
-            stream <<< "/Packages\n"
-            stream <<< "/*.xcodeproj\n"
+            stream <<< """
+                .DS_Store
+                /.build
+                /Packages
+                /*.xcodeproj
+
+                """
         }
     }
 
@@ -204,11 +211,17 @@ public final class InitPackage {
         try writePackageFile(sourceFile) { stream in
             switch packageType {
             case .library:
-                stream <<< "struct \(typeName) {\n\n"
-                stream <<< "    var text = \"Hello, World!\"\n"
-                stream <<< "}\n"
+                stream <<< """
+                    struct \(typeName) {
+                        var text = "Hello, World!"
+                    }
+
+                    """
             case .executable:
-                stream <<< "print(\"Hello, world!\")\n"
+                stream <<< """
+                    print("Hello, world!")
+
+                    """
             case .systemModule, .empty:
                 fatalError("invalid")
             }
@@ -225,11 +238,14 @@ public final class InitPackage {
         }
 
         try writePackageFile(modulemap) { stream in
-            stream <<< "module \(moduleName) [system] {\n"
-            stream <<< "  header \"/usr/include/\(moduleName).h\"\n"
-            stream <<< "  link \"\(moduleName)\"\n"
-            stream <<< "  export *\n"
-            stream <<< "}\n"
+            stream <<< """
+                module \(moduleName) [system] {
+                  header "/usr/include/\(moduleName).h"
+                  link "\(moduleName)"
+                  export *
+                }
+
+                """
         }
     }
 
@@ -253,11 +269,15 @@ public final class InitPackage {
 
     private func writeLinuxMain(testsPath: AbsolutePath) throws {
         try writePackageFile(testsPath.appending(component: "LinuxMain.swift")) { stream in
-            stream <<< "import XCTest\n"
-            stream <<< "@testable import \(moduleName)Tests\n\n"
-            stream <<< "XCTMain([\n"
-            stream <<< "    testCase(\(typeName)Tests.allTests),\n"
-            stream <<< "])\n"
+            stream <<< """
+                import XCTest
+                @testable import \(moduleName)Tests
+
+                XCTMain([
+                    testCase(\(typeName)Tests.allTests),
+                ])
+
+                """
         }
     }
 
@@ -267,22 +287,25 @@ public final class InitPackage {
         try makeDirectories(testModule)
 
         try writePackageFile(testModule.appending(RelativePath("\(moduleName)Tests.swift"))) { stream in
-            stream <<< "import XCTest\n"
-            stream <<< "@testable import \(moduleName)\n"
-            stream <<< "\n"
-            stream <<< "class \(moduleName)Tests: XCTestCase {\n"
-            stream <<< "    func testExample() {\n"
-            stream <<< "        // This is an example of a functional test case.\n"
-            stream <<< "        // Use XCTAssert and related functions to verify your tests produce the correct\n"
-            stream <<< "        // results.\n"
-            stream <<< "        XCTAssertEqual(\(typeName)().text, \"Hello, World!\")\n"
-            stream <<< "    }\n"
-            stream <<< "\n"
-            stream <<< "\n"
-            stream <<< "    static var allTests = [\n"
-            stream <<< "        (\"testExample\", testExample),\n"
-            stream <<< "    ]\n"
-            stream <<< "}\n"
+            stream <<< """
+                import XCTest
+                @testable import \(moduleName)
+                
+                class \(moduleName)Tests: XCTestCase {
+                    func testExample() {
+                        // This is an example of a functional test case.
+                        // Use XCTAssert and related functions to verify your tests produce the correct
+                        // results.
+                        XCTAssertEqual(\(typeName)().text, "Hello, World!")
+                    }
+                
+                
+                    static var allTests = [
+                        ("testExample", testExample),
+                    ]
+                }
+
+                """
         }
     }
 

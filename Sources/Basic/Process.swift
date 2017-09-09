@@ -92,11 +92,11 @@ public struct ProcessResult: CustomStringConvertible {
     }
 
     public var description: String {
-        var str = "<ProcessResult: "
-        str += "exit: \(exitStatus), "
-        str += "output:\n \((try? utf8Output()) ?? "")\n"
-        str += ">"
-        return str
+        return """
+            <ProcessResult: exit: \(exitStatus), output:
+             \((try? utf8Output()) ?? "")
+            >
+            """
     }
 }
 
@@ -535,7 +535,7 @@ extension Process.Error: CustomStringConvertible {
     public var description: String {
         switch self {
         case .missingExecutableProgram(let program):
-            return "Unable to find executable for '\(program)'"
+            return "could not find executable for '\(program)'"
         }
     }
 }
@@ -544,7 +544,7 @@ extension ProcessResult.Error: CustomStringConvertible {
     public var description: String {
         switch self {
         case .illegalUTF8Sequence:
-            return "The output had illegal UTF8 sequence"
+            return "illegal UTF8 sequence output"
         case .nonZeroExit(let result):
             let stream = BufferedOutputByteStream()
             switch result.exitStatus {

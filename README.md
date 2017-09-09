@@ -27,7 +27,7 @@ To learn about the policies and best practices that govern contributions to the 
 
 If you are interested in contributing, please read the [Community Proposal](Documentation/PackageManagerCommunityProposal.md), which provides some context for decisions made in the current implementation and offers direction for the development of future features.
 
-Instrutions for setting up the development environment is available [here](Documentation/Development.md).
+Instructions for setting up the development environment are available [here](Documentation/Development.md).
 
 The Swift package manager uses [llbuild](https://github.com/apple/swift-llbuild) as the underlying build system for compiling source files.  It is also open source and part of the Swift project.
 
@@ -41,7 +41,7 @@ The package manager’s system requirements are the same as [those for Swift](ht
 
 ## Installation
 
-The Swift Package Manager is included in Xcode 8.0 and all subsequent release.
+The Swift Package Manager is included in Xcode 8.0 and all subsequent releases.
 
 The package manager is also available for other platforms as part of all [Snapshots available at swift.org](https://swift.org/download/), including snapshots for the latest versions built from `master`. For installation instructions for downloaded snapshots, please see the [Getting Started](https://swift.org/getting-started/#installing-swift) section of [swift.org](https://swift.org).
 
@@ -87,7 +87,7 @@ The `SWIFT_EXEC` environment variable specifies the `swiftc` executable path use
 
 For extensive documentation on using Swift Package Manager, creating packages, and more, see [Documentation](Documentation).
 
-For additional documentation on developing the Swift Package Manager itself, see [Documentation/Internals](Documentation/Internals).
+For additional documentation on developing the Swift Package Manager itself, see [Documentation/Development](Documentation/Development.md).
 
 ---
 

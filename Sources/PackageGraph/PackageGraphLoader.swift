@@ -31,18 +31,18 @@ extension PackageGraphError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .noModules(let package):
-            return "the package \(package) contains no targets"
+            return "package '\(package)' contains no targets"
 
         case .cycleDetected(let cycle):
-            return "found cyclic dependency declaration: " +
+            return "cyclic dependency declaration found: " +
                 (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0].name
 
         case .productDependencyNotFound(let name, _):
-            return "The product dependency '\(name)' was not found."
+            return "product dependency '\(name)' not found"
 
         case .productDependencyIncorrectPackage(let name, let package):
-            return "The product dependency '\(name)' on package '\(package)' was not found."
+            return "product dependency '\(name)' in package '\(package)' not found"
         }
     }
 }
@@ -61,15 +61,26 @@ public struct PackageGraphLoader {
         shouldCreateMultipleTestProducts: Bool = false
     ) -> PackageGraph {
 
-        // Manifest url to manifest map.
-        let manifestURLMap = Dictionary(items: (externalManifests + root.manifests).map({ ($0.url, $0) }))
+        // Create a map of the manifests, keyed by their identity.
+        //
+        // FIXME: For now, we have to compute the identity of dependencies from
+        // the URL but that shouldn't be needed after <rdar://problem/33693433>
+        // Ensure that identity and package name are the same once we have an
+        // API to specify identity in the manifest file
+        let manifestMapSequence = root.manifests.map({ ($0.name.lowercased(), $0) }) + 
+            externalManifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
+        let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (Manifest) -> [Manifest] = { manifest in
-            manifest.package.dependencies.flatMap({ manifestURLMap[$0.url] })
+            manifest.package.dependencies.flatMap({ 
+                manifestMap[PackageReference.computeIdentity(packageURL: $0.url)] 
+            })
         }
 
         // Construct the root manifest and root dependencies set.
         let rootManifestSet = Set(root.manifests)
-        let rootDependencies = Set(root.dependencies.flatMap({ manifestURLMap[$0.url] }))
+        let rootDependencies = Set(root.dependencies.flatMap({
+            manifestMap[PackageReference.computeIdentity(packageURL: $0.url)]
+        }))
         let inputManifests = root.manifests + rootDependencies
 
         // Collect the manifests for which we are going to build packages.
@@ -117,7 +128,11 @@ public struct PackageGraphLoader {
 
         // Resolve dependencies and create resolved packages.
         let resolvedPackages = createResolvedPackages(
-            allManifests: allManifests, manifestToPackage: manifestToPackage, diagnostics: diagnostics)
+            allManifests: allManifests,
+            manifestToPackage: manifestToPackage,
+            rootManifestSet: rootManifestSet,
+            diagnostics: diagnostics
+        )
 
         return PackageGraph(
             rootPackages: resolvedPackages.filter({ rootManifestSet.contains($0.manifest) }),
@@ -130,114 +145,220 @@ public struct PackageGraphLoader {
 private func createResolvedPackages(
     allManifests: [Manifest],
     manifestToPackage: [Manifest: Package],
+    // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
+    rootManifestSet: Set<Manifest>,
     diagnostics: DiagnosticsEngine
 ) -> [ResolvedPackage] {
 
-    var packageURLMap: [String: ResolvedPackage] = [:]
+    // Create package builder objects from the input manifests.
+    let packageBuilders: [ResolvedPackageBuilder] = allManifests.flatMap({
+        guard let package = manifestToPackage[$0] else {
+            return nil
+        }
+        return ResolvedPackageBuilder(package)
+    })
 
-    var resolvedPackages: [ResolvedPackage] = []
+    // Create a map of package builders keyed by the package identity.
+    let packageMap: [String: ResolvedPackageBuilder] = packageBuilders.createDictionary({
+        // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
+        let identity = rootManifestSet.contains($0.package.manifest) ? $0.package.name.lowercased() : PackageReference.computeIdentity(packageURL: $0.package.manifest.url)
+        return (identity, $0)
+    })
 
-    // Resolve each package in reverse topological order of their manifest.
-    for manifest in allManifests.lazy.reversed() {
+    // In the first pass, we wire some basic things.
+    for packageBuilder in packageBuilders {
+        let package = packageBuilder.package
 
-        // The diagnostics location for this manifest.
-        let packagePath = manifest.path.parentDirectory
-        let diagnosicLocation = { PackageLocation.Local(name: manifest.name, packagePath: packagePath) }
+        // Establish the manifest-declared package dependencies.
+        packageBuilder.dependencies = package.manifest.package.dependencies.flatMap({
+            packageMap[PackageReference.computeIdentity(packageURL: $0.url)]
+        })
 
-        // We might not have a package for this manifest because we couldn't
-        // load it.  So, just skip it.
-        guard let package = manifestToPackage[manifest] else {
-            continue
+        // Create target builders for each target in the package.
+        let targetBuilders = package.targets.map(ResolvedTargetBuilder.init(target:))
+        packageBuilder.targets = targetBuilders
+
+        // Establish dependencies between the targets. A target can only depend on another target present in the same package.
+        let targetMap = targetBuilders.createDictionary({ ($0.target, $0) })
+        for targetBuilder in targetBuilders {
+            targetBuilder.dependencies += targetBuilder.target.dependencies.map({ targetMap[$0]! })
         }
 
-        // Get all the external dependencies of this package, ignoring any
-        // dependency we couldn't load.
-        let dependencies = manifest.package.dependencies.flatMap({ packageURLMap[$0.url] })
+        // Create product builders for each product in the package. A product can only contain a target present in the same package.
+        packageBuilder.products = package.products.map({
+            ResolvedProductBuilder(product: $0, targets: $0.targets.map({ targetMap[$0]! }))
+        })
+    }
 
-        // Topologically Sort all the local targets in this package.
-        let targets = try! topologicalSort(package.targets, successors: { $0.dependencies })
+    // The set of all target names.
+    var allTargetNames = Set<String>()
 
-        // Make sure these target names are unique in the graph.
-        let dependencyModuleNames = dependencies.lazy.flatMap({ $0.targets }).map({ $0.name })
-        if let duplicateModules = dependencyModuleNames.duplicates(targets.lazy.map({ $0.name })) {
-            diagnostics.emit(ModuleError.duplicateModule(duplicateModules.first!), location: diagnosicLocation())
-        }
+    // Do another pass and establish product dependencies of each target.
+    for packageBuilder in packageBuilders {
+        let package = packageBuilder.package
 
-        // Add system target dependencies directly to the target's dependencies
-        // because they are not representable as a product.
-        let systemModulesDependencies = dependencies
+        // The diagnostics location for this package.
+        let diagnosicLocation = { PackageLocation.Local(name: package.name, packagePath: package.path) }
+
+        // Get all the system module dependencies in this package.
+        let systemModulesDeps = packageBuilder.dependencies
             .flatMap({ $0.targets })
-            .filter({ $0.type == .systemModule })
-            .map(ResolvedTarget.Dependency.target)
+            .filter({ $0.target.type == .systemModule })
 
-        let allProducts = dependencies.flatMap({ $0.products }).filter({ $0.type != .test })
-        let allProductsMap = Dictionary(items: allProducts.map({ ($0.name, $0) }))
+        // Get all the products from dependencies of this package.
+        let productDependencies = packageBuilder.dependencies
+            .flatMap({ $0.products })
+            .filter({ $0.product.type != .test })
+        let productDependencyMap = productDependencies.createDictionary({ ($0.product.name, $0) })
 
-        // Resolve the targets.
-        var moduleToResolved = [Target: ResolvedTarget]()
-        let resolvedModules: [ResolvedTarget] = targets.lazy.reversed().map({ target in
+        // Establish dependencies in each target.
+        for targetBuilder in packageBuilder.targets {
+            // If a target with similar name was encountered before, we emit a diagnostic.
+            let targetName = targetBuilder.target.name
+            if allTargetNames.contains(targetName) {
+                diagnostics.emit(ModuleError.duplicateModule(targetName), location: diagnosicLocation())
+            }
+            allTargetNames.insert(targetName)
 
-            // Get the product dependencies for targets in this package.
-            let productDependencies: [ResolvedProduct]
-            switch manifest.package {
+            // Directly add all the system module dependencies.
+            targetBuilder.dependencies += systemModulesDeps
+
+            // Establish product dependencies based on the type of manifest.
+            switch package.manifest.package {
             case .v3:
-                productDependencies = allProducts
+                targetBuilder.productDeps = productDependencies
+
             case .v4:
-                productDependencies = target.productDependencies.flatMap({
+                for productRef in targetBuilder.target.productDependencies {
                     // Find the product in this package's dependency products.
-                    guard let product = allProductsMap[$0.name] else {
-                        let error = PackageGraphError.productDependencyNotFound(name: $0.name, package: $0.package)
+                    guard let product = productDependencyMap[productRef.name] else {
+                        let error = PackageGraphError.productDependencyNotFound(name: productRef.name, package: productRef.package)
                         diagnostics.emit(error, location: diagnosicLocation())
-                        return nil
+                        continue
                     }
 
                     // If package name is mentioned, ensure it is valid.
-                    if let packageName = $0.package {
+                    if let packageName = productRef.package {
                         // Find the declared package and check that it contains
                         // the product we found above.
-                        guard let package = dependencies.first(where: { $0.name == packageName }),
-                              package.products.contains(product) else {
+                        guard let dependencyPackage = packageMap[packageName.lowercased()], dependencyPackage.products.contains(product) else {
                             let error = PackageGraphError.productDependencyIncorrectPackage(
-                                name: $0.name, package: packageName)
+                                name: productRef.name, package: packageName)
                             diagnostics.emit(error, location: diagnosicLocation())
-                            return nil
+                            continue
                         }
                     }
-                    return product
-                })
+
+                    targetBuilder.productDeps.append(product)
+                }
             }
-
-            let moduleDependencies = target.dependencies.map({ moduleToResolved[$0]! })
-                .map(ResolvedTarget.Dependency.target)
-
-            let dependencies =
-                moduleDependencies +
-                systemModulesDependencies +
-                productDependencies.map(ResolvedTarget.Dependency.product)
-
-            let resolvedTarget = ResolvedTarget(target: target, dependencies: dependencies)
-            moduleToResolved[target] = resolvedTarget
-            return resolvedTarget
-        })
-
-        // Create resolved products.
-        let resolvedProducts = package.products.map({ product in
-            return ResolvedProduct(product: product, targets: product.targets.map({ moduleToResolved[$0]! }))
-        })
-        // Create resolved package.
-        let resolvedPackage = ResolvedPackage(
-            package: package, dependencies: dependencies, targets: resolvedModules, products: resolvedProducts)
-        packageURLMap[package.manifest.url] = resolvedPackage
-        resolvedPackages.append(resolvedPackage)
+        }
     }
-    return resolvedPackages
+    return packageBuilders.map({ $0.construct() })
 }
 
-// FIXME: Possibly lift this to Basic.
-private extension Sequence where Iterator.Element: Hashable {
-    // Returns the set of duplicate elements in two arrays, if any.
-    func duplicates(_ other: [Iterator.Element]) -> Set<Iterator.Element>? {
-        let dupes = Set(self).intersection(Set(other))
-        return dupes.isEmpty ? nil : dupes
+/// A generic builder for `Resolved` models.
+private class ResolvedBuilder<T>: ObjectIdentifierProtocol {
+
+    /// The constucted object, available after the first call to `constuct()`.
+    private var _constructedObject: T?
+
+    /// Construct the object with the accumulated data.
+    ///
+    /// Note that once the object is constucted, future calls to
+    /// this method will return the same object.
+    final func construct() -> T {
+        if let constructedObject = _constructedObject {
+            return constructedObject
+        }
+        _constructedObject = constructImpl()
+        return _constructedObject!
+    }
+
+    /// The object construction implementation.
+    func constructImpl() -> T {
+        fatalError("Should be implemented by subclasses")
+    }
+}
+
+/// Builder for resolved product.
+private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
+
+    /// The product reference.
+    let product: Product
+
+    /// The target builders in the product.
+    let targets: [ResolvedTargetBuilder]
+
+    init(product: Product, targets: [ResolvedTargetBuilder]) {
+        self.product = product
+        self.targets = targets
+    }
+
+    override func constructImpl() -> ResolvedProduct {
+        return ResolvedProduct(
+            product: product,
+            targets: targets.map({ $0.construct() })
+        )
+    }
+}
+
+/// Builder for resolved target.
+private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
+
+    /// The target reference.
+    let target: Target
+
+    /// The target dependencies of this target.
+    var dependencies: [ResolvedTargetBuilder] = []
+
+    /// The product dependencies of this target.
+    var productDeps: [ResolvedProductBuilder] = []
+
+    init(target: Target) {
+        self.target = target
+    }
+
+    override func constructImpl() -> ResolvedTarget {
+        var deps: [ResolvedTarget.Dependency] = []
+        for dependency in dependencies {
+            deps.append(.target(dependency.construct()))
+        }
+        for dependency in productDeps {
+            deps.append(.product(dependency.construct()))
+        }
+        return ResolvedTarget(
+            target: target,
+            dependencies: deps
+        )
+    }
+}
+
+/// Builder for resolved package.
+private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
+
+    /// The package reference.
+    let package: Package
+
+    /// The targets in the package.
+    var targets: [ResolvedTargetBuilder] = []
+
+    /// The products in this package.
+    var products: [ResolvedProductBuilder] = []
+
+    /// The dependencies of this package.
+    var dependencies: [ResolvedPackageBuilder] = []
+
+    init(_ package: Package) {
+        self.package = package
+    }
+
+    override func constructImpl() -> ResolvedPackage {
+        return ResolvedPackage(
+            package: package,
+            dependencies: dependencies.map({ $0.construct() }),
+            targets: targets.map({ $0.construct() }),
+            products: products.map({ $0.construct() })
+        )
     }
 }

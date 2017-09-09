@@ -71,7 +71,7 @@ public struct Destination {
         // FIXME: We may want to allow overriding this using an env variable but that
         // doesn't seem urgent or extremely useful as of now.
         return AbsolutePath(#file).parentDirectory
-            .parentDirectory.parentDirectory.appending(components: ".build", "debug")
+            .parentDirectory.parentDirectory.appending(components: ".build", hostTargetTriple, "debug")
       #else
         return AbsolutePath(
             CommandLine.arguments[0], relativeTo: originalWorkingDirectory).parentDirectory
@@ -97,7 +97,7 @@ public struct Destination {
             let sdkPathStr = try Process.checkNonZeroExit(
                 args: "xcrun", "--sdk", "macosx", "--show-sdk-path").chomp()
             guard !sdkPathStr.isEmpty else {
-                throw DestinationError.invalidInstallation("could not find default SDK")
+                throw DestinationError.invalidInstallation("default SDK not found")
             }
             sdkPath = AbsolutePath(sdkPathStr)
         }
@@ -107,7 +107,7 @@ public struct Destination {
         let commonArgs = Destination.sdkPlatformFrameworkPath().map({ ["-F", $0.asString] }) ?? []
 
         return Destination(
-            target: "x86_64-apple-macosx10.10",
+            target: hostTargetTriple,
             sdk: sdkPath,
             binDir: binDir,
             dynamicLibraryExtension: "dylib",
@@ -117,7 +117,7 @@ public struct Destination {
         )
       #else
         return Destination(
-            target: "x86_64-unknown-linux",
+            target: hostTargetTriple,
             sdk: .root,
             binDir: binDir,
             dynamicLibraryExtension: "so",
@@ -148,9 +148,15 @@ public struct Destination {
   #if os(macOS)
     /// Returns the host's dynamic library extension.
     public static let hostDynamicLibraryExtension = "dylib"
+
+    /// Target triple for the host system.
+    private static let hostTargetTriple = "x86_64-apple-macosx10.10"
   #else
     /// Returns the host's dynamic library extension.
     public static let hostDynamicLibraryExtension = "so"
+
+    /// Target triple for the host system.
+    private static let hostTargetTriple = "x86_64-unknown-linux"
   #endif
 }
 
@@ -175,7 +181,8 @@ extension Destination: JSONMappable {
             throw DestinationError.invalidSchemaVersion
         }
 
-        try self.init(target: json.get("target"),
+        try self.init(
+            target: json.get("target"),
             sdk: AbsolutePath(json.get("sdk")),
             binDir: AbsolutePath(json.get("toolchain-bin-dir")),
             dynamicLibraryExtension: json.get("dynamic-library-extension"),

@@ -35,15 +35,15 @@ extension ArgumentParserError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .unknownOption(let option):
-            return "Unknown option \(option). Use --help to list available options"
+            return "unknown option \(option); use --help to list available options"
         case .invalidValue(let argument, let error):
-            return "\(error) for argument \(argument). Use --help to print usage"
+            return "\(error) for argument \(argument); use --help to print usage"
         case .expectedValue(let option):
-            return "Option \(option) requires a value. Provide a value using '\(option) <value>' or '\(option)=<value>'"
+            return "option \(option) requires a value; provide a value using '\(option) <value>' or '\(option)=<value>'"
         case .unexpectedArgument(let argument):
-            return "Unexpected argument \(argument). Use --help to list available arguments"
+            return "unexpected argument \(argument); use --help to list available arguments"
         case .expectedArguments(_, let arguments):
-            return "Expected arguments: \(arguments.joined(separator: ", ")).\n"
+            return "expected arguments: \(arguments.joined(separator: ", "))"
         }
     }
 }
@@ -66,9 +66,9 @@ extension ArgumentConversionError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .unknown(let value):
-            return "Unknown value \(value)"
+            return "unknown value '\(value)'"
         case .typeMismatch(let value, let expectedType):
-            return "\(value) is not convertible to \(expectedType)"
+            return "'\(value)' is not convertible to \(expectedType)"
         case .custom(let reason):
             return reason
         }
@@ -110,12 +110,15 @@ public enum Shell: String, StringEnumArgument {
 /// - none:        Offers no completions at all; e.g. for string identifier
 /// - unspecified: No specific completions, will offer tool's completions
 /// - filename:    Offers filename completions
+/// - function:    Custom function for generating completions. Must be
+///                provided in the script's scope.
 /// - values:      Offers completions from predefined list. A description
 ///                can be provided which is shown in some shells, like zsh.
 public enum ShellCompletion {
     case none
     case unspecified
     case filename
+    case function(String)
     case values([(value: String, description: String)])
 }
 
@@ -267,6 +270,9 @@ protocol ArgumentProtocol: Hashable {
     /// The usage text associated with this argument. Used to generate complete help string.
     var usage: String? { get }
 
+    /// The shell completions to offer as values for this argument.
+    var completion: ShellCompletion { get }
+
     /// Parses and returns the argument values from the parser.
     ///
     // FIXME: Because `ArgumentKindTy`` can't conform to `ArgumentKind`, this
@@ -311,12 +317,15 @@ public final class OptionArgument<Kind>: ArgumentProtocol {
 
     let usage: String?
 
-    init(name: String, shortName: String?, strategy: ArrayParsingStrategy, usage: String?) {
+    let completion: ShellCompletion
+
+    init(name: String, shortName: String?, strategy: ArrayParsingStrategy, usage: String?, completion: ShellCompletion) {
         precondition(!isPositional(argument: name))
         self.name = name
         self.shortName = shortName
         self.strategy = strategy
         self.usage = usage
+        self.completion = completion
     }
 
     func parse(_ kind: ArgumentKind.Type, with parser: inout ArgumentParserProtocol) throws -> [ArgumentKind] {
@@ -365,12 +374,15 @@ public final class PositionalArgument<Kind>: ArgumentProtocol {
 
     let usage: String?
 
-    init(name: String, strategy: ArrayParsingStrategy, optional: Bool, usage: String?) {
+    let completion: ShellCompletion
+
+    init(name: String, strategy: ArrayParsingStrategy, optional: Bool, usage: String?, completion: ShellCompletion) {
         precondition(isPositional(argument: name))
         self.name = name
         self.strategy = strategy
         self.isOptional = optional
         self.usage = usage
+        self.completion = completion
     }
 
     func parse(_ kind: ArgumentKind.Type, with parser: inout ArgumentParserProtocol) throws -> [ArgumentKind] {
@@ -416,6 +428,8 @@ final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
 
     let usage: String?
 
+    let completion: ShellCompletion
+
     /// The argument kind this holds, used while initializing that argument.
     let kind: ArgumentKind.Type
 
@@ -432,6 +446,7 @@ final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
         self.strategy = argument.strategy
         self.isOptional = argument.isOptional
         self.usage = argument.usage
+        self.completion = argument.completion
         self.parseClosure = argument.parse(_:with:)
         isArray = false
     }
@@ -444,6 +459,7 @@ final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
         self.strategy = argument.strategy
         self.isOptional = argument.isOptional
         self.usage = argument.usage
+        self.completion = argument.completion
         self.parseClosure = argument.parse(_:with:)
         isArray = true
     }
@@ -617,11 +633,12 @@ public final class ArgumentParser {
         option: String,
         shortName: String? = nil,
         kind: T.Type,
-        usage: String? = nil
+        usage: String? = nil,
+        completion: ShellCompletion? = nil
     ) -> OptionArgument<T> {
         assert(!optionArguments.contains(where: { $0.name == option }), "Can not define an option twice")
 
-        let argument = OptionArgument<T>(name: option, shortName: shortName, strategy: .oneByOne, usage: usage)
+        let argument = OptionArgument<T>(name: option, shortName: shortName, strategy: .oneByOne, usage: usage, completion: completion ?? T.completion)
         optionArguments.append(AnyArgument(argument))
         return argument
     }
@@ -632,11 +649,12 @@ public final class ArgumentParser {
         shortName: String? = nil,
         kind: [T].Type,
         strategy: ArrayParsingStrategy = .upToNextOption,
-        usage: String? = nil
+        usage: String? = nil,
+        completion: ShellCompletion? = nil
     ) -> OptionArgument<[T]> {
         assert(!optionArguments.contains(where: { $0.name == option }), "Can not define an option twice")
 
-        let argument = OptionArgument<[T]>(name: option, shortName: shortName, strategy: strategy, usage: usage)
+        let argument = OptionArgument<[T]>(name: option, shortName: shortName, strategy: strategy, usage: usage, completion: completion ?? T.completion)
         optionArguments.append(AnyArgument(argument))
         return argument
     }
@@ -648,7 +666,8 @@ public final class ArgumentParser {
         positional: String,
         kind: T.Type,
         optional: Bool = false,
-        usage: String? = nil
+        usage: String? = nil,
+        completion: ShellCompletion? = nil
     ) -> PositionalArgument<T> {
         precondition(subparsers.isEmpty, "Positional arguments are not supported with subparsers")
         precondition(canAcceptPositionalArguments, "Can not accept more positional arguments")
@@ -657,7 +676,7 @@ public final class ArgumentParser {
             canAcceptPositionalArguments = false
         }
 
-        let argument = PositionalArgument<T>(name: positional, strategy: .oneByOne, optional: optional, usage: usage)
+        let argument = PositionalArgument<T>(name: positional, strategy: .oneByOne, optional: optional, usage: usage, completion: completion ?? T.completion)
         positionalArguments.append(AnyArgument(argument))
         return argument
     }
@@ -670,7 +689,8 @@ public final class ArgumentParser {
         kind: [T].Type,
         optional: Bool = false,
         strategy: ArrayParsingStrategy = .upToNextOption,
-        usage: String? = nil
+        usage: String? = nil,
+        completion: ShellCompletion? = nil
     ) -> PositionalArgument<[T]> {
         precondition(subparsers.isEmpty, "Positional arguments are not supported with subparsers")
         precondition(canAcceptPositionalArguments, "Can not accept more positional arguments")
@@ -679,7 +699,7 @@ public final class ArgumentParser {
             canAcceptPositionalArguments = false
         }
 
-        let argument = PositionalArgument<[T]>(name: positional, strategy: strategy, optional: optional, usage: usage)
+        let argument = PositionalArgument<[T]>(name: positional, strategy: strategy, optional: optional, usage: usage, completion: completion ?? T.completion)
         positionalArguments.append(AnyArgument(argument))
         return argument
     }
@@ -811,7 +831,7 @@ public final class ArgumentParser {
         let maxWidth: Int
         // Figure out the max width based on argument length or choose the default width if max width is longer
         // than the default width.
-        if let maxArgument = (positionalArguments + optionArguments).map({ $0.name.characters.count }).max(),
+        if let maxArgument = (positionalArguments + optionArguments).map({ $0.name.count }).max(),
             maxArgument < maxWidthDefault {
             maxWidth = maxArgument + padding + 1
         } else {
@@ -822,7 +842,7 @@ public final class ArgumentParser {
         func print(formatted argument: String, usage: String, on stream: OutputByteStream) {
             // Start with a new line and add some padding.
             stream <<< "\n" <<< Format.asRepeating(string: " ", count: padding)
-            let count = argument.characters.count
+            let count = argument.count
             // If the argument name is more than the set width take the whole
             // line for it, otherwise we can fit everything in one line.
             if count >= maxWidth - padding {

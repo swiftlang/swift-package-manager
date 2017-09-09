@@ -96,7 +96,7 @@ class PackageGraphTests: XCTestCase {
             "/Baz": Package(name: "Baz", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
         ], root: "/Foo", diagnostics: diagnostics, in: fs)
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "found cyclic dependency declaration: Foo -> Bar -> Baz -> Bar")
+        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar")
     }
 
     // Make sure there is no error when we reference Test targets in a package and then
@@ -133,7 +133,7 @@ class PackageGraphTests: XCTestCase {
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
         ], root: "/Bar", diagnostics: diagnostics, in: fs)
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "found multiple targets named Bar")
+        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple targets named 'Bar'")
     }
 
     static var allTests = [
@@ -143,65 +143,4 @@ class PackageGraphTests: XCTestCase {
         ("testProductDependencies", testProductDependencies),
         ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
     ]
-}
-
-private func PackageGraphTester(_ graph: PackageGraph, _ result: (PackageGraphResult) -> Void) {
-    result(PackageGraphResult(graph))
-}
-
-private class PackageGraphResult {
-    let graph: PackageGraph
-
-    init(_ graph: PackageGraph) {
-        self.graph = graph
-    }
-
-    func check(packages: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.map {$0.name}.sorted(), packages.sorted(), file: file, line: line)
-    }
-
-    func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(
-            graph.packages
-                .flatMap{ $0.targets }
-                .filter{ $0.type != .test }
-                .map{ $0.name }
-                .sorted(), targets.sorted(), file: file, line: line)
-    }
-
-    func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(
-            graph.packages
-                .flatMap{ $0.targets }
-                .filter{ $0.type == .test }
-                .map{ $0.name }
-                .sorted(), testModules.sorted(), file: file, line: line)
-    }
-
-    func find(target: String) -> ResolvedTarget? {
-        for pkg in graph.packages {
-            if let target = pkg.targets.first(where: { $0.name == target }) {
-                return target
-            }
-        }
-        return nil
-    }
-
-    func check(dependencies: String..., target name: String, file: StaticString = #file, line: UInt = #line) {
-        guard let target = find(target: name) else {
-            return XCTFail("Module \(name) not found", file: file, line: line)
-        }
-        XCTAssertEqual(dependencies.sorted(), target.dependencies.map{$0.name}.sorted(), file: file, line: line)
-    }
-}
-
-extension ResolvedTarget.Dependency {
-    var name: String {
-        switch self {
-        case .target(let target):
-            return target.name
-        case .product(let product):
-            return product.name
-        }
-    }
 }

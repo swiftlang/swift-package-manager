@@ -1,0 +1,4 @@
+Name: Dependent
+Cflags: -I/path/to/dependent/include
+Libs: -L/path/to/dependent/lib
+Requires: Dependency

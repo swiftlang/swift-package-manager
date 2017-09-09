@@ -65,7 +65,7 @@ Note: It is possible to have C, C++, Objective-C and Objective-C++ sources as
 part of a C language target. Swift targets can import C language targets but
 not vice versa.
 
-Read more on C language targets [here](#c-language-targets).
+Read more on C language targets [here](Usage.md#c-language-targets).
 
 ### Test Target Layouts
 

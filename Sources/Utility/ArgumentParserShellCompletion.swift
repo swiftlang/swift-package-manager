@@ -27,24 +27,27 @@ extension ArgumentParser {
         switch shell {
         case .bash:
             // Information about how to include this function in a completion script.
-            stream <<< "# Generates completions for \(commandName)\n"
-            stream <<< "#\n"
-            stream <<< "# Parameters\n"
-            stream <<< "# - the start position of this parser; set to 1 if unknown\n"
-            stream <<< "function \(name)\n"
-            stream <<< "{\n"
+            stream <<< """
+                # Generates completions for \(commandName)
+                #
+                # Parameters
+                # - the start position of this parser; set to 1 if unknown
 
+                """
             generateBashSwiftTool(name: name, on: stream)
 
         case .zsh:
             // Information about how to include this function in a completion script.
-            stream <<< "# Generates completions for \(commandName)\n"
-            stream <<< "#\n"
-            stream <<< "# In the final compdef file, set the following file header:\n"
-            stream <<< "#\n"
-            stream <<< "#     #compdef \(name)\n"
-            stream <<< "#     local context state state_descr line\n"
-            stream <<< "#     typeset -A opt_args\n"
+            stream <<< """
+                # Generates completions for \(commandName)
+                #
+                # In the final compdef file, set the following file header:
+                #
+                #     #compdef \(name)
+                #     local context state state_descr line
+                #     typeset -A opt_args
+
+                """
 
             generateZshSwiftTool(name: name, on: stream)
         }
@@ -54,6 +57,11 @@ extension ArgumentParser {
     // MARK: - BASH
 
     fileprivate func generateBashSwiftTool(name: String, on stream: OutputByteStream) {
+        stream <<< """
+            function \(name)
+            {
+
+            """
 
         // Suggest positional arguments. Beware that this forces positional arguments
         // before options. For example [swift package pin <TAB>] expects a name as the
@@ -78,9 +86,12 @@ extension ArgumentParser {
                 completions.append(shortName)
             }
         }
-        stream <<< "        COMPREPLY=( $(compgen -W \"\(completions.joined(separator: " "))\" -- $cur) )\n"
-        stream <<< "        return\n"
-        stream <<< "    fi\n"
+        stream <<< """
+                    COMPREPLY=( $(compgen -W "\(completions.joined(separator: " "))" -- $cur) )
+                    return
+                fi
+
+            """
 
         // Suggest completions based on previous word.
         generateBashCasePrev(on: stream)
@@ -88,18 +99,24 @@ extension ArgumentParser {
         // Forward completions to subparsers.
         stream <<< "    case ${COMP_WORDS[$1]} in\n"
         for (subName, _) in subparsers {
-            stream <<< "        (\(subName))\n"
-            stream <<< "            \(name)_\(subName) $(($1+1))\n"
-            stream <<< "            return\n"
-            stream <<< "        ;;\n"
+            stream <<< """
+                        (\(subName))
+                            \(name)_\(subName) $(($1+1))
+                            return
+                        ;;
+
+                """
         }
         stream <<< "    esac\n"
 
         // In all other cases (no positional / previous / subparser), suggest
         // this parsers completions.
-        stream <<< "    COMPREPLY=( $(compgen -W \"\(completions.joined(separator: " "))\" -- $cur) )\n"
-        stream <<< "}\n"
-        stream <<< "\n"
+        stream <<< """
+                COMPREPLY=( $(compgen -W "\(completions.joined(separator: " "))" -- $cur) )
+            }
+
+
+            """
 
         for (subName, subParser) in subparsers {
             subParser.generateBashSwiftTool(name: "\(name)_\(subName)", on: stream)
@@ -118,7 +135,7 @@ extension ArgumentParser {
     }
 
     fileprivate func generateBashCompletion(_ argument: AnyArgument, on stream: OutputByteStream) {
-        switch argument.kind.completion {
+        switch argument.completion {
         case .none:
             // return; no value to complete
             stream <<< "            return\n"
@@ -126,11 +143,23 @@ extension ArgumentParser {
             break
         case .values(let values):
             let x = values.map({ $0.value }).joined(separator: " ")
-            stream <<< "            COMPREPLY=( $(compgen -W \"\(x)\" -- $cur) )\n"
-            stream <<< "            return\n"
+            stream <<< """
+                            COMPREPLY=( $(compgen -W "\(x)" -- $cur) )
+                            return
+
+                """
         case .filename:
-            stream <<< "            _filedir\n"
-            stream <<< "            return\n"
+            stream <<< """
+                            _filedir
+                            return
+
+                """
+        case .function(let name):
+            stream <<< """
+                            \(name)
+                            return
+
+                """
         }
     }
 
@@ -138,8 +167,11 @@ extension ArgumentParser {
 
     private func generateZshSwiftTool(name: String, on stream: OutputByteStream) {
         // Completions are provided by zsh's _arguments builtin.
-        stream <<< "\(name)() {\n"
-        stream <<< "    arguments=(\n"
+        stream <<< """
+            \(name)() {
+                arguments=(
+
+            """
         for argument in positionalArguments {
             stream <<< "        \""
             generateZshCompletion(argument, on: stream)
@@ -151,38 +183,58 @@ extension ArgumentParser {
 
         // Use a simple state-machine when dealing with sub parsers.
         if subparsers.count > 0 {
-            stream <<< "        '(-): :->command'\n"
-            stream <<< "        '(-)*:: :->arg'\n"
+            stream <<< """
+                        '(-): :->command'
+                        '(-)*:: :->arg'
+
+                """
         }
 
-        stream <<< "    )\n"
-        stream <<< "    _arguments $arguments && return\n"
+        stream <<< """
+                )
+                _arguments $arguments && return
+
+            """
 
         // Handle the state set by the state machine.
         if subparsers.count > 0 {
-            stream <<< "    case $state in\n"
-            stream <<< "        (command)\n"
-            stream <<< "            local modes\n"
-            stream <<< "            modes=(\n"
+            stream <<< """
+                    case $state in
+                        (command)
+                            local modes
+                            modes=(
+
+                """
             for (subName, subParser) in subparsers {
-                stream <<< "                '\(subName):\(subParser.overview)'\n"
+                stream <<< """
+                                    '\(subName):\(subParser.overview)'
+
+                    """
             }
-            stream <<< "            )\n"
-            stream <<< "            _describe \"mode\" modes\n"
-            stream <<< "            ;;\n"
-            stream <<< "        (arg)\n"
-            stream <<< "            case ${words[1]} in\n"
+            stream <<< """
+                            )
+                            _describe "mode" modes
+                            ;;
+                        (arg)
+                            case ${words[1]} in
+
+                """
             for (subName, _) in subparsers {
-                stream <<< "                (\(subName))\n"
-                stream <<< "                    \(name)_\(subName)\n"
-                stream <<< "                    ;;\n"
+                stream <<< """
+                                    (\(subName))
+                                        \(name)_\(subName)
+                                        ;;
+
+                    """
             }
-            stream <<< "            esac\n"
-            stream <<< "            ;;\n"
-            stream <<< "    esac\n"
+            stream <<< """
+                            esac
+                            ;;
+                    esac
+
+                """
         }
-        stream <<< "}\n"
-        stream <<< "\n"
+       stream <<< "}\n\n"
 
         for (subName, subParser) in subparsers {
             subParser.generateZshSwiftTool(name: "\(name)_\(subName)", on: stream)
@@ -212,7 +264,7 @@ extension ArgumentParser {
             .replace(in: argument.usage ?? " ", with: "")
             .replacingOccurrences(of: "\"", with: "\\\"")
 
-        switch argument.kind.completion {
+        switch argument.completion {
         case .none: stream <<< ":\(message): "
         case .unspecified: break
         case .filename: stream <<< ":\(message):_files"
@@ -222,6 +274,7 @@ extension ArgumentParser {
                 stream <<< " '\(value)[\(description)]'"
             }
             stream <<< "}"
+        case .function(let name): stream <<< ":\(message):\(name)"
         }
     }
 }
@@ -231,7 +284,7 @@ fileprivate extension NSRegularExpression {
         return stringByReplacingMatches(
             in: original,
             options: [],
-            range: NSRange(location: 0, length: original.characters.count),
+            range: NSRange(location: 0, length: original.count),
             withTemplate: replacement)
     }
 }

@@ -25,7 +25,7 @@ public enum PkgConfigError: Swift.Error {
 private let pkgConfigSearchPaths: [AbsolutePath] = {
     let searchPaths = try? Process.checkNonZeroExit(
         args: "pkg-config", "--variable", "pc_path", "pkg-config").chomp()
-    return searchPaths?.characters.split(separator: ":").map({ AbsolutePath(String($0)) }) ?? []
+    return searchPaths?.split(separator: ":").map({ AbsolutePath(String($0)) }) ?? []
 }()
 
 /// Information on an individual `pkg-config` supported package.
@@ -86,7 +86,11 @@ public struct PkgConfig {
         if !parser.dependencies.isEmpty {
             for dep in parser.dependencies {
                 // FIXME: This is wasteful, we should be caching the PkgConfig result.
-                let pkg = try PkgConfig(name: dep)
+                let pkg = try PkgConfig(
+                    name: dep, 
+                    additionalSearchPaths: additionalSearchPaths, 
+                    fileSystem: fileSystem
+                )
                 cFlags += pkg.cFlags
                 libs += pkg.libs
             }
@@ -98,7 +102,7 @@ public struct PkgConfig {
 
     private static var envSearchPaths: [AbsolutePath] {
         if let configPath = POSIX.getenv("PKG_CONFIG_PATH") {
-            return configPath.characters.split(separator: ":").map({ AbsolutePath(String($0)) })
+            return configPath.split(separator: ":").map({ AbsolutePath(String($0)) })
         }
         return []
     }
@@ -142,8 +146,8 @@ struct PkgConfigParser {
 
     mutating func parse() throws {
         func removeComment(line: String) -> String {
-            if let commentIndex = line.characters.index(of: "#") {
-                return String(line[line.characters.startIndex..<commentIndex])
+            if let commentIndex = line.index(of: "#") {
+                return String(line[line.startIndex..<commentIndex])
             }
             return line
         }
@@ -156,10 +160,10 @@ struct PkgConfigParser {
             // Ignore any empty or whitespace line.
             guard let line = uncommentedLine.chuzzle() else { continue }
 
-            if line.characters.contains(":") {
+            if line.contains(":") {
                 // Found a key-value pair.
                 try parseKeyValue(line: line)
-            } else if line.characters.contains("=") {
+            } else if line.contains("=") {
                 // Found a variable.
                 let (name, maybeValue) = line.split(around: "=")
                 let value = maybeValue?.chuzzle() ?? ""
@@ -172,7 +176,7 @@ struct PkgConfigParser {
     }
 
     private mutating func parseKeyValue(line: String) throws {
-        precondition(line.characters.contains(":"))
+        precondition(line.contains(":"))
         let (key, maybeValue) = line.split(around: ":")
         let value = try resolveVariables(maybeValue?.chuzzle() ?? "")
         switch key {
@@ -198,8 +202,8 @@ struct PkgConfigParser {
 
         // Look at a char at an index if present.
         func peek(idx: Int) -> Character? {
-            guard idx <= depString.characters.count - 1 else { return nil }
-            return depString.characters[depString.characters.index(depString.characters.startIndex, offsetBy: idx)]
+            guard idx <= depString.count - 1 else { return nil }
+            return depString[depString.index(depString.startIndex, offsetBy: idx)]
         }
 
         // This converts the string which can be separated by comma or spaces
@@ -207,7 +211,7 @@ struct PkgConfigParser {
         func tokenize() -> [String] {
             var tokens = [String]()
             var token = ""
-            for (idx, char) in depString.characters.enumerated() {
+            for (idx, char) in depString.enumerated() {
                 // Encountered a seperator, use the token.
                 if separators.contains(String(char)) {
                     // If next character is a space skip.
@@ -250,11 +254,10 @@ struct PkgConfigParser {
     /// linearly in the string and if found, lookup the value of the variable in
     /// our dictionary and replace the variable name with its value.
     private func resolveVariables(_ line: String) throws -> String {
-        typealias Fragment = String.CharacterView
         // Returns variable name, start index and end index of a variable in a string if present.
         // We make sure it of form ${name} otherwise it is not a variable.
-        func findVariable(_ fragment: Fragment)
-            -> (name: String, startIndex: Fragment.Index, endIndex: Fragment.Index)? {
+        func findVariable(_ fragment: String)
+            -> (name: String, startIndex: String.Index, endIndex: String.Index)? {
             guard let dollar = fragment.index(of: "$"),
                   dollar != fragment.endIndex && fragment[fragment.index(after: dollar)] == "{",
                   let variableEndIndex = fragment.index(of: "}")
@@ -262,8 +265,8 @@ struct PkgConfigParser {
             return (String(fragment[fragment.index(dollar, offsetBy: 2)..<variableEndIndex]), dollar, variableEndIndex)
         }
 
-        var result = "".characters
-        var fragment = line.characters
+        var result = ""
+        var fragment = line
         while !fragment.isEmpty {
             // Look for a variable in our current fragment.
             if let variable = findVariable(fragment) {
@@ -273,13 +276,13 @@ struct PkgConfigParser {
                     throw PkgConfigError.parsingError("Expected variable in \(pcFile)")
                 }
                 // Append the value of the variable.
-                result += variableValue.characters
+                result += variableValue
                 // Update the fragment with post variable string.
                 fragment = fragment[fragment.index(after: variable.endIndex)..<fragment.endIndex]
             } else {
                 // No variable found, just append rest of the fragment to result.
                 result += fragment
-                fragment = "".characters
+                fragment = ""
             }
         }
         return String(result)
@@ -301,7 +304,7 @@ struct PkgConfigParser {
             }
         }
 
-        var it = line.characters.makeIterator()
+        var it = line.makeIterator()
         // Indicates if we're in a quoted fragment, we shouldn't append quote.
         var inQuotes = false
         while let char = it.next() {

@@ -370,6 +370,7 @@ public struct Xcode {
             var SWIFT_VERSION: String?
             var TARGET_NAME: String?
             var USE_HEADERMAP: String?
+            var LD: String?
         }
     }
 }

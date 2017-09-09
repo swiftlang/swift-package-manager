@@ -22,8 +22,11 @@ public class ToolOptions {
     /// The custom build directory, if provided.
     public var buildPath: AbsolutePath?
 
-    /// The custom working directory that the tool should operate in.
+    /// The custom working directory that the tool should operate in (deprecated).
     public var chdir: AbsolutePath?
+    
+    /// The custom working directory that the tool should operate in.
+    public var packagePath: AbsolutePath?
 
     /// Enable prefetching in resolver which will kick off parallel git cloning.
     public var shouldEnableResolverPrefetching = true
@@ -39,6 +42,9 @@ public class ToolOptions {
 
     /// Path to the compilation destination describing JSON file.
     public var customCompileDestination: AbsolutePath?
+
+    /// If should link the Swift stdlib statically.
+    public var shouldLinkStaticSwiftStdlib = false
 
     public required init() {}
 }

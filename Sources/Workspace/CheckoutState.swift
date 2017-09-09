@@ -91,3 +91,13 @@ extension CheckoutState: JSONMappable, JSONSerializable {
        ])
     }
 }
+
+extension ManagedDependency {
+    public var checkoutState: CheckoutState? {
+        if case .checkout(let checkoutState) = state {
+            return checkoutState
+        }
+        return nil
+    }
+}
+

@@ -46,6 +46,8 @@ final class IncrementalBuildTests: XCTestCase {
             // FIXME:  This is specific to the format of the log output, which
             // is quite unfortunate but not easily avoidable at the moment.
             XCTAssertTrue(fullLog.contains("Compile CLibrarySources Foo.c"))
+
+            let llbuildManifest = prefix.appending(components: ".build", "debug.yaml")
             
             // Modify the source file in a way that changes its size so that the low-level
             // build system can detect the change. The timestamp change might be too less
@@ -54,15 +56,27 @@ final class IncrementalBuildTests: XCTestCase {
             let stream = BufferedOutputByteStream()
             stream <<< (try localFileSystem.readFileContents(sourceFile)) <<< "\n"
             try localFileSystem.writeFileContents(sourceFile, bytes: stream.bytes)
+
+            // Read the first llbuild manifest.
+            let llbuildContents1 = try localFileSystem.readFileContents(llbuildManifest)
             
             // Now build again.  This should be an incremental build.
             let log2 = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertTrue(log2.contains("Compile CLibrarySources Foo.c"))
+
+            // Read the second llbuild manifest.
+            let llbuildContents2 = try localFileSystem.readFileContents(llbuildManifest)
             
             // Now build again without changing anything.  This should be a null
             // build.
             let log3 = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertFalse(log3.contains("Compile CLibrarySources Foo.c"))
+
+            // Read the third llbuild manifest.
+            let llbuildContents3 = try localFileSystem.readFileContents(llbuildManifest)
+
+            XCTAssertEqual(llbuildContents1, llbuildContents2)
+            XCTAssertEqual(llbuildContents2, llbuildContents3)
         }
     }
     

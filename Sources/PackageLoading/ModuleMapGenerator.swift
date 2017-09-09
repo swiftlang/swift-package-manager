@@ -94,8 +94,8 @@ public struct ModuleMapGenerator {
         let includeDir = target.includeDir
         // Warn and return if no include directory.
         guard fileSystem.isDirectory(includeDir) else {
-            warningStream <<< ("warning: No include directory found for target '\(target.name)'. " +
-                "A library can not be imported without any public headers.")
+            warningStream <<< ("warning: no include directory found for target '\(target.name)'; " +
+                "libraries cannot be imported without public headers")
             warningStream.flush()
             return
         }
@@ -180,47 +180,30 @@ public struct ModuleMapGenerator {
     }
 }
 
-extension ModuleMapGenerator.ModuleMapError: FixableError {
-    public var error: String {
+extension ModuleMapGenerator.ModuleMapError: CustomStringConvertible {
+    public var description: String {
         switch self {
         case .unsupportedIncludeLayoutForModule(let (name, problem)):
-            return "could not generate modulemap for target '\(name)', the file layout is not " +
-                "supported: \(problem.error)"
-        }
-    }
-
-    public var fix: String? {
-        switch self {
-        case .unsupportedIncludeLayoutForModule(let (_, problem)):
-            return problem.fix
+            return "target '\(name)' failed modulemap generation; \(problem)"
         }
     }
 }
 
-extension ModuleMapGenerator.ModuleMapError.UnsupportedIncludeLayoutType: FixableError {
-    public var error: String {
+extension ModuleMapGenerator.ModuleMapError.UnsupportedIncludeLayoutType: CustomStringConvertible {
+    public var description: String {
         switch self {
         case .umbrellaHeaderWithAdditionalNonEmptyDirectories(let (umbrella, dirs)):
-            return "an umbrella header is defined at \(umbrella.asString), but the following directories " +
-                "exist: \(dirs.map({ $0.asString }).sorted().joined(separator: ", "))"
+            return "umbrella header defined at '\(umbrella.asString)', but directories exist: " +
+                dirs.map({ $0.asString }).sorted().joined(separator: ", ") +
+                "; consider removing them"
         case .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(let (umbrella, dirs)):
-            return "an umbrella header is defined at \(umbrella.asString), but more than 1 directories " +
-                "exist: \(dirs.map({ $0.asString }).sorted().joined(separator: ", "))"
+            return "umbrella header defined at '\(umbrella.asString)', but more than one directories exist: " +
+                dirs.map({ $0.asString }).sorted().joined(separator: ", ") +
+                "; consider reducing them to one"
         case .umbrellaHeaderWithAdditionalFilesInIncludeDirectory(let (umbrella, files)):
-            return "an umbrella header is defined at \(umbrella.asString), but the following files " +
-                "exist: \(files.map({ $0.asString }).sorted().joined(separator: ", "))"
-        }
-    }
-
-    public var fix: String? {
-        switch self {
-        case .umbrellaHeaderWithAdditionalNonEmptyDirectories(let (_, dirs)):
-            return "remove these directories: \(dirs.map({ $0.asString }).sorted().joined(separator: ", "))"
-        case .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(let (_, dirs)):
-            return "reduce these directories to a single " +
-                "directory: \(dirs.map({ $0.asString }).sorted().joined(separator: ", "))"
-        case.umbrellaHeaderWithAdditionalFilesInIncludeDirectory(let (_, files)):
-            return "remove these files: \(files.map({ $0.asString }).sorted().joined(separator: ", "))"
+            return "umbrella header defined at '\(umbrella.asString)', but files exist:" +
+                files.map({ $0.asString }).sorted().joined(separator: ", ") +
+                "; consider removing them"
         }
     }
 }

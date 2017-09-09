@@ -22,10 +22,13 @@ class ModuleMapGeneration: XCTestCase {
             "/Foo.c")
 
         let expected = BufferedOutputByteStream()
-        expected <<< "module Foo {\n"
-        expected <<< "    umbrella header \"/include/Foo.h\"\n"
-        expected <<< "    export *\n"
-        expected <<< "}\n"
+        expected <<< """
+            module Foo {
+                umbrella header "/include/Foo.h"
+                export *
+            }
+
+            """
 
         ModuleMapTester("Foo", in: fs) { result in
             result.check(value: expected.bytes)
@@ -38,10 +41,13 @@ class ModuleMapGeneration: XCTestCase {
             "/Foo.c")
 
         let expected = BufferedOutputByteStream()
-        expected <<< "module Foo {\n"
-        expected <<< "    umbrella header \"/include/Foo/Foo.h\"\n"
-        expected <<< "    export *\n"
-        expected <<< "}\n"
+        expected <<< """
+            module Foo {
+                umbrella header "/include/Foo/Foo.h"
+                export *
+            }
+
+            """
 
         ModuleMapTester("Foo", in: fs) { result in
             result.check(value: expected.bytes)
@@ -51,10 +57,13 @@ class ModuleMapGeneration: XCTestCase {
     func testOtherCases() throws {
 
         let expected = BufferedOutputByteStream()
-        expected <<< "module Foo {\n"
-        expected <<< "    umbrella \"/include\"\n"
-        expected <<< "    export *\n"
-        expected <<< "}\n"
+        expected <<< """
+            module Foo {
+                umbrella "/include"
+                export *
+            }
+
+            """
 
         var fs: InMemoryFileSystem
         func checkExpected() {
@@ -87,7 +96,7 @@ class ModuleMapGeneration: XCTestCase {
             "/Foo.c")
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
-            result.checkDiagnostics("warning: No include directory found for target \'Foo\'. A library can not be imported without any public headers.")
+            result.checkDiagnostics("warning: no include directory found for target \'Foo\'; libraries cannot be imported without public headers")
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -116,12 +125,14 @@ class ModuleMapGeneration: XCTestCase {
         fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo/Foo.h",
             "/include/Bar/Foo.h")
-        checkExpected("could not generate modulemap for target 'Foo', the file layout is not supported: an umbrella header is defined at /include/Foo/Foo.h, but more than 1 directories exist: /include/Bar, /include/Foo fix: reduce these directories to a single directory: /include/Bar, /include/Foo")
+        checkExpected("target 'Foo' failed modulemap generation; umbrella header defined at '/include/Foo/Foo.h', " +
+            "but more than one directories exist: /include/Bar, /include/Foo; consider reducing them to one")
 
         fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo.h",
             "/include/Bar/Foo.h")
-        checkExpected("could not generate modulemap for target 'Foo', the file layout is not supported: an umbrella header is defined at /include/Foo.h, but the following directories exist: /include/Bar fix: remove these directories: /include/Bar")
+        checkExpected("target 'Foo' failed modulemap generation; umbrella header defined at '/include/Foo.h', but " +
+            "directories exist: /include/Bar; consider removing them")
     }
 
     static var allTests = [
@@ -135,14 +146,14 @@ class ModuleMapGeneration: XCTestCase {
 
 func ModuleMapTester(_ name: String, includeDir: String = "include", in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
     let includeDir = AbsolutePath.root.appending(component: includeDir)
-    let target = ClangTarget(name: name, includeDir: includeDir, isTest: false, sources: Sources(paths: [], root: .root))
+    let target = ClangTarget(name: name, isCXX: false, languageStandard: nil, includeDir: includeDir, isTest: false, sources: Sources(paths: [], root: .root))
     let warningStream = BufferedOutputByteStream()
     var generator = ModuleMapGenerator(for: target, fileSystem: fileSystem, warningStream: warningStream)
     var diagnostics = Set<String>()
     do {
         try generator.generateModuleMap(inDir: .root)
         // FIXME: Find a better way.
-        diagnostics = Set(warningStream.bytes.asReadableString.characters.split(separator: "\n").map(String.init))
+        diagnostics = Set(warningStream.bytes.asReadableString.split(separator: "\n").map(String.init))
     } catch {
       diagnostics.insert("\(error)")
     }

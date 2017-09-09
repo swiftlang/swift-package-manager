@@ -66,18 +66,23 @@ public struct BuildParameters {
     /// The tools version to use.
     public let toolsVersion: ToolsVersion
 
+    /// If should link the Swift stdlib statically.
+    public let shouldLinkStaticSwiftStdlib: Bool
+
     public init(
         dataPath: AbsolutePath,
         configuration: Configuration,
         toolchain: Toolchain,
         flags: BuildFlags,
-        toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
+        toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
+        shouldLinkStaticSwiftStdlib: Bool = false
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
         self.toolchain = toolchain
         self.flags = flags
         self.toolsVersion = toolsVersion
+        self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
     }
 }
 
@@ -169,11 +174,20 @@ public final class ClangTargetDescription {
         args += buildParameters.toolchain.extraCCFlags
         args += buildParameters.flags.cCompilerFlags
         args += optimizationArguments
+
+        // Add extra C++ flags if this target contains C++ files.
+        if clangTarget.isCXX {
+            args += self.buildParameters.flags.cxxCompilerFlags
+        }
+
         // Only enable ARC on macOS.
       #if os(macOS)
         args += ["-fobjc-arc"]
       #endif
         args += ["-fmodules", "-fmodule-name=" + target.c99name]
+        if let languageStandard = clangTarget.languageStandard {
+            args += ["-std=\(languageStandard)"]
+        }
         args += ["-I", clangTarget.includeDir.asString]
         args += additionalFlags
         args += moduleCacheArgs
@@ -384,8 +398,20 @@ public final class ProductBuildDescription {
         case .library(.dynamic):
             args += ["-emit-library"]
         case .executable:
+            // Link the Swift stdlib statically if requested.
+            if buildParameters.shouldLinkStaticSwiftStdlib {
+                // FIXME: This does not work for linux yet (SR-648).
+              #if os(macOS)
+                args += ["-static-stdlib"]
+              #endif
+            }
             args += ["-emit-executable"]
         }
+      #if os(Linux)
+        // On linux, set rpath such that dynamic libraries are looked up
+        // adjacent to the product. This happens by default on macOS.
+        args += ["-Xlinker", "-rpath=$ORIGIN"]
+      #endif
         args += objects.map({ $0.asString })
         return args
     }
@@ -533,7 +559,7 @@ public class BuildPlan {
         // Link C++ if needed.
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
-            if case let target as ClangTarget = target.underlyingTarget, target.containsCppFiles {
+            if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
                 buildProduct.additionalFlags += self.buildParameters.toolchain.extraCPPFlags
                 break
             }

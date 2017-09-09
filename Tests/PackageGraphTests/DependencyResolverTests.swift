@@ -427,9 +427,11 @@ class DependencyResolverTests: XCTestCase {
         do {
             let resolver = MockDependencyResolver(provider, MockResolverDelegate())
             let aConstraint = MockPackageConstraint(container: "A", versionRequirement: v0_0_0Range)
+            provider.containersByIdentifier["C"]?.unversionedDeps = [aConstraint]
+
             let result = try resolver.resolve(constraints: [
                 MockPackageConstraint(container: "C", requirement: .revision(develop)),
-                MockPackageConstraint(container: "C", requirement: .unversioned([aConstraint])),
+                MockPackageConstraint(container: "C", requirement: .unversioned),
                 MockPackageConstraint(container: "C", versionRequirement: v1Range),
             ])
             XCTAssertEqual(result, [
@@ -482,40 +484,45 @@ class DependencyResolverTests: XCTestCase {
         let resolver = MockDependencyResolver(provider, MockResolverDelegate())
 
         let a_v1_constraint = MockPackageConstraint(container: "A", versionRequirement: v1Range)
+        let a_v2_constraint = MockPackageConstraint(container: "A", versionRequirement: v2Range)
         let a_v1Exact_constraint = MockPackageConstraint(container: "A", versionRequirement: .exact(v1))
 
         // Empty unversioned constraint.
         var result = try resolver.resolve(constraints: [
-            MockPackageConstraint(container: "B", requirement: .unversioned([])),
+            MockPackageConstraint(container: "B", requirement: .unversioned),
         ])
         XCTAssertEqual(result, [
             "B": .unversioned,
         ])
+
+        // Add unversioned dependency to the container.
+        provider.containersByIdentifier["B"]?.unversionedDeps = [a_v1_constraint]
 
         // Single unversioned constraint.
         result = try resolver.resolve(constraints: [
-            MockPackageConstraint(container: "B", requirement: .unversioned([a_v1_constraint])),
+            MockPackageConstraint(container: "B", requirement: .unversioned),
         ])
         XCTAssertEqual(result, [
             "A": .version(v1_1),
             "B": .unversioned,
         ])
 
-        // Two equal unversioned constraint.
+        // Two unversioned constraints.
         result = try resolver.resolve(constraints: [
-            MockPackageConstraint(container: "B", requirement: .unversioned([a_v1_constraint])),
-            MockPackageConstraint(container: "B", requirement: .unversioned([a_v1_constraint])),
+            MockPackageConstraint(container: "B", requirement: .unversioned),
+            MockPackageConstraint(container: "B", requirement: .unversioned),
         ])
         XCTAssertEqual(result, [
             "A": .version(v1_1),
             "B": .unversioned,
         ])
 
-        // Two unequal unversioned constraint.
+        // Unsatisfiable unversioned constraint.
         XCTAssertThrows(DependencyResolverError.unsatisfiable) {
             _ = try resolver.resolve(constraints: [
-                MockPackageConstraint(container: "B", requirement: .unversioned([a_v1_constraint])),
-                MockPackageConstraint(container: "B", requirement: .unversioned([a_v1Exact_constraint])),
+                MockPackageConstraint(container: "B", requirement: .unversioned),
+                MockPackageConstraint(container: "B", requirement: .unversioned),
+                a_v2_constraint,
             ])
         }
 
@@ -525,7 +532,7 @@ class DependencyResolverTests: XCTestCase {
            a_v1Exact_constraint,
            MockPackageConstraint(container: "B", versionRequirement: v1_0Range),
            MockPackageConstraint(container: "B", versionRequirement: .exact(v1)),
-           MockPackageConstraint(container: "B", requirement: .unversioned([a_v1_constraint])),
+           MockPackageConstraint(container: "B", requirement: .unversioned),
            MockPackageConstraint(container: "B", versionRequirement: v1_0Range),
            MockPackageConstraint(container: "B", versionRequirement: .exact(v1)),
        ])
@@ -538,12 +545,12 @@ class DependencyResolverTests: XCTestCase {
        result = try resolver.resolve(constraints: [
            MockPackageConstraint(container: "B", versionRequirement: v1_0Range),
            MockPackageConstraint(container: "B", versionRequirement: .exact(v1)),
-           MockPackageConstraint(container: "B", requirement: .unversioned([a_v1_constraint])),
+           MockPackageConstraint(container: "B", requirement: .unversioned),
            MockPackageConstraint(container: "B", versionRequirement: v1Range),
 
            MockPackageConstraint(container: "A", versionRequirement: v1Range),
            MockPackageConstraint(container: "A", versionRequirement: .exact(v1)),
-           MockPackageConstraint(container: "A", requirement: .unversioned([])),
+           MockPackageConstraint(container: "A", requirement: .unversioned),
            MockPackageConstraint(container: "A", versionRequirement: v1Range),
        ])
        XCTAssertEqual(result, [

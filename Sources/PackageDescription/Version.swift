@@ -62,7 +62,7 @@ extension Version: Hashable {
         if let build = buildMetadataIdentifier {
             result = (result &* mul) ^ UInt64(bitPattern: Int64(build.hashValue))
         }
-        return Int(extendingOrTruncating: result)
+        return Int(truncatingBitPattern: result)
     }
 }
 

@@ -50,18 +50,18 @@ public extension String {
         }
 
         // If there are no single quotes then we can just wrap the string around single quotes.
-        guard let singleQuotePos = utf8[pos..<utf8.endIndex].index(of: UInt8(ascii: "'")) else {
+        guard let singleQuotePos = utf8[pos...].index(of: UInt8(ascii: "'")) else {
             return "'" + self + "'"
         }
 
         // Otherwise iterate and escape all the single quotes.
-        var newString = "'" + String(utf8[utf8.startIndex..<singleQuotePos])!
+        var newString = "'" + String(self[..<singleQuotePos])
 
-        for char in utf8[singleQuotePos..<utf8.endIndex] {
-            if char == UInt8(ascii: "'") {
+        for char in self[singleQuotePos...] {
+            if char == "'" {
                 newString += "'\\''"
             } else {
-                newString += String(UnicodeScalar(char))
+                newString += String(char)
             }
         }
 
@@ -73,5 +73,42 @@ public extension String {
     /// Shell escapes the current string. This method is mutating version of shellEscaped().
     public mutating func shellEscape() {
         self = shellEscaped()
+    }
+}
+
+/// Type of localized join operator.
+public enum LocalizedJoinType: String {
+    /// A conjunction join operator (ie: blue, white, and red)
+    case conjunction = "and"
+
+    /// A disjunction join operator (ie: blue, white, or red)
+    case disjunction = "or"
+}
+
+//FIXME: Migrate to DiagnosticFragmentBuilder
+public extension Array where Element == String {
+    /// Returns a localized list of terms representing a conjunction or disjunction.
+    func localizedJoin(type: LocalizedJoinType) -> String {
+        var result = ""
+        
+        for (i, item) in enumerated() {
+            // Add the separator, if necessary.
+            if i == count - 1 {
+                switch count {
+                case 1:
+                    break
+                case 2:
+                    result += " \(type.rawValue) "
+                default:
+                    result += ", \(type.rawValue) "
+                }
+            } else if i != 0 {
+                result += ", "
+            }
+
+            result += item
+        }
+
+        return result
     }
 }

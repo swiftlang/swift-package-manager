@@ -127,6 +127,10 @@ let package = Package(
             name: "swift-test",
             dependencies: ["Commands"]),
         .target(
+            /** Runs an executable product */
+            name: "swift-run",
+            dependencies: ["Commands"]),
+        .target(
             /** Shim tool to find test names on OS X */
             name: "swiftpm-xctest-helper",
             dependencies: []),
@@ -153,7 +157,7 @@ let package = Package(
             dependencies: ["Build", "TestSupport"]),
         .testTarget(
             name: "CommandsTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "Commands", "Workspace", "TestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "TestSupport"]),
         .testTarget(
             name: "WorkspaceTests",
             dependencies: ["Workspace", "TestSupport"]),
@@ -188,6 +192,9 @@ let package = Package(
         .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "TestSupport"]),
+        .testTarget(
+            name: "TestSupportTests",
+            dependencies: ["TestSupport"]),
         .testTarget(
             name: "UtilityTests",
             dependencies: ["Utility", "TestSupport", "TestSupportExecutable"]),

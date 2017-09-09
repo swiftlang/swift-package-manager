@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-/// Converts an asynchronous method having callback using Result enum to asynchronous.
+/// Converts an asynchronous method having callback using Result enum to synchronous.
 ///
 /// - Parameter body: The async method must be called inside this body and closure provided in the parameter
 ///                   should be passed to the async method's completion handler.

@@ -24,7 +24,7 @@ struct SpecifierDeprecatedDiagnostic: DiagnosticData {
         name: "org.swift.diags.specifier-deprecated",
         defaultBehavior: .warning,
         description: {
-            $0 <<< "'--specifier' option is deprecated, use '--filter' instead."
+            $0 <<< "'--specifier' option is deprecated; use '--filter' instead"
         }
     )
 }
@@ -36,7 +36,7 @@ struct NoMatchingTestsWarning: DiagnosticData {
         name: "org.swift.diags.no-matching-tests",
         defaultBehavior: .note,
         description: {
-            $0 <<< "the filter predicate did not match any test case"
+            $0 <<< "'--filter' predicate did not match any test case"
         }
     )
 }
@@ -50,9 +50,9 @@ extension TestError: CustomStringConvertible {
     var description: String {
         switch self {
         case .testsExecutableNotFound:
-            return "no tests found to execute, create a target in your `Tests' directory"
+            return "no tests found; create a target in the 'Tests' directory"
         case .invalidListTestJSONData:
-            return "Invalid list test JSON structure."
+            return "invalid list test JSON structure"
         }
     }
 }
@@ -137,7 +137,6 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         case .runSerial:
             let testPath = try buildTestsIfNeeded(options)
-            let testSuites = try getTestSuites(path: testPath)
             var ranSuccessfully = true
 
             switch options.testCaseSpecifier {
@@ -152,6 +151,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 }
 
                 // Find the tests we need to run.
+                let testSuites = try getTestSuites(path: testPath)
                 let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
                 // If there were no matches, emit a warning.
@@ -189,7 +189,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
         let buildPlan = try self.buildPlan()
         if options.shouldBuildTests {
-            try build(plan: buildPlan, includingTests: true)
+            try build(plan: buildPlan, subset: .allIncludingTests)
         }
 
         guard let testProduct = buildPlan.buildProducts.first(where: { $0.product.type == .test }) else {
@@ -349,16 +349,20 @@ final class TestRunner {
     ///            and second argument containing the output of the execution.
     func test() -> (Bool, String) {
         var output = ""
-        var success = true
+        var success = false
         do {
             let process = Process(arguments: args(), redirectOutput: true, verbose: false)
             try process.launch()
             let result = try process.waitUntilExit()
             output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
-            success = result.exitStatus == .terminated(code: 0)
-        } catch {
-            success = false
-        }
+            switch result.exitStatus {
+            case .terminated(code: 0):
+                success = true
+            case .signalled(let signal):
+                output += "\n" + exitSignalText(code: signal)
+            default: break
+            }
+        } catch {}
         return (success, output)
     }
 
@@ -369,10 +373,19 @@ final class TestRunner {
             try processSet.add(process)
             try process.launch()
             let result = try process.waitUntilExit()
-            return result.exitStatus == .terminated(code: 0)
-        } catch {
-            return false
-        }
+            switch result.exitStatus {
+            case .terminated(code: 0):
+                return true
+            case .signalled(let signal):
+                print(exitSignalText(code: signal))
+            default: break
+            }
+        } catch {}
+        return false
+    }
+
+    private func exitSignalText(code: Int32) -> String {
+        return "Exited with signal code \(code)"
     }
 }
 
@@ -493,6 +506,9 @@ final class ParallelTestRunner {
         stdoutStream <<< "\n"
         for error in failureOutput {
             stdoutStream <<< error
+        }
+        if !failureOutput.isEmpty {
+            stdoutStream <<< "\n"
         }
         stdoutStream.flush()
     }

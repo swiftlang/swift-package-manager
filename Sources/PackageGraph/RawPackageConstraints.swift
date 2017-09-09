@@ -9,15 +9,26 @@
 */
 
 import PackageModel
+import PackageDescription4
 import SourceControl
+
+extension PackageDescription4.Package.Dependency {
+    /// Create the package reference object for the dependency.
+    public func createPackageRef() -> PackageReference {
+        return PackageReference(
+            identity: PackageReference.computeIdentity(packageURL: url),
+            path: url
+        )
+    }
+}
 
 extension Manifest.RawPackage {
 
     /// Constructs constraints of the dependencies in the raw package.
     public func dependencyConstraints() -> [RepositoryPackageConstraint] {
         return dependencies.map({
-            RepositoryPackageConstraint(
-                container: RepositorySpecifier(url: $0.url),
+            return RepositoryPackageConstraint(
+                container: $0.createPackageRef(),
                 requirement: $0.requirement.toConstraintRequirement())
         })
     }

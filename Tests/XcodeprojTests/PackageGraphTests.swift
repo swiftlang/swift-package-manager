@@ -55,6 +55,7 @@ class PackageGraphTests: XCTestCase {
                 "Sources/Sea/include/Sea.h",
                 "Sources/Sea/include/module.modulemap",
                 "Tests/BarTests/barTests.swift",
+                "Dependencies/Foo 1.0.0/Package.swift",
                 "Dependencies/Foo 1.0.0/foo.swift",
                 "Products/Foo.framework",
                 "Products/Sea2.framework",
@@ -108,6 +109,16 @@ class PackageGraphTests: XCTestCase {
                 targetResult.check(dependencies: ["Bar", "Foo"])
                 XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["@loader_path/../Frameworks", "@loader_path/Frameworks"])
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
+            }
+
+            result.check(target: "FooPackageDescription") { targetResult in
+                targetResult.check(productType: .framework)
+                targetResult.check(dependencies: [])
+            }
+
+            result.check(target: "BarPackageDescription") { targetResult in
+                targetResult.check(productType: .framework)
+                targetResult.check(dependencies: [])
             }
         }
     }
@@ -282,7 +293,7 @@ extension Xcode.Reference {
         if path.isEmpty {
             return ""
         }
-        if path.characters.first == "/" {
+        if path.first == "/" {
             return AbsolutePath(path).basename
         }
         return RelativePath(path).basename

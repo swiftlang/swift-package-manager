@@ -6,7 +6,7 @@
  
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+*/
 
 import TestSupport
 import XCTest
@@ -50,7 +50,7 @@ class ProcessTests: XCTestCase {
         let stream = BufferedOutputByteStream()
         stream <<< Format.asRepeating(string: "a", count: count)
         try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
-        let outputCount = try Process.popen(args: "cat", file.path.asString).utf8Output().characters.count
+        let outputCount = try Process.popen(args: "cat", file.path.asString).utf8Output().count
         XCTAssert(outputCount == count)
     }
 
@@ -78,7 +78,11 @@ class ProcessTests: XCTestCase {
 
             // Create a local nonexecutable file to test.
             let tempExecutable = path.appending(component: "nonExecutableProgram")
-            try localFileSystem.writeFileContents(tempExecutable, bytes: "#!/bin/sh\nexit\n")
+            try localFileSystem.writeFileContents(tempExecutable, bytes: """
+                #!/bin/sh
+                exit
+                
+                """)
 
             try withCustomEnv(["PATH": path.asString]) {
                 XCTAssertFalse(Process().findExecutable("nonExecutableProgram"))
@@ -90,7 +94,11 @@ class ProcessTests: XCTestCase {
         mktmpdir { path in
             // Create a local nonexecutable file to test.
             let tempExecutable = path.appending(component: "nonExecutableProgram")
-            try localFileSystem.writeFileContents(tempExecutable, bytes: "#!/bin/sh\nexit\n")
+            try localFileSystem.writeFileContents(tempExecutable, bytes: """
+                #!/bin/sh
+                exit
+                
+                """)
 
             try withCustomEnv(["PATH": path.asString]) {
                 do {

@@ -65,7 +65,7 @@ extension Version: Hashable {
         result = (result &* mul) ^ UInt64(bitPattern: Int64(patch.hashValue))
         result = prereleaseIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64(bitPattern: Int64($1.hashValue)) })
         result = buildMetadataIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64(bitPattern: Int64($1.hashValue)) })
-        return Int(extendingOrTruncating: result)
+        return Int(truncatingBitPattern: result)
     }
 }
 
@@ -134,12 +134,11 @@ public extension Version {
     /// - Parameters:
     ///   - string: The string to parse.
     init?(string: String) {
-        let characters = string.characters
-        let prereleaseStartIndex = characters.index(of: "-")
-        let metadataStartIndex = characters.index(of: "+")
+        let prereleaseStartIndex = string.index(of: "-")
+        let metadataStartIndex = string.index(of: "+")
 
-        let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? characters.endIndex
-        let requiredCharacters = characters.prefix(upTo: requiredEndIndex)
+        let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? string.endIndex
+        let requiredCharacters = string.prefix(upTo: requiredEndIndex)
         let requiredComponents = requiredCharacters
             .split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
             .map(String.init).flatMap({ Int($0) }).filter({ $0 >= 0 })
@@ -152,16 +151,16 @@ public extension Version {
 
         func identifiers(start: String.Index?, end: String.Index) -> [String] {
             guard let start = start else { return [] }
-            let identifiers = characters[characters.index(after: start)..<end]
+            let identifiers = string[string.index(after: start)..<end]
             return identifiers.split(separator: ".").map(String.init)
         }
 
         self.prereleaseIdentifiers = identifiers(
             start: prereleaseStartIndex,
-            end: metadataStartIndex ?? characters.endIndex)
+            end: metadataStartIndex ?? string.endIndex)
         self.buildMetadataIdentifiers = identifiers(
             start: metadataStartIndex,
-            end: characters.endIndex)
+            end: string.endIndex)
     }
 }
 
