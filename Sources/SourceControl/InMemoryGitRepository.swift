@@ -168,6 +168,10 @@ public final class InMemoryGitRepository {
         return isDirty
     }
 
+    public func isUpToDate() throws -> Bool {
+        return false // TODO.
+    }
+
     public func fetch() throws {
         // TODO.
     }

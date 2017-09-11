@@ -141,6 +141,9 @@ public protocol Repository {
     /// - Throws: If the identifier can not be resolved.
     func resolveRevision(identifier: String) throws -> Revision
 
+    /// Query whether repository is already up-to-date with its remote.
+    func isUpToDate() throws -> Bool
+
     /// Fetch and update the repository from its remote.
     ///
     /// - Throws: If an error occurs while performing the fetch operation.
