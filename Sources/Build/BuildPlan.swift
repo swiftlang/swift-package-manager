@@ -47,6 +47,9 @@ public struct BuildParameters {
     /// The toolchain.
     public let toolchain: Toolchain
 
+    /// Destination triple.
+    public let triple: Triple
+
     /// Extra build flags.
     public let flags: BuildFlags
 
@@ -73,6 +76,7 @@ public struct BuildParameters {
         dataPath: AbsolutePath,
         configuration: Configuration,
         toolchain: Toolchain,
+        destinationTriple: Triple = Triple.hostTriple,
         flags: BuildFlags,
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         shouldLinkStaticSwiftStdlib: Bool = false
@@ -80,6 +84,7 @@ public struct BuildParameters {
         self.dataPath = dataPath
         self.configuration = configuration
         self.toolchain = toolchain
+        self.triple = destinationTriple
         self.flags = flags
         self.toolsVersion = toolsVersion
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
@@ -329,11 +334,11 @@ public final class ProductBuildDescription {
             fatalError()
         case .test:
             let base = "\(name).xctest"
-            #if os(macOS)
+            if buildParameters.triple.isDarwin() {
                 return RelativePath("\(base)/Contents/MacOS/\(name)")
-            #else
+            } else {
                 return RelativePath(base)
-            #endif
+            }
         }
     }
 
@@ -390,11 +395,11 @@ public final class ProductBuildDescription {
             return []
         case .test:
             // Test products are bundle on macOS, executable on linux.
-          #if os(macOS)
-            args += ["-Xlinker", "-bundle"]
-          #else
-            args += ["-emit-executable"]
-          #endif
+            if buildParameters.triple.isDarwin() {
+                args += ["-Xlinker", "-bundle"]
+            } else {
+                args += ["-emit-executable"]
+            }
         case .library(.dynamic):
             args += ["-emit-library"]
         case .executable:
@@ -490,23 +495,23 @@ public class BuildPlan {
              }
         }
 
-      #if os(Linux)
-        // FIXME: Create a target for LinuxMain file on linux.
-        // This will go away once it is possible to auto detect tests.
-        let testProducts = graph.products.filter({ $0.type == .test })
-        if testProducts.count > 1 {
-            fatalError("It is not possible to have multiple test products on linux \(testProducts)")
-        }
-
-        for product in testProducts {
-            guard let linuxMainTarget = product.linuxMainTarget else {
-                throw Error.missingLinuxMain
+        if buildParameters.triple.isLinux() {
+            // FIXME: Create a target for LinuxMain file on linux.
+            // This will go away once it is possible to auto detect tests.
+            let testProducts = graph.products.filter({ $0.type == .test })
+            if testProducts.count > 1 {
+                fatalError("It is not possible to have multiple test products on linux \(testProducts)")
             }
-            let target = SwiftTargetDescription(
-                target: linuxMainTarget, buildParameters: buildParameters, isTestTarget: true)
-            targetMap[linuxMainTarget] = .swift(target)
+
+            for product in testProducts {
+                guard let linuxMainTarget = product.linuxMainTarget else {
+                    throw Error.missingLinuxMain
+                }
+                let target = SwiftTargetDescription(
+                        target: linuxMainTarget, buildParameters: buildParameters, isTestTarget: true)
+                targetMap[linuxMainTarget] = .swift(target)
+            }
         }
-      #endif
 
         var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
         // Create product description for each product we have in the package graph except
@@ -629,11 +634,11 @@ public class BuildPlan {
             }
         }
 
-      #if os(Linux)
-        if product.type == .test {
-            product.linuxMainTarget.map({ staticTargets.append($0) })
+        if buildParameters.triple.isLinux() {
+            if product.type == .test {
+                product.linuxMainTarget.map({ staticTargets.append($0) })
+            }
         }
-      #endif
 
         return (linkLibraries, staticTargets, systemModules)
     }

@@ -499,10 +499,13 @@ public class SwiftTool<Options: ToolOptions> {
     /// Create build parameters.
     func buildParameters() throws -> BuildParameters {
         let toolchain = try getToolchain()
+        let triple = try Triple(toolchain.destination.target)
+
         return BuildParameters(
             dataPath: buildPath.appending(component: toolchain.destination.target),
             configuration: options.configuration,
             toolchain: toolchain,
+            destinationTriple: triple,
             flags: options.buildFlags,
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib
         )
