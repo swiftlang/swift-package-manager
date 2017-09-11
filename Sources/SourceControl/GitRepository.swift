@@ -293,7 +293,7 @@ public class GitRepository: Repository, WorkingCheckout {
     public func isUpToDate() throws -> Bool {
         return try queue.sync {
             let output = try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.asString, "pull", "--dry-run", "-p", environment: Git.environment)
+                args: Git.tool, "-C", path.asString, "fetch", "--dry-run", "-p", environment: Git.environment)
             return output.isEmpty
         }
     }

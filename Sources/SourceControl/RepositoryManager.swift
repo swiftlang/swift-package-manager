@@ -239,7 +239,7 @@ public class RepositoryManager {
                             return handle
                         }
 
-                        guard try repo.isUpToDate() else {
+                        guard try !repo.isUpToDate() else {
                             return handle
                         }
                         
