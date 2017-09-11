@@ -39,8 +39,11 @@ public protocol WorkspaceDelegate: class {
     /// The workspace has started updating this repository.
     func repositoryWillUpdate(_ repository: String)
 
-    /// The workspace has finished finished this repository.
+    /// The workspace has finished updating this repository.
     func repositoryDidUpdate(_ repository: String)
+
+    /// The workspace has finished updating and all the dependencies are already up-to-date.
+    func dependenciesUpToDate()
 
     /// The workspace has started cloning this repository.
     func cloning(repository: String)
@@ -63,6 +66,7 @@ public extension WorkspaceDelegate {
     func repositoryWillUpdate(_ repository: String) {}
     func repositoryDidUpdate(_ repository: String) {}
     func willResolveDependencies() {}
+    func dependenciesUpToDate() {}
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -1116,14 +1120,23 @@ extension Workspace {
     }
 
     /// This enum represents state of an external package.
-    fileprivate enum PackageStateChange {
+    fileprivate enum PackageStateChange: Equatable {
         /// The requirement imposed by the the state.
-        enum Requirement {
+        enum Requirement: Equatable {
             /// A version requirement.
             case version(Version)
 
             /// A revision requirement.
             case revision(Revision, branch: String?)
+            
+            static func == (lhs: Requirement, rhs: Requirement) -> Bool {
+                switch (lhs, rhs) {
+                case (.version(let a), .version(let b)): return a == b
+                case (.revision(let a), .revision(let b)): return (a.0 == b.0) && (a.1 == b.1)
+                case (.version(_), _): return false
+                case (.revision(_), _): return false
+                }
+            }
         }
 
         /// The package is added.
@@ -1137,6 +1150,19 @@ extension Workspace {
 
         /// The package is updated.
         case updated(Requirement)
+        
+        static func == (lhs: PackageStateChange, rhs: PackageStateChange) -> Bool {
+            switch (lhs, rhs) {
+            case (.added(let a), .added(let b)): return a == b
+            case (.removed, .removed): return true
+            case (.unchanged, .unchanged): return true
+            case (.updated(let a), .updated(let b)): return a == b
+            case (.added(_), _): return false
+            case (.removed(_), _): return false
+            case (.unchanged(_), _): return false
+            case (.updated(_), _): return false
+            }
+        }
     }
 
     /// Computes states of the packages based on last stored state.
@@ -1322,6 +1348,11 @@ extension Workspace {
                 case .unchanged: break
                 }
             }
+        }
+        
+        // Inform the delegate if nothing was updated.
+        if packageStateChanges.filter({ $0.value == .unchanged }).count == packageStateChanges.count {
+            delegate.dependenciesUpToDate()
         }
     }
 
