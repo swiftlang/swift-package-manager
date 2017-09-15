@@ -32,6 +32,12 @@ struct Target {
     /// A list of outputs that represent the target.
     var outputs: SortedArray<String>
 
+    /// A list of the expected outputs in the target excluding the regular
+    /// outputs. This should contain the outputs which are not necessarily needed
+    /// as inputs of other commands, for e.g. target's temporary directory,
+    /// generated modulemap location.
+    var expectedOutputs: [String]
+
     /// A list of commands the target requires. A command may be
     /// in multiple targets, or might not be in any target at all.
     var cmds: SortedArray<Command>
@@ -40,6 +46,7 @@ struct Target {
         self.name = name
         self.outputs = SortedArray<String>(areInIncreasingOrder: <)
         self.cmds = SortedArray<Command>(areInIncreasingOrder: <)
+        self.expectedOutputs = []
     }
 }
 

@@ -73,6 +73,17 @@ public struct LLBuildManifestGenerator {
             test.cmds += newTarget.cmds
             allCommands += newTarget.cmds
         }
+
+        /// Adds stale file removal command for given list of outputs.
+        mutating func addStaleRemovalCmd(outputs: [String], buildPath: AbsolutePath) {
+            // Create and add the command to the main and test targets.
+            let name = "<stale.file.removal>"
+            let tool = SlateFileRemovalTool(
+                outputs: [name], roots: [buildPath.asString], expectedOutputs: outputs)
+            main.outputs.insert(name)
+            test.outputs.insert(name)
+            allCommands.insert(Command(name: "<C.stale.file.removal>", tool: tool))
+        }
     }
 
     /// Generate manifest at the given path.
@@ -93,6 +104,10 @@ public struct LLBuildManifestGenerator {
         for buildProduct in plan.buildProducts {
             targets.append(createProductTarget(buildProduct), isTest: buildProduct.product.type == .test)
         }
+
+        // Compute the output list and create the stale removal command with it.
+        let allOutputs = targets.allTargets.flatMap({ $0.outputs + $0.expectedOutputs }).filter({ !$0.isVirtual })
+        targets.addStaleRemovalCmd(outputs: Set(allOutputs).sorted(), buildPath: plan.buildParameters.buildPath)
 
         // Write the manifest.
         let stream = BufferedOutputByteStream()
@@ -183,6 +198,8 @@ public struct LLBuildManifestGenerator {
         var buildTarget = Target(name: target.target.llbuildTargetName)
         // The target only cares about the module output.
         buildTarget.outputs.insert(target.moduleOutputPath.asString)
+        buildTarget.expectedOutputs = [target.tempsPath.asString]
+
         let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
         buildTarget.cmds.insert(Command(name: target.target.commandName, tool: tool))
         return buildTarget
@@ -208,6 +225,7 @@ public struct LLBuildManifestGenerator {
         var buildTarget = Target(name: target.target.llbuildTargetName)            
         buildTarget.outputs.insert(contentsOf: commands.flatMap({ $0.tool.outputs }))
         buildTarget.cmds += commands
+        buildTarget.expectedOutputs = [target.tempsPath.asString]
         return buildTarget
     }
 }
@@ -240,5 +258,11 @@ extension ResolvedProduct {
 
     var commandName: String {
         return "C.\(llbuildTargetName)"
+    }
+}
+
+extension String {
+    fileprivate var isVirtual: Bool {
+        return first == "<" && last == ">"
     }
 }
