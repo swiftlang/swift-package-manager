@@ -333,8 +333,101 @@ final class WorkspaceTests2: XCTestCase {
         }
     }
 
+    func testCanResolveWithIncompatiblePins() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [],
+            packages: [
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(name: "A", dependencies: ["AA"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "AA", requirement: .exact("1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(name: "A", dependencies: ["AA"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "AA", requirement: .exact("2.0.0")),
+                    ],
+                    versions: ["1.0.1"]
+                ),
+                TestPackage(
+                    name: "AA",
+                    targets: [
+                        TestTarget(name: "AA"),
+                    ],
+                    products: [
+                        TestProduct(name: "AA", targets: ["AA"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        // Resolve when A = 1.0.0.
+        do {
+            let deps: [TestWorkspace.PackageDependency] = [
+                .init(name: "A", requirement: .exact("1.0.0"))
+            ]
+            workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
+                PackageGraphTester(graph) { result in
+                    result.check(packages: "A", "AA")
+                    result.check(targets: "A", "AA")
+                    result.check(dependencies: "AA", target: "A")
+                }
+                XCTAssertNoDiagnostics(diagnostics)
+            }
+            workspace.checkManagedDependencies() { result in
+                result.check(dependency: "a", at: .checkout(.version("1.0.0")))
+                result.check(dependency: "aa", at: .checkout(.version("1.0.0")))
+            }
+            workspace.checkResolved() { result in
+                result.check(dependency: "a", at: .checkout(.version("1.0.0")))
+                result.check(dependency: "aa", at: .checkout(.version("1.0.0")))
+            }
+        }
+
+        // Resolve when A = 1.0.1.
+        do {
+            let deps: [TestWorkspace.PackageDependency] = [
+                .init(name: "A", requirement: .exact("1.0.1"))
+            ]
+            workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
+                PackageGraphTester(graph) { result in
+                    result.check(dependencies: "AA", target: "A")
+                }
+                XCTAssertNoDiagnostics(diagnostics)
+            }
+            workspace.checkManagedDependencies() { result in
+                result.check(dependency: "a", at: .checkout(.version("1.0.1")))
+                result.check(dependency: "aa", at: .checkout(.version("2.0.0")))
+            }
+            workspace.checkResolved() { result in
+                result.check(dependency: "a", at: .checkout(.version("1.0.1")))
+                result.check(dependency: "aa", at: .checkout(.version("2.0.0")))
+            }
+            XCTAssertMatch(workspace.delegate.events, [.equal("updating repo: /tmp/ws/pkgs/A")])
+            XCTAssertMatch(workspace.delegate.events, [.equal("updating repo: /tmp/ws/pkgs/AA")])
+            XCTAssertEqual(workspace.delegate.events.filter({ $0.hasPrefix("updating repo") }).count, 2)
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
+        ("testCanResolveWithIncompatiblePins", testCanResolveWithIncompatiblePins),
         ("testMultipleRootPackages", testMultipleRootPackages),
         ("testRootAsDependency1", testRootAsDependency1),
         ("testRootAsDependency2", testRootAsDependency1),
@@ -501,6 +594,33 @@ private final class TestWorkspace {
         return packages.map({ rootsDir.appending(component: $0) })
     }
 
+    struct PackageDependency {
+        typealias Requirement = PackageGraphRoot.PackageDependency.Requirement
+
+        let name: String
+        let requirement: Requirement
+
+        init(name: String, requirement: Requirement) {
+            self.name = name
+            self.requirement = requirement
+        }
+    }
+
+    func checkPackageGraph(
+        roots: [String] = [],
+        deps: [TestWorkspace.PackageDependency],
+        _ result: (PackageGraph, DiagnosticsEngine) -> ()
+    ) {
+        let dependencies = deps.map({
+            PackageGraphRootInput.PackageDependency(
+                url: packagesDir.appending(component: $0.name).asString,
+                requirement: $0.requirement,
+                location: $0.name
+            )
+        })
+        checkPackageGraph(roots: roots, dependencies: dependencies, result)
+    }
+
     func checkPackageGraph(
         roots: [String] = [],
         dependencies: [PackageGraphRootInput.PackageDependency] = [],
@@ -514,21 +634,21 @@ private final class TestWorkspace {
         result(graph, diagnostics)
     }
 
+    enum State {
+        enum CheckoutState {
+            case version(Utility.Version)
+            case revision(String)
+        }
+        case checkout(CheckoutState)
+        case edited
+    }
+
     struct ManagedDependencyResult {
 
         let managedDependencies: ManagedDependencies
 
         init(_ managedDependencies: ManagedDependencies) {
             self.managedDependencies = managedDependencies
-        }
-
-        enum State {
-            enum CheckoutState {
-                case version(Utility.Version)
-                case revision(String)
-            }
-            case checkout(CheckoutState)
-            case edited
         }
 
         func check(notPresent name: String) {
@@ -558,6 +678,41 @@ private final class TestWorkspace {
         do {
             let workspace = createWorkspace()
             try result(ManagedDependencyResult(workspace.managedDependencies))
+        } catch {
+            XCTFail("Failed with error \(error)")
+        }
+    }
+
+    struct ResolvedResult {
+        let store: PinsStore
+
+        init(_ store: PinsStore) {
+            self.store = store
+        }
+
+        func check(dependency package: String, at state: State) {
+            guard let pin = store.pinsMap[package] else {
+                XCTFail("Pin for \(package) not found")
+                return
+            }
+            switch state {
+            case .checkout(let state):
+                switch state {
+                case .version(let version):
+                    XCTAssertEqual(pin.state.version, version)
+                case .revision:
+                    XCTFail("Unimplemented")
+                }
+            case .edited:
+                XCTFail("Unimplemented")
+            }
+        }
+    }
+
+    func checkResolved(_ result: (ResolvedResult) throws -> ()) {
+        do {
+            let workspace = createWorkspace()
+            try result(ResolvedResult(workspace.pinsStore.load()))
         } catch {
             XCTFail("Failed with error \(error)")
         }
