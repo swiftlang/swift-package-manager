@@ -432,9 +432,11 @@ private final class TestWorkspace {
         func create(package: TestPackage, basePath: AbsolutePath, isRoot: Bool) throws {
             let packagePath = basePath.appending(component: package.name)
             let sourcesDir = packagePath.appending(component: "Sources")
-
+            let url = (isRoot ? packagePath : packagesDir.appending(component: package.name)).asString
+            let specifier = RepositorySpecifier(url: url)
+            
             // Create targets on disk.
-            let repo = InMemoryGitRepository(path: packagePath, fs: fs as! InMemoryFileSystem)
+            let repo = repoProvider.specifierMap[specifier] ?? InMemoryGitRepository(path: packagePath, fs: fs as! InMemoryFileSystem)
             for target in package.targets {
                 let targetDir = sourcesDir.appending(component: target.name)
                 try repo.createDirectory(targetDir, recursive: true)
@@ -442,9 +444,7 @@ private final class TestWorkspace {
             }
             repo.commit()
 
-            let url = (isRoot ? packagePath : packagesDir.appending(component: package.name)).asString
             let versions: [String?] = isRoot ? [nil] : package.versions
-
             for version in versions {
                 let v = version.flatMap(Version.init(string:))
                 manifests[.init(url: url, version: v)] = Manifest(
@@ -463,7 +463,7 @@ private final class TestWorkspace {
                 }
             }
 
-            repoProvider.add(specifier: RepositorySpecifier(url: url), repository: repo)
+            repoProvider.add(specifier: specifier, repository: repo)
         }
 
         // Create root packages.
