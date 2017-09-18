@@ -47,10 +47,6 @@ private class DummyRepository: Repository {
         fatalError("unexpected API call")
     }
 
-    func isUpToDate() throws -> Bool {
-        fatalError("unexpected API call")
-    }
-
     func fetch() throws {
         provider.numFetches += 1
     }

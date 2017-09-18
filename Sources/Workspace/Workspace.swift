@@ -38,8 +38,11 @@ public protocol WorkspaceDelegate: class {
     /// The workspace has started updating this repository.
     func repositoryWillUpdate(_ repository: String)
 
-    /// The workspace has finished finished this repository.
+    /// The workspace has finished updating this repository.
     func repositoryDidUpdate(_ repository: String)
+
+    /// This repository remained unchanged.
+    func repositoryRemainedUnchanged(_ repository: String)
 
     /// The workspace has started cloning this repository.
     func cloning(repository: String)
@@ -1269,6 +1272,7 @@ extension Workspace {
                 case .removed:
                     try remove(specifier: specifier)
                 case .unchanged: break
+                    delegate.repositoryRemainedUnchanged(specifier.url)
                 }
             }
         }

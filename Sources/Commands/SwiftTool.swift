@@ -77,6 +77,10 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     func repositoryDidUpdate(_ repository: String) {
     }
+    
+    func repositoryRemainedUnchanged(_ repository: String) {
+        print("\(repository) is already up-to-date")
+    }
 
     func cloning(repository: String) {
         print("Cloning \(repository)")

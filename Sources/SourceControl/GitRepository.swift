@@ -290,14 +290,6 @@ public class GitRepository: Repository, WorkingCheckout {
         return try Revision(identifier: resolveHash(treeish: identifier, type: "commit").bytes.asString!)
     }
 
-    public func isUpToDate() throws -> Bool {
-        return try queue.sync {
-            let output = try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.asString, "fetch", "--dry-run", "-p", environment: Git.environment)
-            return output.isEmpty
-        }
-    }
-
     public func fetch() throws {
         try queue.sync {
             try Process.checkNonZeroExit(

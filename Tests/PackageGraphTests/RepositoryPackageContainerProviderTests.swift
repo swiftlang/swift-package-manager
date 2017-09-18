@@ -48,10 +48,6 @@ private class MockRepository: Repository {
         fatalError("Unexpected API call")
     }
 
-    func isUpToDate() throws -> Bool {
-        fatalError("unexpected API call")
-    }
-
     func fetch() throws {
         fatalError("Unexpected API call")
     }

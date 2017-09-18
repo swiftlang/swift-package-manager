@@ -238,10 +238,6 @@ public class RepositoryManager {
                         if skipUpdate {
                             return handle
                         }
-
-                        guard try !repo.isUpToDate() else {
-                            return handle
-                        }
                         
                         self.callbacksQueue.async {
                             self.delegate.handleWillUpdate(handle: handle)
