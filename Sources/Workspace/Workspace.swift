@@ -61,6 +61,7 @@ public extension WorkspaceDelegate {
     func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {}
     func repositoryWillUpdate(_ repository: String) {}
     func repositoryDidUpdate(_ repository: String) {}
+    func repositoryRemainedUnchanged(_ repository: String) {} 
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -1271,7 +1272,7 @@ extension Workspace {
                     _ = try clone(specifier: specifier, requirement: requirement)
                 case .removed:
                     try remove(specifier: specifier)
-                case .unchanged: break
+                case .unchanged: 
                     delegate.repositoryRemainedUnchanged(specifier.url)
                 }
             }
