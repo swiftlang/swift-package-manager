@@ -413,14 +413,14 @@ func xcodeProject(
 
         if target.type == .test {
             targetSettings.common.EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES"
-            targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["@loader_path/../Frameworks", "@loader_path/Frameworks"]
+            targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["$(inherited)", "@loader_path/../Frameworks", "@loader_path/Frameworks"]
         } else {
             // We currently force a search path to the toolchain, since we can't
             // establish an expected location for the Swift standard libraries.
             //
             // Note that this means that the built binaries are not suitable for
             // distribution, among other things.
-            targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"]
+            targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["$(inherited)", "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"]
             if target.type == .library {
                 targetSettings.common.ENABLE_TESTABILITY = "YES"
                 targetSettings.common.PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)"

@@ -83,7 +83,7 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Bar") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
-                XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"])
+                XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["$(inherited)", "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"])
                 XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
@@ -107,7 +107,7 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "BarTests") { targetResult in
                 targetResult.check(productType: .unitTest)
                 targetResult.check(dependencies: ["Bar", "Foo"])
-                XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["@loader_path/../Frameworks", "@loader_path/Frameworks"])
+                XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["$(inherited)", "@loader_path/../Frameworks", "@loader_path/Frameworks"])
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
