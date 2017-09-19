@@ -755,3 +755,34 @@ public struct RerootedFileSystemView: FileSystem {
 
 /// Public access to the local FS proxy.
 public var localFileSystem: FileSystem = LocalFileSystem()
+
+extension FileSystem {
+    /// Print the filesystem tree of the given path.
+    ///
+    /// For debugging only.
+    public func dumpTree(at path: AbsolutePath = .root) {
+        print(".")
+        do {
+            try recurse(fs: self, path: path)
+        } catch {
+            print("\(error)")
+        }
+    }
+
+    /// Helper method to recurse and print the tree.
+    private func recurse(fs: FileSystem, path: AbsolutePath, prefix: String = "") throws {
+        let contents = try fs.getDirectoryContents(path)
+
+        for (idx, entry) in contents.enumerated() {
+            let isLast = idx == contents.count - 1
+            let line = prefix + (isLast ? "└── " : "├── ") + entry
+            print(line)
+
+            let entryPath = path.appending(component: entry)
+            if fs.isDirectory(entryPath) {
+                let childPrefix = prefix + (isLast ?  "    " : "│   ")
+                try recurse(fs: fs, path: entryPath, prefix: String(childPrefix))
+            }
+        }
+    }
+}
