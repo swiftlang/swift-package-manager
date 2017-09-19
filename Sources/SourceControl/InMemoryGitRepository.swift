@@ -60,6 +60,11 @@ public final class InMemoryGitRepository {
         return Array(tagsMap.keys)
     }
 
+    /// The list of revisions in the repository.
+    public var revisions: [RevisionIdentifier] {
+        return Array(history.keys)
+    }
+
     /// Indicates whether there are any uncommited changes in the repository.
     fileprivate var isDirty = false
 
@@ -94,7 +99,7 @@ public final class InMemoryGitRepository {
     @discardableResult
     public func commit() -> String {
         // Create a fake hash for thie commit.
-        let hash = NSUUID().uuidString
+        let hash = String((NSUUID().uuidString + NSUUID().uuidString).prefix(40))
         head.hash = hash
         // Store the commit in history.
         history[hash] = head.copy()
@@ -230,7 +235,7 @@ extension InMemoryGitRepository: Repository {
     }
 
     public func resolveRevision(identifier: String) throws -> Revision {
-        fatalError("unimplemented")
+        return Revision(identifier: tagsMap[identifier] ?? identifier)
     }
 
     public func exists(revision: Revision) -> Bool {
@@ -253,11 +258,11 @@ extension InMemoryGitRepository: WorkingCheckout {
     }
 
     public func hasUnpushedCommits() throws -> Bool {
-        fatalError("Unimplemented")
+        return false
     }
 
     public func checkout(newBranch: String) throws {
-        fatalError("Unimplemented")
+        history[newBranch] = head
     }
 }
 
