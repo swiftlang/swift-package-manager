@@ -11,64 +11,1607 @@
 import XCTest
 
 import Basic
-import class PackageDescription.Package
-import class PackageDescription4.Package
 import PackageLoading
+import PackageDescription4
 import PackageModel
 import PackageGraph
 import SourceControl
 import Utility
-import Workspace
-@testable import class Workspace.Workspace
+@testable import Workspace
 
 import TestSupport
 
 private let sharedManifestLoader = ManifestLoader(resources: Resources.default)
 
-fileprivate extension ResolvedPackage {
-    var version: Version? {
-        return manifest.version
+extension Workspace {
+    static func create(at tempPath: AbsolutePath) -> Workspace {
+        let sandbox = tempPath.appending(component: "ws")
+        return Workspace(
+            dataPath: sandbox.appending(component: ".build"),
+            editablesPath: sandbox.appending(component: "edits"),
+            pinsFile: sandbox.appending(component: "Package.resolved"),
+            manifestLoader: sharedManifestLoader,
+            delegate: TestWorkspaceDelegate()
+        )
     }
 }
 
+
+final class WorkspaceTests: XCTestCase {
+
+    func testBasics() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                        TestTarget(name: "Bar", dependencies: ["Baz"]),
+                        TestTarget(name: "BarTests", dependencies: ["Bar"], type: .test),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+                TestPackage(
+                    name: "Quix",
+                    targets: [
+                        TestTarget(name: "Quix"),
+                    ],
+                    products: [
+                        TestProduct(name: "Quix", targets: ["Quix"]),
+                    ],
+                    versions: ["1.0.0", "1.2.0"]
+                ),
+            ]
+        )
+
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Quix", requirement: .upToNextMajor(from: "1.0.0")),
+            .init(name: "Baz", requirement: .exact("1.0.0")),
+        ]
+        workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Baz", "Foo", "Quix")
+                result.check(targets: "Bar", "Baz", "Foo", "Quix")
+                result.check(testModules: "BarTests")
+                result.check(dependencies: "Bar", target: "Foo")
+                result.check(dependencies: "Baz", target: "Bar")
+                result.check(dependencies: "Bar", target: "BarTests")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "quix", at: .checkout(.version("1.2.0")))
+        }
+
+        // Close and reopen workspace.
+        workspace.closeWorkspace()
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "quix", at: .checkout(.version("1.2.0")))
+        }
+
+        // Remove state file and check we get back to a clean state.
+        try fs.removeFileTree(workspace.createWorkspace().managedDependencies.statePath)
+        workspace.closeWorkspace()
+        workspace.checkManagedDependencies() { result in
+            result.checkEmpty()
+        }
+    }
+
+    func testInterpreterFlags() throws {
+        var fs = localFileSystem
+        mktmpdir { path in
+            let foo = path.appending(component: "foo")
+            try fs.writeFileContents(foo.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:4.0
+                import PackageDescription
+                let package = Package(
+                    name: "foo"
+                )
+                """
+            }
+            let ws = Workspace.create(at: path)
+            XCTAssertMatch((ws.interpreterFlags(for: foo)), [.contains("swift/pm/4")])
+            XCTAssertMatch((ws.interpreterFlags(for: foo)), [.equal("-swift-version"), .equal("4")])
+        }
+    }
+
+	func testMultipleRootPackages() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Baz"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar", dependencies: ["Baz"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .exact("1.0.1")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.0.1", "1.0.3", "1.0.5", "1.0.8"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Bar", "Foo")
+                result.check(packages: "Bar", "Baz", "Foo")
+                result.check(dependencies: "Baz", target: "Foo")
+                result.check(dependencies: "Baz", target: "Bar")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.1")))
+        }
+    }
+
+    /// Test that the remote repository is not resolved when a root package with same name is already present.
+    func testRootAsDependency1() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["BazAB"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "BazA"),
+                        TestTarget(name: "BazB"),
+                    ],
+                    products: [
+                        TestProduct(name: "BazAB", targets: ["BazA", "BazB"]),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Baz", "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(targets: "BazA", "BazB", "Foo")
+                result.check(dependencies: "BazAB", target: "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(notPresent: "baz")
+        }
+        XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching repo: /tmp/ws/pkgs/Baz")])
+        XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
+    }
+
+    /// Test that a root package can be used as a dependency when the remote version was resolved previously.
+    func testRootAsDependency2() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Baz"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "BazA"),
+                        TestTarget(name: "BazB"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["BazA", "BazB"]),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // Load only Foo right now so Baz is loaded from remote.
+        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(targets: "Baz", "Foo")
+                result.check(dependencies: "Baz", target: "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+        }
+        XCTAssertMatch(workspace.delegate.events, [.equal("fetching repo: /tmp/ws/pkgs/Baz")])
+        XCTAssertMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
+
+        // Now load with Baz as a root package.
+        workspace.delegate.events = []
+        workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Baz", "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(targets: "BazA", "BazB", "Foo")
+                result.check(dependencies: "Baz", target: "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(notPresent: "baz")
+        }
+        XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching repo: /tmp/ws/pkgs/Baz")])
+        XCTAssertMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
+        XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Baz")])
+    }
+
+    func testGraphRootDependencies() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let dependencies: [PackageGraphRootInput.PackageDependency] = [
+            .init(
+                url: workspace.packagesDir.appending(component: "Bar").asString,
+                requirement: .upToNextMajor(from: "1.0.0"),
+                location: ""
+            ),
+            .init(
+                url: "file://" + workspace.packagesDir.appending(component: "Foo").asString + "/",
+                requirement: .upToNextMajor(from: "1.0.0"),
+                location: ""
+            ),
+        ]
+
+        workspace.checkPackageGraph(dependencies: dependencies) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(packages: "Bar", "Foo")
+                result.check(targets: "Bar", "Foo")
+                result.check(dependencies: "Bar", target: "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testCanResolveWithIncompatiblePins() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [],
+            packages: [
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(name: "A", dependencies: ["AA"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "AA", requirement: .exact("1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(name: "A", dependencies: ["AA"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "AA", requirement: .exact("2.0.0")),
+                    ],
+                    versions: ["1.0.1"]
+                ),
+                TestPackage(
+                    name: "AA",
+                    targets: [
+                        TestTarget(name: "AA"),
+                    ],
+                    products: [
+                        TestProduct(name: "AA", targets: ["AA"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        // Resolve when A = 1.0.0.
+        do {
+            let deps: [TestWorkspace.PackageDependency] = [
+                .init(name: "A", requirement: .exact("1.0.0"))
+            ]
+            workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
+                PackageGraphTester(graph) { result in
+                    result.check(packages: "A", "AA")
+                    result.check(targets: "A", "AA")
+                    result.check(dependencies: "AA", target: "A")
+                }
+                XCTAssertNoDiagnostics(diagnostics)
+            }
+            workspace.checkManagedDependencies() { result in
+                result.check(dependency: "a", at: .checkout(.version("1.0.0")))
+                result.check(dependency: "aa", at: .checkout(.version("1.0.0")))
+            }
+            workspace.checkResolved() { result in
+                result.check(dependency: "a", at: .checkout(.version("1.0.0")))
+                result.check(dependency: "aa", at: .checkout(.version("1.0.0")))
+            }
+        }
+
+        // Resolve when A = 1.0.1.
+        do {
+            let deps: [TestWorkspace.PackageDependency] = [
+                .init(name: "A", requirement: .exact("1.0.1"))
+            ]
+            workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
+                PackageGraphTester(graph) { result in
+                    result.check(dependencies: "AA", target: "A")
+                }
+                XCTAssertNoDiagnostics(diagnostics)
+            }
+            workspace.checkManagedDependencies() { result in
+                result.check(dependency: "a", at: .checkout(.version("1.0.1")))
+                result.check(dependency: "aa", at: .checkout(.version("2.0.0")))
+            }
+            workspace.checkResolved() { result in
+                result.check(dependency: "a", at: .checkout(.version("1.0.1")))
+                result.check(dependency: "aa", at: .checkout(.version("2.0.0")))
+            }
+            XCTAssertMatch(workspace.delegate.events, [.equal("updating repo: /tmp/ws/pkgs/A")])
+            XCTAssertMatch(workspace.delegate.events, [.equal("updating repo: /tmp/ws/pkgs/AA")])
+            XCTAssertEqual(workspace.delegate.events.filter({ $0.hasPrefix("updating repo") }).count, 2)
+        }
+    }
+
+    func testResolverCanHaveError() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [],
+            packages: [
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(name: "A", dependencies: ["AA"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "AA", requirement: .exact("1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "B",
+                    targets: [
+                        TestTarget(name: "B", dependencies: ["AA"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "AA", requirement: .exact("2.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "AA",
+                    targets: [
+                        TestTarget(name: "AA"),
+                    ],
+                    products: [
+                        TestProduct(name: "AA", targets: ["AA"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "A", requirement: .exact("1.0.0")),
+            .init(name: "B", requirement: .exact("1.0.0")),
+        ]
+        workspace.checkPackageGraph(deps: deps) { (_, diagnostics) in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("dependency graph is unresolvable;"), behavior: .error)
+            }
+        }
+        // There should be no extra fetches.
+        XCTAssertNoMatch(workspace.delegate.events, [.contains("updating repo")])
+    }
+
+    func testIsResolutionRequired() throws {
+        let aRepo = RepositorySpecifier(url: "/A")
+        let bRepo = RepositorySpecifier(url: "/B")
+        let cRepo = RepositorySpecifier(url: "/C")
+        let aRef = PackageReference(identity: "a", path: aRepo.url)
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+        let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
+        let v1_1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.1")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
+
+        let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
+        let v2Range: VersionSetSpecifier = .range("2.0.0" ..< "3.0.0")
+
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(name: "A"),
+                    ],
+                    products: []
+                ),
+            ],
+            packages: []
+        ).createWorkspace()
+
+        let pinsStore = try workspace.pinsStore.load()
+
+        // Test Empty case.
+        do {
+            let result = workspace.isResolutionRequired(dependencies: [], pinsStore: pinsStore)
+            XCTAssertEqual(result.resolve, false)
+        }
+
+        // Fill the pinsStore.
+        pinsStore.pin(packageRef: aRef, state: v1)
+        pinsStore.pin(packageRef: bRef, state: v1_5)
+        pinsStore.pin(packageRef: cRef, state: v2)
+
+        // Fill ManagedDependencies (all different than pins).
+        let managedDependencies = workspace.managedDependencies
+        managedDependencies[forIdentity: aRef.identity] = ManagedDependency(
+            packageRef: aRef, subpath: RelativePath("A"), checkoutState: v1_1)
+        managedDependencies[forIdentity: bRef.identity] = ManagedDependency(
+            packageRef: bRef, subpath: RelativePath("B"), checkoutState: v1_5)
+        managedDependencies[forIdentity: bRef.identity] = managedDependencies[forIdentity: bRef.identity]?.editedDependency(
+            subpath: RelativePath("B"), unmanagedPath: nil)
+
+        // We should need to resolve if input is not satisfiable.
+        do {
+            let result = workspace.isResolutionRequired(dependencies: [
+                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: aRef, versionRequirement: v2Range),
+            ], pinsStore: pinsStore)
+
+            XCTAssertEqual(result.resolve, true)
+            XCTAssertEqual(result.validPins.count, 3)
+        }
+
+        // We should need to resolve when pins don't satisfy the inputs.
+        do {
+            let result = workspace.isResolutionRequired(dependencies: [
+                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: cRef, versionRequirement: v1Range),
+            ], pinsStore: pinsStore)
+
+            XCTAssertEqual(result.resolve, true)
+            XCTAssertEqual(result.validPins.map({$0.identifier.repository.url}).sorted(), ["/A", "/B"])
+        }
+
+        // We should need to resolve if managed dependencies is out of sync with pins.
+        do {
+            let result = workspace.isResolutionRequired(dependencies: [
+                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: cRef, versionRequirement: v2Range),
+            ], pinsStore: pinsStore)
+
+            XCTAssertEqual(result.resolve, true)
+            XCTAssertEqual(result.validPins.map({$0.identifier.repository.url}).sorted(), ["/A", "/B", "/C"])
+        }
+
+        // We shouldn't need to resolve if everything is fine.
+        do {
+            managedDependencies[forIdentity: aRef.identity] = ManagedDependency(
+                packageRef: aRef, subpath: RelativePath("A"), checkoutState: v1)
+            managedDependencies[forIdentity: bRef.identity] = ManagedDependency(
+                packageRef: bRef, subpath: RelativePath("B"), checkoutState: v1_5)
+            managedDependencies[forIdentity: cRef.identity] = ManagedDependency(
+                packageRef: cRef, subpath: RelativePath("C"), checkoutState: v2)
+
+            let result = workspace.isResolutionRequired(dependencies: [
+                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: cRef, versionRequirement: v2Range),
+            ], pinsStore: pinsStore)
+
+            XCTAssertEqual(result.resolve, false)
+            XCTAssertEqual(result.validPins, [])
+        }
+    }
+
+    func testGraphData() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+            ],
+            packages: [
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(name: "A"),
+                    ],
+                    products: [],
+                    versions: ["1.0.0", "1.5.1"]
+                ),
+                TestPackage(
+                    name: "B",
+                    targets: [
+                        TestTarget(name: "B"),
+                    ],
+                    products: [],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "A", requirement: .exact("1.0.0")),
+            .init(name: "B", requirement: .exact("1.0.0")),
+        ]
+        workspace.checkGraphData(deps: deps) { (graph, dependencyMap, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(packages: "A", "B")
+                result.check(targets: "A", "B")
+            }
+
+            // Check package association.
+            XCTAssertEqual(dependencyMap[graph.lookup("A")]?.packageRef.identity, "a")
+            XCTAssertEqual(dependencyMap[graph.lookup("B")]?.packageRef.identity, "b")
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        // Check delegates.
+        let currentDeps = workspace.createWorkspace().managedDependencies.values.map{$0.packageRef}
+        XCTAssertEqual(workspace.delegate.managedDependenciesData[0].map{$0.packageRef}, currentDeps)
+
+        // Load graph data again.
+        workspace.checkGraphData(deps: deps) { (graph, dependencyMap, diagnostics) in
+            // Check package association.
+            XCTAssertEqual(dependencyMap[graph.lookup("A")]?.packageRef.identity, "a")
+            XCTAssertEqual(dependencyMap[graph.lookup("B")]?.packageRef.identity, "b")
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        // Check delegates.
+        XCTAssertEqual(workspace.delegate.managedDependenciesData[1].map{$0.packageRef}, currentDeps)
+        XCTAssertEqual(workspace.delegate.managedDependenciesData.count, 2)
+    }
+
+    func testLoadingRootManifests() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                .genericPackage1(named: "A"),
+                .genericPackage1(named: "B"),
+                .genericPackage1(named: "C"),
+            ],
+            packages: []
+        )
+
+        workspace.checkPackageGraph(roots: ["A", "B", "C"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(packages: "A", "B", "C")
+                result.check(targets: "A", "B", "C")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
+    func testUpdate() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Root", targets: ["Root"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.5.0"]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // Do an intial run, capping at Foo at 1.0.0.
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Foo", requirement: .exact("1.0.0")),
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Bar", "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+
+        // Run update.
+        workspace.checkUpdate(roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.5.0")))
+        }
+        XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Bar")])
+    }
+
+    func testCleanAndReset() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Root", targets: ["Root"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // Load package graph.
+        workspace.checkPackageGraph(roots: ["Root"]) { (_, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Drop a build artifact in data directory.
+        let ws = workspace.createWorkspace()
+        let buildArtifact = ws.dataPath.appending(component: "test.o")
+        try fs.writeFileContents(buildArtifact, bytes: "Hi")
+
+        // Sanity checks.
+        XCTAssert(fs.exists(buildArtifact))
+        XCTAssert(fs.exists(ws.checkoutsPath))
+
+        // Check clean.
+        workspace.checkClean { diagnostics in
+            // Only the build artifact should be removed.
+            XCTAssertFalse(fs.exists(buildArtifact))
+            XCTAssert(fs.exists(ws.checkoutsPath))
+            XCTAssert(fs.exists(ws.dataPath))
+
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+
+        // Add the build artifact again.
+        try fs.writeFileContents(buildArtifact, bytes: "Hi")
+
+        // Check reset.
+        workspace.checkReset { diagnostics in
+            // Only the build artifact should be removed.
+            XCTAssertFalse(fs.exists(buildArtifact))
+            XCTAssertFalse(fs.exists(ws.checkoutsPath))
+            XCTAssertFalse(fs.exists(ws.dataPath))
+
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.checkEmpty()
+        }
+    }
+
+    func testDependencyManifestLoading() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root1",
+                    targets: [
+                        TestTarget(name: "Root1", dependencies: ["Foo"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+                TestPackage(
+                    name: "Root2",
+                    targets: [
+                        TestTarget(name: "Root2", dependencies: ["Bar"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                .genericPackage1(named: "Foo"),
+                .genericPackage1(named: "Bar"),
+            ]
+        )
+
+        // Check that we can compute missing dependencies.
+        workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { (manifests, diagnostics) in
+            XCTAssertEqual(manifests.missingPackageIdentities().map{$0}.sorted(), ["bar", "foo"])
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Load the graph with one root.
+        workspace.checkPackageGraph(roots: ["Root1"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(packages: "Foo", "Root1")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Check that we compute the correct missing dependencies.
+        workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { (manifests, diagnostics) in
+            XCTAssertEqual(manifests.missingPackageIdentities().map{$0}.sorted(), ["bar"])
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Load the graph with both roots.
+        workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(packages: "Bar", "Foo", "Root1", "Root2")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Check that we compute the correct missing dependencies.
+        workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { (manifests, diagnostics) in
+            XCTAssertEqual(manifests.missingPackageIdentities().map{$0}.sorted(), [])
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
+    func testBranchAndRevision() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .branch("develop")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["develop"]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["boo"]
+                ),
+            ]
+        )
+
+        // Get some revision identifier of Bar.
+        let bar = RepositorySpecifier(url: "/tmp/ws/pkgs/Bar")
+        let barRevision = workspace.repoProvider.specifierMap[bar]!.revisions[0]
+
+        // We request Bar via revision.
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Bar", requirement: .revision(barRevision))
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Bar", "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.branch("develop")))
+            result.check(dependency: "bar", at: .checkout(.revision(barRevision)))
+        }
+    }
+
+    func testResolve() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.2.3"]
+                ),
+            ]
+        )
+
+        // Load initial version.
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.2.3")))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.2.3")))
+        }
+
+        // Resolve to an older version.
+        workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.0.0") { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+
+        // Check failure.
+        workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.3.0") { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("tmp/ws/pkgs/Foo @ 1.3.0"), behavior: .error)
+            }
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testDeletedCheckoutDirectory() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                .genericPackage1(named: "Foo"),
+            ]
+        )
+
+        // Load the graph.
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        try fs.removeFileTree(workspace.createWorkspace().checkoutsPath)
+
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("dependency 'foo' is missing; cloning again"), behavior: .warning)
+            }
+        }
+    }
+
+    func testToolsVersionRootPackages() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: []
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: []
+                ),
+            ],
+            packages: [],
+            toolsVersion: ToolsVersion(version: "4.0.0")
+        )
+
+        let roots = workspace.rootPaths(for: ["Foo", "Bar"]).map({ $0.appending(component: "Package.swift") })
+
+        try fs.writeFileContents(roots[0], bytes: "// swift-tools-version:4.0")
+        try fs.writeFileContents(roots[1], bytes: "// swift-tools-version:4.1.0")
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkPackageGraph(roots: ["Bar"]) { (graph, diagnostics) in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Bar' requires a minimum Swift tools version of 4.1.0 (currently 4.0.0)"), behavior: .error, location: "/tmp/ws/roots/Bar")
+            }
+        }
+        workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { (graph, diagnostics) in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Bar' requires a minimum Swift tools version of 4.1.0 (currently 4.0.0)"), behavior: .error, location: "/tmp/ws/roots/Bar")
+            }
+        }
+    }
+
+    func testEditDependency() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                        ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                        ],
+                    versions: ["1.0.0", nil]
+                ),
+            ]
+        )
+
+        // Load the graph.
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Bar", "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Edit foo.
+        let fooPath = workspace.createWorkspace().editablesPath.appending(component: "Foo")
+        workspace.checkEdit(packageName: "Foo") { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .edited(nil))
+        }
+        XCTAssertTrue(fs.exists(fooPath))
+
+        // Try re-editing foo.
+        workspace.checkEdit(packageName: "Foo") { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .equal("dependency 'Foo' already in edit mode"), behavior: .error)
+            }
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .edited(nil))
+        }
+
+        // Try editing bar at bad revision.
+        workspace.checkEdit(packageName: "Bar", revision: Revision(identifier: "dev")) { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .equal("revision 'dev' does not exist"), behavior: .error)
+            }
+        }
+
+        // Edit bar at a custom path and branch (ToT).
+        let barPath = AbsolutePath("/tmp/ws/custom/bar")
+        workspace.checkEdit(packageName: "Bar", path: barPath, checkoutBranch: "dev") { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "bar", at: .edited(barPath))
+        }
+        let barRepo = try workspace.repoProvider.openCheckout(at: barPath) as! InMemoryGitRepository
+        XCTAssert(barRepo.revisions.contains("dev"))
+
+        // Test unediting.
+        workspace.checkUnedit(packageName: "Foo", roots: ["Root"]) { diagnostics in
+            XCTAssertFalse(fs.exists(fooPath))
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkUnedit(packageName: "Bar", roots: ["Root"]) { diagnostics in
+            XCTAssert(fs.exists(barPath))
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
+    func testMissingEditCanRestoreOriginalCheckout() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+            ]
+        )
+
+        // Load the graph.
+        workspace.checkPackageGraph(roots: ["Root"]) { _ in }
+
+        // Edit foo.
+        let fooPath = workspace.createWorkspace().editablesPath.appending(component: "Foo")
+        workspace.checkEdit(packageName: "Foo") { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .edited(nil))
+        }
+        XCTAssertTrue(fs.exists(fooPath))
+
+        // Remove the edited package.
+        try fs.removeFileTree(fooPath)
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .equal("dependency 'foo' was being edited but is missing; falling back to original checkout"), behavior: .warning)
+            }
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testCanUneditRemovedDependencies() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+            ]
+        )
+
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+        let ws = workspace.createWorkspace()
+
+        // Load the graph and edit foo.
+        workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(packages: "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkEdit(packageName: "Foo") { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .edited(nil))
+        }
+
+        // Remove foo.
+        workspace.checkUpdate { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Foo")])
+        workspace.checkPackageGraph(deps: []) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // There should still be an entry for `foo`, which we can unedit.
+        let editedDependency = try ws.managedDependencies.dependency(forIdentity: "foo")
+        XCTAssertNil(editedDependency.basedOn)
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .edited(nil))
+        }
+
+        // Unedit foo.
+        workspace.checkUnedit(packageName: "Foo", roots: []) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.checkEmpty()
+        }
+    }
+
+    func testDependencyResolutionWithEdit() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.2.0", "1.3.2"]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+            ]
+        )
+
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Foo", requirement: .exact("1.0.0")),
+        ]
+        // Load the graph.
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Bar", "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+
+        // Edit bar.
+        workspace.checkEdit(packageName: "Bar") { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .edited(nil))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+
+        // Now, resolve foo at a different version.
+        workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.2.0") { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.2.0")))
+            result.check(dependency: "bar", at: .edited(nil))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.2.0")))
+            result.check(notPresent: "bar")
+        }
+
+        // Try package update.
+        workspace.checkUpdate(roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
+            result.check(dependency: "bar", at: .edited(nil))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
+            result.check(notPresent: "bar")
+        }
+
+        // Unedit should get the Package.resolved entry back.
+        workspace.checkUnedit(packageName: "bar", roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    static var allTests = [
+        ("testBasics", testBasics),
+        ("testCanResolveWithIncompatiblePins", testCanResolveWithIncompatiblePins),
+        ("testGraphData", testGraphData),
+        ("testIsResolutionRequired", testIsResolutionRequired),
+        ("testMultipleRootPackages", testMultipleRootPackages),
+        ("testResolverCanHaveError", testResolverCanHaveError),
+        ("testRootAsDependency1", testRootAsDependency1),
+        ("testRootAsDependency2", testRootAsDependency1),
+        ("testLoadingRootManifests", testLoadingRootManifests),
+        ("testUpdate", testUpdate),
+        ("testCleanAndReset", testCleanAndReset),
+        ("testDependencyManifestLoading", testDependencyManifestLoading),
+        ("testBranchAndRevision", testBranchAndRevision),
+        ("testResolve", testResolve),
+        ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory),
+        ("testToolsVersionRootPackages", testToolsVersionRootPackages),
+        ("testEditDependency", testEditDependency),
+        ("testMissingEditCanRestoreOriginalCheckout", testMissingEditCanRestoreOriginalCheckout),
+        ("testCanUneditRemovedDependencies", testCanUneditRemovedDependencies),
+        ("testInterpreterFlags", testInterpreterFlags),
+        ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
+    ]
+}
+
+// MARK:- Test Infrastructure
+
 private class TestWorkspaceDelegate: WorkspaceDelegate {
-    var fetched = [String]()
-    var cloned = [String]()
-    /// Map of checkedout repos with key as repository and value as the reference (version or revision).
-    var checkedOut = [String: String]()
-    var removed = [String]()
+
+    var events = [String]()
     var managedDependenciesData = [AnySequence<ManagedDependency>]()
 
-    typealias PartialGraphData = (currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>)
-    var partialGraphs = [PartialGraphData]()
-
-    var repoUpdates = [String]()
-
     func packageGraphWillLoad(currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>) {
-        partialGraphs.append((currentGraph, dependencies, missingURLs))
     }
 
     func repositoryWillUpdate(_ repository: String) {
-        repoUpdates.append(repository)
+        events.append("updating repo: \(repository)")
     }
 
     func fetchingWillBegin(repository: String) {
-        fetched.append(repository)
+        events.append("fetching repo: \(repository)")
     }
 
     func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
+        events.append("finished fetching repo: \(repository)")
     }
 
     func cloning(repository: String) {
-        cloned.append(repository)
+        events.append("cloning repo: \(repository)")
     }
 
     func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
-        checkedOut[repository] = reference
+        events.append("checking out repo: \(repository)")
     }
 
     func removing(repository: String) {
-        removed.append(repository)
+        events.append("removing repo: \(repository)")
+    }
+
+    func willResolveDependencies() {
+        events.append("will resolve dependencies")
     }
 
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
@@ -76,1698 +1619,463 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
     }
 }
 
-extension Workspace {
+private final class TestWorkspace {
 
-    fileprivate static func createWith(
-        rootPackage path: AbsolutePath,
-        manifestLoader: ManifestLoaderProtocol = sharedManifestLoader,
-        delegate: WorkspaceDelegate = TestWorkspaceDelegate(),
-        fileSystem: FileSystem = localFileSystem,
-        repositoryProvider: RepositoryProvider = GitRepositoryProvider()
-    ) -> Workspace {
-        return Workspace(
-            dataPath: path.appending(component: ".build"),
-            editablesPath: path.appending(component: "Packages"),
-            pinsFile: path.appending(component: "Package.resolved"),
+    let sandbox: AbsolutePath
+    var fs: FileSystem
+    let roots: [TestPackage]
+    let packages: [TestPackage]
+    var manifestLoader: MockManifestLoader
+    var repoProvider: InMemoryGitRepositoryProvider
+    let delegate = TestWorkspaceDelegate()
+    let toolsVersion: ToolsVersion
+
+    fileprivate init(
+        sandbox: AbsolutePath,
+        fs: FileSystem,
+        roots: [TestPackage],
+        packages: [TestPackage],
+        toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
+    ) throws {
+        precondition(Set(roots.map({$0.name})).count == roots.count, "Root packages should be unique")
+        self.sandbox = sandbox
+        self.fs = fs
+        self.roots = roots
+        self.packages = packages
+
+        self.manifestLoader = MockManifestLoader(manifests: [:])
+        self.repoProvider = InMemoryGitRepositoryProvider()
+        self.toolsVersion = toolsVersion
+
+        try create()
+    }
+
+    var rootsDir: AbsolutePath {
+        return sandbox.appending(component: "roots")
+    }
+
+    var packagesDir: AbsolutePath {
+        return sandbox.appending(component: "pkgs")
+    }
+
+    func create() throws {
+        // Remove the sandbox if present.
+        try fs.removeFileTree(sandbox)
+
+        // Create directories.
+        try fs.createDirectory(sandbox, recursive: true)
+        try fs.createDirectory(rootsDir)
+        try fs.createDirectory(packagesDir)
+
+        var manifests: [MockManifestLoader.Key: Manifest] = [:]
+
+        func create(package: TestPackage, basePath: AbsolutePath, isRoot: Bool) throws {
+            let packagePath = basePath.appending(component: package.name)
+            let sourcesDir = packagePath.appending(component: "Sources")
+            let url = (isRoot ? packagePath : packagesDir.appending(component: package.name)).asString
+            let specifier = RepositorySpecifier(url: url)
+            
+            // Create targets on disk.
+            let repo = repoProvider.specifierMap[specifier] ?? InMemoryGitRepository(path: packagePath, fs: fs as! InMemoryFileSystem)
+            for target in package.targets {
+                let targetDir = sourcesDir.appending(component: target.name)
+                try repo.createDirectory(targetDir, recursive: true)
+                try repo.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
+            }
+            repo.commit()
+
+            let versions: [String?] = isRoot ? [nil] : package.versions
+            for version in versions {
+                let v = version.flatMap(Version.init(string:))
+                manifests[.init(url: url, version: v)] = Manifest(
+                    path: packagePath.appending(component: Manifest.filename),
+                    url: url,
+                    package: .v4(.init(
+                        name: package.name,
+                        products: package.products.map({ .library(name: $0.name, targets: $0.targets) }),
+                        dependencies: package.dependencies.map({ $0.convert(baseURL: packagesDir) }),
+                        targets: package.targets.map({ $0.convert() })
+                    )),
+                    version: v
+                )
+                if let version = version {
+                    try repo.tag(name: version)
+                }
+            }
+
+            repoProvider.add(specifier: specifier, repository: repo)
+        }
+
+        // Create root packages.
+        for package in roots {
+            try create(package: package, basePath: rootsDir, isRoot: true)
+        }
+
+        // Create dependency packages.
+        for package in packages {
+            try create(package: package, basePath: packagesDir, isRoot: false)
+        }
+
+        self.manifestLoader = MockManifestLoader(manifests: manifests)
+    }
+
+    func createWorkspace() -> Workspace {
+        if let workspace = _workspace {
+            return workspace
+        }
+        _workspace = Workspace(
+            dataPath: sandbox.appending(component: ".build"),
+            editablesPath: sandbox.appending(component: "edits"),
+            pinsFile: sandbox.appending(component: "Package.resolved"),
             manifestLoader: manifestLoader,
+            currentToolsVersion: toolsVersion,
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
-            fileSystem: fileSystem,
-            repositoryProvider: repositoryProvider)
+            fileSystem: fs,
+            repositoryProvider: repoProvider
+        )
+        return _workspace!
+    }
+    var _workspace: Workspace? = nil
+
+    func closeWorkspace() {
+        _workspace = nil
     }
 
-    @discardableResult
-    fileprivate func loadPackageGraph(rootPackages: [AbsolutePath], diagnostics: DiagnosticsEngine) -> PackageGraph {
-        return loadPackageGraph(root: PackageGraphRootInput(packages: rootPackages), diagnostics: diagnostics)
+    func rootPaths(for packages: [String]) -> [AbsolutePath] {
+        return packages.map({ rootsDir.appending(component: $0) })
     }
 
-    fileprivate func updateDependencies(rootPackages: [AbsolutePath], diagnostics: DiagnosticsEngine) {
-        return updateDependencies(root: PackageGraphRootInput(packages: rootPackages), diagnostics: diagnostics)
+    struct PackageDependency {
+        typealias Requirement = PackageGraphRoot.PackageDependency.Requirement
+
+        let name: String
+        let requirement: Requirement
+
+        init(name: String, requirement: Requirement) {
+            self.name = name
+            self.requirement = requirement
+        }
+
+        func convert(_ packagesDir: AbsolutePath) -> PackageGraphRootInput.PackageDependency {
+            return PackageGraphRootInput.PackageDependency(
+                url: packagesDir.appending(component: name).asString,
+                requirement: requirement,
+                location: name
+            )
+        }
     }
 
-    fileprivate func resolve(
+    func checkEdit(
         packageName: String,
-        rootPackages: [AbsolutePath],
-        version: Version? = nil,
-        branch: String? = nil,
-        revision: String? = nil,
-        diagnostics: DiagnosticsEngine
+        path: AbsolutePath? = nil,
+        revision: Revision? = nil,
+        checkoutBranch: String? = nil,
+        _ result: (DiagnosticsEngine) -> ()
     ) {
-        resolve(
+        let ws = createWorkspace()
+        let diagnostics = DiagnosticsEngine()
+        ws.edit(
             packageName: packageName,
-            root: PackageGraphRootInput(packages: rootPackages),
-            version: version,
-            branch: branch,
+            path: path,
             revision: revision,
-            diagnostics: diagnostics)
-    }
-    
-    fileprivate func loadDependencyManifests(
-        rootManifests: [Manifest],
-        diagnostics: DiagnosticsEngine
-    ) -> DependencyManifests {
-        return loadDependencyManifests(root: PackageGraphRoot(input: PackageGraphRootInput(packages: rootManifests.map({$0.path})), manifests: rootManifests), diagnostics: diagnostics)
+            checkoutBranch: checkoutBranch,
+            diagnostics: diagnostics
+        )
+        result(diagnostics)
     }
 
-    fileprivate func resetPinsStore() throws {
-        let pinsStore = try self.pinsStore.load()
-        pinsStore.unpinAll()
-        try pinsStore.saveState()
+    func checkUnedit(
+        packageName: String,
+        roots: [String],
+        forceRemove: Bool = false,
+        _ result: (DiagnosticsEngine) -> ()
+    ) {
+        let ws = createWorkspace()
+        let diagnostics = DiagnosticsEngine()
+        let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
+        diagnostics.wrap {
+            try ws.unedit(packageName: packageName, forceRemove: forceRemove, root: rootInput, diagnostics: diagnostics)
+        }
+        result(diagnostics)
+    }
+
+    func checkResolve(pkg: String, roots: [String], version: Utility.Version, _ result: (DiagnosticsEngine) -> ()) {
+        let diagnostics = DiagnosticsEngine()
+        let workspace = createWorkspace()
+        let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
+        workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, diagnostics: diagnostics)
+        result(diagnostics)
+    }
+
+    func checkClean(_ result: (DiagnosticsEngine) -> ()) {
+        let diagnostics = DiagnosticsEngine()
+        let workspace = createWorkspace()
+        workspace.clean(with: diagnostics)
+        result(diagnostics)
+    }
+
+    func checkReset(_ result: (DiagnosticsEngine) -> ()) {
+        let diagnostics = DiagnosticsEngine()
+        let workspace = createWorkspace()
+        workspace.reset(with: diagnostics)
+        result(diagnostics)
+    }
+
+    func checkUpdate(
+        roots: [String] = [],
+        deps: [TestWorkspace.PackageDependency] = [],
+        _ result: (DiagnosticsEngine) -> ()
+    ) {
+        let dependencies = deps.map({ $0.convert(packagesDir) })
+        let diagnostics = DiagnosticsEngine()
+        let workspace = createWorkspace()
+        let rootInput = PackageGraphRootInput(
+            packages: rootPaths(for: roots), dependencies: dependencies)
+        workspace.updateDependencies(root: rootInput, diagnostics: diagnostics)
+        result(diagnostics)
+    }
+
+    func checkPackageGraph(
+        roots: [String] = [],
+        deps: [TestWorkspace.PackageDependency],
+        _ result: (PackageGraph, DiagnosticsEngine) -> ()
+    ) {
+        let dependencies = deps.map({ $0.convert(packagesDir) })
+        checkPackageGraph(roots: roots, dependencies: dependencies, result)
+    }
+
+    func checkPackageGraph(
+        roots: [String] = [],
+        dependencies: [PackageGraphRootInput.PackageDependency] = [],
+        _ result: (PackageGraph, DiagnosticsEngine) -> ()
+    ) {
+        let diagnostics = DiagnosticsEngine()
+        let workspace = createWorkspace()
+        let rootInput = PackageGraphRootInput(
+            packages: rootPaths(for: roots), dependencies: dependencies)
+        let graph = workspace.loadPackageGraph(root: rootInput, diagnostics: diagnostics)
+        result(graph, diagnostics)
+    }
+
+    func checkGraphData(
+        roots: [String] = [],
+        deps: [TestWorkspace.PackageDependency],
+        _ result: (PackageGraph, [ResolvedPackage: ManagedDependency], DiagnosticsEngine) -> ()
+    ) {
+        let dependencies = deps.map({ $0.convert(packagesDir) })
+        let diagnostics = DiagnosticsEngine()
+        let workspace = createWorkspace()
+        let rootInput = PackageGraphRootInput(
+            packages: rootPaths(for: roots), dependencies: dependencies)
+        let graphData = workspace.loadGraphData(root: rootInput, diagnostics: diagnostics)
+        result(graphData.graph, graphData.dependencyMap, diagnostics)
+    }
+
+    enum State {
+        enum CheckoutState {
+            case version(Utility.Version)
+            case revision(String)
+            case branch(String)
+        }
+        case checkout(CheckoutState)
+        case edited(AbsolutePath?)
+    }
+
+    struct ManagedDependencyResult {
+
+        let managedDependencies: ManagedDependencies
+
+        init(_ managedDependencies: ManagedDependencies) {
+            self.managedDependencies = managedDependencies
+        }
+
+        func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
+            XCTAssert(managedDependencies[forIdentity: name] == nil, "Unexpectedly found \(name) in managed dependencies", file: file, line: line)
+        }
+
+        func checkEmpty(file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(managedDependencies.values.map{$0}.count, 0, file: file, line: line)
+        }
+
+        func check(dependency name: String, at state: State, file: StaticString = #file, line: UInt = #line) {
+            guard let dependency = managedDependencies[forIdentity: name] else {
+                XCTFail("\(name) does not exists", file: file, line: line)
+                return
+            }
+            switch state {
+            case .checkout(let checkoutState):
+                switch checkoutState {
+                case .version(let version):
+                    XCTAssertEqual(dependency.checkoutState?.version, version, file: file, line: line)
+                case .revision(let revision):
+                    XCTAssertEqual(dependency.checkoutState?.revision.identifier, revision, file: file, line: line)
+                case .branch(let branch):
+                    XCTAssertEqual(dependency.checkoutState?.branch, branch, file: file, line: line)
+                }
+            case .edited(let path):
+                if dependency.state != .edited(path) {
+                    XCTFail("Expected edited dependency", file: file, line: line)
+                }
+            }
+        }
+    }
+
+    func loadDependencyManifests(
+        roots: [String] = [],
+        deps: [TestWorkspace.PackageDependency] = [],
+        _ result: (Workspace.DependencyManifests, DiagnosticsEngine) -> ()
+    ) {
+        let dependencies = deps.map({ $0.convert(packagesDir) })
+        let diagnostics = DiagnosticsEngine()
+        let workspace = createWorkspace()
+        let rootInput = PackageGraphRootInput(
+            packages: rootPaths(for: roots), dependencies: dependencies)
+        let rootManifests = workspace.loadRootManifests(packages: rootInput.packages, diagnostics: diagnostics)
+        let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests)
+        let manifests = workspace.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        result(manifests, diagnostics)
+    }
+
+    func checkManagedDependencies(file: StaticString = #file, line: UInt = #line, _ result: (ManagedDependencyResult) throws -> ()) {
+        do {
+            let workspace = createWorkspace()
+            try result(ManagedDependencyResult(workspace.managedDependencies))
+        } catch {
+            XCTFail("Failed with error \(error)", file: file, line: line)
+        }
+    }
+
+    struct ResolvedResult {
+        let store: PinsStore
+
+        init(_ store: PinsStore) {
+            self.store = store
+        }
+
+        func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
+            XCTAssert(store.pinsMap[name] == nil, "Unexpectedly found \(name) in Package.resolved", file: file, line: line)
+        }
+
+        func check(dependency package: String, at state: State, file: StaticString = #file, line: UInt = #line) {
+            guard let pin = store.pinsMap[package] else {
+                XCTFail("Pin for \(package) not found", file: file, line: line)
+                return
+            }
+            switch state {
+            case .checkout(let state):
+                switch state {
+                case .version(let version):
+                    XCTAssertEqual(pin.state.version, version, file: file, line: line)
+                case .revision, .branch:
+                    XCTFail("Unimplemented", file: file, line: line)
+                }
+            case .edited:
+                XCTFail("Unimplemented", file: file, line: line)
+            }
+        }
+    }
+
+    func checkResolved(file: StaticString = #file, line: UInt = #line, _ result: (ResolvedResult) throws -> ()) {
+        do {
+            let workspace = createWorkspace()
+            try result(ResolvedResult(workspace.pinsStore.load()))
+        } catch {
+            XCTFail("Failed with error \(error)", file: file, line: line)
+        }
     }
 }
 
-private let v1: Version = "1.0.0"
+private struct TestTarget {
 
-final class WorkspaceTests: XCTestCase {
-    func testBasics() throws {
-        mktmpdir { path in
-
-            // Create a test repository.
-            let testRepoPath = path.appending(component: "test-repo")
-            let testRepoSpec = RepositorySpecifier(url: testRepoPath.asString)
-            let testRepoRef = PackageReference(identity: "test-repo", path: testRepoSpec.url)
-            try makeDirectories(testRepoPath)
-            initGitRepo(testRepoPath)
-            let testRepo = GitRepository(path: testRepoPath)
-
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: "Package.swift")) {
-                $0 <<< """
-                    import PackageDescription
-                    let package = Package(
-                        name: "test-repo"
-                    )
-                    """
-            }
-            try testRepo.stage(file: "Package.swift")
-            try testRepo.commit()
-            try testRepo.tag(name: "initial")
-            let initialRevision = try testRepo.getCurrentRevision()
-
-            // Add a couple files and a directory.
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
-            try testRepo.stage(file: "test.txt")
-            try testRepo.commit()
-            try testRepo.tag(name: "test-tag")
-            let currentRevision = try testRepo.getCurrentRevision()
-
-            // Test interpreter flags.
-            do {
-                let workspace = Workspace.createWith(rootPackage: path)
-                let flags = workspace.interpreterFlags(for: path)
-                XCTAssertNotNil(flags.first(where: { $0.contains("/swift/pm/3") }))
-            }
-
-            // Create the initial workspace.
-            do {
-                let workspace = Workspace.createWith(rootPackage: path)
-                XCTAssertTrue(workspace.managedDependencies.values.map{$0}.isEmpty)
-
-                // Do a low-level clone.
-                let state = CheckoutState(revision: currentRevision)
-                let checkoutPath = try workspace.clone(package: testRepoRef, at: state)
-                XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "test.txt")))
-            }
-
-            // Re-open the workspace, and check we know the checkout version.
-            do {
-                let workspace = Workspace.createWith(rootPackage: path)
-                let dependencies = workspace.managedDependencies
-                XCTAssertEqual(dependencies.values.map{ $0.packageRef.repository }, [testRepoSpec])
-                if let dependency = dependencies[forIdentity: testRepoRef.identity] {
-                    XCTAssertEqual(dependency.packageRef, testRepoRef)
-                    XCTAssertEqual(dependency.checkoutState?.revision, currentRevision)
-                }
-
-                // Check we can move to a different revision.
-                let state = CheckoutState(revision: initialRevision)
-                let checkoutPath = try workspace.clone(package: testRepoRef, at: state)
-                XCTAssert(!localFileSystem.exists(checkoutPath.appending(component: "test.txt")))
-            }
-
-            // Re-check the persisted state.
-            let statePath: AbsolutePath
-            do {
-                let workspace = Workspace.createWith(rootPackage: path)
-                let dependencies = workspace.managedDependencies
-                statePath = dependencies.statePath
-                XCTAssertEqual(dependencies.values.map{ $0.packageRef.repository }, [testRepoSpec])
-                if let dependency = dependencies[forIdentity: testRepoRef.identity] {
-                    XCTAssertEqual(dependency.packageRef, testRepoRef)
-                    XCTAssertEqual(dependency.checkoutState?.revision, initialRevision)
-                }
-            }
-
-            // Blow away the workspace state file, and check we can get back to a good state.
-            try removeFileTree(statePath)
-            do {
-                let workspace = Workspace.createWith(rootPackage: path)
-                XCTAssert(workspace.managedDependencies.values.map{$0}.isEmpty)
-                let state = CheckoutState(revision: currentRevision)
-                _ = try workspace.clone(package: testRepoRef, at: state)
-                XCTAssertEqual(workspace.managedDependencies.values.map{$0.packageRef.repository}, [testRepoSpec])
-            }
-        }
+    enum `Type` {
+        case regular, test
     }
 
-    func testDependencyManifestLoading() {
-        // We mock up the following dep graph:
-        //
-        // Root
-        // \ A: checked out (@v1)
-        //   \ AA: checked out (@v1)
-        // \ B: missing
-        mktmpdir { path in
-            let graph = try MockManifestGraph(at: path,
-                rootDeps: [
-                    MockDependency("A", version: v1),
-                    MockDependency("B", version: v1),
-                ],
-                packages: [
-                    MockPackage("A", version: v1, dependencies: [
-                        MockDependency("AA", version: v1)
-                    ]),
-                    MockPackage("AA", version: v1),
-                ]
-            )
-            // Create the workspace.
-            let workspace = Workspace.createWith(rootPackage: path, manifestLoader: graph.manifestLoader, delegate: TestWorkspaceDelegate())
+    let name: String
+    let dependencies: [String]
+    let type: Type
 
-            // Ensure we have checkouts for A & AA.
-            for name in ["A", "AA"] {
-                let revision = try GitRepository(path: AbsolutePath(graph.repo(name).url)).getCurrentRevision()
-                let state = CheckoutState(revision: revision, version: v1)
-                let packageRef = PackageReference(identity: name.lowercased(), path: graph.repo(name).url)
-                _ = try workspace.clone(package: packageRef, at: state)
-            }
-
-            // Load the "current" manifests.
-            let diagnostics = DiagnosticsEngine()
-            let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssertEqual(manifests.root.manifests[0], graph.rootManifest)
-            // B should be missing.
-            XCTAssertEqual(manifests.missingPackageIdentities(), ["b"])
-            XCTAssertEqual(manifests.dependencies.map{$0.manifest.name}.sorted(), ["A", "AA"])
-            let aManifest = graph.manifest("A", version: v1)
-            XCTAssertEqual(manifests.lookup(manifest: "A"), aManifest)
-            let aaManifest = graph.manifest("AA", version: v1)
-            XCTAssertEqual(manifests.lookup(manifest: "AA"), aaManifest)
-        }
+    fileprivate init(
+        name: String,
+        dependencies: [String] = [],
+        type: Type = .regular
+    ) {
+        self.name = name
+        self.dependencies = dependencies
+        self.type = type
     }
 
-    /// Check the basic ability to load a graph from the workspace.
-    func testPackageGraphLoadingBasics() {
-        // We mock up the following dep graph:
-        //
-        // Root
-        // \ A: checked out (@v1)
-        mktmpdir { path in
-            let manifestGraph = try MockManifestGraph(at: path,
-                rootDeps: [
-                    MockDependency("A", version: v1),
-                ],
-                packages: [
-                    MockPackage("A", version: v1),
-                ]
-            )
-
-            // Create the workspace.
-            let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
-
-            // Just creating the workspace shouldn't result in ManagedDependencies state file being written out.
-            XCTAssertFalse(localFileSystem.exists(workspace.managedDependencies.statePath))
-
-            // Ensure we have a checkout for A.
-            for name in ["A"] {
-                let revision = try GitRepository(path: AbsolutePath(manifestGraph.repo(name).url)).getCurrentRevision()
-                let state = CheckoutState(revision: revision, version: v1)
-                let packageRef = PackageReference(identity: name.lowercased(), path: manifestGraph.repo(name).url)
-                _ = try workspace.clone(package: packageRef, at: state)
-            }
-
-            // Load the package graph.
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssertTrue(localFileSystem.exists(workspace.managedDependencies.statePath))
-
-            // Validate the graph has the correct basic structure.
-            XCTAssertEqual(graph.packages.count, 2)
-            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
+    func convert() -> PackageDescription4.Target {
+        switch type {
+        case .regular:
+            return .target(name: name, dependencies: dependencies.map({ .byName(name: $0) }))
+        case .test:
+            return .testTarget(name: name, dependencies: dependencies.map({ .byName(name: $0) }))
         }
     }
+}
 
-    func testPackageGraphLoadingBasicsInMem() throws {
-        let path = AbsolutePath("/RootPkg")
-        let fs = InMemoryFileSystem()
-        let manifestGraph = try MockManifestGraph(at: path,
-            rootDeps: [
-                MockDependency("A", version: v1),
+private struct TestProduct {
+
+    let name: String
+    let targets: [String]
+
+    fileprivate init(name: String, targets: [String]) {
+        self.name = name
+        self.targets = targets
+    }
+}
+
+private struct TestDependency {
+    let name: String
+    let requirement: Requirement
+    typealias Requirement = PackageDescription4.Package.Dependency.Requirement
+
+    fileprivate init(name: String, requirement: Requirement) {
+        self.name = name
+        self.requirement = requirement
+    }
+
+    func convert(baseURL: AbsolutePath) -> PackageDescription4.Package.Dependency {
+        return .package(url: baseURL.appending(component: name).asString, requirement)
+    }
+}
+
+private struct TestPackage {
+
+    let name: String
+    let targets: [TestTarget]
+    let products: [TestProduct]
+    let dependencies: [TestDependency]
+    let versions: [String?]
+
+    fileprivate init(
+        name: String,
+        targets: [TestTarget],
+        products: [TestProduct],
+        dependencies: [TestDependency] = [],
+        versions: [String?] = []
+    ) {
+        self.name = name
+        self.targets = targets
+        self.products = products
+        self.dependencies = dependencies
+        self.versions = versions
+    }
+
+    static func genericPackage1(named name: String) -> TestPackage {
+        return TestPackage(
+            name: name,
+            targets: [
+                TestTarget(name: name),
             ],
-            packages: [
-                MockPackage("A", version: v1),
+            products: [
+                TestProduct(name: name, targets: [name]),
             ],
-            fs: fs
+            versions: ["1.0.0"]
         )
-        let delegate = TestWorkspaceDelegate()
-        let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate, fileSystem: fs, repositoryProvider: manifestGraph.repoProvider!)
-        let diagnostics = DiagnosticsEngine()
-        let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-        XCTAssertFalse(diagnostics.hasErrors)
-        XCTAssertEqual(graph.packages.count, 2)
-        XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
-
-        // FIXME: Partial graph reporting is broken. Is it really needed?
-        // let partialGraph = delegate.partialGraphs[0]
-        // XCTAssertEqual(partialGraph.currentGraph.packages.map{$0.name}, ["Root"])
-        // XCTAssertEqual(partialGraph.missingURLs, ["/RootPkg/A"])
-        // XCTAssertTrue(partialGraph.dependencies.map{$0}.isEmpty)
-        // XCTAssertEqual(delegate.partialGraphs.count, 1)
-
-        workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-        XCTAssertFalse(diagnostics.hasErrors)
     }
-
-
-    /// Check the ability to load a graph which requires cloning new packages.
-    func testPackageGraphLoadingWithCloning() {
-        // We mock up the following dep graph:
-        //
-        // Root
-        // \ A: checked out (@v1)
-        //   \ AA: missing
-        // \ B: missing
-        mktmpdir { path in
-
-            let manifestGraph = try MockManifestGraph(at: path,
-                rootDeps: [
-                    MockDependency("A", version: v1),
-                    MockDependency("B", version: v1),
-                ],
-                packages: [
-                    MockPackage("A", version: v1, dependencies: [
-                        MockDependency("AA", version: v1)
-                    ]),
-                    MockPackage("AA", version: v1),
-                    MockPackage("B", version: v1),
-                ]
-            )
-            // Create the workspace.
-            let delegate = TestWorkspaceDelegate()
-            let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
-
-            // Ensure delegates haven't been called yet.
-            XCTAssert(delegate.fetched.isEmpty)
-            XCTAssert(delegate.cloned.isEmpty)
-            XCTAssert(delegate.checkedOut.isEmpty)
-
-            // Ensure we have a checkout for A.
-            for name in ["A"] {
-                let revision = try GitRepository(path: AbsolutePath(manifestGraph.repo(name).url)).getCurrentRevision()
-                let state = CheckoutState(revision: revision, version: v1)
-                let packageRef = PackageReference(identity: name.lowercased(), path: manifestGraph.repo(name).url)
-                _ = try workspace.clone(package: packageRef, at: state)
-            }
-
-            // Load the package graph.
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            // Test the delegates.
-            XCTAssertEqual(delegate.fetched.sorted(), manifestGraph.repos.values.map{$0.url}.sorted())
-            XCTAssertEqual(delegate.cloned.sorted(), manifestGraph.repos.values.map{$0.url}.sorted())
-            XCTAssertEqual(delegate.checkedOut.count, 3)
-            for (_, repo) in manifestGraph.repos {
-                XCTAssertEqual(delegate.checkedOut[repo.url], "1.0.0")
-            }
-
-            // Validate the graph has the correct basic structure.
-            XCTAssertEqual(graph.packages.count, 4)
-            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), [
-                    "A", "AA", "B", "Root"])
-        }
-    }
-
-    func testSymlinkedDependency() {
-        mktmpdir { path in
-            var fs = localFileSystem
-            let root = path.appending(components: "root")
-            let dep = path.appending(components: "dep")
-            let depSym = path.appending(components: "depSym")
-
-            // Create root package.
-            try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
-            try fs.writeFileContents(root.appending(component: "Package.swift")) {
-                $0 <<< """
-                    // swift-tools-version:4.0
-                    import PackageDescription
-                    let package = Package(
-                        name: "root",
-                        dependencies: [.package(url: "../depSym", from: "1.0.0")],
-                        targets: [.target(name: "root", dependencies: ["dep"])]
-                    )
-
-                    """
-            }
-
-            // Create dependency.
-            try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
-            try fs.writeFileContents(dep.appending(component: "Package.swift")) {
-                $0 <<< """
-                    // swift-tools-version:4.0
-                    import PackageDescription
-                    let package = Package(
-                        name: "dep",
-                        products: [.library(name: "dep", targets: ["dep"])],
-                        targets: [.target(name: "dep")]
-                    )
-                    """
-            }
-            do {
-                let depGit = GitRepository(path: dep)
-                try depGit.create()
-                try depGit.stageEverything()
-                try depGit.commit()
-                try depGit.tag(name: "1.0.0")
-            }
-
-            // Create symlink to the dependency.
-            try createSymlink(depSym, pointingAt: dep)
-
-            // Try to load.
-            let workspace = Workspace.createWith(rootPackage: root)
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [root], diagnostics: diagnostics)
-            XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(graph.lookup("dep").version, v1)
-        }
-    }
-
-
-    func testUpdate() {
-        // We mock up the following dep graph:
-        //
-        // Root
-        // \ A: checked out (@v1)
-        //   \ AA: checked out (@v1)
-        // Then update to:
-        // Root
-        // \ A: checked out (@v1.0.1)
-        mktmpdir { path in
-            let manifestGraph = try MockManifestGraph(at: path,
-                rootDeps: [
-                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-                ],
-                packages: [
-                    MockPackage("A", version: v1, dependencies: [
-                        MockDependency("AA", version: v1),
-                    ]),
-                    MockPackage("A", version: "1.0.1"),
-                    MockPackage("AA", version: v1),
-                ]
-            )
-            let delegate = TestWorkspaceDelegate()
-            let repoPath = AbsolutePath(manifestGraph.repo("A").url)
-
-            func createWorkspace() throws -> Workspace {
-                return  Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
-            }
-
-            do {
-                // Create the workspace.
-                let workspace = try createWorkspace()
-
-                // Ensure delegates haven't been called yet.
-                XCTAssert(delegate.fetched.isEmpty)
-                XCTAssert(delegate.cloned.isEmpty)
-                XCTAssert(delegate.checkedOut.isEmpty)
-                XCTAssert(delegate.removed.isEmpty)
-
-                // Load the package graph.
-                let diagnostics = DiagnosticsEngine()
-                let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
-
-                // Test the delegates.
-                XCTAssert(delegate.fetched.count == 2)
-                XCTAssert(delegate.cloned.count == 2)
-                XCTAssert(delegate.removed.isEmpty)
-                for (_, repoPath) in manifestGraph.repos {
-                    XCTAssert(delegate.fetched.contains(repoPath.url))
-                    XCTAssert(delegate.cloned.contains(repoPath.url))
-                    XCTAssertEqual(delegate.checkedOut[repoPath.url], "1.0.0")
-                }
-
-                // Validate the graph has the correct basic structure.
-                XCTAssertEqual(graph.packages.count, 3)
-                XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "AA", "Root"])
-            }
-
-            // Add a new tag to dependency.
-            do {
-                let file = repoPath.appending(component: "update.swift")
-                try systemQuietly(["touch", file.asString])
-                let testRepo = GitRepository(path: repoPath)
-                try testRepo.stageEverything()
-                try testRepo.commit(message: "update")
-                try testRepo.tag(name: "1.0.1")
-            }
-
-            // Test update.
-            do {
-                let workspace = try createWorkspace()
-                let diagnostics = DiagnosticsEngine()
-                workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
-                // Test the delegates after update.
-                XCTAssert(delegate.fetched.count == 2)
-                XCTAssert(delegate.cloned.count == 2)
-                for (_, repoPath) in manifestGraph.repos {
-                    XCTAssert(delegate.fetched.contains(repoPath.url))
-                    XCTAssert(delegate.cloned.contains(repoPath.url))
-                }
-                XCTAssertEqual(delegate.checkedOut[repoPath.asString], "1.0.1")
-                XCTAssertEqual(delegate.removed, [manifestGraph.repo("AA").url])
-
-                let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
-                XCTAssert(graph.packages.filter{ $0.name == "A" }.first!.version == "1.0.1")
-                XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
-                XCTAssertEqual(delegate.removed.sorted(), [manifestGraph.repo("AA").url])
-            }
-        }
-    }
-
-    func testCanUneditRemovedDependencies() throws {
-
-        mktmpdir { path in
-            let manifestGraph = try MockManifestGraph(at: path,
-                rootDeps: [
-                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-                ],
-                packages: [
-                    MockPackage("A", version: v1)
-                ]
-            )
-
-            let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader)
-
-            // Load the package graph.
-            let diagnostics = DiagnosticsEngine()
-            workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertNoDiagnostics(diagnostics)
-
-            // Put the dependency in edit mode at its current revision.
-            workspace.edit(packageName: "A", diagnostics: diagnostics)
-            XCTAssertNoDiagnostics(diagnostics)
-
-            let editedDependency = try workspace.managedDependencies.dependency(forIdentity: "a")
-            let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
-
-            // Its basedon should not be nil
-            XCTAssertNotNil(editedDependency.basedOn)
-
-            // Create an empty root to remove the dependency requirement
-            let root = PackageGraphRootInput(packages: [])
-
-            workspace.updateDependencies(root: root, diagnostics: diagnostics)
-            XCTAssertNoDiagnostics(diagnostics)
-
-            // Its basedon should be nil
-            XCTAssertNil(editedDependency.basedOn)
-
-            // Unedit the package
-            try workspace.unedit(
-                packageName: "A",
-                forceRemove: false,
-                root: root,
-                diagnostics: diagnostics
-            )
-            XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertFalse(exists(editRepoPath))
-            XCTAssertFalse(exists(workspace.editablesPath))
-        }
-    }
-
-    func testCleanAndReset() throws {
-        mktmpdir { path in
-            // Create a test repository.
-            let testRepoPath = path.appending(component: "test-repo")
-            let testRepoSpec = RepositorySpecifier(url: testRepoPath.asString)
-            let testRepoRef = PackageReference(identity: "test-repo", path: testRepoSpec.url)
-            try makeDirectories(testRepoPath)
-            initGitRepo(testRepoPath)
-
-            let testRepo = GitRepository(path: testRepoPath)
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: "Package.swift")) {
-                $0 <<< """
-                    import PackageDescription
-                    let package = Package(
-                        name: "test-repo"
-                    )
-                    """
-            }
-            try testRepo.stage(file: "Package.swift")
-            try testRepo.commit()
-            try testRepo.tag(name: "initial")
-
-            let workspace = Workspace.createWith(rootPackage: path)
-            let state = CheckoutState(revision: Revision(identifier: "initial"))
-            let checkoutPath = try workspace.clone(package: testRepoRef, at: state)
-            XCTAssertEqual(workspace.managedDependencies.values.map{ $0.packageRef.repository }, [testRepoSpec])
-
-            // Drop a build artifact in data directory.
-            let buildArtifact = workspace.dataPath.appending(component: "test.o")
-            try localFileSystem.writeFileContents(buildArtifact, bytes: "Hi")
-
-            // Sanity checks.
-            XCTAssert(localFileSystem.exists(buildArtifact))
-            XCTAssert(localFileSystem.exists(checkoutPath))
-
-            let diagnostics = DiagnosticsEngine()
-            workspace.clean(with: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            XCTAssertEqual(workspace.managedDependencies.values.map{ $0.packageRef.repository }, [testRepoSpec])
-            XCTAssert(localFileSystem.exists(workspace.dataPath))
-            // The checkout should be safe.
-            XCTAssert(localFileSystem.exists(checkoutPath))
-            // Build artifact should be removed.
-            XCTAssertFalse(localFileSystem.exists(buildArtifact))
-
-            // Add build artifact again.
-            try localFileSystem.writeFileContents(buildArtifact, bytes: "Hi")
-            XCTAssert(localFileSystem.exists(buildArtifact))
-
-            workspace.reset(with: diagnostics)
-            // Everything should go away.
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssertFalse(localFileSystem.exists(buildArtifact))
-            XCTAssertFalse(localFileSystem.exists(checkoutPath))
-            XCTAssertFalse(localFileSystem.exists(workspace.dataPath))
-            XCTAssertTrue(workspace.managedDependencies.values.map{$0}.isEmpty)
-        }
-    }
-
-    func testEditDependency() throws {
-        mktmpdir { path in
-            let manifestGraph = try MockManifestGraph(at: path,
-                rootDeps: [
-                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-                ],
-                packages: [
-                    MockPackage("A", version: v1),
-                    MockPackage("A", version: nil), // To load the edited package manifest.
-                ]
-            )
-            let root = PackageGraphRootInput(packages: [path])
-            // Create the workspace.
-            let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
-            // Load the package graph.
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            // Sanity checks.
-            XCTAssertEqual(graph.packages.count, 2)
-            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
-
-            let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            guard let aManifest = manifests.lookup(manifest: "A") else {
-                return XCTFail("Expected manifest for package A not found")
-            }
-
-            func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return workspace.managedDependencies[forIdentity: manifest.name.lowercased()]!
-            }
-
-            let dependency = getDependency(aManifest)
-
-            // Put the dependency in edit mode at its current revision.
-            workspace.edit(
-                packageName: aManifest.name,
-                revision: dependency.checkoutState!.revision,
-                diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            let editedDependency = getDependency(aManifest)
-            // It should be in edit mode.
-            XCTAssert(editedDependency.state == .edited(nil))
-            // Check the based on data.
-            XCTAssertEqual(editedDependency.basedOn?.subpath, dependency.subpath)
-            XCTAssertEqual(editedDependency.basedOn?.checkoutState, dependency.checkoutState)
-
-            let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
-            // Get the repo from edits path.
-            let editRepo = GitRepository(path: editRepoPath)
-            // Ensure that the editable checkout's remote points to the original repo path.
-            XCTAssertEqual(try editRepo.remotes()[0].url, manifestGraph.repo("A").url)
-            // Check revision and head.
-            XCTAssertEqual(try editRepo.getCurrentRevision(), dependency.checkoutState?.revision)
-            // FIXME: Current checkout behavior seems wrong, it just resets and doesn't leave checkout to a detached head.
-          #if false
-            XCTAssertEqual(try popen([Git.tool, "-C", editRepoPath.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp(), "HEAD")
-          #endif
-
-            workspace.edit(
-                packageName: aManifest.name,
-                revision: dependency.checkoutState!.revision,
-                diagnostics: diagnostics)
-            XCTAssert(diagnostics.hasErrors)
-            XCTAssert(diagnostics.diagnostics.contains(where: {
-                $0.id == WorkspaceDiagnostics.DependencyAlreadyInEditMode.id
-            }))
-
-            do {
-                // Reopen workspace and check if we maintained the state.
-                let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
-                let dependency = workspace.managedDependencies[forIdentity: aManifest.name.lowercased()]!
-                XCTAssert(dependency.state == .edited(nil))
-            }
-
-            // Make the edited package "invalid" and ensure we can get the errors.
-            do {
-                try localFileSystem.removeFileTree(path.appending(components: "A", "file.swift"))
-                let diagnostics = DiagnosticsEngine()
-                workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-                XCTAssertTrue(diagnostics.hasErrors)
-            }
-
-            do {
-                // We should be able to unedit the dependency.
-                let diagnostics = DiagnosticsEngine()
-                try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
-                XCTAssertNoDiagnostics(diagnostics)
-                XCTAssert(getDependency(aManifest).state.isCheckout)
-                XCTAssertFalse(exists(editRepoPath))
-                XCTAssertFalse(exists(workspace.editablesPath))
-            }
-        }
-    }
-
-    func testEditDependencyOnNewBranch() throws {
-        mktmpdir { path in
-            let manifestGraph = try MockManifestGraph(at: path,
-                rootDeps: [
-                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-                ],
-                packages: [
-                    MockPackage("A", version: v1),
-                    MockPackage("A", version: nil), // To load the edited package manifest.
-                ]
-            )
-            let root = PackageGraphRootInput(packages: [path])
-            // Create the workspace.
-            let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
-            // Load the package graph.
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            guard let aManifest = manifests.lookup(manifest: "A") else {
-                return XCTFail("Expected manifest for package A not found")
-            }
-            func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return workspace.managedDependencies[forIdentity: manifest.name.lowercased()]!
-            }
-
-            let dependency = getDependency(aManifest)
-
-            do {
-                // We should error out if we try to edit on a non existent revision.
-                let diagnostics = DiagnosticsEngine()
-                workspace.edit(
-                    packageName: aManifest.name,
-                    revision: Revision(identifier: "non-existent-revision"),
-                    diagnostics: diagnostics)
-                XCTAssert(diagnostics.hasErrors)
-                XCTAssert(diagnostics.diagnostics.contains(where: {
-                    $0.id == WorkspaceDiagnostics.RevisionDoesNotExist.id
-                }))
-            }
-
-            // Put the dependency in edit mode at its current revision on a new branch.
-            workspace.edit(
-                packageName: aManifest.name,
-                checkoutBranch: "BugFix",
-                diagnostics: diagnostics)
-            XCTAssertNoDiagnostics(diagnostics)
-            let editedDependency = getDependency(aManifest)
-            XCTAssert(editedDependency.state == .edited(nil))
-
-            let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
-            let editRepo = GitRepository(path: editRepoPath)
-            XCTAssertEqual(try editRepo.getCurrentRevision(), dependency.checkoutState?.revision)
-            XCTAssertEqual(try editRepo.currentBranch(), "BugFix")
-            // Unedit it.
-            try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
-            XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(getDependency(aManifest).state.isCheckout)
-
-            workspace.edit(
-                packageName: aManifest.name,
-                checkoutBranch: "master",
-                diagnostics: diagnostics)
-            XCTAssert(diagnostics.hasErrors)
-            XCTAssert(diagnostics.diagnostics.contains(where: {
-                $0.id == WorkspaceDiagnostics.BranchAlreadyExists.id
-            }))
-        }
-    }
-
-    func testUneditDependency() throws {
-        mktmpdir { path in
-            let manifestGraph = try MockManifestGraph(at: path,
-                rootDeps: [
-                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-                ],
-                packages: [
-                    MockPackage("A", version: v1),
-                    MockPackage("A", version: nil), // To load the edited package manifest.
-                ]
-            )
-            let root = PackageGraphRootInput(packages: [path])
-            // Create the workspace.
-            let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
-            // Load the package graph.
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            // Sanity checks.
-            XCTAssertEqual(graph.packages.count, 2)
-            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
-
-            let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            guard let aManifest = manifests.lookup(manifest: "A") else {
-                return XCTFail("Expected manifest for package A not found")
-            }
-            func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return workspace.managedDependencies[forIdentity: manifest.name.lowercased()]!
-            }
-
-            // Put the dependency in edit mode.
-            workspace.edit(
-                packageName: aManifest.name,
-                checkoutBranch: "bugfix",
-                diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            let editedDependency = getDependency(aManifest)
-            let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
-            // Write something in repo.
-            try localFileSystem.writeFileContents(editRepoPath.appending(component: "test.txt"), bytes: "Hi")
-            let editRepo = GitRepository(path: editRepoPath)
-            try editRepo.stage(file: "test.txt")
-            // Try to unedit.
-            do {
-                let diagnostics = DiagnosticsEngine()
-                try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
-                XCTAssertNoDiagnostics(diagnostics)
-                XCTFail("Unexpected edit success")
-            } catch let error as WorkspaceDiagnostics.UncommitedChanges {
-                XCTAssertEqual(error.repositoryPath, editRepoPath)
-            }
-            // Commit and try to unedit.
-            try editRepo.commit()
-            do {
-                let diagnostics = DiagnosticsEngine()
-                try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
-                XCTAssertNoDiagnostics(diagnostics)
-                XCTFail("Unexpected edit success")
-            } catch let error as WorkspaceDiagnostics.UnpushedChanges {
-                XCTAssertEqual(error.repositoryPath, editRepoPath)
-            }
-
-            // Run package update which should remove the entry from pins store.
-            do {
-                XCTAssertNotNil(try workspace.pinsStore.load().pinsMap[aManifest.name.lowercased()])
-                let diagnostics = DiagnosticsEngine()
-                workspace.updateDependencies(root: root, diagnostics: diagnostics)
-                XCTAssertNoDiagnostics(diagnostics)
-                XCTAssertNil(try workspace.pinsStore.load().pinsMap[aManifest.name.lowercased()])
-            }
-
-            // Force remove.
-            do {
-                let diagnostics = DiagnosticsEngine()
-                try workspace.unedit(packageName: aManifest.name, forceRemove: true, root: root, diagnostics: diagnostics)
-                XCTAssertNoDiagnostics(diagnostics)
-                XCTAssert(getDependency(aManifest).state.isCheckout)
-                XCTAssertFalse(exists(editRepoPath))
-                XCTAssertFalse(exists(workspace.editablesPath))
-                // We should get the entry back in pinsStore.
-                XCTAssertNotNil(try workspace.pinsStore.load().pinsMap[aManifest.name.lowercased()])
-            }
-        }
-    }
-
-    func testEditAndPinning() throws {
-        let path = AbsolutePath("/RootPkg")
-        let fs = InMemoryFileSystem()
-        let manifestGraph = try MockManifestGraph(at: path,
-            rootDeps: [
-                MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-                MockDependency("B", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-            ],
-            packages: [
-                MockPackage("A", version: v1),
-                MockPackage("A", version: nil),
-                MockPackage("B", version: v1),
-            ],
-            fs: fs
-        )
-        let provider = manifestGraph.repoProvider!
-
-        // Create the workspace.
-        let workspace = Workspace.createWith(rootPackage: path,
-             manifestLoader: manifestGraph.manifestLoader,
-             delegate: TestWorkspaceDelegate(),
-             fileSystem: fs,
-             repositoryProvider: provider)
-        // Load the package graph.
-        let diagnostics = DiagnosticsEngine()
-        let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-        XCTAssertFalse(diagnostics.hasErrors)
-        let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-        XCTAssertFalse(diagnostics.hasErrors)
-        let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-        XCTAssertFalse(diagnostics.hasErrors)
-        guard let aManifest = manifests.lookup(manifest: "A") else {
-            return XCTFail("Expected manifest for package A not found")
-        }
-
-        func getDependency(_ manifest: Manifest) -> ManagedDependency {
-            return workspace.managedDependencies[forIdentity: manifest.name.lowercased()]!
-        }
-
-        // Put the dependency in edit mode at its current revision.
-        workspace.edit(
-            packageName: aManifest.name,
-            diagnostics: diagnostics)
-        XCTAssertFalse(diagnostics.hasErrors)
-
-        let editedDependency = getDependency(aManifest)
-        // It should be in edit mode.
-        XCTAssert(editedDependency.state == .edited(nil))
-
-        // Attempt to pin dependency B.
-        workspace.resolve(packageName: "B", rootPackages: [path], version: v1, diagnostics: diagnostics)
-        XCTAssertNoDiagnostics(diagnostics)
-        // Validate the versions.
-        let reloadedGraph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-        XCTAssertNoDiagnostics(diagnostics)
-        XCTAssert(reloadedGraph.lookup("A").version == nil)
-        XCTAssert(reloadedGraph.lookup("B").version == v1)
-    }
-
-    func testPinning() throws {
-        let path = AbsolutePath("/RootPkg")
-        let fs = InMemoryFileSystem()
-        let manifestGraph = try MockManifestGraph(at: path,
-            rootDeps: [
-                MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-            ],
-            packages: [
-                MockPackage("A", version: v1),
-                MockPackage("A", version: "1.0.1"),
-            ],
-            fs: fs
-        )
-
-        let provider = manifestGraph.repoProvider!
-        let aRepo = provider.specifierMap[manifestGraph.repo("A")]!
-        try aRepo.tag(name: "1.0.1")
-
-        func newWorkspace() -> Workspace {
-            return Workspace.createWith(
-                rootPackage: path,
-                manifestLoader: manifestGraph.manifestLoader,
-                delegate: TestWorkspaceDelegate(),
-                fileSystem: fs,
-                repositoryProvider: provider)
-        }
-
-        // Pins "A" at v1.
-        func pin() throws {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            workspace.resolve(
-                packageName: "A",
-                rootPackages: [path],
-                version: v1,
-                diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-        }
-
-        // Package graph should load 1.0.1.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == "1.0.1")
-        }
-
-        // Pin package to v1.
-        try pin()
-
-        // Package *update* should load 1.0.1.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == "1.0.1")
-        }
-    }
-
-    func testPinFailure() throws {
-        let path = AbsolutePath("/RootPkg")
-        let fs = InMemoryFileSystem()
-        let manifestGraph = try MockManifestGraph(at: path,
-            rootDeps: [
-                MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-                MockDependency("B", version: v1),
-            ],
-            packages: [
-                MockPackage("A", version: v1),
-                MockPackage("A", version: "1.0.1", dependencies: [
-                    MockDependency("B", version: "2.0.0")
-                ]),
-                MockPackage("B", version: v1),
-                MockPackage("B", version: "2.0.0"),
-            ],
-            fs: fs
-        )
-        let provider = manifestGraph.repoProvider!
-        try provider.specifierMap[manifestGraph.repo("B")]!.tag(name: "2.0.0")
-
-        func newWorkspace() -> Workspace {
-            return Workspace.createWith(
-                rootPackage: path,
-                manifestLoader: manifestGraph.manifestLoader,
-                delegate: TestWorkspaceDelegate(),
-                fileSystem: fs,
-                repositoryProvider: provider)
-        }
-
-        func pin(at version: Version, diagnostics: DiagnosticsEngine) {
-            let workspace = newWorkspace()
-            workspace.resolve(
-                packageName: "A",
-                rootPackages: [path],
-                version: version,
-                diagnostics: diagnostics)
-        }
-
-        // Pinning at v1 should work.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-
-            workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            pin(at: v1, diagnostics: diagnostics)
-            workspace.reset(with: diagnostics)
-
-            XCTAssertFalse(diagnostics.hasErrors)
-        }
-
-        // Add a the tag which will make resolution unstatisfiable.
-        try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.0.1")
-
-        do {
-            let workspace = newWorkspace()
-            var diagnostics = DiagnosticsEngine()
-
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssert(graph.lookup("A").version == v1)
-
-            // Pinning non existant version should fail.
-            pin(at: "1.0.2", diagnostics: diagnostics)
-            XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.localizedDescription.contains("A @ 1.0.2") }))
-
-            // Pinning an unstatisfiable version should fail.
-            diagnostics = DiagnosticsEngine()
-            pin(at: "1.0.1", diagnostics: diagnostics)
-
-            // But we should still be able to pin at v1.
-            diagnostics = DiagnosticsEngine()
-            pin(at: v1, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            // And also after unpinning.
-            try workspace.resetPinsStore()
-            pin(at: v1, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-        }
-    }
-
-    func testPinAllFailure() throws {
-        let path = AbsolutePath("/RootPkg")
-        let fs = InMemoryFileSystem()
-        let manifestGraph = try MockManifestGraph(at: path,
-            rootDeps: [
-                MockDependency("A", version: v1),
-                MockDependency("B", version: v1),
-            ],
-            packages: [
-                MockPackage("A", version: v1, dependencies: [
-                    MockDependency("B", version: "2.0.0")
-                ]),
-                MockPackage("B", version: v1),
-                MockPackage("B", version: "2.0.0"),
-            ],
-            fs: fs
-        )
-        let provider = manifestGraph.repoProvider!
-        try provider.specifierMap[manifestGraph.repo("B")]!.tag(name: "2.0.0")
-        func newWorkspace() -> Workspace {
-            return Workspace.createWith(
-                rootPackage: path,
-                manifestLoader: manifestGraph.manifestLoader,
-                delegate: TestWorkspaceDelegate(),
-                fileSystem: fs,
-                repositoryProvider: provider)
-        }
-
-        // We should not be able to load package graph.
-        do {
-            let diagnostics = DiagnosticsEngine()
-            newWorkspace().loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            // This output diagnostics isn't stable. It could be either A or B.
-            XCTAssertTrue(diagnostics.diagnostics[0].localizedDescription.contains("@ 1.0.0..<1.0.1"), diagnostics.diagnostics[0].localizedDescription)
-        }
-    }
-
-    func testBranchAndRevision() throws {
-        typealias Package = PackageDescription4.Package
-
-        mktmpdir { path in
-            let root = path.appending(component: "root")
-            let dep1 = path.appending(component: "dep")
-            let dep2 = path.appending(component: "dep2")
-            let dep1File = dep1.appending(components: "Sources", "dep", "develop.swift")
-            let dep2File = dep2.appending(components: "Sources", "dep2", "develop.swift")
-
-            var manifests: [MockManifestLoader.Key: Manifest] = [:]
-
-            for dep in [dep1, dep2] {
-                try makeDirectories(dep)
-                initGitRepo(dep)
-                let name = dep.basename
-
-                // Create package manifest.
-                let pkg = Package(
-                    name: name,
-                    products: [
-                        .library(name: name, targets: [name]),
-                    ],
-                    targets: [
-                        .target(name: name),
-                    ]
-                )
-                let manifest = Manifest(
-                    path: dep.appending(component: Manifest.filename),
-                    url: dep.asString,
-                    package: .v4(pkg),
-                    version: nil)
-                manifests[MockManifestLoader.Key(url: dep.asString)] = manifest
-            }
-
-            let repo1 = GitRepository(path: dep1)
-            try repo1.checkout(newBranch: "develop")
-            try localFileSystem.createDirectory(dep1File.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(dep1File, bytes: "")
-            try repo1.stageEverything()
-            try repo1.commit()
-            let dep1Revision = try repo1.getCurrentRevision()
-
-            let repo2 = GitRepository(path: dep2)
-            try localFileSystem.createDirectory(dep2File.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(dep2File, bytes: "")
-            try repo2.stageEverything()
-            try repo2.commit()
-            let dep2Revision = try repo2.getCurrentRevision()
-
-            do {
-                try makeDirectories(root)
-                initGitRepo(root)
-                let sourceFile = root.appending(components: "Sources", "root", "source.swift")
-                try localFileSystem.createDirectory(sourceFile.parentDirectory, recursive: true)
-                try localFileSystem.writeFileContents(sourceFile, bytes: "")
-                let manifest = Manifest(
-                    path: root.appending(component: Manifest.filename),
-                    url: root.asString,
-                    package: .v4(.init(
-                        name: "root",
-                        dependencies: [
-                            .package(url: dep1.asString, .branch("develop")),
-                            .package(url: dep2.asString, .revision(dep2Revision.identifier)),
-                        ],
-                        targets: [.target(name: "root", dependencies: ["dep"])])
-                    ),
-                    version: nil)
-                manifests[MockManifestLoader.Key(url: root.asString)] = manifest
-            }
-
-
-            func getWorkspace() -> Workspace {
-                return Workspace.createWith(
-                    rootPackage: root,
-                    manifestLoader: MockManifestLoader(manifests: manifests))
-            }
-
-            do {
-                let diagnostics = DiagnosticsEngine()
-                getWorkspace().loadPackageGraph(rootPackages: [root], diagnostics: diagnostics)
-                XCTAssertNoDiagnostics(diagnostics)
-            }
-
-            // Check dep1.
-            do {
-                let workspace = getWorkspace()
-                let dependency = workspace.managedDependencies[forIdentity: dep1.basename]!
-                XCTAssertEqual(dependency.checkoutState, CheckoutState(revision: dep1Revision, branch: "develop"))
-                XCTAssertEqual(dep1Revision,
-                    try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
-
-            }
-
-            // Check dep2.
-            do {
-                let workspace = getWorkspace()
-                let dependency = workspace.managedDependencies[forIdentity: dep2.basename]!
-                XCTAssertEqual(dependency.checkoutState, CheckoutState(revision: dep2Revision, branch: nil))
-                XCTAssertEqual(dep2Revision,
-                    try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
-            }
-
-            // Check pins.
-            do {
-                let workspace = getWorkspace()
-                let dep1Pin = try workspace.pinsStore.load().pinsMap["dep"]!
-                XCTAssertEqual(dep1Pin.state, CheckoutState(revision: dep1Revision, branch: "develop"))
-
-                let dep2Pin = try workspace.pinsStore.load().pinsMap["dep2"]!
-                XCTAssertEqual(dep2Pin.state, CheckoutState(revision: dep2Revision))
-            }
-
-            // Add a commit in the branch and check if update fetches it.
-            try localFileSystem.writeFileContents(dep1File, bytes: "// update")
-            try repo1.stageEverything()
-            try repo1.commit()
-
-            // Reset workspace.
-            let diagnostics = DiagnosticsEngine()
-            getWorkspace().reset(with: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            // Loading package graph shouldn't update the branches because of pin.
-            do {
-                let workspace = getWorkspace()
-                let diagnostics = DiagnosticsEngine()
-                workspace.loadPackageGraph(rootPackages: [root], diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
-
-                let dependency = workspace.managedDependencies[forIdentity: dep1.basename]!
-                XCTAssertEqual(dependency.checkoutState, CheckoutState(revision: dep1Revision, branch: "develop"))
-                XCTAssertEqual(dep1Revision,
-                    try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
-            }
-
-            // Do an update and check if branch is updated.
-            do {
-                let workspace = getWorkspace()
-                let diagnostics = DiagnosticsEngine()
-                workspace.updateDependencies(rootPackages: [root], diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
-                let dependency = workspace.managedDependencies[forIdentity: dep1.basename]!
-                let revision = try repo1.getCurrentRevision()
-                XCTAssertEqual(dependency.checkoutState, CheckoutState(revision: revision, branch: "develop"))
-                XCTAssertEqual(revision,
-                    try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
-            }
-        }
-    }
-
-    func testMultipleRootPackages() throws {
-        mktmpdir { path in
-            var repos = [String: AbsolutePath]()
-            var manifests = try Dictionary(items: ["A", "B", "C", "D"].map { pkg -> (MockManifestLoader.Key, Manifest) in
-                let repoPath = path.appending(component: pkg)
-                repos[pkg] = repoPath
-                try makeDirectories(repoPath)
-                initGitRepo(repoPath, tag: v1.description)
-
-                let manifest = Manifest(
-                    path: repoPath.appending(component: Manifest.filename),
-                    url: repoPath.asString,
-                    package: .v3(PackageDescription.Package(
-                        name: pkg,
-                        dependencies: [])),
-                    version: v1)
-                return (MockManifestLoader.Key(url: repoPath.asString, version: v1), manifest)
-            })
-
-            // Add a 1.5 version for A.
-            do {
-                let aPath = repos["A"]!
-                let repo = GitRepository(path: aPath)
-                try repo.tag(name: "1.5.0")
-                let aManifest = Manifest(
-                    path: aPath.appending(component: Manifest.filename),
-                    url: aPath.asString,
-                    package: .v3(PackageDescription.Package(name: "A", dependencies: [])),
-                    version: "1.5.0")
-                manifests[MockManifestLoader.Key(url: aPath.asString, version: "1.5.0")] = aManifest
-            }
-
-            let roots = (1...3).map { path.appending(component: "root\($0)") }
-
-            var deps: [AbsolutePath: [PackageDescription.Package.Dependency]] = [:]
-            deps[roots[0]] = [
-                .Package(url: repos["A"]!.asString, versions: "1.0.0"..<"2.0.0"),
-                .Package(url: repos["B"]!.asString, versions: "1.0.0"..<"2.0.0"),
-            ]
-            deps[roots[1]] = [
-                .Package(url: repos["C"]!.asString, versions: "1.0.0"..<"2.0.0"),
-            ]
-            deps[roots[2]] = [
-                .Package(url: repos["A"]!.asString, versions: "1.0.0"..<"1.5.0"),
-                .Package(url: repos["D"]!.asString, versions: "1.0.0"..<"2.0.0"),
-            ]
-
-            for root in roots {
-                try makeDirectories(root)
-                try Process.checkNonZeroExit(
-                    args: "touch", root.appending(component: "foo.swift").asString)
-                let rootManifest = Manifest(
-                    path: root.appending(component: Manifest.filename),
-                    url: root.asString,
-                    package: .v3(PackageDescription.Package(
-                        name: root.basename,
-                        dependencies: deps[root]!)),
-                    version: nil
-                )
-                manifests[MockManifestLoader.Key(url: root.asString, version: nil)] = rootManifest
-            }
-
-            // We have mocked a graph with multiple root packages, now continue with workspace testing.
-
-            func createWorkspace() throws -> Workspace {
-                let buildPath = path.appending(components: "build")
-                return Workspace(
-                    dataPath: buildPath,
-                    editablesPath: buildPath.appending(component: "Packages"),
-                    pinsFile: path.appending(component: "Package.resolved"),
-                    manifestLoader: MockManifestLoader(manifests: manifests),
-                    delegate: TestWorkspaceDelegate()
-                )
-            }
-
-            do {
-                let workspace = try createWorkspace()
-                // Load first two packages.
-                let diagnostics = DiagnosticsEngine()
-                let graph = workspace.loadPackageGraph(rootPackages: Array(roots[0..<2]), diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
-                XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "B", "C", "root1", "root2"])
-                XCTAssertEqual(graph.rootPackages.map{ $0.name }.sorted(), ["root1", "root2"])
-                XCTAssertEqual(graph.lookup("A").version, "1.5.0")
-            }
-
-            // FIXME: We shouldn't need to reset workspace here, but we have to because we introduce
-            // incompatible constraints via root package 3. This happens because when we add new dependencies and resolve in workspace
-            // we constraint old manifests to previously resolved versions.
-            do {
-                let workspace = try createWorkspace()
-                let diagnostics = DiagnosticsEngine()
-                workspace.reset(with: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
-
-                try workspace.resetPinsStore()
-            }
-
-            do {
-                let workspace = try createWorkspace()
-                // Load all packages.
-                let diagnostics = DiagnosticsEngine()
-                let graph = workspace.loadPackageGraph(rootPackages: roots, diagnostics: diagnostics)
-                XCTAssertNoDiagnostics(diagnostics)
-                XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "B", "C", "D", "root1", "root2", "root3"])
-                XCTAssertEqual(graph.rootPackages.map{ $0.name }.sorted(), ["root1", "root2", "root3"])
-                XCTAssertEqual(graph.lookup("A").version, v1)
-
-                // FIXME: We need to reset because we apply constraints for current checkouts (see the above note).
-                workspace.reset(with: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
-                try workspace.resetPinsStore()
-
-                // Remove one of the packages.
-                let newGraph = workspace.loadPackageGraph(rootPackages: Array(roots[0..<2]), diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
-                XCTAssertEqual(newGraph.packages.map{ $0.name }.sorted(), ["A", "B", "C", "root1", "root2"])
-                XCTAssertEqual(newGraph.rootPackages.map{ $0.name }.sorted(), ["root1", "root2"])
-                XCTAssertEqual(newGraph.lookup("A").version, "1.5.0")
-            }
-        }
-    }
-
-    func testWarnings() throws {
-        mktmpdir { path in
-            let manifestGraph = try MockManifestGraph(at: path,
-                rootDeps: [
-                    MockDependency("A", version: v1),
-                ],
-                packages: [
-                    MockPackage("A", version: v1),
-                    MockPackage("A", version: nil),
-                ]
-            )
-
-            let delegate = TestWorkspaceDelegate()
-            let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
-            let diagnostics = DiagnosticsEngine()
-            workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            // Put A in edit mode.
-            workspace.edit(
-                packageName: "A",
-                diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            // We should retain the original pin for a package which is in edit mode.
-            XCTAssertEqual(try workspace.pinsStore.load().pinsMap["a"]?.state.version, v1)
-
-            // Remove edited checkout.
-            try removeFileTree(workspace.editablesPath)
-            workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssertTrue(diagnostics.diagnostics.contains(where: {
-                $0.behavior == .warning &&
-                $0.localizedDescription == "dependency 'a' was being edited but is missing; falling back to original checkout"
-            }))
-        }
-    }
-
-    func testDependencyResolutionWithEdit() throws {
-        mktmpdir { path in
-            let manifestGraph = try MockManifestGraph(at: path,
-                rootDeps: [
-                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-                    MockDependency("B", version: v1),
-                ],
-                packages: [
-                    MockPackage("A", version: v1),
-                    MockPackage("A", version: "1.0.1"),
-                    MockPackage("B", version: v1),
-                    MockPackage("B", version: nil),
-                ]
-            )
-
-            let delegate = TestWorkspaceDelegate()
-            func createWorkspace() -> Workspace {
-                return  Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
-            }
-
-            do {
-                let workspace = createWorkspace()
-                let diagnostics = DiagnosticsEngine()
-                workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
-                let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-                let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
-
-                workspace.edit(
-                    packageName: "B",
-                    diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
-
-                XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, v1)
-                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["a"]?.state.version, v1)
-                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["b"]?.state.version, v1)
-
-                // Create update.
-                let repoPath = AbsolutePath(manifestGraph.repo("A").url)
-                try localFileSystem.writeFileContents(repoPath.appending(component: "update.swift"), bytes: "")
-                let testRepo = GitRepository(path: repoPath)
-                try testRepo.stageEverything()
-                try testRepo.commit(message: "update")
-                try testRepo.tag(name: "1.0.1")
-            }
-
-            // Update and check states.
-            do {
-                let workspace = createWorkspace()
-                let diagnostics = DiagnosticsEngine()
-                workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics)
-                XCTAssertNoDiagnostics(diagnostics)
-                let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-                let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-                XCTAssertNoDiagnostics(diagnostics)
-                XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, "1.0.1")
-                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["a"]?.state.version, "1.0.1")
-                XCTAssertTrue(manifests.lookup(package: "B")!.dependency.state == .edited(nil))
-                // We should not have a pin for B anymore.
-                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["b"]?.state.version, nil)
-            }
-        }
-    }
-
-    func testToolsVersionRootPackages() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/root0/foo.swift",
-            "/root1/foo.swift")
-
-        let roots: [AbsolutePath] = ["/root0", "/root1"].map(AbsolutePath.init)
-
-        func swiftVersion(for root: AbsolutePath) -> AbsolutePath {
-            return root.appending(component: "Package.swift")
-        }
-
-        for root in roots {
-            try fs.writeFileContents(swiftVersion(for: root), bytes: "")
-        }
-
-        var manifests: [MockManifestLoader.Key: Manifest] = [:]
-        for root in roots {
-            let rootManifest = Manifest(
-                path: root.appending(component: Manifest.filename),
-                url: root.asString,
-                package: .v3(.init(name: root.asString)),
-                version: nil
-            )
-            manifests[MockManifestLoader.Key(url: root.asString, version: nil)] = rootManifest
-        }
-        let manifestLoader = MockManifestLoader(manifests: manifests)
-
-        func createWorkspace(_ toolsVersion: ToolsVersion) throws -> Workspace {
-            return Workspace(
-                dataPath: AbsolutePath.root.appending(component: ".build"),
-                editablesPath: AbsolutePath.root.appending(component: "Packages"),
-                pinsFile: AbsolutePath.root.appending(component: "Package.resolved"),
-                manifestLoader: manifestLoader,
-                currentToolsVersion: toolsVersion,
-                delegate: TestWorkspaceDelegate(),
-                fileSystem: fs)
-        }
-
-        // We should be able to load when no there is no swift-tools-version defined.
-        do {
-            let workspace = try createWorkspace(ToolsVersion(version: "3.1.0"))
-            let diagnostics = DiagnosticsEngine()
-            workspace.loadPackageGraph(rootPackages: roots, diagnostics: diagnostics)
-            XCTAssertNoDiagnostics(diagnostics)
-        }
-
-        // Limit root0 to 3.1.0
-        try fs.writeFileContents(swiftVersion(for: roots[0]), bytes: "// swift-tools-version:3.1")
-
-        // Test one root package having swift-version.
-        do {
-            let workspace = try createWorkspace(ToolsVersion(version: "4.0.0"))
-            let diagnostics = DiagnosticsEngine()
-            workspace.loadPackageGraph(rootPackages: roots, diagnostics: diagnostics)
-            XCTAssertNoDiagnostics(diagnostics)
-        }
-
-        // Limit root1 to 4.0.0
-        try fs.writeFileContents(swiftVersion(for: roots[1]), bytes: "// swift-tools-version:4.0.0")
-
-        // Test both having swift-version but different.
-        do {
-            let workspace = try createWorkspace(ToolsVersion(version: "4.0.0"))
-            let diagnostics = DiagnosticsEngine()
-            workspace.loadPackageGraph(rootPackages: roots, diagnostics: diagnostics)
-            XCTAssertNoDiagnostics(diagnostics)
-        }
-
-        // Failing case.
-        do {
-            let workspace = try createWorkspace(ToolsVersion(version: "3.1.0"))
-            let diagnostics = DiagnosticsEngine()
-            workspace.loadPackageGraph(rootPackages: roots, diagnostics: diagnostics)
-            let errorDesc = diagnostics.diagnostics[0].localizedDescription
-            XCTAssertEqual(errorDesc, "package at '/root1' requires a minimum Swift tools version of 4.0.0 (currently 3.1.0)")
-        }
-    }
-
-    func testLoadingRootManifests() {
-        mktmpdir{ path in
-            let roots: [AbsolutePath] = ["root0", "root1", "root2"].map(path.appending(component:))
-            for root in roots {
-                try localFileSystem.createDirectory(root)
-            }
-
-            try localFileSystem.writeFileContents(roots[2].appending(components: Manifest.filename)) { stream in
-                stream <<< """
-                    import PackageDescription
-                    let package = Package(name: "root0")
-                    """
-            }
-
-            let workspace = Workspace.createWith(rootPackage: roots[0])
-
-            let diagnostics = DiagnosticsEngine()
-            let manifests = workspace.loadRootManifests(packages: roots, diagnostics: diagnostics)
-
-            XCTAssertEqual(manifests.count, 1)
-            XCTAssertEqual(diagnostics.diagnostics.count, 2)
-        }
-    }
-
-    func testTOTPackageEdit() throws {
-        mktmpdir { path in
-            let manifestGraph = try MockManifestGraph(at: path,
-                rootDeps: [
-                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-                ],
-                packages: [
-                    MockPackage("A", version: v1),
-                    MockPackage("A", version: nil),
-                ]
-            )
-            let root = PackageGraphRootInput(packages: [path])
-            // Create the workspace.
-            let workspace = Workspace.createWith(
-                rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
-
-            func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return workspace.managedDependencies[forIdentity: manifest.name.lowercased()]!
-            }
-
-            // Load the package graph.
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssertEqual(graph.packages.count, 2)
-
-            let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            let aManifest = manifests.lookup(manifest: "A")!
-
-            let dependency = getDependency(aManifest)
-
-            // Edit it at ToT path.
-            let tot = path.appending(component: "tot")
-            workspace.edit(
-                packageName: aManifest.name,
-                path: tot,
-                diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            let editedDependency = getDependency(aManifest)
-
-            switch editedDependency.state {
-            case .edited(let path):
-                XCTAssertEqual(path, tot)
-            default: return XCTFail()
-            }
-
-            // Check the based on data.
-            XCTAssertEqual(editedDependency.basedOn?.subpath, dependency.subpath)
-            XCTAssertEqual(editedDependency.basedOn?.checkoutState, dependency.checkoutState)
-
-            // Get the repo from edits path.
-            let editRepo = GitRepository(path: tot)
-            // Ensure that the editable checkout's remote points to the original repo path.
-            XCTAssertEqual(try editRepo.remotes()[0].url, manifestGraph.repo("A").url)
-
-            // Check revision and head.
-            XCTAssertEqual(try editRepo.getCurrentRevision(), dependency.checkoutState?.revision)
-            XCTAssertEqual(try editRepo.currentBranch(), "HEAD")
-
-            // We should be able to unedit the dependency.
-            try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
-            XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(getDependency(aManifest).state.isCheckout)
-            XCTAssertTrue(exists(tot))
-            XCTAssertFalse(exists(workspace.editablesPath))
-        }
-    }
-
-    func testDeletedCheckoutDirectory() throws {
-        fixture(name: "DependencyResolution/External/Simple") { path in
-            let barRoot = path.appending(component: "Bar")
-
-            let diagnostics = DiagnosticsEngine()
-            let delegate = TestWorkspaceDelegate()
-            let workspace = Workspace.createWith(rootPackage: barRoot, delegate: delegate)
-
-            workspace.loadPackageGraph(rootPackages: [barRoot], diagnostics: diagnostics)
-
-            try localFileSystem.chmod(.userWritable, path: workspace.checkoutsPath, options: [.recursive])
-            try removeFileTree(workspace.checkoutsPath)
-
-            workspace.loadPackageGraph(rootPackages: [barRoot], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssertTrue(diagnostics.diagnostics.contains(where: {
-                $0.behavior == .warning &&
-                $0.localizedDescription == "dependency 'foo' is missing; cloning again"
-            }))
-            XCTAssertTrue(isDirectory(workspace.checkoutsPath))
-        }
-    }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testBranchAndRevision", testBranchAndRevision),
-        ("testEditDependency", testEditDependency),
-        ("testEditDependencyOnNewBranch", testEditDependencyOnNewBranch),
-        ("testEditAndPinning", testEditAndPinning),
-        ("testDependencyManifestLoading", testDependencyManifestLoading),
-        ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
-        ("testPackageGraphLoadingBasicsInMem", testPackageGraphLoadingBasicsInMem),
-        ("testPackageGraphLoadingWithCloning", testPackageGraphLoadingWithCloning),
-        ("testPinning", testPinning),
-        ("testPinFailure", testPinFailure),
-        ("testPinAllFailure", testPinAllFailure),
-        ("testUpdate", testUpdate),
-        ("testUneditDependency", testUneditDependency),
-        ("testCleanAndReset", testCleanAndReset),
-        ("testMultipleRootPackages", testMultipleRootPackages),
-        ("testWarnings", testWarnings),
-        ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
-        ("testToolsVersionRootPackages", testToolsVersionRootPackages),
-        ("testTOTPackageEdit", testTOTPackageEdit),
-        ("testLoadingRootManifests", testLoadingRootManifests),
-        ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory),
-        ("testSymlinkedDependency", testSymlinkedDependency),
-        ("testCanUneditRemovedDependencies", testCanUneditRemovedDependencies)
-    ]
 }
 
 extension PackageGraph {

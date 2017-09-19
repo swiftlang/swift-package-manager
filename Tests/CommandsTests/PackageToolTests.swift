@@ -435,6 +435,56 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testSymlinkedDependency() {
+        mktmpdir { path in
+            var fs = localFileSystem
+            let root = path.appending(components: "root")
+            let dep = path.appending(components: "dep")
+            let depSym = path.appending(components: "depSym")
+
+            // Create root package.
+            try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
+            try fs.writeFileContents(root.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:4.0
+                import PackageDescription
+                let package = Package(
+                name: "root",
+                dependencies: [.package(url: "../depSym", from: "1.0.0")],
+                targets: [.target(name: "root", dependencies: ["dep"])]
+                )
+
+                """
+            }
+
+            // Create dependency.
+            try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
+            try fs.writeFileContents(dep.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:4.0
+                import PackageDescription
+                let package = Package(
+                name: "dep",
+                products: [.library(name: "dep", targets: ["dep"])],
+                targets: [.target(name: "dep")]
+                )
+                """
+            }
+            do {
+                let depGit = GitRepository(path: dep)
+                try depGit.create()
+                try depGit.stageEverything()
+                try depGit.commit()
+                try depGit.tag(name: "1.0.0")
+            }
+
+            // Create symlink to the dependency.
+            try createSymlink(depSym, pointingAt: dep)
+
+            _ = try execute(["resolve"], packagePath: root)
+        }
+    }
+
     static var allTests = [
         ("testDescribe", testDescribe),
         ("testUsage", testUsage),
@@ -452,5 +502,6 @@ final class PackageToolTests: XCTestCase {
         ("testPackageReset", testPackageReset),
         ("testPinning", testPinning),
         ("testPinningBranchAndRevision", testPinningBranchAndRevision),
+        ("testSymlinkedDependency", testSymlinkedDependency),
     ]
 }
