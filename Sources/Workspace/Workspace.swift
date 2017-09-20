@@ -683,10 +683,12 @@ extension Workspace {
         if let path = path {
             try fileSystem.createDirectory(editablesPath)
             // FIXME: We need this to work with InMem file system too.
-            try createSymlink(
-                editablesPath.appending(component: packageName),
-                pointingAt: path,
-                relative: false)
+            if !(fileSystem is InMemoryFileSystem) {
+                try createSymlink(
+                    editablesPath.appending(component: packageName),
+                    pointingAt: path,
+                    relative: false)
+            }
         }
 
         // Save the new state.
