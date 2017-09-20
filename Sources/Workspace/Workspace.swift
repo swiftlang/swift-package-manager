@@ -1266,14 +1266,13 @@ extension Workspace {
         for (specifier, state) in packageStateChanges {
             diagnostics.wrap {
                 switch state {
-                    case .added(let requirement):
-                        _ = try clone(specifier: specifier, requirement: requirement)
-                    case .updated(let requirement):
-                        _ = try clone(specifier: specifier, requirement: requirement)
-                    case .removed:
-                        try remove(specifier: specifier)
-                    case .unchanged:
-                        break
+                case .added(let requirement):
+                    _ = try clone(specifier: specifier, requirement: requirement)
+                case .updated(let requirement):
+                    _ = try clone(specifier: specifier, requirement: requirement)
+                case .removed:
+                    try remove(specifier: specifier)
+                case .unchanged: break
                 }
             }
         }
