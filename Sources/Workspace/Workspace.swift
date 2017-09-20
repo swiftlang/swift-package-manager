@@ -41,7 +41,7 @@ public protocol WorkspaceDelegate: class {
     /// The workspace has finished updating this repository.
     func repositoryDidUpdate(_ repository: String)
 
-    /// This repository remained unchanged.
+    /// These repositories remained unchanged.
     func repositoriesRemainedUnchanged(_ repositories: [String])
 
     /// The workspace has started cloning this repository.
