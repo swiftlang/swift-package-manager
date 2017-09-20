@@ -831,6 +831,13 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.5.0")))
         }
         XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Bar")])
+        
+        // Run update again.
+        // Ensure that up-to-date delegate is called when there is nothing to update.
+        workspace.checkUpdate(roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        XCTAssertMatch(workspace.delegate.events, [.equal("Everything is already up-to-date")])
     }
 
     func testCleanAndReset() throws {
@@ -1590,6 +1597,10 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
         events.append("updating repo: \(repository)")
     }
 
+    func dependenciesUpToDate() {
+        events.append("Everything is already up-to-date")
+    }
+    
     func fetchingWillBegin(repository: String) {
         events.append("fetching repo: \(repository)")
     }
