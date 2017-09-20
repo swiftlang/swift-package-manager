@@ -151,6 +151,12 @@ public struct Destination {
 
     /// Target triple for the host system.
     private static let hostTargetTriple = "x86_64-apple-macosx10.10"
+  #elseif arch(s390x)
+    /// Returns the host's dynamic library extension.
+    public static let hostDynamicLibraryExtension = "so"
+
+    /// Target triple for the host system.
+    private static let hostTargetTriple = "s390x-unknown-linux"
   #else
     /// Returns the host's dynamic library extension.
     public static let hostDynamicLibraryExtension = "so"
