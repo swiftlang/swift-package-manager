@@ -1079,7 +1079,8 @@ extension Workspace {
                 switch (lhs, rhs) {
                 case (.version(let a), .version(let b)): return a == b
                 case (.revision(let a), .revision(let b)): return (a.0 == b.0) && (a.1 == b.1)
-                default: return false
+                case (.version(_), _): return false
+                case (.revision(_), _): return false
                 }
             }
         }
@@ -1102,7 +1103,10 @@ extension Workspace {
             case (.removed, .removed): return true
             case (.unchanged, .unchanged): return true
             case (.updated(let a), .updated(let b)): return a == b
-            default: return false
+            case (.added(_), _): return false
+            case (.removed(_), _): return false
+            case (.unchanged(_), _): return false
+            case (.updated(_), _): return false
             }
         }
     }
@@ -1295,6 +1299,7 @@ extension Workspace {
             }
         }
         
+        // Inform the delegate if nothing was updated.
         if packageStateChanges.filter({ $0.value == .unchanged }).count == packageStateChanges.count {
             delegate.dependenciesUpToDate()
         }
