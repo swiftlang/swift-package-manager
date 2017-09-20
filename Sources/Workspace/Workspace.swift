@@ -41,8 +41,8 @@ public protocol WorkspaceDelegate: class {
     /// The workspace has finished updating this repository.
     func repositoryDidUpdate(_ repository: String)
 
-    /// These repositories remained unchanged.
-    func repositoriesRemainedUnchanged(_ repositories: [String])
+    /// The workspace has finished updating and all the dependencies are already up-to-date.
+    func dependenciesUpToDate()
 
     /// The workspace has started cloning this repository.
     func cloning(repository: String)
@@ -61,7 +61,7 @@ public extension WorkspaceDelegate {
     func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {}
     func repositoryWillUpdate(_ repository: String) {}
     func repositoryDidUpdate(_ repository: String) {}
-    func repositoriesRemainedUnchanged(_ repositories: [String]) {} 
+    func dependenciesUpToDate() {}
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -1281,9 +1281,8 @@ extension Workspace {
         // Get the count of `.unchanged` package state changes.
         let unchangedCount = packageStateChanges.filter({ if case .unchanged = $0.value { return true }; return false }).count
         
-        if unchangedCount == packageStateChanges.count
-        {
-            delegate.repositoriesRemainedUnchanged(packageStateChanges.keys.map({ $0.url }))
+        if unchangedCount == packageStateChanges.count {
+            delegate.dependenciesUpToDate()
         }
     }
 

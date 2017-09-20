@@ -78,7 +78,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func repositoryDidUpdate(_ repository: String) {
     }
     
-    func repositoriesRemainedUnchanged(_ repositories: [String]) {
+    func dependenciesUpToDate() {
         print("Everything is already up-to-date")
     }
 
