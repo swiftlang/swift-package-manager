@@ -42,7 +42,7 @@ public protocol WorkspaceDelegate: class {
     func repositoryDidUpdate(_ repository: String)
 
     /// This repository remained unchanged.
-    func repositoryRemainedUnchanged(_ repository: String)
+    func repositoriesRemainedUnchanged(_ repositories: [String])
 
     /// The workspace has started cloning this repository.
     func cloning(repository: String)
@@ -61,7 +61,7 @@ public extension WorkspaceDelegate {
     func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {}
     func repositoryWillUpdate(_ repository: String) {}
     func repositoryDidUpdate(_ repository: String) {}
-    func repositoryRemainedUnchanged(_ repository: String) {} 
+    func repositoriesRemainedUnchanged(_ repositories: [String]) {} 
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -1266,16 +1266,24 @@ extension Workspace {
         for (specifier, state) in packageStateChanges {
             diagnostics.wrap {
                 switch state {
-                case .added(let requirement):
-                    _ = try clone(specifier: specifier, requirement: requirement)
-                case .updated(let requirement):
-                    _ = try clone(specifier: specifier, requirement: requirement)
-                case .removed:
-                    try remove(specifier: specifier)
-                case .unchanged: 
-                    delegate.repositoryRemainedUnchanged(specifier.url)
+                    case .added(let requirement):
+                        _ = try clone(specifier: specifier, requirement: requirement)
+                    case .updated(let requirement):
+                        _ = try clone(specifier: specifier, requirement: requirement)
+                    case .removed:
+                        try remove(specifier: specifier)
+                    case .unchanged:
+                        break
                 }
             }
+        }
+        
+        // Get the count of `.unchanged` package state changes.
+        let unchangedCount = packageStateChanges.filter({ if case .unchanged = $0.value { return true }; return false }).count
+        
+        if unchangedCount == packageStateChanges.count
+        {
+            delegate.repositoriesRemainedUnchanged(packageStateChanges.keys.map({ $0.url }))
         }
     }
 

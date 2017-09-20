@@ -238,7 +238,7 @@ public class RepositoryManager {
                         if skipUpdate {
                             return handle
                         }
-                        
+
                         self.callbacksQueue.async {
                             self.delegate.handleWillUpdate(handle: handle)
                         }
