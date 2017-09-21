@@ -46,26 +46,6 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testPackageWithNoSourcesButDependency() throws {
-        // Tests a package with no source files but a dependency.
-        fixture(name: "Miscellaneous/ExactDependencies") { prefix in
-            let output = try executeSwiftBuild(prefix.appending(component: "EmptyWithDependency"))
-            let expected = "warning: target 'EmptyWithDependency' in package 'EmptyWithDependency' contains no valid source files"
-            XCTAssert(output.contains(expected), "unexpected output: \(output)")
-            // We should only build the modules that are needed to be built. If
-            // we have a dependency package but no way to reach some module in
-            // that package, we shouldn't waste time building that.
-            XCTAssertFalse(isFile(prefix.appending(components: "EmptyWithDependency", ".build", "debug", "FooLib2.swiftmodule")))
-        }
-    }
-
-    func testPackageWithEmptyDependency() throws {
-        // Tests a package with an empty dependency fails (we only allow it in the root package).
-        fixture(name: "Miscellaneous/ExactDependencies") { prefix in
-            XCTAssertBuildFails(prefix.appending(component: "HasEmptyDependency"))
-        }
-    }
-
     func testPassExactDependenciesToBuildCommand() {
 
         // regression test to ensure that dependencies of other dependencies
@@ -379,8 +359,6 @@ class MiscellaneousTestCase: XCTestCase {
     static var allTests = [
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
         ("testPackageWithNoSources", testPackageWithNoSources),
-        ("testPackageWithNoSourcesButDependency", testPackageWithNoSourcesButDependency),
-        ("testPackageWithEmptyDependency", testPackageWithEmptyDependency),
         ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
         ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
         ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),

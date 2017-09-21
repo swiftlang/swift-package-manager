@@ -136,11 +136,46 @@ class PackageGraphTests: XCTestCase {
         XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple targets named 'Bar'")
     }
 
+    func testEmptyDependency() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/source.txt"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadMockPackageGraph4([
+            "/Bar": Package(
+                name: "Bar",
+                products: [
+                    .library(name: "Bar", targets: ["Bar"]),
+                ],
+                targets: [
+                    .target(name: "Bar"),
+                ]),
+            "/Foo": .init(
+                name: "Foo",
+                dependencies: [
+                    .package(url: "/Bar", from: "1.0.0"),
+                ],
+                targets: [
+                    .target(name: "Foo", dependencies: ["Bar"]),
+                ]),
+            ], root: "/Foo", diagnostics: diagnostics, in: fs)
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "target 'Bar' in package 'Bar' contains no valid source files", behavior: .warning)
+            result.check(diagnostic: "target 'Bar' referenced in product 'Bar' could not be found", behavior: .error, location: "Package: Bar /Bar")
+            result.check(diagnostic: "product dependency 'Bar' not found", behavior: .error, location: "Package: Foo /Foo")
+
+        }
+    }
+
     static var allTests = [
         ("testBasic", testBasic),
         ("testDuplicateModules", testDuplicateModules),
         ("testCycle", testCycle),
         ("testProductDependencies", testProductDependencies),
         ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
+        ("testEmptyDependency", testEmptyDependency),
     ]
 }
