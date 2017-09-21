@@ -1,4 +1,0 @@
-module SeaLover {
-  header "Sea.h"
-  export *
-}

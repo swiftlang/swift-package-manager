@@ -209,7 +209,7 @@ public final class ClangTargetDescription {
     /// This function either returns path to user provided modulemap or tries to automatically generates it.
     private func computeModulemapPath() throws -> AbsolutePath {
         // If user provided the modulemap, we're done.
-        if localFileSystem.isFile(clangTarget.moduleMapPath) {
+        if fileSystem.isFile(clangTarget.moduleMapPath) {
             return clangTarget.moduleMapPath
         } else {
             // Otherwise try to generate one.
