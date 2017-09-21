@@ -272,13 +272,6 @@ class MiscellaneousTestCase: XCTestCase {
         #endif
     }
 
-    func testExecutableAsBuildOrderDependency() throws {
-        // Test that we can build packages which have modules depending on executable modules.
-        fixture(name: "Miscellaneous/ExecDependency") { prefix in
-            XCTAssertBuilds(prefix)
-        }
-    }
-
     func testOverridingSwiftcArguments() throws {
 #if os(macOS)
         fixture(name: "Miscellaneous/OverrideSwiftcArgs") { prefix in
@@ -396,7 +389,6 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     static var allTests = [
-        ("testExecutableAsBuildOrderDependency", testExecutableAsBuildOrderDependency),
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
         ("testPackageWithNoSources", testPackageWithNoSources),
         ("testPackageWithNoSourcesButDependency", testPackageWithNoSourcesButDependency),
