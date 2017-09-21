@@ -134,38 +134,6 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    // if HEAD of the default branch has no Package.swift it is still
-    // valid provided the selected version tag has a Package.swift
-    func testTipHasNoPackageSwift() {
-        fixture(name: "DependencyResolution/External/Complex") { prefix in
-            let path = prefix.appending(component: "FisherYates")
-
-            // required for some Linux configurations
-            try systemQuietly(Git.tool, "-C", path.asString, "config", "user.email", "example@example.com")
-            try systemQuietly(Git.tool, "-C", path.asString, "config", "user.name", "Example Example")
-
-            try systemQuietly(Git.tool, "-C", path.asString, "rm", "Package.swift")
-            try systemQuietly(Git.tool, "-C", path.asString, "commit", "-mwip")
-
-            XCTAssertBuilds(prefix.appending(component: "app"))
-        }
-    }
-
-    // if a tag does not have a valid Package.swift, the build fails
-    func testFailsIfVersionTagHasNoPackageSwift() {
-        fixture(name: "DependencyResolution/External/Complex") { prefix in
-            let path = prefix.appending(component: "FisherYates")
-
-            try systemQuietly(Git.tool, "-C", path.asString, "config", "user.email", "example@example.com")
-            try systemQuietly(Git.tool, "-C", path.asString, "config", "user.name", "Example McExample")
-            try systemQuietly(Git.tool, "-C", path.asString, "rm", "Package.swift")
-            try systemQuietly(Git.tool, "-C", path.asString, "commit", "--message", "wip")
-            try systemQuietly(Git.tool, "-C", path.asString, "tag", "--force", "1.2.3")
-
-            XCTAssertBuildFails(prefix.appending(component: "app"))
-        }
-    }
-
     func testPackageManagerDefine() {
         fixture(name: "Miscellaneous/-DSWIFT_PACKAGE") { prefix in
             XCTAssertBuilds(prefix)
@@ -437,8 +405,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
         ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
         ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
-        ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
-        ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
         ("testPackageManagerDefine", testPackageManagerDefine),
         ("testInternalDependencyEdges", testInternalDependencyEdges),
         ("testExternalDependencyEdges1", testExternalDependencyEdges1),
