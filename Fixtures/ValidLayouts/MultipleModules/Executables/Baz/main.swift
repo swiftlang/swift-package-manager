@@ -1,1 +1,0 @@
-print(Baz().value)

@@ -114,9 +114,10 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testPackageManagerDefine() {
+    func testPackageManagerDefineAndXArgs() {
         fixture(name: "Miscellaneous/-DSWIFT_PACKAGE") { prefix in
-            XCTAssertBuilds(prefix)
+            XCTAssertBuildFails(prefix)
+            XCTAssertBuilds(prefix, Xcc: ["-DEXTRA_C_DEFINE=2"], Xswiftc: ["-DEXTRA_SWIFTC_DEFINE"])
         }
     }
 
@@ -363,7 +364,7 @@ class MiscellaneousTestCase: XCTestCase {
         ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
         ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
         ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
-        ("testPackageManagerDefine", testPackageManagerDefine),
+        ("testPackageManagerDefineAndXArgs", testPackageManagerDefineAndXArgs),
         ("testInternalDependencyEdges", testInternalDependencyEdges),
         ("testExternalDependencyEdges1", testExternalDependencyEdges1),
         ("testExternalDependencyEdges2", testExternalDependencyEdges2),
