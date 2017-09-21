@@ -31,54 +31,7 @@ private func XCTAssertDirectoryContainsFile(dir: AbsolutePath, filename: String,
 }
 
 class ClangModulesTestCase: XCTestCase {
-    func testSingleModuleFlatCLibrary() {
-        fixture(name: "ClangModules/CLibraryFlat") { prefix in
-            XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
-        }
-    }
-    
-    func testSingleModuleCLibraryInSources() {
-        fixture(name: "ClangModules/CLibrarySources") { prefix in
-            XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
-        }
-    }
-    
-    func testMixedSwiftAndC() {
-        fixture(name: "ClangModules/SwiftCMixed") { prefix in
-            XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
-            XCTAssertFileExists(debugPath.appending(component: "SeaExec"))
-            var output = try Process.checkNonZeroExit(args: debugPath.appending(component: "SeaExec").asString)
-            XCTAssertEqual(output, "a = 5\n")
-            output = try Process.checkNonZeroExit(args: debugPath.appending(component: "CExec").asString)
-            XCTAssertEqual(output, "5")
-        }
 
-        // This has legacy style headers and the swift target imports clang target.
-        // This also has a user provided modulemap i.e. package manager will not generate it.
-        fixture(name: "ClangModules/SwiftCMixed2") { prefix in
-            XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
-            let output = try Process.checkNonZeroExit(args: debugPath.appending(component: "SeaExec").asString)
-            XCTAssertEqual(output, "a = 5\n")
-        }
-    }
-    
-    func testExternalSimpleCDep() {
-        fixture(name: "DependencyResolution/External/SimpleCDep") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
-            XCTAssertBuilds(packageRoot)
-            let debugPath = prefix.appending(components: "Bar", ".build", Destination.host.target, "debug")
-            XCTAssertFileExists(debugPath.appending(component: "Bar"))
-            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
-        }
-    }
-    
     func testiquoteDep() {
         fixture(name: "ClangModules/CLibraryiquote") { prefix in
             XCTAssertBuilds(prefix)
@@ -88,31 +41,8 @@ class ClangModulesTestCase: XCTestCase {
         }
     }
     
-    func testCUsingCDep() {
+    func testCUsingCAndSwiftDep() {
         fixture(name: "DependencyResolution/External/CUsingCDep") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
-            XCTAssertBuilds(packageRoot)
-            let debugPath = prefix.appending(components: "Bar", ".build", Destination.host.target, "debug")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Sea.c.o")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
-            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
-        }
-    }
-    
-    func testCExecutable() {
-        fixture(name: "ValidLayouts/SingleModule/CExecutable") { prefix in
-            XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
-            XCTAssertFileExists(debugPath.appending(component: "CExecutable"))
-            let output = try Process.checkNonZeroExit(args: debugPath.appending(component: "CExecutable").asString)
-            XCTAssertEqual(output, "hello 5")
-        }
-    }
-    
-    func testCUsingCDep2() {
-        //The C dependency "Foo" has different layout
-        fixture(name: "DependencyResolution/External/CUsingCDep2") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             XCTAssertBuilds(packageRoot)
             let debugPath = prefix.appending(components: "Bar", ".build", Destination.host.target, "debug")
@@ -156,14 +86,8 @@ class ClangModulesTestCase: XCTestCase {
     }
 
     static var allTests = [
-        ("testSingleModuleFlatCLibrary", testSingleModuleFlatCLibrary),
-        ("testSingleModuleCLibraryInSources", testSingleModuleCLibraryInSources),
-        ("testMixedSwiftAndC", testMixedSwiftAndC),
-        ("testExternalSimpleCDep", testExternalSimpleCDep),
         ("testiquoteDep", testiquoteDep),
-        ("testCUsingCDep", testCUsingCDep),
-        ("testCUsingCDep2", testCUsingCDep2),
-        ("testCExecutable", testCExecutable),
+        ("testCUsingCAndSwiftDep", testCUsingCAndSwiftDep),
         ("testModuleMapGenerationCases", testModuleMapGenerationCases),
         ("testCanForwardExtraFlagsToClang", testCanForwardExtraFlagsToClang),
         ("testObjectiveCPackageWithTestTarget", testObjectiveCPackageWithTestTarget),

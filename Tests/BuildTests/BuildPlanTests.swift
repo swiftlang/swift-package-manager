@@ -528,7 +528,7 @@ final class BuildPlanTests: XCTestCase {
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
-            graph: graph)
+            graph: graph, fileSystem: fs)
         )
 
         result.checkProductsCount(2)
@@ -554,6 +554,65 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), linkArguments)
     }
 
+    func testClangTargets() throws {
+        typealias Package = PackageDescription4.Package
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.c",
+            "/Pkg/Sources/lib/include/lib.h",
+            "/Pkg/Sources/lib/lib.cpp"
+        )
+
+        let pkg = Package(
+            name: "Pkg",
+            products: [
+                .library(name: "lib", type: .dynamic, targets: ["lib"])
+            ],
+            targets: [
+                .target(name: "exe"),
+                .target(name: "lib"),
+            ]
+        )
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadMockPackageGraph4(
+            ["/Pkg": pkg], root: "/Pkg", diagnostics: diagnostics, in: fs)
+
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(),
+            graph: graph,
+            fileSystem: fs)
+        )
+
+        result.checkProductsCount(2)
+        result.checkTargetsCount(2)
+
+        let exe = try result.target(for: "exe").clangTarget()
+    #if os(macOS)
+        XCTAssertEqual(exe.basicArguments(), ["-g", "-O0", "-fobjc-arc", "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+    #else
+        XCTAssertEqual(exe.basicArguments(), ["-g", "-O0", "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+    #endif
+        XCTAssertEqual(exe.objects, [AbsolutePath("/path/to/build/debug/exe.build/main.c.o")])
+        XCTAssertEqual(exe.moduleMap, nil)
+
+        let lib = try result.target(for: "lib").clangTarget()
+    #if os(macOS)
+        XCTAssertEqual(lib.basicArguments(), ["-g", "-O0", "-fobjc-arc", "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+    #else
+        XCTAssertEqual(lib.basicArguments(), ["-g", "-O0", "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+    #endif
+        XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.cpp.o")])
+        XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
+
+    #if os(macOS)
+        XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lc++", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.dylib", "-module-name", "lib", "-emit-library", "/path/to/build/debug/lib.build/lib.cpp.o"])
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "/path/to/build/debug/exe.build/main.c.o"])
+    #else
+        XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lstdc++", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.so", "-module-name", "lib", "-emit-library", "-Xlinker", "-rpath=$ORIGIN", "/path/to/build/debug/lib.build/lib.cpp.o"])
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath=$ORIGIN", "/path/to/build/debug/exe.build/main.c.o"])
+    #endif
+    }
+
     static var allTests = [
         ("testBasicClangPackage", testBasicClangPackage),
         ("testBasicExtPackages", testBasicExtPackages),
@@ -566,6 +625,7 @@ final class BuildPlanTests: XCTestCase {
         ("testSwiftCMixed", testSwiftCMixed),
         ("testTestModule", testTestModule),
         ("testExecAsDependency", testExecAsDependency),
+        ("testClangTargets", testClangTargets),
     ]
 }
 
