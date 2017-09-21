@@ -76,7 +76,6 @@ class FunctionalTests: XCTestCase {
             }
             let moduleUser = prefix.appending(component: "SystemModuleUser")
             let env = ["PKG_CONFIG_PATH": prefix.asString]
-            XCTAssertBuilds(moduleUser, env: env)
             XCTAssertXcodeprojGen(moduleUser, env: env)
             let pbx = moduleUser.appending(component: "SystemModuleUser.xcodeproj")
             XCTAssertDirectoryExists(pbx)
@@ -114,8 +113,6 @@ class FunctionalTests: XCTestCase {
             args: "env", "-u", "TOOLCHAINS", "xcrun", "clang", "-dynamiclib", "/tmp/fake.c", "-o", "/tmp/libfake.dylib")
         // Now we use a fixture for both the system library wrapper and the text executable.
         fixture(name: "Miscellaneous/SystemModules") { prefix in
-            XCTAssertBuilds(prefix.appending(component: "TestExec"), Xld: ["-L/tmp/"])
-            XCTAssertFileExists(prefix.appending(components: "TestExec", ".build", Destination.host.target, "debug", "TestExec"))
             let fakeDir = prefix.appending(component: "CFake")
             XCTAssertDirectoryExists(fakeDir)
             let execDir = prefix.appending(component: "TestExec")
