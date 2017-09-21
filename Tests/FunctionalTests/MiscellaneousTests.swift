@@ -134,20 +134,6 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testCanBuildIfADependencyAlreadyCheckedOut() {
-        fixture(name: "DependencyResolution/External/Complex") { prefix in
-            try systemQuietly(Git.tool, "clone", prefix.appending(component: "deck-of-playing-cards").asString, prefix.appending(components: "app", "Packages", "DeckOfPlayingCards-1.2.3").asString)
-            XCTAssertBuilds(prefix.appending(component: "app"))
-        }
-    }
-
-    func testCanBuildIfADependencyClonedButThenAborted() {
-        fixture(name: "DependencyResolution/External/Complex") { prefix in
-            try systemQuietly(Git.tool, "clone", prefix.appending(component: "deck-of-playing-cards").asString, prefix.appending(components: "app", "Packages", "DeckOfPlayingCards").asString)
-            XCTAssertBuilds(prefix.appending(component: "app"), configurations: [.Debug])
-        }
-    }
-
     // if HEAD of the default branch has no Package.swift it is still
     // valid provided the selected version tag has a Package.swift
     func testTipHasNoPackageSwift() {
@@ -462,8 +448,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
         ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
         ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
-        ("testCanBuildIfADependencyAlreadyCheckedOut", testCanBuildIfADependencyAlreadyCheckedOut),
-        ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
         ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
         ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
         ("testPackageManagerDefine", testPackageManagerDefine),
