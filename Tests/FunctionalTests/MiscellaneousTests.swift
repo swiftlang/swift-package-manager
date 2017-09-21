@@ -66,64 +66,6 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testManifestExcludes1() {
-
-        // Tests exclude syntax where no target customization is specified
-
-        fixture(name: "Miscellaneous/ExcludeDiagnostic1") { prefix in
-            XCTAssertBuilds(prefix)
-            let binPath = prefix.appending(components: ".build", Destination.host.target, "debug")
-            XCTAssertFileExists(binPath.appending(component: "BarLib.swiftmodule"))
-            XCTAssertFileExists(binPath.appending(component: "FooBarLib.swiftmodule"))
-            XCTAssertNoSuchPath(binPath.appending(component: "FooLib.swiftmodule"))
-        }
-    }
-
-    func testManifestExcludes2() {
-
-        // Tests exclude syntax where target customization is also specified
-        // Refs: https://github.com/apple/swift-package-manager/pull/83
-
-        fixture(name: "Miscellaneous/ExcludeDiagnostic2") { prefix in
-            XCTAssertBuildFails(prefix)
-        }
-    }
-
-    func testManifestExcludes3() {
-
-        // Tests exclude syntax for dependencies
-        // Refs: https://bugs.swift.org/browse/SR-688
-
-        fixture(name: "Miscellaneous/ExcludeDiagnostic3") { prefix in
-            XCTAssertBuilds(prefix.appending(component: "App"))
-            let buildDir = prefix.appending(components: "App", ".build", Destination.host.target, "debug")
-            XCTAssertFileExists(buildDir.appending(component: "App"))
-            XCTAssertFileExists(buildDir.appending(component: "top"))
-            XCTAssertFileExists(buildDir.appending(component: "bottom.swiftmodule"))
-            XCTAssertNoSuchPath(buildDir.appending(component: "some"))
-        }
-    }
-
-    func testManifestExcludes4() {
-
-        // exclude directory is inside Tests folder (Won't build without exclude)
-
-        fixture(name: "Miscellaneous/ExcludeDiagnostic4") { prefix in
-            XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target, "debug", "FooPackage.swiftmodule"))
-        }
-    }
-
-    func testManifestExcludes5() {
-
-        // exclude directory is Tests folder (Won't build without exclude)
-
-        fixture(name: "Miscellaneous/ExcludeDiagnostic5") { prefix in
-            XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target, "debug", "FooPackage.swiftmodule"))
-        }
-    }
-
     func testPassExactDependenciesToBuildCommand() {
 
         // regression test to ensure that dependencies of other dependencies
@@ -516,11 +458,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testPackageWithNoSources", testPackageWithNoSources),
         ("testPackageWithNoSourcesButDependency", testPackageWithNoSourcesButDependency),
         ("testPackageWithEmptyDependency", testPackageWithEmptyDependency),
-        ("testManifestExcludes1", testManifestExcludes1),
-        ("testManifestExcludes2", testManifestExcludes2),
-        ("testManifestExcludes3", testManifestExcludes3),
-        ("testManifestExcludes4", testManifestExcludes4),
-        ("testManifestExcludes5", testManifestExcludes5),
         ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
         ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
         ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),

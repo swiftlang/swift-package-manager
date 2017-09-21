@@ -798,6 +798,31 @@ class PackageBuilderV4Tests: XCTestCase {
         }
     }
 
+    func testExcludes() {
+        // The exclude should win if a file is in exclude as well as sources.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/bar/barExcluded.swift",
+            "/Sources/bar/bar.swift"
+        )
+
+        let package = Package(
+            name: "pkg",
+            targets: [
+                .target(
+                    name: "bar",
+                    exclude: ["barExcluded.swift",],
+                    sources: ["bar.swift", "barExcluded.swift"]
+                ),
+            ]
+        )
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("bar") { moduleResult in
+                moduleResult.check(c99name: "bar", type: .library)
+                moduleResult.checkSources(root: "/Sources/bar", paths: "bar.swift")
+            }
+        }
+    }
+
     static var allTests = [
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testCustomTargetDependencies", testCustomTargetDependencies),
@@ -817,5 +842,6 @@ class PackageBuilderV4Tests: XCTestCase {
         ("testPredefinedTargetSearchError", testPredefinedTargetSearchError),
         ("testSpecialTargetDir", testSpecialTargetDir),
         ("testDuplicateTargets", testDuplicateTargets),
+        ("testExcludes", testExcludes),
     ]
 }
