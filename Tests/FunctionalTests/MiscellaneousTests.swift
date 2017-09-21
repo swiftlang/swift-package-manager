@@ -250,17 +250,6 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testProducts() {
-        fixture(name: "Products/StaticLibrary") { prefix in
-            XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target, "debug", "libProductName.a"))
-        }
-        fixture(name: "Products/DynamicLibrary") { prefix in
-            XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target, "debug", "libProductName.\(dynamicLibraryExtension)"))
-        }
-    }
-
     func testProductWithNoModules() {
         fixture(name: "Miscellaneous/ProductWithNoModules") { prefix in
             XCTAssertBuildFails(prefix)
@@ -454,7 +443,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testInternalDependencyEdges", testInternalDependencyEdges),
         ("testExternalDependencyEdges1", testExternalDependencyEdges1),
         ("testExternalDependencyEdges2", testExternalDependencyEdges2),
-        ("testProducts", testProducts),
         ("testProductWithNoModules", testProductWithNoModules),
         ("testProductWithMissingModules", testProductWithMissingModules),
         ("testSpaces", testSpaces),
