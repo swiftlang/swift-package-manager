@@ -218,18 +218,6 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testProductWithNoModules() {
-        fixture(name: "Miscellaneous/ProductWithNoModules") { prefix in
-            XCTAssertBuildFails(prefix)
-        }
-    }
-
-    func testProductWithMissingModules() {
-        fixture(name: "Miscellaneous/ProductWithMissingModules") { prefix in
-            XCTAssertBuildFails(prefix)
-        }
-    }
-
     func testSpaces() {
         fixture(name: "Miscellaneous/Spaces Fixture") { prefix in
             XCTAssertBuilds(prefix)
@@ -401,8 +389,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testInternalDependencyEdges", testInternalDependencyEdges),
         ("testExternalDependencyEdges1", testExternalDependencyEdges1),
         ("testExternalDependencyEdges2", testExternalDependencyEdges2),
-        ("testProductWithNoModules", testProductWithNoModules),
-        ("testProductWithMissingModules", testProductWithMissingModules),
         ("testSpaces", testSpaces),
         ("testSecondBuildIsNullInModulemapGen", testSecondBuildIsNullInModulemapGen),
         ("testSwiftTestParallel", testSwiftTestParallel),
