@@ -16,6 +16,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(EnvTests.allTests),
         testCase(ReaddirTests.allTests),
         testCase(UsleepTests.allTests),
+        testCase(PosixTests.allTests),
     ]
 }
 #endif
