@@ -18,9 +18,3 @@ public enum Configuration: String {
         }
     }
 }
-
-extension Configuration: CustomStringConvertible {
-    public var description: String {
-        return dirname
-    }
-}
