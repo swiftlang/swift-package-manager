@@ -16,6 +16,7 @@ import CommandsTests
 import FunctionalTests
 import POSIXTests
 import PackageDescriptionTests
+import PackageDescription4Tests
 import PackageGraphTests
 import PackageLoadingTests
 import PackageModelTests
@@ -32,6 +33,7 @@ tests += CommandsTests.allTests()
 tests += FunctionalTests.allTests()
 tests += POSIXTests.allTests()
 tests += PackageDescriptionTests.allTests()
+tests += PackageDescription4Tests.allTests()
 tests += PackageGraphTests.allTests()
 tests += PackageLoadingTests.allTests()
 tests += PackageModelTests.allTests()

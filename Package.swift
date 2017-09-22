@@ -171,6 +171,9 @@ let package = Package(
             name: "PackageDescriptionTests",
             dependencies: ["PackageDescription"]),
         .testTarget(
+            name: "PackageDescription4Tests",
+            dependencies: ["PackageDescription4"]),
+        .testTarget(
             name: "PackageLoadingTests",
             dependencies: ["PackageLoading", "TestSupport"],
             exclude: ["Inputs"]),
