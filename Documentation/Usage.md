@@ -50,7 +50,7 @@ get started, create a directory and run `swift package init` command:
 This will create the directory structure needed for a library package with a
 target and the corresponding test target to write unit tests. A library package
 can contain multiple targets as explained in [Target Format
-Reference](Reference.md#target-format-reference).
+Reference](PackageDescriptionV3.md#target-format-reference).
 
 ### Create an executable package
 
@@ -67,7 +67,7 @@ get started:
 This creates the directory structure needed for executable targets. Any target
 can be turned into a executable target if there is a `main.swift` present in
 its sources. Complete reference for layout is
-[here](Reference.md#target-format-reference).
+[here](PackageDescriptionV3.md#target-format-reference).
 
 ## Define Dependencies
 
