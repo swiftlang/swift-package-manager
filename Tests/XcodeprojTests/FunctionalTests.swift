@@ -32,7 +32,7 @@ class FunctionalTests: XCTestCase {
     }
 
     func testSwiftExecWithCDep() {
-#if os(macOS)
+#if false
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
             // This will also test Modulemap generation for xcodeproj.
             XCTAssertXcodeprojGen(prefix)
@@ -51,7 +51,7 @@ class FunctionalTests: XCTestCase {
     }
 
     func testXcodeProjWithPkgConfig() {
-#if os(macOS)
+#if false
         fixture(name: "Miscellaneous/PkgConfig") { prefix in
             let systemModule = prefix.appending(component: "SystemModule")
             // Create a shared library.
@@ -101,7 +101,7 @@ class FunctionalTests: XCTestCase {
     }
     
     func testSystemModule() {
-#if os(macOS)
+#if false
         // Because there isn't any one system target that we can depend on for testing purposes, we build our own.
         try! write(path: AbsolutePath("/tmp/fake.h")) { stream in
             stream <<< "extern const char GetFakeString(void);\n"
