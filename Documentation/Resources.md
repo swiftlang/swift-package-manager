@@ -31,9 +31,10 @@ Fill the following fields:
 * `Attachment`: Attach relevant files like logs, project
 
 Please include a minimal example package which can reproduce the issue. The sample package can be attached with the report or you can include URL of the package hosted on places like GitHub.  
-Also, include the verbose build log. If you're using `swift build` to compile the project you can obtain the verbose log using:
+Also, include the verbose logs by adding `--verbose` or `-v` after a subcommand. For e.g.:
 
-    $ swift build -v
+    $ swift build --verbose
+    $ swift package -v update
 
 If the bug is with a generated Xcode project, include how the project was generated and the Xcode build log.
 
