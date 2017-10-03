@@ -32,7 +32,7 @@ class FunctionalTests: XCTestCase {
     }
 
     func testSwiftExecWithCDep() {
-#if false
+#if os(macOS)
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
             // This will also test Modulemap generation for xcodeproj.
             XCTAssertXcodeprojGen(prefix)
@@ -51,7 +51,7 @@ class FunctionalTests: XCTestCase {
     }
 
     func testXcodeProjWithPkgConfig() {
-#if false
+#if os(macOS)
         fixture(name: "Miscellaneous/PkgConfig") { prefix in
             let systemModule = prefix.appending(component: "SystemModule")
             // Create a shared library.
@@ -101,7 +101,7 @@ class FunctionalTests: XCTestCase {
     }
     
     func testSystemModule() {
-#if false
+#if os(macOS)
         // Because there isn't any one system target that we can depend on for testing purposes, we build our own.
         try! write(path: AbsolutePath("/tmp/fake.h")) { stream in
             stream <<< "extern const char GetFakeString(void);\n"
@@ -147,10 +147,19 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
             env["TOOLCHAINS"] = "default"
         }
         let xcconfig = project.appending(component: "overrides.xcconfig")
-        let swiftCompilerPath = Resources.default.swiftCompiler.asString
-        try localFileSystem.writeFileContents(xcconfig) {
-            $0 <<< "SWIFT_EXEC = " <<< swiftCompilerPath
+        let swiftCompilerPath = Resources.default.swiftCompiler
+
+        // Override path to the Swift compiler.
+        let stream = BufferedOutputByteStream()
+        stream <<< "SWIFT_EXEC = " <<< swiftCompilerPath.asString <<< "\n"
+
+        // Override Swift libary path, if present.
+        let swiftLibraryPath = resolveSymlinks(swiftCompilerPath).appending(components: "..", "..", "lib", "swift", "macosx")
+        if localFileSystem.exists(swiftCompilerPath) {
+            stream <<< "SWIFT_LIBRARY_PATH = " <<< swiftLibraryPath.asString <<< "\n"
         }
+        try localFileSystem.writeFileContents(xcconfig, bytes: stream.bytes)
+
         try Process.checkNonZeroExit(
             args: "xcodebuild", "-project", project.asString, "-alltargets", "-xcconfig", xcconfig.asString, environment: env)
     } catch {
