@@ -33,7 +33,7 @@ func run() throws {
     guard let bundle = Bundle(path: bundlePath), bundle.load() else {
         throw Error.unableToLoadBundle(bundlePath)
     }
-    let suite = XCTestSuite.default()
+    let suite = XCTestSuite.default
 
     let splitSet: Set<Character> = ["[", " ", "]", ":"]
 
@@ -63,7 +63,7 @@ func run() throws {
             if let firstTest = testCaseSuite.tests.first {
                 name = String(reflecting: type(of: firstTest))
             } else {
-                name = testCaseSuite.name ?? "nil"
+                name = testCaseSuite.name
             }
 
             // Collect the test methods.
@@ -85,7 +85,7 @@ func run() throws {
             return ["name": name as NSString, "tests": tests as NSArray]
         })
         testCases.append([
-            "name": (testCaseSuite.name ?? "nil") as NSString,
+            "name": testCaseSuite.name as NSString,
             "tests": testSuite as NSArray,
         ])
     }

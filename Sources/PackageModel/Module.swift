@@ -180,7 +180,7 @@ extension Sources {
         let isLibrary = !relativePaths.contains { path in
             let file = path.basename.lowercased()
             // Look for a main.xxx file avoiding cases like main.xxx.xxx
-            return file.hasPrefix("main.") && file.filter({$0 == "."}).count == 1
+            return file.hasPrefix("main.") && String(file.filter({$0 == "."})).count == 1
         }
         return isLibrary ? .library : .executable
     }

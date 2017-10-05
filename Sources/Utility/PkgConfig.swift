@@ -278,7 +278,7 @@ struct PkgConfigParser {
                 // Append the value of the variable.
                 result += variableValue
                 // Update the fragment with post variable string.
-                fragment = fragment[fragment.index(after: variable.endIndex)..<fragment.endIndex]
+                fragment = String(fragment[fragment.index(after: variable.endIndex)...])
             } else {
                 // No variable found, just append rest of the fragment to result.
                 result += fragment

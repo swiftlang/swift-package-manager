@@ -22,7 +22,7 @@ public func getClangVersion(versionOutput: String) -> (major: Int, minor: Int)? 
     }
     let versionStartIndex = clangVersionString.index(clangVersionString.startIndex,
         offsetBy: versionStringPrefix.utf8.count)
-    let versionString: String = clangVersionString[versionStartIndex..<clangVersionString.endIndex]
+    let versionString = clangVersionString[versionStartIndex...]
     // Split major minor patch etc.
     let versions = versionString.utf8.split(separator: UInt8(ascii: ".")).flatMap(String.init)
     guard versions.count > 1, let major = Int(versions[0]), let minor = Int(versions[1]) else {

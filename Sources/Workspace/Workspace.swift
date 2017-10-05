@@ -1159,10 +1159,10 @@ extension Workspace {
             case (.removed, .removed): return true
             case (.unchanged, .unchanged): return true
             case (.updated(let a), .updated(let b)): return a == b
-            case (.added(_), _): return false
-            case (.removed(_), _): return false
-            case (.unchanged(_), _): return false
-            case (.updated(_), _): return false
+            case (.added, _): return false
+            case (.removed, _): return false
+            case (.unchanged, _): return false
+            case (.updated, _): return false
             }
         }
     }
