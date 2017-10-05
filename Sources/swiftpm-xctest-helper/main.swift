@@ -71,7 +71,7 @@ func run() throws {
                 guard case let test as XCTestCase = test else { return nil }
                 // Split the test description into an array. Description formats:
                 // `-[ClassName MethodName]`, `-[ClassName MethodNameAndReturnError:]`
-                var methodName = test.description.characters
+                var methodName = test.description
                     .split(whereSeparator: splitSet.contains)
                     .map(String.init)[2]
                 // Unmangle names for Swift test cases which throw.
