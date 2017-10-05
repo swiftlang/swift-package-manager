@@ -19,7 +19,7 @@ import XCTest
 open class XCTestCasePerf: XCTestCase {
 
   #if os(macOS) && !ENABLE_PERF_TESTS
-    override open class func defaultTestSuite() -> XCTestSuite {
+    override open class var defaultTestSuite: XCTestSuite {
         return XCTestSuite(name: String(describing: type(of: self)))
     }
   #endif

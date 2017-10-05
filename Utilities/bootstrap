@@ -221,8 +221,7 @@ class Target(object):
         if args.libdispatch_source_dir:
             other_args.extend(["-Xcc", "-fblocks"])
 
-	# FIXME: Default to swift version 3 for now.
-        other_args.extend(["-swift-version", "3"])
+        other_args.extend(["-swift-version", "4"])
         
         print("  %s:" % json.dumps(compile_swift_node), file=output)
         print("    tool: swift-compiler", file=output)
@@ -1216,9 +1215,7 @@ def main():
         if not os.path.exists(os.path.dirname(xcconfig_path)):
             mkdir_p(os.path.dirname(xcconfig_path))
         with open(xcconfig_path, "w") as f:
-            # Add hardcoded `-swift-version 3` in other swift flags for Xcode 8.3 support.
-            if find_xcode_version().startswith("Xcode 8.3"):
-                print("OTHER_SWIFT_FLAGS = $(inherited) -swift-version 3", file=f)
+            print("\n", file=f)
         cmd += ["--xcconfig-overrides", xcconfig_path]
             
         # Call `swift-package` to generate the Xcode project.

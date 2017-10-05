@@ -1355,7 +1355,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Load the graph.
-        workspace.checkPackageGraph(roots: ["Root"]) { _ in }
+        workspace.checkPackageGraph(roots: ["Root"]) { _, _ in }
 
         // Edit foo.
         let fooPath = workspace.createWorkspace().editablesPath.appending(component: "Foo")
