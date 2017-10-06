@@ -7,18 +7,18 @@ This document contains information on building and testing the Swift Package Man
 The official way to build and test is using the Swift compiler build script.
 First, follow the instructions provided
 [here](https://github.com/apple/swift/blob/master/README.md#getting-started) and
-then run one of these commands:
+then run one of these commands from the Swift Package Manager directory:
 
 ##### macOS:
 
 ```sh
-$ swift/utils/build-script -R --llbuild --swiftpm
+$ ../swift/utils/build-script -R --llbuild --swiftpm
 ```
 
 ##### Linux:
 
 ```sh
-$ swift/utils/build-script -R --llbuild --swiftpm --xctest --foundation --libdispatch
+$ ../swift/utils/build-script -R --llbuild --swiftpm --xctest --foundation --libdispatch
 ```
 
 This will build compiler and friends in `build/` directory. It takes about ~1
