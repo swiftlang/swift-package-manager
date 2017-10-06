@@ -61,7 +61,7 @@ get started:
     $ cd MyExecutable
     $ swift package init --type executable
     $ swift build
-    $ .build/debug/MyExecutable
+    $ swift run
     Hello, World!
 
 This creates the directory structure needed for executable targets. Any target
