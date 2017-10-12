@@ -176,7 +176,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/SwiftyJSON/SwiftyJSON.git", from: "1.0.0"),
     ],
-    target: [
+    targets: [
         .target(name: "Foo", dependencies: ["SwiftyJSON"]),
     ]
 )
