@@ -329,7 +329,7 @@ final class TestRunner {
     private func args() -> [String] {
         var args: [String] = []
       #if os(macOS)
-        args = ["xcrun", "xctest"]
+        args = ["xcrun", "--sdk", "macosx", "xctest"]
         if let xctestArg = xctestArg {
             args += ["-XCTest", xctestArg]
         }
