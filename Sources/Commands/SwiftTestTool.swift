@@ -174,6 +174,14 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             let testPath = try buildTestsIfNeeded(options)
             let testSuites = try getTestSuites(path: testPath)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
+
+            // If there were no matches, emit a warning and exit.
+            if tests.isEmpty {
+                diagnostics.emit(data: NoMatchingTestsWarning())
+                return
+            }
+
+            // Run the tests using the parallel runner.
             let runner = ParallelTestRunner(testPath: testPath, processSet: processSet)
             try runner.run(tests)
 
@@ -438,7 +446,7 @@ final class ParallelTestRunner {
         progressBar.update(percent: 100*numCurrentTest/numTests, text: test.specifier)
     }
 
-    func enqueueTests(_ tests: [UnitTest]) throws {
+    private func enqueueTests(_ tests: [UnitTest]) throws {
         // FIXME: Add a count property in SynchronizedQueue.
         var numTests = 0
         // Enqueue all the tests.
@@ -456,6 +464,7 @@ final class ParallelTestRunner {
 
     /// Executes the tests spawning parallel workers. Blocks calling thread until all workers are finished.
     func run(_ tests: [UnitTest]) throws {
+        assert(!tests.isEmpty, "There should be at least one test to execute.")
         // Enqueue all the tests.
         try enqueueTests(tests)
 
