@@ -15,6 +15,13 @@ import Basic
 public protocol SimplePersistanceProtocol: class, JSONSerializable {
     /// Restores state from the given json object.
     func restore(from json: JSON) throws
+
+    /// Restores state from the given json object and supported schema version.
+    func restore(from json: JSON, supportedSchemaVersion: Int) throws
+}
+
+public extension SimplePersistanceProtocol {
+    func restore(from json: JSON, supportedSchemaVersion: Int) throws {}
 }
 
 extension SimplePersistence.Error: CustomStringConvertible {
@@ -47,6 +54,9 @@ public final class SimplePersistence {
     /// The schema of the state file.
     private let schemaVersion: Int
 
+    /// The schema versions, besides the current schema, that are supported for restoring.
+    private let supportedSchemaVersions: Set<Int>
+
     /// The path at which we persist the state.
     private let statePath: AbsolutePath
 
@@ -56,11 +66,14 @@ public final class SimplePersistence {
     public init(
         fileSystem: FileSystem,
         schemaVersion: Int,
+        supportedSchemaVersions: Set<Int> = [],
         statePath: AbsolutePath,
         prettyPrint: Bool = false
     ) {
+        assert(!supportedSchemaVersions.contains(schemaVersion), "Supported schema versions should not include the current schema")
         self.fileSystem = fileSystem
         self.schemaVersion = schemaVersion
+        self.supportedSchemaVersions = supportedSchemaVersions
         self.statePath = statePath
         self.prettyPrint = prettyPrint
     }
@@ -81,13 +94,21 @@ public final class SimplePersistence {
         }
         // Load the state.
         let json = try JSON(bytes: try fileSystem.readFileContents(statePath))
-        // Check the schema version.
+        // Get the schema version.
         let version: Int = try json.get("version")
-        guard version  == schemaVersion else {
+
+        // Restore the state based on the provided schema version.
+        switch version {
+        case schemaVersion:
+            try object.restore(from: json.get("object"))
+
+        case _ where supportedSchemaVersions.contains(version):
+            try object.restore(from: json.get("object"), supportedSchemaVersion: version)
+
+        default:
             throw Error.invalidSchemaVersion(version)
         }
-        // Restore the state.
-        try object.restore(from: json.get("object"))
+
         return true
     }
 
