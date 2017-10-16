@@ -76,6 +76,7 @@ public final class PinsStore {
         self.persistence = SimplePersistence(
             fileSystem: fileSystem,
             schemaVersion: PinsStore.schemaVersion,
+            supportedSchemaVersions: [1],
             statePath: pinsFile,
             prettyPrint: true)
         pinsMap = [:]
@@ -151,6 +152,28 @@ extension PinsStore: SimplePersistanceProtocol {
 
     public func restore(from json: JSON) throws {
         self.pinsMap = try Dictionary(items: json.get("pins").map({ ($0.packageRef.identity, $0) }))
+    }
+
+    public func restore(from json: JSON, supportedSchemaVersion: Int) throws {
+        switch supportedSchemaVersion {
+        case 1:
+            // We did not have concept of package identity in previous schema but we can
+            // compute it using the URL.
+            //
+            // FIXME: This logic will need to be updated when we require identity and package
+            // name to be same. <rdar://problem/33693433>
+            let pinsArray: [JSON] = try json.get("pins")
+            let pins: [Pin] = try pinsArray.map({ pinData in
+                let url: String = try pinData.get("repositoryURL")
+                let ref = PackageReference(
+                    identity: PackageReference.computeIdentity(packageURL: url), path: url)
+                return try Pin(packageRef: ref, state: pinData.get("state"))
+            })
+            self.pinsMap = Dictionary(items: pins.map({ ($0.packageRef.identity, $0) }))
+
+        default:
+            fatalError()
+        }
     }
 
     /// Saves the current state of pins.
