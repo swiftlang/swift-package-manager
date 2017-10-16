@@ -25,6 +25,7 @@ fileprivate class Foo: SimplePersistanceProtocol {
         self.persistence = SimplePersistence(
             fileSystem: fileSystem,
             schemaVersion: 1,
+            supportedSchemaVersions: [0],
             statePath: AbsolutePath.root.appending(components: "subdir", "state.json")
         )
     }
@@ -32,6 +33,16 @@ fileprivate class Foo: SimplePersistanceProtocol {
     func restore(from json: JSON) throws {
         self.int = try json.get("int")
         self.path = try AbsolutePath(json.get("path"))
+    }
+
+    func restore(from json: JSON, supportedSchemaVersion: Int) throws {
+        switch supportedSchemaVersion {
+        case 0:
+            self.int = try json.get("old_int")
+            self.path = try AbsolutePath(json.get("old_path"))
+        default:
+            fatalError()
+        }
     }
 
     func toJSON() -> JSON {
@@ -168,8 +179,35 @@ class SimplePersistenceTests: XCTestCase {
         XCTAssertEqual(v2.string, "hello")
     }
 
+    func testCanLoadFromOldSchema() throws {
+        var fs = InMemoryFileSystem()
+        let stateFile = AbsolutePath.root.appending(components: "subdir", "state.json")
+        try fs.writeFileContents(stateFile) {
+            $0 <<< """
+                {
+                    "version": 0,
+                    "object": {
+                        "old_path": "/oldpath",
+                        "old_int": 4
+                    }
+                }
+                """
+        }
+
+        let foo = Foo(int: 1, path: AbsolutePath("/hello"), fileSystem: fs)
+        XCTAssertEqual(foo.path, AbsolutePath("/hello"))
+        XCTAssertEqual(foo.int, 1)
+
+        // Load from an older but supported schema state file.
+        XCTAssertTrue(try foo.restore())
+
+        XCTAssertEqual(foo.path, AbsolutePath("/oldpath"))
+        XCTAssertEqual(foo.int, 4)
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testBackwardsCompatibleStateFile", testBackwardsCompatibleStateFile),
+        ("testCanLoadFromOldSchema", testCanLoadFromOldSchema),
     ]
 }
