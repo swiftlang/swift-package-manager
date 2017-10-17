@@ -177,7 +177,6 @@ public final class ClangTargetDescription {
     public func basicArguments() -> [String] {
         var args = [String]()
         args += buildParameters.toolchain.extraCCFlags
-        args += buildParameters.flags.cCompilerFlags
         args += optimizationArguments
 
         // Add extra C++ flags if this target contains C++ files.
@@ -196,6 +195,7 @@ public final class ClangTargetDescription {
         args += ["-I", clangTarget.includeDir.asString]
         args += additionalFlags
         args += moduleCacheArgs
+        args += buildParameters.flags.cCompilerFlags
         return args
     }
 
@@ -281,11 +281,11 @@ public final class SwiftTargetDescription {
         var args = [String]()
         args += ["-swift-version", String(swiftVersion)]
         args += buildParameters.toolchain.extraSwiftCFlags
-        args += buildParameters.swiftCompilerFlags
         args += optimizationArguments
         args += ["-j\(SwiftCompilerTool.numThreads)", "-DSWIFT_PACKAGE"]
         args += additionalFlags
         args += moduleCacheArgs
+        args += buildParameters.swiftCompilerFlags
         return args
     }
 
@@ -375,8 +375,6 @@ public final class ProductBuildDescription {
     public func linkArguments() -> [String] {
         var args = [buildParameters.toolchain.swiftCompiler.asString]
         args += buildParameters.toolchain.extraSwiftCFlags
-        args += buildParameters.linkerFlags
-        args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
         args += additionalFlags
 
         if buildParameters.configuration == .debug {
@@ -418,6 +416,8 @@ public final class ProductBuildDescription {
         args += ["-Xlinker", "-rpath=$ORIGIN"]
       #endif
         args += objects.map({ $0.asString })
+        args += buildParameters.linkerFlags
+        args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
         return args
     }
 }
