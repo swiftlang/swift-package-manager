@@ -70,7 +70,7 @@ class PkgConfigTests: XCTestCase {
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.asString]) {
             let result = pkgConfigArgs(for: CTarget(pkgConfig: "Foo"))!
             XCTAssertEqual(result.pkgConfigName, "Foo")
-            XCTAssertEqual(result.cFlags, ["-I/path/to/inc"])
+            XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-I" + inputsDir.asString])
             XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
             XCTAssertNil(result.provider)
             XCTAssertNil(result.error)
