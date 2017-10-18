@@ -94,6 +94,7 @@ public enum SwiftPMProduct {
         // FIXME: We use this private environment variable hack to be able to
         // create special conditions in swift-build for swiftpm tests.
         environment["IS_SWIFTPM_TEST"] = "1"
+        environment["SDKROOT"] = nil
 
         var completeArgs = [path.asString]
         if let packagePath = packagePath {
