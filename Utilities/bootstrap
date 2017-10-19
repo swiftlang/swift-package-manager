@@ -658,13 +658,13 @@ def process_runtime_libraries(build, args, lib_path):
         # This is the command we would like to use.
         #
         # We include an RPATH entry so that the Swift libraries can be found
-        # relative to where it will be installed (in 'lib/swift/pm/...').
+        # relative to where it will be installed (in 'lib/swift/pm/<version>/...').
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.so")
         cmd = [args.swiftc_path, "-emit-library", "-o", runtime_lib_path,
                "-Xlinker", "--whole-archive",
                "-Xlinker", input_lib_path,
                "-Xlinker", "--no-whole-archive", "-lswiftGlibc",
-               "-Xlinker", "-rpath=$ORIGIN/../linux"]
+               "-Xlinker", "-rpath=$ORIGIN/../../linux"]
 
         # We need to pass one swift file here to bypass the "no input files"
         # error.
