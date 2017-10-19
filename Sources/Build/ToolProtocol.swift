@@ -11,6 +11,7 @@
 import Basic
 import PackageModel
 import Utility
+import class Foundation.ProcessInfo
 
 /// Describes a tool which can be understood by llbuild's BuildSystem library.
 protocol ToolProtocol {
@@ -103,7 +104,7 @@ struct SwiftCompilerTool: ToolProtocol {
     /// The underlying Swift build target.
     let target: SwiftTargetDescription
 
-    static let numThreads = 8
+    static let numThreads = ProcessInfo.processInfo.activeProcessorCount
 
     init(target: SwiftTargetDescription, inputs: [String]) {
         self.target = target

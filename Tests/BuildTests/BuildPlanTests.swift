@@ -38,6 +38,11 @@ private struct MockToolchain: Toolchain {
 
 final class BuildPlanTests: XCTestCase {
 
+    /// The j argument.
+    private var j: String {
+        return "-j\(SwiftCompilerTool.numThreads)"
+    }
+
     func mockBuildParameters(
         buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
         config: Build.Configuration = .debug,
@@ -73,10 +78,10 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
  
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertEqual(exe, ["-swift-version", "3", "-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe, ["-swift-version", "3", "-Onone", "-g", "-enable-testing", j, "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
  
         let lib = try result.target(for: "lib").swiftTarget().compileArguments()
-        XCTAssertEqual(lib, ["-swift-version", "3", "-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(lib, ["-swift-version", "3", "-Onone", "-g", "-enable-testing", j, "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
 
       #if os(macOS)
         let linkArguments = [
@@ -158,7 +163,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(1)
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertEqual(exe, ["-swift-version", "3", "-O", "-j8", "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/release/ModuleCache"])
+        XCTAssertEqual(exe, ["-swift-version", "3", "-O", j, "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/release/ModuleCache"])
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -318,7 +323,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertEqual(exe, ["-swift-version", "3", "-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-Xcc", "-fmodule-map-file=/path/to/build/debug/lib.build/module.modulemap", "-I", "/Pkg/Sources/lib/include", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe, ["-swift-version", "3", "-Onone", "-g", "-enable-testing", j, "-DSWIFT_PACKAGE", "-Xcc", "-fmodule-map-file=/path/to/build/debug/lib.build/module.modulemap", "-I", "/Pkg/Sources/lib/include", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -355,10 +360,10 @@ final class BuildPlanTests: XCTestCase {
       #endif
         
         let foo = try result.target(for: "Foo").swiftTarget().compileArguments()
-        XCTAssertEqual(foo, ["-swift-version", "3", "-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(foo, ["-swift-version", "3", "-Onone", "-g", "-enable-testing", j, "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
 
         let fooTests = try result.target(for: "FooTests").swiftTarget().compileArguments()
-        XCTAssertEqual(fooTests, ["-swift-version", "3", "-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(fooTests, ["-swift-version", "3", "-Onone", "-g", "-enable-testing", j, "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
@@ -396,7 +401,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
 
-        XCTAssertEqual(try result.target(for: "exe").swiftTarget().compileArguments(), ["-swift-version", "3", "-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-Xcc", "-fmodule-map-file=/Clibgit/module.modulemap", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(try result.target(for: "exe").swiftTarget().compileArguments(), ["-swift-version", "3", "-Onone", "-g", "-enable-testing", j, "-DSWIFT_PACKAGE", "-Xcc", "-fmodule-map-file=/Clibgit/module.modulemap", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -535,10 +540,10 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertEqual(exe, ["-swift-version", "4", "-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe, ["-swift-version", "4", "-Onone", "-g", "-enable-testing", j, "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
 
         let lib = try result.target(for: "lib").swiftTarget().compileArguments()
-        XCTAssertEqual(lib, ["-swift-version", "4", "-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(lib, ["-swift-version", "4", "-Onone", "-g", "-enable-testing", j, "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
 
         #if os(macOS)
             let linkArguments = [
