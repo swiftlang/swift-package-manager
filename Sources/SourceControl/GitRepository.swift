@@ -26,7 +26,7 @@ public class GitRepositoryProvider: RepositoryProvider {
         self.processSet = processSet
     }
 
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
+    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, diagnostics: DiagnosticsEngine) -> Bool {
         // Perform a bare clone.
         //
         // NOTE: We intentionally do not create a shallow clone here; the
@@ -38,6 +38,7 @@ public class GitRepositoryProvider: RepositoryProvider {
         // FIXME: We need infrastructure in this subsystem for reporting
         // status information.
 
+        do {
         let process = Process(
             args: Git.tool, "clone", "--mirror", repository.url, path.asString, environment: Git.environment)
         // Add to process set.
@@ -51,9 +52,12 @@ public class GitRepositoryProvider: RepositoryProvider {
             let errorOutput = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
             throw GitRepositoryProviderError.gitCloneFailure(errorOutput: errorOutput)
         }
+        } catch {
+        }
+        return true
     }
 
-    public func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
+    public func open(repository: RepositorySpecifier, at path: AbsolutePath, diagnostics: DiagnosticsEngine) -> Repository? {
         return GitRepository(path: path, isWorkingRepo: false)
     }
 
@@ -61,9 +65,10 @@ public class GitRepositoryProvider: RepositoryProvider {
         repository: RepositorySpecifier,
         at sourcePath: AbsolutePath,
         to destinationPath: AbsolutePath,
-        editable: Bool
-    ) throws {
+        editable: Bool, diagnostics: DiagnosticsEngine
+    ) {
 
+        do {
         if editable {
             // For editable clones, i.e. the user is expected to directly work on them, first we create
             // a clone from our cache of repositories and then we replace the remote to the one originally
@@ -77,7 +82,7 @@ public class GitRepositoryProvider: RepositoryProvider {
             // Set the original remote to the new clone.
             try clone.setURL(remote: origin, url: repository.url)
             // FIXME: This is unfortunate that we have to fetch to update remote's data.
-            try clone.fetch()
+            clone.fetch(with: diagnostics)
         } else {
             // Clone using a shared object store with the canonical copy.
             //
@@ -90,9 +95,11 @@ public class GitRepositoryProvider: RepositoryProvider {
             try Process.checkNonZeroExit(args:
                     Git.tool, "clone", "--shared", sourcePath.asString, destinationPath.asString)
         }
+        } catch {
+        }
     }
 
-    public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
+    public func openCheckout(at path: AbsolutePath, diagnostics: DiagnosticsEngine) -> WorkingCheckout? {
         return GitRepository(path: path)
     }
 }
@@ -282,17 +289,17 @@ public class GitRepository: Repository, WorkingCheckout {
         return tagList.split(separator: "\n").map(String.init)
     }
 
-    public func resolveRevision(tag: String) throws -> Revision {
-        return try Revision(identifier: resolveHash(treeish: tag, type: "commit").bytes.asString!)
+    public func resolveRevision(tag: String, diagnostics: DiagnosticsEngine) -> Revision? {
+        return try! Revision(identifier: resolveHash(treeish: tag, type: "commit").bytes.asString!)
     }
 
-    public func resolveRevision(identifier: String) throws -> Revision {
-        return try Revision(identifier: resolveHash(treeish: identifier, type: "commit").bytes.asString!)
+    public func resolveRevision(identifier: String, diagnostics: DiagnosticsEngine) -> Revision? {
+        return try! Revision(identifier: resolveHash(treeish: identifier, type: "commit").bytes.asString!)
     }
 
-    public func fetch() throws {
-        try queue.sync {
-            try Process.checkNonZeroExit(
+    public func fetch(with diagnostics: DiagnosticsEngine) {
+        queue.sync {
+            try! Process.checkNonZeroExit(
                 args: Git.tool, "-C", path.asString, "remote", "update", "-p", environment: Git.environment)
             self.tagsCache = nil
         }
@@ -317,45 +324,45 @@ public class GitRepository: Repository, WorkingCheckout {
         }
     }
 
-    public func openFileView(revision: Revision) throws -> FileSystem {
-        return try GitFileSystemView(repository: self, revision: revision)
+    public func openFileView(revision: Revision, diagnostics: DiagnosticsEngine) -> FileSystem? {
+        return try! GitFileSystemView(repository: self, revision: revision)
     }
 
     // MARK: Working Checkout Interface
 
-    public func hasUnpushedCommits() throws -> Bool {
-        return try queue.sync {
+    public func hasUnpushedCommits(diagnostics: DiagnosticsEngine) -> Bool {
+        return try! queue.sync {
             let hasOutput = try Process.checkNonZeroExit(
                 args: Git.tool, "-C", path.asString, "log", "--branches", "--not", "--remotes").chomp().isEmpty
             return !hasOutput
         }
     }
 
-    public func getCurrentRevision() throws -> Revision {
-        return try queue.sync {
-            return try Revision(
+    public func getCurrentRevision(diagnostics: DiagnosticsEngine) -> Revision? {
+        return queue.sync {
+            return try! Revision(
                 identifier: Process.checkNonZeroExit(
                     args: Git.tool, "-C", path.asString, "rev-parse", "--verify", "HEAD").chomp())
         }
     }
 
-    public func checkout(tag: String) throws {
+    public func checkout(tag: String, diagnostics: DiagnosticsEngine) {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
-        try queue.sync {
-            try Process.checkNonZeroExit(
+        queue.sync {
+            try! Process.checkNonZeroExit(
                 args: Git.tool, "-C", path.asString, "reset", "--hard", tag)
-            try self.updateSubmoduleAndClean()
+            try! self.updateSubmoduleAndClean()
         }
     }
 
-    public func checkout(revision: Revision) throws {
+    public func checkout(revision: Revision, diagnostics: DiagnosticsEngine) {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
-        try queue.sync {
-            try Process.checkNonZeroExit(
+        queue.sync {
+            try! Process.checkNonZeroExit(
                 args: Git.tool, "-C", path.asString, "checkout", "-f", revision.identifier)
-            try self.updateSubmoduleAndClean()
+            try! self.updateSubmoduleAndClean()
         }
     }
 
@@ -376,10 +383,10 @@ public class GitRepository: Repository, WorkingCheckout {
         }
     }
 
-    public func checkout(newBranch: String) throws {
+    public func checkout(newBranch: String, diagnostics: DiagnosticsEngine) {
         precondition(isWorkingRepo, "This operation should run in a working repo.")
-        try queue.sync {
-            try Process.checkNonZeroExit(
+        queue.sync {
+            try! Process.checkNonZeroExit(
                 args: Git.tool, "-C", path.asString, "checkout", "-b", newBranch)
             return
         }

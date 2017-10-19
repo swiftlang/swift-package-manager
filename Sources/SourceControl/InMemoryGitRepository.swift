@@ -111,7 +111,8 @@ public final class InMemoryGitRepository {
     }
 
     /// Checks out the provided revision.
-    public func checkout(revision: RevisionIdentifier) throws {
+    public func checkout(revision: RevisionIdentifier, diagnostics: DiagnosticsEngine) {
+        do {
         guard let state = history[revision] else {
             throw InMemoryGitRepositoryError.unknownRevision
         }
@@ -120,10 +121,12 @@ public final class InMemoryGitRepository {
         isDirty = false
         // Install this state on the passed filesystem.
         try installHead()
+        } catch {}
     }
 
     /// Checks out a given tag.
-    public func checkout(tag: String) throws {
+    public func checkout(tag: String, diagnostics: DiagnosticsEngine) {
+        do {
         guard let hash = tagsMap[tag] else {
             throw InMemoryGitRepositoryError.unknownTag
         }
@@ -133,6 +136,7 @@ public final class InMemoryGitRepository {
         isDirty = false
         // Install this state on the passed filesystem.
         try installHead()
+        } catch {}
     }
 
     /// Installs (or checks out) current head on the filesystem on which this repository exists.
@@ -176,7 +180,7 @@ public final class InMemoryGitRepository {
         return isDirty
     }
 
-    public func fetch() throws {
+    public func fetch(with diagnostics: DiagnosticsEngine) {
         // TODO.
     }
 }
@@ -230,12 +234,17 @@ extension InMemoryGitRepository: FileSystem {
 }
 
 extension InMemoryGitRepository: Repository {
-    public func resolveRevision(tag: String) throws -> Revision {
+    public func resolveRevision(tag: String, diagnostics: DiagnosticsEngine) -> Revision? {
         return Revision(identifier: tagsMap[tag]!)
     }
 
-    public func resolveRevision(identifier: String) throws -> Revision {
+    public func resolveRevision(identifier: String, diagnostics: DiagnosticsEngine) -> Revision? {
         return Revision(identifier: tagsMap[identifier] ?? identifier)
+    }
+
+    public func openFileView(revision: Revision, diagnostics: DiagnosticsEngine) -> FileSystem? {
+        var fs: FileSystem = history[revision.identifier]!.fileSystem
+        return RerootedFileSystemView(&fs, rootedAt: path)
     }
 
     public func exists(revision: Revision) -> Bool {
@@ -249,19 +258,19 @@ extension InMemoryGitRepository: Repository {
 }
 
 extension InMemoryGitRepository: WorkingCheckout {
-    public func getCurrentRevision() throws -> Revision {
+    public func getCurrentRevision(diagnostics: DiagnosticsEngine) -> Revision? {
         return Revision(identifier: head.hash)
     }
 
-    public func checkout(revision: Revision) throws {
-        try checkout(revision: revision.identifier)
-    }
-
-    public func hasUnpushedCommits() throws -> Bool {
+    public func hasUnpushedCommits(diagnostics: DiagnosticsEngine) -> Bool {
         return false
     }
 
-    public func checkout(newBranch: String) throws {
+    public func checkout(revision: Revision, diagnostics: DiagnosticsEngine) {
+        // try! checkout(revision: revision.identifier)
+    }
+
+    public func checkout(newBranch: String, diagnostics: DiagnosticsEngine) {
         history[newBranch] = head
     }
 }
@@ -296,11 +305,12 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     // MARK: - RepositoryProvider conformance
     // Note: These methods use force unwrap (instead of throwing) to honor their preconditions.
 
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
+    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, diagnostics: DiagnosticsEngine) -> Bool {
         fetchedMap[path] = specifierMap[repository]!.copy()
+        return true
     }
 
-    public func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
+    public func open(repository: RepositorySpecifier, at path: AbsolutePath, diagnostics: DiagnosticsEngine) -> Repository? {
         return fetchedMap[path]!
     }
 
@@ -308,14 +318,17 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         repository: RepositorySpecifier,
         at sourcePath: AbsolutePath,
         to destinationPath: AbsolutePath,
-        editable: Bool
-    ) throws {
+        editable: Bool,
+        diagnostics: DiagnosticsEngine
+    ) {
         let checkout = fetchedMap[sourcePath]!.copy(at: destinationPath)
         checkoutsMap[destinationPath] = checkout
-        try checkout.installHead()
+        diagnostics.wrap {
+            try checkout.installHead()
+        }
     }
 
-    public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
+    public func openCheckout(at path: AbsolutePath, diagnostics: DiagnosticsEngine) -> WorkingCheckout? {
         return checkoutsMap[path]!
     }
 }

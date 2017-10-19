@@ -20,7 +20,7 @@ public protocol RepositoryManagerDelegate: class {
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle)
 
     /// Called when a repository has finished fetching.
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?)
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, success: Bool)
 
     /// Called when a repository has started updating from its remote.
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle)
@@ -31,16 +31,13 @@ public protocol RepositoryManagerDelegate: class {
 
 public extension RepositoryManagerDelegate {
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {}
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {}
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, success: Bool) {}
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {}
 }
 
 /// Manages a collection of bare repositories.
 public class RepositoryManager {
-
-    public typealias LookupResult = Result<RepositoryHandle, AnyError>
-    public typealias LookupCompletion = (LookupResult) -> Void
 
     /// Handle to a managed repository.
     public class RepositoryHandle {
@@ -97,9 +94,9 @@ public class RepositoryManager {
         }
 
         /// Open the given repository.
-        public func open() throws -> Repository {
+        public func open(diagnostics: DiagnosticsEngine) -> Repository? {
             precondition(status == .available, "open() called in invalid state")
-            return try self.manager.open(self)
+            return self.manager.open(self, diagnostics: diagnostics)
         }
 
         /// Clone into a working copy at on the local file system.
@@ -109,9 +106,9 @@ public class RepositoryManager {
         ///           expected to be non-existent when called.
         ///
         ///   - editable: The clone is expected to be edited by user.
-        public func cloneCheckout(to path: AbsolutePath, editable: Bool) throws {
+        public func cloneCheckout(to path: AbsolutePath, editable: Bool, diagnostics: DiagnosticsEngine) {
             precondition(status == .available, "cloneCheckout() called in invalid state")
-            try self.manager.cloneCheckout(self, to: path, editable: editable)
+            self.manager.cloneCheckout(self, to: path, editable: editable, diagnostics: diagnostics)
         }
 
         fileprivate func toJSON() -> JSON {
@@ -215,42 +212,40 @@ public class RepositoryManager {
     /// - Parameters:
     ///   - repository: The repository to look up.
     ///   - skipUpdate: If a repository is availble, skip updating it.
+    ///     - diagnostics: The diagnostics engine that reports errors, warnings
+    ///       and notes.
     ///   - completion: The completion block that should be called after lookup finishes.
     public func lookup(
         repository: RepositorySpecifier,
         skipUpdate: Bool = false,
-        completion: @escaping LookupCompletion
+        diagnostics: DiagnosticsEngine,
+        completion: @escaping (RepositoryHandle?) -> Void
     ) {
         operationQueue.addOperation {
+
             // First look for the handle.
             let handle = self.getHandle(repository: repository)
+
             // Dispatch the action we want to take on the serial queue of the handle.
             handle.serialQueue.sync {
-                let result: LookupResult
-
                 switch handle.status {
                 case .available:
-                    result = LookupResult(anyError: {
-                        // Update the repository when it is being looked up.
-                        let repo = try handle.open()
-
                         // Skip update if asked to.
                         if skipUpdate {
-                            return handle
+                            break
                         }
 
                         self.callbacksQueue.async {
                             self.delegate.handleWillUpdate(handle: handle)
                         }
 
-                        try repo.fetch()
+                        // Update the repository when it is being looked up.
+                        let repo = handle.open(diagnostics: diagnostics)
+                        repo?.fetch(with: diagnostics)
 
                         self.callbacksQueue.async {
                             self.delegate.handleDidUpdate(handle: handle)
                         }
-
-                        return handle
-                    })
 
                 case .pending, .uninitialized, .error:
                     // Change the state to pending.
@@ -264,23 +259,15 @@ public class RepositoryManager {
                         self.delegate.fetchingWillBegin(handle: handle)
                     }
 
-                    // Fetch the repo.
-                    var fetchError: Swift.Error? = nil
-                    do {
-                        // Start fetching.
-                        try self.provider.fetch(repository: handle.repository, to: repositoryPath)
-                        // Update status to available.
-                        handle.status = .available
-                        result = Result(handle)
-                    } catch {
-                        handle.status = .error
-                        fetchError = error
-                        result = Result(error)
-                    }
+                    // Start fetching.
+                    let fetchResult = self.provider.fetch(repository: handle.repository, to: repositoryPath, diagnostics: diagnostics)
+
+                    // Update status to available.
+                    handle.status = fetchResult ? .available : .error
 
                     // Inform delegate.
                     self.callbacksQueue.async {
-                        self.delegate.fetchingDidFinish(handle: handle, error: fetchError)
+                        self.delegate.fetchingDidFinish(handle: handle, success: fetchResult)
                     }
 
                     // Save the manager state.
@@ -300,7 +287,7 @@ public class RepositoryManager {
                 }
                 // Call the completion handler.
                 self.callbacksQueue.async {
-                    completion(result)
+                    completion(handle.status == .available ? handle : nil)
                 }
             }
         }
@@ -324,22 +311,24 @@ public class RepositoryManager {
     }
 
     /// Open a repository from a handle.
-    private func open(_ handle: RepositoryHandle) throws -> Repository {
-        return try provider.open(
-            repository: handle.repository, at: path.appending(handle.subpath))
+    private func open(_ handle: RepositoryHandle, diagnostics: DiagnosticsEngine) -> Repository? {
+        return provider.open(
+            repository: handle.repository, at: path.appending(handle.subpath), diagnostics: diagnostics)
     }
 
     /// Clone a repository from a handle.
     private func cloneCheckout(
         _ handle: RepositoryHandle,
         to destinationPath: AbsolutePath,
-        editable: Bool
-    ) throws {
-        try provider.cloneCheckout(
+        editable: Bool,
+        diagnostics: DiagnosticsEngine
+    ) {
+        provider.cloneCheckout(
             repository: handle.repository,
             at: path.appending(handle.subpath),
             to: destinationPath,
-            editable: editable)
+            editable: editable,
+            diagnostics: diagnostics)
     }
 
     /// Removes the repository.

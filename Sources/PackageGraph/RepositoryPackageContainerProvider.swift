@@ -74,22 +74,22 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         }
 
         // Resolve the container using the repository manager.
-        repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate) { result in
-            // Create the container wrapper.
-            let container = result.mapAny { handle -> Container in
-                // Open the repository.
-                //
-                // FIXME: Do we care about holding this open for the lifetime of the container.
-                let repository = try handle.open()
-                return RepositoryPackageContainer(
-                    identifier: identifier,
-                    repository: repository,
-                    manifestLoader: self.manifestLoader,
-                    toolsVersionLoader: self.toolsVersionLoader,
-                    currentToolsVersion: self.currentToolsVersion
-                )
-            }
-            completion(container)
+        repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate, diagnostics: DiagnosticsEngine()) { result in
+//            // Create the container wrapper.
+//            let container = result.mapAny { handle -> Container in
+//                // Open the repository.
+//                //
+//                // FIXME: Do we care about holding this open for the lifetime of the container.
+//                let repository = handle.open(diagnostics: DiagnosticsEngine())!
+//                return RepositoryPackageContainer(
+//                    identifier: identifier,
+//                    repository: repository,
+//                    manifestLoader: self.manifestLoader,
+//                    toolsVersionLoader: self.toolsVersionLoader,
+//                    currentToolsVersion: self.currentToolsVersion
+//                )
+//            }
+//            completion(container)
         }
     }
 }
@@ -343,19 +343,19 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     /// Returns revision for the given tag.
     public func getRevision(forTag tag: String) throws -> Revision {
-        return try repository.resolveRevision(tag: tag)
+        return repository.resolveRevision(tag: tag, diagnostics: DiagnosticsEngine())!
     }
 
     /// Returns revision for the given identifier.
     public func getRevision(forIdentifier identifier: String) throws -> Revision {
-        return try repository.resolveRevision(identifier: identifier)
+        return repository.resolveRevision(identifier: identifier, diagnostics: DiagnosticsEngine())!
     }
 
     /// Returns the tools version of the given version of the package.
     private func toolsVersion(for version: Version) throws -> ToolsVersion {
         let tag = knownVersions[version]!
-        let revision = try repository.resolveRevision(tag: tag)
-        let fs = try repository.openFileView(revision: revision)
+        let revision = repository.resolveRevision(tag: tag, diagnostics: DiagnosticsEngine())!
+        let fs = repository.openFileView(revision: revision, diagnostics: DiagnosticsEngine())!
         return try toolsVersionLoader.load(at: .root, fileSystem: fs)
     }
 
@@ -363,7 +363,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         do {
             return try cachedDependencies(forIdentifier: version.description) {
                 let tag = knownVersions[version]!
-                let revision = try repository.resolveRevision(tag: tag)
+                let revision = repository.resolveRevision(tag: tag, diagnostics: DiagnosticsEngine())!
                 return try getDependencies(at: revision, version: version)
             }
         } catch {
@@ -376,7 +376,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         do {
             return try cachedDependencies(forIdentifier: revision) {
                 // resolve the revision identifier and return its dependencies.
-                let revision = try repository.resolveRevision(identifier: revision)
+                let revision = repository.resolveRevision(identifier: revision, diagnostics: DiagnosticsEngine())!
                 return try getDependencies(at: revision)
             }
         } catch {
@@ -404,7 +404,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         at revision: Revision,
         version: Version? = nil
     ) throws -> [RepositoryPackageConstraint] {
-        let fs = try repository.openFileView(revision: revision)
+        let fs = repository.openFileView(revision: revision, diagnostics: DiagnosticsEngine())!
 
         // Load the tools version.
         let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)

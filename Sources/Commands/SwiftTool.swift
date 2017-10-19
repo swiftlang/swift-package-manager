@@ -68,7 +68,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         print("Fetching \(repository)")
     }
 
-    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
+    func fetchingDidFinish(repository: String, success: Bool) {
     }
 
     func repositoryWillUpdate(_ repository: String) {
