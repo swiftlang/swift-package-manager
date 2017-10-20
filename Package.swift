@@ -34,7 +34,19 @@ let package = Package(
                 "Xcodeproj",
                 "Workspace"
             ]
-        )
+        ),
+
+        // Collection of general purpose utilities.
+        .library(
+            name: "Utility",
+            targets: [
+                "clibc",
+                "libc",
+                "POSIX",
+                "Basic",
+                "Utility",
+            ]
+        ),
     ],
     targets: [
         // The `PackageDescription` targets are special, they define the API which
