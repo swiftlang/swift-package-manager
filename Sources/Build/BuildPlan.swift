@@ -188,6 +188,7 @@ public final class ClangTargetDescription {
       #if os(macOS)
         args += ["-fobjc-arc"]
       #endif
+        args += ["-fblocks"]
         args += ["-fmodules", "-fmodule-name=" + target.c99name]
         if let languageStandard = clangTarget.languageStandard {
             args += ["-std=\(languageStandard)"]
