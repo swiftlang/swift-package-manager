@@ -1,0 +1,147 @@
+#!/usr/bin/env python
+
+"""
+ This source file is part of the Swift.org open source project
+
+ Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+
+ -------------------------------------------------------------------------
+ This script contains helper operations to use Docker for SwitPM development
+ and testing.
+"""
+
+import argparse
+import urllib2
+import os
+import subprocess
+import yaml
+
+def call(args):
+    """Prints and executes a command."""
+    print " ".join(args)
+    return subprocess.call(args)
+
+def docker_run(command_args):
+    """Runs a command in the container."""
+    call([
+        "docker",
+        "run",
+        "-it",
+        "--security-opt", "seccomp=unconfined",
+        "-v", os.getcwd() + ":/swiftpm",
+        "-w", "/swiftpm",
+        "--rm",
+        "swiftpm-docker-1604"
+    ] + command_args)
+
+def build(_):
+    """Builds a docker image with the latest snapshot."""
+
+    # Get latest snapshot info.
+    latest_build_url = "https://swift.org/builds/development/ubuntu1604/latest-build.yml"
+    latest_build_data = yaml.load(urllib2.urlopen(latest_build_url).read())
+    snapshot_filename = latest_build_data["download"]
+    # FIXME: We shouldn"t need to do this, it should be available in the API.
+    snapshot_name = snapshot_filename.replace("-ubuntu16.04.tar.gz", "")
+    base_url = latest_build_url.rsplit("/", 1)[0]
+    latest_snapshot_url = base_url + "/" + snapshot_name + "/" + snapshot_filename
+    docker_dir = os.path.dirname(os.path.realpath(__file__)) + "/Docker"
+
+    # Download latest snapshot (if necessary).
+    if snapshot_filename in os.listdir(docker_dir):
+        print "Not downloading: " + latest_snapshot_url
+    else:
+        # FIXME: We should remove old tarballs if we have newer ones.
+        result = call([
+            "curl",
+            "-o",
+            docker_dir + "/" + snapshot_filename,
+            latest_snapshot_url
+        ])
+
+        if result != 0:
+            print "Unable to install package: " + latest_snapshot_url
+            exit(1)
+
+    # Create docker image.
+    call([
+        "docker",
+        "build",
+        "-t", "swiftpm-docker-1604",
+        "--build-arg", "SNAPSHOT=%s" % snapshot_filename,
+        docker_dir
+    ])
+
+def run(args):
+    """Runs an executable in the container."""
+    docker_run([args.executable] + args.arguments)
+
+def bootstrap(args):
+    """Runs the bootstrap script in the container."""
+    docker_run(["Utilities/bootstrap"] + args.arguments)
+
+def build_run(args):
+    """Runs a built swift executable in the container."""
+    docker_run([".build/x86_64-unknown-linux/debug/" + args.command] + args.arguments)
+
+def main():
+    """Main script entry-point."""
+
+    parser = argparse.ArgumentParser(
+        usage="%(prog)s [build|run|bootstrap|swift-build|swift-test|swift-run]",
+        description="This script simplifies all the docker operations to build "
+                    "and run a container for SwiftPM development and testing "
+                    "on Linux.")
+    subparsers = parser.add_subparsers(dest='command')
+
+    # build
+    parser_build = subparsers.add_parser(
+        "build",
+        help="builds a docker image from the latest snapshot.")
+    parser_build.set_defaults(func=build)
+
+    # run
+    parser_run = subparsers.add_parser(
+        "run",
+        help="runs an executable in a container.")
+    parser_run.add_argument("executable", help="the executable to run")
+    parser_run.add_argument("arguments", nargs="*")
+    parser_run.set_defaults(func=run)
+
+    # bootstrap
+    parser_bootstrap = subparsers.add_parser(
+        "bootstrap",
+        help="runs the bootstrap script in a container.")
+    parser_bootstrap.add_argument("arguments", nargs="*")
+    parser_bootstrap.set_defaults(func=bootstrap)
+
+    # swift-build
+    parser_swift_build = subparsers.add_parser(
+        "swift-build",
+        help="runs the swift-build executable in a container.")
+    parser_swift_build.add_argument("arguments", nargs="*")
+    parser_swift_build.set_defaults(func=build_run)
+
+    # swift-test
+    parser_swift_test = subparsers.add_parser(
+        "swift-test",
+        help="runs the swift-test executable in a container.")
+    parser_swift_test.add_argument("arguments", nargs="*")
+    parser_swift_test.set_defaults(func=build_run)
+
+    # swift-run
+    parser_swift_run = subparsers.add_parser(
+        "swift-run",
+        help="runs the swift-run executable in a container.")
+    parser_swift_run.add_argument("arguments", nargs="*")
+    parser_swift_run.set_defaults(func=build_run)
+
+    args = parser.parse_args()
+    args.func(args)
+
+if __name__ == "__main__":
+    main()

@@ -121,3 +121,17 @@ $ Utilities/bootstrap --generate-xcodeproj --enable-perf-tests
 ```
 
 Then, open the generated project and run the `PerformanceTest` scheme.
+
+## Testing on Linux with Docker
+
+For contributors on macOS who need to test on Linux, install Docker and use the
+following commands:
+
+```sh
+$ Utilities/docker-utils build # will build an image with the latest swift snapshot
+$ Utilities/docker-utils boostrap # will bootstrap SwiftPM on the linux container
+$ Utilities/docker-utils run bash # to run an interactive bash sheel in the container
+$ Utilities/docker-utils swift-build # to run swift-build in the container
+$ Utilities/docker-utils swift-test # to run swift-test in the container
+$ Utilities/docker-utils swift-run # to run swift-run in the container
+```
