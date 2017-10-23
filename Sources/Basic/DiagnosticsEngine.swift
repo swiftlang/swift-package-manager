@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Dispatch
+
 /// A type which can be used as a diagnostic parameter.
 public protocol DiagnosticParameter {
 
@@ -250,18 +252,28 @@ public protocol DiagnosticsScope {
 }
 
 public class DiagnosticsEngine: CustomStringConvertible {
-    /// The diagnostics produced by the engine.
-    public var diagnostics: [Diagnostic] = []
 
+    /// Queue to protect concurrent mutations to the diagnositcs engine.
+    private let queue = DispatchQueue(label: "\(DiagnosticsEngine.self)")
+
+    /// The diagnostics produced by the engine.
+    public var diagnostics: [Diagnostic] {
+        return queue.sync { _diagnostics }
+    }
+    private var _diagnostics: [Diagnostic] = []
+
+    /// Returns true if there is an error diagnostics in the engine.
     public var hasErrors: Bool {
         return diagnostics.contains(where: { $0.behavior == .error })
     }
-    
+
     public init() {
     }
 
     public func emit(data: DiagnosticData, location: DiagnosticLocation) {
-        diagnostics.append(Diagnostic(location: location, data: data))
+        queue.sync {
+            _diagnostics.append(Diagnostic(location: location, data: data))
+        }
     }
 
     /// Merges contents of given engine.
