@@ -12,10 +12,6 @@ import Basic
 import Dispatch
 import Utility
 
-public enum GitRepositoryProviderError: Swift.Error {
-    case gitCloneFailure(errorOutput: String)
-}
-
 /// A `git` repository provider.
 public class GitRepositoryProvider: RepositoryProvider {
 
@@ -37,24 +33,32 @@ public class GitRepositoryProvider: RepositoryProvider {
 
         // FIXME: We need infrastructure in this subsystem for reporting
         // status information.
-
-        do {
         let process = Process(
             args: Git.tool, "clone", "--mirror", repository.url, path.asString, environment: Git.environment)
-        // Add to process set.
-        try processSet?.add(process)
+
+        // Diagnostic location.
+        let location = { PackageLocation.Remote(url: repository.url, reference: "<unknown>") }
+
         // Launch the process.
-        try process.launch()
-        // Block until cloning completes.
-        let result = try process.waitUntilExit()
-        // Throw if cloning failed.
-        guard result.exitStatus == .terminated(code: 0) else {
-            let errorOutput = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
-            throw GitRepositoryProviderError.gitCloneFailure(errorOutput: errorOutput)
-        }
-        } catch {
-        }
-        return true
+        return diagnostics.wrap(with: location()) {
+            // Add to process set.
+            try processSet?.add(process)
+
+            // Launch the process.
+            try process.launch()
+
+            // Block until cloning completes.
+            let result = try process.waitUntilExit()
+
+            // Emit error if cloning failed.
+            if result.exitStatus != .terminated(code: 0) {
+                diagnostics.emit(
+                    data: ProcessExecutionError(result),
+                    location: location())
+                return false
+            }
+            return true
+        } ?? false
     }
 
     public func open(repository: RepositorySpecifier, at path: AbsolutePath, diagnostics: DiagnosticsEngine) -> Repository? {
@@ -65,22 +69,26 @@ public class GitRepositoryProvider: RepositoryProvider {
         repository: RepositorySpecifier,
         at sourcePath: AbsolutePath,
         to destinationPath: AbsolutePath,
-        editable: Bool, diagnostics: DiagnosticsEngine
+        editable: Bool,
+        diagnostics: DiagnosticsEngine
     ) {
 
-        do {
         if editable {
             // For editable clones, i.e. the user is expected to directly work on them, first we create
             // a clone from our cache of repositories and then we replace the remote to the one originally
             // present in the bare repository.
-            try Process.checkNonZeroExit(args:
-                    Git.tool, "clone", sourcePath.asString, destinationPath.asString)
+            let success = Process.checkNonZeroExit(arguments:
+                [Git.tool, "clone", sourcePath.asString, destinationPath.asString], diagnostics: diagnostics)
+            if !success { return }
+
             // The default name of the remote.
             let origin = "origin"
             // In destination repo remove the remote which will be pointing to the source repo.
             let clone = GitRepository(path: destinationPath)
             // Set the original remote to the new clone.
-            try clone.setURL(remote: origin, url: repository.url)
+            diagnostics.wrap {
+                try clone.setURL(remote: origin, url: repository.url)
+            }
             // FIXME: This is unfortunate that we have to fetch to update remote's data.
             clone.fetch(with: diagnostics)
         } else {
@@ -92,10 +100,8 @@ public class GitRepositoryProvider: RepositoryProvider {
             // re-resolve such that the objects in this repository changed, we would
             // only ever expect to get back a revision that remains present in the
             // object storage.
-            try Process.checkNonZeroExit(args:
-                    Git.tool, "clone", "--shared", sourcePath.asString, destinationPath.asString)
-        }
-        } catch {
+            Process.checkNonZeroExit(arguments:
+                [Git.tool, "clone", "--shared", sourcePath.asString, destinationPath.asString], diagnostics: diagnostics)
         }
     }
 
@@ -660,14 +666,5 @@ private class GitFileSystemView: FileSystem {
 
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         throw FileSystemError.unsupported
-    }
-}
-
-extension GitRepositoryProviderError: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .gitCloneFailure(let errorOutput):
-            return "failed to clone; \(errorOutput)"
-        }
     }
 }

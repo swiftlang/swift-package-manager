@@ -228,7 +228,7 @@ public protocol PackageContainer {
     //
     // FIXME: We should perhaps define some particularly useful error codes
     // here, so the resolver can handle errors more meaningfully.
-    func getDependencies(at version: Version) throws -> [PackageContainerConstraint<Identifier>]
+    func getDependencies(at version: Version, diagnostics: DiagnosticsEngine) -> [PackageContainerConstraint<Identifier>]
 
     /// Fetch the declared dependencies for a particular revision.
     ///
@@ -237,12 +237,12 @@ public protocol PackageContainer {
     ///
     /// - Throws: If the revision could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at revision: String) throws -> [PackageContainerConstraint<Identifier>]
+    func getDependencies(at revision: String, diagnostics: DiagnosticsEngine) -> [PackageContainerConstraint<Identifier>]
 
     /// Fetch the dependencies of an unversioned package container.
     ///
     /// NOTE: This method should not be called on a versioned container.
-    func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>]
+    func getUnversionedDependencies(diagnostics: DiagnosticsEngine) -> [PackageContainerConstraint<Identifier>]
 }
 
 /// An interface for resolving package containers.
@@ -253,7 +253,8 @@ public protocol PackageContainerProvider {
     func getContainer(
         for identifier: Container.Identifier,
         skipUpdate: Bool,
-        completion: @escaping (Result<Container, AnyError>) -> Void
+        diagnostics: DiagnosticsEngine,
+        completion: @escaping (Container?) -> Void
     )
 }
 
@@ -633,7 +634,9 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
 
             case .revision(let identifier):
                 // FIXME: Need caching and error handling here. See the FIXME below.
-                merge(constraints: try! container.getDependencies(at: identifier))
+                let engine = DiagnosticsEngine()
+                merge(constraints: container.getDependencies(at: identifier, diagnostics: engine))
+                assert(engine.diagnostics.isEmpty, "Found unexpected diagnostics \(engine.diagnostics)")
 
             case .version(let version):
                 // If we have a version, add the constraints from that package version.
@@ -643,7 +646,9 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
                 //
                 // FIXME: Error handling, except that we probably shouldn't have
                 // needed to refetch the dependencies at this point.
-                merge(constraints: try! container.getDependencies(at: version))
+                let engine = DiagnosticsEngine()
+                merge(constraints: container.getDependencies(at: version, diagnostics: engine))
+                assert(engine.diagnostics.isEmpty, "Found unexpected diagnostics \(engine.diagnostics)")
             }
         }
         return result
@@ -979,14 +984,14 @@ public class DependencyResolver<
 
         switch allConstraints[container.identifier] {
         case .unversioned:
-            guard let constraints = self.safely({ try container.getUnversionedDependencies() }) else {
+            guard let constraints = self.safely({ container.getUnversionedDependencies(diagnostics: DiagnosticsEngine()) }) else {
                 return AnySequence([])
             }
             // Merge the dependencies of unversioned constraint into the assignment.
             return merge(constraints: constraints, binding: .unversioned)
 
         case .revision(let identifier):
-            guard let constraints = self.safely({ try container.getDependencies(at: identifier) }) else {
+            guard let constraints = self.safely({ container.getDependencies(at: identifier, diagnostics: DiagnosticsEngine()) }) else {
                 return AnySequence([])
             }
             return merge(constraints: constraints, binding: .revision(identifier))
@@ -1007,7 +1012,7 @@ public class DependencyResolver<
 
                     // Get the constraints for this container version and update the assignment to include each one.
                     // FIXME: Making these methods throwing will kill the lazy behavior.
-                    guard var constraints = self.safely({ try container.getDependencies(at: version) }) else {
+                    guard var constraints = self.safely({ container.getDependencies(at: version, diagnostics: DiagnosticsEngine()) }) else {
                         return AnySequence([])
                     }
 
@@ -1157,24 +1162,23 @@ public class DependencyResolver<
     /// The active set of managed containers.
     public var containers: [Identifier: Container] {
         return fetchCondition.whileLocked({
-            _fetchedContainers.flatMapValues({
-                try? $0.dematerialize()
-            })
+            fatalError()
+            // _fetchedContainers
         })
     }
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [Identifier: Basic.Result<Container, AnyError>] = [:]
+    private var _fetchedContainers: [Identifier: Container?] = [:]
 
     /// The set of containers requested so far.
     private var _prefetchingContainers: Set<Identifier> = []
 
     /// Get the container for the given identifier, loading it if necessary.
     fileprivate func getContainer(for identifier: Identifier) throws -> Container {
-        return try fetchCondition.whileLocked {
+        return fetchCondition.whileLocked {
             // Return the cached container, if available.
             if let container = _fetchedContainers[identifier] {
-                return try container.dematerialize()
+                return container!
             }
 
             // If this container is being prefetched, wait for that to complete.
@@ -1184,13 +1188,13 @@ public class DependencyResolver<
 
             // The container may now be available in our cache if it was prefetched.
             if let container = _fetchedContainers[identifier] {
-                return try container.dematerialize()
+                return container!
             }
 
             // Otherwise, fetch the container synchronously.
-            let container = try await { provider.getContainer(for: identifier, skipUpdate: false, completion: $0) }
-            self._fetchedContainers[identifier] = Basic.Result(container)
-            return container
+            let container = await { provider.getContainer(for: identifier, skipUpdate: false, diagnostics: DiagnosticsEngine(), completion: $0) }
+            self._fetchedContainers[identifier] = container
+            return container!
         }
     }
 
@@ -1208,7 +1212,7 @@ public class DependencyResolver<
                 // Otherwise, record that we're prefetching this container.
                 _prefetchingContainers.insert(identifier)
 
-                provider.getContainer(for: identifier, skipUpdate: false) { container in
+                provider.getContainer(for: identifier, skipUpdate: false, diagnostics: DiagnosticsEngine()) { container in
                     self.fetchCondition.whileLocked {
                         // Update the structures and signal any thread waiting
                         // on prefetching to finish.
@@ -1273,7 +1277,7 @@ private struct ResolverDebugger<
                 // Ignore the errors here.
                 do {
                     let container = try resolver.getContainer(for: constraint.identifier)
-                    dependencies += try container.getUnversionedDependencies()
+                    dependencies += container.getUnversionedDependencies(diagnostics: DiagnosticsEngine())
                 } catch {}
             } else {
                 dependencies.append(constraint)
