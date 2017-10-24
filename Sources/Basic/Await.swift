@@ -15,8 +15,12 @@
 /// - Returns: The value wrapped by the async method's result.
 /// - Throws: The error wrapped by the async method's result
 public func await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -> Void) -> Void) throws -> T {
+    return try await(body).dematerialize()
+}
+
+public func await<T>(_ body: (@escaping (T) -> Void) -> Void) -> T {
     let condition = Condition()
-    var result: Result<T, ErrorType>? = nil
+    var result: T? = nil
     body { theResult in
         condition.whileLocked {
             result = theResult
@@ -28,5 +32,5 @@ public func await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -> Voi
             condition.wait()
         }
     }
-    return try result!.dematerialize()
+    return result!
 }
