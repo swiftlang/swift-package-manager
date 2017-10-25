@@ -460,6 +460,7 @@ func xcodeProject(
                 if let pkgArgs = pkgConfigArgs(for: cTarget) {
                     targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
                     targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
+                    targetSettings.common.OTHER_CFLAGS += pkgArgs.cFlags
                 }
             case let clangTarget as ClangTarget:
                 hdrInclPaths.append("$(SRCROOT)/" + clangTarget.includeDir.relative(to: sourceRootDir).asString)
