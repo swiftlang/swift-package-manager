@@ -72,15 +72,15 @@ public enum MockLoadingError: Error {
 }
 
 public final class MockPackageContainer: PackageContainer {
-    public func getDependencies(at version: Version, diagnostics: DiagnosticsEngine) -> [PackageContainerConstraint<String>] {
+    public func getDependencies(at version: Version, diagnostics: DiagnosticsEngine) -> [PackageContainerConstraint<String>]? {
         return []
     }
 
-    public func getDependencies(at revision: String, diagnostics: DiagnosticsEngine) -> [PackageContainerConstraint<String>] {
+    public func getDependencies(at revision: String, diagnostics: DiagnosticsEngine) -> [PackageContainerConstraint<String>]? {
         return []
     }
 
-    public func getUnversionedDependencies(diagnostics: DiagnosticsEngine) -> [PackageContainerConstraint<String>] {
+    public func getUnversionedDependencies(diagnostics: DiagnosticsEngine) -> [PackageContainerConstraint<String>]? {
         return []
     }
 
@@ -213,13 +213,14 @@ extension DependencyResolver where P == MockPackagesProvider, D == MockResolverD
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> [(container: String, version: Version)] {
-        return try resolve(constraints: constraints).flatMap({
-            guard case .version(let version) = $0.binding else {
-                XCTFail("Unexpected non version binding \($0.binding)", file: file, line: line)
-                return nil
-            }
-            return ($0.container, version)
-        })
+        fatalError()
+//        return try resolve(constraints: constraints, diagnostics: DiagnosticsEngine()).flatMap({
+//            guard case .version(let version) = $0.binding else {
+//                XCTFail("Unexpected non version binding \($0.binding)", file: file, line: line)
+//                return nil
+//            }
+//            return ($0.container, version)
+//        })
     }
 }
 
