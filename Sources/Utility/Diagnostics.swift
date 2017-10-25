@@ -167,3 +167,47 @@ public enum PackageLocation {
         }
     }
 }
+
+/// An Swift error enum that can be used as a stub to early exit from a method.
+///
+/// It is not expected for this enum to contain any payload or information about the
+/// error. The actual errors and warnings are supposed to be added using the Diagnostics
+/// engine.
+public enum Diagnostics: Swift.Error {
+    case fatalError
+}
+
+/// Diagnostic for the process execution failure.
+public struct ProcessExecutionError: DiagnosticData {
+    public static let id = DiagnosticID(
+        type: ProcessExecutionError.self,
+        name: "org.swift.diags.process.execution",
+        description: {
+            $0 <<< { "The '" + $0.result.arguments[0] + "' subprocess exited with" }
+            $0 <<< .substitution({
+                let `self` = $0 as! ProcessExecutionError
+                switch self.result.exitStatus {
+                case .terminated(let code):
+                    return "termination code \(code)"
+                case .signalled(let signal):
+                    return "signal \(signal)"
+                }
+            })
+            $0 <<< ".\n"
+
+            $0 <<< "stdout: " <<< .substitution({
+                (try? ($0 as! ProcessExecutionError).result.utf8Output()) ?? ""
+            }) <<< "\n"
+            $0 <<< "stderr: " <<< .substitution({
+                (try? ($0 as! ProcessExecutionError).result.utf8stderrOutput()) ?? ""
+            }) <<< "\n"
+        }
+    )
+
+    /// The process result.
+    public let result: ProcessResult
+
+    public init(_ result: ProcessResult) {
+        self.result = result
+    }
+}
