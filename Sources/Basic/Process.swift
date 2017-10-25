@@ -15,6 +15,39 @@ import func POSIX.getenv
 import libc
 import Dispatch
 
+public struct ProcessExecutionError: DiagnosticData {
+    public static let id = DiagnosticID(
+        type: ProcessExecutionError.self,
+        name: "org.swift.diags.process.execution",
+        description: {
+            $0 <<< { "The '" + $0.result.arguments[0] + "' subprocess exited with" }
+            $0 <<< .substitution({
+                let `self` = $0 as! ProcessExecutionError
+                switch self.result.exitStatus {
+                case .terminated(let code):
+                    return "termination code \(code)"
+                case .signalled(let signal):
+                    return "signal \(signal)"
+                }
+            })
+            $0 <<< ".\n"
+
+            $0 <<< "stdout: " <<< .substitution({
+                (try? ($0 as! ProcessExecutionError).result.utf8Output()) ?? ""
+            }) <<< "\n"
+            $0 <<< "stderr: " <<< .substitution({
+                (try? ($0 as! ProcessExecutionError).result.utf8stderrOutput()) ?? ""
+            }) <<< "\n"
+        }
+    )
+
+    public let result: ProcessResult
+
+    public init(_ result: ProcessResult) {
+        self.result = result
+    }
+}
+
 /// Process result data which is available after process termination.
 public struct ProcessResult: CustomStringConvertible {
 

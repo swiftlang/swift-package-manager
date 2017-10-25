@@ -34,7 +34,7 @@ public protocol WorkspaceDelegate: class {
     func fetchingWillBegin(repository: String)
 
     /// The workspace has finished fetching this repository.
-    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?)
+    func fetchingDidFinish(repository: String, success: Bool)
 
     /// The workspace has started updating this repository.
     func repositoryWillUpdate(_ repository: String)
@@ -84,13 +84,8 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
         workspaceDelegate.fetchingWillBegin(repository: handle.repository.url)
     }
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
-        let diagnostic: Diagnostic? = error.flatMap({
-            let engine = DiagnosticsEngine()
-            engine.emit($0)
-            return engine.diagnostics.first
-        })
-        workspaceDelegate.fetchingDidFinish(repository: handle.repository.url, diagnostic: diagnostic)
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, success: Bool) {
+        workspaceDelegate.fetchingDidFinish(repository: handle.repository.url, success: success)
     }
 
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
@@ -656,10 +651,10 @@ extension Workspace {
             // Otherwise, create a checkout at the destination from our repository store.
             //
             // Get handle to the repository.
-            let handle = try await {
-                repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, completion: $0)
-            }
-            let repo = try handle.open()
+            let handle = await {
+                repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, diagnostics: DiagnosticsEngine(), completion: $0)
+            }!
+            let repo = handle.open(diagnostics: DiagnosticsEngine())!
 
             // Do preliminary checks on branch and revision, if provided.
             if let branch = checkoutBranch, repo.exists(revision: Revision(identifier: branch)) {
@@ -669,13 +664,13 @@ extension Workspace {
                 throw WorkspaceDiagnostics.RevisionDoesNotExist(revision: revision.identifier)
             }
 
-            try handle.cloneCheckout(to: destination, editable: true)
-            let workingRepo = try repositoryManager.provider.openCheckout(at: destination)
-            try workingRepo.checkout(revision: revision ?? checkoutState.revision)
+            handle.cloneCheckout(to: destination, editable: true, diagnostics: DiagnosticsEngine())
+            let workingRepo = repositoryManager.provider.openCheckout(at: destination, diagnostics: DiagnosticsEngine())!
+            workingRepo.checkout(revision: revision ?? checkoutState.revision, diagnostics: DiagnosticsEngine())
 
             // Checkout to the new branch if provided.
             if let branch = checkoutBranch {
-                try workingRepo.checkout(newBranch: branch)
+                workingRepo.checkout(newBranch: branch, diagnostics: DiagnosticsEngine())
             }
         }
 
@@ -727,11 +722,11 @@ extension Workspace {
         let path = editablesPath.appending(dependency.subpath)
         // Check for uncommited and unpushed changes if force removal is off.
         if !forceRemove {
-            let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+            let workingRepo = repositoryManager.provider.openCheckout(at: path, diagnostics: DiagnosticsEngine())!
             guard !workingRepo.hasUncommitedChanges() else {
                 throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
             }
-            guard try !workingRepo.hasUnpushedCommits() else {
+            guard !workingRepo.hasUnpushedCommits(diagnostics: DiagnosticsEngine()) else {
                 throw WorkspaceDiagnostics.UnpushedChanges(repositoryPath: path)
             }
         }
@@ -1187,8 +1182,8 @@ extension Workspace {
 
             case .revision(let identifier):
                 // Get the latest revision from the container.
-                let container = try await {
-                    containerProvider.getContainer(for: packageRef, skipUpdate: true, completion: $0) 
+                let container = await {
+                    containerProvider.getContainer(for: packageRef, skipUpdate: true, diagnostics: DiagnosticsEngine(), completion: $0)
                 } as! RepositoryPackageContainer 
                 var revision = try container.getRevision(forIdentifier: identifier)
                 let branch = identifier == revision.identifier ? nil : identifier
@@ -1374,12 +1369,12 @@ extension Workspace {
             // if not).
             if fileSystem.isDirectory(path) {
                 // Fetch the checkout in case there are updates available.
-                let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+                let workingRepo = repositoryManager.provider.openCheckout(at: path, diagnostics: DiagnosticsEngine())!
 
                 // The fetch operation may update contents of the checkout, so
                 // we need do mutable-immutable dance.
                 try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
-                try workingRepo.fetch()
+                workingRepo.fetch(with: DiagnosticsEngine())
                 try? fileSystem.chmod(.userUnWritable, path: path, options: [.recursive, .onlyFiles])
 
                 return path
@@ -1387,9 +1382,9 @@ extension Workspace {
         }
 
         // If not, we need to get the repository from the checkouts.
-        let handle = try await {
-            repositoryManager.lookup(repository: package.repository, skipUpdate: true, completion: $0)
-        }
+        let handle = await {
+            repositoryManager.lookup(repository: package.repository, skipUpdate: true, diagnostics: DiagnosticsEngine(), completion: $0)
+        }!
 
         // Clone the repository into the checkouts.
         let path = checkoutsPath.appending(component: package.repository.fileSystemIdentifier)
@@ -1399,7 +1394,7 @@ extension Workspace {
 
         // Inform the delegate that we're starting cloning.
         delegate.cloning(repository: handle.repository.url)
-        try handle.cloneCheckout(to: path, editable: false)
+        handle.cloneCheckout(to: path, editable: false, diagnostics: DiagnosticsEngine())
 
         return path
     }
@@ -1423,13 +1418,13 @@ extension Workspace {
         let path = try fetch(package: package)
 
         // Check out the given revision.
-        let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+        let workingRepo = repositoryManager.provider.openCheckout(at: path, diagnostics: DiagnosticsEngine())!
         // Inform the delegate.
         delegate.checkingOut(repository: package.repository.url, atReference: checkoutState.description, to: path)
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
-        try workingRepo.checkout(revision: checkoutState.revision)
+        workingRepo.checkout(revision: checkoutState.revision, diagnostics: DiagnosticsEngine())
         try? fileSystem.chmod(.userUnWritable, path: path, options: [.recursive, .onlyFiles])
 
         // Write the state record.
@@ -1450,7 +1445,7 @@ extension Workspace {
         // way to get it back out of the resolver which is very
         // annoying. Maybe we should make an SPI on the provider for
         // this?
-        let container = try await { containerProvider.getContainer(for: package, skipUpdate: true, completion: $0) } as! RepositoryPackageContainer
+        let container = await { containerProvider.getContainer(for: package, skipUpdate: true, diagnostics: DiagnosticsEngine(), completion: $0) } as! RepositoryPackageContainer
         let checkoutState: CheckoutState
 
         switch requirement {
@@ -1491,7 +1486,7 @@ extension Workspace {
         
         // Remove the checkout.
         let dependencyPath = checkoutsPath.appending(dependencyToRemove.subpath)
-        let checkedOutRepo = try repositoryManager.provider.openCheckout(at: dependencyPath)
+        let checkedOutRepo = repositoryManager.provider.openCheckout(at: dependencyPath, diagnostics: DiagnosticsEngine())!
         guard !checkedOutRepo.hasUncommitedChanges() else {
             throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
         }

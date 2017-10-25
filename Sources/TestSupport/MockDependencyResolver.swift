@@ -63,7 +63,7 @@ extension PackageContainerProvider {
         for identifier: Container.Identifier,
         completion: @escaping (Result<Container, AnyError>) -> Void
     ) {
-        getContainer(for: identifier, skipUpdate: false, completion: completion)
+//        getContainer(for: identifier, skipUpdate: false, diagnostics: DiagnosticsEngine(), completion: completion)
     }
 }
 
@@ -72,6 +72,18 @@ public enum MockLoadingError: Error {
 }
 
 public final class MockPackageContainer: PackageContainer {
+    public func getDependencies(at version: Version, diagnostics: DiagnosticsEngine) -> [PackageContainerConstraint<String>]? {
+        return []
+    }
+
+    public func getDependencies(at revision: String, diagnostics: DiagnosticsEngine) -> [PackageContainerConstraint<String>]? {
+        return []
+    }
+
+    public func getUnversionedDependencies(diagnostics: DiagnosticsEngine) -> [PackageContainerConstraint<String>]? {
+        return []
+    }
+
     public typealias Identifier = String
 
     public typealias Dependency = (container: Identifier, requirement: MockPackageConstraint.Requirement)
@@ -162,6 +174,10 @@ extension MockPackageContainer {
 }
 
 public struct MockPackagesProvider: PackageContainerProvider {
+    public func getContainer(for identifier: String, skipUpdate: Bool, diagnostics: DiagnosticsEngine, completion: @escaping (MockPackageContainer?) -> Void) {
+        
+    }
+
     public typealias Container = MockPackageContainer
 
     public let containers: [Container]
@@ -197,13 +213,14 @@ extension DependencyResolver where P == MockPackagesProvider, D == MockResolverD
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> [(container: String, version: Version)] {
-        return try resolve(constraints: constraints).flatMap({
-            guard case .version(let version) = $0.binding else {
-                XCTFail("Unexpected non version binding \($0.binding)", file: file, line: line)
-                return nil
-            }
-            return ($0.container, version)
-        })
+        fatalError()
+//        return try resolve(constraints: constraints, diagnostics: DiagnosticsEngine()).flatMap({
+//            guard case .version(let version) = $0.binding else {
+//                XCTFail("Unexpected non version binding \($0.binding)", file: file, line: line)
+//                return nil
+//            }
+//            return ($0.container, version)
+//        })
     }
 }
 

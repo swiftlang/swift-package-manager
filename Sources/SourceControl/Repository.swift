@@ -68,10 +68,9 @@ extension RepositorySpecifier: JSONMappable, JSONSerializable {
 /// repositories. High-level clients should access repositories via a
 /// `RepositoryManager`.
 public protocol RepositoryProvider {
+
     /// Fetch the complete repository at the given location to `path`.
-    ///
-    /// - Throws: If there is an error fetching the repository.
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, diagnostics: DiagnosticsEngine) -> Bool
 
     /// Open the given repository.
     ///
@@ -79,8 +78,7 @@ public protocol RepositoryProvider {
     ///   - repository: The specifier for the repository.
     ///   - path: The location of the repository on disk, at which the
     ///     repository has previously been created via `fetch`.
-    /// - Throws: If the repository is unable to be opened.
-    func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository
+    func open(repository: RepositorySpecifier, at path: AbsolutePath, diagnostics: DiagnosticsEngine) -> Repository?
 
     /// Clone a managed repository into a working copy at on the local file system.
     ///
@@ -96,14 +94,16 @@ public protocol RepositoryProvider {
         repository: RepositorySpecifier,
         at sourcePath: AbsolutePath,
         to destinationPath: AbsolutePath,
-        editable: Bool) throws
+        editable: Bool,
+        diagnostics: DiagnosticsEngine
+     )
 
     /// Open a working repository copy.
     ///
     /// - Parameters:
     ///   - path: The location of the repository on disk, at which the
     ///     repository has previously been created via `cloneCheckout`.
-    func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout
+    func openCheckout(at path: AbsolutePath, diagnostics: DiagnosticsEngine) -> WorkingCheckout?
 }
 
 /// Abstract repository operations.
@@ -131,20 +131,15 @@ public protocol Repository {
     /// Resolve the revision for a specific tag.
     ///
     /// - Precondition: The `tag` should be a member of `tags`.
-    /// - Throws: If a error occurs accessing the named tag.
-    func resolveRevision(tag: String) throws -> Revision
+    func resolveRevision(tag: String, diagnostics: DiagnosticsEngine) -> Revision?
 
     /// Resolve the revision for an identifier.
     ///
     /// The identifier can be a branch name or a revision identifier.
-    ///
-    /// - Throws: If the identifier can not be resolved.
-    func resolveRevision(identifier: String) throws -> Revision
+    func resolveRevision(identifier: String, diagnostics: DiagnosticsEngine) -> Revision?
 
     /// Fetch and update the repository from its remote.
-    ///
-    /// - Throws: If an error occurs while performing the fetch operation.
-    func fetch() throws
+    func fetch(with diagnostics: DiagnosticsEngine)
 
     /// Returns true if the given revision exists.
     func exists(revision: Revision) -> Bool
@@ -161,9 +156,7 @@ public protocol Repository {
     ///
     /// It is expected behavior that attempts to mutate the given FileSystem
     /// will fail or crash.
-    ///
-    /// - Throws: If a error occurs accessing the revision.
-    func openFileView(revision: Revision) throws -> FileSystem
+    func openFileView(revision: Revision, diagnostics: DiagnosticsEngine) -> FileSystem?
 }
 
 /// An editable checkout of a repository (i.e. a working copy) on the local file
@@ -173,33 +166,31 @@ public protocol WorkingCheckout {
     var tags: [String] { get }
 
     /// Get the current revision.
-    func getCurrentRevision() throws -> Revision
+    func getCurrentRevision(diagnostics: DiagnosticsEngine) -> Revision?
 
     /// Fetch and update the repository from its remote.
-    ///
-    /// - Throws: If an error occurs while performing the fetch operation.
-    func fetch() throws
+    func fetch(with diagnostics: DiagnosticsEngine)
 
     /// Query whether the checkout has any commits which are not pushed to its remote.
-    func hasUnpushedCommits() throws -> Bool
+    func hasUnpushedCommits(diagnostics: DiagnosticsEngine) -> Bool
 
     /// This check for any modified state of the repository and returns true
     /// if there are uncommited changes.
     func hasUncommitedChanges() -> Bool
 
     /// Check out the given tag.
-    func checkout(tag: String) throws
+    func checkout(tag: String, diagnostics: DiagnosticsEngine)
 
     /// Check out the given revision.
-    func checkout(revision: Revision) throws
-
-    /// Returns true if the given revision exists.
-    func exists(revision: Revision) -> Bool
+    func checkout(revision: Revision, diagnostics: DiagnosticsEngine)
 
     /// Create a new branch and checkout HEAD to it.
     ///
     /// Note: It is an error to provide a branch name which already exists.
-    func checkout(newBranch: String) throws
+    func checkout(newBranch: String, diagnostics: DiagnosticsEngine)
+
+    /// Returns true if the given revision exists.
+    func exists(revision: Revision) -> Bool
 }
 
 /// A single repository revision.

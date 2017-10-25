@@ -10,6 +10,36 @@
 
 import Basic
 
+// FIXME: Move this to its own file.
+extension Process {
+    @discardableResult
+    static public func checkNonZeroExit(arguments: [String], environment: [String: String] = env, diagnostics: DiagnosticsEngine) -> Bool {
+        let process = Process(arguments: arguments, environment: environment, redirectOutput: true)
+        return diagnostics.wrap {
+            try process.launch()
+            let result = try process.waitUntilExit()
+            if result.exitStatus != .terminated(code: 0) {
+                diagnostics.emit(data: ProcessExecutionError(result))
+                return false
+            }
+            return true
+        } ?? false
+    }
+
+    @discardableResult
+    static public func checkNonZeroExitOutput(arguments: [String], environment: [String: String] = env, diagnostics: DiagnosticsEngine) -> String? {
+        let process = Process(arguments: arguments, environment: environment, redirectOutput: true)
+        return diagnostics.wrap {
+            try process.launch()
+            let result = try process.waitUntilExit()
+            if result.exitStatus != .terminated(code: 0) {
+                diagnostics.emit(data: ProcessExecutionError(result))
+            }
+            return try result.utf8Output()
+        }
+    }
+}
+
 /// Represents an object which can be converted into a diagnostic data.
 public protocol DiagnosticDataConvertible {
 
@@ -105,6 +135,9 @@ extension DiagnosticsEngine {
     ///     - closure: Closure to wrap.
     /// - Returns: Returns true if the wrapped closure did not throw
     ///   and false otherwise.
+    // FIXME: We should stop using this. We should be returning false here if a diagnostic was emitted in the closure
+    // but we have no way of knowing that. With most APIs moving towards diagnostics engine, we shouldn't even require
+    // this a lot.
     @discardableResult
     public func wrap(
         with constuctLocation: @autoclosure () -> (DiagnosticLocation) = UnknownLocation.location,
