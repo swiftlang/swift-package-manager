@@ -179,11 +179,6 @@ public final class ClangTargetDescription {
         args += buildParameters.toolchain.extraCCFlags
         args += optimizationArguments
 
-        // Add extra C++ flags if this target contains C++ files.
-        if clangTarget.isCXX {
-            args += self.buildParameters.flags.cxxCompilerFlags
-        }
-
         // Only enable ARC on macOS.
       #if os(macOS)
         args += ["-fobjc-arc"]
@@ -197,6 +192,11 @@ public final class ClangTargetDescription {
         args += additionalFlags
         args += moduleCacheArgs
         args += buildParameters.flags.cCompilerFlags
+
+        // Add extra C++ flags if this target contains C++ files.
+        if clangTarget.isCXX {
+            args += self.buildParameters.flags.cxxCompilerFlags
+        }
         return args
     }
 
