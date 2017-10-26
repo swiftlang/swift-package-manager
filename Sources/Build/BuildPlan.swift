@@ -179,11 +179,6 @@ public final class ClangTargetDescription {
         args += buildParameters.toolchain.extraCCFlags
         args += optimizationArguments
 
-        // Add extra C++ flags if this target contains C++ files.
-        if clangTarget.isCXX {
-            args += self.buildParameters.flags.cxxCompilerFlags
-        }
-
         // Only enable ARC on macOS.
       #if os(macOS)
         args += ["-fobjc-arc"]
@@ -196,7 +191,14 @@ public final class ClangTargetDescription {
         args += ["-I", clangTarget.includeDir.asString]
         args += additionalFlags
         args += moduleCacheArgs
+
+        // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
         args += buildParameters.flags.cCompilerFlags
+
+        // Add extra C++ flags if this target contains C++ files.
+        if clangTarget.isCXX {
+            args += self.buildParameters.flags.cxxCompilerFlags
+        }
         return args
     }
 
@@ -286,6 +288,8 @@ public final class SwiftTargetDescription {
         args += ["-j\(SwiftCompilerTool.numThreads)", "-DSWIFT_PACKAGE"]
         args += additionalFlags
         args += moduleCacheArgs
+
+        // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
         return args
     }
@@ -417,6 +421,8 @@ public final class ProductBuildDescription {
         args += ["-Xlinker", "-rpath=$ORIGIN"]
       #endif
         args += objects.map({ $0.asString })
+
+        // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.linkerFlags
         args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
         return args
