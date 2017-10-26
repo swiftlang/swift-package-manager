@@ -15,8 +15,18 @@ import Basic
 import Commands
 
 final class BuildToolTests: XCTestCase {
+    @discardableResult
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
         return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, printIfError: true)
+    }
+
+    func buildBinContents(_ args: [String], packagePath: AbsolutePath? = nil) throws -> [String] {
+        try execute(args, packagePath: packagePath)
+        defer { try! SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: packagePath, printIfError: true) }
+        let binPathOutput = try execute(["--show-bin-path"], packagePath: packagePath)
+        let binPath = AbsolutePath(binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
+        let binContents = try localFileSystem.getDirectoryContents(binPath)
+        return binContents
     }
     
     func testUsage() throws {
@@ -55,17 +65,23 @@ final class BuildToolTests: XCTestCase {
 
     func testProductAndTarget() throws {
         fixture(name: "Miscellaneous/MultipleExecutables") { path in
-            let productOutput = try execute(["--product", "exec1"], packagePath: path)
-            XCTAssert(productOutput.contains("Compile"))
-            XCTAssert(productOutput.contains("Linking"))
-            XCTAssert(productOutput.contains("exec1"))
-            XCTAssert(!productOutput.contains("exec2"))
+            let fullPath = resolveSymlinks(path)
 
-            let targetOutput = try execute(["--target", "exec2"], packagePath: path)
-            XCTAssert(targetOutput.contains("Compile"))
-            XCTAssert(targetOutput.contains("exec2"))
-            XCTAssert(!targetOutput.contains("Linking"))
-            XCTAssert(!targetOutput.contains("exec1"))
+            do {
+                let productBinContents = try buildBinContents(["--product", "exec1"], packagePath: fullPath)
+                XCTAssert(productBinContents.contains("exec1"))
+                XCTAssert(!productBinContents.contains("exec2.build"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
+
+            do {
+                let targetBinContents = try buildBinContents(["--target", "exec2"], packagePath: fullPath)
+                XCTAssert(targetBinContents.contains("exec2.build"))
+                XCTAssert(!targetBinContents.contains("exec1"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
 
             do {
                 _ = try execute(["--product", "exec1", "--target", "exec2"], packagePath: path)
@@ -111,11 +127,60 @@ final class BuildToolTests: XCTestCase {
         }
     }
 
+    func testNonReachableProductsAndTargetsFunctional() {
+        fixture(name: "Miscellaneous/UnreachableTargets") { path in
+            let aPath = path.appending(component: "A")
+
+            do {
+                let binContents = try buildBinContents([], packagePath: aPath)
+                XCTAssert(!binContents.contains("bexec"))
+                XCTAssert(!binContents.contains("BTarget2.build"))
+                XCTAssert(!binContents.contains("cexec"))
+                XCTAssert(!binContents.contains("CTarget.build"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
+
+            // Dependency contains a dependent product
+
+            do {
+                let binContents = try buildBinContents(["--product", "bexec"], packagePath: aPath)
+                XCTAssert(binContents.contains("BTarget2.build"))
+                XCTAssert(binContents.contains("bexec"))
+                XCTAssert(!binContents.contains("aexec"))
+                XCTAssert(!binContents.contains("ATarget.build"))
+                XCTAssert(!binContents.contains("BLibrary.a"))
+                XCTAssert(!binContents.contains("BTarget1.build"))
+                XCTAssert(!binContents.contains("cexec"))
+                XCTAssert(!binContents.contains("CTarget.build"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
+
+            // Dependency does not contain a dependent product
+
+            do {
+                let binContents = try buildBinContents(["--target", "CTarget"], packagePath: aPath)
+                XCTAssert(binContents.contains("CTarget.build"))
+                XCTAssert(!binContents.contains("aexec"))
+                XCTAssert(!binContents.contains("ATarget.build"))
+                XCTAssert(!binContents.contains("BLibrary.a"))
+                XCTAssert(!binContents.contains("bexec"))
+                XCTAssert(!binContents.contains("BTarget1.build"))
+                XCTAssert(!binContents.contains("BTarget2.build"))
+                XCTAssert(!binContents.contains("cexec"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
+        }
+    }
+
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
         ("testBinPath", testBinPath),
         ("testBackwardsCompatibilitySymlink", testBackwardsCompatibilitySymlink),
-        ("testProductAndTarget", testProductAndTarget)
+        ("testProductAndTarget", testProductAndTarget),
+        ("testNonReachableProductsAndTargetsFunctional", testNonReachableProductsAndTargetsFunctional),
     ]
 }

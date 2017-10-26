@@ -20,7 +20,7 @@ func xcscheme(container: String, graph: PackageGraph, codeCoverageEnabled: Bool,
         """)
 
     // Create buildable references for non-test targets.
-    for target in graph.targets where target.type != .test {
+    for target in graph.reachableTargets where target.type != .test {
         // Ignore system targets.
         //
         // FIXME: We shouldn't need to manually do this here, instead this
@@ -54,7 +54,7 @@ func xcscheme(container: String, graph: PackageGraph, codeCoverageEnabled: Bool,
         """)
 
     // Create testable references.
-    for target in graph.targets where target.type == .test {
+    for target in graph.reachableTargets where target.type == .test {
         print("""
                 <TestableReference
                   skipped = "NO">

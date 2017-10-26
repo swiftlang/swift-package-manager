@@ -499,7 +499,7 @@ public class BuildPlan {
 
         // Create build target description for each target which we need to plan.
         var targetMap = [ResolvedTarget: TargetDescription]()
-        for target in graph.targets {
+        for target in graph.allTargets {
              switch target.underlyingTarget {
              case is SwiftTarget:
                  targetMap[target] = .swift(SwiftTargetDescription(target: target, buildParameters: buildParameters))
@@ -518,10 +518,7 @@ public class BuildPlan {
         if buildParameters.triple.isLinux() {
             // FIXME: Create a target for LinuxMain file on linux.
             // This will go away once it is possible to auto detect tests.
-            let testProducts = graph.products.filter({ $0.type == .test })
-            if testProducts.count > 1 {
-                fatalError("It is not possible to have multiple test products on linux \(testProducts)")
-            }
+            let testProducts = graph.allProducts.filter({ $0.type == .test })
 
             for product in testProducts {
                 guard let linuxMainTarget = product.linuxMainTarget else {
@@ -536,7 +533,7 @@ public class BuildPlan {
         var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
         // Create product description for each product we have in the package graph except
         // for automatic libraries because they don't produce any output.
-        for product in graph.products where product.type != .library(.automatic) {
+        for product in graph.allProducts where product.type != .library(.automatic) {
             productMap[product] = ProductBuildDescription(
                 product: product, buildParameters: buildParameters)
         }
