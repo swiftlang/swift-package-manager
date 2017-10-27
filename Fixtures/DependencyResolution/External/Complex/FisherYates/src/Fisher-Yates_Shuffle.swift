@@ -13,18 +13,20 @@ public extension Collection {
     }
 }
 
-public extension MutableCollection where Index == Int, IndexDistance == Int {
+public extension MutableCollection {
+    /// Shuffles the contents of this collection.
     mutating func shuffleInPlace() {
-        guard count > 1 else { return }
-
-        for i in 0..<count - 1 {
+        let c = count
+        guard c > 1 else { return }
+        
+        for (firstUnshuffled, unshuffledCount) in zip(indices, stride(from: c, to: 1, by: -1)) {
 #if os(macOS) || os(iOS)
-            let j = Int(arc4random_uniform(UInt32(count - i))) + i
+            let d = arc4random_uniform(numericCast(unshuffledCount))
 #else
-            let j = Int(random() % (count - i)) + i
+            let d = numericCast(random()) % unshuffledCount
 #endif
-            guard i != j else { continue }
-            swap(&self[i], &self[j])
+            let i = index(firstUnshuffled, offsetBy: numericCast(d))
+            swapAt(firstUnshuffled, i)
         }
     }
 }
