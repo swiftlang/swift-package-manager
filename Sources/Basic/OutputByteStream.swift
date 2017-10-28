@@ -116,23 +116,23 @@ public class OutputByteStream: TextOutputStream {
 
     /// Write a collection of bytes to the buffer.
     public final func write<C: Collection>(collection bytes: C) where
-        C.IndexDistance == Int,
         C.Iterator.Element == UInt8,
         C.SubSequence: Collection {
         queue.sync {
             // This is based on LLVM's raw_ostream.
             let availableBufferSize = self.availableBufferSize
+            let byteCount = Int(bytes.count)
 
             // If we have to insert more than the available space in buffer.
-            if bytes.count > availableBufferSize {
+            if byteCount > availableBufferSize {
                 // If buffer is empty, start writing and keep the last chunk in buffer.
                 if buffer.isEmpty {
-                    let bytesToWrite = bytes.count - (bytes.count % availableBufferSize)
-                    let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: bytesToWrite)
+                    let bytesToWrite = byteCount - (byteCount % availableBufferSize)
+                    let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: numericCast(bytesToWrite))
                     writeImpl(bytes.prefix(upTo: writeUptoIndex))
 
                     // If remaining bytes is more than buffer size write everything.
-                    let bytesRemaining = bytes.count - bytesToWrite
+                    let bytesRemaining = byteCount - bytesToWrite
                     if bytesRemaining > availableBufferSize {
                         writeImpl(bytes.suffix(from: writeUptoIndex))
                         return
@@ -142,7 +142,7 @@ public class OutputByteStream: TextOutputStream {
                     return
                 }
 
-                let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: availableBufferSize)
+                let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: numericCast(availableBufferSize))
                 // Append whatever we can accommodate.
                 buffer += bytes.prefix(upTo: writeUptoIndex)
 
@@ -296,7 +296,6 @@ public func <<< (stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputBy
 @discardableResult
 public func <<< <C: Collection>(stream: OutputByteStream, value: C) -> OutputByteStream where
     C.Iterator.Element == UInt8,
-    C.IndexDistance == Int,
     C.SubSequence: Collection {
     stream.write(collection: value)
     return stream
