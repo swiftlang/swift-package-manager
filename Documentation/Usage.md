@@ -167,9 +167,9 @@ let package = Package(
 ```
 
 The `pkgConfig` parameter helps SwiftPM in figuring out the include and library
-search paths for the system library.  Note: If you don't want to use pkgConfig
-paramater you can pass the path to directory containing library using
-commandline when building your app:
+search paths for the system library.  Note: If you don't want to use the `pkgConfig`
+parameter you can pass the path of a directory containing the library using the
+`-L` flag in commandline when building your app:
 
     example$ swift build -Xlinker -L/usr/local/lib/
 
@@ -472,7 +472,7 @@ the exact sources in this directory to build, regardless of its state, git
 repository status, tags, or the tag desired by dependency resolution. In other
 words, this will _just build_ against the sources that are present. When an
 editable package is present, it will be used to satisfy all instances of that
-package in the depencency graph. It is possible to edit all, some, or none of
+package in the dependency graph. It is possible to edit all, some, or none of
 the packages in a dependency graph, without restriction.
 
 Editable packages are best used to do experimentation with dependency code or
@@ -487,11 +487,11 @@ put the dependency Foo in `Packages/` directory.
     $ swift package edit Foo --revision 969c6a9
 
 This is similar to previous version except that the Package Manager will leave
-the dependency at a detched HEAD on the specified revision.
+the dependency at a detached HEAD on the specified revision.
 
 Note: It is necessary to provide either a branch or revision option. The
 rationale here is that checking out the currently resolved version would leave
-the repository on a detached HEAD, which is confusing. Explict options makes
+the repository on a detached HEAD, which is confusing. Explicit options makes
 the action predictable for user.
 
 Once a package is in an editable state, you can navigate to the directory

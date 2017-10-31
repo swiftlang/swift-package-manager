@@ -22,7 +22,7 @@ $ ../swift/utils/build-script -R --llbuild --swiftpm --xctest --foundation --lib
 ```
 
 This will build compiler and friends in `build/` directory. It takes about ~1
-hour for the inital build process. However, it is not really required to build
+hour for the initial build process. However, it is not really required to build
 the entire compiler in order to work on the Package Manager. A faster option is
 using a [snapshot](https://swift.org/download/#releases) from swift.org.
 
@@ -129,8 +129,8 @@ following commands:
 
 ```sh
 $ Utilities/docker-utils build # will build an image with the latest swift snapshot
-$ Utilities/docker-utils boostrap # will bootstrap SwiftPM on the linux container
-$ Utilities/docker-utils run bash # to run an interactive bash sheel in the container
+$ Utilities/docker-utils bootstrap # will bootstrap SwiftPM on the linux container
+$ Utilities/docker-utils run bash # to run an interactive bash shell in the container
 $ Utilities/docker-utils swift-build # to run swift-build in the container
 $ Utilities/docker-utils swift-test # to run swift-test in the container
 $ Utilities/docker-utils swift-run # to run swift-run in the container
