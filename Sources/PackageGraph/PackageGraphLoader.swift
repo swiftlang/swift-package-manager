@@ -198,7 +198,7 @@ private func createResolvedPackages(
         let package = packageBuilder.package
 
         // The diagnostics location for this package.
-        let diagnosicLocation = { PackageLocation.Local(name: package.name, packagePath: package.path) }
+        let diagnosticLocation = { PackageLocation.Local(name: package.name, packagePath: package.path) }
 
         // Get all the system module dependencies in this package.
         let systemModulesDeps = packageBuilder.dependencies
@@ -216,7 +216,7 @@ private func createResolvedPackages(
             // If a target with similar name was encountered before, we emit a diagnostic.
             let targetName = targetBuilder.target.name
             if allTargetNames.contains(targetName) {
-                diagnostics.emit(ModuleError.duplicateModule(targetName), location: diagnosicLocation())
+                diagnostics.emit(ModuleError.duplicateModule(targetName), location: diagnosticLocation())
             }
             allTargetNames.insert(targetName)
 
@@ -233,7 +233,7 @@ private func createResolvedPackages(
                     // Find the product in this package's dependency products.
                     guard let product = productDependencyMap[productRef.name] else {
                         let error = PackageGraphError.productDependencyNotFound(name: productRef.name, package: productRef.package)
-                        diagnostics.emit(error, location: diagnosicLocation())
+                        diagnostics.emit(error, location: diagnosticLocation())
                         continue
                     }
 
@@ -244,7 +244,7 @@ private func createResolvedPackages(
                         guard let dependencyPackage = packageMap[packageName.lowercased()], dependencyPackage.products.contains(product) else {
                             let error = PackageGraphError.productDependencyIncorrectPackage(
                                 name: productRef.name, package: packageName)
-                            diagnostics.emit(error, location: diagnosicLocation())
+                            diagnostics.emit(error, location: diagnosticLocation())
                             continue
                         }
                     }

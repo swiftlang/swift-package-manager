@@ -34,7 +34,7 @@ public struct AnyDiagnostic: DiagnosticData {
     }
 }
 
-/// Represents unknown diagnosic location.
+/// Represents unknown diagnostic location.
 public final class UnknownLocation: DiagnosticLocation {
 
     /// The singleton instance.
