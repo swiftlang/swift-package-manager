@@ -84,7 +84,7 @@ environment variable, `PKG_CONFIG_PATH`, which will be searched before the
 standard locations.
 
 _NOTE: This feature does not require pkg-config to be installed. However, if
-installed it will used to find additional platform specific pc file locations
+installed it will be used to find additional platform specific pc file locations
 which might be unknown to SwiftPM._
 
 #### providers
