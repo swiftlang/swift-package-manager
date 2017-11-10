@@ -388,8 +388,15 @@ public final class ProductBuildDescription {
         args += ["-L", buildParameters.buildPath.asString]
         args += ["-o", binary.asString]
         args += ["-module-name", product.name]
-        args += dylibs.map({ "-l" + $0.product.name })
-
+        
+        func dylibsIn(product: ProductBuildDescription) -> [ProductBuildDescription] {
+            return product.dylibs.reduce([product], {$0 + dylibsIn(product: $1)})
+        }
+        
+        // Go through the nested dynamic libraries and add them
+        // FIXME: Use a better algorithm, because if there is a cyclic dependency an error will occur
+        args += dylibs.reduce([], {$0 + dylibsIn(product: $1)}).map({ "-l" + $0.product.name })
+        
         switch product.type {
         case .library(.automatic):
             fatalError()
