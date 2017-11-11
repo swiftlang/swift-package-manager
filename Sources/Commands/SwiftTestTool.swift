@@ -157,12 +157,14 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         case .runSerial:
             let graph = try loadPackageGraph()
+            let toolchain = try getToolchain()
             let testPath = try buildTestsIfNeeded(options, graph: graph)
             var ranSuccessfully = true
 
             switch options.testCaseSpecifier {
             case .none:
-                let runner = TestRunner(path: testPath, xctestArg: nil, processSet: processSet)
+                let runner = TestRunner(
+                    path: testPath, xctestArg: nil, processSet: processSet, sanitizers: options.sanitizers, toolchain: toolchain)
                 ranSuccessfully = runner.test()
 
             case .regex, .specific:
@@ -182,7 +184,9 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
                 // Finally, run the tests.
                 for test in tests {
-                    let runner = TestRunner(path: testPath, xctestArg: test.specifier, processSet: processSet)
+                    let runner = TestRunner(
+                        path: testPath, xctestArg: test.specifier, 
+                        processSet: processSet, sanitizers: options.sanitizers, toolchain: toolchain)
                     ranSuccessfully = runner.test() && ranSuccessfully
                 }
             }
@@ -193,6 +197,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         case .runParallel:
             let graph = try loadPackageGraph()
+            let toolchain = try getToolchain()
             let testPath = try buildTestsIfNeeded(options, graph: graph)
             let testSuites = try getTestSuites(path: testPath)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
@@ -204,7 +209,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             }
 
             // Run the tests using the parallel runner.
-            let runner = ParallelTestRunner(testPath: testPath, processSet: processSet)
+            let runner = ParallelTestRunner(
+                testPath: testPath, processSet: processSet, sanitizers: options.sanitizers, toolchain: toolchain)
             try runner.run(tests)
 
             if !runner.ranSuccessfully {
@@ -304,7 +310,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
       #if os(macOS)
         let tempFile = try TemporaryFile()
         let args = [SwiftTestTool.xctestHelperPath().asString, path.asString, tempFile.path.asString]
-        var env = ProcessInfo.processInfo.environment
+        var env = try constructTestEnvironment(sanitizers: options.sanitizers, toolchain: try getToolchain())
         // Add the sdk platform path if we have it. If this is not present, we
         // might always end up failing.
         if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPath() {
@@ -339,7 +345,7 @@ struct UnitTest {
 /// A class to run tests on a XCTest binary.
 ///
 /// Note: Executes the XCTest with inherited environment as it is convenient to pass senstive
-/// information like username, password etc to test cases via enviornment variables.
+/// information like username, password etc to test cases via environment variables.
 final class TestRunner {
     /// Path to valid XCTest binary.
     private let path: AbsolutePath
@@ -349,22 +355,33 @@ final class TestRunner {
 
     private let processSet: ProcessSet
 
+    /// Sanitizers that are enabled.
+    private let sanitizers: EnabledSanitizers
+
+    // The toolchain to use.
+    private let toolchain: UserToolchain
+
     /// Creates an instance of TestRunner.
     ///
     /// - Parameters:
     ///     - path: Path to valid XCTest binary.
     ///     - xctestArg: Arguments to pass to XCTest.
-    init(path: AbsolutePath, xctestArg: String? = nil, processSet: ProcessSet) {
+    init(path: AbsolutePath, xctestArg: String? = nil, processSet: ProcessSet, sanitizers: EnabledSanitizers, toolchain: UserToolchain) {
         self.path = path
         self.xctestArg = xctestArg
         self.processSet = processSet
+        self.sanitizers = sanitizers
+        self.toolchain = toolchain
     }
 
     /// Constructs arguments to execute XCTest.
-    private func args() -> [String] {
+    private func args() throws -> [String] {
         var args: [String] = []
       #if os(macOS)
-        args = ["xcrun", "--sdk", "macosx", "xctest"]
+        guard let xctest = toolchain.xctest else {
+            throw TestError.testsExecutableNotFound
+        }
+        args = [xctest.asString]
         if let xctestArg = xctestArg {
             args += ["-XCTest", xctestArg]
         }
@@ -386,7 +403,10 @@ final class TestRunner {
         var output = ""
         var success = false
         do {
-            let process = Process(arguments: args(), redirectOutput: true, verbose: false)
+            // FIXME: The environment will be constructed for every test when using the
+            // parallel test runner. We should do some kind of caching.
+            let env = try constructTestEnvironment(sanitizers: sanitizers, toolchain: toolchain)
+            let process = Process(arguments: try args(), environment: env, redirectOutput: true, verbose: false)
             try process.launch()
             let result = try process.waitUntilExit()
             output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
@@ -404,7 +424,8 @@ final class TestRunner {
     /// Executes and returns execution status. Prints test output on standard streams.
     func test() -> Bool {
         do {
-            let process = Process(arguments: args(), redirectOutput: false)
+            let env = try constructTestEnvironment(sanitizers: sanitizers, toolchain: toolchain)
+            let process = Process(arguments: try args(), environment: env, redirectOutput: false)
             try processSet.add(process)
             try process.launch()
             let result = try process.waitUntilExit()
@@ -415,7 +436,11 @@ final class TestRunner {
                 print(exitSignalText(code: signal))
             default: break
             }
-        } catch {}
+        } catch {
+            // FIXME: We may need a better way to print errors from here.
+            stderrStream <<< "error: \(error)" <<< "\n"
+            stderrStream.flush()
+        }
         return false
     }
 
@@ -462,9 +487,14 @@ final class ParallelTestRunner {
 
     let processSet: ProcessSet
 
-    init(testPath: AbsolutePath, processSet: ProcessSet) {
+    let sanitizers: EnabledSanitizers
+    let toolchain: UserToolchain
+
+    init(testPath: AbsolutePath, processSet: ProcessSet, sanitizers: EnabledSanitizers, toolchain: UserToolchain) {
         self.testPath = testPath
         self.processSet = processSet
+        self.sanitizers = sanitizers
+        self.toolchain = toolchain
         progressBar = createProgressBar(forStream: stdoutStream, header: "Testing:")
     }
 
@@ -509,7 +539,7 @@ final class ParallelTestRunner {
                 // Dequeue a specifier and run it till we encounter nil.
                 while let test = self.pendingTests.dequeue() {
                     let testRunner = TestRunner(
-                        path: self.testPath, xctestArg: test.specifier, processSet: self.processSet)
+                        path: self.testPath, xctestArg: test.specifier, processSet: self.processSet, sanitizers: self.sanitizers, toolchain: self.toolchain)
                     let (success, output) = testRunner.test()
                     if !success {
                         self.ranSuccessfully = false
@@ -664,4 +694,35 @@ extension SwiftTestTool: ToolName {
     static var toolName: String {
         return "swift test"
     }
+}
+
+/// Creates the environment needed to test related tools.
+fileprivate func constructTestEnvironment(
+    sanitizers: EnabledSanitizers,
+    toolchain: UserToolchain
+) throws -> [String: String] {
+    // This only makes sense for macOS.
+  #if !os(macOS)
+    return Process.env
+  #else
+    // Fast path when no sanitizers are enabled.
+    guard !sanitizers.isEmpty else {
+        return Process.env
+    }
+
+    var env = Process.env
+
+    // Get the runtime libraries.
+    var runtimes = try sanitizers.sanitizers.map({ sanitizer in
+        return try toolchain.runtimeLibrary(for: sanitizer).asString
+    })
+
+    // Append any existing value to the front.
+    if let existingValue = env["DYLD_INSERT_LIBRARIES"], !existingValue.isEmpty {
+        runtimes.insert(existingValue, at: 0)
+    }
+
+    env["DYLD_INSERT_LIBRARIES"] = runtimes.joined(separator: ":")
+    return env
+  #endif
 }
