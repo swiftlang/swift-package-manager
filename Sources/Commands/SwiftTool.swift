@@ -208,6 +208,10 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.packagePath = $1.path })
 
         binder.bind(
+            option: parser.add(option: "--enable-tsan", kind: Bool.self, usage: "Enable thread sanitizer"),
+            to: { $0.enableThreadSanitizer = $1 })
+
+        binder.bind(
             option: parser.add(option: "--enable-prefetching", kind: Bool.self, usage: ""),
             to: { $0.shouldEnableResolverPrefetching = $1 })
 
@@ -507,7 +511,8 @@ public class SwiftTool<Options: ToolOptions> {
             toolchain: toolchain,
             destinationTriple: triple,
             flags: options.buildFlags,
-            shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib
+            shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
+            enableThreadSanitizer: options.enableThreadSanitizer
         )
     }
 
