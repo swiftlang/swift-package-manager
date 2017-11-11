@@ -29,6 +29,7 @@ private struct UserManifestResources: ManifestResourceProvider {
     let sdkRoot: AbsolutePath?
 }
 
+// FIXME: This is messy and needs a redesign.
 public struct UserToolchain: Toolchain {
 
     /// The manifest resource provider.
@@ -57,11 +58,35 @@ public struct UserToolchain: Toolchain {
         return swiftCompiler.parentDirectory.appending(component: "swift")
     }
 
+    /// Path to the xctest utility.
+    ///
+    /// This is only present on macOS.
+    let xctest: AbsolutePath?
+
     /// Path to llbuild.
     let llbuild: AbsolutePath
 
     /// The compilation destination object.
     let destination: Destination
+
+    /// Returns the runtime library for the given sanitizer.
+    func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
+        // FIXME: This is only for SwiftPM development time support. It is OK
+        // for now but we shouldn't need to resolve the symlink.  We need to lay
+        // down symlinks to runtimes in our fake toolchain as part of the
+        // bootstrap script.
+        let swiftCompiler = resolveSymlinks(self.swiftCompiler)
+
+        let runtime = swiftCompiler.appending(
+            RelativePath("../../lib/swift/clang/lib/darwin/libclang_rt.\(sanitizer.shortName)_osx_dynamic.dylib"))
+
+        // Ensure that the runtime is present.
+        guard localFileSystem.exists(runtime) else {
+            throw Error.invalidToolchain(problem: "Missing runtime for \(sanitizer) sanitizer")
+        }
+
+        return runtime
+    }
 
     /// Determines the Swift compiler paths for compilation and manifest parsing.
     private static func determineSwiftCompilers(binDir: AbsolutePath, lookup: (String) -> AbsolutePath?) throws -> (compile: AbsolutePath, manifest: AbsolutePath) {
@@ -138,6 +163,15 @@ public struct UserToolchain: Toolchain {
         guard localFileSystem.isExecutableFile(clangCompiler) else {
             throw Error.invalidToolchain(problem: "could not find `clang` at expected path \(clangCompiler.asString)")
         }
+
+        // We require xctest to exist on macOS.
+      #if os(macOS)
+        // FIXME: We should have some general utility to find tools.
+        let xctestFindArgs = ["xcrun", "--sdk", "macosx", "--find", "xctest"]
+        self.xctest = try AbsolutePath(validating: Process.checkNonZeroExit(arguments: xctestFindArgs).chomp())
+      #else
+        self.xctest = nil
+      #endif
 
         self.extraSwiftCFlags = [
             "-target", destination.target,

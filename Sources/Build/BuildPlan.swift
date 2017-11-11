@@ -72,6 +72,9 @@ public struct BuildParameters {
     /// If should link the Swift stdlib statically.
     public let shouldLinkStaticSwiftStdlib: Bool
 
+    /// Which compiler sanitizers should be enabled
+    public let sanitizers: EnabledSanitizers
+
     /// If should enable llbuild manifest caching.
     public let shouldEnableManifestCaching: Bool
 
@@ -99,7 +102,8 @@ public struct BuildParameters {
         flags: BuildFlags,
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         shouldLinkStaticSwiftStdlib: Bool = false,
-        shouldEnableManifestCaching: Bool = false
+        shouldEnableManifestCaching: Bool = false,
+        sanitizers: EnabledSanitizers = EnabledSanitizers()
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
@@ -109,6 +113,7 @@ public struct BuildParameters {
         self.toolsVersion = toolsVersion
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         self.shouldEnableManifestCaching = shouldEnableManifestCaching
+        self.sanitizers = sanitizers
     }
 }
 
@@ -210,6 +215,7 @@ public final class ClangTargetDescription {
         args += ["-I", clangTarget.includeDir.asString]
         args += additionalFlags
         args += moduleCacheArgs
+        args += buildParameters.sanitizers.compileCFlags()
 
         // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
         args += buildParameters.flags.cCompilerFlags
@@ -323,6 +329,7 @@ public final class SwiftTargetDescription {
         args += activeCompilationConditions
         args += additionalFlags
         args += moduleCacheArgs
+        args += buildParameters.sanitizers.compileSwiftFlags()
 
         // Add arguments to colorize output if stdout is tty
         if buildParameters.isTTY {
@@ -434,6 +441,7 @@ public final class ProductBuildDescription {
     public func linkArguments() -> [String] {
         var args = [buildParameters.toolchain.swiftCompiler.asString]
         args += buildParameters.toolchain.extraSwiftCFlags
+        args += buildParameters.sanitizers.linkSwiftFlags()
         args += additionalFlags
 
         if buildParameters.configuration == .debug {

@@ -128,6 +128,22 @@ public func XCTAssertThrows<T: Swift.Error>(
     }
 }
 
+public func XCTAssertThrows<T: Swift.Error, Ignore>(
+    _ expression: @autoclosure () throws -> Ignore,
+    file: StaticString = #file,
+    line: UInt = #line,
+    _ errorHandler: (T) -> Bool
+) {
+    do {
+        let result = try expression()
+        XCTFail("body completed successfully: \(result)", file: file, line: line)
+    } catch let error as T {
+        XCTAssertTrue(errorHandler(error), "Error handler returned false")
+    } catch {
+        XCTFail("unexpected error thrown", file: file, line: line)
+    }
+}
+
 public func XCTNonNil<T>( 
    _ optional: T?,
    file: StaticString = #file,
