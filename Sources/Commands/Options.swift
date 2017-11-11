@@ -46,5 +46,8 @@ public class ToolOptions {
     /// If should link the Swift stdlib statically.
     public var shouldLinkStaticSwiftStdlib = false
 
+    /// If thread sanitizer should be enabled.
+    public var enableThreadSanitizer = false
+
     public required init() {}
 }

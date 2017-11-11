@@ -72,6 +72,9 @@ public struct BuildParameters {
     /// If should link the Swift stdlib statically.
     public let shouldLinkStaticSwiftStdlib: Bool
 
+    /// If thread sanitizer should be enabled.
+    public let enableThreadSanitizer: Bool
+
     public init(
         dataPath: AbsolutePath,
         configuration: Configuration,
@@ -79,7 +82,8 @@ public struct BuildParameters {
         destinationTriple: Triple = Triple.hostTriple,
         flags: BuildFlags,
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        shouldLinkStaticSwiftStdlib: Bool = false
+        shouldLinkStaticSwiftStdlib: Bool = false,
+        enableThreadSanitizer: Bool = false
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
@@ -88,6 +92,7 @@ public struct BuildParameters {
         self.flags = flags
         self.toolsVersion = toolsVersion
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
+        self.enableThreadSanitizer = enableThreadSanitizer
     }
 }
 
@@ -289,6 +294,11 @@ public final class SwiftTargetDescription {
         args += additionalFlags
         args += moduleCacheArgs
 
+        // Add thread sanitizer, if requested.
+        if buildParameters.enableThreadSanitizer {
+            args += ["-sanitize=thread"]
+        }
+
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
         return args
@@ -382,6 +392,10 @@ public final class ProductBuildDescription {
         args += buildParameters.toolchain.extraSwiftCFlags
         args += additionalFlags
 
+        // Add thread sanitizer, if requested.
+        if buildParameters.enableThreadSanitizer {
+            args += ["-sanitize=thread"]
+        }
         if buildParameters.configuration == .debug {
             args += ["-g"]
         }

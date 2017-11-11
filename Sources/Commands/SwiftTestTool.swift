@@ -141,7 +141,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
             switch options.testCaseSpecifier {
             case .none:
-                let runner = TestRunner(path: testPath, xctestArg: nil, processSet: processSet)
+                let runner = TestRunner(path: testPath, xctestArg: nil, processSet: processSet, enableThreadSanitizer: options.enableThreadSanitizer, toolchain: try getToolchain())
                 ranSuccessfully = runner.test()
 
             case .regex, .specific:
@@ -161,7 +161,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
                 // Finally, run the tests.
                 for test in tests {
-                    let runner = TestRunner(path: testPath, xctestArg: test.specifier, processSet: processSet)
+                    let runner = TestRunner(path: testPath, xctestArg: test.specifier, processSet: processSet, enableThreadSanitizer: options.enableThreadSanitizer, toolchain: try getToolchain())
                     ranSuccessfully = runner.test() && ranSuccessfully
                 }
             }
@@ -182,6 +182,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             }
 
             // Run the tests using the parallel runner.
+            // FIXME: Pass tsan options here.
             let runner = ParallelTestRunner(testPath: testPath, processSet: processSet)
             try runner.run(tests)
 
@@ -322,22 +323,36 @@ final class TestRunner {
 
     private let processSet: ProcessSet
 
+    private let enableThreadSanitizer: Bool
+
+    // FIXME: Should not be optional.
+    private let toolchain: UserToolchain?
+
     /// Creates an instance of TestRunner.
     ///
     /// - Parameters:
     ///     - path: Path to valid XCTest binary.
     ///     - xctestArg: Arguments to pass to XCTest.
-    init(path: AbsolutePath, xctestArg: String? = nil, processSet: ProcessSet) {
+    init(path: AbsolutePath, xctestArg: String? = nil, processSet: ProcessSet, enableThreadSanitizer: Bool = false, toolchain: UserToolchain? = nil) {
+        print(enableThreadSanitizer)
         self.path = path
         self.xctestArg = xctestArg
         self.processSet = processSet
+        self.enableThreadSanitizer = enableThreadSanitizer
+        self.toolchain = toolchain
     }
 
     /// Constructs arguments to execute XCTest.
     private func args() -> [String] {
         var args: [String] = []
       #if os(macOS)
-        args = ["xcrun", "--sdk", "macosx", "xctest"]
+        // FIXME: Remove xcrun.
+        if enableThreadSanitizer {
+            let toolchain = self.toolchain!
+            args = [toolchain.xctest.asString]
+        } else {
+            args = ["xcrun", "--sdk", "macosx", "xctest"]
+        }
         if let xctestArg = xctestArg {
             args += ["-XCTest", xctestArg]
         }
@@ -351,6 +366,15 @@ final class TestRunner {
         return args
     }
 
+    func env() -> [String: String] {
+        var env = Process.env
+        if enableThreadSanitizer {
+            // FIXME: bang.
+            env["DYLD_INSERT_LIBRARIES"] = self.toolchain!.tsanLibrary.asString
+        }
+        return env
+    }
+
     /// Executes the tests without printing anything on standard streams.
     ///
     /// - Returns: A tuple with first bool member indicating if test execution returned code 0
@@ -359,7 +383,7 @@ final class TestRunner {
         var output = ""
         var success = false
         do {
-            let process = Process(arguments: args(), redirectOutput: true, verbose: false)
+            let process = Process(arguments: args(), environment: env(), redirectOutput: true, verbose: false)
             try process.launch()
             let result = try process.waitUntilExit()
             output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
@@ -377,7 +401,7 @@ final class TestRunner {
     /// Executes and returns execution status. Prints test output on standard streams.
     func test() -> Bool {
         do {
-            let process = Process(arguments: args(), redirectOutput: false)
+            let process = Process(arguments: args(), environment: env(), redirectOutput: false)
             try processSet.add(process)
             try process.launch()
             let result = try process.waitUntilExit()
