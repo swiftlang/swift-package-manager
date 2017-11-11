@@ -162,7 +162,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
             switch options.testCaseSpecifier {
             case .none:
-                let runner = TestRunner(path: testPath, xctestArg: nil, processSet: processSet)
+                let runner = TestRunner(path: testPath, xctestArg: nil, processSet: processSet, sanitizers: options.sanitizers, toolchain: try getToolchain())
                 ranSuccessfully = runner.test()
 
             case .regex, .specific:
@@ -182,7 +182,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
                 // Finally, run the tests.
                 for test in tests {
-                    let runner = TestRunner(path: testPath, xctestArg: test.specifier, processSet: processSet)
+                    let runner = TestRunner(path: testPath, xctestArg: test.specifier, processSet: processSet, sanitizers: options.sanitizers, toolchain: try getToolchain())
                     ranSuccessfully = runner.test() && ranSuccessfully
                 }
             }
@@ -204,7 +204,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             }
 
             // Run the tests using the parallel runner.
-            let runner = ParallelTestRunner(testPath: testPath, processSet: processSet)
+            let runner = ParallelTestRunner(testPath: testPath, processSet: processSet, sanitizers: options.sanitizers, toolchain: try getToolchain())
             try runner.run(tests)
 
             if !runner.ranSuccessfully {
@@ -304,7 +304,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
       #if os(macOS)
         let tempFile = try TemporaryFile()
         let args = [SwiftTestTool.xctestHelperPath().asString, path.asString, tempFile.path.asString]
-        var env = ProcessInfo.processInfo.environment
+        var env = constructRuntimeEnvironment(sanitizers: options.sanitizers, toolchain: try getToolchain())
         // Add the sdk platform path if we have it. If this is not present, we
         // might always end up failing.
         if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPath() {
@@ -349,22 +349,33 @@ final class TestRunner {
 
     private let processSet: ProcessSet
 
+    // Sanitizers that are enabled
+    private let sanitizers: EnabledSanitizers
+
+    // Toolchain to use
+    private let toolchain: UserToolchain
+
     /// Creates an instance of TestRunner.
     ///
     /// - Parameters:
     ///     - path: Path to valid XCTest binary.
     ///     - xctestArg: Arguments to pass to XCTest.
-    init(path: AbsolutePath, xctestArg: String? = nil, processSet: ProcessSet) {
+    init(path: AbsolutePath, xctestArg: String? = nil, processSet: ProcessSet, sanitizers: EnabledSanitizers, toolchain: UserToolchain) {
         self.path = path
         self.xctestArg = xctestArg
         self.processSet = processSet
+        self.sanitizers = sanitizers
+        self.toolchain = toolchain
     }
 
     /// Constructs arguments to execute XCTest.
-    private func args() -> [String] {
+    private func args() throws -> [String] {
         var args: [String] = []
       #if os(macOS)
-        args = ["xcrun", "--sdk", "macosx", "xctest"]
+        guard let xctest = toolchain.xctest else {
+            throw TestError.testsExecutableNotFound
+        }
+        args = [xctest.asString]
         if let xctestArg = xctestArg {
             args += ["-XCTest", xctestArg]
         }
@@ -386,7 +397,8 @@ final class TestRunner {
         var output = ""
         var success = false
         do {
-            let process = Process(arguments: args(), redirectOutput: true, verbose: false)
+            let env = constructRuntimeEnvironment(sanitizers: sanitizers, toolchain: toolchain)
+            let process = Process(arguments: try args(), environment: env, redirectOutput: true, verbose: false)
             try process.launch()
             let result = try process.waitUntilExit()
             output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
@@ -404,7 +416,8 @@ final class TestRunner {
     /// Executes and returns execution status. Prints test output on standard streams.
     func test() -> Bool {
         do {
-            let process = Process(arguments: args(), redirectOutput: false)
+            let env = constructRuntimeEnvironment(sanitizers: sanitizers, toolchain: toolchain)
+            let process = Process(arguments: try args(), environment: env, redirectOutput: false)
             try processSet.add(process)
             try process.launch()
             let result = try process.waitUntilExit()
@@ -462,9 +475,14 @@ final class ParallelTestRunner {
 
     let processSet: ProcessSet
 
-    init(testPath: AbsolutePath, processSet: ProcessSet) {
+    let sanitizers: EnabledSanitizers
+    let toolchain: UserToolchain
+
+    init(testPath: AbsolutePath, processSet: ProcessSet, sanitizers: EnabledSanitizers, toolchain: UserToolchain) {
         self.testPath = testPath
         self.processSet = processSet
+        self.sanitizers = sanitizers
+        self.toolchain = toolchain
         progressBar = createProgressBar(forStream: stdoutStream, header: "Testing:")
     }
 
@@ -500,6 +518,7 @@ final class ParallelTestRunner {
     /// Executes the tests spawning parallel workers. Blocks calling thread until all workers are finished.
     func run(_ tests: [UnitTest]) throws {
         assert(!tests.isEmpty, "There should be at least one test to execute.")
+
         // Enqueue all the tests.
         try enqueueTests(tests)
 
@@ -509,7 +528,7 @@ final class ParallelTestRunner {
                 // Dequeue a specifier and run it till we encounter nil.
                 while let test = self.pendingTests.dequeue() {
                     let testRunner = TestRunner(
-                        path: self.testPath, xctestArg: test.specifier, processSet: self.processSet)
+                        path: self.testPath, xctestArg: test.specifier, processSet: self.processSet, sanitizers: self.sanitizers, toolchain: self.toolchain)
                     let (success, output) = testRunner.test()
                     if !success {
                         self.ranSuccessfully = false
@@ -665,3 +684,13 @@ extension SwiftTestTool: ToolName {
         return "swift test"
     }
 }
+
+/// During local testing the environment should point to the set
+/// of libraries and frameworks specific to the way the code got built.
+fileprivate func constructRuntimeEnvironment(sanitizers: EnabledSanitizers, toolchain: Toolchain) -> [String: String] {
+    var env = Process.env
+    let addVariables = sanitizers.addRuntimeEnvironment(baseEnvironment: env, toolchain: toolchain)
+    env.merge(addVariables) { $1 }
+    return env
+}
+

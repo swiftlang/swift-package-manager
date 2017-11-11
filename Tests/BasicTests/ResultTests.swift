@@ -151,8 +151,8 @@ class ResultTests: XCTestCase {
             let second = try throwing(false)
             return value + second
         }
-        XCTAssertThrowsAny(DummyError.somethingWentWrong) {
-            _ = try failure1.dematerialize()
+        XCTAssertThrows(try failure1.dematerialize()) {
+            $0 == DummyError.somethingWentWrong
         }
 
         // We have a value, but our closure throws.
@@ -160,8 +160,8 @@ class ResultTests: XCTestCase {
             let second = try throwing(true)
             return value + second
         }
-        XCTAssertThrowsAny(DummyError.somethingWentWrong) {
-            _ = try failure2.dematerialize()
+        XCTAssertThrows(try failure2.dematerialize()) {
+            $0 == DummyError.somethingWentWrong
         }
     }
 
@@ -196,15 +196,4 @@ class ResultTests: XCTestCase {
         ("testMapAny", testMapAny),
         ("testFlatMap", testFlatMap)
     ]
-}
-
-public func XCTAssertThrowsAny<T: Swift.Error>(_ expectedError: T, file: StaticString = #file, line: UInt = #line, _ body: () throws -> ()) where T: Equatable {
-    do {
-        try body()
-        XCTFail("body completed successfully", file: file, line: line)
-    } catch let error as AnyError {
-        XCTAssertEqual(error.underlyingError as? T, expectedError, file: file, line: line)
-    } catch {
-        XCTFail("unexpected error thrown", file: file, line: line)
-    }
 }

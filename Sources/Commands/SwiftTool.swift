@@ -269,6 +269,10 @@ public class SwiftTool<Options: ToolOptions> {
                 usage: "Change working directory before any other operation"),
             to: { $0.packagePath = $1.path })
 
+        binder.bindArray(
+            option: parser.add(option: "--sanitize", kind: [EnabledSanitizers.Sanitizer].self, strategy: .oneByOne, usage: "Turn on runtime checks for erroneous behavior"),
+            to: { $0.sanitizers = EnabledSanitizers(from: $1) })
+
         binder.bind(
             option: parser.add(option: "--disable-prefetching", kind: Bool.self, usage: ""),
             to: { $0.shouldEnableResolverPrefetching = !$1 })
@@ -632,7 +636,8 @@ public class SwiftTool<Options: ToolOptions> {
                 destinationTriple: triple,
                 flags: options.buildFlags,
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
-                shouldEnableManifestCaching: options.shouldEnableManifestCaching
+                shouldEnableManifestCaching: options.shouldEnableManifestCaching,
+                sanitizers: options.sanitizers
             )
         })
     }()
