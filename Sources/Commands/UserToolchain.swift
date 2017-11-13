@@ -77,10 +77,10 @@ public struct UserToolchain: Toolchain {
         }
 
         // Get the binDir from destination.
-        let binDir = destination.binDir
+        let binDir = lookup(fromEnv: "SWIFT_EXEC")?.appending(components: "..") ?? destination.binDir
 
         // First look in env and then in bin dir.
-        swiftCompiler = lookup(fromEnv: "SWIFT_EXEC") ?? binDir.appending(component: "swiftc")
+        swiftCompiler = binDir.appending(component: "swiftc")
 
         // Check that it's valid in the file system.
         guard localFileSystem.isExecutableFile(swiftCompiler) else {
