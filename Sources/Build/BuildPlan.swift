@@ -57,6 +57,14 @@ public struct BuildParameters {
     public var swiftCompilerFlags: [String] {
         var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
         flags += self.flags.swiftCompilerFlags
+
+        let stream = stdoutStream as? LocalFileOutputByteStream
+        let terminalController = stream.flatMap({ TerminalController(stream: $0) })
+        // Add extra flags if stdout is tty
+        if terminalController != nil {
+            flags += ["-Xfrontend", "-color-diagnostics"]
+        }
+
         flags += verbosity.ccArgs
         return flags
     }
