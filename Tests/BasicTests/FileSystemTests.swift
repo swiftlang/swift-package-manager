@@ -72,7 +72,7 @@ class FileSystemTests: XCTestCase {
     }
 
     func testLocalCreateDirectory() throws {
-        var fs = Basic.localFileSystem
+        let fs = Basic.localFileSystem
         
         let tmpDir = try TemporaryDirectory(prefix: #function, removeTreeOnDeinit: true)
         do {
@@ -93,7 +93,7 @@ class FileSystemTests: XCTestCase {
     }
 
     func testLocalReadWriteFile() throws {
-        var fs = Basic.localFileSystem
+        let fs = Basic.localFileSystem
         
         let tmpDir = try TemporaryDirectory(prefix: #function, removeTreeOnDeinit: true)
         // Check read/write of a simple file.
@@ -148,7 +148,7 @@ class FileSystemTests: XCTestCase {
 
     func testRemoveFileTree() throws {
         mktmpdir { path in
-            try removeFileTreeTester(fs: &localFileSystem, basePath: path)
+            try removeFileTreeTester(fs: localFileSystem, basePath: path)
         }
     }
 
@@ -299,8 +299,8 @@ class FileSystemTests: XCTestCase {
     }
 
     func testInMemRemoveFileTree() throws {
-        var fs = InMemoryFileSystem() as FileSystem
-        try removeFileTreeTester(fs: &fs, basePath: .root)
+        let fs = InMemoryFileSystem() as FileSystem
+        try removeFileTreeTester(fs: fs, basePath: .root)
     }
 
 
@@ -308,12 +308,12 @@ class FileSystemTests: XCTestCase {
 
     func testRootedFileSystem() throws {
         // Create the test file system.
-        var baseFileSystem = InMemoryFileSystem() as FileSystem
+        let baseFileSystem = InMemoryFileSystem() as FileSystem
         try baseFileSystem.createDirectory(AbsolutePath("/base/rootIsHere/subdir"), recursive: true)
         try baseFileSystem.writeFileContents(AbsolutePath("/base/rootIsHere/subdir/file"), bytes: "Hello, world!")
 
         // Create the rooted file system.
-        var rerootedFileSystem = RerootedFileSystemView(&baseFileSystem, rootedAt: AbsolutePath("/base/rootIsHere"))
+        let rerootedFileSystem = RerootedFileSystemView(baseFileSystem, rootedAt: AbsolutePath("/base/rootIsHere"))
 
         // Check that it has the appropriate view.
         XCTAssert(rerootedFileSystem.exists(AbsolutePath("/subdir")))
@@ -330,7 +330,7 @@ class FileSystemTests: XCTestCase {
     func testSetAttribute() throws {
       #if os(macOS)
         mktmpdir { path in
-            var fs = Basic.localFileSystem
+            let fs = Basic.localFileSystem
 
             let dir = path.appending(component: "dir")
             let foo = dir.appending(component: "foo")
@@ -394,7 +394,7 @@ class FileSystemTests: XCTestCase {
 /// - Parameters:
 ///   - fs: The filesystem to test on.
 ///   - basePath: The path at which the temporary file strucutre should be created.
-private func removeFileTreeTester(fs: inout FileSystem, basePath path: AbsolutePath, file: StaticString = #file, line: UInt = #line) throws {
+private func removeFileTreeTester(fs: FileSystem, basePath path: AbsolutePath, file: StaticString = #file, line: UInt = #line) throws {
     // Test removing folders.
     let folders = path.appending(components: "foo", "bar", "baz")
     try fs.createDirectory(folders, recursive: true)

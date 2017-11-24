@@ -21,7 +21,7 @@ class InitTests: XCTestCase {
     
     func testInitPackageEmpty() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
             
@@ -46,7 +46,7 @@ class InitTests: XCTestCase {
     
     func testInitPackageExecutable() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
 
@@ -87,7 +87,7 @@ class InitTests: XCTestCase {
 
     func testInitPackageLibrary() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
 
@@ -127,7 +127,7 @@ class InitTests: XCTestCase {
     
     func testInitPackageSystemModule() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
             

@@ -123,7 +123,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testInterpreterFlags() throws {
-        var fs = localFileSystem
+        let fs = localFileSystem
         mktmpdir { path in
             let foo = path.appending(component: "foo")
             try fs.writeFileContents(foo.appending(component: "Package.swift")) {
@@ -1633,7 +1633,7 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
 private final class TestWorkspace {
 
     let sandbox: AbsolutePath
-    var fs: FileSystem
+    let fs: FileSystem
     let roots: [TestPackage]
     let packages: [TestPackage]
     var manifestLoader: MockManifestLoader

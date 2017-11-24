@@ -243,8 +243,8 @@ extension InMemoryGitRepository: Repository {
     }
 
     public func openFileView(revision: Revision) throws -> FileSystem {
-        var fs: FileSystem = history[revision.identifier]!.fileSystem
-        return RerootedFileSystemView(&fs, rootedAt: path)
+        let fs: FileSystem = history[revision.identifier]!.fileSystem
+        return RerootedFileSystemView(fs, rootedAt: path)
     }
 }
 

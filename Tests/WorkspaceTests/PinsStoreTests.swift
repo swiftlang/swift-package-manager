@@ -97,7 +97,7 @@ final class PinsStoreTests: XCTestCase {
     }
 
     func testLoadingSchema1() throws {
-        var fs = InMemoryFileSystem()
+        let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
 
         try fs.writeFileContents(pinsFile) {
