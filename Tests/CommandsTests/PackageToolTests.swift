@@ -138,7 +138,7 @@ final class PackageToolTests: XCTestCase {
 
     func testInitEmpty() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
             _ = try execute(["-C", path.asString, "init", "--type", "empty"])
@@ -150,7 +150,7 @@ final class PackageToolTests: XCTestCase {
 
     func testInitExecutable() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
             _ = try execute(["-C", path.asString, "init", "--type", "executable"])
@@ -168,7 +168,7 @@ final class PackageToolTests: XCTestCase {
 
     func testInitLibrary() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
             _ = try execute(["-C", path.asString, "init"])
@@ -437,7 +437,7 @@ final class PackageToolTests: XCTestCase {
 
     func testSymlinkedDependency() {
         mktmpdir { path in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let root = path.appending(components: "root")
             let dep = path.appending(components: "dep")
             let depSym = path.appending(components: "depSym")

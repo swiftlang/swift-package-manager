@@ -55,7 +55,7 @@ class DependencyResolverPerfTests: XCTestCasePerf {
 
     func testPrefilterPerf() {
         mktmpdir { path in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let dep = path.appending(components: "dep")
 
             // Create dependency.

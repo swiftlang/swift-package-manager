@@ -21,7 +21,7 @@ class ToolsVersionTests: XCTestCase {
 
     func testToolsVersion() throws {
         mktmpdir { path in
-            var fs = localFileSystem
+            let fs = localFileSystem
 
             // Create a repo for the dependency to test against.
             let depPath = path.appending(component: "Dep")

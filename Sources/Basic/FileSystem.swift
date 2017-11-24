@@ -113,7 +113,7 @@ public enum FileMode {
 /// NOTE: All of these APIs are synchronous and can block.
 //
 // FIXME: Design an asynchronous story?
-public protocol FileSystem {
+public protocol FileSystem: class {
     /// Check whether the given path exists and is accessible.
     func exists(_ path: AbsolutePath) -> Bool
 
@@ -136,12 +136,12 @@ public protocol FileSystem {
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String]
 
     /// Create the given directory.
-    mutating func createDirectory(_ path: AbsolutePath) throws
+    func createDirectory(_ path: AbsolutePath) throws
 
     /// Create the given directory.
     ///
     /// - recursive: If true, create missing parent directories if possible.
-    mutating func createDirectory(_ path: AbsolutePath, recursive: Bool) throws
+    func createDirectory(_ path: AbsolutePath, recursive: Bool) throws
 
     /// Get the contents of a file.
     ///
@@ -153,13 +153,13 @@ public protocol FileSystem {
     /// Write the contents of a file.
     //
     // FIXME: This is obviously not a very efficient or flexible API.
-    mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws
+    func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws
 
     /// Recursively deletes the file system entity at `path`.
     ///
     /// If there is no file system entity at `path`, this function does nothing (in particular, this is not considered
     /// to be an error).
-    mutating func removeFileTree(_ path: AbsolutePath) throws
+    func removeFileTree(_ path: AbsolutePath) throws
 
     /// Change file mode.
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws
@@ -169,7 +169,7 @@ public protocol FileSystem {
 /// methods).
 public extension FileSystem {
     /// Default implementation of createDirectory(_:)
-    mutating func createDirectory(_ path: AbsolutePath) throws {
+    func createDirectory(_ path: AbsolutePath) throws {
         try createDirectory(path, recursive: false)
     }
 
@@ -179,7 +179,7 @@ public extension FileSystem {
     }
 
     /// Write to a file from a stream producer.
-    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> Void) throws {
+    func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> Void) throws {
         let contents = BufferedOutputByteStream()
         body(contents)
         try createDirectory(path.parentDirectory, recursive: true)
@@ -682,14 +682,14 @@ public class InMemoryFileSystem: FileSystem {
 /// is designed for situations where a client is only interested in the contents
 /// *visible* within a subpath and is agnostic to the actual location of those
 /// contents.
-public struct RerootedFileSystemView: FileSystem {
+public class RerootedFileSystemView: FileSystem {
     /// The underlying file system.
     private var underlyingFileSystem: FileSystem
 
     /// The root path within the containing file system.
     private let root: AbsolutePath
 
-    public init(_ underlyingFileSystem: inout FileSystem, rootedAt root: AbsolutePath) {
+    public init(_ underlyingFileSystem: FileSystem, rootedAt root: AbsolutePath) {
         self.underlyingFileSystem = underlyingFileSystem
         self.root = root
     }
@@ -730,7 +730,7 @@ public struct RerootedFileSystemView: FileSystem {
         return try underlyingFileSystem.getDirectoryContents(formUnderlyingPath(path))
     }
 
-    public mutating func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
+    public func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
         let path = formUnderlyingPath(path)
         return try underlyingFileSystem.createDirectory(path, recursive: recursive)
     }
@@ -739,12 +739,12 @@ public struct RerootedFileSystemView: FileSystem {
         return try underlyingFileSystem.readFileContents(formUnderlyingPath(path))
     }
 
-    public mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
+    public func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         let path = formUnderlyingPath(path)
         return try underlyingFileSystem.writeFileContents(path, bytes: bytes)
     }
 
-    public mutating func removeFileTree(_ path: AbsolutePath) throws {
+    public func removeFileTree(_ path: AbsolutePath) throws {
         try underlyingFileSystem.removeFileTree(path)
     }
 
