@@ -174,6 +174,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
+            
+            let workspace = try getActiveWorkspace()
+            (workspace.delegate as? ToolWorkspaceDelegate)?.shouldOutputToStdErr = true
+
             let graph = try loadPackageGraph()
             let manifest = graph.rootPackages[0].manifest
             print(try manifest.jsonString())

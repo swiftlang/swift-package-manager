@@ -55,8 +55,10 @@ struct TargetNotFoundDiagnostic: DiagnosticData {
     let targetName: String
 }
 
-private class ToolWorkspaceDelegate: WorkspaceDelegate {
-
+internal class ToolWorkspaceDelegate: WorkspaceDelegate {
+    
+    var shouldOutputToStdErr: Bool = false
+    
     func packageGraphWillLoad(
         currentGraph: PackageGraph,
         dependencies: AnySequence<ManagedDependency>,
@@ -65,39 +67,46 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func fetchingWillBegin(repository: String) {
-        print("Fetching \(repository)")
+        output("Fetching \(repository)")
     }
 
     func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
     }
 
     func repositoryWillUpdate(_ repository: String) {
-        print("Updating \(repository)")
+        output("Updating \(repository)")
     }
 
     func repositoryDidUpdate(_ repository: String) {
+        output("Updated \(repository)")
     }
     
     func dependenciesUpToDate() {
-        print("Everything is already up-to-date")
+        output("Everything is already up-to-date")
     }
 
     func cloning(repository: String) {
-        print("Cloning \(repository)")
+        output("Cloning \(repository)")
     }
 
     func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
         // FIXME: This is temporary output similar to old one, we will need to figure
         // out better reporting text.
-        print("Resolving \(repository) at \(reference)")
+        output("Resolving \(repository) at \(reference)")
     }
 
     func removing(repository: String) {
-        print("Removing \(repository)")
+        output("Removing \(repository)")
     }
 
     func warning(message: String) {
-        print("warning: " + message)
+        output("warning: " + message)
+    }
+    
+    func output(_ message: String) {
+        let stdStream = (shouldOutputToStdErr) ? stderrStream : stdoutStream
+        stdStream.write(message + "\n")
+        stdStream.flush()
     }
 
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
