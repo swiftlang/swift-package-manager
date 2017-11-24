@@ -302,18 +302,13 @@ public class GitRepository: Repository, WorkingCheckout {
         // Only a work tree can have changes.
         guard isWorkingRepo else { return false }
         return queue.sync {
-            // Detect if there is a staged or unstaged diff.
-            // This won't detect new untracked files, but it is
-            // just a safety measure for now.
-            let args = [Git.tool, "-C", path.asString, "diff", "--no-ext-diff", "--quiet", "--exit-code"]
-            var nonZeroExit = false
+            let args = [Git.tool, "-C", path.asString, "status", "-s"]
 
-            for args in [args, args + ["--cached"]] {
-                let result = try? Process.popen(arguments: args)
-                nonZeroExit = nonZeroExit || result?.exitStatus != .terminated(code: 0)
+            if let result = try? Process.popen(arguments: args), case let .success(value) = result.output {
+                return value.count > 0
+            } else {
+                return false
             }
-
-            return nonZeroExit
         }
     }
 

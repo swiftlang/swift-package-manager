@@ -402,7 +402,13 @@ class GitRepositoryTests: XCTestCase {
             // Create a file (which we will modify later).
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
             let repo = GitRepository(path: testRepoPath)
+
+            XCTAssert(repo.hasUncommitedChanges())
+
             try repo.stage(file: "test.txt")
+
+            XCTAssert(repo.hasUncommitedChanges())
+
             try repo.commit()
 
             XCTAssertFalse(repo.hasUncommitedChanges())
