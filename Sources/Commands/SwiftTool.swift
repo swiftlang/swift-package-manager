@@ -149,7 +149,7 @@ public class SwiftTool<Options: ToolOptions> {
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
-    public init(toolName: String, usage: String, overview: String, args: [String]) {
+    public init(toolName: String, usage: String, overview: String, args: [String], seeAlso: String? = nil) {
         // Capture the original working directory ASAP.
         originalWorkingDirectory = currentWorkingDirectory
         
@@ -157,7 +157,8 @@ public class SwiftTool<Options: ToolOptions> {
         parser = ArgumentParser(
             commandName: "swift \(toolName)",
             usage: usage,
-            overview: overview)
+            overview: overview,
+            seeAlso: seeAlso)
 
         // Create the binder.
         let binder = ArgumentBinder<Options>()

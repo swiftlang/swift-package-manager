@@ -115,7 +115,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             toolName: "test",
             usage: "[options]",
             overview: "Build and run tests",
-            args: args
+            args: args,
+            seeAlso: "swift build, swift run, swift package"
         )
     }
 

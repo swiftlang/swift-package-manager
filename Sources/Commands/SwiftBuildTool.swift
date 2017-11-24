@@ -37,7 +37,8 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             toolName: "build",
             usage: "[options]",
             overview: "Build sources into binary products",
-            args: args
+            args: args,
+            seeAlso: "swift run, swift package, swift test"
         )
     }
 

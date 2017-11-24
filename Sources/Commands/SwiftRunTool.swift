@@ -89,7 +89,8 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             toolName: "run",
             usage: "[options] [executable [arguments ...]]",
             overview: "Build and run an executable product",
-            args: args
+            args: args,
+            seeAlso: "swift build, swift package, swift test"
         )
     }
 

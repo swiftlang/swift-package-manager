@@ -597,6 +597,9 @@ public final class ArgumentParser {
 
     /// Overview text of this parser.
     let overview: String
+    
+    /// See more text of this parser.
+    let seeAlso: String?
 
     /// If this parser is a subparser.
     private let isSubparser: Bool
@@ -613,11 +616,13 @@ public final class ArgumentParser {
     ///   Otherwise, first command line argument will be used.
     ///   - usage: The "usage" line of the generated usage text.
     ///   - overview: The "overview" line of the generated usage text.
-    public init(commandName: String? = nil, usage: String, overview: String) {
+    ///   - seeAlso: The "see also" line of generated usage text.
+    public init(commandName: String? = nil, usage: String, overview: String, seeAlso: String? = nil) {
         self.isSubparser = false
         self.commandName = commandName
         self.usage = usage
         self.overview = overview
+        self.seeAlso = seeAlso
     }
 
     /// Create a subparser with its help text.
@@ -626,6 +631,7 @@ public final class ArgumentParser {
         self.commandName = nil
         self.usage = ""
         self.overview = overview
+        self.seeAlso = nil
     }
 
     /// Adds an option to the parser.
@@ -901,6 +907,12 @@ public final class ArgumentParser {
                 print(formatted: argument.name, usage: usage, on: stream)
             }
         }
+        
+        if let seeAlso = seeAlso {
+            stream <<< "\n\n"
+            stream <<< "SEE ALSO: \(seeAlso)"
+        }
+        
         stream <<< "\n"
         stream.flush()
     }

@@ -22,6 +22,10 @@ final class TestToolTests: XCTestCase {
         XCTAssert(try execute(["--help"]).contains("USAGE: swift test"))
     }
 
+    func testSeeAlso() throws {
+        XCTAssert(try execute(["--help"]).contains("SEE ALSO: swift build, swift run, swift package"))
+    }
+
     func testVersion() throws {
         XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
     }

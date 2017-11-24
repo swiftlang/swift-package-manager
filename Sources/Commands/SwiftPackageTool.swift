@@ -37,7 +37,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             toolName: "package",
             usage: "[options] subcommand",
             overview: "Perform operations on Swift packages",
-            args: args
+            args: args,
+            seeAlso: "swift build, swift run, swift test"
         )
     }
     override func runImpl() throws {
