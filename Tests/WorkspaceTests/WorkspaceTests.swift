@@ -1230,7 +1230,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        TestTarget(name: "Root", dependencies: ["Foo", "Bar"]),
                     ],
                     products: [],
                     dependencies: [
@@ -1456,7 +1456,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        TestTarget(name: "Root", dependencies: ["Foo", "Bar"]),
                     ],
                     products: [],
                     dependencies: [

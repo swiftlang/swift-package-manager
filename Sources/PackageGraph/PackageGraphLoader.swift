@@ -13,6 +13,18 @@ import PackageLoading
 import PackageModel
 import Utility
 
+struct UnusedDependencyDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: UnusedDependencyDiagnostic.self,
+        name: "org.swift.diags.unused-dependency",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "dependency" <<< { "'\($0.dependencyName)'" } <<< "is not used by any target"
+        })
+
+    public let dependencyName: String
+}
+
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no targets.
     case noModules(Package)
@@ -134,10 +146,43 @@ public struct PackageGraphLoader {
             diagnostics: diagnostics
         )
 
+        let rootPackages = resolvedPackages.filter({ rootManifestSet.contains($0.manifest) })
+
+        checkAllDependenciesAreUsed(rootPackages, diagnostics)
+
         return PackageGraph(
-            rootPackages: resolvedPackages.filter({ rootManifestSet.contains($0.manifest) }),
+            rootPackages: rootPackages,
             rootDependencies: resolvedPackages.filter({ rootDependencies.contains($0.manifest) })
         )
+    }
+}
+
+private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ diagnostics: DiagnosticsEngine) {
+    for package in rootPackages {
+        // List all dependency products dependended on by the package targets.
+        let productDependencies: Set<ResolvedProduct> = Set(package.targets.flatMap({ target in
+            return target.dependencies.flatMap({ targetDependency in
+                switch targetDependency {
+                case .product(let product):
+                    return product
+                case .target:
+                    return nil
+                }
+            })
+        }))
+
+        for dependency in package.dependencies {
+            // We continue if the dependency contains executable products to make sure we don't
+            // warn on a valid use-case for a lone dependency: swift run dependency executables.
+            guard !dependency.products.contains(where: { $0.type == .executable }) else {
+                continue
+            }
+            
+            let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
+            if !dependencyIsUsed {
+                diagnostics.emit(data: UnusedDependencyDiagnostic(dependencyName: dependency.name))
+            }
+        }
     }
 }
 
