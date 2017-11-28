@@ -43,6 +43,13 @@ import var libc.ERANGE
 extension SystemError: CustomStringConvertible {
     public var description: String {
         func strerror(_ errno: Int32) -> String {
+#if os(Linux)
+            var buf = [Int8](repeating: 0, count: 128)
+            // The GNU flavor returns a char* instead of an int.
+            // It may point to the buf passed in or some other immutable string
+            let err = libc.strerror_r(errno, &buf, buf.count)
+            return "\(String(cString: err)) (\(errno))"
+#else
             var cap = 64
             while cap <= 16 * 1024 {
                 var buf = [Int8](repeating: 0, count: cap)
@@ -60,6 +67,7 @@ extension SystemError: CustomStringConvertible {
                 return "\(String(cString: buf)) (\(errno))"
             }
             fatalError("strerror_r error: \(ERANGE)")
+#endif
         }
 
         switch self {
