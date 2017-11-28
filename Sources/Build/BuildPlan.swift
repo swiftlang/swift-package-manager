@@ -57,14 +57,6 @@ public struct BuildParameters {
     public var swiftCompilerFlags: [String] {
         var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
         flags += self.flags.swiftCompilerFlags
-
-        let stream = stdoutStream as? LocalFileOutputByteStream
-        let terminalController = stream.flatMap({ TerminalController(stream: $0) })
-        // Add extra flags if stdout is tty
-        if terminalController != nil {
-            flags += ["-Xfrontend", "-color-diagnostics"]
-        }
-
         flags += verbosity.ccArgs
         return flags
     }
@@ -79,6 +71,14 @@ public struct BuildParameters {
 
     /// If should link the Swift stdlib statically.
     public let shouldLinkStaticSwiftStdlib: Bool
+
+    /// Checks if stdout stream is tty.
+    fileprivate let isTTY: Bool = {
+        guard let stream = stdoutStream as? LocalFileOutputByteStream else {
+            return false
+        }
+        return TerminalController.isTTY(stream)
+    }()
 
     public init(
         dataPath: AbsolutePath,
@@ -296,6 +296,11 @@ public final class SwiftTargetDescription {
         args += ["-j\(SwiftCompilerTool.numThreads)", "-DSWIFT_PACKAGE"]
         args += additionalFlags
         args += moduleCacheArgs
+
+        // Add arguments to colorize output if stdout is tty
+        if buildParameters.isTTY {
+            args += ["-Xfrontend", "-color-diagnostics"]
+        }
 
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags

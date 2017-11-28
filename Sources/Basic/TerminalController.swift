@@ -61,11 +61,16 @@ public final class TerminalController {
     /// Constructs the instance if the stream is a tty.
     public init?(stream: LocalFileOutputByteStream) {
         // Make sure this file stream is tty.
-        guard isatty(fileno(stream.filePointer)) != 0 else {
+        guard TerminalController.isTTY(stream) else {
             return nil
         }
         width = TerminalController.terminalWidth() ?? 80 // Assume default if we are not able to determine.
         self.stream = stream
+    }
+
+    /// Checks if passed file stream is tty.
+    public static func isTTY(_ stream: LocalFileOutputByteStream) -> Bool {
+        return isatty(fileno(stream.filePointer)) != 0
     }
 
     /// Tries to get the terminal width first using COLUMNS env variable and
