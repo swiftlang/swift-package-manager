@@ -32,6 +32,9 @@ public enum ModuleError: Swift.Error {
     /// Indicates two targets with the same name.
     case duplicateModule(String)
 
+    /// Indicates two products with the same name.
+    case duplicateProduct(String)
+
     /// One or more referenced targets could not be found.
     case modulesNotFound([String])
 
@@ -68,6 +71,8 @@ extension ModuleError: CustomStringConvertible {
         switch self {
         case .duplicateModule(let name):
             return "multiple targets named '\(name)'"
+        case .duplicateProduct(let name):
+            return "multiple products named '\(name)'"
         case .modulesNotFound(let targets):
             let targets = targets.joined(separator: ", ")
             return "could not find target(s): \(targets); use the 'path' property in the Swift 4 manifest to set a custom target path"

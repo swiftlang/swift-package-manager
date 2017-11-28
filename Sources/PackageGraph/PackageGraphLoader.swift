@@ -211,6 +211,12 @@ private func createResolvedPackages(
             .filter({ $0.product.type != .test })
         let productDependencyMap = productDependencies.createDictionary({ ($0.product.name, $0) })
 
+        // Establish if there are multiple products with the same name.
+        let duplicateProductNames = Set(packageBuilder.products.map { $0.product.name }.findDuplicates())
+        for duplicateProductName in duplicateProductNames {
+            diagnostics.emit(ModuleError.duplicateProduct(duplicateProductName), location: diagnosticLocation())
+        }
+
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {
             // If a target with similar name was encountered before, we emit a diagnostic.
