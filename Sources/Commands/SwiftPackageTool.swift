@@ -38,7 +38,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             usage: "[options] subcommand",
             overview: "Perform operations on Swift packages",
             args: args,
-            seeAlso: "swift build, swift run, swift test"
+            seeAlso: type(of: self).otherToolNames()
         )
     }
     override func runImpl() throws {
@@ -469,5 +469,11 @@ extension PackageToolOptions.CompletionToolMode: StringEnumArgument {
             (listDependencies.rawValue, "list all dependencies' names"),
             (listExecutables.rawValue, "list all executables' names"),
         ])
+    }
+}
+
+extension SwiftPackageTool: ToolName {
+    static var toolName: String {
+        return "swift package"
     }
 }

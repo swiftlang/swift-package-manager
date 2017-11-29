@@ -104,6 +104,17 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 }
 
+protocol ToolName {
+    static var toolName: String { get }
+}
+
+extension ToolName {
+    static func otherToolNames() -> String {
+        let allTools: [ToolName.Type] = [SwiftBuildTool.self, SwiftRunTool.self, SwiftPackageTool.self, SwiftTestTool.self]
+        return  allTools.filter({ $0 != self }).map({ $0.toolName }).joined(separator: ", ")
+    }
+}
+
 public class SwiftTool<Options: ToolOptions> {
     /// The original working directory.
     let originalWorkingDirectory: AbsolutePath

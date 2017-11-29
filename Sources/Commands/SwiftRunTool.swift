@@ -90,7 +90,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             usage: "[options] [executable [arguments ...]]",
             overview: "Build and run an executable product",
             args: args,
-            seeAlso: "swift build, swift package, swift test"
+            seeAlso: type(of: self).otherToolNames()
         )
     }
 
@@ -188,3 +188,8 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
     }
 }
 
+extension SwiftRunTool: ToolName {
+    static var toolName: String {
+        return "swift run"
+    }
+}

@@ -116,7 +116,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             usage: "[options]",
             overview: "Build and run tests",
             args: args,
-            seeAlso: "swift build, swift run, swift package"
+            seeAlso: type(of: self).otherToolNames()
         )
     }
 
@@ -619,5 +619,11 @@ fileprivate extension Sequence where Iterator.Element == TestSuite {
         case .specific(let name):
             return allTests.filter{ $0.specifier == name }
         }
+    }
+}
+
+extension SwiftTestTool: ToolName {
+    static var toolName: String {
+        return "swift test"
     }
 }
