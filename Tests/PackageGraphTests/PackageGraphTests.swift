@@ -136,35 +136,6 @@ class PackageGraphTests: XCTestCase {
         XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple targets named 'Bar'")
     }
 
-    func testDuplicateProducts() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/Bar/source.swift",
-            "/Bar/source.swift"
-        )
-
-        let diagnostics = DiagnosticsEngine()
-        _ = loadMockPackageGraph4([
-            "/Foo": Package(
-                name: "Bar",
-                products: [
-                    .library(name: "Bar", targets: ["Bar"]),
-                    .library(name: "Bar", targets: ["Bar"]),
-                    .library(name: "Bar", targets: ["Bar"]),
-                    .library(name: "Boo", targets: ["Bar"]),
-                    .library(name: "Boo", targets: ["Bar"])
-                ],
-                targets: [
-                    .target(name: "Bar"),
-                ]),
-            ], root: "/Foo", diagnostics: diagnostics, in: fs)
-
-        let multipleBarDiagnostics = diagnostics.diagnostics.filter { $0.localizedDescription == "multiple products named 'Bar'" }
-        let multipleBooDiagnostics = diagnostics.diagnostics.filter { $0.localizedDescription == "multiple products named 'Boo'" }
-
-        XCTAssertEqual(multipleBarDiagnostics.count, 1)
-        XCTAssertEqual(multipleBooDiagnostics.count, 1)
-    }
-
     func testEmptyDependency() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
@@ -205,7 +176,6 @@ class PackageGraphTests: XCTestCase {
         ("testCycle", testCycle),
         ("testProductDependencies", testProductDependencies),
         ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
-        ("testDuplicateProducts", testDuplicateProducts),
         ("testEmptyDependency", testEmptyDependency),
     ]
 }
