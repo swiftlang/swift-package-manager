@@ -791,14 +791,10 @@ public final class PackageBuilder {
 
             let sources = Sources(paths: cSources, root: potentialModule.path)
 
-            // Select the right language standard.
-            let isCXX = sources.containsCXXFiles
-            let languageStandard = isCXX ? manifest.package.cxxLanguageStandard?.rawValue : manifest.package.cLanguageStandard?.rawValue 
-
             return ClangTarget(
                 name: potentialModule.name,
-                isCXX: isCXX,
-                languageStandard: languageStandard,
+                cLanguageStandard: manifest.package.cLanguageStandard?.rawValue,
+                cxxLanguageStandard: manifest.package.cxxLanguageStandard?.rawValue,
                 includeDir: publicHeadersPath,
                 isTest: potentialModule.isTest,
                 sources: sources,

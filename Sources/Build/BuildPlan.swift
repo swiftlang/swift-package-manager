@@ -193,9 +193,6 @@ public final class ClangTargetDescription {
       #endif
         args += ["-fblocks"]
         args += ["-fmodules", "-fmodule-name=" + target.c99name]
-        if let languageStandard = clangTarget.languageStandard {
-            args += ["-std=\(languageStandard)"]
-        }
         args += ["-I", clangTarget.includeDir.asString]
         args += additionalFlags
         args += moduleCacheArgs
