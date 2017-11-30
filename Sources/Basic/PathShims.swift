@@ -89,7 +89,7 @@ public func makeDirectories(_ path: AbsolutePath) throws {
 }
 
 /// Recursively deletes the file system entity at `path`.  If there is no file system entity at `path`, this function
-/// does nothing (in particular, this is not considered to be an error).
+/// throws an error.
 public func removeFileTree(_ path: AbsolutePath) throws {
     try FileManager.default.removeItem(atPath: path.asString)
 }

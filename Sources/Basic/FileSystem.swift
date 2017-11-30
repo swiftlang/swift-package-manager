@@ -115,7 +115,7 @@ public enum FileMode {
 // FIXME: Design an asynchronous story?
 public protocol FileSystem: class {
     /// Check whether the given path exists and is accessible.
-    func exists(_ path: AbsolutePath) -> Bool
+    func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool
 
     /// Check whether the given path is accessible and a directory.
     func isDirectory(_ path: AbsolutePath) -> Bool
@@ -168,6 +168,11 @@ public protocol FileSystem: class {
 /// Convenience implementations (default arguments aren't permitted in protocol
 /// methods).
 public extension FileSystem {
+    /// exists override with default value.
+    func exists(_ path: AbsolutePath) -> Bool {
+        return exists(path, followSymlink: true)
+    }
+
     /// Default implementation of createDirectory(_:)
     func createDirectory(_ path: AbsolutePath) throws {
         try createDirectory(path, recursive: false)
@@ -197,8 +202,8 @@ private class LocalFileSystem: FileSystem {
         return filestat.st_mode & libc.S_IXUSR != 0
     }
 
-    func exists(_ path: AbsolutePath) -> Bool {
-        return Basic.exists(path)
+    func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
+        return Basic.exists(path, followSymlink: followSymlink)
     }
 
     func isDirectory(_ path: AbsolutePath) -> Bool {
@@ -332,7 +337,7 @@ private class LocalFileSystem: FileSystem {
     }
 
     func removeFileTree(_ path: AbsolutePath) throws {
-        if self.exists(path) {
+        if self.exists(path, followSymlink: false) {
             try Basic.removeFileTree(path)
         }
     }
@@ -509,7 +514,7 @@ public class InMemoryFileSystem: FileSystem {
 
     // MARK: FileSystem Implementation
 
-    public func exists(_ path: AbsolutePath) -> Bool {
+    public func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
         do {
             return try getNode(path) != nil
         } catch {
@@ -706,8 +711,8 @@ public class RerootedFileSystemView: FileSystem {
 
     // MARK: FileSystem Implementation
 
-    public func exists(_ path: AbsolutePath) -> Bool {
-        return underlyingFileSystem.exists(formUnderlyingPath(path))
+    public func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
+        return underlyingFileSystem.exists(formUnderlyingPath(path), followSymlink: followSymlink)
     }
 
     public func isDirectory(_ path: AbsolutePath) -> Bool {

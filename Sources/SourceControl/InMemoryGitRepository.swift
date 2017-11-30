@@ -183,8 +183,8 @@ public final class InMemoryGitRepository {
 
 extension InMemoryGitRepository: FileSystem {
 
-    public func exists(_ path: AbsolutePath) -> Bool {
-        return head.fileSystem.exists(path)
+    public func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
+        return head.fileSystem.exists(path, followSymlink: followSymlink)
     }
 
     public func isDirectory(_ path: AbsolutePath) -> Bool {
