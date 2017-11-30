@@ -140,13 +140,16 @@ public class ClangTarget: Target {
     /// True if this is a C++ target.
     public let isCXX: Bool
 
-    /// The C or C++ language standard flag.
-    public let languageStandard: String?
+    /// The C language standard flag.
+    public let cLanguageStandard: String?
+
+    /// The C++ language standard flag.
+    public let cxxLanguageStandard: String?
 
     public init(
         name: String,
-        isCXX: Bool,
-        languageStandard: String?,
+        cLanguageStandard: String?,
+        cxxLanguageStandard: String?,
         includeDir: AbsolutePath,
         isTest: Bool = false,
         sources: Sources,
@@ -154,10 +157,10 @@ public class ClangTarget: Target {
         productDependencies: [(name: String, package: String?)] = []
     ) {
         assert(includeDir.contains(sources.root), "\(includeDir) should be contained in the source root \(sources.root)")
-        assert(sources.containsCXXFiles == isCXX)
         let type: Kind = isTest ? .test : sources.computeModuleType()
-        self.isCXX = isCXX
-        self.languageStandard = languageStandard
+        self.isCXX = sources.containsCXXFiles
+        self.cLanguageStandard = cLanguageStandard
+        self.cxxLanguageStandard = cxxLanguageStandard
         self.includeDir = includeDir
         super.init(
             name: name,

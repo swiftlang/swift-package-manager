@@ -190,9 +190,25 @@ public struct LLBuildManifestGenerator {
 
     /// Create a llbuild target for a Clang target description.
     private func createClangCompileTarget(_ target: ClangTargetDescription) -> Target {
+
+        let standards = [
+            (target.clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
+            (target.clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
+        ]
+
         let commands: [Command] = target.compilePaths().map({ path in
             var args = target.basicArguments()
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.asString]
+
+            // Add language standard flag if needed.
+            if let ext = path.source.extension {
+                for (standard, validExtensions) in standards {
+                    if let languageStandard = standard, validExtensions.contains(ext) {
+                        args += ["-std=\(languageStandard)"]
+                    }
+                }
+            }
+
             args += ["-c", path.source.asString, "-o", path.object.asString]
             let clang = ClangTool(
                 desc: "Compile \(target.target.name) \(path.filename.asString)",

@@ -252,6 +252,7 @@ final class BuildPlanTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.cpp",
             "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/libx.cpp",
             "/Pkg/Sources/lib/include/lib.h"
         )
         let pkg = PackageDescription4.Package(
@@ -265,23 +266,19 @@ final class BuildPlanTests: XCTestCase {
         )
         let diagnostics = DiagnosticsEngine()
         let graph = loadMockPackageGraph4(["/Pkg": pkg], root: "/Pkg", diagnostics: diagnostics, in: fs)
-        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
+        let plan = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs)
+        let result = BuildPlanResult(plan: plan)
  
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
-
-        let lib = try result.target(for: "lib").clangTarget()
-        XCTAssertTrue(lib.basicArguments().contains("-std=gnu99"))
-
-        let exe = try result.target(for: "exe").clangTarget()
-        XCTAssertTrue(exe.basicArguments().contains("-std=c++1z"))
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             "/fake/path/to/swiftc", "-lc++", "-g", "-L", "/path/to/build/debug", "-o",
             "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
             "/path/to/build/debug/exe.build/main.cpp.o",
-            "/path/to/build/debug/lib.build/lib.c.o"
+            "/path/to/build/debug/lib.build/lib.c.o",
+            "/path/to/build/debug/lib.build/libx.cpp.o"
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -289,9 +286,19 @@ final class BuildPlanTests: XCTestCase {
             "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "/path/to/build/debug/exe.build/main.cpp.o",
-            "/path/to/build/debug/lib.build/lib.c.o"
+            "/path/to/build/debug/lib.build/lib.c.o",
+            "/path/to/build/debug/lib.build/libx.cpp.o"
         ])
       #endif
+
+        mktmpdir { path in
+            let yaml = path.appending(component: "debug.yaml")
+            let llbuild = LLBuildManifestGenerator(plan)
+            try llbuild.generateManifest(at: yaml)
+            let contents = try localFileSystem.readFileContents(yaml).asString!
+            XCTAssertTrue(contents.contains("-std=gnu99\",\"-c\",\"/Pkg/Sources/lib/lib.c"))
+            XCTAssertTrue(contents.contains("-std=c++1z\",\"-c\",\"/Pkg/Sources/lib/libx.cpp"))
+        }
     }
 
     func testSwiftCMixed() throws {
