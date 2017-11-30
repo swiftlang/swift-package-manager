@@ -71,6 +71,37 @@ class FileSystemTests: XCTestCase {
         XCTAssertTrue(thisDirectoryContents.contains(where: { $0 == AbsolutePath(#file).basename }))
     }
 
+    func testLocalExistsSymlink() throws {
+        mktmpdir { path in
+            let fs = Basic.localFileSystem
+
+            let source = path.appending(component: "source")
+            let target = path.appending(component: "target")
+            try fs.writeFileContents(target, bytes: "source")
+
+            // Source and target exist.
+
+            try createSymlink(source, pointingAt: target)
+            XCTAssertEqual(fs.exists(source), true)
+            XCTAssertEqual(fs.exists(source, followSymlink: true), true)
+            XCTAssertEqual(fs.exists(source, followSymlink: false), true)
+
+            // Source only exists.
+
+            try fs.removeFileTree(target)
+            XCTAssertEqual(fs.exists(source), false)
+            XCTAssertEqual(fs.exists(source, followSymlink: true), false)
+            XCTAssertEqual(fs.exists(source, followSymlink: false), true)
+            
+            // None exist.
+
+            try fs.removeFileTree(source)
+            XCTAssertEqual(fs.exists(source), false)
+            XCTAssertEqual(fs.exists(source, followSymlink: true), false)
+            XCTAssertEqual(fs.exists(source, followSymlink: false), false)
+        }
+    }
+
     func testLocalCreateDirectory() throws {
         let fs = Basic.localFileSystem
         
@@ -378,6 +409,7 @@ class FileSystemTests: XCTestCase {
         ("testLocalBasics", testLocalBasics),
         ("testLocalCreateDirectory", testLocalCreateDirectory),
         ("testLocalReadWriteFile", testLocalReadWriteFile),
+        ("testLocalExistsSymlink", testLocalExistsSymlink),
         ("testInMemoryBasics", testInMemoryBasics),
         ("testInMemoryCreateDirectory", testInMemoryCreateDirectory),
         ("testInMemoryFsCopy", testInMemoryFsCopy),

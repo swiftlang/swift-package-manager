@@ -561,7 +561,7 @@ private class GitFileSystemView: FileSystem {
         return tree
     }
 
-    func exists(_ path: AbsolutePath) -> Bool {
+    func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
         do {
             return try getEntry(path) != nil
         } catch {
