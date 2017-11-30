@@ -20,12 +20,17 @@ public struct PackageGraph {
     /// with the root packages.
     public let packages: [ResolvedPackage]
 
-    /// Returns list of all targets (reachable from root targets) in the graph.
-    public let targets: [ResolvedTarget]
+    /// The list of all targets reachable from root targets.
+    public let reachableTargets: Set<ResolvedTarget>
 
-    /// Contains all the products of the root packages and the product dependencies of the root targets.
-    /// i.e. this array will not contain the products which are not needed to be built.
-    public let products: [ResolvedProduct]
+    /// The list of all products reachable from root targets.
+    public let reachableProducts: Set<ResolvedProduct>
+
+    /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
+    public let allTargets: Set<ResolvedTarget>
+ 
+    /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
+    public var allProducts: Set<ResolvedProduct>
 
     /// Returns true if a given target is present in root packages.
     public func isInRootPackages(_ target: ResolvedTarget) -> Bool {
@@ -38,6 +43,8 @@ public struct PackageGraph {
         self.rootPackages = rootPackages
         let inputPackages = rootPackages + rootDependencies
         self.packages = try! topologicalSort(inputPackages, successors: { $0.dependencies })
+        allTargets = Set(packages.flatMap({ $0.targets }))
+        allProducts = Set(packages.flatMap({ $0.products }))
 
         // Compute the input targets.
         let inputTargets = inputPackages.flatMap({ $0.targets }).map(ResolvedTarget.Dependency.target)
@@ -45,22 +52,19 @@ public struct PackageGraph {
         let dependencies = try! topologicalSort(inputTargets, successors: { $0.dependencies })
 
         // Separate out the products and targets but maintain their topological order.
-        var targets: [ResolvedTarget] = []
-        var products = inputPackages.flatMap({ $0.products })
-        let rootDependencyProductSet = Set(rootDependencies.flatMap({ $0.products }))
+        var reachableTargets: Set<ResolvedTarget> = []
+        var reachableProducts = Set(inputPackages.flatMap({ $0.products }))
 
         for dependency in dependencies {
             switch dependency {
             case .target(let target):
-                targets.append(target)
+                reachableTargets.insert(target)
             case .product(let product):
-                // Avoid re-adding any product from the root dependencies.
-                if rootDependencyProductSet.contains(product) { continue }
-                products.append(product)
+                reachableProducts.insert(product)
             }
         }
 
-        self.targets = targets
-        self.products = products
+        self.reachableTargets = reachableTargets
+        self.reachableProducts = reachableProducts
     }
 }

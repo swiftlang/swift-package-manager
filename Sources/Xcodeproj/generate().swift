@@ -109,7 +109,7 @@ public func generate(
             """)
     }
 
-    for target in graph.targets where target.type == .library || target.type == .test {
+    for target in graph.reachableTargets where target.type == .library || target.type == .test {
         ///// For framework targets, generate target.c99Name_Info.plist files in the 
         ///// directory that Xcode project is generated
         let name = target.infoPlistFileName

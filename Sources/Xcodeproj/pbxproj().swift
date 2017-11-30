@@ -312,7 +312,7 @@ func xcodeProject(
 
     // Determine the set of targets to generate in the project by excluding
     // any system targets.
-    let targets = graph.targets.filter({ $0.type != .systemModule })
+    let targets = graph.reachableTargets.filter({ $0.type != .systemModule })
 
     // If we have any external packages, we also add a `Dependencies` group at
     // the top level, along with a sources subgroup for each package.
@@ -599,7 +599,7 @@ func xcodeProject(
     // Create an aggregate target for every product for which there isn't already
     // a target with the same name.
     let targetNames: Set<String> = Set(modulesToTargets.values.map({ $0.name }))
-    for product in graph.products {
+    for product in graph.reachableProducts {
         // Go on to next product if we already have a target with the same name.
         if targetNames.contains(product.name) { continue }
         // Otherwise, create an aggreate target.
