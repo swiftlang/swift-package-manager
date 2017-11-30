@@ -170,6 +170,57 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    func testUnusedDependency() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift",
+            "/Baz/Sources/Baz/baz.swift",
+            "/Biz/Sources/Biz/main.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadMockPackageGraph4([
+            "/Bar": Package(
+                name: "Bar",
+                products: [
+                    .library(name: "BarLibrary", targets: ["Bar"]),
+                ],
+                targets: [
+                    .target(name: "Bar"),
+                ]),
+            "/Baz": Package(
+                name: "Baz",
+                products: [
+                    .library(name: "BazLibrary", targets: ["Baz"]),
+                ],
+                targets: [
+                    .target(name: "Baz"),
+                ]),
+            "/Biz": Package(
+                name: "Biz",
+                products: [
+                    .executable(name: "biz", targets: ["Biz"]),
+                ],
+                targets: [
+                    .target(name: "Biz"),
+                ]),
+            "/Foo": .init(
+                name: "Foo",
+                dependencies: [
+                    .package(url: "/Bar", from: "1.0.0"),
+                    .package(url: "/Baz", from: "1.0.0"),
+                    .package(url: "/Biz", from: "1.0.0"),
+                ],
+                targets: [
+                    .target(name: "Foo", dependencies: ["BarLibrary"]),
+                ]),
+            ], root: "/Foo", diagnostics: diagnostics, in: fs)
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "dependency 'Baz' is not used by any target", behavior: .warning)
+        }
+    }
+
     static var allTests = [
         ("testBasic", testBasic),
         ("testDuplicateModules", testDuplicateModules),
@@ -177,5 +228,6 @@ class PackageGraphTests: XCTestCase {
         ("testProductDependencies", testProductDependencies),
         ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
         ("testEmptyDependency", testEmptyDependency),
+        ("testUnusedDependency", testUnusedDependency),
     ]
 }
