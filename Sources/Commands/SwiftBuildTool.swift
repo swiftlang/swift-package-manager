@@ -37,7 +37,8 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             toolName: "build",
             usage: "[options]",
             overview: "Build sources into binary products",
-            args: args
+            args: args,
+            seeAlso: type(of: self).otherToolNames()
         )
     }
 
@@ -176,5 +177,11 @@ fileprivate extension BuildSubset {
         case .target:
             return targetOptionName
         }
+    }
+}
+
+extension SwiftBuildTool: ToolName {
+    static var toolName: String {
+        return "swift build"
     }
 }

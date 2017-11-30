@@ -104,6 +104,17 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 }
 
+protocol ToolName {
+    static var toolName: String { get }
+}
+
+extension ToolName {
+    static func otherToolNames() -> String {
+        let allTools: [ToolName.Type] = [SwiftBuildTool.self, SwiftRunTool.self, SwiftPackageTool.self, SwiftTestTool.self]
+        return  allTools.filter({ $0 != self }).map({ $0.toolName }).joined(separator: ", ")
+    }
+}
+
 public class SwiftTool<Options: ToolOptions> {
     /// The original working directory.
     let originalWorkingDirectory: AbsolutePath
@@ -149,7 +160,7 @@ public class SwiftTool<Options: ToolOptions> {
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
-    public init(toolName: String, usage: String, overview: String, args: [String]) {
+    public init(toolName: String, usage: String, overview: String, args: [String], seeAlso: String? = nil) {
         // Capture the original working directory ASAP.
         originalWorkingDirectory = currentWorkingDirectory
         
@@ -157,7 +168,8 @@ public class SwiftTool<Options: ToolOptions> {
         parser = ArgumentParser(
             commandName: "swift \(toolName)",
             usage: usage,
-            overview: overview)
+            overview: overview,
+            seeAlso: seeAlso)
 
         // Create the binder.
         let binder = ArgumentBinder<Options>()
