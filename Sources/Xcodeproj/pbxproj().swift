@@ -508,6 +508,12 @@ func xcodeProject(
             compilePhase.addBuildFile(fileRef: srcFileRef)
         }
 
+        // Set C/C++ language standard.
+        if case let clangTarget as ClangTarget = target.underlyingTarget {
+            targetSettings.common.GCC_C_LANGUAGE_STANDARD = clangTarget.cLanguageStandard
+            targetSettings.common.CLANG_CXX_LANGUAGE_STANDARD = clangTarget.cxxLanguageStandard
+        }
+
         // Add the `include` group for a libary C language target.
         if case let clangTarget as ClangTarget = target.underlyingTarget,
             clangTarget.type == .library,
