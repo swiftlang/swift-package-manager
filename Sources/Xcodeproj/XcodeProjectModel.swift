@@ -335,6 +335,7 @@ public struct Xcode {
             // Note: although some of these build settings sound like booleans,
             // they are all either strings or arrays of strings, because even
             // a boolean may be a macro reference expression.
+            var CLANG_CXX_LANGUAGE_STANDARD: String?
             var CLANG_ENABLE_OBJC_ARC: String?
             var COMBINE_HIDPI_IMAGES: String?
             var COPY_PHASE_STRIP: String?
@@ -345,6 +346,7 @@ public struct Xcode {
             var ENABLE_NS_ASSERTIONS: String?
             var ENABLE_TESTABILITY: String?
             var FRAMEWORK_SEARCH_PATHS: [String]?
+            var GCC_C_LANGUAGE_STANDARD: String?
             var GCC_OPTIMIZATION_LEVEL: String?
             var HEADER_SEARCH_PATHS: [String]?
             var INFOPLIST_FILE: String?
