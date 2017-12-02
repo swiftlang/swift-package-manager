@@ -15,6 +15,10 @@ import PackageDescription
 let package = Package(
     name: "SwiftPM",
     products: [
+        // The `libSwiftPM` set of interfaces to programatically work with Swift
+        // packages.
+        //
+        // NOTE: This API is *unstable* and may change at any time.
         .library(
             name: "SwiftPM",
             type: .dynamic,
@@ -37,6 +41,10 @@ let package = Package(
         ),
 
         // Collection of general purpose utilities.
+        //
+        // NOTE: This product consists of *unsupported*, *unstable* API. These
+        // APIs are implementation details of the package manager. Depend on it
+        // at your own risk.
         .library(
             name: "Utility",
             targets: [
