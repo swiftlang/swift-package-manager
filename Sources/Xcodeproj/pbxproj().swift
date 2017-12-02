@@ -547,7 +547,8 @@ func xcodeProject(
             } else {
                 let umbrellaHeaderName = clangTarget.c99name + ".h"
                 if includeGroup.subitems.contains(where: { $0.path == umbrellaHeaderName }) {
-                    // if umbrellaHeader exists, we can use module.
+                    // If an umbrella header exists, enable Xcode's builtin module's feature rather than generating
+                    // a custom module map. This increases the compatibility of generated Xcode projects.
                     targetSettings.common.CLANG_ENABLE_MODULES = "YES"
                     targetSettings.common.DEFINES_MODULE = "YES"
                     let headerPhase = xcodeTarget.addHeadersBuildPhase()
