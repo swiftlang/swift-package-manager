@@ -33,22 +33,3 @@ extension Collection where Iterator.Element : Equatable {
     }
 }
 
-extension Collection {
-    /// Splits into two arrays, first containing elements which matching the predicate
-    /// and other containting elements not matching the predicate.
-    ///
-    /// - Parameter isMatching: The predicate to apply.
-    /// - Returns: Tuple of split arrays.
-    public func split(_ isMatching: (Iterator.Element) -> Bool) -> ([Iterator.Element], [Iterator.Element]) {
-        var matchingElements: [Iterator.Element] = []
-        var nonMatchingElements: [Iterator.Element] = []
-        for element in self {
-            if isMatching(element) {
-                matchingElements.append(element)
-            } else {
-                nonMatchingElements.append(element)
-            }
-        }
-        return (matchingElements, nonMatchingElements)
-    }
-}

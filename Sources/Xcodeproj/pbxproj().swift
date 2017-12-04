@@ -296,7 +296,11 @@ func xcodeProject(
         return sourcesGroup ?? srcPathsToGroups[targets[0].sources.root]
     }
 
-    let (rootModules, testModules) = graph.rootPackages[0].targets.split{ $0.type != .test }
+    let (rootModules, testModules) = { () -> ([ResolvedTarget], [ResolvedTarget]) in
+        var targets = graph.rootPackages[0].targets
+        let secondPartitionIndex = targets.partition(by: { $0.type == .test })
+        return (Array(targets[..<secondPartitionIndex]), Array(targets[secondPartitionIndex...]))
+    }()
 
     // Create a `Sources` group for the source targets in the root package.
     createSourceGroup(named: "Sources", for: rootModules, in: project.mainGroup)
