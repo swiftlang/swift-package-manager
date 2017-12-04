@@ -55,8 +55,9 @@ struct TargetNotFoundDiagnostic: DiagnosticData {
     let targetName: String
 }
 
-internal class ToolWorkspaceDelegate: WorkspaceDelegate {
-    
+class ToolWorkspaceDelegate: WorkspaceDelegate {
+    /// Setting this flag to true allows us to output to stderr. Otherwise we output to stdout
+    /// Defaults to false,
     var shouldOutputToStdErr: Bool = false
     
     func packageGraphWillLoad(
@@ -103,8 +104,9 @@ internal class ToolWorkspaceDelegate: WorkspaceDelegate {
         output("warning: " + message)
     }
     
+    /// Output to either stdout or stderr depending on whether `shouldOutputToStdErr` is set
     func output(_ message: String) {
-        let stdStream = (shouldOutputToStdErr) ? stderrStream : stdoutStream
+        let stdStream = shouldOutputToStdErr ? stderrStream : stdoutStream
         stdStream.write(message + "\n")
         stdStream.flush()
     }
