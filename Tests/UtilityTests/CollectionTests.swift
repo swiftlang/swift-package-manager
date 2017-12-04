@@ -27,39 +27,8 @@ class CollectionTests: XCTestCase {
         eq(["f", "o", "o", ":", "b", "a", "r"].split(around: [":"]), (["f", "o", "o"], ["b", "a", "r"]))
     }
 
-    func testSplitisMatching() {
-        do {
-            let array = [false, true, true, false, false]
-            let result = array.split({ $0 == true })
-            XCTAssertEqual(result.0, [true, true])
-            XCTAssertEqual(result.1, [false, false, false])
-        }
-
-        do {
-            let array = [0, 1, 1, 2, 0, 0, 0]
-            let result = array.split({ $0 == 0 })
-            XCTAssertEqual(result.0, [0, 0, 0, 0])
-            XCTAssertEqual(result.1, [1, 1, 2])
-        }
-
-        do {
-            let array = [1, 1, 2]
-            let result = array.split({ $0 == 0 })
-            XCTAssertEqual(result.0, [])
-            XCTAssertEqual(result.1, [1, 1, 2])
-        }
-
-        do {
-            let array = [Int]()
-            let result = array.split({ $0 == 0 })
-            XCTAssertEqual(result.0, [])
-            XCTAssertEqual(result.1, [])
-        }
-    }
-
     static var allTests = [
         ("testSplitAround", testSplitAround),
-        ("testSplitisMatching", testSplitisMatching),
     ]
 }
 
