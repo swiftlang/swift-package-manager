@@ -138,7 +138,7 @@ public struct LLBuildManifestGenerator {
         } else {
             let inputs = buildProduct.objects + buildProduct.dylibs.map({ $0.binary })
             tool = ShellTool(
-                description: "Linking \(buildProduct.binary.prettyPath)",
+                description: "Linking \(buildProduct.binary.prettyPath())",
                 inputs: inputs.map({ $0.asString }),
                 outputs: [buildProduct.binary.asString],
                 args: buildProduct.linkArguments())

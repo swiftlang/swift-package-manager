@@ -168,7 +168,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 graph: graph,
                 options: options.xcodeprojOptions)
 
-            print("generated:", outpath.prettyPath)
+            print("generated:", outpath.prettyPath(cwd: originalWorkingDirectory))
 
         case .describe:
             let graph = try loadPackageGraph()
