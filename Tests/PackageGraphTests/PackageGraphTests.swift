@@ -164,8 +164,8 @@ class PackageGraphTests: XCTestCase {
 
         DiagnosticsEngineTester(diagnostics) { result in
             result.check(diagnostic: "target 'Bar' in package 'Bar' contains no valid source files", behavior: .warning)
-            result.check(diagnostic: "target 'Bar' referenced in product 'Bar' could not be found", behavior: .error, location: "Package: Bar /Bar")
-            result.check(diagnostic: "product dependency 'Bar' not found", behavior: .error, location: "Package: Foo /Foo")
+            result.check(diagnostic: "target 'Bar' referenced in product 'Bar' could not be found", behavior: .error, location: "'Bar' /Bar")
+            result.check(diagnostic: "product dependency 'Bar' not found", behavior: .error, location: "'Foo' /Foo")
 
         }
     }
