@@ -85,6 +85,11 @@ func print(error: Any) {
 func print(diagnostic: Diagnostic) {
     let writer = InteractiveWriter.stderr
 
+    if !(diagnostic.location is UnknownLocation) {
+        writer.write(diagnostic.location.localizedDescription)
+        writer.write(": ")
+    }
+
     switch diagnostic.behavior {
     case .error:
         writer.write("error: ", inColor: .red, bold: true)

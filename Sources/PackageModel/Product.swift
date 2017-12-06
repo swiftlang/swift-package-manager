@@ -11,7 +11,7 @@
 import Basic
 
 /// The type of product.
-public enum ProductType {
+public enum ProductType: CustomStringConvertible {
 
     /// The type of library.
     public enum LibraryType {
@@ -34,6 +34,24 @@ public enum ProductType {
 
     /// A test product.
     case test
+    
+    public var description: String {
+        switch self {
+        case .executable:
+            return "executable"
+        case .test:
+            return "test"
+        case .library(let type):
+            switch type {
+            case .automatic:
+                return "automatic"
+            case .dynamic:
+                return "dynamic"
+            case .static:
+                return "static"
+            }
+        }
+    }
 }
 
 public class Product {

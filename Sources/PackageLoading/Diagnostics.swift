@@ -10,6 +10,7 @@
 
 import Basic
 import Utility
+import PackageModel
 
 public enum PackageBuilderDiagnostics {
 
@@ -51,5 +52,28 @@ public enum PackageBuilderDiagnostics {
 
         /// The name of the target which has no sources.
         public let target: String
+    }
+
+    public struct DuplicateProduct: DiagnosticData {
+        public static let id = DiagnosticID(
+            type: DuplicateProduct.self,
+            name: "org.swift.diags.pkg-builder.dup-product",
+            defaultBehavior: .warning,
+            description: {
+                $0 <<< "Ignoring duplicate product" <<< { "'\($0.product.name)'" }
+                $0 <<< .substitution({
+                    let `self` = $0 as! DuplicateProduct
+                    switch self.product.type {
+                    case .library(.automatic):
+                        return ""
+                    case .executable, .test: fallthrough
+                    case .library(.dynamic), .library(.static):
+                         return "(\(self.product.type))"
+                    }
+                }, preference: .default)
+            }
+        )
+
+        public let product: Product
     }
 }
