@@ -102,7 +102,7 @@ class PackageGraphTests: XCTestCase {
                 targetResult.check(dependencies: ["Foo"])
                 XCTAssertNil(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES)
                 XCTAssertEqual(targetResult.commonBuildSettings.DEFINES_MODULE, "NO")
-                XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, nil)
+                XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, "$(SRCROOT)/Sources/Sea2/include/module.modulemap")
                 XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
@@ -168,10 +168,7 @@ class PackageGraphTests: XCTestCase {
 
       XcodeProjectTester(project) { result in
           result.check(target: "swift") { targetResult in
-              XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
-                  "$(inherited)", "-Xcc",
-                  "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap"
-              ])
+              XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], ["$(inherited)"])
               XCTAssertEqual(targetResult.target.buildSettings.common.HEADER_SEARCH_PATHS ?? [], [
                   "$(inherited)",
                   "$(SRCROOT)/Sources/Sea2/include",
