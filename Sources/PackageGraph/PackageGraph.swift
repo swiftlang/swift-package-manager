@@ -43,8 +43,26 @@ public struct PackageGraph {
         self.rootPackages = rootPackages
         let inputPackages = rootPackages + rootDependencies
         self.packages = try! topologicalSort(inputPackages, successors: { $0.dependencies })
-        allTargets = Set(packages.flatMap({ $0.targets }))
-        allProducts = Set(packages.flatMap({ $0.products }))
+
+        allTargets = Set(packages.flatMap({ package -> [ResolvedTarget] in
+            if rootPackages.contains(package) {
+                return package.targets
+            } else {
+                // Don't include tests targets from non-root packages so swift-test doesn't
+                // try to run them.
+                return package.targets.filter({ $0.type != .test })
+            }
+        }))
+
+        allProducts = Set(packages.flatMap({ package -> [ResolvedProduct] in
+            if rootPackages.contains(package) {
+                return package.products
+            } else {
+                // Don't include tests products from non-root packages so swift-test doesn't
+                // try to run them.
+                return package.products.filter({ $0.type != .test })
+            }
+        }))
 
         // Compute the input targets.
         let inputTargets = inputPackages.flatMap({ $0.targets }).map(ResolvedTarget.Dependency.target)
