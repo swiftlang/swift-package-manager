@@ -525,22 +525,28 @@ final class BuildPlanTests: XCTestCase {
             return prev && args.contains("-l\(dependencyName)")
         }))
         
+        let standardPrefixArrayCount = 8
+        
         var suffix: String = ""
         #if os(macOS)
-            XCTAssertEqual(args.suffix(2),
+            let macOSSuffixArrayCount = 2
+            XCTAssertEqual(args.suffix(macOSSuffixArrayCount),
                            ["-emit-\(type.rawValue)",
                             "/path/to/build/debug/\(moduleName).build/\(type == .library ? "source" : "main").swift.o"
                 ])
             suffix = type == .library ? ".dylib" : ""
+            XCTAssertEqual(args.count, standardPrefixArrayCount + macOSSuffixArrayCount + dependencyStrings.count)
         #else
-            XCTAssertEqual(args.suffix(4),
+            let linuxSuffixArrayCount = 4
+            XCTAssertEqual(args.suffix(linuxSuffixArrayCount),
                            ["-emit-\(type.rawValue)",
                             "-Xlinker", "-rpath=$ORIGIN",
                             "/path/to/build/debug/\(moduleName).build/\(type == .library ? "source" : "main").swift.o"
                 ])
             suffix = type == .library ? ".dylib" : ""
+            XCTAssertEqual(args.count, standardPrefixArrayCount + linuxSuffixArrayCount + dependencyStrings.count)
         #endif
-        XCTAssertEqual(args.prefix(8),
+        XCTAssertEqual(args.prefix(standardPrefixArrayCount),
                        ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
                         "-o", "/path/to/build/debug/\((type == .library ? "lib" : "") + moduleName)\(suffix)", "-module-name", moduleName])
         
@@ -623,7 +629,7 @@ final class BuildPlanTests: XCTestCase {
         assertArgsAreCorrect(fooLinkArgs,
                              for: "Foo",
                              with: ["FirstOrder1", "FirstOrder2",
-                                    "SecondOrder1", "SecondOrder2", "SecondOrder3", "SecondOrder4",
+                                    "SecondOrder1", "SecondOrder1", "SecondOrder3", "SecondOrder4",
                                     "ThirdOrder1", "ThirdOrder2", "ThirdOrder3", "ThirdOrder4",
                                     "ThirdOrder5", "ThirdOrder6", "ThirdOrder7", "ThirdOrder8"],
                              of: .executable)
