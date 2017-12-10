@@ -15,6 +15,7 @@ import Utility
 import TestSupport
 import PackageModel
 
+
 @testable import Build
 import PackageDescription
 import PackageDescription4
@@ -37,6 +38,12 @@ private struct MockToolchain: Toolchain {
 }
 
 final class BuildPlanTests: XCTestCase {
+
+    
+    enum EmitType: String {
+        case library = "library",
+        executable = "executable"
+    }
 
     /// The j argument.
     private var j: String {
@@ -507,6 +514,151 @@ final class BuildPlanTests: XCTestCase {
         ])
       #endif
 
+    }
+    
+    private func assertArgsAreCorrect(_ args: [String],
+                                      for moduleName: String,
+                                      with dependencyStrings: [String],
+                                      of type: EmitType) {
+        
+        XCTAssertTrue(dependencyStrings.reduce(true, { (prev, dependencyName) -> Bool in
+            return prev && args.contains("-l\(dependencyName)")
+        }))
+        
+        var suffix: String = ""
+        #if os(macOS)
+            XCTAssertEqual(args.suffix(2),
+                           ["-emit-\(type.rawValue)",
+                            "/path/to/build/debug/\(moduleName).build/\(type == .library ? "source" : "main").swift.o"
+                ])
+            suffix = type == .library ? ".dylib" : ""
+        #else
+            XCTAssertEqual(args.suffix(4),
+                           ["-emit-\(type.rawValue)",
+                            "-Xlinker", "-rpath=$ORIGIN",
+                            "/path/to/build/debug/\(moduleName).build/\(type == .library ? "source" : "main").swift.o"
+                ])
+            suffix = type == .library ? ".dylib" : ""
+        #endif
+        XCTAssertEqual(args.prefix(8),
+                       ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
+                        "-o", "/path/to/build/debug/\((type == .library ? "lib" : "") + moduleName)\(suffix)", "-module-name", moduleName])
+        
+    }
+    
+    func testNthDegreeDynamicProducts() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/main.swift",
+            "/FirstOrder1/Sources/FirstOrder1/source.swift",
+            "/FirstOrder2/Sources/FirstOrder2/source.swift",
+            "/SecondOrder1/Sources/SecondOrder1/source.swift",
+            "/SecondOrder2/Sources/SecondOrder2/source.swift",
+            "/SecondOrder3/Sources/SecondOrder3/source.swift",
+            "/SecondOrder4/Sources/SecondOrder4/source.swift",
+            "/ThirdOrder1/Sources/ThirdOrder1/source.swift",
+            "/ThirdOrder2/Sources/ThirdOrder2/source.swift",
+            "/ThirdOrder3/Sources/ThirdOrder3/source.swift",
+            "/ThirdOrder4/Sources/ThirdOrder4/source.swift",
+            "/ThirdOrder5/Sources/ThirdOrder5/source.swift",
+            "/ThirdOrder6/Sources/ThirdOrder6/source.swift",
+            "/ThirdOrder7/Sources/ThirdOrder7/source.swift",
+            "/ThirdOrder8/Sources/ThirdOrder8/source.swift"
+        )
+        
+        typealias Package = PackageDescription4.Package
+        
+        let libraryNameGenerationSource: [(String, Int)]
+            = [("First", 2), ("Second", 4), ("Third", 8)]
+        
+        var libraryPackages: [String: Package] = [:]
+        
+        let directDependencies: [String: [String]] = [
+            "Foo": ["FirstOrder1", "FirstOrder2"],
+            "FirstOrder1": ["SecondOrder1", "SecondOrder2"],
+            "FirstOrder2": ["SecondOrder3", "SecondOrder4"],
+            "SecondOrder1": ["ThirdOrder1", "ThirdOrder2"],
+            "SecondOrder2": ["ThirdOrder3", "ThirdOrder4"],
+            "SecondOrder3": ["ThirdOrder5", "ThirdOrder6"],
+            "SecondOrder4": ["ThirdOrder7", "ThirdOrder8"]
+        ]
+
+        for criterion in libraryNameGenerationSource {
+            for i in 1...(criterion.1) {
+                let libraryName = "\(criterion.0)Order\(i)"
+                let dependenciesByName = directDependencies[libraryName] ?? []
+                
+                libraryPackages["/\(libraryName)"] = Package(
+                    name: libraryName,
+                    products: [
+                        .library(name: libraryName, type: .dynamic, targets: [libraryName])
+                    ],
+                    dependencies: dependenciesByName.map({ dependencyName -> Package.Dependency in
+                        return Package.Dependency.package(url: "/\(dependencyName)", from: "1.0.0")
+                    }),
+                    targets: [
+                        .target(name: libraryName, dependencies: dependenciesByName.map({ dependencyName -> PackageDescription4.Target.Dependency in
+                            return PackageDescription4.Target.Dependency.init(stringLiteral: dependencyName)
+                        }))
+                    ],
+                    swiftLanguageVersions: [2, ToolsVersion.currentToolsVersion.major]
+                )
+            }
+        }
+        
+        libraryPackages["/Foo"] = .init(
+            name: "Foo",
+            dependencies: [.package(url: "/FirstOrder1", from: "1.0.0"),
+                           .package(url: "/FirstOrder2", from: "1.0.0")],
+            targets: [.target(name: "Foo", dependencies: ["FirstOrder1", "FirstOrder2"])],
+            swiftLanguageVersions: [2, ToolsVersion.currentToolsVersion.major])
+        
+        let g = loadMockPackageGraph4(libraryPackages, root: "/Foo", in: fs)
+        
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: g, fileSystem: fs))
+        result.checkProductsCount(15)
+        result.checkTargetsCount(15)
+        
+        let fooLinkArgs = try result.buildProduct(for: "Foo").linkArguments()
+        
+        assertArgsAreCorrect(fooLinkArgs,
+                             for: "Foo",
+                             with: ["FirstOrder1", "FirstOrder2",
+                                    "SecondOrder1", "SecondOrder2", "SecondOrder3", "SecondOrder4",
+                                    "ThirdOrder1", "ThirdOrder2", "ThirdOrder3", "ThirdOrder4",
+                                    "ThirdOrder5", "ThirdOrder6", "ThirdOrder7", "ThirdOrder8"],
+                             of: .executable)
+        assertArgsAreCorrect(try! result.buildProduct(for: "FirstOrder1").linkArguments(),
+                             for: "FirstOrder1",
+                             with: ["SecondOrder1", "SecondOrder2",
+                                    "ThirdOrder1", "ThirdOrder2", "ThirdOrder3", "ThirdOrder4"],
+                             of: .library)
+        assertArgsAreCorrect(try! result.buildProduct(for: "FirstOrder2").linkArguments(),
+                             for: "FirstOrder2",
+                             with: ["SecondOrder3", "SecondOrder4",
+                                    "ThirdOrder5", "ThirdOrder6", "ThirdOrder7", "ThirdOrder8"],
+                             of: .library)
+        assertArgsAreCorrect(try! result.buildProduct(for: "SecondOrder1").linkArguments(),
+                             for: "SecondOrder1",
+                             with: ["ThirdOrder1", "ThirdOrder2"],
+                             of: .library)
+        assertArgsAreCorrect(try! result.buildProduct(for: "SecondOrder2").linkArguments(),
+                             for: "SecondOrder2",
+                             with: ["ThirdOrder3", "ThirdOrder4"],
+                             of: .library)
+        assertArgsAreCorrect(try! result.buildProduct(for: "SecondOrder3").linkArguments(),
+                             for: "SecondOrder3",
+                             with: ["ThirdOrder5", "ThirdOrder6"],
+                             of: .library)
+        assertArgsAreCorrect(try! result.buildProduct(for: "SecondOrder4").linkArguments(),
+                             for: "SecondOrder4",
+                             with: ["ThirdOrder7", "ThirdOrder8"],
+                             of: .library)
+        for i in 1...8 {
+            assertArgsAreCorrect(try! result.buildProduct(for: "ThirdOrder\(i)").linkArguments(),
+                                 for: "ThirdOrder\(i)",
+                                 with: [],
+                                 of: .library)
+        }
     }
 
     func testExecAsDependency() throws {
