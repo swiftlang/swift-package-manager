@@ -157,6 +157,7 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
         let swiftLibraryPath = resolveSymlinks(swiftCompilerPath).appending(components: "..", "..", "lib", "swift", "macosx")
         if localFileSystem.exists(swiftCompilerPath) {
             stream <<< "SWIFT_LIBRARY_PATH = " <<< swiftLibraryPath.asString <<< "\n"
+            stream <<< "TOOLCHAIN_DIR = " <<< swiftCompilerPath.appending(components: "..", "..").asString <<< "\n"
         }
         
         // We don't need dSYM generated for tests

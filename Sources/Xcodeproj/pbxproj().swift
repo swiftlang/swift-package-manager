@@ -71,7 +71,13 @@ func xcodeProject(
             productType: .framework, name: "\(package.name)PackageDescription")
         let compilePhase = pdTarget.addSourcesBuildPhase()
         compilePhase.addBuildFile(fileRef: manifestFileRef)
-        pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS += package.manifest.interpreterFlags
+
+        var interpreterFlags = package.manifest.interpreterFlags
+        if !interpreterFlags.isEmpty {
+            // Patch the interpreter flags to use Xcode supported toolchain macro instead of the resolved path.
+            interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/" + String(package.manifest.manifestVersion.rawValue)
+        }
+        pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS += interpreterFlags
         pdTarget.buildSettings.common.SWIFT_VERSION = "\(package.manifest.manifestVersion.rawValue).0"
         pdTarget.buildSettings.common.LD = "/usr/bin/true"
     }

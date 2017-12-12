@@ -945,6 +945,11 @@ def main():
             shutil.rmtree(libdir)
         symlink_force(os.path.join(sandbox_path, "lib"), target_path)
 
+        # To simulate usr/lib directory.
+        usrdir = os.path.join(target_path, "usr")
+        mkdir_p(usrdir)
+        symlink_force(os.path.join(sandbox_path, "lib"), usrdir)
+
         if args.foundation_path:
             libswiftdir = os.path.join(sandbox_path, "lib", "swift", "linux")
             mkdir_p(libswiftdir)
