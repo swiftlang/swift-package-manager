@@ -143,15 +143,13 @@ final class BuildPlanTests: XCTestCase {
             graph: graph,
             fileSystem: fileSystem))
 
-        XCTAssertEqual(Set(result.productMap.keys), ["BPackageTests", "APackageTests"])
+        XCTAssertEqual(Set(result.productMap.keys), ["APackageTests"])
       #if os(macOS)
-        XCTAssertEqual(Set(result.targetMap.keys), ["ATarget", "BTarget", "ATargetTests", "BTargetTests"])
+        XCTAssertEqual(Set(result.targetMap.keys), ["ATarget", "BTarget", "ATargetTests"])
       #else
         XCTAssertEqual(Set(result.targetMap.keys), [
             "APackageTests",
             "ATarget",
-            "BPackageTests",
-            "BTargetTests",
             "ATargetTests",
             "BTarget"
         ])
