@@ -66,7 +66,7 @@ public class Git {
     /// Returns true if the git reference name is well formed.
     public static func checkRefFormat(ref: String) -> Bool {
         do {
-            let result = try Process.popen(args: "git", "check-ref-format", "--allow-onelevel", ref)
+            let result = try Process.popen(args: tool, "check-ref-format", "--allow-onelevel", ref)
             return result.exitStatus == .terminated(code: 0)
         } catch {
             return false
