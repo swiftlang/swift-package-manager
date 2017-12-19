@@ -220,14 +220,34 @@ class MiscellaneousTestCase: XCTestCase {
         // Running swift-test fixtures on linux is not yet possible.
       #if os(macOS)
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-            // First try normal serial testing.
-            var output = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix, printIfError: true)
-            XCTAssert(output.contains("Executed 2 tests"))
+          // First try normal serial testing.
+          do {
+            _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix, printIfError: true)
+          } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+            XCTAssertTrue(stderr.contains("Executed 2 tests"))
+          }
+
+          do {
             // Run tests in parallel.
-            output = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix, printIfError: true)
-            XCTAssert(output.contains("testExample2"))
+            _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix, printIfError: false)
+          } catch SwiftPMProductError.executionFailure(_, let output, _) {
             XCTAssert(output.contains("testExample1"))
+            XCTAssert(output.contains("testExample2"))
+            XCTAssert(!output.contains("'ParallelTestsTests' passed"))
+            XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
             XCTAssert(output.contains("100%"))
+          }
+
+          do {
+            // Run tests in parallel with verbose output.
+            _ = try SwiftPMProduct.SwiftTest.execute(["--parallel", "--verbose"], packagePath: prefix, printIfError: false)
+          } catch SwiftPMProductError.executionFailure(_, let output, _) {
+            XCTAssert(output.contains("testExample1"))
+            XCTAssert(output.contains("testExample2"))
+            XCTAssert(output.contains("'ParallelTestsTests' passed"))
+            XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
+            XCTAssert(output.contains("100%"))
+          }
         }
       #endif
     }
