@@ -401,9 +401,10 @@ final class TestRunner {
 /// A class to run tests in parallel.
 final class ParallelTestRunner {
     /// An enum representing result of a unit test execution.
-    enum TestResult {
-        case success(UnitTest)
-        case failure(UnitTest, output: String)
+    struct TestResult {
+        var unitTest: UnitTest
+        var output: String
+        var success: Bool
     }
 
     /// Path to XCTest binary.
@@ -439,6 +440,13 @@ final class ParallelTestRunner {
         self.testPath = testPath
         self.processSet = processSet
         progressBar = createProgressBar(forStream: stdoutStream, header: "Tests")
+    }
+
+    /// Whether to display output from successful tests.
+    private var shouldOutputSuccess: Bool {
+        // FIXME: It is weird to read Process's verbosity to determine this, we
+        // should improve our verbosity infrastructure.
+        return Process.verbose
     }
 
     /// Updates the progress bar status.
@@ -477,28 +485,28 @@ final class ParallelTestRunner {
                     let testRunner = TestRunner(
                         path: self.testPath, xctestArg: test.specifier, processSet: self.processSet)
                     let (success, output) = testRunner.test()
-                    if success {
-                        self.finishedTests.enqueue(.success(test))
-                    } else {
+                    if !success {
                         self.ranSuccessfully = false
-                        self.finishedTests.enqueue(.failure(test, output: output))
                     }
+                    self.finishedTests.enqueue(TestResult(unitTest: test, output: output, success: success))
                 }
             }
             thread.start()
             return thread
         })
 
-        // Holds the output of test cases which failed.
-        var failureOutput = [String]()
+        // Holds the output of test cases.
+        var outputs: (success: [String], failure: [String]) = ([], [])
+
         // Report (consume) the tests which have finished running.
         while let result = finishedTests.dequeue() {
-            switch result {
-            case .success(let test):
-                updateProgress(for: test)
-            case .failure(let test, let output):
-                updateProgress(for: test)
-                failureOutput.append(output)
+            updateProgress(for: result.unitTest)
+            if result.success {
+                if shouldOutputSuccess {
+                    outputs.success.append(result.output)
+                }
+            } else {
+                outputs.failure.append(result.output)
             }
             // We can't enqueue a sentinel into finished tests queue because we won't know
             // which test is last one so exit this when all the tests have finished running.
@@ -508,16 +516,20 @@ final class ParallelTestRunner {
         // Wait till all threads finish execution.
         workers.forEach { $0.join() }
         progressBar.complete()
-        printFailures(failureOutput)
+        
+        if shouldOutputSuccess {
+            printOutput(outputs.success)
+        }
+        printOutput(outputs.failure)
     }
 
-    /// Prints the output of the tests that failed.
-    private func printFailures(_ failureOutput: [String]) {
+    /// Prints the output of the tests.
+    private func printOutput(_ lineOutput: [String]) {
         stdoutStream <<< "\n"
-        for error in failureOutput {
+        for error in lineOutput {
             stdoutStream <<< error
         }
-        if !failureOutput.isEmpty {
+        if !lineOutput.isEmpty {
             stdoutStream <<< "\n"
         }
         stdoutStream.flush()
