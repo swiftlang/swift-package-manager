@@ -25,7 +25,7 @@ class FunctionalTests: XCTestCase {
             let pbx = prefix.appending(component: "Library.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            let build = prefix.appending(components: "build", "Debug")
+            let build = prefix.appending(components: "build", "Release")
             XCTAssertDirectoryExists(build.appending(component: "Library.framework"))
         }
 #endif
@@ -42,7 +42,7 @@ class FunctionalTests: XCTestCase {
             XCTAssertFileExists(pbx.appending(component: "SeaLib_Info.plist"))
 
             XCTAssertXcodeBuild(project: pbx)
-            let build = prefix.appending(components: "build", "Debug")
+            let build = prefix.appending(components: "build", "Release")
             XCTAssertDirectoryExists(build.appending(component: "SeaLib.framework"))
             XCTAssertFileExists(build.appending(component: "SeaExec"))
             XCTAssertFileExists(build.appending(component: "CExec"))
@@ -80,7 +80,7 @@ class FunctionalTests: XCTestCase {
             let pbx = moduleUser.appending(component: "SystemModuleUser.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            XCTAssertFileExists(moduleUser.appending(components: "build", "Debug", "SystemModuleUser"))
+            XCTAssertFileExists(moduleUser.appending(components: "build", "Release", "SystemModuleUser"))
         }
 #endif
     }
@@ -92,7 +92,7 @@ class FunctionalTests: XCTestCase {
             let pbx = prefix.appending(component: "PackageWithNonc99NameModules.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            let build = prefix.appending(components: "build", "Debug")
+            let build = prefix.appending(components: "build", "Release")
             XCTAssertDirectoryExists(build.appending(component: "A_B.framework"))
             XCTAssertDirectoryExists(build.appending(component: "B_C.framework"))
             XCTAssertDirectoryExists(build.appending(component: "C_D.framework"))
@@ -158,6 +158,10 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
         if localFileSystem.exists(swiftCompilerPath) {
             stream <<< "SWIFT_LIBRARY_PATH = " <<< swiftLibraryPath.asString <<< "\n"
         }
+        
+        // We don't need dSYM generated for tests
+        stream <<< "DEBUG_INFORMATION_FORMAT = dwarf\n"
+        
         try localFileSystem.writeFileContents(xcconfig, bytes: stream.bytes)
 
         try Process.checkNonZeroExit(
