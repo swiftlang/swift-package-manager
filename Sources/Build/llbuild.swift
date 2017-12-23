@@ -162,6 +162,7 @@ public struct LLBuildManifestGenerator {
             switch plan.targetMap[target] {
             case .swift(let target)?:
                 inputs.insert(target.moduleOutputPath.asString)
+                inputs.insert(target.docOutputPath.asString)
             case .clang(let target)?:
                 inputs += target.objects.map({ $0.asString })
             case nil:
@@ -194,6 +195,8 @@ public struct LLBuildManifestGenerator {
         var buildTarget = Target(name: target.target.llbuildTargetName)
         // The target only cares about the module output.
         buildTarget.outputs.insert(target.moduleOutputPath.asString)
+        buildTarget.outputs.insert(target.docOutputPath.asString)
+        
         let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
         buildTarget.cmds.insert(Command(name: target.target.commandName, tool: tool))
         return buildTarget

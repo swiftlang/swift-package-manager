@@ -57,6 +57,8 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertFileExists(buildDir.appending(component: "FooExec"))
             XCTAssertFileExists(buildDir.appending(component: "FooLib1.swiftmodule"))
             XCTAssertFileExists(buildDir.appending(component: "FooLib2.swiftmodule"))
+            XCTAssertFileExists(buildDir.appending(component: "FooLib1.swiftdoc"))
+            XCTAssertFileExists(buildDir.appending(component: "FooLib2.swiftdoc"))
         }
     }
 

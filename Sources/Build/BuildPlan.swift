@@ -264,6 +264,11 @@ public final class SwiftTargetDescription {
         return buildParameters.buildPath.appending(component: target.c99name + ".swiftmodule")
     }
 
+    /// The path to the swiftdoc file after compilation.
+    var docOutputPath: AbsolutePath {
+        return buildParameters.buildPath.appending(component: target.c99name + ".swiftdoc")
+    }
+
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
 
