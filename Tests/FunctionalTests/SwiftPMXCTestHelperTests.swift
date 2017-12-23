@@ -21,6 +21,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
             // Build the package.
             XCTAssertBuilds(prefix)
             XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target, "debug", "SwiftPMXCTestHelper.swiftmodule"))
+            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target, "debug", "SwiftPMXCTestHelper.swiftdoc"))
             // Run swift-test on package.
             XCTAssertSwiftTest(prefix)
             // Expected output dictionary.
