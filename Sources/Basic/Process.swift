@@ -258,7 +258,7 @@ public final class Process: ObjectIdentifierProtocol {
         // modify, so we have to take care about the set we use.
         var mostSignals = sigset_t()
         sigemptyset(&mostSignals)
-        for i in 1 ..< SIGUNUSED {
+        for i in 1 ..< SIGSYS {
             if i == SIGKILL || i == SIGSTOP {
                 continue
             }
