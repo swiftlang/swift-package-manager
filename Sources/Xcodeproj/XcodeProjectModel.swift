@@ -337,6 +337,7 @@ public struct Xcode {
             // a boolean may be a macro reference expression.
             var CLANG_CXX_LANGUAGE_STANDARD: String?
             var CLANG_ENABLE_OBJC_ARC: String?
+            var CLANG_ENABLE_MODULES: String?
             var COMBINE_HIDPI_IMAGES: String?
             var COPY_PHASE_STRIP: String?
             var DEBUG_INFORMATION_FORMAT: String?

@@ -150,6 +150,8 @@ func xcodeProject(
 
     // Enable `Automatic Reference Counting` for Objective-C sources
     projectSettings.common.CLANG_ENABLE_OBJC_ARC = "YES"
+    // Enable Modules
+    projectSettings.common.CLANG_ENABLE_MODULES = "YES"
 
     // Add some debug-specific settings.
     projectSettings.debug.COPY_PHASE_STRIP = "NO"
