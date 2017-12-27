@@ -114,7 +114,7 @@ class XcodeProjectModelSerializationTests: XCTestCase {
             return
         }
         
-        let otherSwiftFlags = otherSwiftFlagsPlists.flatMap { flagPlist -> String? in
+        let otherSwiftFlags = otherSwiftFlagsPlists.compactMap { flagPlist -> String? in
             guard case let .string(flag) = flagPlist else {
                 XCTFail("otherSwiftFlag plist must be string")
                 return nil
