@@ -83,14 +83,14 @@ public struct PackageGraphLoader {
             externalManifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (Manifest) -> [Manifest] = { manifest in
-            manifest.package.dependencies.flatMap({ 
+            manifest.package.dependencies.compactMap({ 
                 manifestMap[PackageReference.computeIdentity(packageURL: $0.url)] 
             })
         }
 
         // Construct the root manifest and root dependencies set.
         let rootManifestSet = Set(root.manifests)
-        let rootDependencies = Set(root.dependencies.flatMap({
+        let rootDependencies = Set(root.dependencies.compactMap({
             manifestMap[PackageReference.computeIdentity(packageURL: $0.url)]
         }))
         let inputManifests = root.manifests + rootDependencies
@@ -161,7 +161,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
     for package in rootPackages {
         // List all dependency products dependended on by the package targets.
         let productDependencies: Set<ResolvedProduct> = Set(package.targets.flatMap({ target in
-            return target.dependencies.flatMap({ targetDependency in
+            return target.dependencies.compactMap({ targetDependency in
                 switch targetDependency {
                 case .product(let product):
                     return product
@@ -203,7 +203,7 @@ private func createResolvedPackages(
 ) -> [ResolvedPackage] {
 
     // Create package builder objects from the input manifests.
-    let packageBuilders: [ResolvedPackageBuilder] = allManifests.flatMap({
+    let packageBuilders: [ResolvedPackageBuilder] = allManifests.compactMap({
         guard let package = manifestToPackage[$0] else {
             return nil
         }
@@ -222,7 +222,7 @@ private func createResolvedPackages(
         let package = packageBuilder.package
 
         // Establish the manifest-declared package dependencies.
-        packageBuilder.dependencies = package.manifest.package.dependencies.flatMap({
+        packageBuilder.dependencies = package.manifest.package.dependencies.compactMap({
             packageMap[PackageReference.computeIdentity(packageURL: $0.url)]
         })
 
