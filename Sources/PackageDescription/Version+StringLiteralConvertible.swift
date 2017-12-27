@@ -49,7 +49,7 @@ extension Version {
         let requiredStringComponents = requiredCharacters
             .split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
             .map(String.init)
-        let requiredComponents = requiredStringComponents.flatMap({ Int($0) }).filter({ $0 >= 0 })
+        let requiredComponents = requiredStringComponents.compactMap({ Int($0) }).filter({ $0 >= 0 })
 
         guard requiredComponents.count == 3 else {
             return nil
