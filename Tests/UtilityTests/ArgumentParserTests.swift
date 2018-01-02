@@ -82,6 +82,9 @@ class ArgumentParserTests: XCTestCase {
         XCTAssertEqual(args.get(inputFiles) ?? [], ["input1", "input2"])
         XCTAssertEqual(args.get(outputFiles) ?? [], ["output1", "output2"])
         XCTAssertEqual(args.get(remaining) ?? [], ["--foo", "-Xld", "bar"])
+        XCTAssertEqual(try args.get("--verbose") as Int?, 2)
+        XCTAssertEqual(try args.get("input files") as [String]? ?? [], ["input1", "input2"])
+        XCTAssertEqual(try args.get("invalid") as Int?, nil)
 
         let stream = BufferedOutputByteStream()
         parser.printUsage(on: stream)
@@ -134,6 +137,15 @@ class ArgumentParserTests: XCTestCase {
         } catch ArgumentParserError.invalidValue(let option, let error) {
             XCTAssertEqual(option, "--verbosity")
             XCTAssertEqual(error, ArgumentConversionError.typeMismatch(value: "yes", expectedType: Int.self))
+        }
+
+        do {
+            let results = try parser.parse(["foo", "--verbosity", "2"])
+            _ = try results.get("--verbosity") as String?
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.invalidValue(let value, let error) {
+            XCTAssertEqual(value, "--verbosity")
+            XCTAssertEqual(error, ArgumentConversionError.typeMismatch(value: "2", expectedType: String.self))
         }
 
         do {
@@ -198,6 +210,8 @@ class ArgumentParserTests: XCTestCase {
         let foo = parser.add(option: "--foo", kind: String.self, usage: "The foo option")
         let bar = parser.add(option: "--bar", shortName: "-b", kind: String.self, usage: "The bar option")
 
+        let parentArg = parser.add(option: "--parent", kind: String.self, usage: "The parent option")
+
         let parserA = parser.add(subparser: "a", overview: "A!")
         let branchOption = parserA.add(option: "--branch", kind: String.self, usage: "The branch to use")
 
@@ -211,13 +225,15 @@ class ArgumentParserTests: XCTestCase {
         XCTAssertEqual(args.get(noFlyOption), nil)
         XCTAssertEqual(args.subparser(parser), "a")
 
-        args = try parser.parse(["--bar", "bar", "--foo", "foo", "b", "--no-fly"])
+        args = try parser.parse(["--parent", "p", "--bar", "bar", "--foo", "foo", "b", "--no-fly"])
 
         XCTAssertEqual(args.get(foo), "foo")
         XCTAssertEqual(args.get(bar), "bar")
         XCTAssertEqual(args.get(branchOption), nil)
         XCTAssertEqual(args.get(noFlyOption), true)
         XCTAssertEqual(args.subparser(parser), "b")
+        XCTAssertEqual(args.get(parentArg), "p")
+        XCTAssertEqual(try args.get("--parent") as String?, "p")
 
         do {
             args = try parser.parse(["c"])
@@ -251,6 +267,7 @@ class ArgumentParserTests: XCTestCase {
         XCTAssert(usage.contains("USAGE: SomeBinary sample parser"))
         XCTAssert(usage.contains("  --bar, -b   The bar option"))
         XCTAssert(usage.contains("  --foo       The foo option"))
+        XCTAssert(usage.contains("  --parent    The parent option"))
         XCTAssert(usage.contains("SUBCOMMANDS:"))
         XCTAssert(usage.contains("  b           B!"))
         XCTAssert(usage.contains("--help"))
