@@ -49,7 +49,7 @@ class GenerateXcodeprojTests: XCTestCase {
                        Debug
                        Release
                
-                   If no build configuration is specified and -scheme is not passed then "Debug" is used.
+                   If no build configuration is specified and -scheme is not passed then "Release" is used.
                
                    Schemes:
                        DummyProjectName-Package
