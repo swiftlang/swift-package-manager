@@ -52,7 +52,7 @@ extension ArgumentParserError: CustomStringConvertible {
 /// initializer.
 public enum ArgumentConversionError: Swift.Error {
 
-    /// The value is unkown.
+    /// The value is unknown.
     case unknown(value: String)
 
     /// The value could not be converted to the target type.
@@ -502,7 +502,7 @@ public final class ArgumentParser {
     /// A class representing result of the parsed arguments.
     public class Result: CustomStringConvertible {
         /// Internal representation of arguments mapped to their values.
-        private var results = [AnyArgument: Any]()
+        private var results = [String: Any]()
 
         /// Result of the parent parent parser, if any.
         private var parentResult: Result?
@@ -530,16 +530,16 @@ public final class ArgumentParser {
         ///     simplifications in the parsing code.
         fileprivate func add(_ values: [ArgumentKind], for argument: AnyArgument) throws {
             if argument.isArray {
-                var array = results[argument] as? [ArgumentKind] ?? []
+                var array = results[argument.name] as? [ArgumentKind] ?? []
                 array.append(contentsOf: values)
-                results[argument] = array
+                results[argument.name] = array
             } else {
                 // We expect only one value for non-array arguments.
                 guard let value = values.only else {
                     assertionFailure()
                     return
                 }
-                results[argument] = value
+                results[argument.name] = value
             }
         }
 
@@ -547,22 +547,39 @@ public final class ArgumentParser {
         ///
         /// Since the options are optional, their result may or may not be present.
         public func get<T>(_ argument: OptionArgument<T>) -> T? {
-            return (results[AnyArgument(argument)] as? T) ?? parentResult?.get(argument)
+            return (results[argument.name] as? T) ?? parentResult?.get(argument)
         }
 
         /// Array variant for option argument's get(_:).
         public func get<T>(_ argument: OptionArgument<[T]>) -> [T]? {
-            return (results[AnyArgument(argument)] as? [T]) ?? parentResult?.get(argument)
+            return (results[argument.name] as? [T]) ?? parentResult?.get(argument)
         }
 
         /// Get a positional argument's value.
         public func get<T>(_ argument: PositionalArgument<T>) -> T? {
-            return results[AnyArgument(argument)] as? T
+            return results[argument.name] as? T
         }
 
         /// Array variant for positional argument's get(_:).
         public func get<T>(_ argument: PositionalArgument<[T]>) -> [T]? {
-            return results[AnyArgument(argument)] as? [T]
+            return results[argument.name] as? [T]
+        }
+
+        /// Get an argument's value using its name.
+        /// - throws: An ArgumentParserError.invalidValue error if the parsed argument does not match the expected type.
+        public func get<T>(_ name: String) throws -> T? {
+            guard let value = results[name] else {
+                // if we have a parent and this is an option argument, look in the parent result
+                if let parentResult = parentResult, name.hasPrefix("-") {
+                    return try parentResult.get(name)
+                } else {
+                    return nil
+                }
+            }
+            guard let typedValue = value as? T else {
+                throw ArgumentParserError.invalidValue(argument: name, error: .typeMismatch(value: String(describing: value), expectedType: T.self))
+            }
+            return typedValue
         }
 
         /// Get the subparser which was chosen for the given parser.
