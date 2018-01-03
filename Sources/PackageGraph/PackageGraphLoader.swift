@@ -177,6 +177,13 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
             guard !dependency.products.contains(where: { $0.type == .executable }) else {
                 continue
             }
+            // Skip this check if this dependency is a system module because system module packages
+            // have no products.
+            //
+            // FIXME: Do/should we print a warning if a dependency has no products?
+            if dependency.products.isEmpty && dependency.targets.filter({ $0.type == .systemModule }).count == 1 {
+                continue
+            }
             
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
             if !dependencyIsUsed {

@@ -220,6 +220,30 @@ class PackageGraphTests: XCTestCase {
             result.check(diagnostic: "dependency 'Baz' is not used by any target", behavior: .warning)
         }
     }
+    
+    func testUnusedDependency2() throws {
+        typealias Package = PackageDescription4.Package
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/module.modulemap",
+            "/Bar/Sources/Bar/main.swift"
+        )
+        
+        let diagnostics = DiagnosticsEngine()
+        _ = loadMockPackageGraph4([
+            "/Foo": Package(name: "Foo"),
+            "/Bar": Package(
+                name: "Bar",
+                dependencies: [
+                    .package(url: "/Foo", from: "1.0.0"),
+                    ],
+                targets: [
+                    .target(name: "Bar"),
+                    ]),
+            ], root: "/Bar", diagnostics: diagnostics, in: fs)
+        
+        // We don't expect any unused dependency diagnostics from a system module package.
+        DiagnosticsEngineTester(diagnostics) { _ in }
+    }
 
     static var allTests = [
         ("testBasic", testBasic),
@@ -229,5 +253,6 @@ class PackageGraphTests: XCTestCase {
         ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
         ("testEmptyDependency", testEmptyDependency),
         ("testUnusedDependency", testUnusedDependency),
+        ("testUnusedDependency2", testUnusedDependency2),
     ]
 }
