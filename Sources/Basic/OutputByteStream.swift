@@ -114,6 +114,7 @@ public class OutputByteStream: TextOutputStream {
         buffer.append(byte)
     }
 
+  #if swift(>=4.1)
     /// Write a collection of bytes to the buffer.
     public final func write<C: Collection>(collection bytes: C)
         where C.Element == UInt8 {
@@ -156,6 +157,51 @@ public class OutputByteStream: TextOutputStream {
             buffer += bytes
         }
     }
+  #else
+    /// Write a collection of bytes to the buffer.
+    public final func write<C: Collection>(collection bytes: C) where
+        C.Iterator.Element == UInt8,
+        C.SubSequence: Collection {
+        queue.sync {
+            // This is based on LLVM's raw_ostream.
+            let availableBufferSize = self.availableBufferSize
+            let byteCount = Int(bytes.count)
+
+            // If we have to insert more than the available space in buffer.
+            if byteCount > availableBufferSize {
+                // If buffer is empty, start writing and keep the last chunk in buffer.
+                if buffer.isEmpty {
+                    let bytesToWrite = byteCount - (byteCount % availableBufferSize)
+                    let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: numericCast(bytesToWrite))
+                    writeImpl(bytes.prefix(upTo: writeUptoIndex))
+
+                    // If remaining bytes is more than buffer size write everything.
+                    let bytesRemaining = byteCount - bytesToWrite
+                    if bytesRemaining > availableBufferSize {
+                        writeImpl(bytes.suffix(from: writeUptoIndex))
+                        return
+                    }
+                    // Otherwise keep remaining in buffer.
+                    buffer += bytes.suffix(from: writeUptoIndex)
+                    return
+                }
+
+                let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: numericCast(availableBufferSize))
+                // Append whatever we can accommodate.
+                buffer += bytes.prefix(upTo: writeUptoIndex)
+
+                writeImpl(buffer)
+                clearBuffer()
+
+                // FIXME: We should start again with remaining chunk but this doesn't work. Write everything for now.
+                //write(collection: bytes.suffix(from: writeUptoIndex))
+                writeImpl(bytes.suffix(from: writeUptoIndex))
+                return
+            }
+            buffer += bytes
+        }
+    }
+  #endif
 
     /// Write the contents of a UnsafeBufferPointer<UInt8>.
     final func write(_ ptr: UnsafeBufferPointer<UInt8>) {
@@ -292,12 +338,22 @@ public func <<< (stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputBy
     return stream
 }
 
+#if swift(>=4.1)
 @discardableResult
 public func <<< <C: Collection>(stream: OutputByteStream, value: C)
     -> OutputByteStream where C.Element == UInt8 {
     stream.write(collection: value)
     return stream
 }
+#else
+@discardableResult
+public func <<< <C: Collection>(stream: OutputByteStream, value: C) -> OutputByteStream where
+     C.Iterator.Element == UInt8,
+     C.SubSequence: Collection {
+    stream.write(collection: value)
+    return stream
+}
+#endif
 
 @discardableResult
 public func <<< <S: Sequence>(
