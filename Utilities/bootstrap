@@ -195,7 +195,6 @@ class Target(object):
                                      link_input_nodes, predecessor_node, target_map):
         # Compute the derived paths.
         module_path = os.path.join(module_dir, "%s.swiftmodule" % (self.name,))
-        doc_path = os.path.join(module_dir, "%s.swiftdoc" % (self.name,))
 
         # Create the per-file entries.
         swift_objects = []
@@ -232,7 +231,7 @@ class Target(object):
         print("    inputs: %s" % json.dumps(
             [predecessor_node] + self.sources), file=output)
         print("    outputs: %s" % json.dumps(
-            [compile_swift_node, module_path, doc_path] + swift_objects), file=output)
+            [compile_swift_node, module_path] + swift_objects), file=output)
         print("    module-name: %s" % json.dumps(self.module_name()), file=output)
         print("    module-output-path: %s" % json.dumps(module_path),
               file=output)

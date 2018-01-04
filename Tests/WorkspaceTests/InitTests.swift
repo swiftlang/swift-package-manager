@@ -82,7 +82,6 @@ class InitTests: XCTestCase {
             let binPath = path.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertFileExists(binPath.appending(component: "Foo"))
             XCTAssertFileExists(binPath.appending(component: "Foo.swiftmodule"))
-            XCTAssertFileExists(binPath.appending(component: "Foo.swiftdoc"))
         }
     }
 
@@ -123,7 +122,6 @@ class InitTests: XCTestCase {
             // Try building it
             XCTAssertBuilds(path)
             XCTAssertFileExists(path.appending(components: ".build", Destination.host.target, "debug", "Foo.swiftmodule"))
-            XCTAssertFileExists(path.appending(components: ".build", Destination.host.target, "debug", "Foo.swiftdoc"))
         }
     }
     
@@ -171,7 +169,6 @@ class InitTests: XCTestCase {
         // Try building it.
         XCTAssertBuilds(packageRoot)
         XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.host.target, "debug", "some_package.swiftmodule"))
-        XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.host.target, "debug", "some_package.swiftdoc"))
     }
     
     static var allTests = [

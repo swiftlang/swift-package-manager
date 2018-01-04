@@ -98,8 +98,7 @@ struct SwiftCompilerTool: ToolProtocol {
 
     /// Outputs produced by the tool.
     var outputs: [String] {
-        return target.objects.map({ $0.asString })
-            + [target.moduleOutputPath.asString, target.docOutputPath.asString]
+        return target.objects.map({ $0.asString }) + [target.moduleOutputPath.asString]
     }
 
     /// The underlying Swift build target.
