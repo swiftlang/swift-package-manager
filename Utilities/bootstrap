@@ -634,14 +634,22 @@ def build_runtimes(targets, sandbox_path, args):
 def process_runtime_libraries(build, args, lib_path):
     module_input_path = os.path.join(
         build.module_dir, "PackageDescription.swiftmodule")
+    swiftdoc_input_path = os.path.join(
+        build.module_dir, "PackageDescription.swiftdoc")
     input_lib_path = os.path.join(
         build.lib_dir, "PackageDescription.a")
 
     mkdir_p(lib_path)
     runtime_module_path = os.path.join(
         lib_path, "PackageDescription.swiftmodule")
+    runtime_swiftdoc_path = os.path.join(
+        lib_path, "PackageDescription.swiftdoc")
+
     cmd = ["rsync", "-a", module_input_path, runtime_module_path]
     subprocess.check_call(cmd)
+    cmd = ["rsync", "-a", swiftdoc_input_path, runtime_swiftdoc_path]
+    subprocess.check_call(cmd)
+
     if platform.system() == 'Darwin':
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.dylib")
         cmd = [args.swiftc_path, "-Xlinker", "-dylib", "-o",
@@ -684,7 +692,7 @@ def process_runtime_libraries(build, args, lib_path):
                if arg.endswith(("swift_begin.o", "swift_end.o")) or
                (not arg.endswith((".o", ".autolink")))]
     subprocess.check_call(cmd)
-    return (runtime_module_path, runtime_lib_path)
+    return (runtime_module_path, runtime_swiftdoc_path, runtime_lib_path)
 
 
 def get_swift_build_tool_path():
@@ -1092,7 +1100,7 @@ def main():
 
             # Install the runtimes.
             for version, runtime in processed_runtimes.items():
-                runtime_module_path, runtime_lib_path = runtime
+                runtime_module_path, runtime_swiftdoc_path, runtime_lib_path = runtime
                 install_path = os.path.join(lib_install_path, version)
 
                 # Install library.
@@ -1105,7 +1113,17 @@ def main():
                     os.path.basename(runtime_module_path), ' '.join(cmd)))
                 result = subprocess.call(cmd)
                 if result != 0:
-                    error("install failed with exit status %d" % (result,))
+                    error("module install failed with exit status %d" % (result,))
+
+                # Install swiftdoc.
+                cmd = ["install", "-m", "0644",
+                       runtime_swiftdoc_path, install_path]
+                note("installing %s: %s" % (
+                    os.path.basename(runtime_swiftdoc_path), ' '.join(cmd)))
+                result = subprocess.call(cmd)
+                if result != 0:
+                    error("swiftdoc install failed with exit status %d" % (result,))
+
     
     # Copy the libSwiftPM library to a directory, if we've been asked to do so.
     if args.libswiftpm_library_dir:
