@@ -902,7 +902,7 @@ public final class ArgumentParser {
         if positionalArguments.count > 0 {
             stream <<< "\n\n"
             stream <<< "POSITIONAL ARGUMENTS:"
-            for argument in positionalArguments.lazy.sorted(by: {$0.name < $1.name}) {
+            for argument in positionalArguments {
                 guard let usage = argument.usage else { continue }
                 print(formatted: argument.name, usage: usage, on: stream)
             }
