@@ -835,10 +835,11 @@ public final class ArgumentParser {
         let padding = 2
 
         let maxWidth: Int
-        // Figure out the max width based on argument length or choose the default width if max width is longer
-        // than the default width.
-        if let maxArgument = (positionalArguments + optionArguments).map({ $0.name.count }).max(),
-            maxArgument < maxWidthDefault {
+        // Determine the max width based on argument length or choose the
+        // default width if max width is longer than the default width.
+        if let maxArgument = (positionalArguments + optionArguments).map({
+            [$0.name, $0.shortName].flatMap({ $0 }).joined(separator: ", ").count
+        }).max(), maxArgument < maxWidthDefault {
             maxWidth = maxArgument + padding + 1
         } else {
             maxWidth = maxWidthDefault
@@ -849,15 +850,15 @@ public final class ArgumentParser {
             // Start with a new line and add some padding.
             stream <<< "\n" <<< Format.asRepeating(string: " ", count: padding)
             let count = argument.count
-            // If the argument name is more than the set width take the whole
-            // line for it, otherwise we can fit everything in one line.
+            // If the argument is longer than the max width, print the usage
+            // on a new line. Otherwise, print the usage on the same line.
             if count >= maxWidth - padding {
                 stream <<< argument <<< "\n"
-                // Align full width because we on a new line.
+                // Align full width because usage is to be printed on a new line.
                 stream <<< Format.asRepeating(string: " ", count: maxWidth + padding)
             } else {
                 stream <<< argument
-                // Align to the remaining empty space we have.
+                // Align to the remaining empty space on the line.
                 stream <<< Format.asRepeating(string: " ", count: maxWidth - count)
             }
             stream <<< usage
@@ -876,7 +877,7 @@ public final class ArgumentParser {
         if optionArguments.count > 0 {
             stream <<< "\n\n"
             stream <<< "OPTIONS:"
-            for argument in optionArguments.lazy.sorted(by: {$0.name < $1.name}) {
+            for argument in optionArguments.lazy.sorted(by: { $0.name < $1.name }) {
                 guard let usage = argument.usage else { continue }
                 // Create name with its shortname, if available.
                 let name = [argument.name, argument.shortName].flatMap({ $0 }).joined(separator: ", ")
