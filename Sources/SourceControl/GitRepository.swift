@@ -302,6 +302,7 @@ public class GitRepository: Repository, WorkingCheckout {
         // Only a work tree can have changes.
         guard isWorkingRepo else { return false }
         return queue.sync {
+            // Check nothing has been changed
             let args = [Git.tool, "-C", path.asString, "status", "-s"]
 
             if let result = try? Process.popen(arguments: args), case let .success(value) = result.output {
