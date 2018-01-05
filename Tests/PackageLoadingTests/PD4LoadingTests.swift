@@ -371,6 +371,27 @@ class PackageDescription4LoadingTests: XCTestCase {
         }
     }
 
+    func testManifestWithWarnings() {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            func foo() {
+                let a = 5
+            }
+            let package = Package(
+                name: "Trivial"
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.name, "Trivial")
+            XCTAssertEqual(manifest.manifestVersion, .four)
+            XCTAssertEqual(manifest.package.targets, [])
+            XCTAssertEqual(manifest.package.dependencies, [])
+        }
+    }
+    
+
     static var allTests = [
         ("testCTarget", testCTarget),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
@@ -383,5 +404,6 @@ class PackageDescription4LoadingTests: XCTestCase {
         ("testTrivial", testTrivial),
         ("testUnavailableAPIs", testUnavailableAPIs),
         ("testLanguageStandards", testLanguageStandards),
+        ("testManifestWithWarnings", testManifestWithWarnings),
     ]
 }

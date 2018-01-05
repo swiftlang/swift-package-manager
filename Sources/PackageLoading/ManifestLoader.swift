@@ -245,7 +245,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cmd += [resources.swiftCompiler.asString]
         cmd += ["--driver-mode=swift"]
         cmd += verbosity.ccArgs
-        cmd += ["-L", runtimePath, "-lPackageDescription"]
+        cmd += ["-L", runtimePath, "-lPackageDescription", "-suppress-warnings"]
         cmd += interpreterFlags
         cmd += [manifestPath.asString]
 
