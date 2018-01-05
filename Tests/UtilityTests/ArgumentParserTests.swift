@@ -196,6 +196,7 @@ class ArgumentParserTests: XCTestCase {
     func testSubparser() throws {
         let parser = ArgumentParser(commandName: "SomeBinary", usage: "sample parser", overview: "Sample overview")
         let foo = parser.add(option: "--foo", kind: String.self, usage: "The foo option")
+        let bar = parser.add(option: "--bar", shortName: "-b", kind: String.self, usage: "The bar option")
 
         let parserA = parser.add(subparser: "a", overview: "A!")
         let branchOption = parserA.add(option: "--branch", kind: String.self, usage: "The branch to use")
@@ -203,15 +204,17 @@ class ArgumentParserTests: XCTestCase {
         let parserB = parser.add(subparser: "b", overview: "B!")
         let noFlyOption = parserB.add(option: "--no-fly", kind: Bool.self, usage: "Should you fly?")
 
-        var args = try parser.parse(["--foo", "foo", "a", "--branch", "bugfix"])
+        var args = try parser.parse(["--foo", "foo", "--bar", "bar", "a", "--branch", "bugfix"])
         XCTAssertEqual(args.get(foo), "foo")
+        XCTAssertEqual(args.get(bar), "bar")
         XCTAssertEqual(args.get(branchOption), "bugfix")
         XCTAssertEqual(args.get(noFlyOption), nil)
         XCTAssertEqual(args.subparser(parser), "a")
 
-        args = try parser.parse(["--foo", "foo", "b", "--no-fly"])
+        args = try parser.parse(["--bar", "bar", "--foo", "foo", "b", "--no-fly"])
 
         XCTAssertEqual(args.get(foo), "foo")
+        XCTAssertEqual(args.get(bar), "bar")
         XCTAssertEqual(args.get(branchOption), nil)
         XCTAssertEqual(args.get(noFlyOption), true)
         XCTAssertEqual(args.subparser(parser), "b")
@@ -246,9 +249,10 @@ class ArgumentParserTests: XCTestCase {
 
         XCTAssert(usage.contains("OVERVIEW: Sample overview"))
         XCTAssert(usage.contains("USAGE: SomeBinary sample parser"))
-        XCTAssert(usage.contains("  --foo   The foo option"))
+        XCTAssert(usage.contains("  --bar, -b   The bar option"))
+        XCTAssert(usage.contains("  --foo       The foo option"))
         XCTAssert(usage.contains("SUBCOMMANDS:"))
-        XCTAssert(usage.contains("  b       B!"))
+        XCTAssert(usage.contains("  b           B!"))
         XCTAssert(usage.contains("--help"))
 
         stream = BufferedOutputByteStream()
