@@ -565,7 +565,7 @@ public final class PackageBuilder {
         let successors: (PotentialModule) -> [PotentialModule] = {
             // No reference of this target in manifest, i.e. it has no dependencies.
             guard let target = targetMap[$0.name] else { return [] }
-            return target.dependencies.compactMap({
+            return target.dependencies.flatMap({
                 switch $0 {
                 case .targetItem(let name):
                     // Since we already checked above that all referenced targets
@@ -598,7 +598,7 @@ public final class PackageBuilder {
             try validateModuleName(potentialModule.path, potentialModule.name, isTest: potentialModule.isTest)
             // Get the intra-package dependencies of this target.
             var deps: [Target] = targetMap[potentialModule.name].map({
-                $0.dependencies.compactMap({
+                $0.dependencies.flatMap({
                     switch $0 {
                     case .targetItem(let name):
                         // We don't create an object for targets which have no sources.
@@ -629,7 +629,7 @@ public final class PackageBuilder {
 
             // Figure out the product dependencies.
             let productDeps: [(String, String?)]
-            productDeps = manifestTarget?.dependencies.compactMap({
+            productDeps = manifestTarget?.dependencies.flatMap({
                 switch $0 {
                 case .targetItem:
                     return nil
@@ -1090,7 +1090,7 @@ private extension Manifest {
     /// Returns the names of all the referenced targets in the manifest.
     func allReferencedModules() -> Set<String> {
         let names = package.targets.flatMap({ target in
-            [target.name] + target.dependencies.compactMap({
+            [target.name] + target.dependencies.flatMap({
                 switch $0 {
                 case .targetItem(let name):
                     return name

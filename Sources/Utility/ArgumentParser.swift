@@ -880,7 +880,7 @@ public final class ArgumentParser {
             for argument in optionArguments.lazy.sorted(by: { $0.name < $1.name }) {
                 guard let usage = argument.usage else { continue }
                 // Create name with its shortname, if available.
-                let name = [argument.name, argument.shortName].compactMap({ $0 }).joined(separator: ", ")
+                let name = [argument.name, argument.shortName].flatMap({ $0 }).joined(separator: ", ")
                 print(formatted: name, usage: usage, on: stream)
             }
 
