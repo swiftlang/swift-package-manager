@@ -22,7 +22,10 @@ public func editDistance(_ first: String, _ second: String) -> Int {
             } else if a[i - 1] == b[j - 1] {
                 distance[i][j] = distance[i - 1][j - 1]
             } else {
-                distance[i][j] = 1 + min(distance[i - 1][j], distance[i][ j - 1], distance[i - 1][j - 1])
+                let insertion = distance[i][ j - 1]
+                let deletion = distance[i - 1][j]
+                let replacement = distance[i - 1][j - 1]
+                distance[i][j] = 1 + min(insertion, deletion, replacement)
             }
         }
     }
