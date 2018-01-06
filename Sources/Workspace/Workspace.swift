@@ -580,7 +580,7 @@ extension Workspace {
 
         // Create the dependency map by associating each resolved package with its corresponding managed dependency.
         let managedDependenciesByIdentity = Dictionary(items: managedDependencies.values.map({ ($0.packageRef.identity, $0) }))
-        let dependencyMap = graph.packages.compactMap({ package -> (ResolvedPackage, ManagedDependency)? in
+        let dependencyMap = graph.packages.flatMap({ package -> (ResolvedPackage, ManagedDependency)? in
             // FIXME: We should use package name directly once this radar is fixed:
             // <rdar://problem/33693433> Ensure that identity and package name
             // are the same once we have an API to specify identity in the
@@ -598,7 +598,7 @@ extension Workspace {
         packages: [AbsolutePath],
         diagnostics: DiagnosticsEngine
     ) -> [Manifest] {
-        return packages.compactMap({ package -> Manifest? in
+        return packages.flatMap({ package -> Manifest? in
 			loadManifest(packagePath: package, url: package.asString, diagnostics: diagnostics)
         })
     }
@@ -839,14 +839,14 @@ extension Workspace {
             return DependencyManifests(root: root, dependencies: [], workspace: self)
         }
 
-        let rootDependencyManifests = root.dependencies.compactMap({
+        let rootDependencyManifests = root.dependencies.flatMap({
             return loadManifest(for: $0.createPackageRef().identity, diagnostics: diagnostics)
         })
         let inputManifests = root.manifests + rootDependencyManifests
 
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.name) })) { node in
-            return node.item.package.dependencies.compactMap({ dependency in
+            return node.item.package.dependencies.flatMap({ dependency in
                 let manifest = loadManifest(for: dependency.createPackageRef().identity, diagnostics: diagnostics)
                 return manifest.flatMap({ KeyedPair($0, key: $0.name) })
             })
@@ -1068,7 +1068,7 @@ extension Workspace {
 
         // Compute the pins which are valid w.r.t dependencies.
         let validPins: [RepositoryPackageConstraint]
-        validPins = pinConstraints.compactMap { pin in
+        validPins = pinConstraints.flatMap{ pin in
             if let mergedSet = constraintSet.merging(pin) {
                 constraintSet = mergedSet
                 return pin

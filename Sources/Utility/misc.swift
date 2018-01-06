@@ -15,7 +15,7 @@ public func getClangVersion(versionOutput: String) -> (major: Int, minor: Int)? 
     // Clang outputs version in this format on Ubuntu:
     // Ubuntu clang version 3.6.0-2ubuntu1~trusty1 (tags/RELEASE_360/final) (based on LLVM 3.6.0)
     let versionStringPrefix = "Ubuntu clang version "
-    let versionStrings = versionOutput.utf8.split(separator: UInt8(ascii: "-")).compactMap(String.init)
+    let versionStrings = versionOutput.utf8.split(separator: UInt8(ascii: "-")).flatMap(String.init)
     guard let clangVersionString = versionStrings.first,
           clangVersionString.hasPrefix(versionStringPrefix) else {
         return nil
@@ -24,7 +24,7 @@ public func getClangVersion(versionOutput: String) -> (major: Int, minor: Int)? 
         offsetBy: versionStringPrefix.utf8.count)
     let versionString = clangVersionString[versionStartIndex...]
     // Split major minor patch etc.
-    let versions = versionString.utf8.split(separator: UInt8(ascii: ".")).compactMap(String.init)
+    let versions = versionString.utf8.split(separator: UInt8(ascii: ".")).flatMap(String.init)
     guard versions.count > 1, let major = Int(versions[0]), let minor = Int(versions[1]) else {
         return nil
     }

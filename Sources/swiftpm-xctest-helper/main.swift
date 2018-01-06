@@ -54,7 +54,7 @@ func run() throws {
     var testCases = [[String: AnyObject]]()
 
     for case let testCaseSuite as XCTestSuite in suite.tests {
-        let testSuite: [[String: AnyObject]] = testCaseSuite.tests.compactMap({
+        let testSuite: [[String: AnyObject]] = testCaseSuite.tests.flatMap({
             guard case let testCaseSuite as XCTestSuite = $0 else { return nil }
             // Get the name of the XCTest subclass with its target name if possible.
             // If the subclass contains atleast one test get the name using reflection,
@@ -67,7 +67,7 @@ func run() throws {
             }
 
             // Collect the test methods.
-            let tests: [[String: String]] = testCaseSuite.tests.compactMap({ test in
+            let tests: [[String: String]] = testCaseSuite.tests.flatMap({ test in
                 guard case let test as XCTestCase = test else { return nil }
                 // Split the test description into an array. Description formats:
                 // `-[ClassName MethodName]`, `-[ClassName MethodNameAndReturnError:]`

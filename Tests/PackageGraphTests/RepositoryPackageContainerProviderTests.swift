@@ -208,7 +208,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     container: repoA.packageRef,
                     versionRequirement: v1Range)
             ]
-            let result: [(PackageReference, Version)] = try resolver.resolve(constraints: constraints).compactMap {
+            let result: [(PackageReference, Version)] = try resolver.resolve(constraints: constraints).flatMap {
                 guard case .version(let version) = $0.binding else {
                     XCTFail("Unexpecting non version binding \($0.binding)")
                     return nil

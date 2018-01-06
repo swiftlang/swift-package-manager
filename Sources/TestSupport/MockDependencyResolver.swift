@@ -128,7 +128,7 @@ public final class MockPackageContainer: PackageContainer {
         dependencies: [String: [Dependency]] = [:]
     ) {
         self.name = name
-        let versions = dependencies.keys.compactMap(Version.init(string:))
+        let versions = dependencies.keys.flatMap(Version.init(string:))
         self._versions = versions.sorted().reversed()
         self.dependencies = dependencies
     }
@@ -197,7 +197,7 @@ extension DependencyResolver where P == MockPackagesProvider, D == MockResolverD
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> [(container: String, version: Version)] {
-        return try resolve(constraints: constraints).compactMap({
+        return try resolve(constraints: constraints).flatMap({
             guard case .version(let version) = $0.binding else {
                 XCTFail("Unexpected non version binding \($0.binding)", file: file, line: line)
                 return nil

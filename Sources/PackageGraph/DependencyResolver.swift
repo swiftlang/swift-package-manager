@@ -1020,7 +1020,7 @@ public class DependencyResolver<
                     // Since this is a versioned container, none of its
                     // dependencies can have a revision constraints.
                     let revisionConstraints: [(AnyPackageContainerIdentifier, String)]
-                    revisionConstraints = constraints.compactMap({
+                    revisionConstraints = constraints.flatMap({
                         if case .revision(let revision) = $0.requirement {
                             return (AnyPackageContainerIdentifier($0.identifier), revision)
                         }
@@ -1106,7 +1106,7 @@ public class DependencyResolver<
                 return AnySequence(possibleAssignments.lazy.flatMap({ value -> AnySequence<(AssignmentSet, ConstraintSet)> in
                     let (assignment, allConstraints) = value
                     let subtree = self.resolveSubtree(container, subjectTo: allConstraints, excluding: allExclusions)
-                    return AnySequence(subtree.lazy.compactMap({ subtreeAssignment -> (AssignmentSet, ConstraintSet)? in
+                    return AnySequence(subtree.lazy.flatMap({ subtreeAssignment -> (AssignmentSet, ConstraintSet)? in
                             // We found a valid subtree assignment, attempt to merge it with the
                             // current solution.
                             guard let newAssignment = assignment.merging(subtreeAssignment) else {
@@ -1312,7 +1312,7 @@ private struct ResolverDebugger<
 
             // Find the packages which are allowed and disallowed to participate
             // in this changeset.
-            let allowedPackages = Set(allowedChanges.compactMap({ $0.allowedPackage }))
+            let allowedPackages = Set(allowedChanges.flatMap({ $0.allowedPackage }))
             let disallowedPackages = allPackages.subtracting(allowedPackages)
 
             // Start creating constraints.
@@ -1325,7 +1325,7 @@ private struct ResolverDebugger<
                 Constraint(container: $0, requirement: .unversioned)
             })
 
-            let allowedPins = Set(allowedChanges.compactMap({ $0.allowedPin }))
+            let allowedPins = Set(allowedChanges.flatMap({ $0.allowedPin }))
 
             // It is always a failure if this changeset contains a pin of
             // a disallowed package.
@@ -1340,8 +1340,8 @@ private struct ResolverDebugger<
         }
 
         // Filter the input with found result and return.
-        let badDependencies = Set(badChanges.compactMap({ $0.allowedPackage }))
-        let badPins = Set(badChanges.compactMap({ $0.allowedPin }))
+        let badDependencies = Set(badChanges.flatMap({ $0.allowedPackage }))
+        let badPins = Set(badChanges.flatMap({ $0.allowedPin }))
         return (
             dependencies: dependencies.filter({ badDependencies.contains($0.identifier) }),
             pins: pins.filter({ badPins.contains($0.identifier) })

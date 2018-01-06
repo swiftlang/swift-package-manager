@@ -141,7 +141,7 @@ public extension Version {
         let requiredCharacters = string.prefix(upTo: requiredEndIndex)
         let requiredComponents = requiredCharacters
             .split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-            .map(String.init).compactMap({ Int($0) }).filter({ $0 >= 0 })
+            .map(String.init).flatMap({ Int($0) }).filter({ $0 >= 0 })
 
         guard requiredComponents.count == 3 else { return nil }
 
