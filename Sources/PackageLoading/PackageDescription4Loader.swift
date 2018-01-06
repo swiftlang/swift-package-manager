@@ -144,13 +144,19 @@ extension PackageDescription4.Package.Dependency {
         default: fatalError()
         }
 
+        let isBaseURLRemote = baseURL.flatMap(URL.scheme) != nil
+
         func fixURL() -> String {
+            // If base URL is remote (http/ssh), we can't do any "fixing".
+            if isBaseURLRemote {
+                return url
+            }
+            // If the dependency URL is not remote, try to "fix" it.
             if let baseURL = baseURL, URL.scheme(url) == nil {
                 // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
                 return AbsolutePath(url, relativeTo: AbsolutePath(baseURL)).asString
-            } else {
-                return url
             }
+            return url
         }
 
         return PackageDescription4.Package.Dependency.package(url: fixURL(), requirement)
