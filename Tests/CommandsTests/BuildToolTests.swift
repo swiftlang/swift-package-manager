@@ -179,6 +179,32 @@ final class BuildToolTests: XCTestCase {
         }
     }
 
+    func testLLBuildManifestCachingBasics() {
+        fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
+            let fs = localFileSystem
+            let tokenFile = path.appending(components: ".build", "regenerate-token")
+
+            // Token file is initially missing.
+            try execute(["--enable-build-manifest-caching"], packagePath: path)
+            XCTAssert(!fs.isFile(tokenFile))
+
+            // Nothing changed so we should get token = 1.
+            try execute(["--enable-build-manifest-caching"], packagePath: path)
+            XCTAssertEqual(try fs.readFileContents(tokenFile), "1\n")
+            try execute(["--enable-build-manifest-caching"], packagePath: path)
+            XCTAssertEqual(try fs.readFileContents(tokenFile), "1\n")
+
+            // Adding a new file should reset the token.
+            try fs.writeFileContents(path.appending(components: "Sources", "ExecutableNew", "bar.swift"), bytes: "")
+            try execute(["--enable-build-manifest-caching"], packagePath: path)
+            XCTAssert(!fs.isFile(tokenFile))
+
+            // Now we should be back to token = 1.
+            try execute(["--enable-build-manifest-caching"], packagePath: path)
+            XCTAssertEqual(try fs.readFileContents(tokenFile), "1\n")
+        }
+    }
+
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
@@ -186,5 +212,6 @@ final class BuildToolTests: XCTestCase {
         ("testBackwardsCompatibilitySymlink", testBackwardsCompatibilitySymlink),
         ("testProductAndTarget", testProductAndTarget),
         ("testNonReachableProductsAndTargetsFunctional", testNonReachableProductsAndTargetsFunctional),
+        ("testLLBuildManifestCachingBasics", testLLBuildManifestCachingBasics),
     ]
 }

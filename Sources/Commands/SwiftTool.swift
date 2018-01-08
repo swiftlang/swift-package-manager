@@ -256,6 +256,11 @@ public class SwiftTool<Options: ToolOptions> {
                 usage: "Link Swift stdlib statically"),
             to: { $0.shouldLinkStaticSwiftStdlib = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--enable-build-manifest-caching", kind: Bool.self,
+                usage: "Enable llbuild manifest caching [Experimental]"),
+            to: { $0.shouldEnableManifestCaching = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -426,9 +431,57 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.dematerialize()
     }
 
-    /// Build a subset of products and targets using swift-build-tool.
-    func build(subset: BuildSubset) throws {
-        try build(plan: buildPlan(), subset: subset)
+    func shouldRegenerateManifest(parameters: BuildParameters) throws -> Bool {
+        // Check if we are allowed to use llbuild manifest caching.
+        guard options.shouldEnableManifestCaching else {
+            return true
+        }
+        
+        // Check if we need to generate the llbuild manifest.
+        var regenerateManifest = true
+        if localFileSystem.isFile(parameters.llbuildManifest) {
+            // Run the target which computes if regeneration is needed.
+            let args = [try getToolchain().llbuild.asString, "-f", parameters.llbuildManifest.asString, "regenerate"]
+            try Process.checkNonZeroExit(arguments: args)
+            if !localFileSystem.isFile(parameters.regenerateManifestToken) {
+                return true
+            }
+            // Read the token file and decided if we need to rerun.
+            let token = try localFileSystem.readFileContents(parameters.regenerateManifestToken)
+            switch token {
+            case "1\n":
+                regenerateManifest = false
+            case "1\n1\n":
+                break
+            default:
+                assertionFailure("Regeneration token file has unexpected content: \(token)")
+            }
+        }
+        
+        // Reset manifest token file if we're regenerating the manifest.
+        if regenerateManifest {
+            try localFileSystem.removeFileTree(parameters.regenerateManifestToken)
+        }
+        return regenerateManifest
+    }
+    
+    func computeLLBuildTargetName(for subset: BuildSubset) throws -> String? {
+        switch subset {
+        case .allExcludingTests:
+            return LLBuildManifestGenerator.llbuildMainTargetName
+        case .allIncludingTests:
+            return LLBuildManifestGenerator.llbuildTestTargetName
+        default:
+            // FIXME: This is super unfortunate that we might need to load the package graph.
+            return try subset.llbuildTargetName(for: loadPackageGraph(), diagnostics: diagnostics)
+        }
+    }
+    
+    func build(parameters: BuildParameters, subset: BuildSubset) throws {
+        guard let llbuildTargetName = try computeLLBuildTargetName(for: subset) else {
+            return
+        }
+        try runLLBuild(manifest: parameters.llbuildManifest, llbuildTarget: llbuildTargetName)
     }
     
     /// Build a subset of products and targets using swift-build-tool.
@@ -442,12 +495,25 @@ public class SwiftTool<Options: ToolOptions> {
             return
         }
 
-        let yaml = buildPath.appending(component: plan.buildParameters.configuration.dirname + ".yaml")
-        // Generate llbuild manifest.
+        let yaml = plan.buildParameters.llbuildManifest
+        // Generate the llbuild manifest.
         let llbuild = LLBuildManifestGenerator(plan)
         try llbuild.generateManifest(at: yaml)
-        assert(isFile(yaml), "llbuild manifest not present: \(yaml.asString)")
 
+        // Run llbuild.
+        try runLLBuild(manifest: yaml, llbuildTarget: llbuildTargetName)
+
+        // Create backwards-compatibilty symlink to old build path.
+        let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
+        if exists(oldBuildPath) {
+            try removeFileTree(oldBuildPath)
+        }
+        try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
+    }
+    
+    func runLLBuild(manifest: AbsolutePath, llbuildTarget: String) throws {
+        assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest.asString)")
+        
         // Create a temporary directory for the build process.
         let tempDirName = "org.swift.swiftpm.\(NSUserName())"
         let tempDir = Basic.determineTempDirectory().appending(component: tempDirName)
@@ -470,7 +536,7 @@ public class SwiftTool<Options: ToolOptions> {
         }
       #endif
 
-        args += [try getToolchain().llbuild.asString, "-f", yaml.asString, llbuildTargetName]
+        args += [try getToolchain().llbuild.asString, "-f", manifest.asString, llbuildTarget]
         if verbosity != .concise {
             args.append("-v")
         }
@@ -491,21 +557,6 @@ public class SwiftTool<Options: ToolOptions> {
         guard result.exitStatus == .terminated(code: 0) else {
             throw ProcessResult.Error.nonZeroExit(result)
         }
-
-        // Create backwards-compatibilty symlink to old build path.
-        let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
-        if exists(oldBuildPath) {
-            try removeFileTree(oldBuildPath)
-        }
-        try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
-    }
-
-    /// Generates a BuildPlan based on the tool's options.
-    func buildPlan() throws -> BuildPlan {
-        return try BuildPlan(
-            buildParameters: buildParameters(),
-            graph: loadPackageGraph(),
-            delegate: self)
     }
 
     /// Create build parameters.
@@ -519,7 +570,8 @@ public class SwiftTool<Options: ToolOptions> {
             toolchain: toolchain,
             destinationTriple: triple,
             flags: options.buildFlags,
-            shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib
+            shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
+            shouldEnableManifestCaching: options.shouldEnableManifestCaching
         )
     }
 
