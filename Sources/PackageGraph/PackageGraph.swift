@@ -38,6 +38,11 @@ public struct PackageGraph {
         return rootPackages.flatMap({ $0.targets }).contains(target)
     }
 
+    public func isRootPackage(_ package: ResolvedPackage) -> Bool {
+        // FIXME: This can be easily cached.
+        return rootPackages.contains(package)
+    }
+
     /// Construct a package graph directly.
     public init(rootPackages: [ResolvedPackage], rootDependencies: [ResolvedPackage] = []) {
         self.rootPackages = rootPackages
