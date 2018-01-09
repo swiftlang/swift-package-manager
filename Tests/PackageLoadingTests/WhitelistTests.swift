@@ -14,7 +14,7 @@ import XCTest
 final class PkgConfigWhitelistTests: XCTestCase {
     func testSimpleFlags() {
         let cFlags = ["-I/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0"]
-        let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3"]
+        let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-w"]
         do {
             try whitelist(pcFile: "dummy", flags: (cFlags, libs))
         } catch {
@@ -24,12 +24,12 @@ final class PkgConfigWhitelistTests: XCTestCase {
 
     func testFlagsWithInvalidFlags() {
         let cFlags = ["-I/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello"]
-        let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "name"]
+        let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "name", "-werror"]
         do {
             try whitelist(pcFile: "dummy", flags: (cFlags, libs))
         } catch {
             XCTAssertEqual("\(error)", """
-                nonWhitelistedFlags("Non whitelisted flags found: [\\"-L/hello\\", \\"-module-name\\", \\"name\\"] in pc file dummy")
+                nonWhitelistedFlags("Non whitelisted flags found: [\\"-L/hello\\", \\"-module-name\\", \\"name\\", \\"-werror\\"] in pc file dummy")
                 """)
         }
     }
