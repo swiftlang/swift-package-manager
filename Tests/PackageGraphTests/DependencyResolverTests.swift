@@ -52,14 +52,15 @@ class DependencyResolverTests: XCTestCase {
                         v1: [(container: "B", versionRequirement: v1Range)]]),
                 MockPackageContainer(name: "B", dependenciesByVersion: [
                         v1: [(container: "C", versionRequirement: v1Range)]]),
-                MockPackageContainer(name: "C", dependenciesByVersion: [
+                // We use MockPackageContainer2 here to check the updated identifier API.
+                MockPackageContainer2(name: "C", dependenciesByVersion: [
                         v1: [], v2: []])])
 
         let delegate = MockResolverDelegate()
         let resolver = DependencyResolver(provider, delegate)
         let packages = try resolver.resolve(constraints: [
                 MockPackageConstraint(container: "A", versionRequirement: v1Range)])
-        XCTAssertEqual(packages.map{ $0.container }.sorted(), ["A", "B", "C"])
+        XCTAssertEqual(packages.map{ $0.container }.sorted(), ["A", "B", "C-name"])
     }
 
     func testVersionSetSpecifier() {
