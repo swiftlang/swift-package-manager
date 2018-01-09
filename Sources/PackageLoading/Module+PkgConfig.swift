@@ -133,7 +133,7 @@ extension SystemPackageProvider {
 /// Filters the flags with allowed arguments so unexpected arguments are not passed to
 /// compiler/linker. List of allowed flags:
 /// cFlags: -I, -F
-/// libs: -L, -l, -F, -framework
+/// libs: -L, -l, -F, -framework, -w
 func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws {
     // Returns an array of flags which doesn't match any filter.
     func filter(flags: [String], filters: [String]) -> [String] {
@@ -144,8 +144,15 @@ func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws
                 filtered += [flag]
                 continue
             }
+
+          // Warning suppression flag has no arguments and is not suffixed.
+          guard !flag.hasPrefix("-w") || flag == "-w" else {
+            filtered += [flag]
+            continue
+          }
+
             // If the flag and its value are separated, skip next flag.
-            if flag == filter {
+            if flag == filter && flag != "-w" {
                 guard it.next() != nil else {
                    fatalError("Expected associated value")
                 }
@@ -154,7 +161,7 @@ func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws
         return filtered
     }
     let filtered = filter(flags: flags.cFlags, filters: ["-I", "-F"]) +
-        filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework"])
+      filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework", "-w"])
     guard filtered.isEmpty else {
         throw PkgConfigError.nonWhitelistedFlags("Non whitelisted flags found: \(filtered) in pc file \(pcFile)")
     }
