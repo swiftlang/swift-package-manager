@@ -245,6 +245,58 @@ class PackageGraphTests: XCTestCase {
         DiagnosticsEngineTester(diagnostics) { _ in }
     }
 
+    func testDuplicateInterPackageTargetNames() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Start/Sources/Foo/foo.swift",
+            "/Start/Sources/Bar/bar.swift",
+            "/Dep1/Sources/Baz/baz.swift",
+            "/Dep2/Sources/Foo/foo.swift",
+            "/Dep2/Sources/Bam/bam.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadMockPackageGraph4([
+            "/Start": Package(
+                name: "Start",
+                products: [
+                    .library(name: "FooLibrary", targets: ["Foo"]),
+                    .library(name: "BarLibrary", targets: ["Bar"]),
+                ],
+                dependencies: [
+                    .package(url: "/Dep1", from: "1.0.0"),
+                ],
+                targets: [
+                    .target(name: "Foo", dependencies: ["BazLibrary"]),
+                    .target(name: "Bar"),
+                ]),
+            "/Dep1": Package(
+                name: "Dep1",
+                products: [
+                    .library(name: "BazLibrary", targets: ["Baz"]),
+                ],
+                dependencies: [
+                    .package(url: "/Dep2", from: "1.0.0"),
+                ],
+                targets: [
+                    .target(name: "Baz", dependencies: ["FooLibrary"]),
+                ]),
+            "/Dep2": Package(
+                name: "Dep2",
+                products: [
+                    .library(name: "FooLibrary", targets: ["Foo"]),
+                    .library(name: "BamLibrary", targets: ["Bam"]),
+                ],
+                targets: [
+                    .target(name: "Foo"),
+                    .target(name: "Bam"),
+                ]),
+            ], root: "/Start", diagnostics: diagnostics, in: fs)
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "multiple targets named 'Foo'", behavior: .error, location: "'Dep2' /Dep2")
+        }
+    }
+
     static var allTests = [
         ("testBasic", testBasic),
         ("testDuplicateModules", testDuplicateModules),
@@ -254,5 +306,6 @@ class PackageGraphTests: XCTestCase {
         ("testEmptyDependency", testEmptyDependency),
         ("testUnusedDependency", testUnusedDependency),
         ("testUnusedDependency2", testUnusedDependency2),
+        ("testDuplicateInterPackageTargetNames", testDuplicateInterPackageTargetNames),
     ]
 }
