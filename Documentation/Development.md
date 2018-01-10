@@ -134,4 +134,19 @@ $ Utilities/docker-utils run bash # to run an interactive bash shell in the cont
 $ Utilities/docker-utils swift-build # to run swift-build in the container
 $ Utilities/docker-utils swift-test # to run swift-test in the container
 $ Utilities/docker-utils swift-run # to run swift-run in the container
+
+```
+
+## Using custom compile-only Swift compiler
+
+You can use a custom Swift compiler for compiling the package sources using the
+environment variable `SWIFT_EXEC_COMPILE_ONLY`. The package manager will use the
+default Swift compiler to parse the manifest files but use the compiler in
+`SWIFT_EXEC_COMPILE_ONLY` to compile the source files. This is mostly useful for
+Swift compiler developers when they want to use a debug compiler with SwiftPM.
+
+Example:
+
+```sh
+$ SWIFT_EXEC_COMPILE_ONLY=/path/to/my/swiftc swift build
 ```
