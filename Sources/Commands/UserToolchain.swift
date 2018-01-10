@@ -79,13 +79,26 @@ public struct UserToolchain: Toolchain {
         // Get the binDir from destination.
         let binDir = lookup(fromEnv: "SWIFT_EXEC")?.appending(components: "..") ?? destination.binDir
 
-        // First look in env and then in bin dir.
-        swiftCompiler = binDir.appending(component: "swiftc")
+        // Find swift compiler in the bin directory.
+        let swiftCompiler = binDir.appending(component: "swiftc")
 
         // Check that it's valid in the file system.
         guard localFileSystem.isExecutableFile(swiftCompiler) else {
             throw Error.invalidToolchain(problem: "could not find `swiftc` at expected path \(swiftCompiler.asString)")
         }
+
+        // Check if compiler only swift compiler is present.
+        //
+        // This is useful for compiler developers who wants to use SwiftPM from a toolchain but a
+        // custom built compiler.
+        let compileOnlySwiftCompiler = lookup(fromEnv: "SWIFT_EXEC_COMPILE_ONLY")
+        if let compileOnlySwiftCompiler = compileOnlySwiftCompiler {
+            guard localFileSystem.isExecutableFile(compileOnlySwiftCompiler) else {
+                throw Error.invalidToolchain(problem: "could not find `swiftc` at expected path \(compileOnlySwiftCompiler.asString)")
+            }
+        }
+
+        self.swiftCompiler = compileOnlySwiftCompiler ?? swiftCompiler
 
         // Look for llbuild in bin dir.
         llbuild = binDir.appending(component: "swift-build-tool")
@@ -121,6 +134,7 @@ public struct UserToolchain: Toolchain {
         ] + destination.extraCCFlags
 
         manifestResources = UserManifestResources(
+            // Always use the default compiler (and not compile only swift compiler) for parsing the manifests.
             swiftCompiler: swiftCompiler,
             libDir: binDir.parentDirectory.appending(components: "lib", "swift", "pm"),
             sdkRoot: self.destination.sdk
