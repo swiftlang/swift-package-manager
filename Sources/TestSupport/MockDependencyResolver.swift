@@ -71,8 +71,7 @@ public enum MockLoadingError: Error {
     case unknownModule
 }
 
-public class MockPackageContainer: PackageContainer {
-
+public final class MockPackageContainer: PackageContainer {
     public typealias Identifier = String
 
     public typealias Dependency = (container: Identifier, requirement: MockPackageConstraint.Requirement)
@@ -111,10 +110,6 @@ public class MockPackageContainer: PackageContainer {
         return unversionedDeps
     }
 
-    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> String {
-        return name
-    }
-
     public convenience init(
         name: Identifier,
         dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]
@@ -136,12 +131,6 @@ public class MockPackageContainer: PackageContainer {
         let versions = dependencies.keys.flatMap(Version.init(string:))
         self._versions = versions.sorted().reversed()
         self.dependencies = dependencies
-    }
-}
-
-public class MockPackageContainer2: MockPackageContainer {
-    public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> String {
-        return name + "-name"
     }
 }
 
