@@ -243,6 +243,13 @@ public protocol PackageContainer {
     ///
     /// NOTE: This method should not be called on a versioned container.
     func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>]
+
+    /// Get the updated identifier at a bound version.
+    ///
+    /// This can be used by the containers to fill in the missing information that is obtained
+    /// after the container is available. The updated identifier is returned in result of the
+    /// dependency resolution.
+    func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier
 }
 
 /// An interface for resolving package containers.
@@ -897,7 +904,12 @@ public class DependencyResolver<
     /// - Returns: A satisfying assignment of containers and their version binding.
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
     public func resolve(constraints: [Constraint]) throws -> [(container: Identifier, binding: BoundVersion)] {
-        return try resolveAssignment(constraints: constraints).map({ ($0.0.identifier, $0.1) })
+        return try resolveAssignment(constraints: constraints).map({ assignment in
+            let (container, binding) = assignment
+            let identifier = try self.isInIncompleteMode ? container.identifier : container.getUpdatedIdentifier(at: binding)
+            // Get the updated identifier from the container.
+            return (identifier, binding)
+        })
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.

@@ -1430,7 +1430,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // There should still be an entry for `foo`, which we can unedit.
-        let editedDependency = try ws.managedDependencies.dependency(forIdentity: "foo")
+        let editedDependency = try ws.managedDependencies.dependency(forNameOrIdentity: "foo")
         XCTAssertNil(editedDependency.basedOn)
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .edited(nil))
