@@ -43,9 +43,8 @@ public final class PinsStore {
 
     /// The schema version of the resolved file.
     ///
-    /// * 2: Package identity.
     /// * 1: Initial version.
-    static let schemaVersion: Int = 2
+    static let schemaVersion: Int = 1
 
     /// The path to the pins file.
     fileprivate let pinsFile: AbsolutePath
@@ -76,7 +75,6 @@ public final class PinsStore {
         self.persistence = SimplePersistence(
             fileSystem: fileSystem,
             schemaVersion: PinsStore.schemaVersion,
-            supportedSchemaVersions: [1],
             statePath: pinsFile,
             prettyPrint: true)
         pinsMap = [:]
@@ -154,28 +152,6 @@ extension PinsStore: SimplePersistanceProtocol {
         self.pinsMap = try Dictionary(items: json.get("pins").map({ ($0.packageRef.identity, $0) }))
     }
 
-    public func restore(from json: JSON, supportedSchemaVersion: Int) throws {
-        switch supportedSchemaVersion {
-        case 1:
-            // We did not have concept of package identity in previous schema but we can
-            // compute it using the URL.
-            //
-            // FIXME: This logic will need to be updated when we require identity and package
-            // name to be same. <rdar://problem/33693433>
-            let pinsArray: [JSON] = try json.get("pins")
-            let pins: [Pin] = try pinsArray.map({ pinData in
-                let url: String = try pinData.get("repositoryURL")
-                let ref = PackageReference(
-                    identity: PackageReference.computeIdentity(packageURL: url), path: url)
-                return try Pin(packageRef: ref, state: pinData.get("state"))
-            })
-            self.pinsMap = Dictionary(items: pins.map({ ($0.packageRef.identity, $0) }))
-
-        default:
-            fatalError()
-        }
-    }
-
     /// Saves the current state of pins.
     public func toJSON() -> JSON {
         return JSON([
@@ -188,14 +164,18 @@ extension PinsStore: SimplePersistanceProtocol {
 extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
     /// Create an instance from JSON data.
     public init(json: JSON) throws {
-        self.packageRef = try json.get("reference")
+        let name: String? = json.get("package")
+        let url: String = try json.get("repositoryURL")
+        let ref = PackageReference(identity: PackageReference.computeIdentity(packageURL: url), path: url)
+        self.packageRef = name.flatMap(ref.with(newName:)) ?? ref
         self.state = try json.get("state")
     }
 
     /// Convert the pin to JSON.
     public func toJSON() -> JSON {
         return .init([
-            "reference": packageRef,
+            "package": packageRef.name.toJSON(),
+            "repositoryURL": packageRef.path,
             "state": state,
         ])
     }
