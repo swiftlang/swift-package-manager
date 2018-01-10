@@ -218,12 +218,17 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
         }
     }
 
-    /// Returns the dependency given a name.
-    func dependency(forIdentity identity: String) throws -> ManagedDependency {
-        guard let dependency = self[forIdentity: identity] else {
-            throw Error.dependencyNotFound(name: identity)
+    /// Returns the dependency given a name or identity.
+    func dependency(forNameOrIdentity nameOrIdentity: String) throws -> ManagedDependency {
+        if let dependency = self[forIdentity: nameOrIdentity.lowercased()] {
+            return dependency
         }
-        return dependency 
+        for value in values {
+            if value.packageRef.name == nameOrIdentity {
+                return value
+            }
+        }
+        throw Error.dependencyNotFound(name: nameOrIdentity)
     }
 
     func reset() throws {

@@ -365,7 +365,7 @@ extension Workspace {
         root: PackageGraphRootInput,
         diagnostics: DiagnosticsEngine
     ) throws {
-        let dependency = try managedDependencies.dependency(forIdentity: packageName.lowercased())
+        let dependency = try managedDependencies.dependency(forNameOrIdentity: packageName)
         try unedit(dependency: dependency, forceRemove: forceRemove, root: root, diagnostics: diagnostics)
     }
 
@@ -392,7 +392,7 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) {
         // Look up the dependency and check if we can pin it.
-        guard let dependency = diagnostics.wrap({ try managedDependencies.dependency(forIdentity: packageName.lowercased()) }) else {
+        guard let dependency = diagnostics.wrap({ try managedDependencies.dependency(forNameOrIdentity: packageName) }) else {
             return
         }
         guard case .checkout(let currentState) = dependency.state else {
@@ -617,7 +617,7 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) throws {
         // Look up the dependency and check if we can edit it.
-        let dependency = try managedDependencies.dependency(forIdentity: packageName.lowercased())
+        let dependency = try managedDependencies.dependency(forNameOrIdentity: packageName)
 
         guard case .checkout(let checkoutState) = dependency.state else {
             throw WorkspaceDiagnostics.DependencyAlreadyInEditMode(dependencyName: packageName)
