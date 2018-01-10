@@ -122,6 +122,9 @@ public struct PackageReference: PackageContainerIdentifier, JSONMappable, JSONSe
     /// The identity of the package.
     public let identity: String
 
+    /// The name of the package, if available.
+    public let name: String?
+
     /// The repository of the package.
     ///
     /// This should only be accessed when the reference is not local.
@@ -140,8 +143,9 @@ public struct PackageReference: PackageContainerIdentifier, JSONMappable, JSONSe
     public let isLocal: Bool
 
     /// Create a package reference given its identity and repository.
-    public init(identity: String, path: String, isLocal: Bool = false) {
+    public init(identity: String, path: String, name: String? = nil, isLocal: Bool = false) {
 		assert(identity == identity.lowercased(), "The identity is expected to be lowercased")
+        self.name = name
         self.identity = identity
         self.path = path
         self.isLocal = isLocal
@@ -156,6 +160,7 @@ public struct PackageReference: PackageContainerIdentifier, JSONMappable, JSONSe
     }
 
     public init(json: JSON) throws {
+        self.name = json.get("name")
         self.identity = try json.get("identity")
         self.path = try json.get("path")
         self.isLocal = try json.get("isLocal")
@@ -163,10 +168,16 @@ public struct PackageReference: PackageContainerIdentifier, JSONMappable, JSONSe
 
     public func toJSON() -> JSON {
         return .init([
+            "name": name.toJSON(),
             "identity": identity,
             "path": path,
             "isLocal": isLocal,
         ])
+    }
+
+    /// Create a new package reference object with the given name.
+    public func with(newName: String) -> PackageReference {
+        return PackageReference(identity: identity, path: path, name: newName, isLocal: isLocal)
     }
 }
 
@@ -203,6 +214,10 @@ public class BasePackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
+    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
+        fatalError("This should never be called")
+    }
+    
     fileprivate init(
         _ identifier: Identifier,
         manifestLoader: ManifestLoaderProtocol,
@@ -227,7 +242,12 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
     /// The file system that shoud be used to load this package.
     let fs: FileSystem
 
-    public override func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {
+    private var _manifest: Manifest? = nil
+    private func loadManifest() throws -> Manifest {
+        if let manifest = _manifest {
+            return manifest
+        }
+        
         // Load the tools version.
         let toolsVersion = try toolsVersionLoader.load(at: AbsolutePath(identifier.path), fileSystem: fs)
 
@@ -238,14 +258,23 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
         }
 
         // Load the manifest.
-        let manifest = try manifestLoader.load(
+        _manifest = try manifestLoader.load(
             packagePath: AbsolutePath(identifier.path),
             baseURL: identifier.path,
             version: nil,
             manifestVersion: toolsVersion.manifestVersion,
             fileSystem: fs)
-
-        return manifest.package.dependencyConstraints()
+        return _manifest!
+    }
+    
+    public override func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {
+        return try loadManifest().package.dependencyConstraints()
+    }
+    
+    public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
+        assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
+        let manifest = try loadManifest()
+        return identifier.with(newName: manifest.name)
     }
 
     public init(
@@ -307,7 +336,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     let reversedVersions: [Version]
 
     /// The cached dependency information.
-    private var dependenciesCache: [String: [RepositoryPackageConstraint]] = [:]
+    private var dependenciesCache: [String: (Manifest, [RepositoryPackageConstraint])] = [:]
     private var dependenciesCacheLock = Lock()
 
     init(
@@ -365,7 +394,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
                 let tag = knownVersions[version]!
                 let revision = try repository.resolveRevision(tag: tag)
                 return try getDependencies(at: revision, version: version)
-            }
+            }.1
         } catch {
             throw GetDependenciesErrorWrapper(
                 containerIdentifier: identifier.repository.url, reference: version.description, underlyingError: error)
@@ -378,7 +407,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
                 // resolve the revision identifier and return its dependencies.
                 let revision = try repository.resolveRevision(identifier: revision)
                 return try getDependencies(at: revision)
-            }
+            }.1
         } catch {
             throw GetDependenciesErrorWrapper(
                 containerIdentifier: identifier.repository.url, reference: revision, underlyingError: error)
@@ -387,8 +416,8 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     private func cachedDependencies(
         forIdentifier identifier: String,
-        getDependencies: () throws -> [RepositoryPackageConstraint]
-    ) throws -> [RepositoryPackageConstraint] {
+        getDependencies: () throws -> (Manifest, [RepositoryPackageConstraint])
+    ) throws -> (Manifest, [RepositoryPackageConstraint]) {
         return try dependenciesCacheLock.withLock {
             if let result = dependenciesCache[identifier] {
                 return result
@@ -403,7 +432,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     private func getDependencies(
         at revision: Revision,
         version: Version? = nil
-    ) throws -> [RepositoryPackageConstraint] {
+    ) throws -> (Manifest, [RepositoryPackageConstraint]) {
         let fs = try repository.openFileView(revision: revision)
 
         // Load the tools version.
@@ -417,11 +446,33 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             manifestVersion: toolsVersion.manifestVersion,
             fileSystem: fs)
 
-        return manifest.package.dependencyConstraints()
+        return (manifest, manifest.package.dependencyConstraints())
     }
 
     public override func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {
         // We just return an empty array if requested for unversioned dependencies.
         return []
+    }
+    
+    public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
+        let identifier: String
+        switch boundVersion {
+        case .version(let version):
+            identifier = version.description
+        case .revision(let revision):
+            identifier = revision
+        case .unversioned, .excluded:
+            assertionFailure("Unexpected type requirement \(boundVersion)")
+            return self.identifier
+        }
+        
+        // FIXME: We expect by the time this method is called, we would already have the
+        // manifest in the cache. We can probably get rid of this requirement once we implement
+        // proper manifest caching.
+        guard let manifest = dependenciesCache[identifier]?.0 else {
+            assertionFailure("Unexpected missing cache")
+            return self.identifier
+        }
+        return self.identifier.with(newName: manifest.name)
     }
 }
