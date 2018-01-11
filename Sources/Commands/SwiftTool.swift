@@ -439,10 +439,16 @@ public class SwiftTool<Options: ToolOptions> {
         
         // Check if we need to generate the llbuild manifest.
         var regenerateManifest = true
-        if localFileSystem.isFile(parameters.llbuildManifest) {
+        regenCheck: if localFileSystem.isFile(parameters.llbuildManifest) {
             // Run the target which computes if regeneration is needed.
             let args = [try getToolchain().llbuild.asString, "-f", parameters.llbuildManifest.asString, "regenerate"]
-            try Process.checkNonZeroExit(arguments: args)
+            do {
+                try Process.checkNonZeroExit(arguments: args)
+            } catch {
+                // Regenerate the manifest if this fails for some reason.
+                warning(message: "Failed to run the regeneration check: \(error)")
+                break regenCheck
+            }
             if !localFileSystem.isFile(parameters.regenerateManifestToken) {
                 return true
             }
