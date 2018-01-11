@@ -691,6 +691,13 @@ extension Workspace {
             }
         }
 
+        // Remove the existing checkout.
+        do {
+            let oldCheckoutPath = checkoutsPath.appending(dependency.subpath)
+            try fileSystem.chmod(.userWritable, path: oldCheckoutPath, options: [.recursive, .onlyFiles])
+            try fileSystem.removeFileTree(oldCheckoutPath)
+        }
+
         // Save the new state.
         let identity = dependency.packageRef.identity
         managedDependencies[forIdentity: identity] = dependency.editedDependency(
@@ -743,10 +750,17 @@ extension Workspace {
         if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
             try fileSystem.removeFileTree(editablesPath)
         }
-        // Restore the dependency state.
-        managedDependencies[forIdentity: dependency.packageRef.identity] = dependency.basedOn
-        // Save the state.
-        try managedDependencies.saveState()
+
+        if let checkoutState = dependency.basedOn?.checkoutState {
+            // Restore the original checkout.
+            //
+            // The clone method will automatically update the managed dependency state.
+            _ = try clone(package: dependency.packageRef, at: checkoutState)
+        } else {
+            // The original dependency was removed, update the managed dependency state.
+            managedDependencies[forIdentity: dependency.packageRef.identity] = nil
+            try managedDependencies.saveState()
+        }
 
         // Resolve the dependencies if workspace root is provided. We do this to
         // ensure the unedited version of this dependency is resolved properly.
