@@ -117,10 +117,12 @@ public struct LLBuildManifestGenerator {
             stream <<< "  " <<< Format.asJSON(target.name)
             stream <<< ": " <<< Format.asJSON(target.outputs.values) <<< "\n"
         }
-        
-        stream <<< "  " <<< Format.asJSON("regenerate")
-        stream <<< ": " <<< Format.asJSON([plan.buildParameters.regenerateManifestToken.asString])
-        stream <<< "\n"
+
+        if plan.buildParameters.shouldEnableManifestCaching {
+            stream <<< "  " <<< Format.asJSON("regenerate")
+            stream <<< ": " <<< Format.asJSON([plan.buildParameters.regenerateManifestToken.asString])
+            stream <<< "\n"
+        }
 
         stream <<< "default: " <<< Format.asJSON(targets.main.name) <<< "\n"
 
