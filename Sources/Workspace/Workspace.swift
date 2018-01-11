@@ -1386,9 +1386,16 @@ extension Workspace {
 
             // Make sure the directory is not missing (we will have to clone again
             // if not).
-            if fileSystem.isDirectory(path) {
+            fetch: if fileSystem.isDirectory(path) {
                 // Fetch the checkout in case there are updates available.
                 let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+
+                // Ensure that the alternative object store is still valid.
+                //
+                // This can become invalid if the build directory is moved.
+                guard workingRepo.isAlternateObjectStoreValid() else {
+                    break fetch
+                }
 
                 // The fetch operation may update contents of the checkout, so
                 // we need do mutable-immutable dance.
