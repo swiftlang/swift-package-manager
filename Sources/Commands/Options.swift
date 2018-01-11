@@ -45,6 +45,9 @@ public class ToolOptions {
 
     /// If should link the Swift stdlib statically.
     public var shouldLinkStaticSwiftStdlib = false
+    
+    /// If should enable llbuild manifest caching.
+    public var shouldEnableManifestCaching = false
 
     public required init() {}
 }
