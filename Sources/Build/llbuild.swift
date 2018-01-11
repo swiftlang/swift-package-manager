@@ -25,9 +25,13 @@ public struct LLBuildManifestGenerator {
     /// The build plan to work on.
     public let plan: BuildPlan
 
+    /// Path to the resolved file.
+    let resolvedFile: AbsolutePath
+
     /// Create a new generator with a build plan.
-    public init(_ plan: BuildPlan) {
+    public init(_ plan: BuildPlan, resolvedFile: AbsolutePath) {
         self.plan = plan
+        self.resolvedFile = resolvedFile
     }
 
     /// A structure for targets in the manifest.
@@ -117,10 +121,12 @@ public struct LLBuildManifestGenerator {
             stream <<< "  " <<< Format.asJSON(target.name)
             stream <<< ": " <<< Format.asJSON(target.outputs.values) <<< "\n"
         }
-        
-        stream <<< "  " <<< Format.asJSON("regenerate")
-        stream <<< ": " <<< Format.asJSON([plan.buildParameters.regenerateManifestToken.asString])
-        stream <<< "\n"
+
+        if plan.buildParameters.shouldEnableManifestCaching {
+            stream <<< "  " <<< Format.asJSON("regenerate")
+            stream <<< ": " <<< Format.asJSON([plan.buildParameters.regenerateManifestToken.asString])
+            stream <<< "\n"
+        }
 
         stream <<< "default: " <<< Format.asJSON(targets.main.name) <<< "\n"
 
@@ -168,7 +174,6 @@ public struct LLBuildManifestGenerator {
         
         for package in graph.packages {
             // Track the package manifest.
-            // FIXME: We also need to add the resolved file here.
             filesToTrack.append(package.underlyingPackage.manifest.path)
             
             if graph.isRootPackage(package) {
@@ -181,6 +186,9 @@ public struct LLBuildManifestGenerator {
                 directoryNodesToTrack.append(package.path)
             }
         }
+
+        // We also need to track the resolved file.
+        filesToTrack.append(resolvedFile)
         return (directoryNodesToTrack.map({ $0.asString + "/" }), filesToTrack.map({ $0.asString }))
     }
 
