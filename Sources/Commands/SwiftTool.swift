@@ -323,6 +323,10 @@ public class SwiftTool<Options: ToolOptions> {
         fatalError("Must be implemented by subclasses")
     }
 
+    func resolvedFilePath() throws -> AbsolutePath {
+        return try getPackageRoot().appending(component: "Package.resolved")
+    }
+
     /// Holds the currently active workspace.
     ///
     /// It is not initialized in init() because for some of the commands like package init , usage etc,
@@ -341,7 +345,7 @@ public class SwiftTool<Options: ToolOptions> {
         let workspace = Workspace(
             dataPath: buildPath,
             editablesPath: rootPackage.appending(component: "Packages"),
-            pinsFile: rootPackage.appending(component: "Package.resolved"),
+            pinsFile: try resolvedFilePath(),
             manifestLoader: try getManifestLoader(),
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
@@ -497,7 +501,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         let yaml = plan.buildParameters.llbuildManifest
         // Generate the llbuild manifest.
-        let llbuild = LLBuildManifestGenerator(plan)
+        let llbuild = LLBuildManifestGenerator(plan, resolvedFile: try resolvedFilePath())
         try llbuild.generateManifest(at: yaml)
 
         // Run llbuild.
