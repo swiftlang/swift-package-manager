@@ -264,6 +264,10 @@ extension InMemoryGitRepository: WorkingCheckout {
     public func checkout(newBranch: String) throws {
         history[newBranch] = head
     }
+
+    public func isAlternateObjectStoreValid() -> Bool {
+        return true
+    }
 }
 
 /// This class implement provider for in memeory git repository.
