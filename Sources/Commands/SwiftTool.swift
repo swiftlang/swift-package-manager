@@ -220,10 +220,6 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.packagePath = $1.path })
 
         binder.bind(
-            option: parser.add(option: "--enable-prefetching", kind: Bool.self, usage: ""),
-            to: { $0.shouldEnableResolverPrefetching = $1 })
-
-        binder.bind(
             option: parser.add(option: "--disable-prefetching", kind: Bool.self, usage: ""),
             to: { $0.shouldEnableResolverPrefetching = !$1 })
 
