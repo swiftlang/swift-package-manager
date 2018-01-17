@@ -43,6 +43,18 @@ struct ProductNotFoundDiagnostic: DiagnosticData {
     let productName: String
 }
 
+/// Warning when someone tries to build an automatic type product using --product option.
+struct ProductIsAutomaticDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: ProductIsAutomaticDiagnostic.self,
+        name: "org.swift.diags.product-is-automatic",
+        defaultBehavior: .warning,
+        description: { $0 <<< "'--product' cannot be used with the automatic product" <<< { "'\($0.productName)'." } <<< "Building the default target instead" }
+    )
+
+    let productName: String
+}
+
 /// Diagnostic error when the tool could not find a named target.
 struct TargetNotFoundDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
@@ -652,6 +664,12 @@ extension BuildSubset {
             guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
                 diagnostics.emit(data: ProductNotFoundDiagnostic(productName: productName))
                 return nil
+            }
+            // If the product is automatic, we build the main target because automatic products
+            // do not produce a binary right now.
+            if product.type == .library(.automatic) {
+                diagnostics.emit(data: ProductIsAutomaticDiagnostic(productName: productName))
+                return LLBuildManifestGenerator.llbuildMainTargetName
             }
             return product.llbuildTargetName
         case .target(let targetName):
