@@ -1144,15 +1144,6 @@ extension Workspace {
 
             /// A revision requirement.
             case revision(Revision, branch: String?)
-            
-            static func == (lhs: Requirement, rhs: Requirement) -> Bool {
-                switch (lhs, rhs) {
-                case (.version(let a), .version(let b)): return a == b
-                case (.revision(let a), .revision(let b)): return (a.0 == b.0) && (a.1 == b.1)
-                case (.version(_), _): return false
-                case (.revision(_), _): return false
-                }
-            }
         }
 
         /// The package is added.
@@ -1166,19 +1157,6 @@ extension Workspace {
 
         /// The package is updated.
         case updated(Requirement)
-        
-        static func == (lhs: PackageStateChange, rhs: PackageStateChange) -> Bool {
-            switch (lhs, rhs) {
-            case (.added(let a), .added(let b)): return a == b
-            case (.removed, .removed): return true
-            case (.unchanged, .unchanged): return true
-            case (.updated(let a), .updated(let b)): return a == b
-            case (.added, _): return false
-            case (.removed, _): return false
-            case (.unchanged, _): return false
-            case (.updated, _): return false
-            }
-        }
     }
 
     /// Computes states of the packages based on last stored state.
