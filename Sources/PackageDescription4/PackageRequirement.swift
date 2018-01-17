@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-extension Package.Dependency.Requirement: Equatable {
+extension Package.Dependency.Requirement {
 
     /// The requirement is specified by an exact version.
     public static func exact(_ version: Version) -> Package.Dependency.Requirement {
@@ -35,30 +35,6 @@ extension Package.Dependency.Requirement: Equatable {
     /// and going upto next minor version.
     public static func upToNextMinor(from version: Version) -> Package.Dependency.Requirement {
         return .rangeItem(version..<Version(version.major, version.minor + 1, 0))
-    }
-
-    public static func == (
-        lhs: Package.Dependency.Requirement,
-        rhs: Package.Dependency.Requirement
-    ) -> Bool {
-        switch (lhs, rhs) {
-        case (.rangeItem(let lhs), .rangeItem(let rhs)):
-            return lhs == rhs
-        case (.rangeItem, _):
-            return false
-        case (.revisionItem(let lhs), .revisionItem(let rhs)):
-            return lhs == rhs
-        case (.revisionItem, _):
-            return false
-        case (.branchItem(let lhs), .branchItem(let rhs)):
-            return lhs == rhs
-        case (.branchItem, _):
-            return false
-        case (.exactItem(let lhs), .exactItem(let rhs)):
-            return lhs == rhs
-        case (.exactItem, _):
-            return false
-        }
     }
 
     func toJSON() -> JSON {
