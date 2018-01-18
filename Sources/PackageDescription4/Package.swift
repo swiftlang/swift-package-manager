@@ -21,7 +21,7 @@ public final class Package {
     public class Dependency {
 
         /// The dependency requirement.
-        public enum Requirement: Equatable {
+        public enum Requirement {
             case exactItem(Version)
             case rangeItem(Range<Version>)
             case revisionItem(String)
@@ -107,7 +107,7 @@ public final class Package {
 }
 
 /// Represents system package providers.
-public enum SystemPackageProvider: Equatable {
+public enum SystemPackageProvider {
     case brewItem([String])
     case aptItem([String])
 
@@ -126,7 +126,20 @@ public enum SystemPackageProvider: Equatable {
 
 // MARK: Package JSON serialization
 
-extension SystemPackageProvider {
+extension SystemPackageProvider: Equatable {
+
+    public static func == (lhs: SystemPackageProvider, rhs: SystemPackageProvider) -> Bool {
+        switch (lhs, rhs) {
+        case (.brewItem(let lhs), .brewItem(let rhs)):
+            return lhs == rhs
+        case (.brewItem, _):
+            return false
+        case (.aptItem(let lhs), .aptItem(let rhs)):
+            return lhs == rhs
+        case (.aptItem, _):
+            return false
+        }
+    }
 
     func toJSON() -> JSON {
         let name: String
