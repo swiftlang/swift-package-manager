@@ -31,6 +31,10 @@ fileprivate struct Bar: JSONMappable, JSONSerializable, Equatable {
         self.str = str
         self.bool = bool
     }
+
+    public static func ==(lhs: Bar, rhs: Bar) -> Bool {
+        return lhs.str == rhs.str && lhs.bool == rhs.bool
+    }
 }
 
 fileprivate struct Foo: JSONMappable, JSONSerializable {
