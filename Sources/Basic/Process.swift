@@ -26,7 +26,7 @@ public struct ProcessResult: CustomStringConvertible {
         case nonZeroExit(ProcessResult)
     }
 
-    public enum ExitStatus: Equatable {
+    public enum ExitStatus {
         /// The process was terminated normally with a exit code.
         case terminated(code: Int32)
 
@@ -498,6 +498,21 @@ private func WEXITSTATUS(_ status: Int32) -> Int32 {
 
 private func WTERMSIG(_ status: Int32) -> Int32 {
     return status & 0x7f
+}
+
+extension ProcessResult.ExitStatus: Equatable {
+    public static func == (lhs: ProcessResult.ExitStatus, rhs: ProcessResult.ExitStatus) -> Bool {
+        switch (lhs, rhs) {
+        case (.terminated(let l), .terminated(let r)):
+            return l == r
+        case (.terminated(_), _):
+            return false
+        case (.signalled(let l), .signalled(let r)):
+            return l == r
+        case (.signalled(_), _):
+            return false
+        }
+    }
 }
 
 /// Open the given pipe.
