@@ -23,6 +23,8 @@
  layer for these properties we satisfy the above constraints.
 */
 
+import Foundation
+
 import Basic
 import PackageModel
 import PackageLoading
