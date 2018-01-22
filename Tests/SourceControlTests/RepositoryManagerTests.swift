@@ -213,6 +213,14 @@ class RepositoryManagerTests: XCTestCase {
 
             // Remove the repo.
             try manager.remove(repository: dummyRepo)
+
+            // Check removing the repo updates the persistent file.
+            do {
+                let checkoutsStateFile = path.appending(component: "checkouts-state.json")
+                let jsonData = try JSON(bytes: localFileSystem.readFileContents(checkoutsStateFile))
+                XCTAssertEqual(jsonData.dictionary?["object"]?.dictionary?["repositories"]?.dictionary?[dummyRepo.url], nil)
+            }
+
             // We should get a new handle now because we deleted the exisiting repository.
             XCTNonNil(prevHandle) {
                 try XCTAssert($0 !== manager.lookupSynchronously(repository: dummyRepo))

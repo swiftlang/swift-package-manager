@@ -350,6 +350,7 @@ public class RepositoryManager {
                 return
             }
             repositories[repository.url] = nil
+            serializedRepositories[repository.url] = nil
             let repositoryPath = path.appending(handle.subpath)
             try fileSystem.removeFileTree(repositoryPath)
             try self.persistence.saveState(self)
