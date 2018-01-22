@@ -507,6 +507,7 @@ public class SwiftTool<Options: ToolOptions> {
         } catch {
             // Regenerate the manifest if this fails for some reason.
             warning(message: "Failed to run the regeneration check: \(error)")
+            return true
         }
         return try !self.buildManifestRegenerationToken().isValid()
     }
