@@ -28,6 +28,11 @@ public struct LLBuildManifestGenerator {
     /// Path to the resolved file.
     let resolvedFile: AbsolutePath
 
+    /// The name of the build manifest renegeration node.
+    var buildManifestRegenerationNode: String {
+        return "<C.build.manifest.regeneration>"
+    }
+
     /// Create a new generator with a build plan.
     public init(_ plan: BuildPlan, resolvedFile: AbsolutePath) {
         self.plan = plan
@@ -124,7 +129,7 @@ public struct LLBuildManifestGenerator {
 
         if plan.buildParameters.shouldEnableManifestCaching {
             stream <<< "  " <<< Format.asJSON("regenerate")
-            stream <<< ": " <<< Format.asJSON([plan.buildParameters.regenerateManifestToken.asString])
+            stream <<< ": " <<< Format.asJSON([buildManifestRegenerationNode])
             stream <<< "\n"
         }
 
@@ -152,8 +157,8 @@ public struct LLBuildManifestGenerator {
             let regenerationCommand = ShellTool(
                 description: "",
                 inputs: manifestRegenerationInputs.dirs + manifestRegenerationInputs.files,
-                outputs: [plan.buildParameters.regenerateManifestToken.asString],
-                args: ["echo 1 >> " + plan.buildParameters.regenerateManifestToken.asString],
+                outputs: [buildManifestRegenerationNode],
+                args: ["echo 1 > " + plan.buildParameters.regenerateManifestToken.asString],
                 allowMissingInputs: true
             )
             stream <<< "  " <<< Format.asJSON(plan.buildParameters.regenerateManifestToken.asString) <<< ":\n"

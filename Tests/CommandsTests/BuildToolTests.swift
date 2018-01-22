@@ -188,26 +188,26 @@ final class BuildToolTests: XCTestCase {
     func testLLBuildManifestCachingBasics() {
         fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
             let fs = localFileSystem
-            let tokenFile = path.appending(components: ".build", "regenerate-token")
 
-            // Token file is initially missing.
-            try execute(["--enable-build-manifest-caching"], packagePath: path)
-            XCTAssert(!fs.isFile(tokenFile))
+            // First run should produce output.
+            var output = try execute(["--enable-build-manifest-caching"], packagePath: path)
+            XCTAssert(!output.isEmpty, output)
 
-            // Nothing changed so we should get token = 1.
-            try execute(["--enable-build-manifest-caching"], packagePath: path)
-            XCTAssertEqual(try fs.readFileContents(tokenFile), "1\n")
-            try execute(["--enable-build-manifest-caching"], packagePath: path)
-            XCTAssertEqual(try fs.readFileContents(tokenFile), "1\n")
+            // Null builds.
+            output = try execute(["--enable-build-manifest-caching"], packagePath: path)
+            XCTAssert(output.isEmpty, output)
+
+            output = try execute(["--enable-build-manifest-caching"], packagePath: path)
+            XCTAssert(output.isEmpty, output)
 
             // Adding a new file should reset the token.
             try fs.writeFileContents(path.appending(components: "Sources", "ExecutableNew", "bar.swift"), bytes: "")
-            try execute(["--enable-build-manifest-caching"], packagePath: path)
-            XCTAssert(!fs.isFile(tokenFile))
+            output = try execute(["--enable-build-manifest-caching"], packagePath: path)
+            XCTAssert(!output.isEmpty, output)
 
-            // Now we should be back to token = 1.
-            try execute(["--enable-build-manifest-caching"], packagePath: path)
-            XCTAssertEqual(try fs.readFileContents(tokenFile), "1\n")
+            // This should be another null build.
+            output = try execute(["--enable-build-manifest-caching"], packagePath: path)
+            XCTAssert(output.isEmpty, output)
         }
     }
 
