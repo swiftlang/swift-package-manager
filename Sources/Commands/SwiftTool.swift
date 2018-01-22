@@ -127,6 +127,44 @@ extension ToolName {
     }
 }
 
+/// Represents the persistent build manifest token.
+final class BuildManifestRegenerationToken {
+
+    /// Path to the token file.
+    let tokenFile: AbsolutePath
+
+    /// The filesystem being used.
+    let fs: FileSystem = localFileSystem
+
+    init(tokenFile: AbsolutePath) {
+        self.tokenFile = tokenFile
+    }
+
+    /// Returns true if the token is valid.
+    ///
+    /// A valid token means we don't need to re-generate the build manifest.
+    func isValid() -> Bool {
+        guard fs.isFile(tokenFile) else {
+            return false
+        }
+        guard let contents = try? fs.readFileContents(tokenFile) else {
+            return false
+        }
+        switch contents {
+        case "1\n":
+            return false
+        default:
+            return true
+        }
+    }
+
+    /// Sets the state of the token.
+    func set(valid: Bool) {
+        // FIXME: Error handling
+        try? fs.writeFileContents(tokenFile, bytes: valid ? "0\n" : "1\n")
+    }
+}
+
 public class SwiftTool<Options: ToolOptions> {
     /// The original working directory.
     let originalWorkingDirectory: AbsolutePath
@@ -420,18 +458,25 @@ public class SwiftTool<Options: ToolOptions> {
     /// Fetch and load the complete package graph.
     @discardableResult
     func loadPackageGraph() throws -> PackageGraph {
-        let workspace = try getActiveWorkspace()
+        do {
+            let workspace = try getActiveWorkspace()
 
-        // Fetch and load the package graph.
-        let graph = try workspace.loadPackageGraph(
-            root: getWorkspaceRoot(), diagnostics: diagnostics)
+            // Fetch and load the package graph.
+            let graph = try workspace.loadPackageGraph(
+                root: getWorkspaceRoot(), diagnostics: diagnostics)
 
-        // Throw if there were errors when loading the graph.
-        // The actual errors will be printed before exiting.
-        guard !diagnostics.hasErrors else {
-            throw Error.hasFatalDiagnostics
+            // Throw if there were errors when loading the graph.
+            // The actual errors will be printed before exiting.
+            guard !diagnostics.hasErrors else {
+                try buildManifestRegenerationToken().set(valid: false)
+                throw Error.hasFatalDiagnostics
+            }
+            try buildManifestRegenerationToken().set(valid: true)
+            return graph
+        } catch {
+            try buildManifestRegenerationToken().set(valid: false)
+            throw error
         }
-        return graph
     }
 
     /// Returns the user toolchain to compile the actual product.
@@ -443,44 +488,27 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.dematerialize()
     }
 
-    func shouldRegenerateManifest(parameters: BuildParameters) throws -> Bool {
+    func shouldRegenerateManifest() throws -> Bool {
         // Check if we are allowed to use llbuild manifest caching.
         guard options.shouldEnableManifestCaching else {
             return true
         }
         
         // Check if we need to generate the llbuild manifest.
-        var regenerateManifest = true
-        regenCheck: if localFileSystem.isFile(parameters.llbuildManifest) {
-            // Run the target which computes if regeneration is needed.
-            let args = [try getToolchain().llbuild.asString, "-f", parameters.llbuildManifest.asString, "regenerate"]
-            do {
-                try Process.checkNonZeroExit(arguments: args)
-            } catch {
-                // Regenerate the manifest if this fails for some reason.
-                warning(message: "Failed to run the regeneration check: \(error)")
-                break regenCheck
-            }
-            if !localFileSystem.isFile(parameters.regenerateManifestToken) {
-                return true
-            }
-            // Read the token file and decided if we need to rerun.
-            let token = try localFileSystem.readFileContents(parameters.regenerateManifestToken)
-            switch token {
-            case "1\n":
-                regenerateManifest = false
-            case "1\n1\n":
-                break
-            default:
-                assertionFailure("Regeneration token file has unexpected content: \(token)")
-            }
+        let parameters: BuildParameters = try self.buildParameters()
+        guard localFileSystem.isFile(parameters.llbuildManifest) else {
+            return true
         }
         
-        // Reset manifest token file if we're regenerating the manifest.
-        if regenerateManifest {
-            try localFileSystem.removeFileTree(parameters.regenerateManifestToken)
+        // Run the target which computes if regeneration is needed.
+        let args = [try getToolchain().llbuild.asString, "-f", parameters.llbuildManifest.asString, "regenerate"]
+        do {
+            try Process.checkNonZeroExit(arguments: args)
+        } catch {
+            // Regenerate the manifest if this fails for some reason.
+            warning(message: "Failed to run the regeneration check: \(error)")
         }
-        return regenerateManifest
+        return try !self.buildManifestRegenerationToken().isValid()
     }
     
     func computeLLBuildTargetName(for subset: BuildSubset) throws -> String? {
@@ -577,21 +605,36 @@ public class SwiftTool<Options: ToolOptions> {
         }
     }
 
-    /// Create build parameters.
-    func buildParameters() throws -> BuildParameters {
-        let toolchain = try getToolchain()
-        let triple = try Triple(toolchain.destination.target)
-
-        return BuildParameters(
-            dataPath: buildPath.appending(component: toolchain.destination.target),
-            configuration: options.configuration,
-            toolchain: toolchain,
-            destinationTriple: triple,
-            flags: options.buildFlags,
-            shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
-            shouldEnableManifestCaching: options.shouldEnableManifestCaching
-        )
+    func buildManifestRegenerationToken() throws -> BuildManifestRegenerationToken {
+        return try _buildManifestRegenerationToken.dematerialize()
     }
+    private lazy var _buildManifestRegenerationToken: Result<BuildManifestRegenerationToken, AnyError> = {
+        return Result(anyError: {
+            let buildParameters = try self.buildParameters()
+            return BuildManifestRegenerationToken(tokenFile: buildParameters.regenerateManifestToken)
+        })
+    }()
+
+    /// Return the build parameters.
+    func buildParameters() throws -> BuildParameters {
+        return try _buildParameters.dematerialize()
+    }
+    private lazy var _buildParameters: Result<BuildParameters, AnyError> = {
+        return Result(anyError: {
+            let toolchain = try self.getToolchain()
+            let triple = try Triple(toolchain.destination.target)
+
+            return BuildParameters(
+                dataPath: buildPath.appending(component: toolchain.destination.target),
+                configuration: options.configuration,
+                toolchain: toolchain,
+                destinationTriple: triple,
+                flags: options.buildFlags,
+                shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
+                shouldEnableManifestCaching: options.shouldEnableManifestCaching
+            )
+        })
+    }()
 
     /// Lazily compute the destination toolchain.
     private lazy var _destinationToolchain: Result<UserToolchain, AnyError> = {
