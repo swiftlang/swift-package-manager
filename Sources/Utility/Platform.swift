@@ -9,6 +9,7 @@
 */
 
 import Basic
+import Foundation
 
 public enum Platform {
     case darwin
@@ -44,8 +45,10 @@ public enum Platform {
         // Compute the directories.
         directories.append(AbsolutePath("/private/var/tmp"))
         directories.append(Basic.determineTempDirectory())
-        getconfPath(forVariable: "DARWIN_USER_TEMP_DIR").map({ directories.append($0) })
-        getconfPath(forVariable: "DARWIN_USER_CACHE_DIR").map({ directories.append($0) })
+      #if os(macOS)
+        getConfstr(_CS_DARWIN_USER_TEMP_DIR).map({ directories.append($0) })
+        getConfstr(_CS_DARWIN_USER_CACHE_DIR).map({ directories.append($0) })
+      #endif
         Platform._darwinCacheDirectories = directories
         return directories
     }
@@ -54,14 +57,12 @@ public enum Platform {
     /// Returns the value of given path variable using `getconf` utility.
     ///
     /// Note: This method returns `nil` if the value is an invalid path.
-    private static func getconfPath(forVariable variable: String) -> AbsolutePath? {
-        do {
-            let value = try Process.checkNonZeroExit(args: "getconf", variable).chomp()
-            // Value must be a valid path.
-            guard value.hasSuffix(AbsolutePath.root.asString) else { return nil }
-            return resolveSymlinks(AbsolutePath(value))
-        } catch {
-            return nil
-        }
+    private static func getConfstr(_ name: Int32) -> AbsolutePath? {
+        let len = confstr(name, nil, 0)
+        let tmp = UnsafeMutableBufferPointer(start: UnsafeMutablePointer<Int8>.allocate(capacity: len), count:len)
+        guard confstr(name, tmp.baseAddress, len) == len else { return nil }
+        let value = String(cString: tmp.baseAddress!)
+        guard value.hasSuffix(AbsolutePath.root.asString) else { return nil }
+        return resolveSymlinks(AbsolutePath(value))
     }
 }
