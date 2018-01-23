@@ -1558,6 +1558,68 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    // Test that changing a particular dependency re-resolves the graph.
+    func testChangeOneDependency() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ]
+        )
+
+        // Initial resolution.
+        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Bar", "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+
+        // Check that changing the requirement to 1.5.0 triggers re-resolution.
+        //
+        // FIXME: Find a cleaner way to change a dependency requirement.
+        let package = workspace.manifestLoader.manifests[MockManifestLoader.Key(url: "Foo")]!.package.pkg
+        package.dependencies[0] = .package(url: package.dependencies[0].url, .exact("1.5.0"))
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { (_, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "bar", at: .checkout(.version("1.5.0")))
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testCanResolveWithIncompatiblePins", testCanResolveWithIncompatiblePins),
@@ -1581,6 +1643,15 @@ final class WorkspaceTests: XCTestCase {
         ("testInterpreterFlags", testInterpreterFlags),
         ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
     ]
+}
+
+extension Manifest.RawPackage {
+    var pkg: PackageDescription4.Package {
+        switch self {
+        case .v4(let pkg): return pkg
+        default: fatalError()
+        }
+    }
 }
 
 // MARK:- Test Infrastructure
