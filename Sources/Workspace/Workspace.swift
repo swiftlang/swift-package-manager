@@ -985,7 +985,12 @@ extension Workspace {
         if missingPackageIdentities.isEmpty {
             // Use root constraints, dependency manifest constraints and extra
             // constraints to compute if a new resolution is required.
-            let dependencies = graphRoot.constraints + currentManifests.dependencyConstraints() + extraConstraints
+            let dependencies =
+                graphRoot.constraints +
+                // Include constraints from the manifests in the graph root.
+                graphRoot.manifests.flatMap({ $0.package.dependencyConstraints() }) +
+                currentManifests.dependencyConstraints() +
+                extraConstraints
 
             let result = isResolutionRequired(dependencies: dependencies, pinsStore: pinsStore)
 
