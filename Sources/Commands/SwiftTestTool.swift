@@ -196,21 +196,36 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     ///
     /// - Returns: The path to the test binary.
     private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
-        let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: loadPackageGraph())
+        // Check if we need to create the build plan.
+        if try shouldRegenerateManifest() || toolCache.testBinary == nil {
+            let buildPlan = try BuildPlan(buildParameters: buildParameters(), graph: loadPackageGraph())
+            if options.shouldBuildTests {
+                try self.build(plan: buildPlan, subset: .allIncludingTests)
+            }
+            guard let testProduct = buildPlan.buildProducts.first(where: { $0.product.type == .test }) else {
+                throw TestError.testsExecutableNotFound
+            }
+
+            // Go up the folder hierarchy until we find the .xctest bundle.
+            let testBinary = sequence(first: testProduct.binary, next: {
+                $0.isRoot ? nil : $0.parentDirectory
+            }).first(where: {
+                $0.basename.hasSuffix(".xctest")
+            })!
+
+            // Cache the test binary path.
+            toolCache.testBinary = testBinary
+
+            return testBinary
+        }
+
+        // Build the tests if needed.
         if options.shouldBuildTests {
-            try build(plan: buildPlan, subset: .allIncludingTests)
+            try self.build(parameters: buildParameters(), subset: .allIncludingTests)
         }
 
-        guard let testProduct = buildPlan.buildProducts.first(where: { $0.product.type == .test }) else {
-            throw TestError.testsExecutableNotFound
-        }
-
-        // Go up the folder hierarchy until we find the .xctest bundle.
-        return sequence(first: testProduct.binary, next: {
-            $0.isRoot ? nil : $0.parentDirectory
-        }).first(where: {
-            $0.basename.hasSuffix(".xctest")
-        })!
+        // Use the test binary from cache.
+        return toolCache.testBinary!
     }
 
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<TestToolOptions>) {

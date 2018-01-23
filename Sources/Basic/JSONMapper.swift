@@ -124,3 +124,12 @@ extension Double: JSONMappable {
         self = double
     }
 }
+
+extension AbsolutePath: JSONMappable {
+    public init(json: JSON) throws {
+        guard case .string(let string) = json else {
+            throw JSON.MapError.custom(key: nil, message: "expected string, got \(json)")
+        }
+        self = AbsolutePath(string)
+    }
+}

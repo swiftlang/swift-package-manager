@@ -165,6 +165,53 @@ final class BuildManifestRegenerationToken {
     }
 }
 
+/// Persisted tool cache.
+final class SwiftToolCache: SimplePersistanceProtocol {
+
+    /// Path to the test binary.
+    var testBinary: AbsolutePath? {
+        didSet {
+            // FIXME: Error handling.
+            try? save()
+        }
+    }
+
+    private let fs: FileSystem
+    private let persistence: SimplePersistence
+
+    init(dataDir: AbsolutePath, fs: FileSystem = localFileSystem) {
+        self.testBinary = nil
+        self.fs = fs
+        self.persistence = SimplePersistence(
+            fileSystem: fs,
+            schemaVersion: 1,
+            statePath: dataDir.appending(component: "tool-cache.json"),
+            prettyPrint: false
+        )
+
+        do {
+            try self.persistence.restoreState(self)
+        } catch {
+            // FIXME: We should emit a warning here using the diagnostic engine.
+            print("\(error)")
+        }
+    }
+
+    func restore(from json: JSON) throws {
+        self.testBinary = json.get("testBinary")
+    }
+
+    func toJSON() -> JSON {
+        return JSON([
+            "testBinary": testBinary.toJSON(),
+        ])
+    }
+
+    func save() throws {
+        try self.persistence.saveState(self)
+    }
+}
+
 public class SwiftTool<Options: ToolOptions> {
     /// The original working directory.
     let originalWorkingDirectory: AbsolutePath
@@ -206,6 +253,9 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
+
+    /// Tool's cached data.
+    let toolCache: SwiftToolCache
 
     /// Create an instance of this tool.
     ///
@@ -359,6 +409,7 @@ public class SwiftTool<Options: ToolOptions> {
         self.buildPath = getEnvBuildPath() ??
             customBuildPath ??
             (packageRoot ?? currentWorkingDirectory).appending(component: ".build")
+        self.toolCache = SwiftToolCache(dataDir: self.buildPath)
         
         if options.chdir != nil {
             diagnostics.emit(data: ChdirDeprecatedDiagnostic())
