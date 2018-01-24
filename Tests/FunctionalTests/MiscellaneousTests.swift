@@ -25,6 +25,29 @@ class MiscellaneousTestCase: XCTestCase {
         return Destination.hostDynamicLibraryExtension
     }
 
+    func testStaleFileRemoval() throws {
+        fixture(name: "Miscellaneous/StaleFileRemoval") { prefix in
+            var fs = localFileSystem
+            let fooBuild = prefix.appending(components: ".build", "debug", "Foo.build")
+            let barBuild = prefix.appending(components: ".build", "debug", "Bar.build")
+
+            // Build and expect Foo.build.
+            try executeSwiftBuild(prefix, configuration: .Debug)
+            XCTAssertTrue(fs.exists(fooBuild))
+
+            // Change the target name from Foo to Bar.
+            let manifest = prefix.appending(component: "Package.swift")
+            var manifestContents = try fs.readFileContents(manifest).asString!
+            manifestContents = manifestContents.replacingOccurrences(of: "Foo", with: "Bar")
+            try fs.writeFileContents(manifest, bytes: ByteString(encodingAsUTF8: manifestContents))
+
+            // Build and expect Foo.build to be replaced by Bar.build.
+            try executeSwiftBuild(prefix, configuration: .Debug)
+            XCTAssertTrue(fs.exists(barBuild))
+            XCTAssertFalse(fs.exists(fooBuild))
+        }
+    }
+
     func testPrintsSelectedDependencyVersion() {
 
         // verifies the stdout contains information about
@@ -396,5 +419,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testPkgConfigClangModules", testPkgConfigClangModules),
         ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),
         ("testReportingErrorFromGitCommand", testReportingErrorFromGitCommand),
+        ("testStaleFileRemoval", testStaleFileRemoval),
     ]
 }

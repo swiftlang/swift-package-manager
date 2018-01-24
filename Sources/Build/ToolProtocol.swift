@@ -94,6 +94,27 @@ struct ArchiveTool: ToolProtocol {
     }
 }
 
+struct SlateFileRemovalTool: ToolProtocol {
+    let inputs: [String] = []
+    let outputs: [String]
+    let roots: [String]
+    let expectedOutputs: [String]
+
+    init(outputs: [String], roots: [String], expectedOutputs: [String]) {
+        self.outputs = outputs
+        self.roots = roots
+        self.expectedOutputs = expectedOutputs
+    }
+
+    func append(to stream: OutputByteStream) {
+        stream <<< "    tool: stale-file-removal\n"
+        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
+        stream <<< "    expectedOutputs: " <<< Format.asJSON(expectedOutputs) <<< "\n"
+        stream <<< "    roots: " <<< Format.asJSON(roots) <<< "\n"
+    }
+}
+
 /// Swift compiler llbuild tool.
 struct SwiftCompilerTool: ToolProtocol {
 
