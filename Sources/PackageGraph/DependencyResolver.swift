@@ -1292,6 +1292,11 @@ private struct ResolverDebugger<
             }
         }
 
+        // Remove the unversioned constraints which may be added as result of the above loop.
+        dependencies = dependencies.filter({ dep in
+            return !inputDependencies.contains(where: { $0.identifier == dep.identifier && $0.requirement == .unversioned })
+        })
+
         // Put the resolver in incomplete mode to avoid cloning new repositories.
         resolver.isInIncompleteMode = true
 
