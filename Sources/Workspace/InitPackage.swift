@@ -271,12 +271,12 @@ public final class InitPackage {
         try writePackageFile(testsPath.appending(component: "LinuxMain.swift")) { stream in
             stream <<< """
                 import XCTest
-                @testable import \(moduleName)Tests
 
-                XCTMain([
-                    testCase(\(typeName)Tests.allTests),
-                ])
+                import \(moduleName)Tests
 
+                var tests = [XCTestCaseEntry]()
+                tests += \(moduleName)Tests.allTests()
+                XCTMain(tests)
                 """
         }
     }
@@ -290,8 +290,8 @@ public final class InitPackage {
             stream <<< """
                 import XCTest
                 @testable import \(moduleName)
-                
-                class \(moduleName)Tests: XCTestCase {
+
+                final class \(moduleName)Tests: XCTestCase {
                     func testExample() {
                         // This is an example of a functional test case.
                         // Use XCTAssert and related functions to verify your tests produce the correct
@@ -305,6 +305,20 @@ public final class InitPackage {
                     ]
                 }
 
+                """
+        }
+
+        try writePackageFile(testModule.appending(component: "XCTestManifests.swift")) { stream in
+            stream <<< """
+                import XCTest
+
+                #if !os(macOS)
+                public func allTests() -> [XCTestCaseEntry] {
+                    return [
+                        testCase(\(moduleName)Tests.allTests),
+                    ]
+                }
+                #endif
                 """
         }
     }
