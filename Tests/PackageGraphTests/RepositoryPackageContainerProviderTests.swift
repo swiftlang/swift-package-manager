@@ -14,7 +14,7 @@ import Basic
 import class PackageDescription.Package
 import PackageLoading
 import PackageModel
-import PackageGraph
+@testable import PackageGraph
 import SourceControl
 
 import TestSupport
@@ -313,7 +313,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let provider = createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference(identity: "foo", path: specifier.url)
             let container = try await { provider.getContainer(for: ref, completion: $0) }
+            XCTAssertEqual((container as! RepositoryPackageContainer).validToolsVersionsCache, [:])
             let v = container.versions(filter: { _ in true }).map{$0}
+            XCTAssertEqual((container as! RepositoryPackageContainer).validToolsVersionsCache, ["1.0.1": true, "1.0.0": true, "1.0.2": true])
             XCTAssertEqual(v, ["1.0.2", "1.0.1", "1.0.0"])
         }
 
