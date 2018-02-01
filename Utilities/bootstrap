@@ -846,6 +846,8 @@ def main():
                         help="Also generate an Xcode project for SwiftPM")
     parser.add_argument("--test-parallel", action="store_true",
                         help="Run tests in parallel")
+    parser.add_argument("--test-filter", action="append",
+                        help="Filter on a given test", default=[])
     parser.add_argument("--enable-perf-tests", action="store_true",
                         help="Enables performance tests in the generated Xcode project")
     parser.add_argument("--vendor-name", dest="vendor_name",
@@ -1074,6 +1076,8 @@ def main():
         cmd = env_cmd + [swift_test_path] + build_flags
         if args.test_parallel:
             cmd.append("--parallel")
+        for arg in args.test_filter:
+            cmd.extend(["--filter", arg])
         note("testing with command: %s" % (
             ' '.join(cmd),))
         result = subprocess.call(cmd, cwd=g_project_root)
