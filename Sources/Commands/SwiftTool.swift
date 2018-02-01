@@ -274,6 +274,10 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.shouldEnableResolverPrefetching = !$1 })
 
         binder.bind(
+            option: parser.add(option: "--skip-update", kind: Bool.self, usage: "Skip updating dependencies from their remote during a resolution"),
+            to: { $0.skipDependencyUpdate = $1 })
+
+        binder.bind(
             option: parser.add(option: "--disable-sandbox", kind: Bool.self,
             usage: "Disable using the sandbox when executing subprocesses"),
             to: { $0.shouldDisableSandbox = $1 })
@@ -396,7 +400,8 @@ public class SwiftTool<Options: ToolOptions> {
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
             repositoryProvider: provider,
-            isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching
+            isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
+            skipUpdate: options.skipDependencyUpdate
         )
         _workspace = workspace
         return workspace
