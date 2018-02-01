@@ -55,7 +55,7 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
 }
 
 /// An abstract definition for a set of versions.
-public enum VersionSetSpecifier: Equatable, CustomStringConvertible {
+public enum VersionSetSpecifier: Hashable, CustomStringConvertible {
     /// The universal set.
     case any
 
@@ -97,6 +97,22 @@ public enum VersionSetSpecifier: Equatable, CustomStringConvertible {
                 return rhs
             }
             return .empty
+        }
+    }
+
+    public var hashValue: Int {
+        switch (self) {
+        case .any:
+            return 0xB58D
+
+        case .empty:
+            return 0x7121
+
+        case .range(let range):
+            return 0x4CF3 ^ (range.lowerBound.hashValue &* 31) ^ range.upperBound.hashValue
+
+        case .exact(let version):
+            return 0xD04F ^ version.hashValue
         }
     }
 
@@ -269,7 +285,7 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
     public typealias Identifier = T
 
     /// The requirement of this constraint.
-    public enum Requirement: Equatable {
+    public enum Requirement: Hashable {
 
         /// The requirement is specified by the version set.
         case versionSet(VersionSetSpecifier)
@@ -301,6 +317,19 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
                 return lhs == rhs
             case (.versionSet, _):
                 return false
+            }
+        }
+
+        public var hashValue: Int {
+            switch self {
+            case .versionSet(let set):
+                return 0x11FB ^ set.hashValue
+
+            case .revision(let str):
+                return 0xE2F3 ^ str.hashValue
+
+            case .unversioned:
+                return 0x8E7F
             }
         }
     }
@@ -403,7 +432,7 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
 // `PackageContainerConstraint`s. That won't work if we decide this should
 // eventually map based on the `Container` rather than the `Identifier`, though,
 // so they are separate for now.
-public struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
+public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Hashable {
     public typealias Container = C
     public typealias Identifier = Container.Identifier
     public typealias Requirement = PackageContainerConstraint<Identifier>.Requirement
@@ -435,6 +464,14 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
     /// Get the version set specifier associated with the given package `identifier`.
     subscript(identifier: Identifier) -> Requirement {
         return constraints[identifier] ?? .versionSet(.any)
+    }
+
+    public var hashValue: Int {
+        var result = 0
+        for c in self.constraints {
+            result = result &* 31 ^ c.key.hashValue &* 0x62F ^ c.value.hashValue
+        }
+        return result
     }
 
     /// Create a constraint set by merging the `requirement` for container `identifier`.
@@ -837,6 +874,23 @@ public class DependencyResolver<
     // FIXME: @testable private
     var error: Swift.Error?
 
+    /// Key used to cache a resolved subtree.
+    private struct ResolveSubtreeCacheKey: Hashable {
+        let container: Container
+        let allConstraints: ConstraintSet
+
+        var hashValue: Int {
+            return container.identifier.hashValue ^ allConstraints.hashValue
+        }
+
+        static func ==(lhs: ResolveSubtreeCacheKey, rhs: ResolveSubtreeCacheKey) -> Bool {
+            return lhs.container.identifier == rhs.container.identifier && lhs.allConstraints == rhs.allConstraints
+        }
+    }
+
+    /// Cache for subtree resolutions.
+    private var _resolveSubtreeCache: [ResolveSubtreeCacheKey: AnySequence<AssignmentSet>] = [:]
+    
     /// Puts the resolver in incomplete mode.
     ///
     /// In this mode, no new containers will be requested from the provider.
@@ -989,6 +1043,21 @@ public class DependencyResolver<
         subjectTo allConstraints: ConstraintSet,
         excluding allExclusions: [Identifier: Set<Version>]
     ) -> AnySequence<AssignmentSet> {
+        // The key that is used to cache this assignement set.
+        let cacheKey = ResolveSubtreeCacheKey(container: container, allConstraints: allConstraints)
+
+        // Check if we have a cache hit for this subtree resolution.
+        //
+        // Note: We don't include allExclusions in the cache key so we ignore
+        // the cache if its non-empty.
+        //
+        // FIXME: We can improve the cache miss rate here if we have a cached
+        // entry with a broader constraint set. The cached sequence can be
+        // filtered according to the new narrower constraint set.
+        if allExclusions.isEmpty, let assignments = _resolveSubtreeCache[cacheKey] {
+            return assignments
+        }
+        
         func validVersions(_ container: Container, in versionSet: VersionSetSpecifier) -> AnySequence<Version> {
             let exclusions = allExclusions[container.identifier] ?? Set()
             return AnySequence(container.versions(filter: {
@@ -1015,26 +1084,27 @@ public class DependencyResolver<
             }))
         }
 
+        var result: AnySequence<AssignmentSet>
         switch allConstraints[container.identifier] {
         case .unversioned:
             guard let constraints = self.safely({ try container.getUnversionedDependencies() }) else {
                 return AnySequence([])
             }
             // Merge the dependencies of unversioned constraint into the assignment.
-            return merge(constraints: constraints, binding: .unversioned)
+            result = merge(constraints: constraints, binding: .unversioned)
 
         case .revision(let identifier):
             guard let constraints = self.safely({ try container.getDependencies(at: identifier) }) else {
                 return AnySequence([])
             }
-            return merge(constraints: constraints, binding: .revision(identifier))
+            result = merge(constraints: constraints, binding: .revision(identifier))
 
         case .versionSet(let versionSet):
             // The previous valid version that was picked.
             var previousVersion: Version? = nil
 
             // Attempt to select each valid version in the preferred order.
-            return AnySequence(validVersions(container, in: versionSet).lazy
+            result = AnySequence(validVersions(container, in: versionSet).lazy
                 .flatMap({ version -> AnySequence<AssignmentSet> in
                     assert(previousVersion != nil ? previousVersion! > version : true,
                            "container versions are improperly ordered")
@@ -1075,6 +1145,13 @@ public class DependencyResolver<
                     return merge(constraints: constraints, binding: .version(version))
                 }))
         }
+
+        if allExclusions.isEmpty {
+            // Ensure we can cache this sequence.
+            result = AnySequence(CacheableSequence(result))
+            _resolveSubtreeCache[cacheKey] = result
+        }
+        return result
     }
 
     /// Find all solutions for `constraints` with the results merged into the `assignment`.
