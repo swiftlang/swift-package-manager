@@ -256,6 +256,9 @@ public class Workspace {
     /// Enable prefetching containers in resolver.
     fileprivate let isResolverPrefetchingEnabled: Bool
 
+    /// Skip updating containers while fetching them.
+    fileprivate let skipUpdate: Bool
+
     /// Typealias for dependency resolver we use in the workspace.
     fileprivate typealias PackageDependencyResolver = DependencyResolver<RepositoryPackageContainerProvider, WorkspaceResolverDelegate>
 
@@ -283,7 +286,8 @@ public class Workspace {
         delegate: WorkspaceDelegate,
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
-        isResolverPrefetchingEnabled: Bool = false
+        isResolverPrefetchingEnabled: Bool = false,
+        skipUpdate: Bool = false
     ) {
         self.delegate = delegate
         self.dataPath = dataPath
@@ -292,6 +296,7 @@ public class Workspace {
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
         self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
+        self.skipUpdate = skipUpdate
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(
@@ -1261,7 +1266,9 @@ extension Workspace {
     fileprivate func createResolver() -> PackageDependencyResolver {
         let resolverDelegate = WorkspaceResolverDelegate()
         return DependencyResolver(containerProvider, resolverDelegate,
-            isPrefetchingEnabled: isResolverPrefetchingEnabled)
+            isPrefetchingEnabled: isResolverPrefetchingEnabled,
+            skipUpdate: skipUpdate
+        )
     }
 
     /// Runs the dependency resolver based on constraints provided and returns the results.

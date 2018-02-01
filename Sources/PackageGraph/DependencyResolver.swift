@@ -830,6 +830,9 @@ public class DependencyResolver<
     /// Should resolver prefetch the containers.
     private let isPrefetchingEnabled: Bool
 
+    /// Skip updating containers while fetching them.
+    private let skipUpdate: Bool
+
     /// Contains any error encountered during dependency resolution.
     // FIXME: @testable private
     var error: Swift.Error?
@@ -844,10 +847,16 @@ public class DependencyResolver<
     /// Note that the input constraints will always be fetched.
     public var isInIncompleteMode = false
 
-    public init(_ provider: Provider, _ delegate: Delegate? = nil, isPrefetchingEnabled: Bool = false) {
+    public init(
+        _ provider: Provider,
+        _ delegate: Delegate? = nil,
+        isPrefetchingEnabled: Bool = false,
+        skipUpdate: Bool = false
+    ) {
         self.provider = provider
         self.delegate = delegate
         self.isPrefetchingEnabled = isPrefetchingEnabled
+        self.skipUpdate = skipUpdate
     }
 
     /// The dependency resolver result.
@@ -1217,7 +1226,7 @@ public class DependencyResolver<
             }
 
             // Otherwise, fetch the container synchronously.
-            let container = try await { provider.getContainer(for: identifier, skipUpdate: false, completion: $0) }
+            let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
             self._fetchedContainers[identifier] = Basic.Result(container)
             return container
         }
@@ -1237,7 +1246,7 @@ public class DependencyResolver<
                 // Otherwise, record that we're prefetching this container.
                 _prefetchingContainers.insert(identifier)
 
-                provider.getContainer(for: identifier, skipUpdate: false) { container in
+                provider.getContainer(for: identifier, skipUpdate: skipUpdate) { container in
                     self.fetchCondition.whileLocked {
                         // Update the structures and signal any thread waiting
                         // on prefetching to finish.
