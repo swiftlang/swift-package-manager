@@ -879,8 +879,8 @@ public class DependencyResolver<
         do {
             // Reset the incomplete mode and run the resolver.
             self.isInIncompleteMode = false
-            let constraints = dependencies + pins
-            return try .success(resolve(constraints: constraints))
+            let constraints = dependencies
+            return try .success(resolve(constraints: constraints, pins: pins))
         } catch DependencyResolverError.unsatisfiable {
             // FIXME: can we avoid this do..catch nesting?
             do {
@@ -903,8 +903,8 @@ public class DependencyResolver<
     ///                  constraints for the same container identifier.
     /// - Returns: A satisfying assignment of containers and their version binding.
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
-    public func resolve(constraints: [Constraint]) throws -> [(container: Identifier, binding: BoundVersion)] {
-        return try resolveAssignment(constraints: constraints).map({ assignment in
+    public func resolve(constraints: [Constraint], pins: [Constraint] = []) throws -> [(container: Identifier, binding: BoundVersion)] {
+        return try resolveAssignment(constraints: constraints, pins: pins).map({ assignment in
             let (container, binding) = assignment
             let identifier = try self.isInIncompleteMode ? container.identifier : container.getUpdatedIdentifier(at: binding)
             // Get the updated identifier from the container.
@@ -919,13 +919,30 @@ public class DependencyResolver<
     ///                  constraints for the same container identifier.
     /// - Returns: A satisfying assignment of containers and versions.
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
-    func resolveAssignment(constraints: [Constraint]) throws -> AssignmentSet {
+    func resolveAssignment(constraints: [Constraint], pins: [Constraint] = []) throws -> AssignmentSet {
+
+        // Create a constraint set with the input pins.
+        var allConstraints = ConstraintSet()
+        for constraint in pins {
+            if let merged = allConstraints.merging(constraint) {
+                allConstraints = merged
+            } else {
+                // FIXME: We should issue a warning if the pins can't be merged
+                // for some reason.
+            }
+        }
+
         // Create an assignment for the input constraints.
         let mergedConstraints = merge(
             constraints: constraints,
             into: AssignmentSet(),
-            subjectTo: ConstraintSet(),
+            subjectTo: allConstraints,
             excluding: [:])
+
+        // Prefetch the pins.
+        if !isInIncompleteMode && isPrefetchingEnabled {
+            prefetch(containers: pins.map({ $0.identifier }))
+        }
 
         guard let assignment = mergedConstraints.first(where: { _ in true }) else {
             // Throw any error encountered during resolution.
@@ -1368,7 +1385,7 @@ private struct ResolverDebugger<
     /// Returns true if the constraints are satisfiable.
     func satisfies(_ constraints: [Constraint]) throws -> Bool {
         do {
-            _ = try resolver.resolve(constraints: constraints)
+            _ = try resolver.resolve(constraints: constraints, pins: [])
             return true
         } catch DependencyResolverError.unsatisfiable {
             return false
