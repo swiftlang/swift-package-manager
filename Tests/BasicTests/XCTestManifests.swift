@@ -15,6 +15,7 @@ public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(AwaitTests.allTests),
         testCase(ByteStringTests.allTests),
+        testCase(CacheableSequenceTests.allTests),
         testCase(CollectionAlgorithmsTests.allTests),
         testCase(CollectionExtensionsTests.allTests),
         testCase(ConditionTests.allTests),
