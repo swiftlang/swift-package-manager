@@ -9,6 +9,7 @@
 */
 
 import Basic
+import Foundation
 
 /// Get clang's version from the given version output string on Ubuntu.
 public func getClangVersion(versionOutput: String) -> (major: Int, minor: Int)? {
@@ -29,4 +30,15 @@ public func getClangVersion(versionOutput: String) -> (major: Int, minor: Int)? 
         return nil
     }
     return (major, minor)
+}
+
+/// Prints the time taken to execute a closure.
+///
+/// Note: Only for debugging purposes.
+public func measure<T>(_ label: String = "", _ f: () throws -> (T)) rethrows -> T {
+    let startTime = Date()
+    let result = try f()
+    let endTime = Date().timeIntervalSince(startTime)
+    print("\(label): Time taken", endTime)
+    return result
 }
