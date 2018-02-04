@@ -95,7 +95,7 @@ For additional documentation on developing the Swift Package Manager itself, see
 
 If you have any trouble with the package manager, help is available. We recommend:
 
-* The [Swift Forums](https://forums.swift.org/c/development/SwiftPM)
+* The [Swift Forums](https://forums.swift.org/c/swift-users)
 * Our [bug tracker](http://bugs.swift.org)
 
 If you’re not comfortable sharing your question with the list, contact details for the code owners can be found in [CODE_OWNERS.txt](CODE_OWNERS.txt); however, the mailing list is usually the best place to go for help.
