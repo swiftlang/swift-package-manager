@@ -13,6 +13,7 @@ import class Foundation.ProcessInfo
 import Basic
 import Build
 import Utility
+import PackageGraph
 
 import func POSIX.exit
 
@@ -73,6 +74,10 @@ public class TestToolOptions: ToolOptions {
             return .listTests
         }
 
+        if shouldGenerateLinuxMain {
+            return .generateLinuxMain
+        }
+
         return .runSerial
     }
 
@@ -84,6 +89,9 @@ public class TestToolOptions: ToolOptions {
 
     /// List the tests and exit.
     var shouldListTests = false
+
+    /// Generate LinuxMain entries and exit.
+    var shouldGenerateLinuxMain = false
 
     var testCaseSpecifier: TestCaseSpecifier = .none
 }
@@ -103,6 +111,7 @@ public enum TestCaseSpecifier {
 public enum TestMode {
     case version
     case listTests
+    case generateLinuxMain
     case runSerial
     case runParallel
 }
@@ -121,13 +130,14 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     }
 
     override func runImpl() throws {
+        let graph = try loadPackageGraph()
 
         switch options.mode {
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
 
         case .listTests:
-            let testPath = try buildTestsIfNeeded(options)
+            let testPath = try buildTestsIfNeeded(options, graph: graph)
             let testSuites = try getTestSuites(path: testPath)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
@@ -136,8 +146,17 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 print(test.specifier)
             }
 
+        case .generateLinuxMain:
+          #if os(Linux)
+            warning(message: "can't discover new tests on Linux; please use this option on macOS instead")
+          #endif
+            let testPath = try buildTestsIfNeeded(options, graph: graph)
+            let testSuites = try getTestSuites(path: testPath)
+            let generator = LinuxMainGenerator(graph: graph, testSuites: testSuites)
+            try generator.generate()
+
         case .runSerial:
-            let testPath = try buildTestsIfNeeded(options)
+            let testPath = try buildTestsIfNeeded(options, graph: graph)
             var ranSuccessfully = true
 
             switch options.testCaseSpecifier {
@@ -172,7 +191,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             }
 
         case .runParallel:
-            let testPath = try buildTestsIfNeeded(options)
+            let testPath = try buildTestsIfNeeded(options, graph: graph)
             let testSuites = try getTestSuites(path: testPath)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
@@ -195,8 +214,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     /// Builds the "test" target if enabled in options.
     ///
     /// - Returns: The path to the test binary.
-    private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
-        let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: loadPackageGraph())
+    private func buildTestsIfNeeded(_ options: TestToolOptions, graph: PackageGraph) throws -> AbsolutePath {
+        let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: graph)
         if options.shouldBuildTests {
             try build(plan: buildPlan, subset: .allIncludingTests)
         }
@@ -224,6 +243,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             option: parser.add(option: "--list-tests", shortName: "-l", kind: Bool.self,
                 usage: "Lists test methods in specifier format"),
             to: { $0.shouldListTests = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--generate-linuxmain", kind: Bool.self,
+                usage: "Generate LinuxMain.swift entries for the package"),
+            to: { $0.shouldGenerateLinuxMain = $1 })
 
         binder.bind(
             option: parser.add(option: "--parallel", kind: Bool.self,
