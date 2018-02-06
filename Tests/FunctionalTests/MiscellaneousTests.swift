@@ -377,6 +377,58 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testSwiftTestLinuxMainGeneration() throws {
+      #if os(macOS)
+        fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+            let fs = localFileSystem
+            try SwiftPMProduct.SwiftTest.execute(["--generate-linuxmain"], packagePath: prefix)
+
+            // Check linux main.
+            let linuxMain = prefix.appending(components: "Tests", "LinuxMain.swift")
+            XCTAssertEqual(try fs.readFileContents(linuxMain), """
+                import XCTest
+
+                import ParallelTestsPkgTests
+
+                var tests = [XCTestCaseEntry]()
+                tests += ParallelTestsPkgTests.__allTests()
+
+                XCTMain(tests)
+
+                """)
+
+            // Check test manifest.
+            let testManifest = prefix.appending(components: "Tests", "ParallelTestsPkgTests", "XCTestManifests.swift")
+            XCTAssertEqual(try fs.readFileContents(testManifest), """
+                import XCTest
+
+                extension ParallelTestsFailureTests {
+                    static let __allTests = [
+                        ("testSureFailure", testSureFailure),
+                    ]
+                }
+                
+                extension ParallelTestsTests {
+                    static let __allTests = [
+                        ("testExample1", testExample1),
+                        ("testExample2", testExample2),
+                    ]
+                }
+                
+                #if !os(macOS)
+                public func __allTests() -> [XCTestCaseEntry] {
+                    return [
+                        testCase(ParallelTestsFailureTests.__allTests),
+                        testCase(ParallelTestsTests.__allTests),
+                    ]
+                }
+                #endif
+
+                """)
+        }
+      #endif
+    }
+
     static var allTests = [
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
         ("testPackageWithNoSources", testPackageWithNoSources),
@@ -396,5 +448,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testPkgConfigClangModules", testPkgConfigClangModules),
         ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),
         ("testReportingErrorFromGitCommand", testReportingErrorFromGitCommand),
+        ("testSwiftTestLinuxMainGeneration", testSwiftTestLinuxMainGeneration),
     ]
 }
