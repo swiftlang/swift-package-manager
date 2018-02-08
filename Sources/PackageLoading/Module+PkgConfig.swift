@@ -160,8 +160,10 @@ func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws
         }
         return filtered
     }
-    let filtered = filter(flags: flags.cFlags, filters: ["-I", "-F"]) +
+
+    let filtered = filter(flags: flags.cFlags, filters: ["-I", "-F", "-rdynamic"]) +
       filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework", "-w"])
+  
     guard filtered.isEmpty else {
         throw PkgConfigError.nonWhitelistedFlags("Non whitelisted flags found: \(filtered) in pc file \(pcFile)")
     }
