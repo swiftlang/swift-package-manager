@@ -378,6 +378,19 @@ public class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    /// Returns true if there is an alternative object store in the repository and it is valid.
+    public func isAlternateObjectStoreValid() -> Bool {
+        let objectStoreFile = path.appending(components: ".git", "objects", "info", "alternates")
+        guard let bytes = try? localFileSystem.readFileContents(objectStoreFile) else {
+            return false
+        }
+        let split = bytes.contents.split(separator: UInt8(ascii: "\n"), maxSplits: 1, omittingEmptySubsequences: false)
+        guard let firstLine = ByteString(split[0]).asString else {
+            return false
+        }
+        return localFileSystem.isDirectory(AbsolutePath(firstLine))
+    }
+
     // MARK: Git Operations
 
     /// Resolve a "treeish" to a concrete hash.

@@ -1,4 +1,5 @@
 import Dispatch
+import Foundation
 
 import Basic
 import POSIX

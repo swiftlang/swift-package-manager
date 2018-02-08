@@ -14,9 +14,8 @@
   * [Handling version-specific logic](#handling-version-specific-logic)
   * [Editable Packages](#editable-packages)
   * [Top of Tree Development](#top-of-tree-development)
-  * [Package Pinning](#package-pinning)
+  * [Resolved versions (Package.resolved file)](#resolved-versions-packageresolved-file)
   * [Swift Tools Version](#swift-tools-version)
-  * [Prefetching Dependencies](#prefetching-dependencies)
   * [Testing](#testing)
   * [Running](#running)
   * [Build Configurations](#build-configurations)
@@ -489,10 +488,8 @@ put the dependency Foo in `Packages/` directory.
 This is similar to previous version except that the Package Manager will leave
 the dependency at a detached HEAD on the specified revision.
 
-Note: It is necessary to provide either a branch or revision option. The
-rationale here is that checking out the currently resolved version would leave
-the repository on a detached HEAD, which is confusing. Explicit options makes
-the action predictable for user.
+Note: If branch or revision option is not provided, the Package Manager will
+checkout the currently resolved version on a detached HEAD.
 
 Once a package is in an editable state, you can navigate to the directory
 `Packages/Foo` to make changes, build and then push the changes or open a pull
@@ -543,116 +540,41 @@ Use unedit command to stop using the local checkout:
     # Example:
     $ swift package unedit Bar
 
-## Package Pinning
+## Resolved versions (Package.resolved file)
 
-Swift package manager has package pinning feature, also called _dependency
-locking_ in some dependency managers. Pinning refers to the practice of
-controlling exactly which specific version of a dependency is selected by the
-dependency resolution algorithm, independent from the semantic versioning
-specification. Thus, it is a way of instructing the package manager to select a
-particular version from among all of the versions of a package which could be
-chosen while honoring the dependency constraints. 
+The package manager records the result of dependency resolution in
+a `Package.resolved` file in the top-level package, and when this file is
+already present in the top-level package it is used when performing dependency
+resolution, rather than the package manager finding the latest eligible version
+of each package. Running `swift package update` updates all dependencies to the
+latest eligible versions and update the `Package.resolved` file accordingly.
 
-The package manager uses a file named `Package.pins`("pins file") to record the
-pinning information. The exact file format is unspecified/implementation
-defined, however, in practice it is a JSON data file. This file may be checked
-into SCM by the user, so that its effects apply to all users of the package.
-However, it may also be maintained only locally (e.g., placed in the
-`.gitignore` file). We intend to leave it to package authors to decide which
-use case is best for their project. We will recommend that it not be checked in
-by library authors, at least for released versions, since pins are not
-inherited and thus this information may be confusing.
+Resolved versions will always be recorded by the package manager. Some users may
+choose to add the Package.resolved file to their package's .gitignore file. When
+this file is checked in, it allows a team to coordinate on what versions of the
+dependencies they should use. If this file is gitignored, each user will
+separately choose when to get new versions based on when they run the swift
+package update command, and new users will start with the latest eligible
+version of each dependency. Either way, for a package which is a dependency of
+other packages (e.g. a library package), that package's `Package.resolved` file
+will not have any effect on its client packages.
 
-In the presence of a top-level `Package.pins` file, the package manager will
-respect the pinned dependencies recorded in the file whenever it needs to do
-dependency resolution (e.g., on the initial checkout or when updating).
-In the absence of a top-level `Package.pins` file, the package manager will
-operate based purely on the requirements specified in the package manifest, but
-will then automatically record the choices it makes into a `Package.pins` file
-as part of the _automatic pinning_ feature. 
+The `swift package resolve` command resolves the dependencies, taking into
+account the current version restrictions in the `Package.swift` manifest and
+`Package.resolved` resolved versions file, and issuing an error if the graph
+cannot be resolved. For packages which have previously resolved versions
+recorded in the `Package.resolved` file, the resolve command will resolve to
+those versions as long as they are still eligible. If the resolved versions file
+changes (e.g.  because a teammate pushed a new version of the file) the next
+resolve command will update packages to match that file. After a successful
+resolve command, the checked out versions of all dependencies and the versions
+recorded in the resolved versions file will match. In most cases the resolve
+command will perform no changes unless the `Package.swift manifest or
+`Package.resolved` file have changed.
 
-### Automatic Pinning
-
-The package manager has automatic pinning enabled by default (this is
-equivalent to `swift package pin --enable-autopin`). The package manager will
-automatically record all package dependencies in the pins file. Package project
-owners can choose to disable this if they wish to have more fine grained
-control over their pinning behavior, for e.g. pin only certain dependencies.
-
-The automatic pinning behavior works as follows:
-
-* When enabled, the package manager will write all dependency versions into the
-  pin file after any operation which changes the set of active working
-  dependencies (for example, if a new dependency is added).
-
-* A package author can still change the individual pinned versions using the
-  package pin commands (explained below), these will simply update the pinned
-  state.
-
-* Some commands do not make sense when automatic pinning is enabled; for
-  example, it is not possible to `unpin` and attempts to do so will produce an
-  error.
-
-Since package pin information is *not* inherited across dependencies, our
-recommendation is that packages which are primarily intended to be consumed by
-other developers either disable automatic pinning or put the `Package.pins`
-file into `.gitignore`, so that users are not confused why they get different
-versions of dependencies that are those being used by the library authors while
-they develop.
-
-### Pinning Commands (Manual Pinning)
-
-1. Pinning:
-
-        $ swift package pin ( --all | <package-name> [--version <version>] ) [--message <message>]
-        
-    The `package-name` refers to the name of the package as specified in its
-    manifest.
-        
-    This command pins one or all dependencies. The command which pins a single
-    version can optionally take a specific version to pin to, if unspecified
-    (or with `--all`) the behavior is to pin to the current package version in
-    use. Examples:
-        
-   * `$ swift package pin --all` - pins all the dependencies. 
-   * `$ swift package pin Foo` - pins Foo at current resolved version.  
-   * `$ swift package pin Foo --version 1.2.3` - pins `Foo` at 1.2.3. The specified version should be valid and resolvable.  
-        
-   The `--message` option is an optional argument to document the reason for
-   pinning a dependency. This could be helpful for user to later remember why a
-   dependency was pinned. Example:
-        
-        $ swift package pin Foo --message "The patch updates for Foo are really unstable and need screening."
-
-2. Toggle automatic pinning:
-
-        $ swift package pin ( [--enable-autopin] | [--disable-autopin] )
-
-    These will enable or disable automatic pinning for the package (this state
-    is recorded in the `Package.pins` file).
-
-3. Unpinning:
-
-        $ swift package unpin [<package-name>]
-
-    This is the counterpart to the pin command, and unpins packages.
-
-    Note: It is an error to attempt to unpin when automatic pinning is enabled.
-
-4. Package update with pinning:
-
-        $ swift package update [--repin]
-
-    The default behavior is to update all unpinned packages to the latest
-    possible versions which can be resolved while respecting the existing pins.
-    
-    The `--repin` argument can be used to lift the version pinning
-    restrictions. In this case, the behavior is that all packages are updated,
-    and packages which were previously pinned are then repinned to the latest
-    resolved versions.
-    
-    When automatic pinning is enabled, package update act as if `--repin` was
-    specified.
+Most SwiftPM commands will implicitly invoke the swift package resolve
+functionality before running, and will cancel with an error if dependencies
+cannot be resolved.
 
 ## Swift Tools Version
 
@@ -708,15 +630,6 @@ The following Swift tools version commands are supported:
 
         $ swift package tools-version --set <value> 
 
-## Prefetching Dependencies
-
-You can pass `--enable-prefetching` option to `swift build`, `swift package`
-and `swift test` to enable prefetching of dependencies. That means the missing
-dependencies will be cloned in parallel. For e.g.:
-
-```sh
-$ swift build --enable-prefetching
-```
 ## Testing
 
 Use `swift test` tool to run tests of a Swift package. For more information on
@@ -806,7 +719,7 @@ SwiftPM ships with completion scripts for both Bash and ZSH. These files should 
 Use the following commands to install the Bash completions to `~/.swift-package-complete.bash` and automatically load them using your `~/.bash_profile` file.
 
 ```bash
-swift package completion-tool generate-bash-script > ~/.swift-package-complete.bash
+swift package generate-completion-script bash > ~/.swift-package-complete.bash
 echo -e "source ~/.swift-package-complete.bash\n" >> ~/.bash_profile
 source ~/.swift-package-complete.bash
 ```
@@ -817,7 +730,7 @@ Use the following commands to install the ZSH completions to `~/.zsh/_swift`. Yo
 
 ```bash
 mkdir ~/.zsh
-swift package completion-tool generate-zsh-script > ~/.zsh/_swift
+swift package generate-completion-script zsh > ~/.zsh/_swift
 echo -e "fpath=(~/.zsh \$fpath)\n" >> ~/.zshrc
 compinit
 ```

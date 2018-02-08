@@ -72,6 +72,9 @@ public struct BuildParameters {
     /// If should link the Swift stdlib statically.
     public let shouldLinkStaticSwiftStdlib: Bool
 
+    /// If should enable llbuild manifest caching.
+    public let shouldEnableManifestCaching: Bool
+
     /// Checks if stdout stream is tty.
     fileprivate let isTTY: Bool = {
         guard let stream = stdoutStream as? LocalFileOutputByteStream else {
@@ -79,6 +82,14 @@ public struct BuildParameters {
         }
         return TerminalController.isTTY(stream)
     }()
+    
+    public var regenerateManifestToken: AbsolutePath {
+        return dataPath.appending(components: "..", "regenerate-token")
+    }
+    
+    public var llbuildManifest: AbsolutePath {
+        return dataPath.appending(components: "..", configuration.dirname + ".yaml")
+    }
 
     public init(
         dataPath: AbsolutePath,
@@ -87,7 +98,8 @@ public struct BuildParameters {
         destinationTriple: Triple = Triple.hostTriple,
         flags: BuildFlags,
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        shouldLinkStaticSwiftStdlib: Bool = false
+        shouldLinkStaticSwiftStdlib: Bool = false,
+        shouldEnableManifestCaching: Bool = false
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
@@ -96,6 +108,7 @@ public struct BuildParameters {
         self.flags = flags
         self.toolsVersion = toolsVersion
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
+        self.shouldEnableManifestCaching = shouldEnableManifestCaching
     }
 }
 

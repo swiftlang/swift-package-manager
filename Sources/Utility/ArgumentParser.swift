@@ -838,7 +838,7 @@ public final class ArgumentParser {
         // Determine the max width based on argument length or choose the
         // default width if max width is longer than the default width.
         if let maxArgument = (positionalArguments + optionArguments).map({
-            [$0.name, $0.shortName].flatMap({ $0 }).joined(separator: ", ").count
+            [$0.name, $0.shortName].compactMap({ $0 }).joined(separator: ", ").count
         }).max(), maxArgument < maxWidthDefault {
             maxWidth = maxArgument + padding + 1
         } else {
@@ -880,7 +880,7 @@ public final class ArgumentParser {
             for argument in optionArguments.lazy.sorted(by: { $0.name < $1.name }) {
                 guard let usage = argument.usage else { continue }
                 // Create name with its shortname, if available.
-                let name = [argument.name, argument.shortName].flatMap({ $0 }).joined(separator: ", ")
+                let name = [argument.name, argument.shortName].compactMap({ $0 }).joined(separator: ", ")
                 print(formatted: name, usage: usage, on: stream)
             }
 

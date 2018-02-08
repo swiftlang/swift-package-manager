@@ -256,6 +256,9 @@ public class Workspace {
     /// Enable prefetching containers in resolver.
     fileprivate let isResolverPrefetchingEnabled: Bool
 
+    /// Skip updating containers while fetching them.
+    fileprivate let skipUpdate: Bool
+
     /// Typealias for dependency resolver we use in the workspace.
     fileprivate typealias PackageDependencyResolver = DependencyResolver<RepositoryPackageContainerProvider, WorkspaceResolverDelegate>
 
@@ -283,7 +286,8 @@ public class Workspace {
         delegate: WorkspaceDelegate,
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
-        isResolverPrefetchingEnabled: Bool = false
+        isResolverPrefetchingEnabled: Bool = false,
+        skipUpdate: Bool = false
     ) {
         self.delegate = delegate
         self.dataPath = dataPath
@@ -292,6 +296,7 @@ public class Workspace {
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
         self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
+        self.skipUpdate = skipUpdate
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(
@@ -580,7 +585,7 @@ extension Workspace {
 
         // Create the dependency map by associating each resolved package with its corresponding managed dependency.
         let managedDependenciesByIdentity = Dictionary(items: managedDependencies.values.map({ ($0.packageRef.identity, $0) }))
-        let dependencyMap = graph.packages.flatMap({ package -> (ResolvedPackage, ManagedDependency)? in
+        let dependencyMap = graph.packages.compactMap({ package -> (ResolvedPackage, ManagedDependency)? in
             // FIXME: We should use package name directly once this radar is fixed:
             // <rdar://problem/33693433> Ensure that identity and package name
             // are the same once we have an API to specify identity in the
@@ -598,7 +603,7 @@ extension Workspace {
         packages: [AbsolutePath],
         diagnostics: DiagnosticsEngine
     ) -> [Manifest] {
-        return packages.flatMap({ package -> Manifest? in
+        return packages.compactMap({ package -> Manifest? in
 			loadManifest(packagePath: package, url: package.asString, diagnostics: diagnostics)
         })
     }
@@ -691,6 +696,13 @@ extension Workspace {
             }
         }
 
+        // Remove the existing checkout.
+        do {
+            let oldCheckoutPath = checkoutsPath.appending(dependency.subpath)
+            try fileSystem.chmod(.userWritable, path: oldCheckoutPath, options: [.recursive, .onlyFiles])
+            try fileSystem.removeFileTree(oldCheckoutPath)
+        }
+
         // Save the new state.
         let identity = dependency.packageRef.identity
         managedDependencies[forIdentity: identity] = dependency.editedDependency(
@@ -743,10 +755,17 @@ extension Workspace {
         if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
             try fileSystem.removeFileTree(editablesPath)
         }
-        // Restore the dependency state.
-        managedDependencies[forIdentity: dependency.packageRef.identity] = dependency.basedOn
-        // Save the state.
-        try managedDependencies.saveState()
+
+        if let checkoutState = dependency.basedOn?.checkoutState {
+            // Restore the original checkout.
+            //
+            // The clone method will automatically update the managed dependency state.
+            _ = try clone(package: dependency.packageRef, at: checkoutState)
+        } else {
+            // The original dependency was removed, update the managed dependency state.
+            managedDependencies[forIdentity: dependency.packageRef.identity] = nil
+            try managedDependencies.saveState()
+        }
 
         // Resolve the dependencies if workspace root is provided. We do this to
         // ensure the unedited version of this dependency is resolved properly.
@@ -839,14 +858,14 @@ extension Workspace {
             return DependencyManifests(root: root, dependencies: [], workspace: self)
         }
 
-        let rootDependencyManifests = root.dependencies.flatMap({
+        let rootDependencyManifests = root.dependencies.compactMap({
             return loadManifest(for: $0.createPackageRef().identity, diagnostics: diagnostics)
         })
         let inputManifests = root.manifests + rootDependencyManifests
 
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.name) })) { node in
-            return node.item.package.dependencies.flatMap({ dependency in
+            return node.item.package.dependencies.compactMap({ dependency in
                 let manifest = loadManifest(for: dependency.createPackageRef().identity, diagnostics: diagnostics)
                 return manifest.flatMap({ KeyedPair($0, key: $0.name) })
             })
@@ -971,7 +990,12 @@ extension Workspace {
         if missingPackageIdentities.isEmpty {
             // Use root constraints, dependency manifest constraints and extra
             // constraints to compute if a new resolution is required.
-            let dependencies = graphRoot.constraints + currentManifests.dependencyConstraints() + extraConstraints
+            let dependencies =
+                graphRoot.constraints +
+                // Include constraints from the manifests in the graph root.
+                graphRoot.manifests.flatMap({ $0.package.dependencyConstraints() }) +
+                currentManifests.dependencyConstraints() +
+                extraConstraints
 
             let result = isResolutionRequired(dependencies: dependencies, pinsStore: pinsStore)
 
@@ -1068,7 +1092,7 @@ extension Workspace {
 
         // Compute the pins which are valid w.r.t dependencies.
         let validPins: [RepositoryPackageConstraint]
-        validPins = pinConstraints.flatMap{ pin in
+        validPins = pinConstraints.compactMap { pin in
             if let mergedSet = constraintSet.merging(pin) {
                 constraintSet = mergedSet
                 return pin
@@ -1242,7 +1266,9 @@ extension Workspace {
     fileprivate func createResolver() -> PackageDependencyResolver {
         let resolverDelegate = WorkspaceResolverDelegate()
         return DependencyResolver(containerProvider, resolverDelegate,
-            isPrefetchingEnabled: isResolverPrefetchingEnabled)
+            isPrefetchingEnabled: isResolverPrefetchingEnabled,
+            skipUpdate: skipUpdate
+        )
     }
 
     /// Runs the dependency resolver based on constraints provided and returns the results.
@@ -1372,9 +1398,16 @@ extension Workspace {
 
             // Make sure the directory is not missing (we will have to clone again
             // if not).
-            if fileSystem.isDirectory(path) {
+            fetch: if fileSystem.isDirectory(path) {
                 // Fetch the checkout in case there are updates available.
                 let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+
+                // Ensure that the alternative object store is still valid.
+                //
+                // This can become invalid if the build directory is moved.
+                guard workingRepo.isAlternateObjectStoreValid() else {
+                    break fetch
+                }
 
                 // The fetch operation may update contents of the checkout, so
                 // we need do mutable-immutable dance.

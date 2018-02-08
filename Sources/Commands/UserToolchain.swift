@@ -63,6 +63,40 @@ public struct UserToolchain: Toolchain {
     /// The compilation destination object.
     let destination: Destination
 
+    /// Determines the Swift compiler paths for compilation and manifest parsing.
+    private static func determineSwiftCompilers(binDir: AbsolutePath, lookup: (String) -> AbsolutePath?) throws -> (compile: AbsolutePath, manifest: AbsolutePath) {
+        func validateCompiler(at path: AbsolutePath?) throws {
+            guard let path = path else { return }
+            guard localFileSystem.isExecutableFile(path) else {
+                throw Error.invalidToolchain(problem: "could not find the `swiftc` at expected path \(path.asString)")
+            }
+        }
+
+        // Get overrides.
+        let SWIFT_EXEC_MANIFEST = lookup("SWIFT_EXEC_MANIFEST")
+        let SWIFT_EXEC = lookup("SWIFT_EXEC")
+
+        // Validate the overrides.
+        try validateCompiler(at: SWIFT_EXEC)
+        try validateCompiler(at: SWIFT_EXEC_MANIFEST)
+
+        // We require there is at least one valid swift compiler, either in the
+        // bin dir or SWIFT_EXEC.
+        let resolvedBinDirCompiler: AbsolutePath
+        let binDirCompiler = binDir.appending(component: "swiftc")
+        if localFileSystem.isExecutableFile(binDirCompiler) {
+            resolvedBinDirCompiler = binDirCompiler
+        } else if let SWIFT_EXEC = SWIFT_EXEC {
+            resolvedBinDirCompiler = SWIFT_EXEC
+        } else {
+            throw Error.invalidToolchain(problem: "could not find the `swiftc` at expected path \(binDirCompiler.asString)")
+        }
+
+        // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
+        // The compiler for manifest is either SWIFT_EXEC_MANIFEST or the bin dir compiler.
+        return (SWIFT_EXEC ?? resolvedBinDirCompiler, SWIFT_EXEC_MANIFEST ?? resolvedBinDirCompiler)
+    }
+
     public init(destination: Destination) throws {
         self.destination = destination
 
@@ -77,15 +111,10 @@ public struct UserToolchain: Toolchain {
         }
 
         // Get the binDir from destination.
-        let binDir = lookup(fromEnv: "SWIFT_EXEC")?.appending(components: "..") ?? destination.binDir
+        let binDir = destination.binDir
 
-        // First look in env and then in bin dir.
-        swiftCompiler = binDir.appending(component: "swiftc")
-
-        // Check that it's valid in the file system.
-        guard localFileSystem.isExecutableFile(swiftCompiler) else {
-            throw Error.invalidToolchain(problem: "could not find `swiftc` at expected path \(swiftCompiler.asString)")
-        }
+        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: lookup(fromEnv:))
+        self.swiftCompiler = swiftCompilers.compile
 
         // Look for llbuild in bin dir.
         llbuild = binDir.appending(component: "swift-build-tool")
@@ -121,7 +150,7 @@ public struct UserToolchain: Toolchain {
         ] + destination.extraCCFlags
 
         manifestResources = UserManifestResources(
-            swiftCompiler: swiftCompiler,
+            swiftCompiler: swiftCompilers.manifest,
             libDir: binDir.parentDirectory.appending(components: "lib", "swift", "pm"),
             sdkRoot: self.destination.sdk
         )

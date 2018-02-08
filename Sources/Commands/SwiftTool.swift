@@ -43,6 +43,18 @@ struct ProductNotFoundDiagnostic: DiagnosticData {
     let productName: String
 }
 
+/// Warning when someone tries to build an automatic type product using --product option.
+struct ProductIsAutomaticDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: ProductIsAutomaticDiagnostic.self,
+        name: "org.swift.diags.product-is-automatic",
+        defaultBehavior: .warning,
+        description: { $0 <<< "'--product' cannot be used with the automatic product" <<< { "'\($0.productName)'." } <<< "Building the default target instead" }
+    )
+
+    let productName: String
+}
+
 /// Diagnostic error when the tool could not find a named target.
 struct TargetNotFoundDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
@@ -112,6 +124,44 @@ extension ToolName {
     static func otherToolNames() -> String {
         let allTools: [ToolName.Type] = [SwiftBuildTool.self, SwiftRunTool.self, SwiftPackageTool.self, SwiftTestTool.self]
         return  allTools.filter({ $0 != self }).map({ $0.toolName }).joined(separator: ", ")
+    }
+}
+
+/// Represents the persistent build manifest token.
+final class BuildManifestRegenerationToken {
+
+    /// Path to the token file.
+    let tokenFile: AbsolutePath
+
+    /// The filesystem being used.
+    let fs: FileSystem = localFileSystem
+
+    init(tokenFile: AbsolutePath) {
+        self.tokenFile = tokenFile
+    }
+
+    /// Returns true if the token is valid.
+    ///
+    /// A valid token means we don't need to re-generate the build manifest.
+    func isValid() -> Bool {
+        guard fs.isFile(tokenFile) else {
+            return false
+        }
+        guard let contents = try? fs.readFileContents(tokenFile) else {
+            return false
+        }
+        switch contents {
+        case "1\n":
+            return false
+        default:
+            return true
+        }
+    }
+
+    /// Sets the state of the token.
+    func set(valid: Bool) {
+        // FIXME: Error handling
+        try? fs.writeFileContents(tokenFile, bytes: valid ? "0\n" : "1\n")
     }
 }
 
@@ -220,12 +270,12 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.packagePath = $1.path })
 
         binder.bind(
-            option: parser.add(option: "--enable-prefetching", kind: Bool.self, usage: ""),
-            to: { $0.shouldEnableResolverPrefetching = $1 })
-
-        binder.bind(
             option: parser.add(option: "--disable-prefetching", kind: Bool.self, usage: ""),
             to: { $0.shouldEnableResolverPrefetching = !$1 })
+
+        binder.bind(
+            option: parser.add(option: "--skip-update", kind: Bool.self, usage: "Skip updating dependencies from their remote during a resolution"),
+            to: { $0.skipDependencyUpdate = $1 })
 
         binder.bind(
             option: parser.add(option: "--disable-sandbox", kind: Bool.self,
@@ -255,6 +305,11 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--static-swift-stdlib", kind: Bool.self,
                 usage: "Link Swift stdlib statically"),
             to: { $0.shouldLinkStaticSwiftStdlib = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--enable-build-manifest-caching", kind: Bool.self,
+                usage: "Enable llbuild manifest caching [Experimental]"),
+            to: { $0.shouldEnableManifestCaching = $1 })
 
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
@@ -318,6 +373,10 @@ public class SwiftTool<Options: ToolOptions> {
         fatalError("Must be implemented by subclasses")
     }
 
+    func resolvedFilePath() throws -> AbsolutePath {
+        return try getPackageRoot().appending(component: "Package.resolved")
+    }
+
     /// Holds the currently active workspace.
     ///
     /// It is not initialized in init() because for some of the commands like package init , usage etc,
@@ -336,12 +395,13 @@ public class SwiftTool<Options: ToolOptions> {
         let workspace = Workspace(
             dataPath: buildPath,
             editablesPath: rootPackage.appending(component: "Packages"),
-            pinsFile: rootPackage.appending(component: "Package.resolved"),
+            pinsFile: try resolvedFilePath(),
             manifestLoader: try getManifestLoader(),
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
             repositoryProvider: provider,
-            isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching
+            isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
+            skipUpdate: options.skipDependencyUpdate
         )
         _workspace = workspace
         return workspace
@@ -403,18 +463,25 @@ public class SwiftTool<Options: ToolOptions> {
     /// Fetch and load the complete package graph.
     @discardableResult
     func loadPackageGraph() throws -> PackageGraph {
-        let workspace = try getActiveWorkspace()
+        do {
+            let workspace = try getActiveWorkspace()
 
-        // Fetch and load the package graph.
-        let graph = try workspace.loadPackageGraph(
-            root: getWorkspaceRoot(), diagnostics: diagnostics)
+            // Fetch and load the package graph.
+            let graph = try workspace.loadPackageGraph(
+                root: getWorkspaceRoot(), diagnostics: diagnostics)
 
-        // Throw if there were errors when loading the graph.
-        // The actual errors will be printed before exiting.
-        guard !diagnostics.hasErrors else {
-            throw Error.hasFatalDiagnostics
+            // Throw if there were errors when loading the graph.
+            // The actual errors will be printed before exiting.
+            guard !diagnostics.hasErrors else {
+                try buildManifestRegenerationToken().set(valid: false)
+                throw Error.hasFatalDiagnostics
+            }
+            try buildManifestRegenerationToken().set(valid: true)
+            return graph
+        } catch {
+            try buildManifestRegenerationToken().set(valid: false)
+            throw error
         }
-        return graph
     }
 
     /// Returns the user toolchain to compile the actual product.
@@ -426,9 +493,47 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.dematerialize()
     }
 
-    /// Build a subset of products and targets using swift-build-tool.
-    func build(subset: BuildSubset) throws {
-        try build(plan: buildPlan(), subset: subset)
+    func shouldRegenerateManifest() throws -> Bool {
+        // Check if we are allowed to use llbuild manifest caching.
+        guard options.shouldEnableManifestCaching else {
+            return true
+        }
+        
+        // Check if we need to generate the llbuild manifest.
+        let parameters: BuildParameters = try self.buildParameters()
+        guard localFileSystem.isFile(parameters.llbuildManifest) else {
+            return true
+        }
+        
+        // Run the target which computes if regeneration is needed.
+        let args = [try getToolchain().llbuild.asString, "-f", parameters.llbuildManifest.asString, "regenerate"]
+        do {
+            try Process.checkNonZeroExit(arguments: args)
+        } catch {
+            // Regenerate the manifest if this fails for some reason.
+            warning(message: "Failed to run the regeneration check: \(error)")
+            return true
+        }
+        return try !self.buildManifestRegenerationToken().isValid()
+    }
+    
+    func computeLLBuildTargetName(for subset: BuildSubset) throws -> String? {
+        switch subset {
+        case .allExcludingTests:
+            return LLBuildManifestGenerator.llbuildMainTargetName
+        case .allIncludingTests:
+            return LLBuildManifestGenerator.llbuildTestTargetName
+        default:
+            // FIXME: This is super unfortunate that we might need to load the package graph.
+            return try subset.llbuildTargetName(for: loadPackageGraph(), diagnostics: diagnostics)
+        }
+    }
+    
+    func build(parameters: BuildParameters, subset: BuildSubset) throws {
+        guard let llbuildTargetName = try computeLLBuildTargetName(for: subset) else {
+            return
+        }
+        try runLLBuild(manifest: parameters.llbuildManifest, llbuildTarget: llbuildTargetName)
     }
     
     /// Build a subset of products and targets using swift-build-tool.
@@ -442,12 +547,25 @@ public class SwiftTool<Options: ToolOptions> {
             return
         }
 
-        let yaml = buildPath.appending(component: plan.buildParameters.configuration.dirname + ".yaml")
-        // Generate llbuild manifest.
-        let llbuild = LLBuildManifestGenerator(plan)
+        let yaml = plan.buildParameters.llbuildManifest
+        // Generate the llbuild manifest.
+        let llbuild = LLBuildManifestGenerator(plan, resolvedFile: try resolvedFilePath())
         try llbuild.generateManifest(at: yaml)
-        assert(isFile(yaml), "llbuild manifest not present: \(yaml.asString)")
 
+        // Run llbuild.
+        try runLLBuild(manifest: yaml, llbuildTarget: llbuildTargetName)
+
+        // Create backwards-compatibilty symlink to old build path.
+        let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
+        if exists(oldBuildPath) {
+            try removeFileTree(oldBuildPath)
+        }
+        try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
+    }
+    
+    func runLLBuild(manifest: AbsolutePath, llbuildTarget: String) throws {
+        assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest.asString)")
+        
         // Create a temporary directory for the build process.
         let tempDirName = "org.swift.swiftpm.\(NSUserName())"
         let tempDir = Basic.determineTempDirectory().appending(component: tempDirName)
@@ -470,7 +588,7 @@ public class SwiftTool<Options: ToolOptions> {
         }
       #endif
 
-        args += [try getToolchain().llbuild.asString, "-f", yaml.asString, llbuildTargetName]
+        args += [try getToolchain().llbuild.asString, "-f", manifest.asString, llbuildTarget]
         if verbosity != .concise {
             args.append("-v")
         }
@@ -491,37 +609,38 @@ public class SwiftTool<Options: ToolOptions> {
         guard result.exitStatus == .terminated(code: 0) else {
             throw ProcessResult.Error.nonZeroExit(result)
         }
-
-        // Create backwards-compatibilty symlink to old build path.
-        let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
-        if exists(oldBuildPath) {
-            try removeFileTree(oldBuildPath)
-        }
-        try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
     }
 
-    /// Generates a BuildPlan based on the tool's options.
-    func buildPlan() throws -> BuildPlan {
-        return try BuildPlan(
-            buildParameters: buildParameters(),
-            graph: loadPackageGraph(),
-            delegate: self)
+    func buildManifestRegenerationToken() throws -> BuildManifestRegenerationToken {
+        return try _buildManifestRegenerationToken.dematerialize()
     }
+    private lazy var _buildManifestRegenerationToken: Result<BuildManifestRegenerationToken, AnyError> = {
+        return Result(anyError: {
+            let buildParameters = try self.buildParameters()
+            return BuildManifestRegenerationToken(tokenFile: buildParameters.regenerateManifestToken)
+        })
+    }()
 
-    /// Create build parameters.
+    /// Return the build parameters.
     func buildParameters() throws -> BuildParameters {
-        let toolchain = try getToolchain()
-        let triple = try Triple(toolchain.destination.target)
-
-        return BuildParameters(
-            dataPath: buildPath.appending(component: toolchain.destination.target),
-            configuration: options.configuration,
-            toolchain: toolchain,
-            destinationTriple: triple,
-            flags: options.buildFlags,
-            shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib
-        )
+        return try _buildParameters.dematerialize()
     }
+    private lazy var _buildParameters: Result<BuildParameters, AnyError> = {
+        return Result(anyError: {
+            let toolchain = try self.getToolchain()
+            let triple = try Triple(toolchain.destination.target)
+
+            return BuildParameters(
+                dataPath: buildPath.appending(component: toolchain.destination.target),
+                configuration: options.configuration,
+                toolchain: toolchain,
+                destinationTriple: triple,
+                flags: options.buildFlags,
+                shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
+                shouldEnableManifestCaching: options.shouldEnableManifestCaching
+            )
+        })
+    }()
 
     /// Lazily compute the destination toolchain.
     private lazy var _destinationToolchain: Result<UserToolchain, AnyError> = {
@@ -594,6 +713,12 @@ extension BuildSubset {
             guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
                 diagnostics.emit(data: ProductNotFoundDiagnostic(productName: productName))
                 return nil
+            }
+            // If the product is automatic, we build the main target because automatic products
+            // do not produce a binary right now.
+            if product.type == .library(.automatic) {
+                diagnostics.emit(data: ProductIsAutomaticDiagnostic(productName: productName))
+                return LLBuildManifestGenerator.llbuildMainTargetName
             }
             return product.llbuildTargetName
         case .target(let targetName):

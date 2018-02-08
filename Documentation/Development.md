@@ -135,3 +135,22 @@ $ Utilities/docker-utils swift-build # to run swift-build in the container
 $ Utilities/docker-utils swift-test # to run swift-test in the container
 $ Utilities/docker-utils swift-run # to run swift-run in the container
 ```
+
+## Using custom Swift compilers
+
+SwiftPM needs Swift compiler to parse Package.swift manifest files and to
+compile Swift source files. You can use `SWIFT_EXEC` and `SWIFT_EXEC_MANIFEST`
+environment variables to control which compiler to use for these operations.
+
+`SWIFT_EXEC_MANIFEST`: This variable controls which compiler to use for parsing
+Package.swift manifest files. The lookup order for manifest compiler is:
+SWIFT_EXEC_MANIFEST, swiftc adjacent to swiftpm binaries, SWIFT_EXEC
+
+`SWIFT_EXEC`: This variable controls which compiler to use for compiling Swift
+sources. The lookup order for manifest compiler is: SWIFT_EXEC, swiftc adjacent
+to swiftpm binaries. This is also useful for Swift compiler developers when they
+want to use a debug compiler with SwiftPM.
+
+```sh
+$ SWIFT_EXEC=/path/to/my/built/swiftc swift build
+```

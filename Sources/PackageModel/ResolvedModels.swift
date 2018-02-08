@@ -37,7 +37,7 @@ public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProt
     /// The transitive closure of the target dependencies. This will also include the
     /// targets which needs to be dynamically linked.
     public lazy var recursiveDependencies: [ResolvedTarget] = {
-        return try! topologicalSort(self.dependencies, successors: { $0.dependencies }).flatMap({
+        return try! topologicalSort(self.dependencies, successors: { $0.dependencies }).compactMap({
             guard case .target(let target) = $0 else { return nil }
             return target
         })
