@@ -84,6 +84,9 @@ public final class TerminalController {
         }
 
         // Try determining using ioctl.
+        // Following code does not compile on ppc64le well. TIOCGWINSZ is
+        // defined in system ioctl.h file which needs to be used. This is
+        // a temporary arrangement and needs to be fixed.
 #if !arch(powerpc64le)
         var ws = winsize()
         if ioctl(1, UInt(TIOCGWINSZ), &ws) == 0 {
