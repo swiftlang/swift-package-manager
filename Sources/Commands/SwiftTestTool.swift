@@ -463,7 +463,7 @@ final class ParallelTestRunner {
     init(testPath: AbsolutePath, processSet: ProcessSet) {
         self.testPath = testPath
         self.processSet = processSet
-        progressBar = createProgressBar(forStream: stdoutStream, header: "Tests")
+        progressBar = createProgressBar(forStream: stdoutStream, header: "Testing:")
     }
 
     /// Whether to display output from successful tests.
@@ -539,7 +539,7 @@ final class ParallelTestRunner {
 
         // Wait till all threads finish execution.
         workers.forEach { $0.join() }
-        progressBar.complete()
+        progressBar.complete(success: outputs.failure.isEmpty)
         
         if shouldOutputSuccess {
             printOutput(outputs.success)
