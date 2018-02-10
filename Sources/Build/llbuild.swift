@@ -230,7 +230,7 @@ public struct LLBuildManifestGenerator {
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.
-            if target.underlyingTarget is CTarget { return }
+            if target.underlyingTarget is SystemLibraryTarget { return }
             switch plan.targetMap[target] {
             case .swift(let target)?:
                 inputs.insert(target.moduleOutputPath.asString)

@@ -57,8 +57,8 @@ public struct PkgConfigResult {
     }
 }
 
-/// Get pkgConfig result for a CTarget.
-public func pkgConfigArgs(for target: CTarget, fileSystem: FileSystem = localFileSystem) -> PkgConfigResult? {
+/// Get pkgConfig result for a system library target.
+public func pkgConfigArgs(for target: SystemLibraryTarget, fileSystem: FileSystem = localFileSystem) -> PkgConfigResult? {
     // If there is no pkg config name defined, we're done.
     guard let pkgConfigName = target.pkgConfig else { return nil }
     // Compute additional search paths for the provider, if any.

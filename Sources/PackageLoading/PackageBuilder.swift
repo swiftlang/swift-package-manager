@@ -408,9 +408,10 @@ public final class PackageBuilder {
         // Check for a modulemap file, which indicates a system target.
         let moduleMapPath = packagePath.appending(component: moduleMapFilename)
         if fileSystem.isFile(moduleMapPath) {
-            // Package contains a modulemap at the top level, so we assuming it's a system target.
+            // Package contains a modulemap at the top level, so we assuming
+            // it's a system library target.
             return [
-                CTarget(
+                SystemLibraryTarget(
                     name: manifest.name,
                     path: packagePath,
                     pkgConfig: manifest.package.pkgConfig,
