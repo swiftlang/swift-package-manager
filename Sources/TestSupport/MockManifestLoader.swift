@@ -58,7 +58,7 @@ public struct MockManifestLoader: ManifestLoaderProtocol {
         packagePath path: Basic.AbsolutePath,
         baseURL: String,
         version: Version?,
-        manifestVersion: ManifestVersion,
+        toolsVersion: ToolsVersion,
         fileSystem: FileSystem?
     ) throws -> PackageModel.Manifest {
         let key = Key(url: PackageReference.computeIdentity(packageURL: baseURL), version: version)

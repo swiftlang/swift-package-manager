@@ -33,7 +33,7 @@ class PackageDescription4LoadingTests: XCTestCase {
         let m = try manifestLoader.load(
             package: AbsolutePath.root,
             baseURL: AbsolutePath.root.asString,
-            manifestVersion: .four,
+            toolsVersion: .current,
             fileSystem: fs)
         if case .v4 = m.package {} else {
             return XCTFail("Invalid manfiest version")

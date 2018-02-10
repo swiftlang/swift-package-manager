@@ -1902,7 +1902,8 @@ private final class TestWorkspace {
                         dependencies: package.dependencies.map({ $0.convert(baseURL: packagesDir) }),
                         targets: package.targets.map({ $0.convert() })
                     )),
-                    version: v
+                    version: v,
+                    toolsVersion: .current
                 )
                 if let version = version {
                     try repo.tag(name: version)

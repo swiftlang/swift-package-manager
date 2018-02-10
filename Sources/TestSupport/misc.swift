@@ -214,7 +214,8 @@ public func loadMockPackageGraph(
             path: AbsolutePath(url).appending(component: Manifest.filename),
             url: url,
             package: .v3(package),
-            version: "1.0.0"
+            version: "1.0.0",
+            toolsVersion: .defaultToolsVersion
         )
         if url == root {
             rootManifest = manifest
@@ -239,7 +240,8 @@ public func loadMockPackageGraph4(
             path: AbsolutePath(url).appending(component: Manifest.filename),
             url: url,
             package: .v4(package),
-            version: "1.0.0"
+            version: "1.0.0",
+            toolsVersion: .current
         )
         if url == root {
             rootManifest = manifest

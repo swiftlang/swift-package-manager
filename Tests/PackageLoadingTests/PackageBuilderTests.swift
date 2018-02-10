@@ -1119,7 +1119,7 @@ final class PackageBuilderTester {
         line: UInt = #line,
         _ body: (PackageBuilderTester) -> Void
     ) {
-       self.init(.v4(package), path: path, in: fs, file: file, line: line, body)
+       self.init(.v4(package), path: path, toolsVersion: .current, in: fs, file: file, line: line, body)
     }
 
     @discardableResult
@@ -1131,7 +1131,7 @@ final class PackageBuilderTester {
         line: UInt = #line,
         _ body: (PackageBuilderTester) -> Void
     ) {
-       self.init(.v3(package), path: path, in: fs, file: file, line: line, body)
+        self.init(.v3(package), path: path, toolsVersion: .v3_1_0, in: fs, file: file, line: line, body)
     }
 
     @discardableResult
@@ -1151,6 +1151,7 @@ final class PackageBuilderTester {
         _ package: Manifest.RawPackage,
         path: AbsolutePath = .root,
         shouldCreateMultipleTestProducts: Bool = false,
+        toolsVersion: ToolsVersion = .current,
         in fs: FileSystem,
         file: StaticString = #file,
         line: UInt = #line,
@@ -1158,7 +1159,7 @@ final class PackageBuilderTester {
     ) {
         let diagnostics = DiagnosticsEngine()
         do {
-            let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil)
+            let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil, toolsVersion: toolsVersion)
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
                 manifest: manifest, path: path, fileSystem: fs, diagnostics: diagnostics,

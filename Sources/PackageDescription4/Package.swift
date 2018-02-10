@@ -183,15 +183,22 @@ extension Package {
 
 extension Target {
     func toJSON() -> JSON {
-        return .dictionary([
+        var dict: [String: JSON] = [
             "name": .string(name),
-            "isTest": .bool(isTest),
+            "type": .string(type.rawValue),
             "publicHeadersPath": publicHeadersPath.map(JSON.string) ?? JSON.null,
             "dependencies": .array(dependencies.map({ $0.toJSON() })),
             "path": path.map(JSON.string) ?? JSON.null,
             "exclude": .array(exclude.map(JSON.string)),
             "sources": sources.map({ JSON.array($0.map(JSON.string)) }) ?? JSON.null,
-        ])
+        ]
+        if let pkgConfig = self.pkgConfig {
+            dict["pkgConfig"] = .string(pkgConfig)
+        }
+        if let providers = self.providers {
+            dict["providers"] = .array(providers.map({ $0.toJSON() }))
+        }
+        return .dictionary(dict)
     }
 }
 

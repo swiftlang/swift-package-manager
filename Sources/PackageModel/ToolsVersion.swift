@@ -19,6 +19,12 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
     /// The default tool version if a the tools version file is absent.
     public static let defaultToolsVersion = ToolsVersion(version: "3.1.0")
 
+    public static let v3_1_0 = defaultToolsVersion
+
+    public static let v4_1_0 = ToolsVersion(version: "4.1.0")
+
+    public static let current = currentToolsVersion
+
     /// The current tools version in use.
     public static let currentToolsVersion = ToolsVersion(string:
         "\(Versioning.currentVersion.major)." +

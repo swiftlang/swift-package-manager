@@ -252,8 +252,10 @@ private func createResolvedPackages(
         // The diagnostics location for this package.
         let diagnosticLocation = { PackageLocation.Local(name: package.name, packagePath: package.path) }
 
-        // Get all the system module dependencies in this package.
-        let systemModulesDeps = packageBuilder.dependencies
+        // Implicitly add system targets from dependencies, if their
+        // manifest is less than version 4.1.0.
+        let implicitSystemTargetDeps = packageBuilder.dependencies
+            .filter({ $0.package.manifest.toolsVersion < .v4_1_0 })
             .flatMap({ $0.targets })
             .filter({ $0.target.type == .systemModule })
 
@@ -272,8 +274,8 @@ private func createResolvedPackages(
             }
             allTargetNames.insert(targetName)
 
-            // Directly add all the system module dependencies.
-            targetBuilder.dependencies += systemModulesDeps
+            // Add all implicit system target dependencies.
+            targetBuilder.dependencies += implicitSystemTargetDeps
 
             // Establish product dependencies based on the type of manifest.
             switch package.manifest.package {
