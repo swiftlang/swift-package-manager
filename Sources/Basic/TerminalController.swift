@@ -15,6 +15,18 @@ import func POSIX.getenv
 /// Allows operations like cursor movement and colored text output on tty.
 public final class TerminalController {
 
+    /// The type of terminal.
+    public enum TerminalType {
+        /// The terminal is a TTY.
+        case tty
+
+        /// TERM enviornment variable is set to "dumb".
+        case dumb
+
+        /// The terminal is a file stream.
+        case file
+    }
+
     /// Terminal color choices.
     public enum Color {
         case noColor
@@ -70,7 +82,16 @@ public final class TerminalController {
 
     /// Checks if passed file stream is tty.
     public static func isTTY(_ stream: LocalFileOutputByteStream) -> Bool {
-        return isatty(fileno(stream.filePointer)) != 0
+        return terminalType(stream) == .tty
+    }
+
+    /// Computes the terminal type of the stream.
+    public static func terminalType(_ stream: LocalFileOutputByteStream) -> TerminalType {
+        if POSIX.getenv("TERM") == "dumb" {
+            return .dumb
+        }
+        let isTTY = isatty(fileno(stream.filePointer)) != 0
+        return isTTY ? .tty : .file
     }
 
     /// Tries to get the terminal width first using COLUMNS env variable and
