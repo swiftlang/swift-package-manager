@@ -30,10 +30,10 @@ private func XCTAssertDirectoryContainsFile(dir: AbsolutePath, filename: String,
     XCTFail("Directory \(dir) does not contain \(file)", file: file, line: line)
 }
 
-class ClangModulesTestCase: XCTestCase {
+class CFamilyTargetTestCase: XCTestCase {
 
     func testiquoteDep() {
-        fixture(name: "ClangModules/CLibraryiquote") { prefix in
+        fixture(name: "CFamilyTargets/CLibraryiquote") { prefix in
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Bar.c.o")
@@ -54,7 +54,7 @@ class ClangModulesTestCase: XCTestCase {
     }
     
     func testModuleMapGenerationCases() {
-        fixture(name: "ClangModules/ModuleMapGenerationCases") { prefix in
+        fixture(name: "CFamilyTargets/ModuleMapGenerationCases") { prefix in
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Jaz.c.o")
@@ -66,7 +66,7 @@ class ClangModulesTestCase: XCTestCase {
 
     func testCanForwardExtraFlagsToClang() {
         // Try building a fixture which needs extra flags to be able to build.
-        fixture(name: "ClangModules/CDynamicLookup") { prefix in
+        fixture(name: "CFamilyTargets/CDynamicLookup") { prefix in
             XCTAssertBuilds(prefix, Xld: ["-undefined", "dynamic_lookup"])
             let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
@@ -75,7 +75,7 @@ class ClangModulesTestCase: XCTestCase {
     
     func testObjectiveCPackageWithTestTarget(){
       #if os(macOS)
-        fixture(name: "ClangModules/ObjCmacOSPackage") { prefix in
+        fixture(name: "CFamilyTargets/ObjCmacOSPackage") { prefix in
             // Build the package.
             XCTAssertBuilds(prefix)
             XCTAssertDirectoryContainsFile(dir: prefix.appending(components: ".build", Destination.host.target, "debug"), filename: "HelloWorldExample.m.o")

@@ -94,7 +94,7 @@ class PackageBuilderTests: XCTestCase {
             "/Foo.h",
             "/Foo.c")
 
-        let name = "SingleClangModule"
+        let name = "SingleCFamilyTarget"
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
                 moduleResult.check(c99name: name, type: .library)
@@ -208,7 +208,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testSingleExecutableClangModule() throws {
+    func testSingleExecutableCFamilyTarget() throws {
         // Single swift executable target.
         var fs = InMemoryFileSystem(emptyFiles:
             "/main.c",
@@ -324,7 +324,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testMultipleClangModules() throws {
+    func testMultipleCFamilyTargets() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/main.c",
             "/Sources/A/foo.h",
@@ -1069,7 +1069,7 @@ class PackageBuilderTests: XCTestCase {
         ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
         ("testMixedSources", testMixedSources),
         ("testModuleMapLayout", testModuleMapLayout),
-        ("testMultipleClangModules", testMultipleClangModules),
+        ("testMultipleCFamilyTargets", testMultipleCFamilyTargets),
         ("testMultipleRoots", testMultipleRoots),
         ("testMultipleSwiftTargets", testMultipleSwiftTargets),
         ("testNoSources", testNoSources),
@@ -1077,7 +1077,7 @@ class PackageBuilderTests: XCTestCase {
         ("testResolvesSingleClangLibraryModule", testResolvesSingleClangLibraryModule),
         ("testResolvesSingleSwiftLibraryModule", testResolvesSingleSwiftLibraryModule),
         ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
-        ("testSingleExecutableClangModule", testSingleExecutableClangModule),
+        ("testSingleExecutableCFamilyTarget", testSingleExecutableCFamilyTarget),
         ("testSingleExecutableSwiftTarget", testSingleExecutableSwiftTarget),
         ("testTargetDependencies2", testTargetDependencies2),
         ("testTestTargetDependencies", testTestTargetDependencies),

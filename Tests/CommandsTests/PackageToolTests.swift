@@ -81,7 +81,7 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testDescribe() throws {
-        fixture(name: "ClangModules/SwiftCMixed") { prefix in
+        fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
             let output = try execute(["describe", "--type=json"], packagePath: prefix)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: output))
 
