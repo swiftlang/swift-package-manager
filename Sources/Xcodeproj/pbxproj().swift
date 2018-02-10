@@ -465,9 +465,9 @@ func xcodeProject(
             // FIXME: We don't need SRCROOT macro below but there is an issue with sourcekit.
             // See: <rdar://problem/21912068> SourceKit cannot handle relative include paths (working directory)
             switch depModule.underlyingTarget {
-              case let cTarget as CTarget:
-                hdrInclPaths.append("$(SRCROOT)/" + cTarget.path.relative(to: sourceRootDir).asString)
-                if let pkgArgs = pkgConfigArgs(for: cTarget) {
+              case let systemTarget as SystemLibraryTarget:
+                hdrInclPaths.append("$(SRCROOT)/" + systemTarget.path.relative(to: sourceRootDir).asString)
+                if let pkgArgs = pkgConfigArgs(for: systemTarget) {
                     targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
                     targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
                     targetSettings.common.OTHER_CFLAGS += pkgArgs.cFlags
