@@ -103,7 +103,7 @@ public class SwiftTarget: Target {
     }
 }
 
-public class CTarget: Target {
+public class SystemLibraryTarget: Target {
 
     /// The name of pkgConfig file, if any.
     public let pkgConfig: String?
