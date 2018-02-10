@@ -518,7 +518,7 @@ public class BuildPlan {
                     target: target,
                     buildParameters: buildParameters,
                     fileSystem: fileSystem))
-             case is CTarget:
+             case is SystemLibraryTarget:
                  break
              default:
                  fatalError("unhandled \(target.underlyingTarget)")
@@ -581,7 +581,7 @@ public class BuildPlan {
         let dependencies = computeDependencies(of: buildProduct.product)
         // Add flags for system targets.
         for systemModule in dependencies.systemModules {
-            guard case let target as CTarget = systemModule.underlyingTarget else {
+            guard case let target as SystemLibraryTarget = systemModule.underlyingTarget else {
                 fatalError("This should not be possible.")
             }
             // Add pkgConfig libs arguments.
@@ -680,7 +680,7 @@ public class BuildPlan {
                 // Add `-I` for dependencies outside the package (#include <...>).
                 let includeFlag = graph.isInRootPackages(dependency) ? "-iquote" : "-I"
                 clangTarget.additionalFlags += [includeFlag, target.includeDir.asString]
-            case let target as CTarget:
+            case let target as SystemLibraryTarget:
                 clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.asString)"]
                 clangTarget.additionalFlags += pkgConfig(for: target).cFlags
             default: continue
@@ -707,7 +707,7 @@ public class BuildPlan {
                     "-Xcc", "-fmodule-map-file=\(moduleMap.asString)",
                     "-I", target.clangTarget.includeDir.asString,
                 ]
-            case let target as CTarget:
+            case let target as SystemLibraryTarget:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.asString)"]
                 swiftTarget.additionalFlags += pkgConfig(for: target).cFlags
             default: break
@@ -715,8 +715,8 @@ public class BuildPlan {
         }
     }
 
-    /// Get pkgConfig arguments for a CTarget.
-    private func pkgConfig(for target: CTarget) -> (cFlags: [String], libs: [String]) {
+    /// Get pkgConfig arguments for a system library target.
+    private func pkgConfig(for target: SystemLibraryTarget) -> (cFlags: [String], libs: [String]) {
         // If we already have these flags, we're done.
         if let flags = pkgConfigCache[target] {
             return flags
@@ -738,5 +738,5 @@ public class BuildPlan {
     }
 
     /// Cache for pkgConfig flags.
-    private var pkgConfigCache = [CTarget: (cFlags: [String], libs: [String])]()
+    private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
 }

@@ -20,7 +20,7 @@ protocol ModuleMapProtocol {
     var moduleMapDirectory: AbsolutePath { get }
 }
 
-extension CTarget: ModuleMapProtocol {
+extension SystemLibraryTarget: ModuleMapProtocol {
     var moduleMapDirectory: AbsolutePath {
         return path
     }

@@ -16,7 +16,7 @@ import PackageLoading
 import Utility
 import TestSupport
 
-extension CTarget {
+extension SystemLibraryTarget {
     convenience init(pkgConfig: String, providers: [SystemPackageProvider] = []) {
         self.init(
             name: "Foo",
@@ -33,13 +33,13 @@ class PkgConfigTests: XCTestCase {
     func testBasics() throws {
         // No pkgConfig name.
         do {
-            let result = pkgConfigArgs(for: CTarget(pkgConfig: ""))
+            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: ""))
             XCTAssertNil(result)
         }
 
         // No pc file.
         do {
-            let target = CTarget(
+            let target = SystemLibraryTarget(
                 pkgConfig: "Foo",
                 providers: [
                     .brew(["libFoo"]),
@@ -68,7 +68,7 @@ class PkgConfigTests: XCTestCase {
 
         // Pc file.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.asString]) {
-            let result = pkgConfigArgs(for: CTarget(pkgConfig: "Foo"))!
+            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"))!
             XCTAssertEqual(result.pkgConfigName, "Foo")
             XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-I" + inputsDir.asString])
             XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
@@ -79,7 +79,7 @@ class PkgConfigTests: XCTestCase {
 
         // Pc file with non whitelisted flags.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.asString]) {
-            let result = pkgConfigArgs(for: CTarget(pkgConfig: "Bar"))!
+            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"))!
             XCTAssertEqual(result.pkgConfigName, "Bar")
             XCTAssertEqual(result.cFlags, [])
             XCTAssertEqual(result.libs, [])
