@@ -99,7 +99,7 @@ final class ProgressBarTests: XCTestCase {
         for i in 0...5 {
             bar.update(percent: i, text: String(i))
         }
-        bar.complete()
+        bar.complete(success: true)
     }
 
     static var allTests = [
