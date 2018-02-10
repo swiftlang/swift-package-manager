@@ -38,7 +38,7 @@ import func libc.sleep
 final class IncrementalBuildTests: XCTestCase {
 
     func testIncrementalSingleModuleCLibraryInSources() {
-        fixture(name: "ClangModules/CLibrarySources") { prefix in
+        fixture(name: "CFamilyTargets/CLibrarySources") { prefix in
             // Build it once and capture the log (this will be a full build).
             let fullLog = try executeSwiftBuild(prefix, printIfError: true)
             

@@ -208,7 +208,7 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testSecondBuildIsNullInModulemapGen() throws {
         // Make sure that swiftpm doesn't rebuild second time if the modulemap is being generated.
-        fixture(name: "ClangModules/SwiftCMixed") { prefix in
+        fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
             var output = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertFalse(output.isEmpty)
             output = try executeSwiftBuild(prefix, printIfError: true)
@@ -269,7 +269,7 @@ class MiscellaneousTestCase: XCTestCase {
 #endif
     }
 
-    func testPkgConfigClangModules() throws {
+    func testPkgConfigCFamilyTargets() throws {
         fixture(name: "Miscellaneous/PkgConfig") { prefix in
             let systemModule = prefix.appending(component: "SystemModule")
             // Create a shared library.
@@ -445,7 +445,7 @@ class MiscellaneousTestCase: XCTestCase {
         ("testSwiftTestParallel", testSwiftTestParallel),
         ("testSwiftTestFilter", testSwiftTestFilter),
         ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
-        ("testPkgConfigClangModules", testPkgConfigClangModules),
+        ("testPkgConfigCFamilyTargets", testPkgConfigCFamilyTargets),
         ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),
         ("testReportingErrorFromGitCommand", testReportingErrorFromGitCommand),
         ("testSwiftTestLinuxMainGeneration", testSwiftTestLinuxMainGeneration),

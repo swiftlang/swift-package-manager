@@ -33,7 +33,7 @@ class FunctionalTests: XCTestCase {
 
     func testSwiftExecWithCDep() {
 #if os(macOS)
-        fixture(name: "ClangModules/SwiftCMixed") { prefix in
+        fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
             // This will also test Modulemap generation for xcodeproj.
             XCTAssertXcodeprojGen(prefix)
             let pbx = prefix.appending(component: "SwiftCMixed.xcodeproj")
