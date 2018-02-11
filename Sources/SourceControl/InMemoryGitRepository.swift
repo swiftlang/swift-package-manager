@@ -172,7 +172,7 @@ public final class InMemoryGitRepository {
         tagsMap[name] = head.hash
     }
 
-    public func hasUncommitedChanges() -> Bool {
+    public func hasUncommittedChanges() -> Bool {
         return isDirty
     }
 
