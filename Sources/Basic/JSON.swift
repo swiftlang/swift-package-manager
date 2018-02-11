@@ -65,7 +65,7 @@ extension JSON: CustomStringConvertible {
         case .string(let value): return value.debugDescription
         case .array(let values): return values.description
         case .dictionary(let values): return values.description
-        case .orderedDictionary(let values): return values._description
+        case .orderedDictionary(let values): return values.description
         }
     }
 }
@@ -88,7 +88,7 @@ extension JSON: Equatable {
         case (.array, _): return false
         case (.dictionary(let a), .dictionary(let b)): return a == b
         case (.dictionary, _): return false
-        case (.orderedDictionary(let a), .orderedDictionary(let b)): return a._isEqual(to: b)
+        case (.orderedDictionary(let a), .orderedDictionary(let b)): return a == b
         case (.orderedDictionary, _): return false
         }
     }

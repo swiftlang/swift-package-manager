@@ -29,7 +29,8 @@ extension BidirectionalCollection where Iterator.Element : Comparable {
     }
 }
 
-extension Sequence where Iterator.Element: Hashable {
+public extension Sequence where Iterator.Element: Hashable {
+
     /// Finds duplicates in given sequence of Hashables.
     /// - Returns: duplicated elements in the invoking sequence.
     public func findDuplicates() -> [Iterator.Element] {
