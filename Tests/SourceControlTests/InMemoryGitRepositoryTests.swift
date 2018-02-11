@@ -22,53 +22,53 @@ class InMemoryGitRepositoryTests: XCTestCase {
         let repo = InMemoryGitRepository(path: .root, fs: fs)
 
         try repo.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
-        XCTAssertTrue(!repo.hasUncommitedChanges())
+        XCTAssertTrue(!repo.hasUncommittedChanges())
         let filePath = AbsolutePath("/new-dir/subdir").appending(component: "new-file.txt")
 
         try repo.writeFileContents(filePath, bytes: "one")
         XCTAssertEqual(try repo.readFileContents(filePath), "one")
-        XCTAssertTrue(repo.hasUncommitedChanges())
+        XCTAssertTrue(repo.hasUncommittedChanges())
 
         let firstCommit = repo.commit()
-        XCTAssertTrue(!repo.hasUncommitedChanges())
+        XCTAssertTrue(!repo.hasUncommittedChanges())
 
         XCTAssertEqual(try repo.readFileContents(filePath), "one")
         XCTAssertEqual(try fs.readFileContents(filePath), "one")
 
         try repo.writeFileContents(filePath, bytes: "two")
         XCTAssertEqual(try repo.readFileContents(filePath), "two")
-        XCTAssertTrue(repo.hasUncommitedChanges())
+        XCTAssertTrue(repo.hasUncommittedChanges())
 
         let secondCommit = repo.commit()
-        XCTAssertTrue(!repo.hasUncommitedChanges())
+        XCTAssertTrue(!repo.hasUncommittedChanges())
         XCTAssertEqual(try repo.readFileContents(filePath), "two")
 
         try repo.writeFileContents(filePath, bytes: "three")
-        XCTAssertTrue(repo.hasUncommitedChanges())
+        XCTAssertTrue(repo.hasUncommittedChanges())
         XCTAssertEqual(try repo.readFileContents(filePath), "three")
 
         try repo.checkout(revision: firstCommit)
-        XCTAssertTrue(!repo.hasUncommitedChanges())
+        XCTAssertTrue(!repo.hasUncommittedChanges())
         XCTAssertEqual(try repo.readFileContents(filePath), "one")
         XCTAssertEqual(try fs.readFileContents(filePath), "one")
 
         try repo.checkout(revision: secondCommit)
-        XCTAssertTrue(!repo.hasUncommitedChanges())
+        XCTAssertTrue(!repo.hasUncommittedChanges())
         XCTAssertEqual(try repo.readFileContents(filePath), "two")
 
         XCTAssert(repo.tags.isEmpty)
         try repo.tag(name: "2.0.0")
         XCTAssertEqual(repo.tags, ["2.0.0"])
-        XCTAssertTrue(!repo.hasUncommitedChanges())
+        XCTAssertTrue(!repo.hasUncommittedChanges())
         XCTAssertEqual(try repo.readFileContents(filePath), "two")
         XCTAssertEqual(try fs.readFileContents(filePath), "two")
 
         try repo.checkout(revision: firstCommit)
-        XCTAssertTrue(!repo.hasUncommitedChanges())
+        XCTAssertTrue(!repo.hasUncommittedChanges())
         XCTAssertEqual(try repo.readFileContents(filePath), "one")
 
         try repo.checkout(tag: "2.0.0")
-        XCTAssertTrue(!repo.hasUncommitedChanges())
+        XCTAssertTrue(!repo.hasUncommittedChanges())
         XCTAssertEqual(try repo.readFileContents(filePath), "two")
     }
 

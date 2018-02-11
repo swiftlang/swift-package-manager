@@ -735,7 +735,7 @@ extension Workspace {
         // Check for uncommited and unpushed changes if force removal is off.
         if !forceRemove {
             let workingRepo = try repositoryManager.provider.openCheckout(at: path)
-            guard !workingRepo.hasUncommitedChanges() else {
+            guard !workingRepo.hasUncommittedChanges() else {
                 throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
             }
             guard try !workingRepo.hasUnpushedCommits() else {
@@ -1518,7 +1518,7 @@ extension Workspace {
         // Remove the checkout.
         let dependencyPath = checkoutsPath.appending(dependencyToRemove.subpath)
         let checkedOutRepo = try repositoryManager.provider.openCheckout(at: dependencyPath)
-        guard !checkedOutRepo.hasUncommitedChanges() else {
+        guard !checkedOutRepo.hasUncommittedChanges() else {
             throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
         }
 
