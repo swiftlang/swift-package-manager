@@ -185,7 +185,7 @@ public protocol WorkingCheckout {
 
     /// This check for any modified state of the repository and returns true
     /// if there are uncommited changes.
-    func hasUncommitedChanges() -> Bool
+    func hasUncommittedChanges() -> Bool
 
     /// Check out the given tag.
     func checkout(tag: String) throws

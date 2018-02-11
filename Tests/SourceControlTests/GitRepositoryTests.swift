@@ -403,19 +403,19 @@ class GitRepositoryTests: XCTestCase {
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
             let repo = GitRepository(path: testRepoPath)
 
-            XCTAssert(repo.hasUncommitedChanges())
+            XCTAssert(repo.hasUncommittedChanges())
 
             try repo.stage(file: "test.txt")
 
-            XCTAssert(repo.hasUncommitedChanges())
+            XCTAssert(repo.hasUncommittedChanges())
 
             try repo.commit()
 
-            XCTAssertFalse(repo.hasUncommitedChanges())
+            XCTAssertFalse(repo.hasUncommittedChanges())
 
             // Modify the file in the repo.
             try localFileSystem.writeFileContents(repo.path.appending(component: "test.txt"), bytes: "Hello")
-            XCTAssert(repo.hasUncommitedChanges())
+            XCTAssert(repo.hasUncommittedChanges())
         }
     }
 
@@ -470,19 +470,19 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertEqual(try repo.currentBranch(), "TestBranch")
             // Create some random file.
             try createAndStageTestFile()
-            XCTAssert(repo.hasUncommitedChanges())
+            XCTAssert(repo.hasUncommittedChanges())
             // Checkout current revision again, the test file should go away.
             let currentRevision = try repo.getCurrentRevision()
             try repo.checkout(revision: currentRevision)
-            XCTAssertFalse(repo.hasUncommitedChanges())
+            XCTAssertFalse(repo.hasUncommittedChanges())
             // We should be on detached head.
             XCTAssertEqual(try repo.currentBranch(), "HEAD")
 
             // Try again and checkout to a previous branch.
             try createAndStageTestFile()
-            XCTAssert(repo.hasUncommitedChanges())
+            XCTAssert(repo.hasUncommittedChanges())
             try repo.checkout(revision: Revision(identifier: "TestBranch"))
-            XCTAssertFalse(repo.hasUncommitedChanges())
+            XCTAssertFalse(repo.hasUncommittedChanges())
             XCTAssertEqual(try repo.currentBranch(), "TestBranch")
 
             do {

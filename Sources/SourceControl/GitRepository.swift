@@ -298,7 +298,7 @@ public class GitRepository: Repository, WorkingCheckout {
         }
     }
 
-    public func hasUncommitedChanges() -> Bool {
+    public func hasUncommittedChanges() -> Bool {
         // Only a work tree can have changes.
         guard isWorkingRepo else { return false }
         return queue.sync {
