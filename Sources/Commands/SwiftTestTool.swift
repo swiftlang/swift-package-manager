@@ -130,13 +130,12 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     }
 
     override func runImpl() throws {
-        let graph = try loadPackageGraph()
-
         switch options.mode {
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
 
         case .listTests:
+            let graph = try loadPackageGraph()
             let testPath = try buildTestsIfNeeded(options, graph: graph)
             let testSuites = try getTestSuites(path: testPath)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
@@ -150,12 +149,14 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
           #if os(Linux)
             warning(message: "can't discover new tests on Linux; please use this option on macOS instead")
           #endif
+            let graph = try loadPackageGraph()
             let testPath = try buildTestsIfNeeded(options, graph: graph)
             let testSuites = try getTestSuites(path: testPath)
             let generator = LinuxMainGenerator(graph: graph, testSuites: testSuites)
             try generator.generate()
 
         case .runSerial:
+            let graph = try loadPackageGraph()
             let testPath = try buildTestsIfNeeded(options, graph: graph)
             var ranSuccessfully = true
 
@@ -191,6 +192,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             }
 
         case .runParallel:
+            let graph = try loadPackageGraph()
             let testPath = try buildTestsIfNeeded(options, graph: graph)
             let testSuites = try getTestSuites(path: testPath)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
