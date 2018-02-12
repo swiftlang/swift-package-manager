@@ -10,13 +10,10 @@
 
 // Can't conform a protocol explicitly with certain where clause for now but it'd be resolved by SE-0143.
 // ref: https://github.com/apple/swift-evolution/blob/master/proposals/0143-conditional-conformances.md
-//
-// In the meantime, avoid naming extension methods in a way that will be source breaking when SE-0143 is implemented.
-
 // MARK: CustomStringConvertible
 extension DictionaryLiteral where Key: CustomStringConvertible, Value: CustomStringConvertible {
     /// A string that represents the contents of the dictionary literal.
-    public var _description: String {
+    public var description: String {
         let lastCount = self.count - 1
         var desc = "["
         for (i, item) in self.enumerated() {
@@ -29,8 +26,7 @@ extension DictionaryLiteral where Key: CustomStringConvertible, Value: CustomStr
 
 // MARK: Equatable
 extension DictionaryLiteral where Key: Equatable, Value: Equatable {
-    public func _isEqual(to rhs: DictionaryLiteral) -> Bool {
-        let lhs = self
+    public static func ==(lhs: DictionaryLiteral, rhs: DictionaryLiteral) -> Bool {
         if lhs.count != rhs.count {
             return false
         }
