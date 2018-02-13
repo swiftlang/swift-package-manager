@@ -302,6 +302,13 @@ public struct Xcode {
         init(fileRef: FileReference) {
             self.fileRef = fileRef
         }
+
+        var settings = Settings()
+
+        /// A set of file settings.
+        public struct Settings {
+            var ATTRIBUTES: [String]?
+        }
     }
 
     /// A table of build settings, which for the sake of simplicity consists
@@ -336,6 +343,7 @@ public struct Xcode {
             // they are all either strings or arrays of strings, because even
             // a boolean may be a macro reference expression.
             var CLANG_CXX_LANGUAGE_STANDARD: String?
+            var CLANG_ENABLE_MODULES: String?
             var CLANG_ENABLE_OBJC_ARC: String?
             var COMBINE_HIDPI_IMAGES: String?
             var COPY_PHASE_STRIP: String?
