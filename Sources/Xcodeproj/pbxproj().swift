@@ -445,6 +445,11 @@ func xcodeProject(
             }
         }
 
+        // Make sure that build settings for C flags, Swift flags, and linker
+        // flags include any inherited value at the beginning.  This is useful
+        // even if nothing ends up being added, since it's a cue to anyone who
+        // edits the setting that the inherited value should be preserved.
+        targetSettings.common.OTHER_CFLAGS = ["$(inherited)"]
         targetSettings.common.OTHER_LDFLAGS = ["$(inherited)"]
         targetSettings.common.OTHER_SWIFT_FLAGS = ["$(inherited)"]
 
