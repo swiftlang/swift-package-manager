@@ -187,7 +187,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                                 .Package(url: "B", majorVersion: 2)
                             ]
                         )),
-                        version: v1
+                        version: v1,
+                        toolsVersion: .v3_1_0
                     )
                 ])
             let repoB = MockRepository(
@@ -198,7 +199,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                         url: "B",
                         package: .v3(PackageDescription.Package(
                             name: "Bar")),
-                        version: v2
+                        version: v2,
+                        toolsVersion: .v3_1_0
                     )
                 ])
             let resolver = MockDependencyResolver(repositories: repoA, repoB)

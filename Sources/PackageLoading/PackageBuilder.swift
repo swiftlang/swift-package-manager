@@ -493,7 +493,7 @@ public final class PackageBuilder {
         let potentialTargets: [PotentialModule]
         potentialTargets = try manifest.package.targets.map({ target in
             let path = try findPath(for: target)
-            return PotentialModule(name: target.name, path: path, isTest: target.isTest)
+            return PotentialModule(name: target.name, path: path, type: target.type)
         })
         return try createModules(potentialTargets)
     }
@@ -543,9 +543,9 @@ public final class PackageBuilder {
         if potentialModulePaths.isEmpty {
             // There are no directories that look like targets, so try to create a target for the source directory
             // itself (with the name coming from the name in the manifest).
-            potentialModules = [PotentialModule(name: manifest.name, path: srcDir, isTest: false)]
+            potentialModules = [PotentialModule(name: manifest.name, path: srcDir, type: .regular)]
         } else {
-            potentialModules = potentialModulePaths.map({ PotentialModule(name: $0.basename, path: $0, isTest: false) })
+            potentialModules = potentialModulePaths.map({ PotentialModule(name: $0.basename, path: $0, type: .regular) })
         }
         return try createModules(potentialModules + potentialTestModules())
     }
@@ -645,6 +645,7 @@ public final class PackageBuilder {
             // Create the target.
             let target = try createTarget(
                 potentialModule: potentialModule,
+                // FIXME: Why is this optional?
                 manifestTarget: manifestTarget,
                 moduleDependencies: deps, 
                 productDeps: productDeps)
@@ -690,6 +691,23 @@ public final class PackageBuilder {
         moduleDependencies: [Target],
         productDeps: [(name: String, package: String?)]
     ) throws -> Target? {
+
+        // ..
+        if potentialModule.type == .system {
+            // FIXME: Need real infra for detecting apis.
+            guard manifest.toolsVersion >= .v4_1_0 else {
+                fatalError("tools version too low")
+            }
+            let moduleMapPath = potentialModule.path.appending(component: moduleMapFilename)
+            guard fileSystem.isFile(moduleMapPath) else {
+                return nil
+            }
+            return SystemLibraryTarget(
+                    name: potentialModule.name,
+                    path: potentialModule.path,
+                    pkgConfig: manifestTarget?.pkgConfig,
+                    providers: manifestTarget?.providers)
+        }
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget?.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
@@ -870,7 +888,7 @@ public final class PackageBuilder {
 
         return testsDirContents
             .filter(shouldConsiderDirectory)
-            .map({ PotentialModule(name: $0.basename, path: $0, isTest: true) })
+            .map({ PotentialModule(name: $0.basename, path: $0, type: .test) })
     }
 
     /// Find the linux main file for the package.
@@ -1064,12 +1082,16 @@ private struct PotentialModule: Hashable {
     let path: AbsolutePath
 
     /// If this should be a test target.
-    let isTest: Bool
+    var isTest: Bool {
+        return type == .test
+    }
+
+    let type: PackageDescription4.Target.TargetType
 
     /// The base prefix for the test target, used to associate with the target it tests.
     public var basename: String {
         guard isTest else {
-            fatalError("\(type(of: self)) should be a test target to access basename.")
+            fatalError("\(Swift.type(of: self)) should be a test target to access basename.")
         }
         precondition(name.hasSuffix(Target.testModuleNameSuffix))
         let endIndex = name.index(name.endIndex, offsetBy: -Target.testModuleNameSuffix.count)

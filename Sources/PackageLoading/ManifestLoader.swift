@@ -74,7 +74,7 @@ public protocol ManifestLoaderProtocol {
         packagePath path: AbsolutePath,
         baseURL: String,
         version: Version?,
-        manifestVersion: ManifestVersion,
+        toolsVersion: ToolsVersion,
         fileSystem: FileSystem?
     ) throws -> Manifest
 }
@@ -91,14 +91,14 @@ extension ManifestLoaderProtocol {
         package path: AbsolutePath,
         baseURL: String,
         version: Version? = nil,
-        manifestVersion: ManifestVersion,
+        toolsVersion: ToolsVersion,
         fileSystem: FileSystem? = nil
     ) throws -> Manifest {
         return try load(
             packagePath: path,
             baseURL: baseURL,
             version: version,
-            manifestVersion: manifestVersion,
+            toolsVersion: toolsVersion,
             fileSystem: fileSystem)
     }
 }
@@ -127,14 +127,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packagePath path: AbsolutePath,
         baseURL: String,
         version: Version?,
-        manifestVersion: ManifestVersion,
+        toolsVersion: ToolsVersion,
         fileSystem: FileSystem? = nil
     ) throws -> Manifest {
         return try loadFile(
             path: Manifest.path(atPackagePath: path, fileSystem: fileSystem ?? localFileSystem),
             baseURL: baseURL,
             version: version,
-            manifestVersion: manifestVersion,
+            toolsVersion: toolsVersion,
             fileSystem: fileSystem)
     }
 
@@ -149,7 +149,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         path inputPath: AbsolutePath,
         baseURL: String,
         version: Version?,
-        manifestVersion: ManifestVersion = .three,
+        toolsVersion: ToolsVersion,
         fileSystem: FileSystem? = nil
     ) throws -> Manifest {
         // If we were given a file system, load via a temporary file.
@@ -166,7 +166,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 path: tmpFile.path,
                 baseURL: baseURL,
                 version: version,
-                manifestVersion: manifestVersion)
+                toolsVersion: toolsVersion)
         }
 
         guard baseURL.chuzzle() != nil else { fatalError() }  //TODO
@@ -176,6 +176,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description)
         }
 
+        let manifestVersion = toolsVersion.manifestVersion
         let parseResult = try parse(path: inputPath, manifestVersion: manifestVersion)
 
         // Get the json from manifest.
@@ -199,7 +200,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 package: .v3(pd.package),
                 legacyProducts: pd.products,
                 version: version,
-                interpreterFlags: parseResult.interpreterFlags)
+                interpreterFlags: parseResult.interpreterFlags,
+                toolsVersion: toolsVersion
+            )
 
         case .four:
             let package = try loadPackageDescription4(json, baseURL: baseURL)
@@ -208,7 +211,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 url: baseURL,
                 package: .v4(package),
                 version: version,
-                interpreterFlags: parseResult.interpreterFlags)
+                interpreterFlags: parseResult.interpreterFlags,
+                toolsVersion: toolsVersion
+            )
         }
 
         return manifest

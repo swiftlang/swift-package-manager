@@ -41,7 +41,8 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
                 package: .v3(package),
-                version: "1.0.0"
+                version: "1.0.0",
+                toolsVersion: .v3_1_0
             )
             if pkg == 1 {
                 rootManifests = [manifest]
