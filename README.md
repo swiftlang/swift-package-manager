@@ -109,10 +109,10 @@ let package = Package(
     name: "MyPackage",
     products: [
         .executable(name: "MyPackage", targets: ["MyPackage"])
-    ]
+    ],
     dependencies: [
         .Package(url: "https://github.com/apple/example-package-playingcard.git", majorVersion: 3),
-    ]
+    ],
     targets: [
         .target(
             name: "MyPackage",
