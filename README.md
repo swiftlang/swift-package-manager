@@ -74,7 +74,7 @@ $ git commit -m "Initial Commit"
 $ git tag 1.0.0
 $ git push origin master --tags
 ```
-For more documentation on using Using Swift Package Manager, creating packages, and more, see [Usage](https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#usage)
+For more documentation on using Swift Package Manager, creating packages, and more, see [Usage](https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#usage)
 
 ---
 
