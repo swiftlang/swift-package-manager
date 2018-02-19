@@ -37,7 +37,14 @@ class SHA256Tests: XCTestCase {
         XCTAssertEqual(SHA256(stream.bytes).digestString(), "23d00697ba26b4140869bab958431251e7e41982794d41b605b6a1d5dee56abf")
     }
 
+    func testLargeData() {
+        let data: [UInt8] = (0..<1788).map { _ in 0x03 }
+        let digest = SHA256(data).digestString()
+        XCTAssertEqual(digest, "907422e2f24d749d0add2b504ccae8ad1aa392477591905880fb2dc494e33d63")
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
+        ("testLargeData", testLargeData),
     ]
 }
