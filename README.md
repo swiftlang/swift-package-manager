@@ -82,9 +82,61 @@ The `SWIFT_EXEC` environment variable specifies the `swiftc` executable path use
 3. By searching the PATH.
 
 ---
+## Quick Usage Guide
+
+🏁 Initialize Package
+```
+$ swift package init
+```
+
+🏗 Build Executable
+
+```
+$ swift build
+```
+💨 Run Executable
+```
+$ swift run
+```
+➕Adding New Dependencies
+
+edit ```Package.swift ```:
+
+```swift
+import PackageDescription
+
+let package = Package(
+    name: "MyPackage",
+    products: [
+        .executable(name: "MyPackage", targets: ["MyPackage"])
+    ]
+    dependencies: [
+        .Package(url: "https://github.com/apple/example-package-playingcard.git", majorVersion: 3),
+    ]
+    targets: [
+        .target(
+            name: "MyPackage",
+            dependencies: ["PlayingCard"]
+        )
+    ]
+)
+```
+📦 Publish a package
+
+To publish a package, you just have to initialize a git repository and create a semantic version tag:
+```
+$ git init
+$ git add .
+$ git remote add origin [github-URL]
+$ git commit -m "Initial Commit"
+$ git tag 1.0.0
+$ git push origin master --tags
+```
+For more documentation on using Using Swift Package Manager, creating packages, and more, see [Usage](https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#usage)
+
+---
 
 ## Documentation
-For Quick Usage Guide,see [Usage](https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#usage)
 
 For Quick Help use the ```swift package --help ``` command 
 
