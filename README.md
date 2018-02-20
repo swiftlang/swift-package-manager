@@ -23,7 +23,7 @@ Note that at this time the Package Manager has no support for iOS, watchOS, or t
 
 ## Getting Started
 
-Please follow the following link for learning how to use the package manager basic [guide](https://swift.org/getting-started/#using-the-package-manager)
+Please use [this guide](https://swift.org/getting-started/#using-the-package-manager) for learning package manager basics.
 
 ---
 
