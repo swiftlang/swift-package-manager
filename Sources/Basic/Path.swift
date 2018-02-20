@@ -433,6 +433,23 @@ struct PathImpl {
     }
 }
 
+/// Describes the way in which a path is invalid.
+public enum PathValidationError: Error {
+    case startsWithTilda(String)
+    case invalidAbsolutePath(String)
+}
+
+extension PathValidationError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .startsWithTilda(let path):
+            return "invalid absolute path '\(path)'; absolute path must begin with /"
+        case .invalidAbsolutePath(let path):
+            return "invalid absolute path '\(path)'"
+        }
+    }
+}
+
 extension AbsolutePath {
     /// Returns a relative path that, when concatenated to `base`, yields the
     /// callee path itself.  If `base` is not an ancestor of the callee, the
@@ -484,6 +501,18 @@ extension AbsolutePath {
     /// in any way.
     public func contains(_ other: AbsolutePath) -> Bool {
         return self.components.starts(with: other.components)
+    }
+
+    /// Checks the path and throws a `PathValidationError` if the path is invalid.
+    public static func validate(pathString path: String) throws {
+        switch path.first {
+        case "/":
+            return
+        case "~":
+            throw PathValidationError.startsWithTilda(path)
+        default:
+            throw PathValidationError.invalidAbsolutePath(path)
+        }
     }
 }
 
