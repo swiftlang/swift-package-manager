@@ -22,59 +22,8 @@ Note that at this time the Package Manager has no support for iOS, watchOS, or t
 ---
 
 ## Getting Started
-🧐 Verify Installation 
-```
-$  swift package --version
-```
-🏁 Initialize Package
-```
-$ swift package init
-```
 
-🏗 Build Executable
-
-```
-$ swift build
-```
-💨 Run Executable
-```
-$ swift run
-```
-➕Adding New Dependencies
-
-edit ```Package.swift ```:
-
-```swift
-import PackageDescription
-
-let package = Package(
-    name: "MyPackage",
-    products: [
-        .executable(name: "MyPackage", targets: ["MyPackage"])
-    ],
-    dependencies: [
-        .Package(url: "https://github.com/apple/example-package-playingcard.git", majorVersion: 3),
-    ],
-    targets: [
-        .target(
-            name: "MyPackage",
-            dependencies: ["PlayingCard"]
-        )
-    ]
-)
-```
-📦 Publish a package
-
-To publish a package, you just have to initialize a git repository and create a semantic version tag:
-```
-$ git init
-$ git add .
-$ git remote add origin [github-URL]
-$ git commit -m "Initial Commit"
-$ git tag 1.0.0
-$ git push origin master --tags
-```
-For more documentation on using Swift Package Manager, creating packages, and more, see [Usage](https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#usage)
+Please follow the following link for learning how to use the package manager basic [guide](https://swift.org/getting-started/#using-the-package-manager)
 
 ---
 
