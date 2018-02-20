@@ -28,6 +28,11 @@ public enum ModuleError: Swift.Error {
         case unexpectedSourceFiles([String])
         case modulemapInSources(String)
     }
+	
+	///	Describes a way in which a path is invalid.
+	public enum InvalidPathType {
+		case unsupportedTilda
+	}
 
     /// Indicates two targets with the same name.
     case duplicateModule(String)
@@ -61,6 +66,9 @@ public enum ModuleError: Swift.Error {
 
     /// The target path is outside the package.
     case targetOutsidePackage(package: String, target: String)
+	
+	/// The path is not supported.
+	case unsupportedPath(path: String, reason: InvalidPathType)
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -96,6 +104,11 @@ extension ModuleError: CustomStringConvertible {
             return "package '\(package)' not compatible with current tools version (\(current)); it supports: \(required)"
         case .targetOutsidePackage(let package, let target):
             return "target '\(target)' in package '\(package)' is outside the package root"
+		case .unsupportedPath(let path, let reason):
+			switch reason {
+			case .unsupportedTilda:
+				return "unsupported path '\(path)'; '~' is not supported"
+			}
         }
     }
 }
@@ -469,7 +482,15 @@ public final class PackageBuilder {
                 if subpath == "" || subpath == "." {
                     return packagePath
                 }
-                let path = packagePath.appending(RelativePath(subpath))
+				
+				// Make sure the target path doesn't contain '~'.
+				guard subpath.first != "~" else {
+					throw ModuleError.unsupportedPath(path: subpath, reason: .unsupportedTilda)
+				}
+				
+				let path = subpath.first == "/" ?
+					AbsolutePath(subpath) : packagePath.appending(RelativePath(subpath))
+				
                 // Make sure the target is inside the package root.
                 guard path.contains(packagePath) else {
                     throw ModuleError.targetOutsidePackage(package: manifest.name, target: target.name)
