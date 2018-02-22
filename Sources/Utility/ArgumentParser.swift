@@ -727,9 +727,9 @@ public final class ArgumentParser {
         private(set) var associatedArgumentValue: String?
 
         /// The iterator used to iterate arguments.
-        fileprivate var argumentsIterator: IndexingIterator<[String]>
+        fileprivate var argumentsIterator: ArrayIterator<String>
 
-        init(associatedArgumentValue: String?, argumentsIterator: IndexingIterator<[String]>, currentArgument: String) {
+        init(associatedArgumentValue: String?, argumentsIterator: ArrayIterator<String>, currentArgument: String) {
             self.associatedArgumentValue = associatedArgumentValue
             self.argumentsIterator = argumentsIterator
             self.currentArgument = currentArgument
