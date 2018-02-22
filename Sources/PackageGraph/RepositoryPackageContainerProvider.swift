@@ -362,7 +362,28 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         // Compute the map of known versions.
         //
         // FIXME: Move this utility to a more stable location.
-        let knownVersions = Git.convertTagsToVersionMap(repository.tags)
+        
+        let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(repository.tags)
+        
+        let knownVersions = knownVersionsWithDuplicates.mapValues { (tags) -> String in
+            switch tags {
+            case (normal: .some, vPrefixed: .none):
+                return tags.normal!
+            case (normal: .none, vPrefixed: .some):
+                return tags.vPrefixed!
+            case (normal: .some, vPrefixed: .some):
+                let normalRevision = try! repository.resolveRevision(tag: tags.normal!)
+                let vPrefixedRevision = try! repository.resolveRevision(tag: tags.vPrefixed!)
+                if normalRevision != vPrefixedRevision {
+                    //WARN
+                    print("Warning: tags \(tags.normal!) and \(tags.vPrefixed!) point to different revisions. Defaulting to \(tags.normal!)")
+                }
+                return tags.normal!
+            case (.none, .none):
+                return ""
+            }
+        }
+
         self.knownVersions = knownVersions
         self.reversedVersions = [Version](knownVersions.keys).sorted().reversed()
         super.init(
