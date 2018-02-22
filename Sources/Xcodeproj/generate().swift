@@ -82,10 +82,20 @@ public func generate(
     // references in the project.
     let extraDirs = try findDirectoryReferences(path: srcroot)
 
+    // Find non-source files in the source directories that should be added
+    // as a reference to the project.
+    var extraFiles = try findNonSourceFiles(path: srcroot)
+    if let sourceExtraFiles = try? findNonSourceFiles(path: srcroot.appending(component: "Sources"), recursively: true) {
+        extraFiles.append(contentsOf: sourceExtraFiles)
+    }
+    if let testsExtraFiles = try? findNonSourceFiles(path: srcroot.appending(component: "Tests"), recursively: true) {
+        extraFiles.append(contentsOf: testsExtraFiles)
+    }
+
     /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
     // FIXME: This could be more efficient by directly writing to a stream
     // instead of first creating a string.
-    let project = try pbxproj(xcodeprojPath: xcodeprojPath, graph: graph, extraDirs: extraDirs, options: options, diagnostics: diagnostics)
+    let project = try pbxproj(xcodeprojPath: xcodeprojPath, graph: graph, extraDirs: extraDirs, extraFiles: extraFiles, options: options, diagnostics: diagnostics)
     try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
         // Serialize the project model we created to a plist, and return
         // its string description.
@@ -221,5 +231,19 @@ func generateSchemes(
             isCodeCoverageEnabled: options.isCodeCoverageEnabled,
             fs: localFileSystem
         ).generate()
+    }
+}
+
+/// Finds the non-source files from `path` recursively
+func findNonSourceFiles(path: AbsolutePath, recursively: Bool = false) throws -> [AbsolutePath] {
+    let filesFromPath = try walk(path, recursively: recursively)
+
+    return filesFromPath.filter {
+        if !isFile($0) { return false }
+        if let `extension` = $0.extension {
+            if SupportedLanguageExtension.cFamilyExtensions.contains(`extension`) { return false }
+            if SupportedLanguageExtension.swiftExtensions.contains(`extension`) { return false }
+        }
+        return true
     }
 }

@@ -76,7 +76,7 @@ class GenerateXcodeprojTests: XCTestCase {
         let options = XcodeprojOptions(xcconfigOverrides: AbsolutePath("/doesntexist"))
         do {
             _ = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
-                                 graph: graph, extraDirs: [], options: options, fileSystem: fileSystem, diagnostics: diagnostics)
+                                 graph: graph, extraDirs: [], extraFiles: [], options: options, fileSystem: fileSystem, diagnostics: diagnostics)
             XCTFail("Project generation should have failed")
         } catch ProjectGenerationError.xcconfigOverrideNotFound(let path) {
             XCTAssertEqual(options.xcconfigOverrides, path)
@@ -94,7 +94,7 @@ class GenerateXcodeprojTests: XCTestCase {
         XCTAssertFalse(diagnostics.hasErrors)
 
         _ = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
-                             graph: graph, extraDirs: [], options: XcodeprojOptions(), fileSystem: fileSystem, diagnostics: diagnostics,
+                             graph: graph, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fileSystem, diagnostics: diagnostics,
                              warningStream: warningStream)
 
         let warnings = warningStream.bytes.asReadableString

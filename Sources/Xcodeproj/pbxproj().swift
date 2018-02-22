@@ -32,6 +32,7 @@ public func pbxproj(
         xcodeprojPath: AbsolutePath,
         graph: PackageGraph,
         extraDirs: [AbsolutePath],
+        extraFiles: [AbsolutePath],
         options: XcodeprojOptions,
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem
@@ -40,6 +41,7 @@ public func pbxproj(
         xcodeprojPath: xcodeprojPath,
         graph: graph,
         extraDirs: extraDirs,
+        extraFiles: extraFiles,
         options: options,
         fileSystem: fileSystem,
         diagnostics: diagnostics)
@@ -55,6 +57,7 @@ func xcodeProject(
     xcodeprojPath: AbsolutePath,
     graph: PackageGraph,
     extraDirs: [AbsolutePath],
+    extraFiles: [AbsolutePath],
     options: XcodeprojOptions,
     fileSystem: FileSystem,
     diagnostics: DiagnosticsEngine,
@@ -320,6 +323,11 @@ func xcodeProject(
     // they are not guaranteed to be direct children of the root directory).
     for extraDir in extraDirs {
         project.mainGroup.addFileReference(path: extraDir.relative(to: sourceRootDir).asString, pathBase: .projectDir)
+    }
+
+    for extraFile in extraFiles {
+        let groupOfFile = srcPathsToGroups[extraFile.parentDirectory]
+        groupOfFile?.addFileReference(path: extraFile.basename)
     }
 
     // Determine the set of targets to generate in the project by excluding
