@@ -124,11 +124,8 @@ if platform.system() == 'Darwin':
         ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
         universal_newlines=True).strip()
 
-g_libdir = "lib"
 if platform.system() == 'Linux':
     g_shared_lib_ext = ".so"
-    if platform.machine() == "x86_64":
-        g_libdir = "lib64"
 else:
     g_shared_lib_ext = ".dylib"
 
@@ -219,7 +216,14 @@ class Target(object):
             other_args.append("-O")
         else:
             other_args.append("-Onone")
+        
+        #Define the UserToolchain manifest libdir path
+        if args.libdir[-2:] == '64':
+            other_args.extend(["-DLIB_64"])
+        elif args.libdir[-2:] == '32':
+            other_args.extend(["-DLIB_32"])
         other_args.extend(['-j%d' % g_num_cpus] + self.swiftflags)
+        
         if platform.system() == 'Darwin':
             other_args.extend(["-target", "x86_64-apple-macosx10.10"])
         if args.sysroot:
@@ -258,9 +262,9 @@ class Target(object):
         if args.foundation_path:
             import_paths.append(args.foundation_path)
             import_paths.append(os.path.join(args.foundation_path,
-                                             "usr/" + g_libdir + "/swift/CoreFoundation"))
+                                             "usr/" + args.libdir + "/swift/CoreFoundation"))
             import_paths.append(os.path.join(args.foundation_path,
-                                             "usr/"+ g_libdir + "/swift"))
+                                             "usr/"+ args.libdir + "/swift"))
         if args.libdispatch_build_dir:
             import_paths.append(os.path.join(args.libdispatch_build_dir,
                                              "src"))
@@ -463,7 +467,7 @@ class llbuild(object):
         # Compute output directories paths.
         self.output_file = os.path.join(sandbox_path, "build.yaml")
         self.inc_dir = os.path.join(sandbox_path, "inc")
-        self.lib_dir = os.path.join(sandbox_path, g_libdir)
+        self.lib_dir = os.path.join(sandbox_path, args.libdir)
         self.bin_dir = os.path.join(sandbox_path, "bin")
         self.module_dir = os.path.join(sandbox_path, "modules")
         self.targets = targets
@@ -578,7 +582,7 @@ class llbuild(object):
                     link_command.extend(["-Xlinker", "-l%s" % (lib,)])
                 if platform.system() == 'Linux':
                     link_command.extend(
-                        ["-Xlinker", "-rpath=$ORIGIN/../" + g_libdir + "/swift/linux"])
+                        ["-Xlinker", "-rpath=$ORIGIN/../" + self.args.libdir + "/swift/linux"])
                 if self.args.foundation_path:
                     link_command.extend(["-L", self.args.foundation_path])
                 if self.args.libdispatch_build_dir:
@@ -823,6 +827,9 @@ def main():
                         help="path to the 'swift-build-tool' tool "
                              "[%(default)s]",
                         metavar="PATH")
+    parser.add_argument("--libdir",
+                        help="library folder name. Default to lib",
+                        default="lib")
     parser.add_argument("--sysroot",
                         help="compiler sysroot to pass to Swift [%(default)s]",
                         default=g_default_sysroot, metavar="PATH")
@@ -939,14 +946,14 @@ def main():
     processed_runtimes = {}
     for version, build in built_runtimes.items():
         # Path where runtime library will be copied from sandbox.
-        lib_path = os.path.join(sandbox_path, g_libdir, "swift", "pm", version)
+        lib_path = os.path.join(sandbox_path, args.libdir, "swift", "pm", version)
 
         # Stage the stage1 runtime library.
         processed_runtimes[version] = process_runtime_libraries(
                 build, args, lib_path)
 
     
-    libdir = os.path.join(target_path, g_libdir)
+    libdir = os.path.join(target_path, args.libdir)
     bindir = os.path.join(target_path, conf)
     mkdir_p(bindir)
     bootstrapped_product = os.path.join(bindir, "swift-build-stage1")
@@ -963,7 +970,7 @@ def main():
             # TODO remove, here to prevent revlock incremental CI build failures
             shutil.rmtree(libdir)
 
-        symlink_force(os.path.join(sandbox_path, g_libdir), target_path)
+        symlink_force(os.path.join(sandbox_path, args.libdir), target_path)
 
         # To simulate usr/lib directory.
         usrdir = os.path.join(target_path, "usr")
@@ -971,7 +978,7 @@ def main():
         symlink_force(os.path.join(sandbox_path, "lib"), usrdir)
 
         if args.foundation_path:
-            libswiftdir = os.path.join(sandbox_path, g_libdir, "swift", "linux")
+            libswiftdir = os.path.join(sandbox_path, args.libdir, "swift", "linux")
             mkdir_p(libswiftdir)
             symlink_force(os.path.join(args.foundation_path, 'libFoundation.so'),
                 libswiftdir)
@@ -992,7 +999,7 @@ def main():
     # We need to embed an RPATH so swift-{build,test} can find the core
     # libraries.
     if platform.system() == 'Linux':
-        embed_rpath = "$ORIGIN/../" + g_libdir + "/swift/linux"
+        embed_rpath = "$ORIGIN/../" + args.libdir + "/swift/linux"
     else:
         embed_rpath = "@executable_path/../lib/swift/macosx"
     build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
@@ -1014,7 +1021,7 @@ def main():
     
     if args.foundation_path:
         core_foundation_path = os.path.join(
-            args.foundation_path, "usr", g_libdir, "swift")
+            args.foundation_path, "usr", args.libdir, "swift")
         # Tell the linker where to look for XCTest, but autolinking
         # knows to pass -lXCTest.
         build_flags.extend(["-Xlinker", "-L", "-Xlinker", args.foundation_path])
@@ -1091,7 +1098,7 @@ def main():
             bin_install_path = os.path.join(g_project_root, install_prefix,
                                             "bin")
             lib_install_path = os.path.join(g_project_root, install_prefix,
-                                            g_libdir, "swift", "pm")
+                                            args.libdir, "swift", "pm")
             libexec_install_path = os.path.join(g_project_root, install_prefix,
                                             "libexec", "swift", "pm")
             mkdir_p(bin_install_path)
