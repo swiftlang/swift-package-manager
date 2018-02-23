@@ -18,6 +18,9 @@ public protocol Toolchain {
     /// Path of the `clang` compiler.
     var clangCompiler: AbsolutePath { get }
 
+    /// Path of the `gyb` compiler.
+    var gybCompiler: AbsolutePath? { get }
+
     /// Additional flags to be passed to the C compiler.
     var extraCCFlags: [String] { get }
 
@@ -29,4 +32,10 @@ public protocol Toolchain {
 
     /// The dynamic library extension, for e.g. dylib, so.
     var dynamicLibraryExtension: String { get }
+}
+
+extension Toolchain {
+    var gybCompiler: AbsolutePath? {
+        return nil
+    }
 }

@@ -267,9 +267,41 @@ public final class SwiftTargetDescription {
         return buildParameters.buildPath.appending(component: target.c99name + ".build")
     }
 
+    /// The swift sources in the target. These include the generated
+    /// Swift sources from gyb files, if any.
+    var swiftSources: [AbsolutePath] {
+        return target.sources.paths.map({ path in
+            if path.extension == SupportedLanguageExtension.swiftgyb.rawValue {
+                return gybOutput(for: path)
+            }
+            return path
+        })
+    }
+
+    /// Computes the Swift source output path for the given input gyb path.
+    func gybOutput(for path: AbsolutePath) -> AbsolutePath {
+        assert(path.extension == SupportedLanguageExtension.swiftgyb.rawValue)
+        return AbsolutePath(String(tempsPath.appending(path.relative(to: target.sources.root)).asString.dropLast(4)))
+    }
+
+    /// The gyb input files.
+    var gybInputs: [AbsolutePath] {
+        return target.sources.paths.filter({ $0.extension == SupportedLanguageExtension.swiftgyb.rawValue })
+    }
+
     /// The objects in this target.
     var objects: [AbsolutePath] {
-        return target.sources.relativePaths.map({ tempsPath.appending(RelativePath($0.asString + ".o")) })
+        return swiftSources.map({ path in
+            // A gyb source is generated in temps path, place its corresponding
+            // object file adjacent to it.
+            if path.extension == SupportedLanguageExtension.swiftgyb.rawValue {
+                return AbsolutePath(path.asString + ".o")
+            }
+
+            // Compute path for object file of a regular source file.
+            let relativePath = path.relative(to: target.sources.root)
+            return tempsPath.appending(RelativePath(relativePath.asString + ".o"))
+        })
     }
 
     /// The path to the swiftmodule file after compilation.

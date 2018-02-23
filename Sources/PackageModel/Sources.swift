@@ -41,6 +41,7 @@ public struct Sources {
 public enum SupportedLanguageExtension: String {
     /// Swift
     case swift
+    case swiftgyb = "gyb"
     /// C
     case c
     /// Objective C
@@ -54,7 +55,7 @@ public enum SupportedLanguageExtension: String {
 
     /// Returns a set of valid swift extensions.
     public static var swiftExtensions: Set<String> = {
-        SupportedLanguageExtension.stringSet(swift)
+        SupportedLanguageExtension.stringSet(swift, swiftgyb)
     }()
 
     /// Returns a set of valid c extensions.
