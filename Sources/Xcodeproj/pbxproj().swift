@@ -670,6 +670,9 @@ private extension SupportedLanguageExtension {
             return "sourcecode.cpp.objcpp"
         case .swift:
             return "sourcecode.swift"
+        case .swiftgyb:
+            // FIXME: This needs to be handled.
+            fatalError("Unsupported")
         }
     }
 }

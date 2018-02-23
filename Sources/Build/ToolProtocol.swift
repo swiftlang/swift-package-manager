@@ -136,7 +136,7 @@ struct SwiftCompilerTool: ToolProtocol {
         stream <<< "    other-args: "
             <<< Format.asJSON(target.compileArguments()) <<< "\n"
         stream <<< "    sources: "
-            <<< Format.asJSON(target.target.sources.paths.map({ $0.asString })) <<< "\n"
+            <<< Format.asJSON(target.swiftSources.map({ $0.asString })) <<< "\n"
         stream <<< "    is-library: "
             <<< Format.asJSON(target.target.type == .library || target.target.type == .test) <<< "\n"
         stream <<< "    enable-whole-module-optimization: "

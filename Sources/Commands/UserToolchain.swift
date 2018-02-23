@@ -40,6 +40,11 @@ public struct UserToolchain: Toolchain {
     /// Path of the `clang` compiler.
     public let clangCompiler: AbsolutePath
 
+    public var gybCompiler: AbsolutePath? {
+        // FIXME: We can only find gyb compiler via this enviornment variable currently.
+        return Process.env["GYB"].flatMap(AbsolutePath.init)
+    }
+
     public let extraCCFlags: [String]
 
     public let extraSwiftCFlags: [String]

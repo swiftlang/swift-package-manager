@@ -226,7 +226,7 @@ public struct LLBuildManifestGenerator {
     private func createSwiftCompileTarget(_ target: SwiftTargetDescription) -> Target {
         // Compute inital inputs.
         var inputs = SortedArray<String>()
-        inputs += target.target.sources.paths.map({ $0.asString })
+        inputs += target.swiftSources.map({ $0.asString })
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.
@@ -268,6 +268,24 @@ public struct LLBuildManifestGenerator {
         buildTarget.outputs.insert(target.moduleOutputPath.asString)
         let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
         buildTarget.cmds.insert(Command(name: target.target.commandName, tool: tool))
+
+        // FIXME: We should gracefully handle the case when we don't have gyb.
+        let gybCompiler = plan.buildParameters.toolchain.gybCompiler?.asString ?? "gyb"
+
+        // Create gyb commands.
+        let gybCommands: [Command] = target.gybInputs.map { path in
+            let output = target.gybOutput(for: path).asString
+            let tool = ShellTool(
+                description: "Compile \(path.asString)",
+                inputs: [path.asString],
+                outputs: [output],
+                args: [gybCompiler, path.asString, "-o", output],
+                allowMissingInputs: false
+            )
+            return Command(name: output, tool: tool)
+        }
+        buildTarget.cmds += gybCommands
+
         return buildTarget
     }
 
