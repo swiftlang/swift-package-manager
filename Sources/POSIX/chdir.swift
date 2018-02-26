@@ -16,7 +16,7 @@ import var SPMLibc.errno
 */
 public func chdir(_ path: String) throws {
     if memo == nil {
-        let argv0 = try realpath(CommandLine.arguments.first!)
+        let argv0 = try realpath(executable: CommandLine.arguments.first!)
         let cwd = try realpath(getcwd())
         memo = (argv0: argv0, wd: cwd)
     }

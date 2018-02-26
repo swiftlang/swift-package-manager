@@ -27,3 +27,31 @@ public func realpath(_ path: String) throws -> String {
     guard let rvv = String(validatingUTF8: rv!) else { throw SystemError.realpath(-1, path) }
     return rvv
 }
+
+private let pathComponentSeparator = "/"
+
+/**
+ Resolves executable, both absolute and relative paths and referred from `PATH` environment variable and
+ return the absolute pathname.
+
+ All components in executable must exists when realpath(executable:) is called.
+*/
+public func realpath(executable: String) throws -> String {
+    if executable.starts(with: pathComponentSeparator) {
+        return try realpath(argv0)
+    }
+    if executable.contains(pathComponentSeparator.first!) {
+        return try realpath(getcwd() + pathComponentSeparator + executable)
+    }
+    if let paths = getenv("PATH")?.split(separator: ":") {
+        for path in paths {
+            if let s = try? stat(String(path) + "/" + executable) {
+                if s.kind == .file || s.kind == .symlink {
+                    let suffixedPath = path.reversed().starts(with: pathComponentSeparator) ? path : path + "/"
+                    return try realpath(suffixedPath + executable)
+                }
+            }
+        }
+    }
+    throw SystemError.realpath(2, executable)
+}

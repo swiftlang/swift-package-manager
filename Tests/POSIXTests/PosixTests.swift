@@ -38,7 +38,14 @@ class PosixTests: XCTestCase {
         }
     }
 
+    func testExecutableRealpath() throws {
+        XCTAssertNoThrow(try realpath(executable: CommandLine.arguments.first!))
+        XCTAssertNoThrow(try realpath(executable: "swift"))
+        XCTAssertThrowsError(try realpath(executable: "a-definitely-not-exist-executable"))
+    }
+
     static var allTests = [
         ("testRename", testRename),
+        ("testExecutableRealpath", testExecutableRealpath),
     ]
 }
