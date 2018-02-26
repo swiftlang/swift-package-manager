@@ -235,9 +235,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)\n"))
         repo.commit()
         try repo.tag(name: "v1.0.0")
-        try repo.tag(name: "v1.0.1")
+        try repo.tag(name: "1.0.1")
         try repo.tag(name: "v1.0.2")
-        try repo.tag(name: "v1.0.3")
+        try repo.tag(name: "1.0.3")
         try repo.tag(name: "v2.0.3")
 
         let inMemRepoProvider = InMemoryGitRepositoryProvider()
