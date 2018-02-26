@@ -22,8 +22,12 @@ public class GitRepositoryProvider: RepositoryProvider {
     /// Reference to process set, if installed.
     private let processSet: ProcessSet?
 
-    public init(processSet: ProcessSet? = nil) {
+    private let substitutionHelper: GitURLSubstitutionHelper?
+
+    public init(processSet: ProcessSet? = nil, substitutionHelper: GitURLSubstitutionHelper? = nil) {
         self.processSet = processSet
+        self.substitutionHelper = substitutionHelper
+
     }
 
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
@@ -38,8 +42,11 @@ public class GitRepositoryProvider: RepositoryProvider {
         // FIXME: We need infrastructure in this subsystem for reporting
         // status information.
 
+        // Substitute the URL from git overrides, if present.
+        let url = try substitutionHelper?.substitute(url: repository.url) ?? repository.url
+
         let process = Process(
-            args: Git.tool, "clone", "--mirror", repository.url, path.asString, environment: Git.environment)
+            args: Git.tool, "clone", "--mirror", url, path.asString, environment: Git.environment)
         // Add to process set.
         try processSet?.add(process)
         // Launch the process.

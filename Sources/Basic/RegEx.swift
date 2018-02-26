@@ -31,4 +31,15 @@ public struct RegEx {
             }
         }
     }
+
+    /// Replace the matches in the input string with the given template.
+    ///
+    /// - Returns: The number of matches.
+    public func replaceMatches(in string: inout String, template: String) -> Int {
+        let mutString = NSMutableString(string: string)
+        let range = NSMakeRange(0, mutString.length)
+        let count = regex.replaceMatches(in: mutString, options: [], range: range, withTemplate: template)
+        string = String(mutString)
+        return count
+    }
 }
