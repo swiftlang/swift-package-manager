@@ -13,7 +13,7 @@
 public struct OrderedSet<E: Hashable>: Equatable, Collection {
     public typealias Element = E
     public typealias Index = Int
-    public typealias Indices = CountableRange<Int>
+    public typealias Indices = Range<Int>
 
     private var array: [Element]
     private var set: Set<Element>
