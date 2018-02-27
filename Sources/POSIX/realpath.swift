@@ -9,6 +9,7 @@
 */
 
 import var SPMLibc.errno
+import var SPMLibc.ENOENT
 import func SPMLibc.free
 import func SPMLibc.realpath
 
@@ -28,7 +29,7 @@ public func realpath(_ path: String) throws -> String {
     return rvv
 }
 
-private let pathComponentSeparator = "/"
+internal let pathComponentSeparator = "/"
 
 /**
  Resolves executable, both absolute and relative paths and referred from `PATH` environment variable and
@@ -37,21 +38,24 @@ private let pathComponentSeparator = "/"
  All components in executable must exists when realpath(executable:) is called.
 */
 public func realpath(executable: String) throws -> String {
-    if executable.starts(with: pathComponentSeparator) {
+    // when executable is an absolute path like `/usr/bin/swift`
+    if executable.hasPrefix(pathComponentSeparator) {
         return try realpath(argv0)
     }
+    // when executable is a relative path like `./swift` or `bin/swift`
     if executable.contains(pathComponentSeparator.first!) {
         return try realpath(getcwd() + pathComponentSeparator + executable)
     }
+    // when executable is resolved from PATH, it may be `swift` without any path component separator
     if let paths = getenv("PATH")?.split(separator: ":") {
         for path in paths {
-            if let s = try? stat(String(path) + "/" + executable) {
-                if s.kind == .file || s.kind == .symlink {
-                    let suffixedPath = path.reversed().starts(with: pathComponentSeparator) ? path : path + "/"
-                    return try realpath(suffixedPath + executable)
+            let joinedPath = String((path.hasSuffix(pathComponentSeparator) ? path : path + "/") + executable)
+            if let fileStat = try? stat(joinedPath) {
+                if fileStat.kind == .file || fileStat.kind == .symlink {
+                    return try realpath(joinedPath)
                 }
             }
         }
     }
-    throw SystemError.realpath(2, executable)
+    throw SystemError.realpath(ENOENT, executable)
 }

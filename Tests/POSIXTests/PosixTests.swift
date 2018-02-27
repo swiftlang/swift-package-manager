@@ -10,7 +10,7 @@
 
 import XCTest
 
-import POSIX
+@testable import POSIX
 
 import Basic
 import TestSupport
@@ -39,8 +39,13 @@ class PosixTests: XCTestCase {
     }
 
     func testExecutableRealpath() throws {
-        XCTAssertNoThrow(try realpath(executable: CommandLine.arguments.first!))
-        XCTAssertNoThrow(try realpath(executable: "swift"))
+        var path = ""
+        XCTAssertNoThrow(path = try realpath(executable: CommandLine.arguments.first!))
+        XCTAssertTrue(path.hasPrefix(pathComponentSeparator))
+
+        XCTAssertNoThrow(path = try realpath(executable: "swift"))
+        XCTAssertEqual(path, "/usr/bin/swift")
+
         XCTAssertThrowsError(try realpath(executable: "a-definitely-not-exist-executable"))
     }
 
