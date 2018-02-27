@@ -365,22 +365,24 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(repository.tags)
         
         let knownVersions = knownVersionsWithDuplicates.mapValues { (tags) -> String in
-            switch tags {
-            case (normal: .some, vPrefixed: .none):
-                return tags.normal!
-            case (normal: .none, vPrefixed: .some):
-                return tags.vPrefixed!
-            case (normal: .some, vPrefixed: .some):
-                let normalRevision = try! repository.resolveRevision(tag: tags.normal!)
-                let vPrefixedRevision = try! repository.resolveRevision(tag: tags.vPrefixed!)
-                if normalRevision != vPrefixedRevision {
-                    // Warn if the duplicate tags point to different revisions.
-                    print("Warning: tags \(tags.normal!) and \(tags.vPrefixed!) point to different revisions. Defaulting to \(tags.normal!)")
-                }
-                return tags.normal!
-            case (.none, .none):
-                return ""
+            if tags.count == 1 {
+                return tags[0]
             }
+            else if tags.count == 2 {
+                do {
+                    let normalRevision = try repository.resolveRevision(tag: tags[0])
+                    let vPrefixedRevision = try repository.resolveRevision(tag: tags[1])
+                    
+                    if normalRevision != vPrefixedRevision {
+                        // FIXME: Warn that the duplicate tags point to different revisions.
+                    }
+                }
+                catch {
+                    return tags[0]
+                }
+                return tags[0]
+            }
+            return tags[0]
         }
 
         self.knownVersions = knownVersions
