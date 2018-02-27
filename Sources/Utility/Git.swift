@@ -23,20 +23,29 @@ extension Version {
 
 public class Git {
     /// Compute the version -> tags mapping from a list of input `tags`.
-    public static func convertTagsToVersionMap(_ tags: [String]) -> [Version: (normal: String?, vPrefixed: String?)] {
+    /// The returned array has a minimum of one element and a maximum of two.
+    /// The X.X.X tag will always precede the vX.X.X tag in case of duplicates.
+    public static func convertTagsToVersionMap(_ tags: [String]) -> [Version: [String]] {
         // First, check if we need to restrict the tag set to version-specific tags.
-        var knownVersions: [Version: (normal: String?, vPrefixed: String?)] = [:]
+        var knownVersions: [Version: [String]] = [:]
         for versionSpecificKey in Versioning.currentVersionSpecificKeys {
             for tag in tags where tag.hasSuffix(versionSpecificKey) {
                 let specifier = String(tag.dropLast(versionSpecificKey.count))
                 if let version = Version(string: specifier) {
-                    (knownVersions[version]?.normal = tag) ?? (knownVersions[version] = (normal: tag, vPrefixed: nil))
-                }
-                else if let version = Version.vprefix(specifier) {
-                    (knownVersions[version]?.vPrefixed = tag) ?? (knownVersions[version] = (normal: nil, vPrefixed: tag))
+                    knownVersions[version] = [tag]
                 }
             }
-
+            for tag in tags where tag.hasSuffix(versionSpecificKey) {
+                let specifier = String(tag.dropLast(versionSpecificKey.count))
+                if let version = Version.vprefix(specifier) {
+                    if knownVersions[version] != nil {
+                        knownVersions[version]?.append(tag)
+                    }
+                    else {
+                        knownVersions[version] = [tag]
+                    }
+                }
+            }
             // If we found tags at this version-specific key, we are done.
             if !knownVersions.isEmpty {
                 return knownVersions
@@ -46,10 +55,17 @@ public class Git {
         // Otherwise, look for normal and 'v'-prefixed tags.
         for tag in tags {
             if let version = Version(string: tag) {
-                (knownVersions[version]?.normal = tag) ?? (knownVersions[version] = (normal: tag, vPrefixed: nil))
+                knownVersions[version] = [tag]
             }
-            else if let version = Version.vprefix(tag) {
-                (knownVersions[version]?.vPrefixed = tag) ?? (knownVersions[version] = (normal: nil, vPrefixed: tag))
+        }
+        for tag in tags {
+            if let version = Version.vprefix(tag) {
+                if knownVersions[version] != nil {
+                    knownVersions[version]?.append(tag)
+                }
+                else {
+                    knownVersions[version] = [tag]
+                }
             }
         }
         return knownVersions
