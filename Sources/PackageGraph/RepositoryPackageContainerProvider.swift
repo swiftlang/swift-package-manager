@@ -364,27 +364,15 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         // FIXME: Move this utility to a more stable location.
         let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(repository.tags)
         
-        let knownVersions = knownVersionsWithDuplicates.mapValues { (tags) -> String in
-            if tags.count == 1 {
-                return tags[0]
+        let knownVersions = knownVersionsWithDuplicates.mapValues { tags -> String in
+            if tags.count == 2 {
+                // FIXME: Warn if the two tags point to different git references.
+                return tags.first(where: { !$0.hasPrefix("v") })!
             }
-            else if tags.count == 2 {
-                do {
-                    let normalRevision = try repository.resolveRevision(tag: tags[0])
-                    let vPrefixedRevision = try repository.resolveRevision(tag: tags[1])
-                    
-                    if normalRevision != vPrefixedRevision {
-                        // FIXME: Warn that the duplicate tags point to different revisions.
-                    }
-                }
-                catch {
-                    return tags[0]
-                }
-                return tags[0]
-            }
+            assert(tags.count == 1, "Unexpected number of tags")
             return tags[0]
         }
-
+        
         self.knownVersions = knownVersions
         self.reversedVersions = [Version](knownVersions.keys).sorted().reversed()
         super.init(
