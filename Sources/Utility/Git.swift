@@ -29,23 +29,13 @@ public class Git {
         // First, check if we need to restrict the tag set to version-specific tags.
         var knownVersions: [Version: [String]] = [:]
         for versionSpecificKey in Versioning.currentVersionSpecificKeys {
-            for tag in tags where tag.hasSuffix(versionSpecificKey) {
+            for tag in tags {
                 let specifier = String(tag.dropLast(versionSpecificKey.count))
-                if let version = Version(string: specifier) {
-                    knownVersions[version] = [tag]
+                if let version = Version(string: specifier) ?? Version.vprefix(specifier) {
+                    knownVersions[version, default: []].append(tag)
                 }
             }
-            for tag in tags where tag.hasSuffix(versionSpecificKey) {
-                let specifier = String(tag.dropLast(versionSpecificKey.count))
-                if let version = Version.vprefix(specifier) {
-                    if knownVersions[version] != nil {
-                        knownVersions[version]?.append(tag)
-                    }
-                    else {
-                        knownVersions[version] = [tag]
-                    }
-                }
-            }
+
             // If we found tags at this version-specific key, we are done.
             if !knownVersions.isEmpty {
                 return knownVersions
@@ -54,18 +44,8 @@ public class Git {
 
         // Otherwise, look for normal and 'v'-prefixed tags.
         for tag in tags {
-            if let version = Version(string: tag) {
-                knownVersions[version] = [tag]
-            }
-        }
-        for tag in tags {
-            if let version = Version.vprefix(tag) {
-                if knownVersions[version] != nil {
-                    knownVersions[version]?.append(tag)
-                }
-                else {
-                    knownVersions[version] = [tag]
-                }
+            if let version = Version(string: tag) ?? Version.vprefix(tag) {
+                knownVersions[version, default: []].append(tag)
             }
         }
         return knownVersions
