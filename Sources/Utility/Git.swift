@@ -23,8 +23,6 @@ extension Version {
 
 public class Git {
     /// Compute the version -> tags mapping from a list of input `tags`.
-    /// The returned array has a minimum of one element and a maximum of two.
-    /// The X.X.X tag will always precede the vX.X.X tag in case of duplicates.
     public static func convertTagsToVersionMap(_ tags: [String]) -> [Version: [String]] {
         // First, check if we need to restrict the tag set to version-specific tags.
         var knownVersions: [Version: [String]] = [:]
