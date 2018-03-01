@@ -576,6 +576,10 @@ class llbuild(object):
                 if platform.system() == 'Linux':
                     link_command.extend(
                         ["-Xlinker", "-rpath=$ORIGIN/../lib/swift/linux"])
+                if self.args.swift_build_dir:
+                    link_command.extend(
+                            ["-L", os.path.join(self.args.swift_build_dir,
+                                "lib", "swift", self.args.sdk, self.args.arch)])
                 if self.args.foundation_path:
                     link_command.extend(["-L", self.args.foundation_path])
                 if self.args.libdispatch_build_dir:
@@ -681,6 +685,12 @@ def process_runtime_libraries(build, args, lib_path):
                "-Xlinker", input_lib_path,
                "-Xlinker", "--no-whole-archive", "-lswiftGlibc",
                "-Xlinker", "-rpath=$ORIGIN/../../linux"]
+
+        if args.swift_build_dir:
+            cmd.extend([
+                    "-Xlinker", "-L",
+                    "-Xlinker", os.path.join(args.swift_build_dir, "lib", "swift", args.sdk, args.arch)
+                    ])
 
         # We need to pass one swift file here to bypass the "no input files"
         # error.
@@ -832,6 +842,8 @@ def main():
                         default=["/usr/local"], metavar="PATHS")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="use verbose output")
+    parser.add_argument("--swift-build-dir", dest="swift_build_dir",
+                        help="Path to the swift build directory")
     parser.add_argument("--foundation", dest="foundation_path",
                         help="Path to Foundation build directory")
     parser.add_argument("--xctest", dest="xctest_path",
@@ -893,12 +905,20 @@ def main():
     # Compute the build paths.
     if platform.system() == 'Darwin':
         build_target = "x86_64-apple-macosx10.10"
+        args.arch = "x86_64"
+        args.sdk = "macosx"
     elif platform.processor() == 's390x':
         build_target = "s390x-unknown-linux"
+        args.arch = "x86_64"
+        args.sdk = "macosx"
     elif platform.system() == 'Linux' and platform.machine() == 'ppc64le':
         build_target = 'powerpc64le-unknown-linux'
+        args.arch = "x86_64"
+        args.sdk = "macosx"
     else:
         build_target = 'x86_64-unknown-linux'
+        args.arch = "x86_64"
+        args.sdk = "macosx"
 
     build_path = os.path.join(g_project_root, args.build_path)
     sandbox_path = os.path.join(build_path, ".bootstrap")
@@ -1012,6 +1032,11 @@ def main():
         build_flags.extend(["-Xswiftc", "-I{}".format(incdir)])
         build_flags.extend(["-Xswiftc", "-DHasCustomVersionString"])
     
+    if args.swift_build_dir:
+        swift_build_dir_search_path = os.path.join(args.swift_build_dir, "lib", "swift", args.sdk, args.arch)
+        build_flags.extend(["-Xlinker", "-L", "-Xlinker", swift_build_dir_search_path])
+        build_flags.extend(["-Xlinker", "-rpath-link", "-Xlinker", swift_build_dir_search_path])
+
     if args.foundation_path:
         core_foundation_path = os.path.join(
             args.foundation_path, "usr", "lib", "swift")
