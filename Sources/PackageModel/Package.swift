@@ -88,7 +88,18 @@ public final class Package {
 
     public enum Error: Swift.Error {
         case noManifest(baseURL: String, version: String?)
-        case noOrigin(String)
+    }
+}
+extension Package.Error: CustomStringConvertible {
+   public var description: String {
+        switch self {
+        case .noManifest(let baseURL, let version):
+            var string = "\(baseURL) has no manifest"
+            if let version = version {
+                string += " for version \(version)"
+            }
+            return string
+        }
     }
 }
 
@@ -111,12 +122,6 @@ extension Package.Error: Equatable {
         switch (lhs, rhs) {
         case let (.noManifest(lhs), .noManifest(rhs)):
             return lhs.baseURL == rhs.baseURL && lhs.version == rhs.version
-        case (.noManifest, _):
-            return false
-        case let (.noOrigin(lhs), .noOrigin(rhs)):
-            return lhs == rhs
-        case (.noOrigin, _):
-            return false
         }
     }
 }
