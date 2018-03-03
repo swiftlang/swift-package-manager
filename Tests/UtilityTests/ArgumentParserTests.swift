@@ -47,7 +47,7 @@ class ArgumentParserTests: XCTestCase {
         let parser = ArgumentParser(commandName:"SomeBinary", usage: "sample parser", overview: "Sample overview")
 
         let package = parser.add(positional: "package name of the year", kind: String.self, usage: "The name of the package")
-        let revision = parser.add(option: "--revision", kind: String.self, usage: "The revision[Experimental]")
+        let revision = parser.add(option: "--revision", kind: String.self, usage: "The revision")
         let branch = parser.add(option: "--branch", shortName:"-b", kind: String.self, usage: "The branch to checkout")
         let xld = parser.add(option: "-Xld", kind: [String].self, strategy: .oneByOne, usage: "The xld arguments")
         let verbosity = parser.add(option: "--verbose", kind: Int.self, usage: "The verbosity level")
