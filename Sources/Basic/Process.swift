@@ -293,6 +293,15 @@ public final class Process: ObjectIdentifierProtocol {
         var outputPipe: [Int32] = [0, 0]
         var stderrPipe: [Int32] = [0, 0]
         if redirectOutput {
+         
+            #if os(macOS)
+                setlinebuf(Darwin.stdout)
+                setlinebuf(Darwin.stderr)
+            #else
+                setlinebuf(Glibc.stdout)
+                setlinebuf(Glibc.stderr)
+            #endif
+            
             // Open the pipes.
             try open(pipe: &outputPipe)
             try open(pipe: &stderrPipe)
