@@ -62,7 +62,7 @@ func xcodeProject(
     ) throws -> Xcode.Project {
 
     // Create the project.
-    let project = Xcode.Project()
+    let project = Xcode.Project(path: xcodeprojPath)
 
     // Generates a dummy target to provide autocompletion for the manifest file.
     func createPackageDescriptionTarget(for package: ResolvedPackage, manifestFileRef: Xcode.FileReference) {
