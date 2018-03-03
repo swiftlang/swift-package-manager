@@ -450,7 +450,7 @@ class ArgumentParserTests: XCTestCase {
         let parser = ArgumentParser(commandName:"SomeBinary", usage: "sample parser", overview: "Sample overview")
 
         _ = parser.add(positional: "package name of the year", kind: String.self, optional: true, usage: "The name of the package")
-        _ = parser.add(option: "--revision", kind: String.self, usage: "The revision")
+        _ = parser.add(option: "--revision", kind: String.self, usage: "The revision[Experimental]")
 
         var output = BufferedOutputByteStream()
         parser.generateCompletionScript(for: .bash, on: output)
@@ -494,7 +494,7 @@ class ArgumentParserTests: XCTestCase {
             _SomeBinary() {
                 arguments=(
                     ":The name of the package: "
-                    "--revision[The revision]:The revision: "
+                    "--revision[The revision\\[Experimental\\]]:The revision[Experimental]: "
                 )
                 _arguments $arguments && return
             }
