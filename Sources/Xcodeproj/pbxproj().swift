@@ -176,6 +176,18 @@ func xcodeProject(
     // of its manifest file.
     let manifestFileRef = project.mainGroup.addFileReference(path: "Package.swift", fileType: "sourcecode.swift")
     createPackageDescriptionTarget(for: graph.rootPackages[0], manifestFileRef: manifestFileRef)
+    
+    // Add root level files to the project.
+    func shouldIgnore(_ path: AbsolutePath) -> Bool {
+        return path.basename.hasPrefix(".")
+            || project.mainGroup.subitems.contains { $0.path == path.basename }
+    }
+    for content in try fileSystem.getDirectoryContents(sourceRootDir) {
+        let absolutePath = AbsolutePath(content, relativeTo: sourceRootDir)
+        if fileSystem.isFile(absolutePath) && !shouldIgnore(absolutePath) {
+            project.mainGroup.addFileReference(path: content)
+        }
+    }
 
     // Add a group for the overriding .xcconfig file, if we have one.
     let xcconfigOverridesFileRef: Xcode.FileReference?
