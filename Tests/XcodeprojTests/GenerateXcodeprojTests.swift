@@ -18,6 +18,14 @@ import Utility
 import XCTest
 
 class GenerateXcodeprojTests: XCTestCase {
+    func testBuildXcodeprojPath() {
+        let outdir = AbsolutePath("/path/to/project")
+        let projectName = "Bar"
+        let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: outdir, projectName: projectName)
+        let expectedPath = AbsolutePath("/path/to/project/Bar.xcodeproj")
+        XCTAssertEqual(xcodeprojPath, expectedPath)
+    }
+    
     func testXcodebuildCanParseIt() {
       #if os(macOS)
         mktmpdir { dstdir in
@@ -28,7 +36,8 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
 
             let projectName = "DummyProjectName"
-            let (_, outpath) = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: XcodeprojOptions())
+            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
+            try Xcodeproj.generate(projectName: projectName, xcodeprojPath: outpath, graph: graph, options: XcodeprojOptions())
 
             XCTAssertDirectoryExists(outpath)
             XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))
