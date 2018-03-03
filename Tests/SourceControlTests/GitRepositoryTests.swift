@@ -40,6 +40,7 @@ class GitRepositoryTests: XCTestCase {
             // Test the provider.
             let testCheckoutPath = path.appending(component: "checkout")
             let provider = GitRepositoryProvider()
+            XCTAssertTrue(try provider.checkoutExists(at: testRepoPath))
             let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
             try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
 

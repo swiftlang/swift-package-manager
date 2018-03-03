@@ -95,7 +95,7 @@ public class GitRepositoryProvider: RepositoryProvider {
     public func checkoutExists(at path: AbsolutePath) throws -> Bool {
         precondition(exists(path))
 
-        let result = try Process.popen(args: Git.tool, "rev-parse", "--is-bare-repository")
+        let result = try Process.popen(args: Git.tool, "-C", path.asString, "rev-parse", "--is-bare-repository")
         return try result.exitStatus == .terminated(code: 0) && result.utf8Output().chomp() == "false"
     }
 
