@@ -47,7 +47,7 @@ class ArgumentParserTests: XCTestCase {
         let parser = ArgumentParser(commandName:"SomeBinary", usage: "sample parser", overview: "Sample overview")
 
         let package = parser.add(positional: "package name of the year", kind: String.self, usage: "The name of the package")
-        let revision = parser.add(option: "--revision", kind: String.self, usage: "The revision")
+        let revision = parser.add(option: "--revision", kind: String.self, usage: "The revision[Experimental]")
         let branch = parser.add(option: "--branch", shortName:"-b", kind: String.self, usage: "The branch to checkout")
         let xld = parser.add(option: "-Xld", kind: [String].self, strategy: .oneByOne, usage: "The xld arguments")
         let verbosity = parser.add(option: "--verbose", kind: Int.self, usage: "The verbosity level")
@@ -57,7 +57,7 @@ class ArgumentParserTests: XCTestCase {
         let inputFiles = parser.add(positional: "input files", kind: [String].self, usage: "A list of input files")
         let outputFiles = parser.add(option: "--output-files", kind: [String].self, usage: "A list of output files")
         let remaining = parser.add(option: "--remaining", kind: [String].self, strategy: .remaining, usage: "Remaining arguments")
-        
+
         let args = try parser.parse([
             "Foo",
             "-b", "bugfix",
@@ -168,7 +168,7 @@ class ArgumentParserTests: XCTestCase {
         binder.bindPositional(
             parser.add(positional: "foo", kind: String.self),
             parser.add(positional: "bar", kind: Int.self),
-            to: { 
+            to: {
                 $0.foo = $1
                 $0.bar = $2
             })
@@ -450,7 +450,7 @@ class ArgumentParserTests: XCTestCase {
         let parser = ArgumentParser(commandName:"SomeBinary", usage: "sample parser", overview: "Sample overview")
 
         _ = parser.add(positional: "package name of the year", kind: String.self, optional: true, usage: "The name of the package")
-        _ = parser.add(option: "--revision", kind: String.self, usage: "The revision")
+        _ = parser.add(option: "--revision", kind: String.self, usage: "The revision[Experimental]")
 
         var output = BufferedOutputByteStream()
         parser.generateCompletionScript(for: .bash, on: output)
@@ -477,7 +477,7 @@ class ArgumentParserTests: XCTestCase {
                 esac
                 COMPREPLY=( $(compgen -W "--revision" -- $cur) )
             }
-            
+
 
             """))
 
@@ -494,12 +494,12 @@ class ArgumentParserTests: XCTestCase {
             _SomeBinary() {
                 arguments=(
                     ":The name of the package: "
-                    "--revision[The revision]:The revision: "
+                    "--revision[The revision\\[Experimental\\]]:The revision[Experimental]: "
                 )
                 _arguments $arguments && return
             }
-            
-            
+
+
             """))
     }
 
@@ -545,16 +545,16 @@ class ArgumentParserTests: XCTestCase {
 
     func testRemainingStrategy() throws {
         let parser = ArgumentParser(commandName: "SomeBinary", usage: "sample parser", overview: "Sample overview")
-        
+
         let option1 = parser.add(option: "--foo", kind: String.self)
         let option2 = parser.add(option: "--bar", kind: [String].self, strategy: .remaining)
         let positional = parser.add(positional: "executable", kind: [String].self, optional: true, strategy: .remaining)
-        
+
         var args = try parser.parse([
             "--foo", "bar",
             "exe", "--with", "options", "--foo", "notbar"
         ])
-        
+
         XCTAssertEqual(args.get(option1), "bar")
         XCTAssertNil(args.get(option2))
         XCTAssertEqual(args.get(positional) ?? [], ["exe", "--with", "options", "--foo", "notbar"])
