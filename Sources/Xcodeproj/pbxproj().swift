@@ -34,16 +34,13 @@ public func pbxproj(
         extraDirs: [AbsolutePath],
         options: XcodeprojOptions,
         fileSystem: FileSystem = localFileSystem
-    ) throws -> String {
-    let project = try xcodeProject(
+    ) throws -> Xcode.Project {
+    return try xcodeProject(
         xcodeprojPath: xcodeprojPath,
         graph: graph,
         extraDirs: extraDirs,
         options: options,
         fileSystem: fileSystem)
-    // Serialize the project model we created to a plist, and return
-    // its string description.
-    return "// !$*UTF8*$!\n" + project.generatePlist().description
 }
 
 /// A set of c99 target names that are invalid for Xcode Framework targets.
@@ -62,7 +59,7 @@ func xcodeProject(
     ) throws -> Xcode.Project {
 
     // Create the project.
-    let project = Xcode.Project(path: xcodeprojPath)
+    let project = Xcode.Project()
 
     // Generates a dummy target to provide autocompletion for the manifest file.
     func createPackageDescriptionTarget(for package: ResolvedPackage, manifestFileRef: Xcode.FileReference) {
