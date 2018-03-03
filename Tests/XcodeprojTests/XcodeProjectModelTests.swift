@@ -17,10 +17,11 @@ class XcodeProjectModelTests: XCTestCase {
     
     func testBasicProjectCreation() {
         // Create a project.
-        let proj = Xcode.Project()
+        let proj = Xcode.Project(path: AbsolutePath("/path/to/Bar.xcodeproj"))
         XCTAssert(proj.mainGroup.subitems.isEmpty)
         XCTAssert(proj.mainGroup.pathBase == .groupDir)
         XCTAssert(proj.targets.isEmpty)
+        XCTAssert(proj.path == AbsolutePath("/path/to/Bar.xcodeproj"))
         
         // Add a group to the main group.
         let group = proj.mainGroup.addGroup(path: "a group")
@@ -77,7 +78,7 @@ class XcodeProjectModelTests: XCTestCase {
     
     func testTargetCreation() {
         // Create a project.
-        let proj = Xcode.Project()
+        let proj = Xcode.Project(path: AbsolutePath("/path/to/Bar.xcodeproj"))
         
         // Add a `Sources` group and some file refs.
         let srcGroup = proj.mainGroup.addGroup(path: "Sources")
@@ -109,7 +110,7 @@ class XcodeProjectModelTests: XCTestCase {
     
     func testBuildPhases() {
         // Create a project.
-        let proj = Xcode.Project()
+        let proj = Xcode.Project(path: AbsolutePath("/path/to/Bar.xcodeproj"))
         
         // Add a `Sources` group and some file refs.
         let srcGroup = proj.mainGroup.addGroup(path: "Sources")
@@ -154,7 +155,7 @@ class XcodeProjectModelTests: XCTestCase {
     
     func testProductReferences() {
         // Create a project.
-        let proj = Xcode.Project()
+        let proj = Xcode.Project(path: AbsolutePath("/path/to/Bar.xcodeproj"))
         
         // Add a target.
         let exeTarget = proj.addTarget(productType: .executable, name: "My Exe")
@@ -168,7 +169,7 @@ class XcodeProjectModelTests: XCTestCase {
     
     func testTargetDependencies() {
         // Create a project.
-        let proj = Xcode.Project()
+        let proj = Xcode.Project(path: AbsolutePath("/path/to/Bar.xcodeproj"))
         
         // Add a target.
         let appTarget = proj.addTarget(productType: .executable, name: "My App")
