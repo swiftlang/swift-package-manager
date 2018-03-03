@@ -38,17 +38,16 @@ public struct XcodeprojOptions {
     }
 }
 
+// Determine the path of the .xcodeproj wrapper directory.
 public func buildXcodeprojPath(outputDir: AbsolutePath, projectName: String) -> AbsolutePath {
-    // Determine the path of the .xcodeproj wrapper directory.
     let xcodeprojName = "\(projectName).xcodeproj"
     return outputDir.appending(RelativePath(xcodeprojName))
 }
 
 /// Generates an Xcode project and all needed support files.  The .xcodeproj
-/// wrapper directory is created in the path specified by `outputDir`, basing
-/// the file name on the project name `projectName`.  Returns the path of the
-/// generated project.  All ancillary files will be generated inside of the
-/// .xcodeproj wrapper directory.
+/// wrapper directory is created to the path specified by `xcodeprojPath`
+/// Returns the path of the generated project.  All ancillary files will
+/// be generated inside of the .xcodeproj wrapper directory.
 @discardableResult
 public func generate(
     projectName: String,
