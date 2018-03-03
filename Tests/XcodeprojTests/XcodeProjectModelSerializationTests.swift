@@ -17,7 +17,7 @@ class XcodeProjectModelSerializationTests: XCTestCase {
     
     func testBasicProjectSerialization() {
         // Create a project.
-        let proj = Xcode.Project(path: AbsolutePath("/path/to/Bar.xcodeproj"))
+        let proj = Xcode.Project()
         
         // Serialize it to a property list.
         let plist = proj.generatePlist()
