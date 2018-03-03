@@ -1051,7 +1051,7 @@ def main():
         build_flags.extend(["--configuration", "release"])
 
     env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
-                      "SWIFT_BUILD_PATH=" + build_path]
+                      "SWIFTPM_BUILD_DIR=" + build_path]
     if args.sysroot:
         env_cmd.append("SYSROOT=" + args.sysroot)
     cmd = env_cmd + [bootstrapped_product] + build_flags
@@ -1066,7 +1066,7 @@ def main():
         error("build failed with exit status %d" % (result,))
 
     swift_package_path = os.path.join(target_path, conf, "swift-package")
-    swift_build_path = os.path.join(target_path, conf, "swift-build")
+    swiftpm_build_dir = os.path.join(target_path, conf, "swift-build")
     swift_test_path = os.path.join(target_path, conf, "swift-test")
     swift_run_path = os.path.join(target_path, conf, "swift-run")
     swiftpm_xctest_helper_path = os.path.join(
@@ -1113,7 +1113,7 @@ def main():
                                          "lib/swift/macosx"))
 
             # Install the main executables.
-            for product_path in [swift_package_path, swift_build_path,
+            for product_path in [swift_package_path, swiftpm_build_dir,
                                  swift_test_path, swift_run_path]:
                 installBinary(product_path, bin_install_path, args.swiftc_path)
 
