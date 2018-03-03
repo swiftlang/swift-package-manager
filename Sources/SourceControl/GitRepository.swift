@@ -400,7 +400,7 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Returns true if the file at `path` is ignored by `git`
     public func isIgnored(_ path: AbsolutePath) throws -> Bool {
         return try queue.sync {
-            let result = try Process.popen(args: Git.tool, "check-ignore", path.asString)
+            let result = try Process.popen(args: Git.tool, "-C", self.path.asString, "check-ignore", path.asString)
 
             switch result.exitStatus {
             case .terminated(code: 0):
