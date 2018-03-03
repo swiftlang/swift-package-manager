@@ -54,7 +54,7 @@ public func generate(
     xcodeprojPath: AbsolutePath,
     graph: PackageGraph,
     options: XcodeprojOptions
-) throws -> (Xcode.Project, AbsolutePath) {
+) throws -> Xcode.Project {
     // Note that the output directory might be completely separate from the
     // path of the root package (which is where the sources live).
 
@@ -151,7 +151,7 @@ public func generate(
         }
     }
 
-    return (project, xcodeprojPath)
+    return project
 }
 
 /// Writes the contents to the file specified.
