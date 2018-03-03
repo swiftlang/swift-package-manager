@@ -53,7 +53,6 @@
    main group; it needs to be added last in order to appear after the other
    references
 */
-import Basic
 
 public struct Xcode {
 
@@ -66,7 +65,6 @@ public struct Xcode {
         var productGroup: Group?
         var projectDir: String
         var targets: [Target]
-        
         init() {
             self.mainGroup = Group(path: "")
             self.buildSettings = BuildSettingsTable()
