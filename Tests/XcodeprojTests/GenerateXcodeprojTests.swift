@@ -28,7 +28,7 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
 
             let projectName = "DummyProjectName"
-            let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: XcodeprojOptions())
+            let (_, outpath) = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: XcodeprojOptions())
 
             XCTAssertDirectoryExists(outpath)
             XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))

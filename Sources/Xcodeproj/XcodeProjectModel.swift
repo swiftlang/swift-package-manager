@@ -66,10 +66,8 @@ public struct Xcode {
         var productGroup: Group?
         var projectDir: String
         var targets: [Target]
-        public let path: AbsolutePath
         
-        init(path: AbsolutePath) {
-            self.path = path
+        init() {
             self.mainGroup = Group(path: "")
             self.buildSettings = BuildSettingsTable()
             self.productGroup = nil
