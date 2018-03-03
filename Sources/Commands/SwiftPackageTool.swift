@@ -162,13 +162,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 dstdir = try getPackageRoot()
                 projectName = graph.rootPackages[0].name
             }
-            let outpath = try Xcodeproj.generate(
+            let project = try Xcodeproj.generate(
                 outputDir: dstdir,
                 projectName: projectName,
                 graph: graph,
                 options: options.xcodeprojOptions)
 
-            print("generated:", outpath.prettyPath(cwd: originalWorkingDirectory))
+            print("generated:", project.path.prettyPath(cwd: originalWorkingDirectory))
 
         case .describe:
             let graph = try loadPackageGraph()
