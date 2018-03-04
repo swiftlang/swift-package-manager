@@ -164,6 +164,7 @@ func xcodeProject(
     projectSettings.debug.GCC_OPTIMIZATION_LEVEL = "0"
     projectSettings.debug.ONLY_ACTIVE_ARCH = "YES"
     projectSettings.debug.SWIFT_OPTIMIZATION_LEVEL = "-Onone"
+    projectSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["DEBUG"]
 
     // Add some release-specific settings.
     projectSettings.release.COPY_PHASE_STRIP = "YES"
@@ -452,6 +453,7 @@ func xcodeProject(
         targetSettings.common.OTHER_CFLAGS = ["$(inherited)"]
         targetSettings.common.OTHER_LDFLAGS = ["$(inherited)"]
         targetSettings.common.OTHER_SWIFT_FLAGS = ["$(inherited)"]
+        targetSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS = ["$(inherited)"]
 
         // Set the correct SWIFT_VERSION for the Swift targets.
         if case let swiftTarget as SwiftTarget = target.underlyingTarget {

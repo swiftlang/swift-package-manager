@@ -303,7 +303,8 @@ public final class SwiftTargetDescription {
         args += ["-swift-version", String(swiftVersion)]
         args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
-        args += ["-j\(SwiftCompilerTool.numThreads)", "-DSWIFT_PACKAGE"]
+        args += ["-j\(SwiftCompilerTool.numThreads)"]
+        args += activeCompilationConditions
         args += additionalFlags
         args += moduleCacheArgs
 
@@ -315,6 +316,20 @@ public final class SwiftTargetDescription {
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
         return args
+    }
+
+    /// A list of compilation conditions to enable for conditional compilation expressions.
+    private var activeCompilationConditions: [String] {
+        var compilationConditions = ["-DSWIFT_PACKAGE"]
+
+        switch buildParameters.configuration {
+        case .debug:
+            compilationConditions += ["-DDEBUG"]
+        default:
+            break
+        }
+
+        return compilationConditions
     }
 
     /// Optimization arguments according to the build configuration.
