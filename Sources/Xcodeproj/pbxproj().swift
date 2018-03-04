@@ -147,7 +147,7 @@ func xcodeProject(
     projectSettings.common.COMBINE_HIDPI_IMAGES = "YES"
 
     // Defined for regular `swift build` instantiations, so also should be defined here.
-    projectSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS = "SWIFT_PACKAGE"
+    projectSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["SWIFT_PACKAGE"]
 
     // Opt out of headermaps.  The semantics of the build should be explicitly
     // defined by the project structure, so that we don't get any additional

@@ -365,7 +365,7 @@ public struct Xcode {
             var SDKROOT: String?
             var SKIP_INSTALL: String?
             var SUPPORTED_PLATFORMS: [String]?
-            var SWIFT_ACTIVE_COMPILATION_CONDITIONS: String?
+            var SWIFT_ACTIVE_COMPILATION_CONDITIONS: [String]?
             var SWIFT_FORCE_STATIC_LINK_STDLIB: String?
             var SWIFT_FORCE_DYNAMIC_LINK_STDLIB: String?
             var SWIFT_OPTIMIZATION_LEVEL: String?
