@@ -215,7 +215,7 @@ class Target(object):
         if self.release:
             other_args.append("-O")
         else:
-            other_args.append("-Onone")
+            other_args.extend(["-Onone", "-g"])
         other_args.extend(['-j%d' % g_num_cpus] + self.swiftflags)
         if platform.system() == 'Darwin':
             other_args.extend(["-target", "x86_64-apple-macosx10.10"])
