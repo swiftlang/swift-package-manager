@@ -272,6 +272,15 @@ class PathTests: XCTestCase {
         XCTAssertFalse(AbsolutePath("/foo/bar").contains(AbsolutePath("/bar")))
     }
     
+    func testValidation() throws {
+        try AbsolutePath.validate(path: "/a/b/c/d")
+
+        do {
+            try AbsolutePath.validate(path: "~/a/b/d")
+            XCTFail("AbsolutePath starting with ~ should fail to validate")
+        } catch PathError.startsWithTilda(path: "~/a/b/d") {}
+    }
+
     // FIXME: We also need tests for join() operations.
     
     // FIXME: We also need tests for dirname, basename, suffix, etc.
@@ -296,5 +305,6 @@ class PathTests: XCTestCase {
         ("testPathComponents",                testPathComponents),
         ("testRelativePathFromAbsolutePaths", testRelativePathFromAbsolutePaths),
         ("testComparison",                    testComparison),
+        ("testValidation",                    testValidation),
     ]
 }
