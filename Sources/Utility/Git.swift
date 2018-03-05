@@ -22,15 +22,15 @@ extension Version {
 }
 
 public class Git {
-    /// Compute the version -> tags mapping from a list of input `tags`.
-    public static func convertTagsToVersionMap(_ tags: [String]) -> [Version: [String]] {
+    /// Compute the version -> tag mapping from a list of input `tags`.
+    public static func convertTagsToVersionMap(_ tags: [String]) -> [Version: String] {
         // First, check if we need to restrict the tag set to version-specific tags.
-        var knownVersions: [Version: [String]] = [:]
+        var knownVersions: [Version: String] = [:]
         for versionSpecificKey in Versioning.currentVersionSpecificKeys {
-            for tag in tags {
+            for tag in tags where tag.hasSuffix(versionSpecificKey) {
                 let specifier = String(tag.dropLast(versionSpecificKey.count))
                 if let version = Version(string: specifier) ?? Version.vprefix(specifier) {
-                    knownVersions[version, default: []].append(tag)
+                    knownVersions[version] = tag
                 }
             }
 
@@ -40,10 +40,21 @@ public class Git {
             }
         }
 
-        // Otherwise, look for normal and 'v'-prefixed tags.
+        // Otherwise, look for normal tags.
         for tag in tags {
-            if let version = Version(string: tag) ?? Version.vprefix(tag) {
-                knownVersions[version, default: []].append(tag)
+            if let version = Version(string: tag) {
+                knownVersions[version] = tag
+            }
+        }
+
+        // If we didn't find any versions, look for 'v'-prefixed ones.
+        //
+        // FIXME: We should match both styles simultaneously.
+        if knownVersions.isEmpty {
+            for tag in tags {
+                if let version = Version.vprefix(tag) {
+                    knownVersions[version] = tag
+                }
             }
         }
         return knownVersions
