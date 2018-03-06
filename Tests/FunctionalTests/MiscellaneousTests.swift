@@ -14,7 +14,7 @@ import Basic
 import struct Commands.Destination
 import PackageModel
 import Utility
-import libc
+import SPMLibc
 import class Foundation.ProcessInfo
 
 typealias ProcessID = Basic.Process.ProcessID

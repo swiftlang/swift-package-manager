@@ -10,7 +10,7 @@
 
 import XCTest
 @testable import Basic
-import libc
+import SPMLibc
 
 final class PseudoTerminal {
     let master: Int32
@@ -40,8 +40,8 @@ final class PseudoTerminal {
     }
 
     func close() {
-        _ = libc.close(slave)
-        _ = libc.close(master)
+        _ = SPMLibc.close(slave)
+        _ = SPMLibc.close(master)
     }
 }
 

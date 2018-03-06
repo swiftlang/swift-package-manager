@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import libc
+import SPMLibc
 import Dispatch
 
 /// Convert an integer in 0..<16 to its hexadecimal ASCII character.
@@ -707,10 +707,10 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
 
 /// Public stdout stream instance.
 public var stdoutStream: FileOutputByteStream = try! LocalFileOutputByteStream(
-    filePointer: libc.stdout,
+    filePointer: SPMLibc.stdout,
     closeOnDeinit: false)
 
 /// Public stderr stream instance.
 public var stderrStream: FileOutputByteStream = try! LocalFileOutputByteStream(
-    filePointer: libc.stderr,
+    filePointer: SPMLibc.stderr,
     closeOnDeinit: false)

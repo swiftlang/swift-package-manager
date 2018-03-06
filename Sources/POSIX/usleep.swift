@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import libc
+import SPMLibc
 
 /// Suspends execution of the calling thread for the provided microseconds.
 public func usleep(microSeconds: Int) throws {

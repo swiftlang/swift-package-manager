@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import libc
+import SPMLibc
 import func POSIX.getenv
 import class Foundation.FileHandle
 import class Foundation.FileManager
@@ -24,7 +24,7 @@ public enum TempFileError: Swift.Error {
 private extension TempFileError {
     init(errno: Int32) {
         switch errno {
-        case libc.EEXIST:
+        case SPMLibc.EEXIST:
             self = .couldNotCreateUniqueName
         default:
             self = .other(errno)
@@ -99,7 +99,7 @@ public final class TemporaryFile {
         // which will be the actual path to the temporary file.
         var template = [UInt8](path.asString.utf8).map({ Int8($0) }) + [Int8(0)]
 
-        fd = libc.mkstemps(&template, Int32(suffix.utf8.count))
+        fd = SPMLibc.mkstemps(&template, Int32(suffix.utf8.count))
         // If mkstemps failed then throw error.
         if fd == -1 { throw TempFileError(errno: errno) }
 
@@ -141,15 +141,15 @@ public enum MakeDirectoryError: Swift.Error {
 private extension MakeDirectoryError {
     init(errno: Int32) {
         switch errno {
-        case libc.EEXIST:
+        case SPMLibc.EEXIST:
             self = .pathExists
-        case libc.ENAMETOOLONG:
+        case SPMLibc.ENAMETOOLONG:
             self = .pathTooLong
-        case libc.EACCES, libc.EFAULT, libc.EPERM, libc.EROFS:
+        case SPMLibc.EACCES, SPMLibc.EFAULT, SPMLibc.EPERM, SPMLibc.EROFS:
             self = .permissionDenied
-        case libc.ELOOP, libc.ENOENT, libc.ENOTDIR:
+        case SPMLibc.ELOOP, SPMLibc.ENOENT, SPMLibc.ENOTDIR:
             self = .unresolvablePathComponent
-        case libc.ENOMEM, libc.EDQUOT:
+        case SPMLibc.ENOMEM, SPMLibc.EDQUOT:
             self = .outOfMemory
         default:
             self = .other(errno)
@@ -193,7 +193,7 @@ public final class TemporaryDirectory {
         // which will be the actual path to the temporary directory.
         var template = [UInt8](path.asString.utf8).map({ Int8($0) }) + [Int8(0)]
 
-        if libc.mkdtemp(&template) == nil {
+        if SPMLibc.mkdtemp(&template) == nil {
             throw MakeDirectoryError(errno: errno)
         }
 

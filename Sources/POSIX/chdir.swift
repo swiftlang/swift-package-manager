@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func libc.chdir
-import var libc.errno
+import func SPMLibc.chdir
+import var SPMLibc.errno
 
 /**
  Causes the named directory to become the current working directory.
@@ -21,7 +21,7 @@ public func chdir(_ path: String) throws {
         memo = (argv0: argv0, wd: cwd)
     }
 
-    guard libc.chdir(path) == 0 else {
+    guard SPMLibc.chdir(path) == 0 else {
         throw SystemError.chdir(errno, path)
     }
 }

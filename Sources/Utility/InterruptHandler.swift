@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import libc
+import SPMLibc
 import enum POSIX.SystemError
 import Basic
 
@@ -48,7 +48,7 @@ public final class InterruptHandler {
         // Install the new handler.
         sigaction(SIGINT, &action, &oldAction)
         // Create pipe.
-        let rv = libc.pipe(&signalWatchingPipe)
+        let rv = SPMLibc.pipe(&signalWatchingPipe)
         guard rv == 0 else {
             throw SystemError.pipe(rv)
         }

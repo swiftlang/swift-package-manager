@@ -9,7 +9,7 @@
 */
 
 import POSIX
-import libc
+import SPMLibc
 
 public enum FileSystemError: Swift.Error {
     /// Access to the path is denied.
@@ -69,13 +69,13 @@ public enum FileSystemError: Swift.Error {
 extension FileSystemError {
     init(errno: Int32) {
         switch errno {
-        case libc.EACCES:
+        case SPMLibc.EACCES:
             self = .invalidAccess
-        case libc.EISDIR:
+        case SPMLibc.EISDIR:
             self = .isDirectory
-        case libc.ENOENT:
+        case SPMLibc.ENOENT:
             self = .noEntry
-        case libc.ENOTDIR:
+        case SPMLibc.ENOTDIR:
             self = .notDirectory
         default:
             self = .unknownOSError
@@ -199,7 +199,7 @@ private class LocalFileSystem: FileSystem {
         guard let filestat = try? POSIX.stat(path.asString) else {
             return false
         }
-        return filestat.st_mode & libc.S_IXUSR != 0
+        return filestat.st_mode & SPMLibc.S_IXUSR != 0
     }
 
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
@@ -219,10 +219,10 @@ private class LocalFileSystem: FileSystem {
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
-        guard let dir = libc.opendir(path.asString) else {
+        guard let dir = SPMLibc.opendir(path.asString) else {
             throw FileSystemError(errno: errno)
         }
-        defer { _ = libc.closedir(dir) }
+        defer { _ = SPMLibc.closedir(dir) }
 
         var result: [String] = []
         var entry = dirent()
@@ -261,7 +261,7 @@ private class LocalFileSystem: FileSystem {
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
         // Try to create the directory.
-        let result = mkdir(path.asString, libc.S_IRWXU | libc.S_IRWXG)
+        let result = mkdir(path.asString, SPMLibc.S_IRWXU | SPMLibc.S_IRWXG)
 
         // If it succeeded, we are done.
         if result == 0 { return }
@@ -417,7 +417,7 @@ private class LocalFileSystem: FileSystem {
             // Update the mode.
             //
             // We ignore the errors for now but we should have a way to report back.
-            _ = libc.chmod(p.pointee.fts_accpath, newMode)
+            _ = SPMLibc.chmod(p.pointee.fts_accpath, newMode)
         }
       #endif
         // FIXME: We only support macOS right now.
