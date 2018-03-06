@@ -41,7 +41,7 @@ class PosixTests: XCTestCase {
     func testExecutableRealpath() throws {
         var path = ""
         XCTAssertNoThrow(path = try realpath(executable: CommandLine.arguments.first!))
-        XCTAssertTrue(path.hasPrefix(pathComponentSeparator))
+        XCTAssertTrue(path.hasPrefix("/"))
 
         XCTAssertNoThrow(path = try realpath(executable: "swift"))
         XCTAssertEqual(path, "/usr/bin/swift")

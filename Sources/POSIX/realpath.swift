@@ -29,8 +29,6 @@ public func realpath(_ path: String) throws -> String {
     return rvv
 }
 
-internal let pathComponentSeparator = "/"
-
 /**
  Resolves executable, both absolute and relative paths and referred from `PATH` environment variable and
  return the absolute pathname.
@@ -39,17 +37,17 @@ internal let pathComponentSeparator = "/"
 */
 public func realpath(executable: String) throws -> String {
     // when executable is an absolute path like `/usr/bin/swift`
-    if executable.hasPrefix(pathComponentSeparator) {
+    if executable.hasPrefix("/") {
         return try realpath(argv0)
     }
     // when executable is a relative path like `./swift` or `bin/swift`
-    if executable.contains(pathComponentSeparator.first!) {
-        return try realpath(getcwd() + pathComponentSeparator + executable)
+    if executable.contains("/") {
+        return try realpath(getcwd() + "/" + executable)
     }
     // when executable is resolved from PATH, it may be `swift` without any path component separator
     if let paths = getenv("PATH")?.split(separator: ":") {
         for path in paths {
-            let joinedPath = String((path.hasSuffix(pathComponentSeparator) ? path : path + "/") + executable)
+            let joinedPath = String((path.hasSuffix("/") ? path : path + "/") + executable)
             if let fileStat = try? stat(joinedPath) {
                 if fileStat.kind == .file || fileStat.kind == .symlink {
                     return try realpath(joinedPath)
