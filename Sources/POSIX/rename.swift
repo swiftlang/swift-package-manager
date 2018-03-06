@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import var libc.errno
-import func libc.rename
+import var SPMLibc.errno
+import func SPMLibc.rename
 
 public func rename(old: String, new: String) throws {
-    let rv = libc.rename(old, new)
+    let rv = SPMLibc.rename(old, new)
     guard rv == 0 else { throw SystemError.rename(errno, old: old, new: new) }
 }

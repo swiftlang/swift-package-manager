@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import libc
+import SPMLibc
 import func POSIX.getenv
 
 /// A class to have better control on tty output streams: standard output and standard error.

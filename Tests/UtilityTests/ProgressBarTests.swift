@@ -10,7 +10,7 @@
 
 import XCTest
 import Utility
-import libc
+import SPMLibc
 @testable import Basic
 
 typealias Thread = Basic.Thread
@@ -44,11 +44,11 @@ final class PseudoTerminal {
     }
 
     func closeSlave() {
-        _ = libc.close(slave)
+        _ = SPMLibc.close(slave)
     }
 
     func closeMaster() {
-        _ = libc.close(master)
+        _ = SPMLibc.close(master)
     }
 }
 

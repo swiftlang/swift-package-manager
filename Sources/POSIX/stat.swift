@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import libc
+import SPMLibc
 
-/// Extensions to the libc `stat` structure to interpret the contents in more readable ways.
-extension libc.stat {
+/// Extensions to the SPMLibc `stat` structure to interpret the contents in more readable ways.
+extension SPMLibc.stat {
 
      /// File system entity kind.
      public enum Kind {
@@ -37,15 +37,15 @@ extension libc.stat {
      }
  }
 
-public func stat(_ path: String) throws -> libc.stat {
-    var sbuf = libc.stat()
+public func stat(_ path: String) throws -> SPMLibc.stat {
+    var sbuf = SPMLibc.stat()
     let rv = stat(path, &sbuf)
     guard rv == 0 else { throw SystemError.stat(errno, path) }
     return sbuf
 }
 
-public func lstat(_ path: String) throws -> libc.stat {
-    var sbuf = libc.stat()
+public func lstat(_ path: String) throws -> SPMLibc.stat {
+    var sbuf = SPMLibc.stat()
     let rv = lstat(path, &sbuf)
     guard rv == 0 else { throw SystemError.stat(errno, path) }
     return sbuf

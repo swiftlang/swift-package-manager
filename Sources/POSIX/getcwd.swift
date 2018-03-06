@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func libc.getcwd
-import func libc.free
-import func libc.exit
-import func libc.fputs
-import var libc.PATH_MAX
-import var libc.stderr
-import var libc.errno
+import func SPMLibc.getcwd
+import func SPMLibc.free
+import func SPMLibc.exit
+import func SPMLibc.fputs
+import var SPMLibc.PATH_MAX
+import var SPMLibc.stderr
+import var SPMLibc.errno
 
 /**
  - Returns: The absolute pathname of the current working directory.
@@ -29,11 +29,11 @@ import var libc.errno
 public func getcwd() -> String {
 
     func error() -> Never {
-        fputs("error: no current directory\n", libc.stderr)
-        libc.exit(2)
+        fputs("error: no current directory\n", SPMLibc.stderr)
+        SPMLibc.exit(2)
     }
 
-    let cwd = libc.getcwd(nil, Int(PATH_MAX))
+    let cwd = SPMLibc.getcwd(nil, Int(PATH_MAX))
     if cwd == nil { error() }
     defer { free(cwd) }
     guard let path = String(validatingUTF8: cwd!) else { error() }

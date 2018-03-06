@@ -17,7 +17,7 @@ import POSIX
 import SourceControl
 import Utility
 import Workspace
-import libc
+import SPMLibc
 import func Foundation.NSUserName
 
 struct ChdirDeprecatedDiagnostic: DiagnosticData {
