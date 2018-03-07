@@ -433,6 +433,20 @@ struct PathImpl {
     }
 }
 
+/// Describes a way in which a path is invalid.
+public enum PathError: Error {
+    case startsWithTilda(path: String)
+}
+
+extension PathError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .startsWithTilda(let path):
+            return "path '\(path)' is not supported; can not start with '~'."
+        }
+    }
+}
+
 extension AbsolutePath {
     /// Returns a relative path that, when concatenated to `base`, yields the
     /// callee path itself.  If `base` is not an ancestor of the callee, the
@@ -484,6 +498,16 @@ extension AbsolutePath {
     /// in any way.
     public func contains(_ other: AbsolutePath) -> Bool {
         return self.components.starts(with: other.components)
+    }
+
+    /// Checks the path and throws a `PathError` if path is invalid.
+    ///
+    /// This method is strictly syntactic and does not access the file system
+    /// in any way.
+    public static func validate(path: String) throws {
+        if path.first == "~" {
+            throw PathError.startsWithTilda(path: path)
+        }
     }
 }
 
