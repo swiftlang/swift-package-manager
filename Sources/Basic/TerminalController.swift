@@ -8,12 +8,24 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import libc
+import SPMLibc
 import func POSIX.getenv
 
 /// A class to have better control on tty output streams: standard output and standard error.
 /// Allows operations like cursor movement and colored text output on tty.
 public final class TerminalController {
+
+    /// The type of terminal.
+    public enum TerminalType {
+        /// The terminal is a TTY.
+        case tty
+
+        /// TERM enviornment variable is set to "dumb".
+        case dumb
+
+        /// The terminal is a file stream.
+        case file
+    }
 
     /// Terminal color choices.
     public enum Color {
@@ -70,7 +82,16 @@ public final class TerminalController {
 
     /// Checks if passed file stream is tty.
     public static func isTTY(_ stream: LocalFileOutputByteStream) -> Bool {
-        return isatty(fileno(stream.filePointer)) != 0
+        return terminalType(stream) == .tty
+    }
+
+    /// Computes the terminal type of the stream.
+    public static func terminalType(_ stream: LocalFileOutputByteStream) -> TerminalType {
+        if POSIX.getenv("TERM") == "dumb" {
+            return .dumb
+        }
+        let isTTY = isatty(fileno(stream.filePointer)) != 0
+        return isTTY ? .tty : .file
     }
 
     /// Tries to get the terminal width first using COLUMNS env variable and
@@ -84,10 +105,15 @@ public final class TerminalController {
         }
 
         // Try determining using ioctl.
+        // Following code does not compile on ppc64le well. TIOCGWINSZ is
+        // defined in system ioctl.h file which needs to be used. This is
+        // a temporary arrangement and needs to be fixed.
+#if !arch(powerpc64le)
         var ws = winsize()
         if ioctl(1, UInt(TIOCGWINSZ), &ws) == 0 {
             return Int(ws.ws_col)
         }
+#endif
         return nil
     }
 

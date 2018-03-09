@@ -215,7 +215,7 @@ class Target(object):
         if self.release:
             other_args.append("-O")
         else:
-            other_args.append("-Onone")
+            other_args.append(["-Onone", "-g"])
         
         #Define the UserToolchain manifest libdir path
         if args.libdir[-2:] == '64':
@@ -856,6 +856,8 @@ def main():
                         help="Also generate an Xcode project for SwiftPM")
     parser.add_argument("--test-parallel", action="store_true",
                         help="Run tests in parallel")
+    parser.add_argument("--test-filter", action="append",
+                        help="Filter on a given test", default=[])
     parser.add_argument("--enable-perf-tests", action="store_true",
                         help="Enables performance tests in the generated Xcode project")
     parser.add_argument("--vendor-name", dest="vendor_name",
@@ -903,6 +905,8 @@ def main():
         build_target = "x86_64-apple-macosx10.10"
     elif platform.processor() == 's390x':
         build_target = "s390x-unknown-linux"
+    elif platform.system() == 'Linux' and platform.machine() == 'ppc64le':
+        build_target = 'powerpc64le-unknown-linux'
     else:
         build_target = 'x86_64-unknown-linux'
 
@@ -1058,7 +1062,7 @@ def main():
         build_flags.extend(["--configuration", "release"])
 
     env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
-                      "SWIFT_BUILD_PATH=" + build_path]
+                      "SWIFTPM_BUILD_DIR=" + build_path]
     if args.sysroot:
         env_cmd.append("SYSROOT=" + args.sysroot)
     cmd = env_cmd + [bootstrapped_product] + build_flags
@@ -1073,7 +1077,7 @@ def main():
         error("build failed with exit status %d" % (result,))
 
     swift_package_path = os.path.join(target_path, conf, "swift-package")
-    swift_build_path = os.path.join(target_path, conf, "swift-build")
+    swiftpm_build_dir = os.path.join(target_path, conf, "swift-build")
     swift_test_path = os.path.join(target_path, conf, "swift-test")
     swift_run_path = os.path.join(target_path, conf, "swift-run")
     swiftpm_xctest_helper_path = os.path.join(
@@ -1085,6 +1089,8 @@ def main():
         cmd = env_cmd + [swift_test_path] + build_flags
         if args.test_parallel:
             cmd.append("--parallel")
+        for arg in args.test_filter:
+            cmd.extend(["--filter", arg])
         note("testing with command: %s" % (
             ' '.join(cmd),))
         result = subprocess.call(cmd, cwd=g_project_root)
@@ -1118,7 +1124,7 @@ def main():
                                          "lib/swift/macosx"))
 
             # Install the main executables.
-            for product_path in [swift_package_path, swift_build_path,
+            for product_path in [swift_package_path, swiftpm_build_dir,
                                  swift_test_path, swift_run_path]:
                 installBinary(product_path, bin_install_path, args.swiftc_path)
 

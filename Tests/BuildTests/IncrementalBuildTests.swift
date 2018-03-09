@@ -13,7 +13,7 @@ import XCTest
 import TestSupport
 import Basic
 import Utility
-import func libc.sleep
+import func SPMLibc.sleep
 
 
 /// Functional tests of incremental builds.  These are fairly ad hoc at this
@@ -38,7 +38,7 @@ import func libc.sleep
 final class IncrementalBuildTests: XCTestCase {
 
     func testIncrementalSingleModuleCLibraryInSources() {
-        fixture(name: "ClangModules/CLibrarySources") { prefix in
+        fixture(name: "CFamilyTargets/CLibrarySources") { prefix in
             // Build it once and capture the log (this will be a full build).
             let fullLog = try executeSwiftBuild(prefix, printIfError: true)
             

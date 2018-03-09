@@ -24,7 +24,7 @@ let package = Package(
             type: .dynamic,
             targets: [
                 "clibc",
-                "libc",
+                "SPMLibc",
                 "POSIX",
                 "Basic",
                 "Utility",
@@ -49,7 +49,7 @@ let package = Package(
             name: "Utility",
             targets: [
                 "clibc",
-                "libc",
+                "SPMLibc",
                 "POSIX",
                 "Basic",
                 "Utility",
@@ -76,16 +76,16 @@ let package = Package(
             dependencies: []),
         .target(
             /** Cross-platform access to bare `libc` functionality. */
-            name: "libc",
+            name: "SPMLibc",
             dependencies: ["clibc"]),
         .target(
             /** “Swifty” POSIX functions from libc */
             name: "POSIX",
-            dependencies: ["libc"]),
+            dependencies: ["SPMLibc"]),
         .target(
             /** Basic support library */
             name: "Basic",
-            dependencies: ["libc", "POSIX"]),
+            dependencies: ["SPMLibc", "POSIX"]),
         .target(
             /** Abstractions for common operations, should migrate to Basic */
             name: "Utility",

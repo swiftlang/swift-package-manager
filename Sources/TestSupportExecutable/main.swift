@@ -1,8 +1,9 @@
 import Dispatch
+import Foundation
 
 import Basic
 import POSIX
-import libc
+import SPMLibc
 import Utility
 
 /// Execute the file lock test.
@@ -32,7 +33,7 @@ class HandlerTest {
     init(_ file: AbsolutePath) throws {
         interruptHandler = try InterruptHandler {
             print("Hello from handler!")
-            libc.exit(0)
+            SPMLibc.exit(0)
         }
         try localFileSystem.writeFileContents(file, bytes: ByteString())
     }

@@ -445,6 +445,11 @@ func xcodeProject(
             }
         }
 
+        // Make sure that build settings for C flags, Swift flags, and linker
+        // flags include any inherited value at the beginning.  This is useful
+        // even if nothing ends up being added, since it's a cue to anyone who
+        // edits the setting that the inherited value should be preserved.
+        targetSettings.common.OTHER_CFLAGS = ["$(inherited)"]
         targetSettings.common.OTHER_LDFLAGS = ["$(inherited)"]
         targetSettings.common.OTHER_SWIFT_FLAGS = ["$(inherited)"]
 
@@ -465,9 +470,9 @@ func xcodeProject(
             // FIXME: We don't need SRCROOT macro below but there is an issue with sourcekit.
             // See: <rdar://problem/21912068> SourceKit cannot handle relative include paths (working directory)
             switch depModule.underlyingTarget {
-              case let cTarget as CTarget:
-                hdrInclPaths.append("$(SRCROOT)/" + cTarget.path.relative(to: sourceRootDir).asString)
-                if let pkgArgs = pkgConfigArgs(for: cTarget) {
+              case let systemTarget as SystemLibraryTarget:
+                hdrInclPaths.append("$(SRCROOT)/" + systemTarget.path.relative(to: sourceRootDir).asString)
+                if let pkgArgs = pkgConfigArgs(for: systemTarget) {
                     targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
                     targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
                     targetSettings.common.OTHER_CFLAGS += pkgArgs.cFlags
@@ -678,13 +683,13 @@ private extension ResolvedTarget {
 
         case is ClangTarget:
             guard let suffix = source.suffix else {
-                fatalError("Source \(source) doesn't have an extension in ClangModule \(name)")
+                fatalError("Source \(source) doesn't have an extension in C family target \(name)")
             }
             // Suffix includes `.` so drop it.
             assert(suffix.hasPrefix("."))
             let fileExtension = String(suffix.dropFirst())
             guard let ext = SupportedLanguageExtension(rawValue: fileExtension) else {
-                fatalError("Unknown source extension \(source) in ClangModule \(name)")
+                fatalError("Unknown source extension \(source) in C family target \(name)")
             }
             return ext.xcodeFileType
 

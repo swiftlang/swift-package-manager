@@ -10,7 +10,7 @@
 
 import TestSupport
 import XCTest
-import libc
+import SPMLibc
 
 @testable import Basic
 

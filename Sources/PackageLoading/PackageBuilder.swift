@@ -408,9 +408,10 @@ public final class PackageBuilder {
         // Check for a modulemap file, which indicates a system target.
         let moduleMapPath = packagePath.appending(component: moduleMapFilename)
         if fileSystem.isFile(moduleMapPath) {
-            // Package contains a modulemap at the top level, so we assuming it's a system target.
+            // Package contains a modulemap at the top level, so we assuming
+            // it's a system library target.
             return [
-                CTarget(
+                SystemLibraryTarget(
                     name: manifest.name,
                     path: packagePath,
                     pkgConfig: manifest.package.pkgConfig,
@@ -565,7 +566,7 @@ public final class PackageBuilder {
         let successors: (PotentialModule) -> [PotentialModule] = {
             // No reference of this target in manifest, i.e. it has no dependencies.
             guard let target = targetMap[$0.name] else { return [] }
-            return target.dependencies.flatMap({
+            return target.dependencies.compactMap({
                 switch $0 {
                 case .targetItem(let name):
                     // Since we already checked above that all referenced targets
@@ -598,7 +599,7 @@ public final class PackageBuilder {
             try validateModuleName(potentialModule.path, potentialModule.name, isTest: potentialModule.isTest)
             // Get the intra-package dependencies of this target.
             var deps: [Target] = targetMap[potentialModule.name].map({
-                $0.dependencies.flatMap({
+                $0.dependencies.compactMap({
                     switch $0 {
                     case .targetItem(let name):
                         // We don't create an object for targets which have no sources.
@@ -629,7 +630,7 @@ public final class PackageBuilder {
 
             // Figure out the product dependencies.
             let productDeps: [(String, String?)]
-            productDeps = manifestTarget?.dependencies.flatMap({
+            productDeps = manifestTarget?.dependencies.compactMap({
                 switch $0 {
                 case .targetItem:
                     return nil
@@ -1090,7 +1091,7 @@ private extension Manifest {
     /// Returns the names of all the referenced targets in the manifest.
     func allReferencedModules() -> Set<String> {
         let names = package.targets.flatMap({ target in
-            [target.name] + target.dependencies.flatMap({
+            [target.name] + target.dependencies.compactMap({
                 switch $0 {
                 case .targetItem(let name):
                     return name

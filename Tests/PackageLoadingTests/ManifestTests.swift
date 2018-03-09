@@ -105,6 +105,8 @@ class ManifestTests: XCTestCase {
         XCTAssertThrows(PackageModel.Package.Error.noManifest(baseURL: "/bar", version: "1.0.0")) {
             _ = try manifestLoader.loadFile(path: AbsolutePath("/non-existent-file"), baseURL: "/bar", version: "1.0.0", fileSystem: InMemoryFileSystem())
         }
+
+        XCTAssertEqual(PackageModel.Package.Error.noManifest(baseURL: "/bar", version: "1.0.0").description,"/bar has no manifest for version 1.0.0")
     }
 
     func testNonexistentBaseURL() {

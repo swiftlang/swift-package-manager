@@ -488,10 +488,8 @@ put the dependency Foo in `Packages/` directory.
 This is similar to previous version except that the Package Manager will leave
 the dependency at a detached HEAD on the specified revision.
 
-Note: It is necessary to provide either a branch or revision option. The
-rationale here is that checking out the currently resolved version would leave
-the repository on a detached HEAD, which is confusing. Explicit options makes
-the action predictable for user.
+Note: If branch or revision option is not provided, the Package Manager will
+checkout the currently resolved version on a detached HEAD.
 
 Once a package is in an editable state, you can navigate to the directory
 `Packages/Foo` to make changes, build and then push the changes or open a pull

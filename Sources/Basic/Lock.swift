@@ -9,7 +9,7 @@
 */
 
 import Foundation
-import libc
+import SPMLibc
 
 /// A simple lock wrapper.
 public struct Lock {
@@ -63,7 +63,7 @@ public final class FileLock {
     /// Note: This method can throw if underlying POSIX methods fail.
     public func lock() throws {
         // Open the lock file.
-        let fp = libc.fopen(lockFile.asString, "w")
+        let fp = SPMLibc.fopen(lockFile.asString, "w")
         if fp == nil {
             throw FileSystemError(errno: errno)
         }

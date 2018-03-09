@@ -12,7 +12,7 @@ import class Foundation.ProcessInfo
 
 import enum POSIX.SystemError
 import func POSIX.getenv
-import libc
+import SPMLibc
 import Dispatch
 
 /// Process result data which is available after process termination.
@@ -419,7 +419,7 @@ public final class Process: ObjectIdentifierProtocol {
     /// Note: This will signal all processes in the process group.
     public func signal(_ signal: Int32) {
         assert(launched, "The process is not yet launched.")
-        _ = libc.kill(-processID, signal)
+        _ = SPMLibc.kill(-processID, signal)
     }
 }
 
@@ -517,7 +517,7 @@ extension ProcessResult.ExitStatus: Equatable {
 
 /// Open the given pipe.
 private func open(pipe: inout [Int32]) throws {
-    let rv = libc.pipe(&pipe)
+    let rv = SPMLibc.pipe(&pipe)
     guard rv == 0 else {
         throw SystemError.pipe(rv)
     }
@@ -525,7 +525,7 @@ private func open(pipe: inout [Int32]) throws {
 
 /// Close the given fd.
 private func close(fd: inout Int32) throws {
-    let rv = libc.close(fd)
+    let rv = SPMLibc.close(fd)
     guard rv == 0 else {
         throw SystemError.close(rv)
     }

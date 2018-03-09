@@ -12,7 +12,7 @@ import XCTest
 
 import Basic
 import TestSupport
-import libc
+import SPMLibc
 
 class FileSystemTests: XCTestCase {
 

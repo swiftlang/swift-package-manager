@@ -174,7 +174,7 @@ public final class SHA256 {
         //
         // inputBitLength + 1 + bitsToAppend ≡ 448 mod 512
         let mod = inputBitLength % 512
-        let bitsToAppend = mod == 448 ? 512 : 448 - mod - 1
+        let bitsToAppend = mod < 448 ? 448 - 1 - mod : 512 + 448 - mod - 1
 
         // We already appended first 7 bits with 0x80 above.
         input += [UInt8](repeating: 0, count: (bitsToAppend - 7) / 8)

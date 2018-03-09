@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -23,7 +23,7 @@ private extension ResolvedTarget {
     }
 }
 
-func testModules(file: StaticString = #file, line: UInt = #line, body: () throws -> Void) {
+func testTargets(file: StaticString = #file, line: UInt = #line, body: () throws -> Void) {
     do {
         try body()
     } catch {
@@ -31,10 +31,10 @@ func testModules(file: StaticString = #file, line: UInt = #line, body: () throws
     }
 }
 
-class ModuleDependencyTests: XCTestCase {
+class TargetDependencyTests: XCTestCase {
 
     func test1() {
-        testModules {
+        testTargets {
             let t1 = ResolvedTarget(name: "t1")
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2)
@@ -45,7 +45,7 @@ class ModuleDependencyTests: XCTestCase {
     }
 
     func test2() {
-        testModules {
+        testTargets {
             let t1 = ResolvedTarget(name: "t1")
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2, t1)
@@ -58,7 +58,7 @@ class ModuleDependencyTests: XCTestCase {
     }
 
     func test3() {
-        testModules {
+        testTargets {
             let t1 = ResolvedTarget(name: "t1")
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2, t1)
@@ -71,7 +71,7 @@ class ModuleDependencyTests: XCTestCase {
     }
 
     func test4() {
-        testModules {
+        testTargets {
             let t1 = ResolvedTarget(name: "t1")
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2)
@@ -84,7 +84,7 @@ class ModuleDependencyTests: XCTestCase {
     }
 
     func test5() {
-        testModules {
+        testTargets {
             let t1 = ResolvedTarget(name: "t1")
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2)
@@ -108,7 +108,7 @@ class ModuleDependencyTests: XCTestCase {
     }
 
     func test6() {
-        testModules {
+        testTargets {
             let t1 = ResolvedTarget(name: "t1")
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2)

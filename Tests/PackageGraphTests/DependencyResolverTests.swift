@@ -482,13 +482,17 @@ class DependencyResolverTests: XCTestCase {
                 v1_1: []
             ]),
         ])
-        let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+
+        func createResolver() -> MockDependencyResolver {
+            return MockDependencyResolver(provider, MockResolverDelegate())
+        }
 
         let a_v1_constraint = MockPackageConstraint(container: "A", versionRequirement: v1Range)
         let a_v2_constraint = MockPackageConstraint(container: "A", versionRequirement: v2Range)
         let a_v1Exact_constraint = MockPackageConstraint(container: "A", versionRequirement: .exact(v1))
 
         // Empty unversioned constraint.
+        var resolver = createResolver()
         var result = try resolver.resolve(constraints: [
             MockPackageConstraint(container: "B", requirement: .unversioned),
         ])
@@ -500,6 +504,7 @@ class DependencyResolverTests: XCTestCase {
         provider.containersByIdentifier["B"]?.unversionedDeps = [a_v1_constraint]
 
         // Single unversioned constraint.
+        resolver = createResolver()
         result = try resolver.resolve(constraints: [
             MockPackageConstraint(container: "B", requirement: .unversioned),
         ])
@@ -509,6 +514,7 @@ class DependencyResolverTests: XCTestCase {
         ])
 
         // Two unversioned constraints.
+        resolver = createResolver()
         result = try resolver.resolve(constraints: [
             MockPackageConstraint(container: "B", requirement: .unversioned),
             MockPackageConstraint(container: "B", requirement: .unversioned),
@@ -520,6 +526,7 @@ class DependencyResolverTests: XCTestCase {
 
         // Unsatisfiable unversioned constraint.
         XCTAssertThrows(DependencyResolverError.unsatisfiable) {
+            resolver = createResolver()
             _ = try resolver.resolve(constraints: [
                 MockPackageConstraint(container: "B", requirement: .unversioned),
                 MockPackageConstraint(container: "B", requirement: .unversioned),
@@ -528,6 +535,7 @@ class DependencyResolverTests: XCTestCase {
         }
 
        // A mix of constraints.
+       resolver = createResolver()
        result = try resolver.resolve(constraints: [
            a_v1_constraint,
            a_v1Exact_constraint,
@@ -543,6 +551,7 @@ class DependencyResolverTests: XCTestCase {
        ])
 
        // Two unversioned constraints.
+       resolver = createResolver()
        result = try resolver.resolve(constraints: [
            MockPackageConstraint(container: "B", versionRequirement: v1_0Range),
            MockPackageConstraint(container: "B", versionRequirement: .exact(v1)),
@@ -572,9 +581,13 @@ class DependencyResolverTests: XCTestCase {
             ]),
         ])
 
-        let resolver = MockDependencyResolver(provider, MockResolverDelegate())
-        resolver.isInIncompleteMode = true
+        func createResolver() -> MockDependencyResolver {
+            let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+            resolver.isInIncompleteMode = true
+            return resolver
+        }
 
+        var resolver = createResolver()
         // First, try to resolve to a non-existant version.
         XCTAssertThrows(DependencyResolverError.unsatisfiable) {
             _ = try resolver.resolve(constraints: [
@@ -587,12 +600,13 @@ class DependencyResolverTests: XCTestCase {
             let result = try resolver.resolve(constraints: [
                 MockPackageConstraint(container: "A", versionRequirement: .exact(v1)),
             ])
-            // This resolves but is "incomplete".
+            // This resolves but is "incomplete" because we can't get new containers in incomplete mode.
             XCTAssertEqual(result, [
                 "A": .version(v1),
             ])
         }
 
+        resolver = createResolver()
         // Add B in input constraint.
         do {
             let result = try resolver.resolve(constraints: [

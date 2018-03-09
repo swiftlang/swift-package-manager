@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import libc
+import SPMLibc
 import POSIX
 
 /// Replace the current process image with a new process image.
@@ -95,3 +95,11 @@ public func ==<E: Equatable>(a: [[E]], b: [[E]]) -> Bool {
     }
     return !zip(a, b).contains { $0 != $1 }
 }
+
+#if !swift(>=4.1)
+extension Array {
+    public func compactMap<T>(_ transform: (Element) throws -> T?) rethrows -> [T] {
+        return try flatMap(transform)
+    }
+}
+#endif

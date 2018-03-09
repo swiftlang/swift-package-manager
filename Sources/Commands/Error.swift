@@ -63,13 +63,6 @@ private func _handle(_ error: Any) {
         print(error: error)
         parser.printUsage(on: stderrStream)
 
-    case Package.Error.noManifest(let url, let version):
-        var string = "\(url) has no manifest"
-        if let version = version {
-            string += " for version \(version)"
-        }
-        print(error: string)
-
     default:
         print(error: error)
     }

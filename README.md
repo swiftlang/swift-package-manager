@@ -9,27 +9,31 @@ Note that at this time the Package Manager has no support for iOS, watchOS, or t
 ---
 
 ## Table of Contents
-
-* [Contributions](#contributions)
+* [Getting Started](#getting-started)
+* [Documentation](#documentation)
 * [System Requirements](#system-requirements)
 * [Installation](#installation)
   * [Managing Swift Environments](#managing-swift-environments)
   * [Choosing a Swift Version](#choosing-a-swift-version)
-* [Documentation](#documentation)
 * [Support](#support)
+* [Contributions](#contributions)
 * [License](#license)
 
 ---
 
-## Contributions
+## Getting Started
 
-To learn about the policies and best practices that govern contributions to the Swift project, please read the [Contributor Guide](https://swift.org/contributing/).
+Please use [this guide](https://swift.org/getting-started/#using-the-package-manager) for learning package manager basics.
 
-If you are interested in contributing, please read the [Community Proposal](Documentation/PackageManagerCommunityProposal.md), which provides some context for decisions made in the current implementation and offers direction for the development of future features.
+---
 
-Instructions for setting up the development environment are available [here](Documentation/Development.md).
+## Documentation
 
-The Swift package manager uses [llbuild](https://github.com/apple/swift-llbuild) as the underlying build system for compiling source files.  It is also open source and part of the Swift project.
+For Quick Help use the ```swift package --help ``` command 
+
+For extensive documentation on using Swift Package Manager, creating packages, and more, see [Documentation](Documentation).
+
+For additional documentation on developing the Swift Package Manager itself, see [Documentation/Development](Documentation/Development.md).
 
 ---
 
@@ -81,13 +85,6 @@ The `SWIFT_EXEC` environment variable specifies the `swiftc` executable path use
 2. On macOS, by calling `xcrun --find swiftc`.
 3. By searching the PATH.
 
----
-
-## Documentation
-
-For extensive documentation on using Swift Package Manager, creating packages, and more, see [Documentation](Documentation).
-
-For additional documentation on developing the Swift Package Manager itself, see [Documentation/Development](Documentation/Development.md).
 
 ---
 
@@ -95,16 +92,28 @@ For additional documentation on developing the Swift Package Manager itself, see
 
 If you have any trouble with the package manager, help is available. We recommend:
 
-* The [swift-users mailing list](mailto:swift-users@swift.org)
+* The [Swift Forums](https://forums.swift.org/c/swift-users)
 * Our [bug tracker](http://bugs.swift.org)
 
 If you’re not comfortable sharing your question with the list, contact details for the code owners can be found in [CODE_OWNERS.txt](CODE_OWNERS.txt); however, the mailing list is usually the best place to go for help.
 
 ---
 
+## Contributions
+
+To learn about the policies and best practices that govern contributions to the Swift project, please read the [Contributor Guide](https://swift.org/contributing/).
+
+If you are interested in contributing, please read the [Community Proposal](Documentation/PackageManagerCommunityProposal.md), which provides some context for decisions made in the current implementation and offers direction for the development of future features.
+
+Instructions for setting up the development environment are available [here](Documentation/Development.md).
+
+The Swift package manager uses [llbuild](https://github.com/apple/swift-llbuild) as the underlying build system for compiling source files.  It is also open source and part of the Swift project.
+
+---
+
 ## License
 
-Copyright 2015 - 2016 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception.
+Copyright 2015 - 2018 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception.
 
 See [https://swift.org/LICENSE.txt](https://swift.org/LICENSE.txt) for license information.
 

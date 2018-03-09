@@ -316,14 +316,25 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         public let underlyingError: Swift.Error
     }
 
+    /// This is used to remember if tools version of a particular version is
+    /// valid or not.
+    private(set) var validToolsVersionsCache: [Version: Bool] = [:]
+
     /// The available version list (in reverse order).
     public override func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
         return AnySequence(reversedVersions.filter(isIncluded).lazy.filter({
-            guard let toolsVersion = try? self.toolsVersion(for: $0),
-                  self.currentToolsVersion >= toolsVersion else {
-                return false
+            // If we have the result cached, return that.
+            if let result = self.validToolsVersionsCache[$0] {
+                return result
             }
-            return true
+
+            // Otherwise, compute and cache the result.
+            let isValid = (try? self.toolsVersion(for: $0)).flatMap({ 
+                self.currentToolsVersion >= $0
+            }) ?? false
+            self.validToolsVersionsCache[$0] = isValid
+
+            return isValid
         }))
     }
     /// The opened repository.
