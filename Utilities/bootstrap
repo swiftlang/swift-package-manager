@@ -215,7 +215,7 @@ class Target(object):
         if self.release:
             other_args.append("-O")
         else:
-            other_args.append(["-Onone", "-g"])
+            other_args.extend(["-Onone", "-g"])
         
         #Define the UserToolchain manifest libdir path
         if args.libdir[-2:] == '64':
