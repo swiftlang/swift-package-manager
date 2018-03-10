@@ -50,7 +50,7 @@ public struct LLBuildManifestGenerator {
 
         /// All targets.
         var allTargets: [Target] {
-            return [main, test] + otherTargets.sorted(by: { $0.name < $1.name })
+            return [main, test] ++ otherTargets.sorted(by: { $0.name < $1.name })
         }
 
         /// All commands.
@@ -74,16 +74,16 @@ public struct LLBuildManifestGenerator {
 
             if buildByDefault {
                 if !isTest {
-                    main.outputs += newTarget.outputs
-                    main.cmds += newTarget.cmds
+                    main.outputs ++= newTarget.outputs
+                    main.cmds ++= newTarget.cmds
                 }
 
                 // Always build everything for the test target.
-                test.outputs += newTarget.outputs
-                test.cmds += newTarget.cmds
+                test.outputs ++= newTarget.outputs
+                test.cmds ++= newTarget.cmds
             }
 
-            allCommands += newTarget.cmds
+            allCommands ++= newTarget.cmds
         }
     }
 
@@ -156,9 +156,9 @@ public struct LLBuildManifestGenerator {
             // Add command for computing manifest regeneration.
             let regenerationCommand = ShellTool(
                 description: "",
-                inputs: manifestRegenerationInputs.dirs + manifestRegenerationInputs.files,
+                inputs: manifestRegenerationInputs.dirs ++ manifestRegenerationInputs.files,
                 outputs: [buildManifestRegenerationNode],
-                args: ["echo 1 > " + plan.buildParameters.regenerateManifestToken.asString],
+                args: ["echo 1 > " ++ plan.buildParameters.regenerateManifestToken.asString],
                 allowMissingInputs: true
             )
             stream <<< "  " <<< Format.asJSON(plan.buildParameters.regenerateManifestToken.asString) <<< ":\n"
@@ -194,7 +194,7 @@ public struct LLBuildManifestGenerator {
 
         // We also need to track the resolved file.
         filesToTrack.append(resolvedFile)
-        return (directoryNodesToTrack.map({ $0.asString + "/" }), filesToTrack.map({ $0.asString }))
+        return (directoryNodesToTrack.map({ $0.asString ++ "/" }), filesToTrack.map({ $0.asString }))
     }
 
     /// Create a llbuild target for a product description.
@@ -206,7 +206,7 @@ public struct LLBuildManifestGenerator {
                 inputs: buildProduct.objects.map({ $0.asString }),
                 outputs: [buildProduct.binary.asString])
         } else {
-            let inputs = buildProduct.objects + buildProduct.dylibs.map({ $0.binary })
+            let inputs = buildProduct.objects ++ buildProduct.dylibs.map({ $0.binary })
             tool = ShellTool(
                 description: "Linking \(buildProduct.binary.prettyPath())",
                 inputs: inputs.map({ $0.asString }),
@@ -226,7 +226,7 @@ public struct LLBuildManifestGenerator {
     private func createSwiftCompileTarget(_ target: SwiftTargetDescription) -> Target {
         // Compute inital inputs.
         var inputs = SortedArray<String>()
-        inputs += target.target.sources.paths.map({ $0.asString })
+        inputs ++= target.target.sources.paths.map({ $0.asString })
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.
@@ -235,7 +235,7 @@ public struct LLBuildManifestGenerator {
             case .swift(let target)?:
                 inputs.insert(target.moduleOutputPath.asString)
             case .clang(let target)?:
-                inputs += target.objects.map({ $0.asString })
+                inputs ++= target.objects.map({ $0.asString })
             case nil:
                 fatalError("unexpected: target \(target) not in target map \(plan.targetMap)")
             }
@@ -250,7 +250,7 @@ public struct LLBuildManifestGenerator {
                 switch product.type {
                 case .executable, .library(.dynamic):
                     // Establish a dependency on binary of the product.
-                    inputs += [plan.productMap[product]!.binary.asString]
+                    inputs ++= [plan.productMap[product]!.binary.asString]
 
                 // For automatic and static libraries, add their targets as static input.
                 case .library(.automatic), .library(.static):
@@ -281,24 +281,24 @@ public struct LLBuildManifestGenerator {
 
         let commands: [Command] = target.compilePaths().map({ path in
             var args = target.basicArguments()
-            args += ["-MD", "-MT", "dependencies", "-MF", path.deps.asString]
+            args ++= ["-MD", "-MT", "dependencies", "-MF", path.deps.asString]
 
             // Add language standard flag if needed.
             if let ext = path.source.extension {
                 for (standard, validExtensions) in standards {
                     if let languageStandard = standard, validExtensions.contains(ext) {
-                        args += ["-std=\(languageStandard)"]
+                        args ++= ["-std=\(languageStandard)"]
                     }
                 }
             }
 
-            args += ["-c", path.source.asString, "-o", path.object.asString]
+            args ++= ["-c", path.source.asString, "-o", path.object.asString]
             let clang = ClangTool(
                 desc: "Compile \(target.target.name) \(path.filename.asString)",
                 //FIXME: Should we add build time dependency on dependent targets?
                 inputs: [path.source.asString],
                 outputs: [path.object.asString],
-                args: [plan.buildParameters.toolchain.clangCompiler.asString] + args,
+                args: [plan.buildParameters.toolchain.clangCompiler.asString] ++ args,
                 deps: path.deps.asString)
             return Command(name: path.object.asString, tool: clang)
         })
@@ -306,7 +306,7 @@ public struct LLBuildManifestGenerator {
         // For Clang, the target requires all command outputs.
         var buildTarget = Target(name: target.target.llbuildTargetName)            
         buildTarget.outputs.insert(contentsOf: commands.flatMap({ $0.tool.outputs }))
-        buildTarget.cmds += commands
+        buildTarget.cmds ++= commands
         return buildTarget
     }
 }

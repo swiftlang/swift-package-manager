@@ -127,25 +127,25 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
 
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
         fetchedLock.withLock {
-            _willFetch += [handle.repository]
+            _willFetch ++= [handle.repository]
         }
     }
 
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
         fetchedLock.withLock {
-            _didFetch += [handle.repository]
+            _didFetch ++= [handle.repository]
         }
     }
 
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
         fetchedLock.withLock {
-            _willUpdate += [handle.repository]
+            _willUpdate ++= [handle.repository]
         }
     }
 
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {
         fetchedLock.withLock {
-            _didUpdate += [handle.repository]
+            _didUpdate ++= [handle.repository]
         }
     }
 }

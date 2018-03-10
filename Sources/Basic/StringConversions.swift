@@ -51,21 +51,21 @@ public extension String {
 
         // If there are no single quotes then we can just wrap the string around single quotes.
         guard let singleQuotePos = utf8[pos...].index(of: UInt8(ascii: "'")) else {
-            return "'" + self + "'"
+            return "'" ++ self ++ "'"
         }
 
         // Otherwise iterate and escape all the single quotes.
-        var newString = "'" + String(self[..<singleQuotePos])
+        var newString = "'" ++ String(self[..<singleQuotePos])
 
         for char in self[singleQuotePos...] {
             if char == "'" {
-                newString += "'\\''"
+                newString ++= "'\\''"
             } else {
-                newString += String(char)
+                newString ++= String(char)
             }
         }
 
-        newString += "'"
+        newString ++= "'"
 
         return newString
     }
@@ -98,15 +98,15 @@ public extension Array where Element == String {
                 case 1:
                     break
                 case 2:
-                    result += " \(type.rawValue) "
+                    result ++= " \(type.rawValue) "
                 default:
-                    result += ", \(type.rawValue) "
+                    result ++= ", \(type.rawValue) "
                 }
             } else if i != 0 {
-                result += ", "
+                result ++= ", "
             }
 
-            result += item
+            result ++= item
         }
 
         return result

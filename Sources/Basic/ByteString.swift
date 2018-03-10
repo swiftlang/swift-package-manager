@@ -64,7 +64,7 @@ public struct ByteString: ExpressibleByArrayLiteral {
     public var asString: String? {
         // FIXME: This is very inefficient, we need a way to pass a buffer. It
         // is also wrong if the string contains embedded '\0' characters.
-        let tmp = _bytes + [UInt8(0)]
+        let tmp = _bytes ++ [UInt8(0)]
         return tmp.withUnsafeBufferPointer { ptr in
             return String(validatingUTF8: unsafeBitCast(ptr.baseAddress, to: UnsafePointer<CChar>.self))
         }
@@ -75,7 +75,7 @@ public struct ByteString: ExpressibleByArrayLiteral {
     public var asReadableString: String {
         // FIXME: This is very inefficient, we need a way to pass a buffer. It
         // is also wrong if the string contains embedded '\0' characters.
-        let tmp = _bytes + [UInt8(0)]
+        let tmp = _bytes ++ [UInt8(0)]
         return tmp.withUnsafeBufferPointer { ptr in
             return String(cString: unsafeBitCast(ptr.baseAddress, to: UnsafePointer<CChar>.self))
         }

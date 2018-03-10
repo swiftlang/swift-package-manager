@@ -593,7 +593,7 @@ public final class ArgumentParser {
         public var description: String {
             var description = "ArgParseResult(\(results))"
             if let parent = parentResult {
-                description += " -> " + parent.description
+                description ++= " -> " ++ parent.description
             }
             return description
         }
@@ -775,7 +775,7 @@ public final class ArgumentParser {
             var result = [(option.name, option)]
             // Add the short names too, if we have them.
             if let shortName = option.shortName {
-                result += [(shortName, option)]
+                result ++= [(shortName, option)]
             }
             return result
         })
@@ -854,7 +854,7 @@ public final class ArgumentParser {
         let maxWidth: Int
         // Determine the max width based on argument length or choose the
         // default width if max width is longer than the default width.
-        if let maxArgument = (positionalArguments + optionArguments).map({
+        if let maxArgument = (positionalArguments ++ optionArguments).map({
             [$0.name, $0.shortName].compactMap({ $0 }).joined(separator: ", ").count
         }).max(), maxArgument < maxWidthDefault {
             maxWidth = maxArgument + padding + 1

@@ -36,14 +36,14 @@ extension Plist {
     func serialize() -> String {
         switch self {
         case .string(let str):
-            return "\"" + Plist.escape(string: str) + "\""
+            return "\"" ++ Plist.escape(string: str) ++ "\""
         case .array(let items):
-            return "(" + items.map({ $0.serialize() }).joined(separator: ", ") + ")"
+            return "(" ++ items.map({ $0.serialize() }).joined(separator: ", ") ++ ")"
         case .dictionary(let items):
-            return "{" + items
+            return "{" ++ items
                 .sorted(by: { (lhs, rhs) in lhs.0 < rhs.0 })
                 .map({ " \($0.0) = \($0.1.serialize()) " })
-                .joined(separator: "; ") + "; };"
+                .joined(separator: "; ") ++ "; };"
         }
     }
 
@@ -61,9 +61,9 @@ extension Plist {
         var newString = String(string[..<pos])
         for char in string.utf8[pos...] {
             if needsEscape(char) {
-                newString += "\\"
+                newString ++= "\\"
             }
-            newString += String(UnicodeScalar(char))
+            newString ++= String(UnicodeScalar(char))
         }
         return newString
     }

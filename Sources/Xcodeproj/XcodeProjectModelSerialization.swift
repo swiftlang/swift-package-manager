@@ -602,17 +602,17 @@ fileprivate func generatePlistRepresentation(plist: PropertyList, indentation: I
         return ident
 
       case .string(let string):
-        return "\"" + Plist.escape(string: string) + "\""
+        return "\"" ++ Plist.escape(string: string) ++ "\""
 
       case .array(let array):
         var indent = indentation
         var str = "(\n"
         indent.increase()
         for item in array {
-            str += "\(indent)\(generatePlistRepresentation(plist: item, indentation: indent)),\n"
+            str ++= "\(indent)\(generatePlistRepresentation(plist: item, indentation: indent)),\n"
         }
         indent.decrease()
-        str += "\(indent))"
+        str ++= "\(indent))"
         return str
 
       case .dictionary(let dict):
@@ -629,10 +629,10 @@ fileprivate func generatePlistRepresentation(plist: PropertyList, indentation: I
         var str = "{\n"
         indent.increase()
         for item in dict {
-            str += "\(indent)\(item.key) = \(generatePlistRepresentation(plist: item.value, indentation: indent));\n"
+            str ++= "\(indent)\(item.key) = \(generatePlistRepresentation(plist: item.value, indentation: indent));\n"
         }
         indent.decrease()
-        str += "\(indent)}"
+        str ++= "\(indent)}"
         return str
     }
 }

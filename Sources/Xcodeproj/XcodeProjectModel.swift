@@ -384,10 +384,10 @@ public struct Xcode {
 /// for all arrays of string.  Instead, we should probably have a build setting
 /// struct that wraps a string, and then we can write this in terms of just
 /// build settings.
-public func += (lhs: inout [String]?, rhs: [String]) {
+public func ++= (lhs: inout [String]?, rhs: [String]) {
     if lhs == nil {
         lhs = rhs
     } else {
-        lhs = lhs! + rhs
+        lhs = lhs! ++ rhs
     }
 }

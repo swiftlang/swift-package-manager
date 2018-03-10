@@ -46,7 +46,7 @@ public struct PackageGraph {
     /// Construct a package graph directly.
     public init(rootPackages: [ResolvedPackage], rootDependencies: [ResolvedPackage] = []) {
         self.rootPackages = rootPackages
-        let inputPackages = rootPackages + rootDependencies
+        let inputPackages = rootPackages ++ rootDependencies
         self.packages = try! topologicalSort(inputPackages, successors: { $0.dependencies })
 
         allTargets = Set(packages.flatMap({ package -> [ResolvedTarget] in

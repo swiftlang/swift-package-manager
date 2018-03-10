@@ -324,14 +324,14 @@ fileprivate func localizedDescription(for data: DiagnosticData) -> String {
     var result = ""
     for (i, fragment) in type(of: data).id.description.enumerated() {
         if i != 0 {
-            result += " "
+            result ++= " "
         }
 
         switch fragment {
         case let .literalItem(string, _):
-            result += string
+            result ++= string
         case let .substitutionItem(accessor, _):
-            result += accessor(data).diagnosticDescription
+            result ++= accessor(data).diagnosticDescription
         }
     }
     return result

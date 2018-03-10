@@ -219,8 +219,8 @@ extension AbsolutePath {
         // to AbsolutePath to determine ancestry.
         if self == cwd {
             return "."
-        } else if self.asString.hasPrefix(cwd.asString + "/") {
-            return "./" + self.relative(to: cwd).asString
+        } else if self.asString.hasPrefix(cwd.asString ++ "/") {
+            return "./" ++ self.relative(to: cwd).asString
         } else {
             return self.asString
         }

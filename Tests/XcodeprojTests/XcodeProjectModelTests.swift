@@ -201,7 +201,7 @@ class XcodeProjectModelTests: XCTestCase {
         settings.common.PROJECT_NAME = nil
         XCTAssertNil(settings.common.PROJECT_NAME)
         settings.common.HEADER_SEARCH_PATHS = ["$(inherited)"]
-        settings.common.HEADER_SEARCH_PATHS += ["/tmp/path"]
+        settings.common.HEADER_SEARCH_PATHS ++= ["/tmp/path"]
         XCTAssertEqual(settings.common.HEADER_SEARCH_PATHS!, ["$(inherited)", "/tmp/path"])
     }
     

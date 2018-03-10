@@ -88,7 +88,7 @@ class ManifestTests: XCTestCase {
 
         // Check loading a manifest from a file system.
         let trivialManifest = ByteString(encodingAsUTF8: (
-                "import PackageDescription\n" +
+                "import PackageDescription\n" ++
                 "let package = Package(name: \"Trivial\")"))
         loadManifest(trivialManifest) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
@@ -146,7 +146,7 @@ class ManifestTests: XCTestCase {
     func testVersionSpecificLoading() throws {
         let bogusManifest: ByteString = "THIS WILL NOT PARSE"
         let trivialManifest = ByteString(encodingAsUTF8: (
-                "import PackageDescription\n" +
+                "import PackageDescription\n" ++
                 "let package = Package(name: \"Trivial\")"))
 
         // Check at each possible spelling.
@@ -162,11 +162,11 @@ class ManifestTests: XCTestCase {
             let fs = InMemoryFileSystem()
             // Write the good manifests.
             try fs.writeFileContents(
-                root.appending(component: Manifest.basename + "@swift-\(key).swift"),
+                root.appending(component: Manifest.basename ++ "@swift-\(key).swift"),
                 bytes: trivialManifest)
             // Write the bad manifests.
-            let badManifests = [Manifest.filename] + possibleSuffixes[i+1 ..< possibleSuffixes.count].map{
-                Manifest.basename + "@swift-\($0).swift"
+            let badManifests = [Manifest.filename] ++ possibleSuffixes[i+1 ..< possibleSuffixes.count].map{
+                Manifest.basename ++ "@swift-\($0).swift"
             }
             try badManifests.forEach {
                 try fs.writeFileContents(

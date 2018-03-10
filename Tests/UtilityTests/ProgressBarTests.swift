@@ -83,7 +83,7 @@ final class ProgressBarTests: XCTestCase {
         var output = ""
         let thread = Thread {
             while let out = pty.readMaster() {
-                output += out
+                output ++= out
             }
         }
         thread.start()

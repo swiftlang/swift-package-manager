@@ -150,7 +150,7 @@ extension SortedArray: RandomAccessCollection {
 }
 
 extension SortedArray {
-    public static func +=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == Element {
+    public static func ++=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == Element {
         lhs.insert(contentsOf: rhs)
     }
 }

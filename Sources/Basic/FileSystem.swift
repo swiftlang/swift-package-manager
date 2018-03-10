@@ -780,12 +780,12 @@ extension FileSystem {
 
         for (idx, entry) in contents.enumerated() {
             let isLast = idx == contents.count - 1
-            let line = prefix + (isLast ? "└── " : "├── ") + entry
+            let line = prefix ++ (isLast ? "└── " : "├── ") ++ entry
             print(line)
 
             let entryPath = path.appending(component: entry)
             if fs.isDirectory(entryPath) {
-                let childPrefix = prefix + (isLast ?  "    " : "│   ")
+                let childPrefix = prefix ++ (isLast ?  "    " : "│   ")
                 try recurse(fs: fs, path: entryPath, prefix: String(childPrefix))
             }
         }

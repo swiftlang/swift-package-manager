@@ -318,7 +318,7 @@ extension Xcode.Reference {
 /// Returns array of paths from Xcode references.
 private func recursiveRefPaths(_ ref: Xcode.Reference, parents: [Xcode.Reference] = []) -> [String] {
     if case let group as Xcode.Group = ref {
-        return group.subitems.flatMap { recursiveRefPaths($0, parents: parents + [ref]) }
+        return group.subitems.flatMap { recursiveRefPaths($0, parents: parents ++ [ref]) }
     }
-    return [(parents + [ref]).filter{!$0.basename.isEmpty}.map{$0.basename}.joined(separator: "/")]
+    return [(parents ++ [ref]).filter{!$0.basename.isEmpty}.map{$0.basename}.joined(separator: "/")]
 }

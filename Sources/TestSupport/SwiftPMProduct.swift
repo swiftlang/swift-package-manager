@@ -98,9 +98,9 @@ public enum SwiftPMProduct {
 
         var completeArgs = [path.asString]
         if let packagePath = packagePath {
-            completeArgs += ["--package-path", packagePath.asString]
+            completeArgs ++= ["--package-path", packagePath.asString]
         }
-        completeArgs += args
+        completeArgs ++= args
 
         let result = try Process.popen(arguments: completeArgs, environment: environment)
         let output = try result.utf8Output()
@@ -108,11 +108,11 @@ public enum SwiftPMProduct {
 
         if result.exitStatus == .terminated(code: 0) {
             // FIXME: We should return stderr separately.
-            return output + stderr
+            return output ++ stderr
         }
         if printIfError {
             print("**** FAILURE EXECUTING SUBPROCESS ****")
-            print("command: " + completeArgs.map({ $0.shellEscaped() }).joined(separator: " "))
+            print("command: " ++ completeArgs.map({ $0.shellEscaped() }).joined(separator: " "))
             print("SWIFT_EXEC:", environment["SWIFT_EXEC"] ?? "nil")
             print("output:", output)
         }

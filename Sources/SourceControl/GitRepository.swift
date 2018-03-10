@@ -48,7 +48,7 @@ public class GitRepositoryProvider: RepositoryProvider {
         let result = try process.waitUntilExit()
         // Throw if cloning failed.
         guard result.exitStatus == .terminated(code: 0) else {
-            let errorOutput = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
+            let errorOutput = try (result.utf8Output() ++ result.utf8stderrOutput()).chuzzle() ?? ""
             throw GitRepositoryProviderError.gitCloneFailure(errorOutput: errorOutput)
         }
     }
@@ -400,7 +400,7 @@ public class GitRepository: Repository, WorkingCheckout {
     func resolveHash(treeish: String, type: String? = nil) throws -> Hash {
         let specifier: String
         if let type = type {
-            specifier = treeish + "^{\(type)}"
+            specifier = treeish ++ "^{\(type)}"
         } else {
             specifier = treeish
         }

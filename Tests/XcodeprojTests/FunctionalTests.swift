@@ -171,8 +171,8 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
         XCTFail("xcodebuild failed:\n\n\(error)\n", file: file, line: line)
         switch error {
         case ProcessResult.Error.nonZeroExit(let result):
-            try? print("stdout: " + result.utf8Output())
-            try? print("stderr: " + result.utf8stderrOutput())
+            try? print("stdout: " ++ result.utf8Output())
+            try? print("stderr: " ++ result.utf8stderrOutput())
         default:
             break
         }
@@ -182,7 +182,7 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
 func XCTAssertXcodeprojGen(_ prefix: AbsolutePath, flags: [String] = [], env: [String: String]? = nil, file: StaticString = #file, line: UInt = #line) {
     do {
         print("    Generating XcodeProject")
-        _ = try SwiftPMProduct.SwiftPackage.execute(flags + ["generate-xcodeproj"], packagePath: prefix, env: env, printIfError: true)
+        _ = try SwiftPMProduct.SwiftPackage.execute(flags ++ ["generate-xcodeproj"], packagePath: prefix, env: env, printIfError: true)
     } catch {
         XCTFail("`swift package generate-xcodeproj' failed:\n\n\(error)\n", file: file, line: line)
     }

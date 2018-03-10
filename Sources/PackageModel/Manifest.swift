@@ -26,7 +26,7 @@ public enum ManifestVersion: Int {
 public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
 
     /// The standard filename for the manifest.
-    public static var filename = basename + ".swift"
+    public static var filename = basename ++ ".swift"
 
     /// Returns the manifest at the given package path.
     ///
@@ -37,7 +37,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
         fileSystem: FileSystem
     ) -> AbsolutePath {
         for versionSpecificKey in Versioning.currentVersionSpecificKeys {
-            let versionSpecificPath = packagePath.appending(component: Manifest.basename + versionSpecificKey + ".swift")
+            let versionSpecificPath = packagePath.appending(component: Manifest.basename ++ versionSpecificKey ++ ".swift")
             if fileSystem.isFile(versionSpecificPath) {
                 return versionSpecificPath
             }

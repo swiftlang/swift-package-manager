@@ -43,7 +43,7 @@ public func pbxproj(
         fileSystem: fileSystem)
     // Serialize the project model we created to a plist, and return
     // its string description.
-    return "// !$*UTF8*$!\n" + project.generatePlist().description
+    return "// !$*UTF8*$!\n" ++ project.generatePlist().description
 }
 
 /// A set of c99 target names that are invalid for Xcode Framework targets.
@@ -75,9 +75,9 @@ func xcodeProject(
         var interpreterFlags = package.manifest.interpreterFlags
         if !interpreterFlags.isEmpty {
             // Patch the interpreter flags to use Xcode supported toolchain macro instead of the resolved path.
-            interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/" + String(package.manifest.manifestVersion.rawValue)
+            interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/" ++ String(package.manifest.manifestVersion.rawValue)
         }
-        pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS += interpreterFlags
+        pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS ++= interpreterFlags
         pdTarget.buildSettings.common.SWIFT_VERSION = "\(package.manifest.manifestVersion.rawValue).0"
         pdTarget.buildSettings.common.LD = "/usr/bin/true"
     }
@@ -141,7 +141,7 @@ func xcodeProject(
 
     // Also set the `Xcode` build preset in Swift to let code conditionalize on
     // being built in Xcode.
-    projectSettings.common.OTHER_SWIFT_FLAGS += ["-DXcode"]
+    projectSettings.common.OTHER_SWIFT_FLAGS ++= ["-DXcode"]
 
     // Prevent Xcode project upgrade warnings.
     projectSettings.common.COMBINE_HIDPI_IMAGES = "YES"
@@ -345,7 +345,7 @@ func xcodeProject(
             // Construct a group name from the package name and optional version.
             var groupName = package.name
             if let version = package.manifest.version {
-                groupName += " " + version.description
+                groupName ++= " " ++ version.description
             }
             // Create the source group for all the targets in the package.
             // FIXME: Eliminate filtering test from here.
@@ -393,7 +393,7 @@ func xcodeProject(
 
         // Warn if the target name is invalid.
         if target.type == .library && invalidXcodeModuleNames.contains(target.c99name) {
-            warningStream <<< ("warning: Target '\(target.name)' conflicts with required framework filenames, rename " +
+            warningStream <<< ("warning: Target '\(target.name)' conflicts with required framework filenames, rename " ++
                 "this target to avoid conflicts.\n")
             warningStream.flush()
         }
@@ -441,7 +441,7 @@ func xcodeProject(
                 targetSettings.common.SWIFT_FORCE_STATIC_LINK_STDLIB = "NO"
                 targetSettings.common.SWIFT_FORCE_DYNAMIC_LINK_STDLIB = "YES"
 
-                targetSettings.common.LD_RUNPATH_SEARCH_PATHS += ["@executable_path"]
+                targetSettings.common.LD_RUNPATH_SEARCH_PATHS ++= ["@executable_path"]
             }
         }
 
@@ -460,7 +460,7 @@ func xcodeProject(
 
         // Add header search paths for any C target on which we depend.
         var hdrInclPaths = ["$(inherited)"]
-        for depModule in [target] + target.recursiveDependencies {
+        for depModule in [target] ++ target.recursiveDependencies {
             // FIXME: Possibly factor this out into a separate protocol; the
             // idea would be that we would ask the target how it contributes
             // to the overall build environment for client targets, which can
@@ -471,14 +471,14 @@ func xcodeProject(
             // See: <rdar://problem/21912068> SourceKit cannot handle relative include paths (working directory)
             switch depModule.underlyingTarget {
               case let systemTarget as SystemLibraryTarget:
-                hdrInclPaths.append("$(SRCROOT)/" + systemTarget.path.relative(to: sourceRootDir).asString)
+                hdrInclPaths.append("$(SRCROOT)/" ++ systemTarget.path.relative(to: sourceRootDir).asString)
                 if let pkgArgs = pkgConfigArgs(for: systemTarget) {
-                    targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
-                    targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
-                    targetSettings.common.OTHER_CFLAGS += pkgArgs.cFlags
+                    targetSettings.common.OTHER_LDFLAGS ++= pkgArgs.libs
+                    targetSettings.common.OTHER_SWIFT_FLAGS ++= pkgArgs.cFlags
+                    targetSettings.common.OTHER_CFLAGS ++= pkgArgs.cFlags
                 }
             case let clangTarget as ClangTarget:
-                hdrInclPaths.append("$(SRCROOT)/" + clangTarget.includeDir.relative(to: sourceRootDir).asString)
+                hdrInclPaths.append("$(SRCROOT)/" ++ clangTarget.includeDir.relative(to: sourceRootDir).asString)
               default:
                 continue
             }
@@ -603,14 +603,14 @@ func xcodeProject(
             // For swift targets, if a clang dependency has a modulemap, add it via -fmodule-map-file.
             if let moduleMap = modulesToModuleMap[dependency], target.underlyingTarget is SwiftTarget {
                 assert(dependency.underlyingTarget is ClangTarget)
-                xcodeTarget.buildSettings.common.OTHER_SWIFT_FLAGS += [
+                xcodeTarget.buildSettings.common.OTHER_SWIFT_FLAGS ++= [
                     "-Xcc",
-                    "-fmodule-map-file=$(SRCROOT)/" + moduleMap.path.relative(to: sourceRootDir).asString,
+                    "-fmodule-map-file=$(SRCROOT)/" ++ moduleMap.path.relative(to: sourceRootDir).asString,
                 ]
                 // Workaround for a interface generation bug. <rdar://problem/30071677>
                 if moduleMap.isGenerated {
-                    xcodeTarget.buildSettings.common.HEADER_SEARCH_PATHS += [
-                        "$(SRCROOT)/" + moduleMap.path.parentDirectory.relative(to: sourceRootDir).asString
+                    xcodeTarget.buildSettings.common.HEADER_SEARCH_PATHS ++= [
+                        "$(SRCROOT)/" ++ moduleMap.path.parentDirectory.relative(to: sourceRootDir).asString
                     ]
                 }
             }

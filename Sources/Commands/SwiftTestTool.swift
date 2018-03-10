@@ -262,7 +262,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         binder.bind(
             option: parser.add(option: "--filter", kind: String.self,
-                usage: "Run test cases matching regular expression, Format: <test-target>.<test-case> or " +
+                usage: "Run test cases matching regular expression, Format: <test-target>.<test-case> or " ++
                     "<test-target>.<test-case>/<test>"),
             to: { $0.testCaseSpecifier = .regex($1) })
     }
@@ -332,7 +332,7 @@ struct UnitTest {
 
     /// The specifier argument which can be passed to XCTest.
     var specifier: String {
-        return testCase + "/" + name
+        return testCase ++ "/" ++ name
     }
 }
 
@@ -366,13 +366,13 @@ final class TestRunner {
       #if os(macOS)
         args = ["xcrun", "--sdk", "macosx", "xctest"]
         if let xctestArg = xctestArg {
-            args += ["-XCTest", xctestArg]
+            args ++= ["-XCTest", xctestArg]
         }
-        args += [path.asString]
+        args ++= [path.asString]
       #else
-        args += [path.asString]
+        args ++= [path.asString]
         if let xctestArg = xctestArg {
-            args += [xctestArg]
+            args ++= [xctestArg]
         }
       #endif
         return args
@@ -389,12 +389,12 @@ final class TestRunner {
             let process = Process(arguments: args(), redirectOutput: true, verbose: false)
             try process.launch()
             let result = try process.waitUntilExit()
-            output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
+            output = try (result.utf8Output() ++ result.utf8stderrOutput()).chuzzle() ?? ""
             switch result.exitStatus {
             case .terminated(code: 0):
                 success = true
             case .signalled(let signal):
-                output += "\n" + exitSignalText(code: signal)
+                output ++= "\n" ++ exitSignalText(code: signal)
             default: break
             }
         } catch {}

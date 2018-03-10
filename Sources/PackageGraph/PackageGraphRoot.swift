@@ -103,7 +103,7 @@ public struct PackageGraphRoot {
         let constraints = packageRefs.map({
             RepositoryPackageConstraint(container: $0, requirement: .unversioned)
         })
-        return constraints + dependencies.map({
+        return constraints ++ dependencies.map({
             RepositoryPackageConstraint(
                 container: $0.createPackageRef(),
                 requirement: $0.requirement.toConstraintRequirement()

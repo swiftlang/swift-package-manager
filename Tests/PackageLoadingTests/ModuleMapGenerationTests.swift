@@ -125,13 +125,13 @@ class ModuleMapGeneration: XCTestCase {
         fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo/Foo.h",
             "/include/Bar/Foo.h")
-        checkExpected("target 'Foo' failed modulemap generation; umbrella header defined at '/include/Foo/Foo.h', " +
+        checkExpected("target 'Foo' failed modulemap generation; umbrella header defined at '/include/Foo/Foo.h', " ++
             "but more than one directories exist: /include/Bar, /include/Foo; consider reducing them to one")
 
         fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo.h",
             "/include/Bar/Foo.h")
-        checkExpected("target 'Foo' failed modulemap generation; umbrella header defined at '/include/Foo.h', but " +
+        checkExpected("target 'Foo' failed modulemap generation; umbrella header defined at '/include/Foo.h', but " ++
             "directories exist: /include/Bar; consider removing them")
     }
 

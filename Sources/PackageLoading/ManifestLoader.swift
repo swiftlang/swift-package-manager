@@ -239,24 +239,24 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // arbitrary code execution when parsing manifest files. We only allow
         // the permissions which are absolutely necessary for manifest parsing.
         if isManifestSandboxEnabled {
-            cmd += ["sandbox-exec", "-p", sandboxProfile()]
+            cmd ++= ["sandbox-exec", "-p", sandboxProfile()]
         }
       #endif
-        cmd += [resources.swiftCompiler.asString]
-        cmd += ["--driver-mode=swift"]
-        cmd += verbosity.ccArgs
-        cmd += ["-L", runtimePath, "-lPackageDescription", "-suppress-warnings"]
-        cmd += interpreterFlags
-        cmd += [manifestPath.asString]
+        cmd ++= [resources.swiftCompiler.asString]
+        cmd ++= ["--driver-mode=swift"]
+        cmd ++= verbosity.ccArgs
+        cmd ++= ["-L", runtimePath, "-lPackageDescription", "-suppress-warnings"]
+        cmd ++= interpreterFlags
+        cmd ++= [manifestPath.asString]
 
         // Create and open a temporary file to write json to.
         let file = try TemporaryFile()
         // Pass the fd in arguments.
-        cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
+        cmd ++= ["-fileno", "\(file.fileHandle.fileDescriptor)"]
 
         // Run the command.
         let result = try Process.popen(arguments: cmd)
-        let output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle()
+        let output = try (result.utf8Output() ++ result.utf8stderrOutput()).chuzzle()
 
         // We expect output from interpreter to be empty, if something was emitted
         // throw and report it.
@@ -298,13 +298,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ) -> [String] {
         var cmd = [String]()
         let runtimePath = self.runtimePath(for: manifestVersion)
-        cmd += ["-swift-version", String(manifestVersion.rawValue)]
-        cmd += ["-I", runtimePath.asString]
+        cmd ++= ["-swift-version", String(manifestVersion.rawValue)]
+        cmd ++= ["-I", runtimePath.asString]
       #if os(macOS)
-        cmd += ["-target", "x86_64-apple-macosx10.10"]
+        cmd ++= ["-target", "x86_64-apple-macosx10.10"]
       #endif
         if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
-            cmd += ["-sdk", sdkRoot.asString]
+            cmd ++= ["-sdk", sdkRoot.asString]
         }
         return cmd
     }

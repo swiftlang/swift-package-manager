@@ -109,7 +109,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func warning(message: String) {
-        print("warning: " + message)
+        print("warning: " ++ message)
     }
 
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
@@ -579,11 +579,11 @@ public class SwiftTool<Options: ToolOptions> {
                 buildPath,
                 BuildParameters.swiftpmTestCache
             ].map(resolveSymlinks)
-            args += ["sandbox-exec", "-p", sandboxProfile(allowedDirectories: allowedDirectories)]
+            args ++= ["sandbox-exec", "-p", sandboxProfile(allowedDirectories: allowedDirectories)]
         }
       #endif
 
-        args += [try getToolchain().llbuild.asString, "-f", manifest.asString, llbuildTarget]
+        args ++= [try getToolchain().llbuild.asString, "-f", manifest.asString, llbuildTarget]
         if verbosity != .concise {
             args.append("-v")
         }
@@ -692,7 +692,7 @@ enum BuildSubset {
 extension SwiftTool: BuildPlanDelegate {
     public func warning(message: String) {
         // FIXME: Coloring would be nice.
-        print("warning: " + message)
+        print("warning: " ++ message)
     }
 }
 

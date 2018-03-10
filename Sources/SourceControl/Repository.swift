@@ -29,7 +29,7 @@ public struct RepositorySpecifier {
         // a stable hash function since this interacts with the RepositoryManager
         // persistence.
         let basename = url.components(separatedBy: "/").last!
-        return basename + "-" + String(url.hashValue)
+        return basename ++ "-" ++ String(url.hashValue)
     }
 }
 

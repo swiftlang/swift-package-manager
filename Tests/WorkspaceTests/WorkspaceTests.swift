@@ -379,7 +379,7 @@ final class WorkspaceTests: XCTestCase {
                 location: ""
             ),
             .init(
-                url: "file://" + workspace.packagesDir.appending(component: "Foo").asString + "/",
+                url: "file://" ++ workspace.packagesDir.appending(component: "Foo").asString ++ "/",
                 requirement: .upToNextMajor(from: "1.0.0"),
                 location: ""
             ),

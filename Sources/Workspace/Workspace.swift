@@ -144,10 +144,10 @@ public class Workspace {
         /// Computes the identities which are declared in the manifests but aren't present in dependencies.
         func missingPackageIdentities() -> Set<String> {
             let manifestsMap = Dictionary(items:
-                root.manifests.map({ ($0.name.lowercased(), $0) }) +
+                root.manifests.map({ ($0.name.lowercased(), $0) }) ++
                 dependencies.map({ (PackageReference.computeIdentity(packageURL: $0.manifest.url), $0.manifest) }))
 
-            let inputIdentities = root.manifests.map({ $0.name.lowercased() }) +
+            let inputIdentities = root.manifests.map({ $0.name.lowercased() }) ++
                 root.dependencies.map({ PackageReference.computeIdentity(packageURL: $0.url) })
 
             var requiredIdentities = transitiveClosure(inputIdentities) { identity in
@@ -186,7 +186,7 @@ public class Workspace {
 
                 case .checkout: 
                     // For checkouts, add all the constraints in the manifest.
-                    allConstraints += externalManifest.package.dependencyConstraints()
+                    allConstraints ++= externalManifest.package.dependencyConstraints()
                 }
             }
             return allConstraints
@@ -506,7 +506,7 @@ extension Workspace {
         var updateConstraints = currentManifests.editedPackagesConstraints()
 
         // Create constraints based on root manifest and pins for the update resolution.
-        updateConstraints += graphRoot.constraints
+        updateConstraints ++= graphRoot.constraints
 
         // Record the start time of dependency resolution.
         let resolutionStartTime = Date()
@@ -868,7 +868,7 @@ extension Workspace {
         let rootDependencyManifests = root.dependencies.compactMap({
             return loadManifest(for: $0.createPackageRef().identity, diagnostics: diagnostics)
         })
-        let inputManifests = root.manifests + rootDependencyManifests
+        let inputManifests = root.manifests ++ rootDependencyManifests
 
         // Map of loaded manifests. We do this to avoid reloading the shared nodes.
         var loadedManifests = [String: Manifest]()
@@ -884,7 +884,7 @@ extension Workspace {
         }
         // It is possible that some root dependency is also present as a regular dependency, so we
         // form a unique set of all dependency manifests.
-        let allManifests = Set(rootDependencyManifests.map({ KeyedPair($0, key: $0.name) }) + dependencies).map({ $0.item })
+        let allManifests = Set(rootDependencyManifests.map({ KeyedPair($0, key: $0.name) }) ++ dependencies).map({ $0.item })
         let deps: [(Manifest, ManagedDependency)] = allManifests.map({
             // FIXME: We should use package name directly once this radar is fixed:
             // <rdar://problem/33693433> Ensure that identity and package name
@@ -1003,10 +1003,10 @@ extension Workspace {
             // Use root constraints, dependency manifest constraints and extra
             // constraints to compute if a new resolution is required.
             let dependencies =
-                graphRoot.constraints +
+                graphRoot.constraints ++
                 // Include constraints from the manifests in the graph root.
-                graphRoot.manifests.flatMap({ $0.package.dependencyConstraints() }) +
-                currentManifests.dependencyConstraints() +
+                graphRoot.manifests.flatMap({ $0.package.dependencyConstraints() }) ++
+                currentManifests.dependencyConstraints() ++
                 extraConstraints
 
             let result = isResolutionRequired(dependencies: dependencies, pinsStore: pinsStore)
@@ -1026,8 +1026,8 @@ extension Workspace {
 
         // Create the constraints.
         var constraints = [RepositoryPackageConstraint]()
-        constraints += currentManifests.editedPackagesConstraints()
-        constraints += graphRoot.constraints + extraConstraints
+        constraints ++= currentManifests.editedPackagesConstraints()
+        constraints ++= graphRoot.constraints ++ extraConstraints
 
         // Record the start time of dependency resolution.
         let resolutionStartTime = Date()

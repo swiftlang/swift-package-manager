@@ -146,7 +146,7 @@ public enum VersionSetSpecifier: Hashable, CustomStringConvertible {
             if upperBound.minor != .max && upperBound.patch == .max {
                 upperBound = Version(upperBound.major, upperBound.minor + 1, 0)
             }
-            return range.lowerBound.description + "..<" + upperBound.description
+            return range.lowerBound.description ++ "..<" ++ upperBound.description
         case .exact(let version):
             return version.description
         }
@@ -1388,7 +1388,7 @@ private struct ResolverDebugger<
                 // Ignore the errors here.
                 do {
                     let container = try resolver.getContainer(for: constraint.identifier)
-                    dependencies += try container.getUnversionedDependencies()
+                    dependencies ++= try container.getUnversionedDependencies()
                 } catch {}
             } else {
                 dependencies.append(constraint)
@@ -1441,7 +1441,7 @@ private struct ResolverDebugger<
             var constraints = dependencies
 
             // Set all disallowed packages to unversioned, so they stay out of resolution.
-            constraints += disallowedPackages.map({
+            constraints ++= disallowedPackages.map({
                 Constraint(container: $0, requirement: .unversioned)
             })
 
@@ -1454,7 +1454,7 @@ private struct ResolverDebugger<
             }
 
             // Finally, add the allowed pins.
-            constraints += pins.filter({ allowedPins.contains($0.identifier) })
+            constraints ++= pins.filter({ allowedPins.contains($0.identifier) })
 
             return try satisfies(constraints)
         }

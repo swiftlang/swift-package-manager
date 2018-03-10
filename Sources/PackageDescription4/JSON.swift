@@ -33,16 +33,16 @@ extension JSON {
         case .double(let value):
             return value.debugDescription
         case .string(let value):
-            return "\"" + value + "\""
+            return "\"" ++ value ++ "\""
         case .array(let contents):
-            return "[" + contents.map({ $0.toString() }).joined(separator: ", ") + "]"
+            return "[" ++ contents.map({ $0.toString() }).joined(separator: ", ") ++ "]"
         case .dictionary(let contents):
             var output = "{"
             for (i, key) in contents.keys.sorted().enumerated() {
-                if i != 0 { output += ", " }
-                output += "\"" + key + "\"" + ": " + contents[key]!.toString()
+                if i != 0 { output ++= ", " }
+                output ++= "\"" ++ key ++ "\"" ++ ": " ++ contents[key]!.toString()
             }
-            output += "}"
+            output ++= "}"
             return output
         }
     }

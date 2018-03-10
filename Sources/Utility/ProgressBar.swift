@@ -111,13 +111,13 @@ public final class ProgressBar: ProgressBarProtocol {
 
         term.clearLine()
         let percentString = percent < 10 ? " \(percent)" : "\(percent)"
-        let prefix = "\(percentString)% " + term.wrap("[", inColor: .green, bold: true)
+        let prefix = "\(percentString)% " ++ term.wrap("[", inColor: .green, bold: true)
         term.write(prefix)
 
         let barWidth = term.width - prefix.utf8.count
         let n = Int(Double(barWidth) * Double(percent)/100.0)
 
-        term.write(repeating(string: "=", count: n) + repeating(string: "-", count: barWidth - n), inColor: .green)
+        term.write(repeating(string: "=", count: n) ++ repeating(string: "-", count: barWidth - n), inColor: .green)
         term.write("]", inColor: .green, bold: true)
         term.endLine()
 

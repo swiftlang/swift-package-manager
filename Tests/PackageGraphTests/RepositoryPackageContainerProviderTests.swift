@@ -117,7 +117,7 @@ private class MockResolverDelegate: DependencyResolverDelegate, RepositoryManage
     var fetched = [RepositorySpecifier]()
 
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
-        fetched += [handle.repository]
+        fetched ++= [handle.repository]
     }
 
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {

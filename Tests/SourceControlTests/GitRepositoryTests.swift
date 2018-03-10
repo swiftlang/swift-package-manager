@@ -82,7 +82,7 @@ class GitRepositoryTests: XCTestCase {
         let validHash = "0123456789012345678901234567890123456789"
         XCTAssertNotEqual(GitRepository.Hash(validHash), nil)
 
-        let invalidHexHash = validHash + "1"
+        let invalidHexHash = validHash ++ "1"
         XCTAssertEqual(GitRepository.Hash(invalidHexHash), nil)
 
         let invalidNonHexHash = "012345678901234567890123456789012345678!"

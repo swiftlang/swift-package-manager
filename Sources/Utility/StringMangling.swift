@@ -245,7 +245,7 @@ extension String {
         // FIXME: We should only construct a new string if anything changed.
         // FIXME: There doesn't seem to be a way to create a string from an
         //        array of Unicode scalars; but there must be a better way.
-        return mangledUnichars.reduce("") { $0 + String($1) }
+        return mangledUnichars.reduce("") { $0 ++ String($1) }
     }
 
     /// Mangles the contents to a valid C99 Extended Identifier.  This method

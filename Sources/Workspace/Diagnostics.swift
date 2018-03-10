@@ -20,7 +20,7 @@ public struct ManifestParseDiagnostic: DiagnosticData {
         type: ManifestParseDiagnostic.self,
         name: "org.swift.diags.manifest-parse",
         description: {
-            $0 <<< { "manifest parse error(s):\n" + $0.errors.joined(separator: "\n") }
+            $0 <<< { "manifest parse error(s):\n" ++ $0.errors.joined(separator: "\n") }
         }
     )
 
@@ -70,13 +70,13 @@ public enum ResolverDiagnostics {
                     let indent = "    "
 
                     if !self.dependencies.isEmpty {
-                        diag += "\n\nDependencies: \n"
-                        diag += self.dependencies.map({ indent + Unsatisfiable.toString($0) }).joined(separator: "\n")
+                        diag ++= "\n\nDependencies: \n"
+                        diag ++= self.dependencies.map({ indent ++ Unsatisfiable.toString($0) }).joined(separator: "\n")
                     }
 
                     if !self.pins.isEmpty {
-                        diag += "\n\nPins: \n"
-                        diag += self.pins.map({ indent + Unsatisfiable.toString($0) }).joined(separator: "\n")
+                        diag ++= "\n\nPins: \n"
+                        diag ++= self.pins.map({ indent ++ Unsatisfiable.toString($0) }).joined(separator: "\n")
                     }
                     return diag
                 }, preference: .default)
@@ -321,7 +321,7 @@ public enum WorkspaceDiagnostics {
             name: "\(ResolverDurationNote.self)",
             defaultBehavior: .note,
             description: {
-                $0 <<< "Completed resolution in" <<< { String(format: "%.2f", $0.duration) + "s" }
+                $0 <<< "Completed resolution in" <<< { String(format: "%.2f", $0.duration) ++ "s" }
             }
         )
 
