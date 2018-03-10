@@ -12,6 +12,23 @@ import XCTest
 
 import Basic
 
+// FIXME: We should just move this to Basic.
+private struct StringDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: StringDiagnostic.self,
+        name: "org.swift.diags.string-diagnostic",
+        description: {
+             $0 <<< { $0.str }
+        }
+    )
+
+    let str: String
+
+    init(_ str: String) {
+        self.str = str
+    }
+}
+
 fileprivate struct FooDiag: DiagnosticData {
     static let id = DiagnosticID(
         type: FooDiag.self,
@@ -93,8 +110,33 @@ class DiagnosticsEngineTests: XCTestCase {
         XCTAssertEqual(engine2.diagnostics.count, 2)
     }
 
+    func testHandlers() {
+        var handledDiagnostics: [Diagnostic] = []
+        let handler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in 
+            handledDiagnostics.append(diagnostic)
+        }
+
+        let diagnostics = DiagnosticsEngine(handlers: [handler])
+        let location = FooLocation(name: "location")
+        diagnostics.emit(
+            data: FooDiag(arr: ["foo", "bar"], str: "str", int: 2),
+            location: location
+        )
+        diagnostics.emit(data: StringDiagnostic("diag 2"), location: location)
+        diagnostics.emit(data: StringDiagnostic("end"), location: location)
+
+        XCTAssertEqual(handledDiagnostics.count, 3)
+        for diagnostic in handledDiagnostics {
+            XCTAssertEqual(diagnostic.location.localizedDescription, location.localizedDescription)
+        }
+        XCTAssertEqual(handledDiagnostics[0].localizedDescription, "literal foo, bar 2 str bar str")
+        XCTAssertEqual(handledDiagnostics[1].localizedDescription, "diag 2")
+        XCTAssertEqual(handledDiagnostics[2].localizedDescription, "end")
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testMerging", testMerging),
+        ("testHandlers", testHandlers),
     ]
 }
