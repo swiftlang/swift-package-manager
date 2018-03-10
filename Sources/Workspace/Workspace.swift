@@ -508,9 +508,16 @@ extension Workspace {
         // Create constraints based on root manifest and pins for the update resolution.
         updateConstraints += graphRoot.constraints
 
+        // Record the start time of dependency resolution.
+        let resolutionStartTime = Date()
+
         // Resolve the dependencies.
         let updateResults = resolveDependencies(dependencies: updateConstraints, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else { return }
+
+        // Emit the time taken to perform dependency resolution.
+        let resolutionDuration = Date().timeIntervalSince(resolutionStartTime)
+        diagnostics.emit(data: WorkspaceDiagnostics.ResolverDurationNote(resolutionDuration))
 
 		// Update the checkouts based on new dependency resolution.
         updateCheckouts(with: updateResults, updateBranches: true, diagnostics: diagnostics)
@@ -1017,6 +1024,9 @@ extension Workspace {
         constraints += currentManifests.editedPackagesConstraints()
         constraints += graphRoot.constraints + extraConstraints
 
+        // Record the start time of dependency resolution.
+        let resolutionStartTime = Date()
+
         // Perform dependency resolution.
         let resolverDiagnostics = DiagnosticsEngine()
         let resolver = createResolver()
@@ -1040,6 +1050,10 @@ extension Workspace {
                 return currentManifests
             }
         }
+
+        // Emit the time taken to perform dependency resolution.
+        let resolutionDuration = Date().timeIntervalSince(resolutionStartTime)
+        diagnostics.emit(data: WorkspaceDiagnostics.ResolverDurationNote(resolutionDuration))
 
         // Update the checkouts with dependency resolution result.
         updateCheckouts(with: result, diagnostics: diagnostics)

@@ -13,6 +13,7 @@ import Utility
 import PackageModel
 import PackageLoading
 import PackageGraph
+import Foundation
 
 public struct ManifestParseDiagnostic: DiagnosticData {
     public static let id = DiagnosticID(
@@ -312,5 +313,22 @@ public enum WorkspaceDiagnostics {
 
         /// The branch name
         public let branchName: String
+    }
+
+    public struct ResolverDurationNote: DiagnosticData {
+        public static let id = DiagnosticID(
+            type: ResolverDurationNote.self,
+            name: "\(ResolverDurationNote.self)",
+            defaultBehavior: .note,
+            description: {
+                $0 <<< "Completed resolution in" <<< { String(format: "%.2f", $0.duration) + "s" }
+            }
+        )
+
+        public let duration: Double
+
+        public init(_ duration: Double) {
+            self.duration = duration
+        }
     }
 }
