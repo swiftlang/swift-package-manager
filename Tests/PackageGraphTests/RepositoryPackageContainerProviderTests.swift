@@ -381,11 +381,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         try repo.tag(name: "v1.0.0")
         try repo.tag(name: "1.0.0")
         try repo.tag(name: "1.0.1")
-        try repo.tag(name: "1.0.2")
         try repo.tag(name: "v1.0.2")
         try repo.tag(name: "1.0.4")
         try repo.tag(name: "v2.0.1")
-        try repo.tag(name: "2.0.1")
         
         let inMemRepoProvider = InMemoryGitRepositoryProvider()
         inMemRepoProvider.add(specifier: specifier, repository: repo)
