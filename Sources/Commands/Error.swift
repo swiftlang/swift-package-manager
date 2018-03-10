@@ -76,7 +76,8 @@ func print(error: Any) {
 }
 
 func print(diagnostic: Diagnostic) {
-    let writer = InteractiveWriter.stderr
+
+    let writer = diagnostic.behavior == .note ? InteractiveWriter.stdout : InteractiveWriter.stderr
 
     if !(diagnostic.location is UnknownLocation) {
         writer.write(diagnostic.location.localizedDescription)
@@ -89,7 +90,7 @@ func print(diagnostic: Diagnostic) {
     case .warning:
         writer.write("warning: ", inColor: .yellow, bold: true)
     case .note:
-        writer.write("note: ", inColor: .white, bold: true)
+        break
     case .ignored:
         return
     }
@@ -111,6 +112,9 @@ private final class InteractiveWriter {
 
     /// The standard error writer.
     static let stderr = InteractiveWriter(stream: stderrStream)
+
+    /// The standard output writer.
+    static let stdout = InteractiveWriter(stream: stdoutStream)
 
     /// The terminal controller, if present.
     let term: TerminalController?
