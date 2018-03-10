@@ -863,10 +863,15 @@ extension Workspace {
         })
         let inputManifests = root.manifests + rootDependencyManifests
 
+        // Map of loaded manifests. We do this to avoid reloading the shared nodes.
+        var loadedManifests = [String: Manifest]()
+
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.name) })) { node in
             return node.item.package.dependencies.compactMap({ dependency in
-                let manifest = loadManifest(for: dependency.createPackageRef().identity, diagnostics: diagnostics)
+                let identity = dependency.createPackageRef().identity
+                let manifest = loadedManifests[identity] ?? loadManifest(for: identity, diagnostics: diagnostics)
+                loadedManifests[identity] = manifest
                 return manifest.flatMap({ KeyedPair($0, key: $0.name) })
             })
         }
