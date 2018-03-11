@@ -19,7 +19,7 @@ All targets should be declared in the `Package.swift` manifest file.  Unless the
 relative path of the target is declared, the Package Manager will look for
 a directory matching the name of the target in these places:
 
-Regular targets: Sources, Source, src, srcs.
+Regular targets: Sources, Source, src, srcs.  
 Test targets: Tests, Sources, Source, src, srcs.
 
 ## Package Manifest File Format Reference
