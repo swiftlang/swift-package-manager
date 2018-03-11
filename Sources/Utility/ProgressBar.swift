@@ -9,6 +9,7 @@
 */
 
 import Basic
+import Dispatch
 
 /// A protocol to operate on terminal based progress bars.
 public protocol ProgressBarProtocol {
@@ -150,4 +151,190 @@ public func createProgressBar(forStream stream: OutputByteStream, header: String
 
     // Use simple progress bar by default.
     return SimpleProgressBar(stream: stream, header: header)
+}
+
+// MARK: - LaneBasedProgressBar
+
+public protocol LaneBasedProgressBarLaneProtocol: class {
+    func update(text: String)
+    func complete()
+}
+
+public protocol LaneBasedProgressBarProtocol {
+    func createLane(name: String) -> LaneBasedProgressBarLaneProtocol
+    func complete(text: String)
+}
+
+public func createLaneBasedProgressBar(
+    forStream stream: OutputByteStream,
+    numLanes: Int
+) -> LaneBasedProgressBarProtocol {
+    guard let stdStream = stream as? LocalFileOutputByteStream else {
+        return SimpleLaneBasedProgressBar(forStream: stream, numLanes: numLanes)
+    }
+    if TerminalController.terminalType(stdStream) == .tty {
+        if let term = TerminalController(stream: stdStream) {
+            return LaneBasedProgressBar(term: term, numLanes: numLanes)
+        }
+    }
+    return SimpleLaneBasedProgressBar(forStream: stream, numLanes: numLanes)
+}
+
+public final class SimpleLaneBasedProgressBar: LaneBasedProgressBarProtocol {
+
+    public final class Lane: LaneBasedProgressBarLaneProtocol, ObjectIdentifierProtocol {
+
+        let name: String
+        private unowned let progressBar: SimpleLaneBasedProgressBar
+
+        var queue: DispatchQueue {
+            return progressBar.queue
+        }
+
+        var stream: OutputByteStream {
+            return progressBar.stream
+        }
+
+        init(name: String, progressBar: SimpleLaneBasedProgressBar) {
+            self.name = name
+            self.progressBar = progressBar
+        }
+
+        public func update(text: String) {
+            queue.sync {
+                stream <<< name <<< ": " <<< text <<< "\n"
+                stream.flush()
+            }
+        }
+
+        public func complete() {
+            queue.sync {
+                stream <<< name <<< ": Done" <<< "\n"
+                stream.flush()
+            }
+        }
+    }
+
+    private let queue = DispatchQueue(label: "org.swift.swiftpm.something-2")
+
+    let stream: OutputByteStream
+
+    public init(forStream stream: OutputByteStream, numLanes: Int) {
+        self.stream = stream
+    }
+
+    public func createLane(name: String) -> LaneBasedProgressBarLaneProtocol {
+        return Lane(name: name, progressBar: self)
+    }
+
+    public func complete(text: String) {
+        queue.sync {
+            stream <<< text <<< "\n"
+            stream.flush()
+        }
+    }
+}
+
+public final class LaneBasedProgressBar: LaneBasedProgressBarProtocol {
+
+    public final class Lane: LaneBasedProgressBarLaneProtocol, ObjectIdentifierProtocol {
+
+        fileprivate var name: String
+        fileprivate var text: String
+        fileprivate var isIdle: Bool
+
+        private unowned let progressBar: LaneBasedProgressBar
+
+        fileprivate init(progressBar: LaneBasedProgressBar) {
+            self.progressBar = progressBar
+            self.name = ""
+            self.text = ""
+            self.isIdle = true
+            reset()
+        }
+
+        private func reset() {
+            self.name = "Idle"
+            self.text = ""
+            self.isIdle = true
+        }
+
+        public func update(text: String) {
+            progressBar.queue.sync {
+                self.text = text
+            }
+            progressBar.redraw()
+        }
+
+        public func complete() {
+            progressBar.queue.sync {
+                self.reset()
+            }
+            progressBar.redraw()
+        }
+    }
+
+    private let term: TerminalController
+
+    private var lanes: [Lane]
+
+    private var isClear = true
+
+    private let queue = DispatchQueue(label: "org.swift.swiftpm.something-2")
+
+    public init(term: TerminalController, numLanes: Int) {
+        self.term = term
+        self.lanes = []
+        self.lanes = (0..<numLanes).map({ _ -> Lane in
+            Lane(progressBar: self)
+        })
+    }
+
+    public func createLane(name: String) -> LaneBasedProgressBarLaneProtocol {
+        return queue.sync {
+            let lane = lanes.first(where: { $0.isIdle })!
+            lane.isIdle = false
+            lane.name = name
+            return lane
+        }
+    }
+
+    private func redraw() {
+        queue.async {
+            if self.isClear {
+                self.isClear = false
+            } else {
+                self.clear()
+            }
+
+            for lane in self.lanes {
+                self.term.write("├── ")
+
+                if lane.isIdle {
+                    self.term.write(lane.name, inColor: .noColor)
+                } else {
+                    self.term.write(lane.name, inColor: .black, bold: true)
+                }
+                if !lane.text.isEmpty {
+                    self.term.write(": " + lane.text)
+                }
+                self.term.endLine()
+            }
+        }
+    }
+
+    private func clear() {
+        for _ in lanes {
+            term.moveCursor(up: 1)
+            term.clearLine()
+        }
+    }
+
+    public func complete(text: String) {
+        queue.sync {
+            clear()
+            self.term.write(text)
+            self.term.endLine()
+        }
+    }
 }

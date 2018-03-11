@@ -178,7 +178,7 @@ public enum VersionSetSpecifier: Hashable, CustomStringConvertible {
 ///
 /// This identifier is used to abstractly refer to another container when
 /// encoding dependencies across packages.
-public protocol PackageContainerIdentifier: Hashable { }
+public protocol PackageContainerIdentifier: Hashable, Codable { }
 
 /// A type-erased package container identifier.
 public struct AnyPackageContainerIdentifier: PackageContainerIdentifier {
@@ -197,6 +197,14 @@ public struct AnyPackageContainerIdentifier: PackageContainerIdentifier {
 
     public static func == (lhs: AnyPackageContainerIdentifier, rhs: AnyPackageContainerIdentifier) -> Bool {
         return lhs.identifier == rhs.identifier
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        fatalError()
+    }
+
+    public init(from decoder: Decoder) throws {
+        fatalError()
     }
 }
 
@@ -281,7 +289,7 @@ public protocol PackageContainerProvider {
 }
 
 /// An individual constraint onto a container.
-public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomStringConvertible, Equatable {
+public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomStringConvertible, Equatable, Codable {
     public typealias Identifier = T
 
     /// The requirement of this constraint.

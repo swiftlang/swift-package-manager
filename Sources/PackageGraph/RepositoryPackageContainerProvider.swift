@@ -102,7 +102,7 @@ enum RepositoryPackageResolutionError: Swift.Error {
 /// A package reference.
 ///
 /// This represents a reference to a package containing its identity and location.
-public struct PackageReference: PackageContainerIdentifier, JSONMappable, JSONSerializable {
+public struct PackageReference: PackageContainerIdentifier, JSONMappable, JSONSerializable, Codable {
 
     /// Compute identity of a package given its URL.
     public static func computeIdentity(packageURL: String) -> String {

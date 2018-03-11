@@ -11,6 +11,7 @@
 import Basic
 import PackageModel
 import Utility
+import Dispatch
 
 import func POSIX.realpath
 
@@ -115,6 +116,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     let resources: ManifestResourceProvider
     let isManifestSandboxEnabled: Bool
 
+    /// Queue to provide concurrent mutations on the cache.
+    private let cacheQueue = DispatchQueue(label: "\(ManifestLoader.self)")
+
+    /// Cache to hold the loaded manifest. The key is SHA256 of its contents.
+    ///
+    // FIXME: We need a persistent cache with some cache eviction policies.
+    private var loadedManifests: [String: Manifest] = [:]
+
     public init(
         resources: ManifestResourceProvider,
         isManifestSandboxEnabled: Bool = true
@@ -160,6 +169,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             } catch FileSystemError.noEntry {
                 throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description)
             }
+
+            // Check if we already have this manifest in the cache.
+            let key = SHA256(contents).digestString()
+            if let manifest = cacheQueue.sync(execute: { loadedManifests[key] }) {
+                return manifest
+            }
+
             let tmpFile = try TemporaryFile(suffix: ".swift")
             try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
             return try loadFile(
@@ -176,6 +192,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description)
         }
 
+        // Check if we already have this manifest in the cache.
+        let fileContents = try localFileSystem.readFileContents(inputPath)
+        let sha = SHA256(fileContents).digestString()
+        if let manifest = cacheQueue.sync(execute: { loadedManifests[sha] }) {
+            return manifest
+        }
+
         let parseResult = try parse(path: inputPath, manifestVersion: manifestVersion)
 
         // Get the json from manifest.
@@ -184,6 +207,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // branch and revision too.
             throw ManifestParseError.emptyManifestFile(url: baseURL, version: version?.description) 
         }
+
         let json = try JSON(string: jsonString)
 
         // The loaded manifest object.
@@ -209,6 +233,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 package: .v4(package),
                 version: version,
                 interpreterFlags: parseResult.interpreterFlags)
+        }
+
+        // Cache this manifest.
+        cacheQueue.sync {
+            loadedManifests[sha] = manifest
         }
 
         return manifest

@@ -251,7 +251,7 @@ public class Workspace {
     fileprivate let repositoryManager: RepositoryManager
 
     /// The package container provider.
-    fileprivate let containerProvider: RepositoryPackageContainerProvider
+    let containerProvider: RepositoryPackageContainerProvider
 
     /// Enable prefetching containers in resolver.
     fileprivate let isResolverPrefetchingEnabled: Bool

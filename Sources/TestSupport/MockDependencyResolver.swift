@@ -18,8 +18,6 @@ import struct Utility.Version
 
 public typealias MockDependencyResolver = DependencyResolver<MockPackagesProvider, MockResolverDelegate>
 
-extension String: PackageContainerIdentifier { }
-
 public typealias MockPackageConstraint = PackageContainerConstraint<String>
 
 extension VersionSetSpecifier {

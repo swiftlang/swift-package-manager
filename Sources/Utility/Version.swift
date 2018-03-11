@@ -11,7 +11,7 @@
 import Basic
 
 /// A struct representing a semver version.
-public struct Version {
+public struct Version: Codable {
 
     /// The major version.
     public let major: Int

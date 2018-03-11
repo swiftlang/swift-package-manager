@@ -179,6 +179,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let manifest = graph.rootPackages[0].manifest
             print(try manifest.jsonString())
 
+        case .snapshotPackageGraph:
+            let workspace = try getActiveWorkspace()
+            let tool = PackageGraphSnapshotTool(workspace: workspace)
+            try tool.createGraphSnapshot(
+                root: getWorkspaceRoot(),
+                diagnostics: diagnostics
+            )
+
         case .completionTool:
             switch options.completionToolMode {
             case .generateBashScript?:
@@ -213,6 +221,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             to: { $0.describeMode = $1 })
 
         _ = parser.add(subparser: PackageMode.dumpPackage.rawValue, overview: "Print parsed Package.swift as JSON")
+
+        _ = parser.add(subparser: PackageMode.snapshotPackageGraph.rawValue, overview: "Snapshot the package graph")
 
         let editParser = parser.add(subparser: PackageMode.edit.rawValue, overview: "Put a package in editable mode")
         binder.bind(
@@ -412,6 +422,7 @@ public enum PackageMode: String, StringEnumArgument {
     case clean
     case describe
     case dumpPackage = "dump-package"
+    case snapshotPackageGraph = "snapshot-graph"
     case edit
     case fetch
     case generateXcodeproj = "generate-xcodeproj"
