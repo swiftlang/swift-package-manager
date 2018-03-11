@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -435,14 +435,14 @@ struct PathImpl {
 
 /// Describes the way in which a path is invalid.
 public enum PathValidationError: Error {
-    case startsWithTilda(String)
+    case startsWithTilde(String)
     case invalidAbsolutePath(String)
 }
 
 extension PathValidationError: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .startsWithTilda(let path):
+        case .startsWithTilde(let path):
             return "invalid absolute path '\(path)'; absolute path must begin with /"
         case .invalidAbsolutePath(let path):
             return "invalid absolute path '\(path)'"
@@ -509,7 +509,7 @@ extension AbsolutePath {
         case "/":
             return
         case "~":
-            throw PathValidationError.startsWithTilda(path)
+            throw PathValidationError.startsWithTilde(path)
         default:
             throw PathValidationError.invalidAbsolutePath(path)
         }
