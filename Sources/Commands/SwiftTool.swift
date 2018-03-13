@@ -202,7 +202,7 @@ public class SwiftTool<Options: ToolOptions> {
     let interruptHandler: InterruptHandler
 
     /// The diagnostics engine.
-    let diagnostics = DiagnosticsEngine()
+    let diagnostics = DiagnosticsEngine(handlers: [SwiftTool.diagnosticsHandler])
 
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
@@ -418,21 +418,16 @@ public class SwiftTool<Options: ToolOptions> {
             if diagnostics.hasErrors {
                 throw Error.hasFatalDiagnostics
             }
-            // Print any non fatal diagnostics like warnings, notes.
-            printDiagnostics()
         } catch {
             // Set execution status to failure in case of errors.
             executionStatus = .failure
-            printDiagnostics()
             handle(error: error)
         }
         SwiftTool.exit(with: executionStatus)
     }
 
-    private func printDiagnostics() {
-        for diagnostic in diagnostics.diagnostics {
-            print(diagnostic: diagnostic)
-        }
+    static func diagnosticsHandler(_ diagnostic: Diagnostic) {
+        print(diagnostic: diagnostic)
     }
 
     /// Exit the tool with the given execution status.

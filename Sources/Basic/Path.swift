@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -433,6 +433,23 @@ struct PathImpl {
     }
 }
 
+/// Describes the way in which a path is invalid.
+public enum PathValidationError: Error {
+    case startsWithTilde(String)
+    case invalidAbsolutePath(String)
+}
+
+extension PathValidationError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .startsWithTilde(let path):
+            return "invalid absolute path '\(path)'; absolute path must begin with /"
+        case .invalidAbsolutePath(let path):
+            return "invalid absolute path '\(path)'"
+        }
+    }
+}
+
 extension AbsolutePath {
     /// Returns a relative path that, when concatenated to `base`, yields the
     /// callee path itself.  If `base` is not an ancestor of the callee, the
@@ -484,6 +501,18 @@ extension AbsolutePath {
     /// in any way.
     public func contains(_ other: AbsolutePath) -> Bool {
         return self.components.starts(with: other.components)
+    }
+
+    /// Checks the path and throws a `PathValidationError` if the path is invalid.
+    public static func validate(pathString path: String) throws {
+        switch path.first {
+        case "/":
+            return
+        case "~":
+            throw PathValidationError.startsWithTilde(path)
+        default:
+            throw PathValidationError.invalidAbsolutePath(path)
+        }
     }
 }
 
