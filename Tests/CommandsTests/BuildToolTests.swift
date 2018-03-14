@@ -14,19 +14,24 @@ import TestSupport
 import Basic
 import Commands
 
+struct BuildResult {
+    let output: String
+    let binContents: [String]
+}
+
 final class BuildToolTests: XCTestCase {
     @discardableResult
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, printIfError: false)
+        return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, printIfError: true)
     }
 
-    func buildBinContents(_ args: [String], packagePath: AbsolutePath? = nil) throws -> [String] {
-        try execute(args, packagePath: packagePath)
+    func build(_ args: [String], packagePath: AbsolutePath? = nil) throws -> BuildResult {
+        let output = try execute(args, packagePath: packagePath)
         defer { try! SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: packagePath, printIfError: false) }
         let binPathOutput = try execute(["--show-bin-path"], packagePath: packagePath)
         let binPath = AbsolutePath(binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
         let binContents = try localFileSystem.getDirectoryContents(binPath)
-        return binContents
+        return BuildResult(output: output, binContents: binContents)
     }
     
     func testUsage() throws {
@@ -65,9 +70,9 @@ final class BuildToolTests: XCTestCase {
             let fullPath = resolveSymlinks(path)
 
             do {
-                let productBinContents = try buildBinContents(["--product", "exec1"], packagePath: fullPath)
-                XCTAssert(productBinContents.contains("exec1"))
-                XCTAssert(!productBinContents.contains("exec2.build"))
+                let result = try build(["--product", "exec1"], packagePath: fullPath)
+                XCTAssert(result.binContents.contains("exec1"))
+                XCTAssert(!result.binContents.contains("exec2.build"))
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
@@ -79,9 +84,9 @@ final class BuildToolTests: XCTestCase {
             }
 
             do {
-                let targetBinContents = try buildBinContents(["--target", "exec2"], packagePath: fullPath)
-                XCTAssert(targetBinContents.contains("exec2.build"))
-                XCTAssert(!targetBinContents.contains("exec1"))
+                let result = try build(["--target", "exec2"], packagePath: fullPath)
+                XCTAssert(result.binContents.contains("exec2.build"))
+                XCTAssert(!result.binContents.contains("exec1"))
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
@@ -135,11 +140,11 @@ final class BuildToolTests: XCTestCase {
             let aPath = path.appending(component: "A")
 
             do {
-                let binContents = try buildBinContents([], packagePath: aPath)
-                XCTAssert(!binContents.contains("bexec"))
-                XCTAssert(!binContents.contains("BTarget2.build"))
-                XCTAssert(!binContents.contains("cexec"))
-                XCTAssert(!binContents.contains("CTarget.build"))
+                let result = try build([], packagePath: aPath)
+                XCTAssert(!result.binContents.contains("bexec"))
+                XCTAssert(!result.binContents.contains("BTarget2.build"))
+                XCTAssert(!result.binContents.contains("cexec"))
+                XCTAssert(!result.binContents.contains("CTarget.build"))
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
@@ -147,15 +152,15 @@ final class BuildToolTests: XCTestCase {
             // Dependency contains a dependent product
 
             do {
-                let binContents = try buildBinContents(["--product", "bexec"], packagePath: aPath)
-                XCTAssert(binContents.contains("BTarget2.build"))
-                XCTAssert(binContents.contains("bexec"))
-                XCTAssert(!binContents.contains("aexec"))
-                XCTAssert(!binContents.contains("ATarget.build"))
-                XCTAssert(!binContents.contains("BLibrary.a"))
-                XCTAssert(!binContents.contains("BTarget1.build"))
-                XCTAssert(!binContents.contains("cexec"))
-                XCTAssert(!binContents.contains("CTarget.build"))
+                let result = try build(["--product", "bexec"], packagePath: aPath)
+                XCTAssert(result.binContents.contains("BTarget2.build"))
+                XCTAssert(result.binContents.contains("bexec"))
+                XCTAssert(!result.binContents.contains("aexec"))
+                XCTAssert(!result.binContents.contains("ATarget.build"))
+                XCTAssert(!result.binContents.contains("BLibrary.a"))
+                XCTAssert(!result.binContents.contains("BTarget1.build"))
+                XCTAssert(!result.binContents.contains("cexec"))
+                XCTAssert(!result.binContents.contains("CTarget.build"))
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
@@ -163,15 +168,15 @@ final class BuildToolTests: XCTestCase {
             // Dependency does not contain a dependent product
 
             do {
-                let binContents = try buildBinContents(["--target", "CTarget"], packagePath: aPath)
-                XCTAssert(binContents.contains("CTarget.build"))
-                XCTAssert(!binContents.contains("aexec"))
-                XCTAssert(!binContents.contains("ATarget.build"))
-                XCTAssert(!binContents.contains("BLibrary.a"))
-                XCTAssert(!binContents.contains("bexec"))
-                XCTAssert(!binContents.contains("BTarget1.build"))
-                XCTAssert(!binContents.contains("BTarget2.build"))
-                XCTAssert(!binContents.contains("cexec"))
+                let result = try build(["--target", "CTarget"], packagePath: aPath)
+                XCTAssert(result.binContents.contains("CTarget.build"))
+                XCTAssert(!result.binContents.contains("aexec"))
+                XCTAssert(!result.binContents.contains("ATarget.build"))
+                XCTAssert(!result.binContents.contains("BLibrary.a"))
+                XCTAssert(!result.binContents.contains("bexec"))
+                XCTAssert(!result.binContents.contains("BTarget1.build"))
+                XCTAssert(!result.binContents.contains("BTarget2.build"))
+                XCTAssert(!result.binContents.contains("cexec"))
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }

@@ -19,6 +19,8 @@ import Utility
 import Workspace
 import SPMLibc
 import func Foundation.NSUserName
+import SPMLLBuild
+typealias Diagnostic = Basic.Diagnostic
 
 struct ChdirDeprecatedDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
@@ -164,7 +166,7 @@ final class BuildManifestRegenerationToken {
     let tokenFile: AbsolutePath
 
     /// The filesystem being used.
-    let fs: FileSystem = localFileSystem
+    let fs: Basic.FileSystem = localFileSystem
 
     init(tokenFile: AbsolutePath) {
         self.tokenFile = tokenFile
@@ -251,6 +253,9 @@ public class SwiftTool<Options: ToolOptions> {
     let diagnostics: DiagnosticsEngine = DiagnosticsEngine(
         handlers: [DiagnosticsEngineHandler.default.diagnosticsHandler])
 
+    /// The llbuild Build System delegate.
+    private(set) var buildDelegate: BuildDelegate
+
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
 
@@ -271,6 +276,9 @@ public class SwiftTool<Options: ToolOptions> {
             SwiftTool.exit(with: .failure)
         }
         originalWorkingDirectory = cwd
+
+        // Setup the build delegate.
+        buildDelegate = BuildDelegate(diagnostics: diagnostics)
 
         // Create the parser.
         parser = ArgumentParser(
@@ -373,6 +381,11 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--static-swift-stdlib", kind: Bool.self,
                 usage: "Link Swift stdlib statically"),
             to: { $0.shouldLinkStaticSwiftStdlib = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--enable-llbuild-library", kind: Bool.self,
+                usage: "Enable building with the llbuild library"),
+            to: { $0.shouldEnableLLBuildLibrary = $1 })
 
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
@@ -507,6 +520,7 @@ public class SwiftTool<Options: ToolOptions> {
         self.shouldRedirectStdoutToStderr = true
         self.stdoutStream = Basic.stderrStream
         DiagnosticsEngineHandler.default.stdoutStream = Basic.stderrStream
+        buildDelegate.outputStream = Basic.stderrStream
     }
 
     /// Resolve the dependencies.
@@ -578,7 +592,8 @@ public class SwiftTool<Options: ToolOptions> {
 
         let yaml = plan.buildParameters.llbuildManifest
         // Generate the llbuild manifest.
-        let llbuild = LLBuildManifestGenerator(plan, resolvedFile: try resolvedFilePath())
+        let client = options.shouldEnableLLBuildLibrary ? "basic" : "swift-build"
+        let llbuild = LLBuildManifestGenerator(plan, client: client, resolvedFile: try resolvedFilePath())
         try llbuild.generateManifest(at: yaml)
 
         // Run llbuild.
@@ -591,10 +606,24 @@ public class SwiftTool<Options: ToolOptions> {
         }
         try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
     }
-    
+
     func runLLBuild(manifest: AbsolutePath, llbuildTarget: String) throws {
         assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest.asString)")
-        
+        if options.shouldEnableLLBuildLibrary {
+            try runLLBuildAsLibrary(manifest: manifest, llbuildTarget: llbuildTarget)
+        } else {
+            try runLLBuildAsExecutable(manifest: manifest, llbuildTarget: llbuildTarget)
+        }
+    }
+
+    func runLLBuildAsLibrary(manifest: AbsolutePath, llbuildTarget: String) throws {
+        let databasePath = buildPath.appending(component: "build.db").asString
+        let buildSystem = BuildSystem(buildFile: manifest.asString, databaseFile: databasePath, delegate: buildDelegate)
+        buildDelegate.onCommmandFailure = { [weak buildSystem] in buildSystem?.cancel() }
+        guard buildSystem.build(target: llbuildTarget) else { throw Diagnostics.fatalError }
+    }
+
+    func runLLBuildAsExecutable(manifest: AbsolutePath, llbuildTarget: String) throws {
         // Create a temporary directory for the build process.
         let tempDirName = "org.swift.swiftpm.\(NSUserName())"
         let tempDir = Basic.determineTempDirectory().appending(component: tempDirName)
