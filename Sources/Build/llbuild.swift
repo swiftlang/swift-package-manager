@@ -25,6 +25,9 @@ public struct LLBuildManifestGenerator {
     /// The build plan to work on.
     public let plan: BuildPlan
 
+    /// The manifest client name.
+    public let client: String
+
     /// Path to the resolved file.
     let resolvedFile: AbsolutePath
 
@@ -34,8 +37,9 @@ public struct LLBuildManifestGenerator {
     }
 
     /// Create a new generator with a build plan.
-    public init(_ plan: BuildPlan, resolvedFile: AbsolutePath) {
+    public init(_ plan: BuildPlan, client: String, resolvedFile: AbsolutePath) {
         self.plan = plan
+        self.client = client
         self.resolvedFile = resolvedFile
     }
 
@@ -118,7 +122,7 @@ public struct LLBuildManifestGenerator {
         let stream = BufferedOutputByteStream()
         stream <<< """
             client:
-              name: swift-build
+              name: \(client)
             tools: {}
             targets:\n
             """
