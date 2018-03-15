@@ -325,7 +325,7 @@ public final class SwiftTargetDescription {
         switch buildParameters.configuration {
         case .debug:
             compilationConditions += ["-DDEBUG"]
-        default:
+        case .release:
             break
         }
 
