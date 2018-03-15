@@ -162,6 +162,7 @@ func xcodeProject(
     projectSettings.debug.DEBUG_INFORMATION_FORMAT = "dwarf"
     projectSettings.debug.ENABLE_NS_ASSERTIONS = "YES"
     projectSettings.debug.GCC_OPTIMIZATION_LEVEL = "0"
+    projectSettings.debug.GCC_PREPROCESSOR_DEFINITIONS = ["DEBUG=1", "$(inherited)"]
     projectSettings.debug.ONLY_ACTIVE_ARCH = "YES"
     projectSettings.debug.SWIFT_OPTIMIZATION_LEVEL = "-Onone"
     projectSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["DEBUG"]
