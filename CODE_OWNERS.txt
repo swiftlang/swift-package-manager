@@ -8,6 +8,10 @@ beautification by scripts.  The fields are: name (N), email (E), web-address
 (W), PGP key ID and fingerprint (P), description (D), and snail-mail address
 (S).
 
+N: Ankit Aggarwal
+E: ankit_aggarwal@apple.com
+D: Package Manager
+
 N: Anders Bertelrud
 E: anders@apple.com
 D: Package Manager
