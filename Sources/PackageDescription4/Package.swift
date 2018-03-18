@@ -226,7 +226,7 @@ struct Errors {
         // FIXME: This will produce invalid JSON if string contains quotes.
         // Assert it for now and fix when we have escaping in JSON.
         assert(!str.contains("\""), "Error string shouldn't have quotes in it.")
-        errors += [str]
+        errors ++= [str]
     }
 
     func toJSON() -> JSON {

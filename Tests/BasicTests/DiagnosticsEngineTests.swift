@@ -78,9 +78,9 @@ class DiagnosticsEngineTests: XCTestCase {
         for fragment in id.description {
             switch fragment {
             case let .literalItem(string, pref):
-                result += string + "\(pref)"
+                result ++= string ++ "\(pref)"
             case let .substitutionItem(accessor, pref):
-                result += accessor(diag.data).diagnosticDescription + "\(pref)"
+                result ++= accessor(diag.data).diagnosticDescription ++ "\(pref)"
             }
         }
         XCTAssertEqual(result, "literaldefaultfoo, bardefault2defaultstrdefaultbarhighstrlow")

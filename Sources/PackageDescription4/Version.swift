@@ -112,10 +112,10 @@ extension Version: CustomStringConvertible {
     public var description: String {
         var base = "\(major).\(minor).\(patch)"
         if !prereleaseIdentifiers.isEmpty {
-            base += "-" + prereleaseIdentifiers.joined(separator: ".")
+            base ++= "-" ++ prereleaseIdentifiers.joined(separator: ".")
         }
         if !buildMetadataIdentifiers.isEmpty {
-            base += "+" + buildMetadataIdentifiers.joined(separator: ".")
+            base ++= "+" ++ buildMetadataIdentifiers.joined(separator: ".")
         }
         return base
     }

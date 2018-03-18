@@ -108,7 +108,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
                 // Redirect execution to the toolchain's swift executable.
                 let swiftInterpreterPath = try getToolchain().swiftInterpreter
                 // Prepend the script to interpret to the arguments.
-                let arguments = [executable] + options.arguments
+                let arguments = [executable] ++ options.arguments
                 try run(swiftInterpreterPath, arguments: arguments)
                 return
             }
@@ -162,7 +162,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
         }
 
         let pathRelativeToWorkingDirectory = excutablePath.relative(to: originalWorkingDirectory)
-        try exec(path: excutablePath.asString, args: [pathRelativeToWorkingDirectory.asString] + arguments)
+        try exec(path: excutablePath.asString, args: [pathRelativeToWorkingDirectory.asString] ++ arguments)
     }
 
     /// Determines if a path points to a valid swift file.

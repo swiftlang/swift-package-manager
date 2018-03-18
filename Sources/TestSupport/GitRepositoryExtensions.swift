@@ -34,7 +34,7 @@ public extension GitRepository {
 
     /// Stage multiple files.
     func stage(files: String...) throws {
-        try systemQuietly([Git.tool, "-C", path.asString, "add"] + files)
+        try systemQuietly([Git.tool, "-C", path.asString, "add"] ++ files)
     }
 
     /// Stage entire unstaged changes.

@@ -94,7 +94,7 @@ public struct ModuleMapGenerator {
         let includeDir = target.includeDir
         // Warn and return if no include directory.
         guard fileSystem.isDirectory(includeDir) else {
-            warningStream <<< ("warning: no include directory found for target '\(target.name)'; " +
+            warningStream <<< ("warning: no include directory found for target '\(target.name)'; " ++
                 "libraries cannot be imported without public headers")
             warningStream.flush()
             return
@@ -105,7 +105,7 @@ public struct ModuleMapGenerator {
         let files = walked.filter({ fileSystem.isFile($0) && $0.suffix == ".h" })
         let dirs = walked.filter({ fileSystem.isDirectory($0) })
 
-        let umbrellaHeaderFlat = includeDir.appending(component: target.c99name + ".h")
+        let umbrellaHeaderFlat = includeDir.appending(component: target.c99name ++ ".h")
         if fileSystem.isFile(umbrellaHeaderFlat) {
             guard dirs.isEmpty else {
                 throw ModuleMapError.unsupportedIncludeLayoutForModule(
@@ -117,7 +117,7 @@ public struct ModuleMapGenerator {
         }
         diagnoseInvalidUmbrellaHeader(includeDir)
 
-        let umbrellaHeader = includeDir.appending(components: target.c99name, target.c99name + ".h")
+        let umbrellaHeader = includeDir.appending(components: target.c99name, target.c99name ++ ".h")
         if fileSystem.isFile(umbrellaHeader) {
             guard dirs.count == 1 else {
                 throw ModuleMapError.unsupportedIncludeLayoutForModule(
@@ -140,10 +140,10 @@ public struct ModuleMapGenerator {
     /// Warn user if in case target name and c99name are different and there is a
     /// `name.h` umbrella header.
     private func diagnoseInvalidUmbrellaHeader(_ path: AbsolutePath) {
-        let umbrellaHeader = path.appending(component: target.c99name + ".h")
-        let invalidUmbrellaHeader = path.appending(component: target.name + ".h")
+        let umbrellaHeader = path.appending(component: target.c99name ++ ".h")
+        let invalidUmbrellaHeader = path.appending(component: target.name ++ ".h")
         if target.c99name != target.name && fileSystem.isFile(invalidUmbrellaHeader) {
-            warningStream <<< ("warning: \(invalidUmbrellaHeader.asString) should be renamed to " +
+            warningStream <<< ("warning: \(invalidUmbrellaHeader.asString) should be renamed to " ++
                 "\(umbrellaHeader.asString) to be used as an umbrella header")
             warningStream.flush()
         }
@@ -193,16 +193,16 @@ extension ModuleMapGenerator.ModuleMapError.UnsupportedIncludeLayoutType: Custom
     public var description: String {
         switch self {
         case .umbrellaHeaderWithAdditionalNonEmptyDirectories(let (umbrella, dirs)):
-            return "umbrella header defined at '\(umbrella.asString)', but directories exist: " +
-                dirs.map({ $0.asString }).sorted().joined(separator: ", ") +
+            return "umbrella header defined at '\(umbrella.asString)', but directories exist: " ++
+                dirs.map({ $0.asString }).sorted().joined(separator: ", ") ++
                 "; consider removing them"
         case .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(let (umbrella, dirs)):
-            return "umbrella header defined at '\(umbrella.asString)', but more than one directories exist: " +
-                dirs.map({ $0.asString }).sorted().joined(separator: ", ") +
+            return "umbrella header defined at '\(umbrella.asString)', but more than one directories exist: " ++
+                dirs.map({ $0.asString }).sorted().joined(separator: ", ") ++
                 "; consider reducing them to one"
         case .umbrellaHeaderWithAdditionalFilesInIncludeDirectory(let (umbrella, files)):
-            return "umbrella header defined at '\(umbrella.asString)', but files exist:" +
-                files.map({ $0.asString }).sorted().joined(separator: ", ") +
+            return "umbrella header defined at '\(umbrella.asString)', but files exist:" ++
+                files.map({ $0.asString }).sorted().joined(separator: ", ") ++
                 "; consider removing them"
         }
     }

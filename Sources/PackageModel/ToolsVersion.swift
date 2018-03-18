@@ -21,19 +21,19 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
 
     /// The current tools version in use.
     public static let currentToolsVersion = ToolsVersion(string:
-        "\(Versioning.currentVersion.major)." +
-        "\(Versioning.currentVersion.minor)." +
+        "\(Versioning.currentVersion.major)." ++
+        "\(Versioning.currentVersion.minor)." ++
         "\(Versioning.currentVersion.patch)")!
 
     /// Regex pattern to parse tools version. The format is SemVer 2.0 with an
     /// addition that specifying the patch version is optional.
-    static let toolsVersionRegex = try! NSRegularExpression(pattern: "^" +
-        "(\\d+)\\.(\\d+)(?:\\.(\\d+))?" +
-        "(" +
-            "\\-[A-Za-z\\d]+(?:\\.[A-Za-z\\d]+)*" +
-        ")?" +
-        "(" +
-            "\\+[A-Za-z\\d]+(?:\\.[A-Za-z\\d]+)*" +
+    static let toolsVersionRegex = try! NSRegularExpression(pattern: "^" ++
+        "(\\d+)\\.(\\d+)(?:\\.(\\d+))?" ++
+        "(" ++
+            "\\-[A-Za-z\\d]+(?:\\.[A-Za-z\\d]+)*" ++
+        ")?" ++
+        "(" ++
+            "\\+[A-Za-z\\d]+(?:\\.[A-Za-z\\d]+)*" ++
         ")?$", options: [])
 
     /// The major version number.

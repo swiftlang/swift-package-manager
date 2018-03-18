@@ -313,7 +313,7 @@ final class PackageToolTests: XCTestCase {
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath, printIfError: printError)
+                return try SwiftPMProduct.SwiftPackage.execute([] ++ args, packagePath: fooPath, printIfError: printError)
             }
 
             try execute("update")
@@ -391,7 +391,7 @@ final class PackageToolTests: XCTestCase {
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath, printIfError: printError)
+                return try SwiftPMProduct.SwiftPackage.execute([] ++ args, packagePath: fooPath, printIfError: printError)
             }
             
             // Try to pin bar.

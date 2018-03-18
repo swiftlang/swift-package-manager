@@ -20,7 +20,7 @@ public final class CStringArray {
 
     /// Creates an instance from an array of strings.
     public init(_ array: [String]) {
-        cArray = array.map({ $0.withCString({ strdup($0) }) }) + [nil]
+        cArray = array.map({ $0.withCString({ strdup($0) }) }) ++ [nil]
     }
 
     deinit {

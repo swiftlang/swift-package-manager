@@ -56,8 +56,8 @@ public struct BuildParameters {
     /// Extra flags to pass to Swift compiler.
     public var swiftCompilerFlags: [String] {
         var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
-        flags += self.flags.swiftCompilerFlags
-        flags += verbosity.ccArgs
+        flags ++= self.flags.swiftCompilerFlags
+        flags ++= verbosity.ccArgs
         return flags
     }
 
@@ -88,7 +88,7 @@ public struct BuildParameters {
     }
     
     public var llbuildManifest: AbsolutePath {
-        return dataPath.appending(components: "..", configuration.dirname + ".yaml")
+        return dataPath.appending(components: "..", configuration.dirname ++ ".yaml")
     }
 
     public init(
@@ -151,7 +151,7 @@ public final class ClangTargetDescription {
 
     /// Path to the temporary directory for this target.
     var tempsPath: AbsolutePath {
-        return buildParameters.buildPath.appending(component: target.c99name + ".build")
+        return buildParameters.buildPath.appending(component: target.c99name ++ ".build")
     }
 
     /// The objects in this target.
@@ -188,8 +188,8 @@ public final class ClangTargetDescription {
     {
         return target.sources.relativePaths.map({ source in
             let path = target.sources.root.appending(source)
-            let object = tempsPath.appending(RelativePath(source.asString + ".o"))
-            let deps = tempsPath.appending(RelativePath(source.asString + ".d"))
+            let object = tempsPath.appending(RelativePath(source.asString ++ ".o"))
+            let deps = tempsPath.appending(RelativePath(source.asString ++ ".d"))
             return (source, path, object, deps)
         })
     }
@@ -197,25 +197,25 @@ public final class ClangTargetDescription {
     /// Builds up basic compilation arguments for this target.
     public func basicArguments() -> [String] {
         var args = [String]()
-        args += buildParameters.toolchain.extraCCFlags
-        args += optimizationArguments
+        args ++= buildParameters.toolchain.extraCCFlags
+        args ++= optimizationArguments
 
         // Only enable ARC on macOS.
       #if os(macOS)
-        args += ["-fobjc-arc"]
+        args ++= ["-fobjc-arc"]
       #endif
-        args += ["-fblocks"]
-        args += ["-fmodules", "-fmodule-name=" + target.c99name]
-        args += ["-I", clangTarget.includeDir.asString]
-        args += additionalFlags
-        args += moduleCacheArgs
+        args ++= ["-fblocks"]
+        args ++= ["-fmodules", "-fmodule-name=" ++ target.c99name]
+        args ++= ["-I", clangTarget.includeDir.asString]
+        args ++= additionalFlags
+        args ++= moduleCacheArgs
 
         // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
-        args += buildParameters.flags.cCompilerFlags
+        args ++= buildParameters.flags.cCompilerFlags
 
         // Add extra C++ flags if this target contains C++ files.
         if clangTarget.isCXX {
-            args += self.buildParameters.flags.cxxCompilerFlags
+            args ++= self.buildParameters.flags.cxxCompilerFlags
         }
         return args
     }
@@ -249,7 +249,7 @@ public final class ClangTargetDescription {
 
     /// Module cache arguments.
     private var moduleCacheArgs: [String] {
-        return ["-fmodules-cache-path=" + buildParameters.moduleCache.asString]
+        return ["-fmodules-cache-path=" ++ buildParameters.moduleCache.asString]
     }
 }
 
@@ -264,17 +264,17 @@ public final class SwiftTargetDescription {
 
     /// Path to the temporary directory for this target.
     var tempsPath: AbsolutePath {
-        return buildParameters.buildPath.appending(component: target.c99name + ".build")
+        return buildParameters.buildPath.appending(component: target.c99name ++ ".build")
     }
 
     /// The objects in this target.
     var objects: [AbsolutePath] {
-        return target.sources.relativePaths.map({ tempsPath.appending(RelativePath($0.asString + ".o")) })
+        return target.sources.relativePaths.map({ tempsPath.appending(RelativePath($0.asString ++ ".o")) })
     }
 
     /// The path to the swiftmodule file after compilation.
     var moduleOutputPath: AbsolutePath {
-        return buildParameters.buildPath.appending(component: target.c99name + ".swiftmodule")
+        return buildParameters.buildPath.appending(component: target.c99name ++ ".swiftmodule")
     }
 
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
@@ -300,20 +300,20 @@ public final class SwiftTargetDescription {
     /// The arguments needed to compile this target.
     public func compileArguments() -> [String] {
         var args = [String]()
-        args += ["-swift-version", String(swiftVersion)]
-        args += buildParameters.toolchain.extraSwiftCFlags
-        args += optimizationArguments
-        args += ["-j\(SwiftCompilerTool.numThreads)", "-DSWIFT_PACKAGE"]
-        args += additionalFlags
-        args += moduleCacheArgs
+        args ++= ["-swift-version", String(swiftVersion)]
+        args ++= buildParameters.toolchain.extraSwiftCFlags
+        args ++= optimizationArguments
+        args ++= ["-j\(SwiftCompilerTool.numThreads)", "-DSWIFT_PACKAGE"]
+        args ++= additionalFlags
+        args ++= moduleCacheArgs
 
         // Add arguments to colorize output if stdout is tty
         if buildParameters.isTTY {
-            args += ["-Xfrontend", "-color-diagnostics"]
+            args ++= ["-Xfrontend", "-color-diagnostics"]
         }
 
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
-        args += buildParameters.swiftCompilerFlags
+        args ++= buildParameters.swiftCompilerFlags
         return args
     }
 
@@ -402,16 +402,16 @@ public final class ProductBuildDescription {
     /// The arguments to link and create this product.
     public func linkArguments() -> [String] {
         var args = [buildParameters.toolchain.swiftCompiler.asString]
-        args += buildParameters.toolchain.extraSwiftCFlags
-        args += additionalFlags
+        args ++= buildParameters.toolchain.extraSwiftCFlags
+        args ++= additionalFlags
 
         if buildParameters.configuration == .debug {
-            args += ["-g"]
+            args ++= ["-g"]
         }
-        args += ["-L", buildParameters.buildPath.asString]
-        args += ["-o", binary.asString]
-        args += ["-module-name", product.name]
-        args += dylibs.map({ "-l" + $0.product.name })
+        args ++= ["-L", buildParameters.buildPath.asString]
+        args ++= ["-o", binary.asString]
+        args ++= ["-module-name", product.name]
+        args ++= dylibs.map({ "-l" ++ $0.product.name })
 
         switch product.type {
         case .library(.automatic):
@@ -422,32 +422,32 @@ public final class ProductBuildDescription {
         case .test:
             // Test products are bundle on macOS, executable on linux.
             if buildParameters.triple.isDarwin() {
-                args += ["-Xlinker", "-bundle"]
+                args ++= ["-Xlinker", "-bundle"]
             } else {
-                args += ["-emit-executable"]
+                args ++= ["-emit-executable"]
             }
         case .library(.dynamic):
-            args += ["-emit-library"]
+            args ++= ["-emit-library"]
         case .executable:
             // Link the Swift stdlib statically if requested.
             if buildParameters.shouldLinkStaticSwiftStdlib {
                 // FIXME: This does not work for linux yet (SR-648).
               #if os(macOS)
-                args += ["-static-stdlib"]
+                args ++= ["-static-stdlib"]
               #endif
             }
-            args += ["-emit-executable"]
+            args ++= ["-emit-executable"]
         }
       #if os(Linux)
         // On linux, set rpath such that dynamic libraries are looked up
         // adjacent to the product. This happens by default on macOS.
-        args += ["-Xlinker", "-rpath=$ORIGIN"]
+        args ++= ["-Xlinker", "-rpath=$ORIGIN"]
       #endif
-        args += objects.map({ $0.asString })
+        args ++= objects.map({ $0.asString })
 
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
-        args += buildParameters.linkerFlags
-        args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
+        args ++= buildParameters.linkerFlags
+        args ++= stripInvalidArguments(buildParameters.swiftCompilerFlags)
         return args
     }
 }
@@ -585,20 +585,20 @@ public class BuildPlan {
                 fatalError("This should not be possible.")
             }
             // Add pkgConfig libs arguments.
-            buildProduct.additionalFlags += pkgConfig(for: target).libs
+            buildProduct.additionalFlags ++= pkgConfig(for: target).libs
         }
 
         // Link C++ if needed.
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
             if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
-                buildProduct.additionalFlags += self.buildParameters.toolchain.extraCPPFlags
+                buildProduct.additionalFlags ++= self.buildParameters.toolchain.extraCPPFlags
                 break
             }
         }
 
         buildProduct.dylibs = dependencies.dylibs.map({ productMap[$0]! })
-        buildProduct.objects += dependencies.staticTargets.flatMap({ targetMap[$0]!.objects })
+        buildProduct.objects ++= dependencies.staticTargets.flatMap({ targetMap[$0]!.objects })
     }
 
     /// Computes the dependencies of a product.
@@ -679,10 +679,10 @@ public class BuildPlan {
                 // Add `-iquote` for dependencies in the package (#include "...").
                 // Add `-I` for dependencies outside the package (#include <...>).
                 let includeFlag = graph.isInRootPackages(dependency) ? "-iquote" : "-I"
-                clangTarget.additionalFlags += [includeFlag, target.includeDir.asString]
+                clangTarget.additionalFlags ++= [includeFlag, target.includeDir.asString]
             case let target as SystemLibraryTarget:
-                clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.asString)"]
-                clangTarget.additionalFlags += pkgConfig(for: target).cFlags
+                clangTarget.additionalFlags ++= ["-fmodule-map-file=\(target.moduleMapPath.asString)"]
+                clangTarget.additionalFlags ++= pkgConfig(for: target).cFlags
             default: continue
             }
         }
@@ -703,13 +703,13 @@ public class BuildPlan {
                 // one. However, in that case it will not be importable in Swift targets. We may want to emit a warning
                 // in that case from here.
                 guard let moduleMap = target.moduleMap else { break }
-                swiftTarget.additionalFlags += [
+                swiftTarget.additionalFlags ++= [
                     "-Xcc", "-fmodule-map-file=\(moduleMap.asString)",
                     "-I", target.clangTarget.includeDir.asString,
                 ]
             case let target as SystemLibraryTarget:
-                swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.asString)"]
-                swiftTarget.additionalFlags += pkgConfig(for: target).cFlags
+                swiftTarget.additionalFlags ++= ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.asString)"]
+                swiftTarget.additionalFlags ++= pkgConfig(for: target).cFlags
             default: break
             }
         }

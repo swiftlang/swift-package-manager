@@ -27,7 +27,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
         var rootManifests: [Manifest]!
         for pkg in 1...N {
             let name = "Foo\(pkg)"
-            let url = "/" + name
+            let url = "/" ++ name
             // Create package.
             let package: PackageDescription.Package
             if pkg == N {

@@ -801,7 +801,7 @@ private func checkResolution(_ resolver: MockDependencyResolver, constraints: [M
                     fatalError("unexpected assignment")
                 }
                 let container = try! await { resolver.provider.getContainer(for: identifier, completion: $0) }
-                return [identifier] + container.getDependencies(at: version).map{ $0.identifier }
+                return [identifier] ++ container.getDependencies(at: version).map{ $0.identifier }
             })
         for (container, _) in assignment {
             if !requiredContainers.contains(container.identifier) {
@@ -853,7 +853,7 @@ private func checkResolution(_ resolver: MockDependencyResolver, constraints: [M
             return XCTFail("solver unexpectedly found: \(solution) when there are no viable solutions")
         }
         if solution != onlySolution {
-            return XCTFail("solver result: \(solution.map{ ($0.0.identifier, $0.1) }) does not match expected " +
+            return XCTFail("solver result: \(solution.map{ ($0.0.identifier, $0.1) }) does not match expected " ++
                 "result: \(onlySolution.map{ ($0.0.identifier, $0.1) })")
         }
     } else {
@@ -876,7 +876,7 @@ private func allPossibleAssignments(for provider: MockPackagesProvider) -> AnySe
         //
         // FIXME: It would be nice to be lazy here...
         let otherAssignments = allPossibleAssignments(for: containers)
-        return otherAssignments + container.versions(filter: { _ in true }).reversed().flatMap{ version in
+        return otherAssignments ++ container.versions(filter: { _ in true }).reversed().flatMap{ version in
             return otherAssignments.map{ assignment in
                 var assignment = assignment
                 assignment[container] = .version(version)

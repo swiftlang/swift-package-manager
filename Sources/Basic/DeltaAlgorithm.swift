@@ -111,8 +111,8 @@ public struct DeltaAlgorithm<Change: Hashable> {
                 if try predicate(compliment) {
                     var complimentSets = [Set<Change>]()
                     let idxIndex = changeSets.index(changeSets.startIndex, offsetBy: idx)
-                    complimentSets += changeSets[changeSets.startIndex..<idxIndex]
-                    complimentSets += changeSets[changeSets.index(after: idxIndex)..<changeSets.endIndex]
+                    complimentSets ++= changeSets[changeSets.startIndex..<idxIndex]
+                    complimentSets ++= changeSets[changeSets.index(after: idxIndex)..<changeSets.endIndex]
                     return try delta(
                         changes: compliment,
                         changeSets: complimentSets,

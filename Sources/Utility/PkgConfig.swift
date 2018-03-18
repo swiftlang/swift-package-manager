@@ -73,7 +73,7 @@ public struct PkgConfig {
         self.name = name
         self.pcFile = try PkgConfig.locatePCFile(
             name: name,
-            customSearchPaths: PkgConfig.envSearchPaths + additionalSearchPaths,
+            customSearchPaths: PkgConfig.envSearchPaths ++ additionalSearchPaths,
             fileSystem: fileSystem)
 
         var parser = PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
@@ -91,8 +91,8 @@ public struct PkgConfig {
                     additionalSearchPaths: additionalSearchPaths, 
                     fileSystem: fileSystem
                 )
-                cFlags += pkg.cFlags
-                libs += pkg.libs
+                cFlags ++= pkg.cFlags
+                libs ++= pkg.libs
             }
         }
 
@@ -115,8 +115,8 @@ public struct PkgConfig {
         // FIXME: We should consider building a registry for all items in the
         // search paths, which is likely to be substantially more efficient if
         // we end up searching for a reasonably sized number of packages.
-        for path in OrderedSet(customSearchPaths + pkgConfigSearchPaths + searchPaths) {
-            let pcFile = path.appending(component: name + ".pc")
+        for path in OrderedSet(customSearchPaths ++ pkgConfigSearchPaths ++ searchPaths) {
+            let pcFile = path.appending(component: name ++ ".pc")
             if fileSystem.isFile(pcFile) {
                 return pcFile
             }
@@ -223,11 +223,11 @@ struct PkgConfigParser {
                     tokens.append(token)
                     token = ""
                 } else {
-                    token += String(char)
+                    token ++= String(char)
                 }
             }
             // Append the last collected token if present.
-            if !token.isEmpty { tokens += [token] }
+            if !token.isEmpty { tokens ++= [token] }
             return tokens
         }
 
@@ -239,7 +239,7 @@ struct PkgConfigParser {
                 // We should have a version number next, skip.
                 guard it.next() != nil else {
                     throw PkgConfigError.parsingError(
-                        "Expected version number after \(deps.last.debugDescription) \(arg) in \"\(depString)\" in " +
+                        "Expected version number after \(deps.last.debugDescription) \(arg) in \"\(depString)\" in " ++
                         "\(pcFile.asString)")
                 }
             } else {
@@ -274,17 +274,17 @@ struct PkgConfigParser {
             // Look for a variable in our current fragment.
             if let variable = findVariable(fragment) {
                 // Append the contents before the variable.
-                result += fragment[fragment.startIndex..<variable.startIndex]
+                result ++= fragment[fragment.startIndex..<variable.startIndex]
                 guard let variableValue = variables[variable.name] else {
                     throw PkgConfigError.parsingError("Expected a value for variable '\(variable.name)' in \(pcFile.asString). Variables: \(variables)")
                 }
                 // Append the value of the variable.
-                result += variableValue
+                result ++= variableValue
                 // Update the fragment with post variable string.
                 fragment = String(fragment[fragment.index(after: variable.endIndex)...])
             } else {
                 // No variable found, just append rest of the fragment to result.
-                result += fragment
+                result ++= fragment
                 fragment = ""
             }
         }

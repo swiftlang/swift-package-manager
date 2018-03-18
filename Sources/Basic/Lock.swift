@@ -46,7 +46,7 @@ public final class FileLock {
 
     /// Path to the lock file.
     private var lockFile: AbsolutePath {
-        return cachePath.appending(component: name + ".lock")
+        return cachePath.appending(component: name ++ ".lock")
     }
 
     /// Create an instance of process lock with a name and the path where

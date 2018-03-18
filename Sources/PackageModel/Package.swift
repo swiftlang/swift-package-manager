@@ -96,7 +96,7 @@ extension Package.Error: CustomStringConvertible {
         case .noManifest(let baseURL, let version):
             var string = "\(baseURL) has no manifest"
             if let version = version {
-                string += " for version \(version)"
+                string ++= " for version \(version)"
             }
             return string
         }

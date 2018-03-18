@@ -38,10 +38,10 @@ public struct SwiftVersion {
     public var displayString: String {
         var result = "\(major).\(minor).\(patch)"
         if isDevelopment {
-            result += "-dev"
+            result ++= "-dev"
         }
         if let buildIdentifier = self.buildIdentifier {
-            result += " (" + buildIdentifier + ")"
+            result ++= " (" ++ buildIdentifier ++ ")"
         }
         return result
     }
@@ -50,9 +50,9 @@ public struct SwiftVersion {
     public var completeDisplayString: String {
         var vendorPrefix = ""
 #if HasCustomVersionString
-        vendorPrefix += String(cString: VersionInfo.VendorNameString()) + " "
+        vendorPrefix ++= String(cString: VersionInfo.VendorNameString()) ++ " "
 #endif
-        return vendorPrefix + "Swift Package Manager - Swift " + displayString
+        return vendorPrefix ++ "Swift Package Manager - Swift " ++ displayString
     }
 
     /// The list of version specific identifiers to search when attempting to

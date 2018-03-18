@@ -116,7 +116,7 @@ extension String {
     func normalizedPath() -> String {
         var path = self
         if !(path as NSString).isAbsolutePath {
-            path = FileManager.default.currentDirectoryPath + "/" + path
+            path = FileManager.default.currentDirectoryPath ++ "/" ++ path
         }
         return (path as NSString).standardizingPath
     }

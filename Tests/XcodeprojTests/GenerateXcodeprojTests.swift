@@ -31,7 +31,7 @@ class GenerateXcodeprojTests: XCTestCase {
             let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: XcodeprojOptions())
 
             XCTAssertDirectoryExists(outpath)
-            XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))
+            XCTAssertEqual(outpath, dstdir.appending(component: projectName ++ ".xcodeproj"))
 
             // We can only validate this on OS X.
             // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.

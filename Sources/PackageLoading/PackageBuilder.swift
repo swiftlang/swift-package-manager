@@ -76,9 +76,9 @@ extension ModuleError: CustomStringConvertible {
         case .invalidManifestConfig(let package, let message):
             return "configuration of package '\(package)' is invalid; \(message)"
         case .cycleDetected(let cycle):
-            return "cyclic dependency declaration found: " +
-                (cycle.path + cycle.cycle).joined(separator: " -> ") +
-                " -> " + cycle.cycle[0]
+            return "cyclic dependency declaration found: " ++
+                (cycle.path ++ cycle.cycle).joined(separator: " -> ") ++
+                " -> " ++ cycle.cycle[0]
         case .invalidPublicHeadersDirectory(let name):
             return "public headers directory path for '\(name)' is invalid or not contained in the target"
         case .overlappingSources(let target, let sources):
@@ -104,9 +104,9 @@ extension ModuleError.InvalidLayoutType: CustomStringConvertible {
     public var description: String {
         switch self {
         case .multipleSourceRoots(let paths):
-            return "multiple source roots found: " + paths.sorted().joined(separator: ", ")
+            return "multiple source roots found: " ++ paths.sorted().joined(separator: ", ")
         case .unexpectedSourceFiles(let paths):
-            return "found loose source files: " + paths.sorted().joined(separator: ", ")
+            return "found loose source files: " ++ paths.sorted().joined(separator: ", ")
         case .modulemapInSources(let path):
             return "modulemap '\(path)' should be inside the 'include' directory"
         }
@@ -145,7 +145,7 @@ extension Target.Error: CustomStringConvertible {
         case .mixedSources(let path):
             return "target at '\(path)' contains mixed language source files; feature not supported"
         case .duplicateTargets(let targets):
-            return "duplicate targets found: " + targets.joined(separator: ", ")
+            return "duplicate targets found: " ++ targets.joined(separator: ", ")
         }
     }
 }
@@ -308,7 +308,7 @@ public final class PackageBuilder {
             if basename == Manifest.filename { return false }
 
             // Ignore version-specific manifest files.
-            if basename.hasPrefix(Manifest.basename + "@") && basename.hasSuffix(".swift") {
+            if basename.hasPrefix(Manifest.basename ++ "@") && basename.hasSuffix(".swift") {
                 return false
             }
         }
@@ -547,7 +547,7 @@ public final class PackageBuilder {
         } else {
             potentialModules = potentialModulePaths.map({ PotentialModule(name: $0.basename, path: $0, isTest: false) })
         }
-        return try createModules(potentialModules + potentialTestModules())
+        return try createModules(potentialModules ++ potentialTestModules())
     }
 
     // Create targets from the provided potential targets.
@@ -946,7 +946,7 @@ public final class PackageBuilder {
             //
             // Add suffix 'PackageTests' to test product name so the target name
             // of linux executable don't collide with main package, if present.
-            let productName = manifest.name + "PackageTests"
+            let productName = manifest.name ++ "PackageTests"
             let linuxMain = try findLinuxMain(in: testModules)
 
             let product = Product(
@@ -1091,7 +1091,7 @@ private extension Manifest {
     /// Returns the names of all the referenced targets in the manifest.
     func allReferencedModules() -> Set<String> {
         let names = package.targets.flatMap({ target in
-            [target.name] + target.dependencies.compactMap({
+            [target.name] ++ target.dependencies.compactMap({
                 switch $0 {
                 case .targetItem(let name):
                     return name

@@ -136,10 +136,10 @@ extension Version: CustomStringConvertible {
     public var description: String {
         var base = "\(major).\(minor).\(patch)"
         if prereleaseIdentifiers.count > 0 {
-            base += "-" + prereleaseIdentifiers.joined(separator: ".")
+            base ++= "-" ++ prereleaseIdentifiers.joined(separator: ".")
         }
         if let buildMetadataIdentifier = buildMetadataIdentifier {
-            base += "+" + buildMetadataIdentifier
+            base ++= "+" ++ buildMetadataIdentifier
         }
         return base
     }

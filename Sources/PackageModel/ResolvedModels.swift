@@ -201,11 +201,11 @@ extension ResolvedTarget.Dependency: Hashable, CustomStringConvertible {
         var str = "<ResolvedTarget.Dependency: "
         switch self {
         case .product(let p):
-            str += p.description
+            str ++= p.description
         case .target(let t):
-            str += t.description
+            str ++= t.description
         }
-        str += ">"
+        str ++= ">"
         return str
     }
 }

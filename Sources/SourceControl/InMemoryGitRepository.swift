@@ -99,7 +99,7 @@ public final class InMemoryGitRepository {
     @discardableResult
     public func commit() -> String {
         // Create a fake hash for thie commit.
-        let hash = String((NSUUID().uuidString + NSUUID().uuidString).prefix(40))
+        let hash = String((NSUUID().uuidString ++ NSUUID().uuidString).prefix(40))
         head.hash = hash
         // Store the commit in history.
         history[hash] = head.copy()

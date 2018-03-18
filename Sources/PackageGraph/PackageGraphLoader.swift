@@ -46,9 +46,9 @@ extension PackageGraphError: CustomStringConvertible {
             return "package '\(package)' contains no targets"
 
         case .cycleDetected(let cycle):
-            return "cyclic dependency declaration found: " +
-                (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
-                " -> " + cycle.cycle[0].name
+            return "cyclic dependency declaration found: " ++
+                (cycle.path ++ cycle.cycle).map({ $0.name }).joined(separator: " -> ") ++
+                " -> " ++ cycle.cycle[0].name
 
         case .productDependencyNotFound(let name, _):
             return "product dependency '\(name)' not found"
@@ -79,7 +79,7 @@ public struct PackageGraphLoader {
         // the URL but that shouldn't be needed after <rdar://problem/33693433>
         // Ensure that identity and package name are the same once we have an
         // API to specify identity in the manifest file
-        let manifestMapSequence = root.manifests.map({ ($0.name.lowercased(), $0) }) + 
+        let manifestMapSequence = root.manifests.map({ ($0.name.lowercased(), $0) }) ++ 
             externalManifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (Manifest) -> [Manifest] = { manifest in
@@ -93,7 +93,7 @@ public struct PackageGraphLoader {
         let rootDependencies = Set(root.dependencies.compactMap({
             manifestMap[PackageReference.computeIdentity(packageURL: $0.url)]
         }))
-        let inputManifests = root.manifests + rootDependencies
+        let inputManifests = root.manifests ++ rootDependencies
 
         // Collect the manifests for which we are going to build packages.
         let allManifests: [Manifest]
@@ -233,7 +233,7 @@ private func createResolvedPackages(
         // Establish dependencies between the targets. A target can only depend on another target present in the same package.
         let targetMap = targetBuilders.createDictionary({ ($0.target, $0) })
         for targetBuilder in targetBuilders {
-            targetBuilder.dependencies += targetBuilder.target.dependencies.map({ targetMap[$0]! })
+            targetBuilder.dependencies ++= targetBuilder.target.dependencies.map({ targetMap[$0]! })
         }
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
@@ -273,7 +273,7 @@ private func createResolvedPackages(
             allTargetNames.insert(targetName)
 
             // Directly add all the system module dependencies.
-            targetBuilder.dependencies += systemModulesDeps
+            targetBuilder.dependencies ++= systemModulesDeps
 
             // Establish product dependencies based on the type of manifest.
             switch package.manifest.package {

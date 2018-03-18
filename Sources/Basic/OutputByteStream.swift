@@ -138,13 +138,13 @@ public class OutputByteStream: TextOutputStream {
                         return
                     }
                     // Otherwise keep remaining in buffer.
-                    buffer += bytes.suffix(from: writeUptoIndex)
+                    buffer ++= bytes.suffix(from: writeUptoIndex)
                     return
                 }
 
                 let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: numericCast(availableBufferSize))
                 // Append whatever we can accommodate.
-                buffer += bytes.prefix(upTo: writeUptoIndex)
+                buffer ++= bytes.prefix(upTo: writeUptoIndex)
 
                 writeImpl(buffer)
                 clearBuffer()
@@ -154,7 +154,7 @@ public class OutputByteStream: TextOutputStream {
                 writeImpl(bytes.suffix(from: writeUptoIndex))
                 return
             }
-            buffer += bytes
+            buffer ++= bytes
         }
     }
   #else
@@ -608,7 +608,7 @@ public final class BufferedOutputByteStream: OutputByteStream {
     }
 
     override final func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
-        contents += bytes
+        contents ++= bytes
     }
 }
 

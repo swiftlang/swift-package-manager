@@ -53,15 +53,15 @@ class OutputByteStreamTests: XCTestCase {
 
             var stream = BufferedOutputByteStream()
             stream <<< smallBlock <<< bigBlock
-            XCTAssertEqual(stream.bytes, ByteString(smallBlock + bigBlock))
+            XCTAssertEqual(stream.bytes, ByteString(smallBlock ++ bigBlock))
 
             stream = BufferedOutputByteStream()
             stream <<< bigBlock <<< smallBlock
-            XCTAssertEqual(stream.bytes, ByteString(bigBlock + smallBlock))
+            XCTAssertEqual(stream.bytes, ByteString(bigBlock ++ smallBlock))
 
             stream = BufferedOutputByteStream()
             stream <<< bigBlock <<< bigBlock
-            XCTAssertEqual(stream.bytes, ByteString(bigBlock + bigBlock))
+            XCTAssertEqual(stream.bytes, ByteString(bigBlock ++ bigBlock))
         }
     }
 

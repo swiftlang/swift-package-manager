@@ -141,13 +141,13 @@ func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws
         var it = flags.makeIterator()
         while let flag = it.next() {
             guard let filter = filters.filter({ flag.hasPrefix($0) }).first else {
-                filtered += [flag]
+                filtered ++= [flag]
                 continue
             }
 
           // Warning suppression flag has no arguments and is not suffixed.
           guard !flag.hasPrefix("-w") || flag == "-w" else {
-            filtered += [flag]
+            filtered ++= [flag]
             continue
           }
 
@@ -160,7 +160,7 @@ func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws
         }
         return filtered
     }
-    let filtered = filter(flags: flags.cFlags, filters: ["-I", "-F"]) +
+    let filtered = filter(flags: flags.cFlags, filters: ["-I", "-F"]) ++
       filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework", "-w"])
     guard filtered.isEmpty else {
         throw PkgConfigError.nonWhitelistedFlags("Non whitelisted flags found: \(filtered) in pc file \(pcFile)")
@@ -189,7 +189,7 @@ func removeDefaultFlags(cFlags: [String], libs: [String]) -> ([String], [String]
                 result.append(curr)
                 result.append(val)
 
-            case flag.0 + flag.1:
+            case flag.0 ++ flag.1:
                 // Check for <flag><value> style.
                 continue
 

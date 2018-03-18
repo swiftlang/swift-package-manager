@@ -33,11 +33,11 @@ private protocol DependenciesDumper {
 private final class PlainTextDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage) {
         func recursiveWalk(packages: [ResolvedPackage], prefix: String = "") {
-            var hanger = prefix + "├── "
+            var hanger = prefix ++ "├── "
 
             for (index, package) in packages.enumerated() {
                 if index == packages.count - 1 {
-                    hanger = prefix + "└── "
+                    hanger = prefix ++ "└── "
                 }
 
                 let pkgVersion = package.manifest.version?.description ?? "unspecified"

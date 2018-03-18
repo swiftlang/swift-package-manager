@@ -141,7 +141,7 @@ public class MockPackageContainer: PackageContainer {
 
 public class MockPackageContainer2: MockPackageContainer {
     public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> String {
-        return name + "-name"
+        return name ++ "-name"
     }
 }
 

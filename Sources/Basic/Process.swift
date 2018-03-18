@@ -405,7 +405,7 @@ public final class Process: ObjectIdentifierProtocol {
             case 0:
                 break loop
             default:
-                out += buf[0..<n]
+                out ++= buf[0..<n]
             }
         }
         // Close the read end of the output pipe.
@@ -567,7 +567,7 @@ extension ProcessResult.Error: CustomStringConvertible {
             if let output = try? result.utf8Output() {
                 // We indent the output to keep it visually separated from everything else.
                 let indentation = "    "
-                stream <<< " output:\n" <<< indentation <<< output.replacingOccurrences(of: "\n", with: "\n" + indentation)
+                stream <<< " output:\n" <<< indentation <<< output.replacingOccurrences(of: "\n", with: "\n" ++ indentation)
                 if !output.hasSuffix("\n") {
                     stream <<< "\n"
                 }

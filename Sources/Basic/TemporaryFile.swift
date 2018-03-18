@@ -92,12 +92,12 @@ public final class TemporaryFile {
         // Determine in which directory to create the temporary file.
         self.dir = determineTempDirectory(dir)
         // Construct path to the temporary file.
-        let path = self.dir.appending(RelativePath(prefix + ".XXXXXX" + suffix))
+        let path = self.dir.appending(RelativePath(prefix ++ ".XXXXXX" ++ suffix))
 
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkstemps method. The XXXXXX in this string will be replaced by a random string
         // which will be the actual path to the temporary file.
-        var template = [UInt8](path.asString.utf8).map({ Int8($0) }) + [Int8(0)]
+        var template = [UInt8](path.asString.utf8).map({ Int8($0) }) ++ [Int8(0)]
 
         fd = SPMLibc.mkstemps(&template, Int32(suffix.utf8.count))
         // If mkstemps failed then throw error.
@@ -186,12 +186,12 @@ public final class TemporaryDirectory {
         self.shouldRemoveTreeOnDeinit = removeTreeOnDeinit
         self.prefix = prefix
         // Construct path to the temporary directory.
-        let path = determineTempDirectory(dir).appending(RelativePath(prefix + ".XXXXXX"))
+        let path = determineTempDirectory(dir).appending(RelativePath(prefix ++ ".XXXXXX"))
 
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
         // which will be the actual path to the temporary directory.
-        var template = [UInt8](path.asString.utf8).map({ Int8($0) }) + [Int8(0)]
+        var template = [UInt8](path.asString.utf8).map({ Int8($0) }) ++ [Int8(0)]
 
         if SPMLibc.mkdtemp(&template) == nil {
             throw MakeDirectoryError(errno: errno)

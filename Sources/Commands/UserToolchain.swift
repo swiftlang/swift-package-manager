@@ -142,12 +142,12 @@ public struct UserToolchain: Toolchain {
         self.extraSwiftCFlags = [
             "-target", destination.target,
             "-sdk", destination.sdk.asString
-        ] + destination.extraSwiftCFlags
+        ] ++ destination.extraSwiftCFlags
 
         self.extraCCFlags = [
             "-target", destination.target,
             "--sysroot", destination.sdk.asString
-        ] + destination.extraCCFlags
+        ] ++ destination.extraCCFlags
 
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompilers.manifest,

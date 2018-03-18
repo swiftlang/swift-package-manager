@@ -158,9 +158,9 @@ public func executeSwiftBuild(
     case .Release:
         args.append("release")
     }
-    args += Xcc.flatMap({ ["-Xcc", $0] })
-    args += Xld.flatMap({ ["-Xlinker", $0] })
-    args += Xswiftc.flatMap({ ["-Xswiftc", $0] })
+    args ++= Xcc.flatMap({ ["-Xcc", $0] })
+    args ++= Xld.flatMap({ ["-Xlinker", $0] })
+    args ++= Xswiftc.flatMap({ ["-Xswiftc", $0] })
 
     return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env, printIfError: printIfError)
 }

@@ -274,14 +274,14 @@ func createDummyGraph(depth: Int, breadth: Int) -> (rootConstraint: MockPackageC
         let dependencies = (0 ..< (breadth-1)).map { breadthLevel -> (container: String, versionRequirement: VersionSetSpecifier) in
             let name = "\(depthLevel)-\(breadthLevel)"
             // Append the container for this node.
-            containers += [MockPackageContainer(name: name, dependenciesByVersion: [v1: []])]
+            containers ++= [MockPackageContainer(name: name, dependenciesByVersion: [v1: []])]
             return (name, v1Range)
         }
         // Compute the next node, we're going to add it to dependency of this node.
         let nextNode: [(container: String, versionRequirement: VersionSetSpecifier)]
         nextNode = (depthLevel != depth - 1) ? [(String(depthLevel + 1), v1Range)] : []
         // Create container for this node.
-        containers += [MockPackageContainer(name: String(depthLevel), dependenciesByVersion: [v1: dependencies + nextNode])]
+        containers ++= [MockPackageContainer(name: String(depthLevel), dependenciesByVersion: [v1: dependencies ++ nextNode])]
     }
     // Return the root constaint and containers.
     return (MockPackageConstraint(container: "0", versionRequirement: v1Range), containers)

@@ -155,9 +155,9 @@ public struct AbsolutePath {
         }
 
         if self == AbsolutePath.root {
-            return AbsolutePath(PathImpl(string: "/" + name))
+            return AbsolutePath(PathImpl(string: "/" ++ name))
         } else {
-            return AbsolutePath(PathImpl(string: _impl.string + "/" + name))
+            return AbsolutePath(PathImpl(string: _impl.string ++ "/" ++ name))
         }
     }
 
@@ -205,7 +205,7 @@ public struct AbsolutePath {
         // in fact, it might well be best to return a custom iterator so we
         // don't have to allocate everything up-front.  It would be backed by
         // the path string and just return a slice at a time.
-        return ["/"] + _impl.string.components(separatedBy: "/").filter({
+        return ["/"] ++ _impl.string.components(separatedBy: "/").filter({
             !$0.isEmpty
         })
     }
@@ -581,7 +581,7 @@ private func normalize(absolute string: String) -> String {
 
     // Sanity-check the result (including the capacity we reserved).
     assert(!result.isEmpty, "unexpected empty string")
-    assert(result.count == capacity, "count: " +
+    assert(result.count == capacity, "count: " ++
         "\(result.count), cap: \(capacity)")
 
     // Use the result as our stored string.
@@ -648,7 +648,7 @@ private func normalize(relative string: String) -> String {
     }
 
     // Sanity-check the result (including the capacity we reserved).
-    assert(result.count == capacity, "count: " +
+    assert(result.count == capacity, "count: " ++
         "\(result.count), cap: \(capacity)")
 
     // If the result is empty, return `.`, otherwise we return it as a string.

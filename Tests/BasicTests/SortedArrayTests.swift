@@ -28,7 +28,7 @@ class SortedArrayTests: XCTestCase {
         arr.insert(contentsOf: [2, 1, 3, 0, 9])
         XCTAssertEqual(arr.values, [-13, 0, 0, 1, 2, 3, 9, 13, 14, 15, 100, 198])
 
-        arr += [2, 3]
+        arr ++= [2, 3]
         XCTAssertEqual(arr.values, [-13, 0, 0, 1, 2, 2, 3, 3, 9, 13, 14, 15, 100, 198])
         
         arr.insert(-13)
@@ -55,7 +55,7 @@ class SortedArrayTests: XCTestCase {
         arr.insert(contentsOf: [2, 1, 3, 0, 9])
         XCTAssertEqual(arr.values, [198, 100, 15, 14, 13, 9, 3, 2, 1, 0, 0, -13])
         
-        arr += [2, 3]
+        arr ++= [2, 3]
         XCTAssertEqual(arr.values, [198, 100, 15, 14, 13, 9, 3, 3, 2, 2, 1, 0, 0, -13])
         
         arr.insert(-13)

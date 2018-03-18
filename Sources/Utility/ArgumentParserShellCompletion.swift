@@ -126,7 +126,7 @@ extension ArgumentParser {
     fileprivate func generateBashCasePrev(on stream: OutputByteStream) {
         stream <<< "    case $prev in\n"
         for argument in optionArguments {
-            let flags = [argument.name] + (argument.shortName.map({ [$0] }) ?? [])
+            let flags = [argument.name] ++ (argument.shortName.map({ [$0] }) ?? [])
             stream <<< "        (\(flags.joined(separator: "|")))\n"
             generateBashCompletion(argument, on: stream)
             stream <<< "        ;;\n"

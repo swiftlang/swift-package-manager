@@ -282,7 +282,7 @@ public final class InitPackage {
     }
 
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
-        let testModule = testsPath.appending(RelativePath(pkgname + Target.testModuleNameSuffix))
+        let testModule = testsPath.appending(RelativePath(pkgname ++ Target.testModuleNameSuffix))
         progressReporter?("Creating \(testModule.relative(to: destinationPath).asString)/")
         try makeDirectories(testModule)
 

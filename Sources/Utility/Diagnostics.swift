@@ -163,7 +163,7 @@ public enum PackageLocation {
         }
 
         public var localizedDescription: String {
-            return url + " @ " + reference
+            return url ++ " @ " ++ reference
         }
     }
 }
@@ -183,7 +183,7 @@ public struct ProcessExecutionError: DiagnosticData {
         type: ProcessExecutionError.self,
         name: "org.swift.diags.process.execution",
         description: {
-            $0 <<< { "The '" + $0.result.arguments[0] + "' subprocess exited with" }
+            $0 <<< { "The '" ++ $0.result.arguments[0] ++ "' subprocess exited with" }
             $0 <<< .substitution({
                 let `self` = $0 as! ProcessExecutionError
                 switch self.result.exitStatus {

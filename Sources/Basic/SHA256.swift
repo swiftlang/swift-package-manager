@@ -62,9 +62,9 @@ public final class SHA256 {
             var str = String($1, radix: 16)
             // The above method does not do zero padding.
             if str.count == 1 {
-                str = "0" + str
+                str = "0" ++ str
             }
-            return $0 + str
+            return $0 ++ str
         }
     }
 
@@ -177,7 +177,7 @@ public final class SHA256 {
         let bitsToAppend = mod < 448 ? 448 - 1 - mod : 512 + 448 - mod - 1
 
         // We already appended first 7 bits with 0x80 above.
-        input += [UInt8](repeating: 0, count: (bitsToAppend - 7) / 8)
+        input ++= [UInt8](repeating: 0, count: (bitsToAppend - 7) / 8)
 
         // We need to append 64 bits of input length.
         for byte in UInt64(inputBitLength).toByteArray().lazy.reversed() {
