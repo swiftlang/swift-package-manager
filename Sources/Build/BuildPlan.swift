@@ -199,6 +199,7 @@ public final class ClangTargetDescription {
         var args = [String]()
         args += buildParameters.toolchain.extraCCFlags
         args += optimizationArguments
+        args += activeCompilationConditions
 
         // Only enable ARC on macOS.
       #if os(macOS)
@@ -229,6 +230,21 @@ public final class ClangTargetDescription {
             return ["-O2"]
         }
     }
+
+    /// A list of compilation conditions to enable for conditional compilation expressions.
+    private var activeCompilationConditions: [String] {
+        var compilationConditions = ["-DSWIFT_PACKAGE=1"]
+
+        switch buildParameters.configuration {
+        case .debug:
+            compilationConditions += ["-DDEBUG=1"]
+        case .release:
+            break
+        }
+
+        return compilationConditions
+    }
+
 
     /// Helper function to compute the modulemap path.
     ///
