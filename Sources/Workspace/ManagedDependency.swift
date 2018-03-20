@@ -143,7 +143,7 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
             self = try .checkout(json.get("checkoutState"))
         case "edited":
             let path: String? = json.get("path")
-            self = .edited(path.map(AbsolutePath.init))
+            self = .edited(path.map({AbsolutePath($0)}))
         default:
             throw JSON.MapError.custom(key: nil, message: "Invalid state \(name)")
         }

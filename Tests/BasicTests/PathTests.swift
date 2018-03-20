@@ -273,13 +273,13 @@ class PathTests: XCTestCase {
     }
     
     func testAbsolutePathValidation() {
-        XCTAssertNoThrow(try AbsolutePath.validate(pathString: "/a/b/c/d"))
+        XCTAssertNoThrow(try AbsolutePath(validating: "/a/b/c/d"))
 
-        XCTAssertThrowsError(try AbsolutePath.validate(pathString: "~/a/b/d")) { error in
+        XCTAssertThrowsError(try AbsolutePath(validating: "~/a/b/d")) { error in
             XCTAssertEqual("\(error)", "invalid absolute path '~/a/b/d'; absolute path must begin with /")
         }
 
-        XCTAssertThrowsError(try AbsolutePath.validate(pathString: "a/b/d")) { error in
+        XCTAssertThrowsError(try AbsolutePath(validating: "a/b/d")) { error in
             XCTAssertEqual("\(error)", "invalid absolute path 'a/b/d'")
         }
     }
