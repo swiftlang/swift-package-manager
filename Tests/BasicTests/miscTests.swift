@@ -50,7 +50,7 @@ class miscTests: XCTestCase {
     func testEnvSearchPaths() throws {
         let cwd = AbsolutePath("/dummy")
         let paths = getEnvSearchPaths(pathString: "something:.:abc/../.build/debug:/usr/bin:/bin/", currentWorkingDirectory: cwd)
-        XCTAssertEqual(paths, ["/dummy/something", "/dummy", "/dummy/.build/debug", "/usr/bin", "/bin"].map(AbsolutePath.init))
+        XCTAssertEqual(paths, ["/dummy/something", "/dummy", "/dummy/.build/debug", "/usr/bin", "/bin"].map({AbsolutePath($0)}))
     }
     
     func testEmptyEnvSearchPaths() throws {

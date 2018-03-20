@@ -98,6 +98,18 @@ public struct AbsolutePath {
         self.init(absPath, RelativePath(relStr))
     }
 
+    /// Convenience initializer that verifies that the path is absolute.
+    public init(validating path: String) throws {
+        switch path.first {
+        case "/":
+            self.init(path)
+        case "~":
+            throw PathValidationError.startsWithTilde(path)
+        default:
+            throw PathValidationError.invalidAbsolutePath(path)
+        }
+    }
+
     /// Directory component.  An absolute path always has a non-empty directory
     /// component (the directory component of the root path is the root itself).
     public var dirname: String {
@@ -503,17 +515,6 @@ extension AbsolutePath {
         return self.components.starts(with: other.components)
     }
 
-    /// Checks the path and throws a `PathValidationError` if the path is invalid.
-    public static func validate(pathString path: String) throws {
-        switch path.first {
-        case "/":
-            return
-        case "~":
-            throw PathValidationError.startsWithTilde(path)
-        default:
-            throw PathValidationError.invalidAbsolutePath(path)
-        }
-    }
 }
 
 // FIXME: We should consider whether to merge the two `normalize()` functions.
