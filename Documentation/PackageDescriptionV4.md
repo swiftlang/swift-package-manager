@@ -242,7 +242,7 @@ The above manifest declares two target, `Foo` and `Bar`. `Bar` is a test target
 which depends on `Foo`. The Package Manager will automatically search for the
 targets inside package in the [predefined search paths](#target-format-reference).
 
-A target dependency can either be another target in the same package or a target
+A target dependency can either be another target in the same package or a product
 in one of its package dependencies. All target dependencies, internal or
 external, must be explicitly declared.
 
