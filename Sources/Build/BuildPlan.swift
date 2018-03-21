@@ -199,6 +199,7 @@ public final class ClangTargetDescription {
         var args = [String]()
         args += buildParameters.toolchain.extraCCFlags
         args += optimizationArguments
+        args += activeCompilationConditions
 
         // Only enable ARC on macOS.
       #if os(macOS)
@@ -229,6 +230,21 @@ public final class ClangTargetDescription {
             return ["-O2"]
         }
     }
+
+    /// A list of compilation conditions to enable for conditional compilation expressions.
+    private var activeCompilationConditions: [String] {
+        var compilationConditions = ["-DSWIFT_PACKAGE=1"]
+
+        switch buildParameters.configuration {
+        case .debug:
+            compilationConditions += ["-DDEBUG=1"]
+        case .release:
+            break
+        }
+
+        return compilationConditions
+    }
+
 
     /// Helper function to compute the modulemap path.
     ///
@@ -303,7 +319,8 @@ public final class SwiftTargetDescription {
         args += ["-swift-version", String(swiftVersion)]
         args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
-        args += ["-j\(SwiftCompilerTool.numThreads)", "-DSWIFT_PACKAGE"]
+        args += ["-j\(SwiftCompilerTool.numThreads)"]
+        args += activeCompilationConditions
         args += additionalFlags
         args += moduleCacheArgs
 
@@ -315,6 +332,20 @@ public final class SwiftTargetDescription {
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
         return args
+    }
+
+    /// A list of compilation conditions to enable for conditional compilation expressions.
+    private var activeCompilationConditions: [String] {
+        var compilationConditions = ["-DSWIFT_PACKAGE"]
+
+        switch buildParameters.configuration {
+        case .debug:
+            compilationConditions += ["-DDEBUG"]
+        case .release:
+            break
+        }
+
+        return compilationConditions
     }
 
     /// Optimization arguments according to the build configuration.

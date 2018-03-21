@@ -147,7 +147,7 @@ func xcodeProject(
     projectSettings.common.COMBINE_HIDPI_IMAGES = "YES"
 
     // Defined for regular `swift build` instantiations, so also should be defined here.
-    projectSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS = "SWIFT_PACKAGE"
+    projectSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["SWIFT_PACKAGE"]
 
     // Opt out of headermaps.  The semantics of the build should be explicitly
     // defined by the project structure, so that we don't get any additional
@@ -162,8 +162,10 @@ func xcodeProject(
     projectSettings.debug.DEBUG_INFORMATION_FORMAT = "dwarf"
     projectSettings.debug.ENABLE_NS_ASSERTIONS = "YES"
     projectSettings.debug.GCC_OPTIMIZATION_LEVEL = "0"
+    projectSettings.debug.GCC_PREPROCESSOR_DEFINITIONS = ["DEBUG=1", "$(inherited)"]
     projectSettings.debug.ONLY_ACTIVE_ARCH = "YES"
     projectSettings.debug.SWIFT_OPTIMIZATION_LEVEL = "-Onone"
+    projectSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["DEBUG"]
 
     // Add some release-specific settings.
     projectSettings.release.COPY_PHASE_STRIP = "YES"
@@ -452,6 +454,7 @@ func xcodeProject(
         targetSettings.common.OTHER_CFLAGS = ["$(inherited)"]
         targetSettings.common.OTHER_LDFLAGS = ["$(inherited)"]
         targetSettings.common.OTHER_SWIFT_FLAGS = ["$(inherited)"]
+        targetSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS = ["$(inherited)"]
 
         // Set the correct SWIFT_VERSION for the Swift targets.
         if case let swiftTarget as SwiftTarget = target.underlyingTarget {
