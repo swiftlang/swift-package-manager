@@ -217,7 +217,7 @@ class Target(object):
         else:
             other_args.extend(["-Onone", "-g"])
         
-        #Define the UserToolchain manifest libdir path
+        # Define the UserToolchain manifest libdir path
         if args.libdir[-2:] == '64':
             other_args.extend(["-DLIB_64"])
         elif args.libdir[-2:] == '32':

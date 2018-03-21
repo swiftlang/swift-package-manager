@@ -149,24 +149,16 @@ public struct UserToolchain: Toolchain {
             "--sysroot", destination.sdk.asString
         ] + destination.extraCCFlags
 
-    #if LIB_64
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompilers.manifest,
+            #if LIB_64
             libDir: binDir.parentDirectory.appending(components: "lib64", "swift", "pm"),
-            sdkRoot: self.destination.sdk
-        )
-    #elseif LIB_32
-        manifestResources = UserManifestResources(
-            swiftCompiler: swiftCompilers.manifest,
+            #elseif LIB_32
             libDir: binDir.parentDirectory.appending(components: "lib32", "swift", "pm"),
-            sdkRoot: self.destination.sdk
-        )
-    #else
-        manifestResources = UserManifestResources(
-            swiftCompiler: swiftCompilers.manifest,
+            #else
             libDir: binDir.parentDirectory.appending(components: "lib", "swift", "pm"),
+            #endif
             sdkRoot: self.destination.sdk
         )
-    #endif
     }
 }

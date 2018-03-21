@@ -56,7 +56,7 @@ class PkgConfigTests: XCTestCase {
             case .aptItem(let names)?:
                 XCTAssertEqual(names, ["libFoo-dev"])
             case nil:
-                XCTAssertEqual("0", "0")
+                XCTFail("Expected a provider here")
             }
             XCTAssertTrue(result.couldNotFindConfigFile)
             switch result.error {
