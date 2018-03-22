@@ -99,7 +99,7 @@ public struct UserToolchain: Toolchain {
 
     public init(destination: Destination) throws {
         self.destination = destination
-
+        
         // Get the search paths from PATH.
         let envSearchPaths = getEnvSearchPaths(
             pathString: getenv("PATH"), currentWorkingDirectory: currentWorkingDirectory)
@@ -112,6 +112,15 @@ public struct UserToolchain: Toolchain {
 
         // Get the binDir from destination.
         let binDir = destination.binDir
+        
+        #if LIB_64
+        let libDir = binDir.parentDirectory.appending(components: "lib64", "swift", "pm")
+        #elseif LIB_32
+        let libDir = binDir.parentDirectory.appending(components: "lib32", "swift", "pm")
+        #else
+        let libDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+        #endif
+
 
         let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: lookup(fromEnv:))
         self.swiftCompiler = swiftCompilers.compile
@@ -149,15 +158,10 @@ public struct UserToolchain: Toolchain {
             "--sysroot", destination.sdk.asString
         ] + destination.extraCCFlags
 
+        
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompilers.manifest,
-            #if LIB_64
-            libDir: binDir.parentDirectory.appending(components: "lib64", "swift", "pm"),
-            #elseif LIB_32
-            libDir: binDir.parentDirectory.appending(components: "lib32", "swift", "pm"),
-            #else
-            libDir: binDir.parentDirectory.appending(components: "lib", "swift", "pm"),
-            #endif
+            libDir: libDir,
             sdkRoot: self.destination.sdk
         )
     }
