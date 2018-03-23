@@ -16,11 +16,14 @@ import PackageLoading
 import protocol Build.Toolchain
 import Utility
 
+private func findArgs(utility: String) -> [String] {
 #if os(macOS)
-    private let whichClangArgs = ["xcrun", "--find", "clang"]
+    return ["xcrun", "--find", utility]
 #else
-    private let whichClangArgs = ["which", "clang"]
+    return ["which", utility]
 #endif
+}
+private let whichClangArgs = findArgs(utility: "clang")
 
 /// Concrete object for manifest resource provider.
 private struct UserManifestResources: ManifestResourceProvider {
@@ -56,6 +59,9 @@ public struct UserToolchain: Toolchain {
     public var swiftInterpreter: AbsolutePath {
         return swiftCompiler.parentDirectory.appending(component: "swift")
     }
+
+    /// Path to xctest utility.
+    let xctest: AbsolutePath?
 
     /// Path to llbuild.
     let llbuild: AbsolutePath
@@ -138,6 +144,8 @@ public struct UserToolchain: Toolchain {
         guard localFileSystem.isExecutableFile(clangCompiler) else {
             throw Error.invalidToolchain(problem: "could not find `clang` at expected path \(clangCompiler.asString)")
         }
+
+        self.xctest = try? AbsolutePath(validating: Process.checkNonZeroExit(arguments: findArgs(utility: "xctest")).chomp())
 
         self.extraSwiftCFlags = [
             "-target", destination.target,

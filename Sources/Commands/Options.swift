@@ -52,5 +52,8 @@ public class ToolOptions {
     /// Skip updating dependencies from their remote during a resolution.
     public var skipDependencyUpdate = false
 
+    /// Which compile-time sanitizers should be enabled.
+    public var sanitizers = EnabledSanitizers()
+
     public required init() {}
 }

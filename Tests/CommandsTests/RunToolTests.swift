@@ -16,8 +16,8 @@ import Basic
 import POSIX
 
 final class RunToolTests: XCTestCase {
-    private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftRun.execute(args, packagePath: packagePath, printIfError: true)
+    private func execute(_ args: [String], packagePath: AbsolutePath? = nil, printIfError: Bool = true) throws -> String {
+        return try SwiftPMProduct.SwiftRun.execute(args, packagePath: packagePath, printIfError: printIfError)
     }
 
     func testUsage() throws {
@@ -86,12 +86,29 @@ final class RunToolTests: XCTestCase {
         }
     }
 
+    // Verifies that sanitization works
+    func testSanitizeThread() throws {
+        fixture(name: "Miscellaneous/SanitizersTest") { path in
+            let cmdline = ["--sanitize=thread"]
+            XCTAssertThrows(try execute(cmdline, packagePath: path, printIfError: false)) { (error: SwiftPMProductError) -> Bool in
+                switch error {
+                case .executionFailure(_, _, let stderr):
+                    return stderr.range(of: "ThreadSanitizer:") != nil
+                        && stderr.range(of: "access race") != nil
+                default:
+                    return false
+                }
+            }
+        }
+    }
+
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
         ("testUnkownProductAndArgumentPassing", testUnkownProductAndArgumentPassing),
         ("testMultipleExecutableAndExplicitExecutable", testMultipleExecutableAndExplicitExecutable),
         ("testUnreachableExecutable", testUnreachableExecutable),
-        ("testFileDeprecation", testFileDeprecation)
+        ("testFileDeprecation", testFileDeprecation),
+        ("testSanitizeThread", testSanitizeThread),
     ]
 }
