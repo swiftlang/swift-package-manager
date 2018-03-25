@@ -33,7 +33,8 @@ final class TestToolTests: XCTestCase {
     // Test that thread sanitizer works.
     func testSanitizeThread() throws {
         // FIXME: We need to figure out how to test this for linux.
-      #if os(macOS)
+        // Disabled because of https://bugs.swift.org/browse/SR-7272
+      #if false
         fixture(name: "Miscellaneous/ThreadRace") { path in
             // Ensure that we don't abort() when we find the race. This avoids
             // generating the crash report on macOS.
