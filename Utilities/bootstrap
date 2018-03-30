@@ -816,6 +816,9 @@ def main():
     parser.add_argument("--swiftc", dest="swiftc_path",
                         help="path to the swift compiler [%(default)s]",
                         metavar="PATH")
+    parser.add_argument("--swift-lib-dir", dest="swift_lib_dir",
+                        help="path to the swift built library directory",
+                        metavar="PATH")
     parser.add_argument("--sbt", dest="sbt_path",
                         help="path to the 'swift-build-tool' tool "
                              "[%(default)s]",
@@ -1052,6 +1055,9 @@ def main():
 
     env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
                       "SWIFTPM_BUILD_DIR=" + build_path]
+
+    if args.swift_lib_dir:
+        env_cmd.append("LD_LIBRARY_PATH=" + args.swift_lib_dir)
     if args.sysroot:
         env_cmd.append("SYSROOT=" + args.sysroot)
     cmd = env_cmd + [bootstrapped_product] + build_flags
