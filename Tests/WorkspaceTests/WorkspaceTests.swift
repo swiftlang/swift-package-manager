@@ -400,9 +400,9 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCanResolveWithIncompatiblePins() throws {
-        // Disabled on linux due to an issue in stdlib:
+        // Disabled due to a crash in stdlib:
         // <rdar://problem/38647101> Intermittent lit test failure. SwiftPMPackageTests. HashedCollections.swift, line 6567
-      #if os(macOS)
+      #if false
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
