@@ -469,7 +469,7 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
     public var hashValue: Int {
         var result = 0
         for c in self.constraints {
-            result = result &* 31 ^ c.key.hashValue &* 0x62F ^ c.value.hashValue
+            result ^= c.key.hashValue &* 0x62F ^ c.value.hashValue
         }
         return result
     }
