@@ -400,9 +400,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCanResolveWithIncompatiblePins() throws {
-        // Disabled due to a crash in stdlib:
-        // <rdar://problem/38647101> Intermittent lit test failure. SwiftPMPackageTests. HashedCollections.swift, line 6567
-      #if false
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -492,7 +489,6 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertMatch(workspace.delegate.events, [.equal("updating repo: /tmp/ws/pkgs/AA")])
             XCTAssertEqual(workspace.delegate.events.filter({ $0.hasPrefix("updating repo") }).count, 2)
         }
-      #endif
     }
 
     func testResolverCanHaveError() throws {
