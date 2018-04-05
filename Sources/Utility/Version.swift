@@ -11,7 +11,7 @@
 import Basic
 
 /// A struct representing a semver version.
-public struct Version {
+public struct Version: Hashable {
 
     /// The major version.
     public let major: Int
@@ -45,19 +45,9 @@ public struct Version {
     }
 }
 
-extension Version: Hashable {
-
-    static public func == (lhs: Version, rhs: Version) -> Bool {
-        return lhs.major == rhs.major &&
-               lhs.minor == rhs.minor &&
-               lhs.patch == rhs.patch &&
-               lhs.prereleaseIdentifiers == rhs.prereleaseIdentifiers &&
-               lhs.buildMetadataIdentifiers == rhs.buildMetadataIdentifiers
-    }
-
+#if !swift(>=4.2)
+extension Version {
     public var hashValue: Int {
-        // FIXME: We need Swift hashing utilities; this is based on CityHash
-        // inspired code inside the Swift stdlib.
         let mul: UInt64 = 0x9ddfea08eb382d69
         var result: UInt64 = 0
         result = (result &* mul) ^ UInt64(bitPattern: Int64(major.hashValue))
@@ -68,6 +58,19 @@ extension Version: Hashable {
         return Int(truncatingIfNeeded: result)
     }
 }
+#endif
+
+#if !swift(>=4.1)
+extension Version {
+    static public func == (lhs: Version, rhs: Version) -> Bool {
+        return lhs.major == rhs.major &&
+            lhs.minor == rhs.minor &&
+            lhs.patch == rhs.patch &&
+            lhs.prereleaseIdentifiers == rhs.prereleaseIdentifiers &&
+            lhs.buildMetadataIdentifiers == rhs.buildMetadataIdentifiers
+    }
+}
+#endif
 
 extension Version: Comparable {
 

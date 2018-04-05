@@ -11,7 +11,7 @@
 import Basic
 
 /// Specifies a repository address.
-public struct RepositorySpecifier {
+public struct RepositorySpecifier: Hashable {
     /// The URL of the repository.
     public let url: String
 
@@ -30,16 +30,6 @@ public struct RepositorySpecifier {
         // persistence.
         let basename = url.components(separatedBy: "/").last!
         return basename + "-" + String(url.hashValue)
-    }
-}
-
-extension RepositorySpecifier: Hashable {
-    public var hashValue: Int {
-        return url.hashValue
-    }
-    
-    public static func == (lhs: RepositorySpecifier, rhs: RepositorySpecifier) -> Bool {
-        return lhs.url == rhs.url
     }
 }
 
@@ -216,14 +206,6 @@ public struct Revision: Hashable {
 
     public init(identifier: String) {
         self.identifier = identifier
-    }
-
-    public var hashValue: Int {
-        return identifier.hashValue
-    }
-
-    public static func == (lhs: Revision, rhs: Revision) -> Bool {
-        return lhs.identifier == rhs.identifier
     }
 }
 

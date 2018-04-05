@@ -1,4 +1,4 @@
-public struct PlayingCard {
+public struct PlayingCard: Equatable {
     let rank: Rank
     let suit: Suit
 
@@ -6,14 +6,6 @@ public struct PlayingCard {
         self.rank = rank
         self.suit = suit
     }
-}
-
-// MARK: - Equatable
-
-extension PlayingCard: Equatable {}
-
-public func ==(lhs: PlayingCard, rhs: PlayingCard) -> Bool {
-    return lhs.rank == rhs.rank && lhs.suit == rhs.suit
 }
 
 // MARK: - Comparable

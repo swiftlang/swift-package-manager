@@ -49,10 +49,9 @@ extension Version: Equatable {
 
 // MARK: Hashable
 
+//FIXME: Remove in 4.2
 extension Version: Hashable {
     public var hashValue: Int {
-        // FIXME: We need Swift hashing utilities; this is based on CityHash
-        // inspired code inside the Swift stdlib.
         let mul: UInt64 = 0x9ddfea08eb382d69
         var result: UInt64 = 0
         result = (result &* mul) ^ UInt64(bitPattern: Int64(major.hashValue))

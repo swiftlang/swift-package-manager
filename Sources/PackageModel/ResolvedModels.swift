@@ -14,7 +14,7 @@ import Basic
 public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProtocol {
 
     /// Represents dependency of a resolved target.
-    public enum Dependency {
+    public enum Dependency: Hashable {
 
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
         case target(ResolvedTarget)
@@ -163,7 +163,7 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
     }
 }
 
-extension ResolvedTarget.Dependency: Hashable, CustomStringConvertible {
+extension ResolvedTarget.Dependency: CustomStringConvertible {
 
     /// Returns the dependencies of the underlying dependency.
     public var dependencies: [ResolvedTarget.Dependency] {
@@ -175,27 +175,7 @@ extension ResolvedTarget.Dependency: Hashable, CustomStringConvertible {
         }
     }
 
-    // MARK: - Hashable, CustomStringConvertible conformance
-
-    public var hashValue: Int {
-        switch self {
-            case .product(let p): return p.hashValue
-            case .target(let t): return t.hashValue
-        }
-    }
-
-    public static func == (lhs: ResolvedTarget.Dependency, rhs: ResolvedTarget.Dependency) -> Bool {
-        switch (lhs, rhs) {
-        case (.product(let l), .product(let r)):
-            return l == r
-        case (.product, _):
-            return false
-        case (.target(let l), .target(let r)):
-            return l == r
-        case (.target, _):
-            return false
-        }
-    }
+    // MARK: - CustomStringConvertible conformance
 
     public var description: String {
         var str = "<ResolvedTarget.Dependency: "

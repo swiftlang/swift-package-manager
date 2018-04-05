@@ -114,7 +114,7 @@ enum GitInterfaceError: Swift.Error {
 // class.
 public class GitRepository: Repository, WorkingCheckout {
     /// A hash object.
-    struct Hash: Equatable, Hashable {
+    struct Hash: Hashable {
         // FIXME: We should optimize this representation.
         let bytes: ByteString
 
@@ -142,10 +142,6 @@ public class GitRepository: Repository, WorkingCheckout {
                 }
             }
             self.bytes = ByteString(bytes)
-        }
-
-        public var hashValue: Int {
-            return bytes.hashValue
         }
     }
 
@@ -487,15 +483,6 @@ public class GitRepository: Repository, WorkingCheckout {
         }
     }
 }
-
-func == (_ lhs: GitRepository.Commit, _ rhs: GitRepository.Commit) -> Bool {
-    return lhs.hash == rhs.hash && lhs.tree == rhs.tree
-}
-
-func == (_ lhs: GitRepository.Hash, _ rhs: GitRepository.Hash) -> Bool {
-    return lhs.bytes == rhs.bytes
-}
-
 /// A `git` file system view.
 ///
 /// The current implementation is based on lazily caching data with no eviction
