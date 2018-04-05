@@ -16,7 +16,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(GenerateXcodeprojTests.allTests),
         testCase(FunctionalTests.allTests),
         testCase(PackageGraphTests.allTests),
-        testCase(PlistTests.allTests),
+        testCase(PropertyListTests.allTests),
         testCase(XcodeProjectModelTests.allTests),
         testCase(XcodeProjectModelSerializationTests.allTests),
     ]
