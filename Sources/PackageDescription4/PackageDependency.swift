@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -62,13 +62,6 @@ extension Package.Dependency {
         return .init(url: path, requirement: ._localPackageItem)
     }
   #endif
-
-    func toJSON() -> JSON {
-        return .dictionary([
-            "url": .string(url),
-            "requirement": requirement.toJSON(),
-        ])
-    }
 }
 
 // Mark common APIs used by mistake as unavailable to provide better error messages.

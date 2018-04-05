@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -43,32 +43,7 @@ public struct Version {
     }
 }
 
-extension Version: Hashable {
-
-    public static func == (lhs: Version, rhs: Version) -> Bool {
-        return lhs.major == rhs.major &&
-               lhs.minor == rhs.minor &&
-               lhs.patch == rhs.patch &&
-               lhs.prereleaseIdentifiers == rhs.prereleaseIdentifiers &&
-               lhs.buildMetadataIdentifiers == rhs.buildMetadataIdentifiers
-    }
-
-    public var hashValue: Int {
-        // FIXME: We need Swift hashing utilities; this is based on CityHash
-        // inspired code inside the Swift stdlib.
-        let mul: UInt64 = 0x9ddfea08eb382d69
-        var result: UInt64 = 0
-        result = (result &* mul) ^ UInt64(bitPattern: Int64(major.hashValue))
-        result = (result &* mul) ^ UInt64(bitPattern: Int64(minor.hashValue))
-        result = (result &* mul) ^ UInt64(bitPattern: Int64(patch.hashValue))
-        result = prereleaseIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64(bitPattern: Int64($1.hashValue)) })
-        result = buildMetadataIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64(bitPattern: Int64($1.hashValue)) })
-        return Int(truncatingIfNeeded: result)
-    }
-}
-
 extension Version: Comparable {
-
     public static func < (lhs: Version, rhs: Version) -> Bool {
         let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
         let rhsComparators = [rhs.major, rhs.minor, rhs.patch]
@@ -118,5 +93,12 @@ extension Version: CustomStringConvertible {
             base += "+" + buildMetadataIdentifiers.joined(separator: ".")
         }
         return base
+    }
+}
+
+extension Version: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(description)
     }
 }

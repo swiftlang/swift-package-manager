@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -13,12 +13,13 @@ import Glibc
 #else
 import Darwin.C
 #endif
+import Foundation
 
 /// The description for a complete package.
 public final class Package {
 
     /// Represents a package dependency.
-    public class Dependency {
+    public class Dependency: Encodable {
 
         /// The dependency requirement.
         public enum Requirement {
@@ -192,168 +193,136 @@ public enum SystemPackageProvider {
 
 // MARK: Package JSON serialization
 
-extension SystemPackageProvider {
+extension Package: Encodable {
+    private enum CodingKeys: CodingKey {
+        case name
+        case pkgConfig
+        case providers
+        case products
+        case dependencies
+        case targets
+        case swiftLanguageVersions
+        case cLanguageStandard
+        case cxxLanguageStandard
+    }
 
-    func toJSON() -> JSON {
-        let name: String
-        let values: [String]
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(pkgConfig, forKey: .pkgConfig)
+        try container.encode(providers, forKey: .providers)
+        try container.encode(products, forKey: .products)
+        try container.encode(dependencies, forKey: .dependencies)
+        try container.encode(targets, forKey: .targets)
+      #if PACKAGE_DESCRIPTION_4
+        try container.encode(swiftLanguageVersions?.map(String.init), forKey: .swiftLanguageVersions)
+      #else
+        try container.encode(swiftLanguageVersions, forKey: .swiftLanguageVersions)
+      #endif
+        try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
+        try container.encode(cxxLanguageStandard, forKey: .cxxLanguageStandard)
+    }
+}
 
+extension SystemPackageProvider: Encodable {
+    private enum CodingKeys: CodingKey {
+        case name
+        case values
+    }
+
+    private enum Name: String, Encodable {
+        case brew
+        case apt
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
       #if PACKAGE_DESCRIPTION_4
         switch self {
         case .brewItem(let packages):
-            name = "brew"
-            values = packages
+            try container.encode(Name.brew, forKey: .name)
+            try container.encode(packages, forKey: .values)
         case .aptItem(let packages):
-            name = "apt"
-            values = packages
+            try container.encode(Name.apt, forKey: .name)
+            try container.encode(packages, forKey: .values)
         }
       #else
         switch self {
         case ._brewItem(let packages):
-            name = "brew"
-            values = packages
+            try container.encode(Name.brew, forKey: .name)
+            try container.encode(packages, forKey: .values)
         case ._aptItem(let packages):
-            name = "apt"
-            values = packages
+            try container.encode(Name.apt, forKey: .name)
+            try container.encode(packages, forKey: .values)
         }
       #endif
-
-        return .dictionary([
-            "name": .string(name),
-            "values": .array(values.map(JSON.string)),
-        ])
     }
 }
 
-extension Package {
-    func toJSON() -> JSON {
-        var dict: [String: JSON] = [:]
-        dict["name"] = .string(name)
-        if let pkgConfig = self.pkgConfig {
-            dict["pkgConfig"] = .string(pkgConfig)
-        }
-        dict["dependencies"] = .array(dependencies.map({ $0.toJSON() }))
-        dict["targets"] = .array(targets.map({ $0.toJSON() }))
-        dict["products"] = .array(products.map({ $0.toJSON() }))
-        if let providers = self.providers {
-            dict["providers"] = .array(providers.map({ $0.toJSON() }))
-        }
-
-        let swiftLanguageVersionsString: [String]?
-      #if PACKAGE_DESCRIPTION_4
-        swiftLanguageVersionsString = self.swiftLanguageVersions?.map(String.init)
-      #else
-        swiftLanguageVersionsString = self.swiftLanguageVersions?.map({ $0.toString() })
-      #endif
-        if let swiftLanguageVersions = swiftLanguageVersionsString {
-            dict["swiftLanguageVersions"] = .array(swiftLanguageVersions.map(JSON.string))
-        }
-
-        dict["cLanguageStandard"] = cLanguageStandard?.toJSON() ?? .null
-        dict["cxxLanguageStandard"] = cxxLanguageStandard?.toJSON() ?? .null
-        return .dictionary(dict)
+extension Target.Dependency: Encodable {
+    private enum CodingKeys: CodingKey {
+        case type
+        case name
+        case package
     }
-}
 
-extension Target {
-    func toJSON() -> JSON {
-        var dict: [String: JSON] = [
-            "name": .string(name),
-            "type": .string(type.rawValue),
-            "publicHeadersPath": publicHeadersPath.map(JSON.string) ?? JSON.null,
-            "dependencies": .array(dependencies.map({ $0.toJSON() })),
-            "path": path.map(JSON.string) ?? JSON.null,
-            "exclude": .array(exclude.map(JSON.string)),
-            "sources": sources.map({ JSON.array($0.map(JSON.string)) }) ?? JSON.null,
-        ]
-        if let pkgConfig = self.pkgConfig {
-            dict["pkgConfig"] = .string(pkgConfig)
-        }
-        if let providers = self.providers {
-            dict["providers"] = .array(providers.map({ $0.toJSON() }))
-        }
-        return .dictionary(dict)
+    private enum Kind: String, Codable {
+        case target
+        case product
+        case byName = "byname"
     }
-}
 
-extension Target.Dependency {
-    func toJSON() -> JSON {
-        var dict = [String: JSON]()
-
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
       #if PACKAGE_DESCRIPTION_4
         switch self {
         case .targetItem(let name):
-            dict["name"] = .string(name)
-            dict["type"] = .string("target")
+            try container.encode(Kind.target, forKey: .type)
+            try container.encode(name, forKey: .name)
         case .productItem(let name, let package):
-            dict["name"] = .string(name)
-            dict["type"] = .string("product")
-            dict["package"] = package.map(JSON.string) ?? .null
+            try container.encode(Kind.product, forKey: .type)
+            try container.encode(name, forKey: .name)
+            try container.encode(package, forKey: .package)
         case .byNameItem(let name):
-            dict["name"] = .string(name)
-            dict["type"] = .string("byname")
+            try container.encode(Kind.byName, forKey: .type)
+            try container.encode(name, forKey: .name)
         }
       #else
         switch self {
         case ._targetItem(let name):
-            dict["name"] = .string(name)
-            dict["type"] = .string("target")
+            try container.encode(Kind.target, forKey: .type)
+            try container.encode(name, forKey: .name)
         case ._productItem(let name, let package):
-            dict["name"] = .string(name)
-            dict["type"] = .string("product")
-            dict["package"] = package.map(JSON.string) ?? .null
+            try container.encode(Kind.product, forKey: .type)
+            try container.encode(name, forKey: .name)
+            try container.encode(package, forKey: .package)
         case ._byNameItem(let name):
-            dict["name"] = .string(name)
-            dict["type"] = .string("byname")
+            try container.encode(Kind.byName, forKey: .type)
+            try container.encode(name, forKey: .name)
         }
       #endif
-
-        return .dictionary(dict)
     }
 }
 
 // MARK: Package Dumping
 
-struct Errors {
-    /// Storage to hold the errors.
-    private var errors = [String]()
-
-    /// Adds error to global error array which will be serialized and dumped in
-    /// JSON at exit.
-    mutating func add(_ str: String) {
-        // FIXME: This will produce invalid JSON if string contains quotes.
-        // Assert it for now and fix when we have escaping in JSON.
-        assert(!str.contains("\""), "Error string shouldn't have quotes in it.")
-        errors += [str]
-    }
-
-    func toJSON() -> JSON {
-        return .array(errors.map(JSON.string))
-    }
-}
-
 func manifestToJSON(_ package: Package) -> String {
-    var dict: [String: JSON] = [:]
-    dict["package"] = package.toJSON()
-    dict["errors"] = errors.toJSON()
-    return JSON.dictionary(dict).toString()
+    struct Output: Encodable {
+        let package: Package
+        let errors: [String]
+    }
+
+    let encoder = JSONEncoder()
+    let data = try! encoder.encode(Output(package: package, errors: errors))
+    return String(data: data, encoding: .utf8)!
 }
 
-// FIXME: This function is public to let other targets access JSON string
-// representation of the package without exposing the enum JSON defined in this
-// target because that'll leak to clients of PackageDescription i.e every
-// Package.swift file.
-public func jsonString(package: Package) -> String {
-    return package.toJSON().toString()
-}
-
-var errors = Errors()
+var errors: [String] = []
 private var dumpInfo: (package: Package, fileNo: Int32)?
 private func dumpPackageAtExit(_ package: Package, fileNo: Int32) {
     func dump() {
         guard let dumpInfo = dumpInfo else { return }
-        let fd = fdopen(dumpInfo.fileNo, "w")
-        guard fd != nil else { return }
+        guard let fd = fdopen(dumpInfo.fileNo, "w") else { return }
         fputs(manifestToJSON(dumpInfo.package), fd)
         fclose(fd)
     }
