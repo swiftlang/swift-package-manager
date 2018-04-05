@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -9,7 +9,11 @@
 */
 
 /// Defines a product in the package.
-public class Product {
+public class Product: Encodable {
+    private enum ProductCodingKeys: String, CodingKey {
+        case name
+        case type = "product_type"
+    }
 
     /// The name of the product.
     public let name: String
@@ -18,12 +22,11 @@ public class Product {
         self.name = name
     }
 
-    func toJSON() -> JSON {
-        fatalError("Should be implemented by subclasses")
-    }
-
     /// Represents an executable product.
     public final class Executable: Product {
+        private enum ExecutableCodingKeys: CodingKey {
+            case targets
+        }
 
         /// The names of the targets in this product.
         public let targets: [String]
@@ -33,20 +36,24 @@ public class Product {
             super.init(name: name)
         }
 
-        override func toJSON() -> JSON {
-            return .dictionary([
-                "name": .string(name),
-                "product_type": .string("executable"),
-                "targets": .array(targets.map(JSON.string)),
-            ])
+        public override func encode(to encoder: Encoder) throws {
+            try super.encode(to: encoder)
+            var productContainer = encoder.container(keyedBy: ProductCodingKeys.self)
+            try productContainer.encode("executable", forKey: .type)
+            var executableContainer = encoder.container(keyedBy: ExecutableCodingKeys.self)
+            try executableContainer.encode(targets, forKey: .targets)
         }
     }
 
     /// Represents a library product.
     public final class Library: Product {
+        private enum LibraryCodingKeys: CodingKey {
+            case type
+            case targets
+        }
 
         /// The type of library product.
-        public enum LibraryType: String {
+        public enum LibraryType: String, Encodable {
             case `static`
             case `dynamic`
         }
@@ -65,13 +72,13 @@ public class Product {
             super.init(name: name)
         }
 
-        override func toJSON() -> JSON {
-            return .dictionary([
-                "name": .string(name),
-                "product_type": .string("library"),
-                "type": type.map({ JSON.string($0.rawValue) }) ?? .null,
-                "targets": .array(targets.map(JSON.string)),
-            ])
+        public override func encode(to encoder: Encoder) throws {
+            try super.encode(to: encoder)
+            var productContainer = encoder.container(keyedBy: ProductCodingKeys.self)
+            try productContainer.encode("library", forKey: .type)
+            var libraryContainer = encoder.container(keyedBy: LibraryCodingKeys.self)
+            try libraryContainer.encode(type, forKey: .type)
+            try libraryContainer.encode(targets, forKey: .targets)
         }
     }
 
@@ -90,5 +97,10 @@ public class Product {
         targets: [String]
     ) -> Product {
         return Executable(name: name, targets: targets)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: ProductCodingKeys.self)
+        try container.encode(name, forKey: .name)
     }
 }

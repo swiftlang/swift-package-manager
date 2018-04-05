@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -9,10 +9,10 @@
 */
 
 /// The description for an individual target.
-public final class Target {
+public final class Target: Encodable {
 
     /// The type of this target.
-    public enum TargetType: String {
+    public enum TargetType: String, Encodable {
         case regular
         case test
         case system
