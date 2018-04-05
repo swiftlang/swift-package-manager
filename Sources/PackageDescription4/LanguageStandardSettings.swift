@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -9,7 +9,7 @@
 */
 
 /// Support C language standards.
-public enum CLanguageStandard: String {
+public enum CLanguageStandard: String, Encodable {
     case c89
     case c90
     case iso9899_1990 = "iso9899:1990"
@@ -25,7 +25,7 @@ public enum CLanguageStandard: String {
 }
 
 /// Supported C++ language standards.
-public enum CXXLanguageStandard: String {
+public enum CXXLanguageStandard: String, Encodable {
     case cxx98 = "c++98"
     case cxx03 = "c++03"
     case gnucxx98 = "gnu++98"
@@ -52,32 +52,19 @@ public enum SwiftVersion {
     case version(String)
 }
 
-extension SwiftVersion {
-    func toString() -> String {
-        let value: String
+extension SwiftVersion: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
         switch self {
         case .v3:
-            value = "3"
+            try container.encode("3")
         case .v4:
-            value = "4"
+            try container.encode("4")
         case .v4_2:
-            value = "4.2"
-        case .version(let v):
-            value = v
+            try container.encode("4.2")
+        case .version(let value):
+            try container.encode(value)
         }
-        return value
     }
 }
 #endif
-
-extension CLanguageStandard {
-    func toJSON() -> JSON {
-        return .string(self.rawValue)
-    }
-}
-
-extension CXXLanguageStandard {
-    func toJSON() -> JSON {
-        return .string(self.rawValue)
-    }
-}

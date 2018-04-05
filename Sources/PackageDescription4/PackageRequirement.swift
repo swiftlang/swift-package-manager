@@ -1,14 +1,14 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-extension Package.Dependency.Requirement {
+extension Package.Dependency.Requirement: Encodable {
 
     /// The requirement is specified by an exact version.
     public static func exact(_ version: Version) -> Package.Dependency.Requirement {
@@ -57,62 +57,58 @@ extension Package.Dependency.Requirement {
       #endif
     }
 
-    func toJSON() -> JSON {
+    private enum CodingKeys: CodingKey {
+        case type
+        case lowerBound
+        case upperBound
+        case identifier
+    }
+
+    private enum Kind: String, Codable {
+        case range
+        case exact
+        case branch
+        case revision
+        case localPackage
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
       #if PACKAGE_DESCRIPTION_4
         switch self {
         case .rangeItem(let range):
-            return .dictionary([
-                "type": .string("range"),
-                "lowerBound": .string(range.lowerBound.description),
-                "upperBound": .string(range.upperBound.description),
-            ])
+            try container.encode(Kind.range, forKey: .type)
+            try container.encode(range.lowerBound, forKey: .lowerBound)
+            try container.encode(range.upperBound, forKey: .upperBound)
         case .exactItem(let version):
-            return .dictionary([
-                "type": .string("exact"),
-                "identifier": .string(version.description),
-            ])
+            try container.encode(Kind.exact, forKey: .type)
+            try container.encode(version, forKey: .identifier)
         case .branchItem(let identifier):
-            return .dictionary([
-                "type": .string("branch"),
-                "identifier": .string(identifier),
-            ])
+            try container.encode(Kind.branch, forKey: .type)
+            try container.encode(identifier, forKey: .identifier)
         case .revisionItem(let identifier):
-            return .dictionary([
-                "type": .string("revision"),
-                "identifier": .string(identifier),
-            ])
+            try container.encode(Kind.revision, forKey: .type)
+            try container.encode(identifier, forKey: .identifier)
         case .localPackageItem:
-            return .dictionary([
-                "type": .string("localPackage"),
-            ])
+            try container.encode(Kind.localPackage, forKey: .type)
         }
       #else
         switch self {
         case ._rangeItem(let range):
-            return .dictionary([
-                "type": .string("range"),
-                "lowerBound": .string(range.lowerBound.description),
-                "upperBound": .string(range.upperBound.description),
-            ])
+            try container.encode(Kind.range, forKey: .type)
+            try container.encode(range.lowerBound, forKey: .lowerBound)
+            try container.encode(range.upperBound, forKey: .upperBound)
         case ._exactItem(let version):
-            return .dictionary([
-                "type": .string("exact"),
-                "identifier": .string(version.description),
-            ])
+            try container.encode(Kind.exact, forKey: .type)
+            try container.encode(version, forKey: .identifier)
         case ._branchItem(let identifier):
-            return .dictionary([
-                "type": .string("branch"),
-                "identifier": .string(identifier),
-            ])
+            try container.encode(Kind.branch, forKey: .type)
+            try container.encode(identifier, forKey: .identifier)
         case ._revisionItem(let identifier):
-            return .dictionary([
-                "type": .string("revision"),
-                "identifier": .string(identifier),
-            ])
+            try container.encode(Kind.revision, forKey: .type)
+            try container.encode(identifier, forKey: .identifier)
         case ._localPackageItem:
-            return .dictionary([
-                "type": .string("localPackage"),
-            ])
+            try container.encode(Kind.localPackage, forKey: .type)
         }
       #endif
     }

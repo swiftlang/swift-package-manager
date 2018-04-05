@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -18,7 +18,7 @@ extension Version: ExpressibleByStringLiteral {
             // the error and initialize with a dummy value.  This is done to
             // report error to the invoking tool (like swift build) gracefully
             // rather than just crashing.
-            errors.add("Invalid version string: \(value)")
+            errors.append("Invalid version string: \(value)")
             self.init(0, 0, 0)
         }
     }
