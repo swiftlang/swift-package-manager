@@ -99,7 +99,7 @@ public struct UserToolchain: Toolchain {
 
     public init(destination: Destination) throws {
         self.destination = destination
-        
+
         // Get the search paths from PATH.
         let envSearchPaths = getEnvSearchPaths(
             pathString: getenv("PATH"), currentWorkingDirectory: currentWorkingDirectory)
@@ -112,13 +112,13 @@ public struct UserToolchain: Toolchain {
 
         // Get the binDir from destination.
         let binDir = destination.binDir
-        
+
         #if LIB_64
-        let libDir = binDir.parentDirectory.appending(components: "lib64", "swift", "pm")
+        let libDirComponent = "lib64"
         #elseif LIB_32
-        let libDir = binDir.parentDirectory.appending(components: "lib32", "swift", "pm")
+        let libDirComponent = "lib32"
         #else
-        let libDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+        let libDirComponent = "lib"
         #endif
 
 
@@ -158,10 +158,10 @@ public struct UserToolchain: Toolchain {
             "--sysroot", destination.sdk.asString
         ] + destination.extraCCFlags
 
-        
+
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompilers.manifest,
-            libDir: libDir,
+            libDir: binDir.parentDirectory.appending(components: libDirComponent, "swift", "pm"),
             sdkRoot: self.destination.sdk
         )
     }

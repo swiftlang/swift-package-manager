@@ -264,7 +264,7 @@ class Target(object):
             import_paths.append(os.path.join(args.foundation_path,
                                              "usr/" + args.libdir + "/swift/CoreFoundation"))
             import_paths.append(os.path.join(args.foundation_path,
-                                             "usr/"+ args.libdir + "/swift"))
+                                             "usr/" + args.libdir + "/swift"))
         if args.libdispatch_build_dir:
             import_paths.append(os.path.join(args.libdispatch_build_dir,
                                              "src"))
