@@ -88,7 +88,7 @@ public func lookupExecutablePath(
     return nil
 }
 
-// <rdar://problem/28497980> error: binary operator '==' cannot be applied to two '[[String]]' operands
+#if !swift(>=4.1)
 public func ==<E: Equatable>(a: [[E]], b: [[E]]) -> Bool {
     if a.count != b.count {
         return false
@@ -96,7 +96,6 @@ public func ==<E: Equatable>(a: [[E]], b: [[E]]) -> Bool {
     return !zip(a, b).contains { $0 != $1 }
 }
 
-#if !swift(>=4.1)
 extension Array {
     public func compactMap<T>(_ transform: (Element) throws -> T?) rethrows -> [T] {
         return try flatMap(transform)

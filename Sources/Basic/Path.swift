@@ -28,7 +28,7 @@
 /// normalization, because it is normally the responsibility of the shell and
 /// not the program being invoked (e.g. when invoking `cd ~`, it is the shell
 /// that evaluates the tilde; the `cd` command receives an absolute path).
-public struct AbsolutePath {
+public struct AbsolutePath: Hashable {
     /// Check if the given name is a valid individual path component.
     ///
     /// This only checks with regard to the semantics enforced by `AbsolutePath`
@@ -238,7 +238,7 @@ public struct AbsolutePath {
 /// This string manipulation may change the meaning of a path if any of the
 /// path components are symbolic links on disk.  However, the file system is
 /// never accessed in any way when initializing a RelativePath.
-public struct RelativePath {
+public struct RelativePath: Hashable {
     /// Private implementation details, shared with the AbsolutePath struct.
     fileprivate let _impl: PathImpl
 
@@ -299,19 +299,18 @@ public struct RelativePath {
     }
 }
 
+#if !swift(>=4.1)
 // Make absolute paths Hashable.
-extension AbsolutePath : Hashable {
-    public var hashValue: Int {
-        return self.asString.hashValue
-    }
-}
-
-// Make absolute paths Equatable.
-extension AbsolutePath : Equatable {
+extension AbsolutePath {
     public static func == (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
         return lhs.asString == rhs.asString
     }
+
+    public var hashValue: Int {
+        return _impl.hashValue
+    }
 }
+#endif
 
 // Make absolute paths Comparable.
 extension AbsolutePath : Comparable {
@@ -337,19 +336,18 @@ extension AbsolutePath : CustomStringConvertible {
     }
 }
 
-// Make relative paths Hashable.
-extension RelativePath : Hashable {
-    public var hashValue: Int {
-        return self.asString.hashValue
-    }
-}
-
+#if !swift(>=4.1)
 // Make relative paths Equatable.
-extension RelativePath : Equatable {
+extension RelativePath: Equatable {
     public static func == (lhs: RelativePath, rhs: RelativePath) -> Bool {
         return lhs.asString == rhs.asString
     }
+
+    public var hashValue: Int {
+        return _impl.hashValue
+    }
 }
+#endif
 
 /// Make relative paths CustomStringConvertible.
 extension RelativePath : CustomStringConvertible {
@@ -366,7 +364,7 @@ extension RelativePath : CustomStringConvertible {
 /// different.
 // FIXME: This is internal due to this bug: https://bugs.swift.org/browse/SR-3009
 // but otherwise should be private.
-struct PathImpl {
+struct PathImpl: Hashable {
     /// Normalized string of the (absolute or relative) path.  Never empty.
     fileprivate let string: String
 
@@ -444,6 +442,14 @@ struct PathImpl {
         return nil
     }
 }
+
+#if !swift(>=4.1)
+extension PathImpl {
+    public var hashValue: Int {
+        return string.hashValue
+    }
+}
+#endif
 
 /// Describes the way in which a path is invalid.
 public enum PathValidationError: Error {

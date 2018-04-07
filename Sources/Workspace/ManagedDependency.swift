@@ -107,20 +107,6 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
 }
 
 extension ManagedDependency.State: JSONMappable, JSONSerializable {
-
-    public static func == (lhs: ManagedDependency.State, rhs: ManagedDependency.State) -> Bool {
-        switch (lhs, rhs) {
-        case (.checkout(let lhs), .checkout(let rhs)):
-            return lhs == rhs
-        case (.checkout, _):
-            return false
-        case (.edited(let lhs), .edited(let rhs)):
-            return lhs == rhs
-        case (.edited, _):
-            return false
-        }
-    }
-
     public func toJSON() -> JSON {
         switch self {
         case .checkout(let checkoutState):

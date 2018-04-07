@@ -51,12 +51,6 @@ public struct CheckoutState: Equatable {
     public var description: String {
         return version?.description ?? branch ?? revision.identifier
     }
-
-    public static func == (lhs: CheckoutState, rhs: CheckoutState) -> Bool {
-        return lhs.revision == rhs.revision &&
-               lhs.version == rhs.version &&
-               lhs.branch == rhs.branch
-    }
 }
 
 extension CheckoutState {

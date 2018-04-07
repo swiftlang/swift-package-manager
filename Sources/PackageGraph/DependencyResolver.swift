@@ -100,6 +100,7 @@ public enum VersionSetSpecifier: Hashable, CustomStringConvertible {
         }
     }
 
+    //FIXME: Remove in 4.2
     public var hashValue: Int {
         switch (self) {
         case .any:
@@ -189,14 +190,6 @@ public struct AnyPackageContainerIdentifier: PackageContainerIdentifier {
     /// Creates a type-erased identifier that wraps up the given instance.
     init<T: PackageContainerIdentifier>(_ identifier: T) {
         self.identifier = AnyHashable(identifier)
-    }
-
-    public var hashValue: Int {
-        return identifier.hashValue
-    }
-
-    public static func == (lhs: AnyPackageContainerIdentifier, rhs: AnyPackageContainerIdentifier) -> Bool {
-        return lhs.identifier == rhs.identifier
     }
 }
 
@@ -302,36 +295,6 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
 
         /// Un-versioned requirement i.e. a version should not resolved.
         case unversioned
-
-        public static func == (lhs: Requirement, rhs: Requirement) -> Bool {
-            switch (lhs, rhs) {
-            case (.unversioned, .unversioned):
-                return true
-            case (.unversioned, _):
-                return false
-            case (.revision(let lhs), .revision(let rhs)):
-                return lhs == rhs
-            case (.revision, _):
-                return false
-            case (.versionSet(let lhs), .versionSet(let rhs)):
-                return lhs == rhs
-            case (.versionSet, _):
-                return false
-            }
-        }
-
-        public var hashValue: Int {
-            switch self {
-            case .versionSet(let set):
-                return 0x11FB ^ set.hashValue
-
-            case .revision(let str):
-                return 0xE2F3 ^ str.hashValue
-
-            case .unversioned:
-                return 0x8E7F
-            }
-        }
     }
 
     /// The identifier for the container the constraint is on.
@@ -399,27 +362,6 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
             return identifier
         }
     }
-    
-    public static func == (_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
-        switch (lhs, rhs) {
-        case (.excluded, .excluded):
-            return true
-        case (.excluded, _):
-            return false
-        case (.version(let lhs), .version(let rhs)):
-            return lhs == rhs
-        case (.version, _):
-            return false
-        case (.revision(let lhs), .revision(let rhs)):
-            return lhs == rhs
-        case (.revision, _):
-            return false
-        case (.unversioned, .unversioned):
-            return true
-        case (.unversioned, _):
-            return false
-        }
-    }
 }
 
 /// A container for constraints for a set of packages.
@@ -466,6 +408,7 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
         return constraints[identifier] ?? .versionSet(.any)
     }
 
+    //FIXME: Remove in 4.2? Perhaps?
     public var hashValue: Int {
         var result = 0
         for c in self.constraints {
@@ -1501,29 +1444,6 @@ private struct ResolverDebugger<
                 return identifier
             }
             return nil
-        }
-
-        var hashValue: Int {
-            // FIXME: Is this hash function good enough?
-            switch self {
-            case .allowPackage(let identifier):
-                return "package".hashValue &+ identifier.hashValue
-            case .allowPin(let identifier):
-                return "pin".hashValue &+ identifier.hashValue
-            }
-        }
-
-        static func == (lhs: ResolverChange, rhs: ResolverChange) -> Bool {
-            switch (lhs, rhs) {
-            case (.allowPackage(let lhs), .allowPackage(let rhs)):
-                return lhs == rhs
-            case (.allowPackage, _):
-                return false
-            case (.allowPin(let lhs), .allowPin(let rhs)):
-                return lhs == rhs
-            case (.allowPin, _):
-                return false
-            }
         }
     }
 }

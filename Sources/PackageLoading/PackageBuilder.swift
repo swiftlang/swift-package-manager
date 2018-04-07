@@ -1075,16 +1075,6 @@ private struct PotentialModule: Hashable {
         let endIndex = name.index(name.endIndex, offsetBy: -Target.testModuleNameSuffix.count)
         return String(name[name.startIndex..<endIndex])
     }
-
-    var hashValue: Int {
-        return name.hashValue ^ path.hashValue ^ isTest.hashValue
-    }
-
-    static func == (lhs: PotentialModule, rhs: PotentialModule) -> Bool {
-        return lhs.name == rhs.name &&
-               lhs.path == rhs.path &&
-               lhs.isTest == rhs.isTest
-    }
 }
 
 private extension Manifest {

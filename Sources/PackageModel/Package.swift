@@ -86,7 +86,7 @@ public final class Package {
         self.testTargetSearchPath = testTargetSearchPath
     }
 
-    public enum Error: Swift.Error {
+    public enum Error: Swift.Error, Equatable {
         case noManifest(baseURL: String, version: String?)
     }
 }
@@ -114,14 +114,5 @@ extension Package: Hashable, Equatable {
     
     public static func == (lhs: Package, rhs: Package) -> Bool {
         return ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
-    }
-}
-
-extension Package.Error: Equatable {
-    public static func == (lhs: Package.Error, rhs: Package.Error) -> Bool {
-        switch (lhs, rhs) {
-        case let (.noManifest(lhs), .noManifest(rhs)):
-            return lhs.baseURL == rhs.baseURL && lhs.version == rhs.version
-        }
     }
 }
