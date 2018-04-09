@@ -606,7 +606,7 @@ class PackageBuilderTests: XCTestCase {
             ])
 
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("could not find target(s): Bam; use the 'path' property in the Swift 4 manifest to set a custom target path")
+            result.checkDiagnostic("could not find source files for target(s): Bam; use the 'path' property in the Swift 4 manifest to set a custom target path")
         }
     }
 
@@ -673,13 +673,13 @@ class PackageBuilderTests: XCTestCase {
             "/Foo.swift")
         var package = PackageDescription.Package(name: "pkg", targets: [.init(name: "Random")])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("could not find target(s): Random; use the 'path' property in the Swift 4 manifest to set a custom target path")
+            result.checkDiagnostic("could not find source files for target(s): Random; use the 'path' property in the Swift 4 manifest to set a custom target path")
         }
 
         // Reference an invalid dependency.
         package = PackageDescription.Package(name: "pkg", targets: [.init(name: "pkg", dependencies: ["Foo"])])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("could not find target(s): Foo; use the 'path' property in the Swift 4 manifest to set a custom target path")
+            result.checkDiagnostic("could not find source files for target(s): Foo; use the 'path' property in the Swift 4 manifest to set a custom target path")
         }
 
         // Reference self in dependencies.
@@ -1197,7 +1197,7 @@ final class PackageBuilderTester {
         if uncheckedDiagnostics.contains(str) {
             uncheckedDiagnostics.remove(str)
         } else {
-            XCTFail("\(result) did not have error: \(str) or is already checked", file: file, line: line)
+            XCTFail("\(result) did not have error: \"\(str)\" or is already checked", file: file, line: line)
         }
     }
 

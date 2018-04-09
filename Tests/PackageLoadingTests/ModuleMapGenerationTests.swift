@@ -184,7 +184,7 @@ final class ModuleMapResult {
         if diagnostics.contains(str) {
             diagnostics.remove(str)
         } else {
-            XCTFail("no error: \(str) or is already checked", file: file, line: line)
+            XCTFail("no error: \"\(str)\" or is already checked", file: file, line: line)
         }
     }
 

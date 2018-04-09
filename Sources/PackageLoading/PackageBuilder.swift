@@ -70,7 +70,7 @@ extension ModuleError: CustomStringConvertible {
             return "multiple targets named '\(name)'"
         case .modulesNotFound(let targets):
             let targets = targets.joined(separator: ", ")
-            return "could not find target(s): \(targets); use the 'path' property in the Swift 4 manifest to set a custom target path"
+            return "could not find source files for target(s): \(targets); use the 'path' property in the Swift 4 manifest to set a custom target path"
         case .invalidLayout(let type):
             return "package has unsupported layout; \(type)"
         case .invalidManifestConfig(let package, let message):
