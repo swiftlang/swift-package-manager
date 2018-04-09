@@ -482,7 +482,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 "/Foo.swift")
             let package = Package(name: "pkg", targets: [.target(name: "Random")])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("could not find target(s): Random; use the 'path' property in the Swift 4 manifest to set a custom target path")
+                result.checkDiagnostic("could not find source files for target(s): Random; use the 'path' property in the Swift 4 manifest to set a custom target path")
             }
         }
 
@@ -496,7 +496,7 @@ class PackageBuilderV4Tests: XCTestCase {
                     .target(name: "pkg", dependencies: [.target(name: "Foo")]),
                 ])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("could not find target(s): Foo; use the 'path' property in the Swift 4 manifest to set a custom target path")
+                result.checkDiagnostic("could not find source files for target(s): Foo; use the 'path' property in the Swift 4 manifest to set a custom target path")
             }
         }
 
@@ -516,7 +516,7 @@ class PackageBuilderV4Tests: XCTestCase {
             // Reference invalid target.
             let package = Package(name: "pkg", targets: [.target(name: "foo")])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("could not find target(s): foo; use the 'path' property in the Swift 4 manifest to set a custom target path")
+                result.checkDiagnostic("could not find source files for target(s): foo; use the 'path' property in the Swift 4 manifest to set a custom target path")
             }
         }
 
@@ -732,7 +732,7 @@ class PackageBuilderV4Tests: XCTestCase {
             )
 
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("could not find target(s): Bar; use the 'path' property in the Swift 4 manifest to set a custom target path")
+                result.checkDiagnostic("could not find source files for target(s): Bar; use the 'path' property in the Swift 4 manifest to set a custom target path")
             }
         }
 
@@ -752,7 +752,7 @@ class PackageBuilderV4Tests: XCTestCase {
             )
 
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("could not find target(s): BarTests; use the 'path' property in the Swift 4 manifest to set a custom target path")
+                result.checkDiagnostic("could not find source files for target(s): BarTests; use the 'path' property in the Swift 4 manifest to set a custom target path")
             }
 
             // We should be able to fix this by using custom paths.
