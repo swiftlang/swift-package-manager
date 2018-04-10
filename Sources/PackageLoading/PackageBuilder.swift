@@ -260,7 +260,7 @@ public final class PackageBuilder {
 
     /// Computes the special directory where targets are present or should be placed in future.
     private func findTargetSpecialDirs(_ targets: [Target]) -> (targetDir: String, testTargetDir: String) {
-        let predefinedDirs = findPredefinedTargetDirectory()
+        let predefinedDirs = findPredefinedTargetDirectory(for: manifest.package.targets.filter { $0.path == nil })
 
         // Select the preferred tests directory.
         var testTargetDir = PackageBuilder.predefinedTestDirectories[0]
@@ -439,28 +439,53 @@ public final class PackageBuilder {
     }
 
     /// Predefined source directories, in order of preference.
-    static let predefinedSourceDirectories = ["Sources", "Source", "src", "srcs"]
+    static let predefinedSourceDirectories = ["", "Sources", "Source", "src", "srcs"]
 
     /// Predefined test directories, in order of preference.
-    static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
-
-    /// Finds the predefined directories for regular and test targets.
-    private func findPredefinedTargetDirectory() -> (targetDir: String, testTargetDir: String) {
-        let targetDir = PackageBuilder.predefinedSourceDirectories.first(where: {
-            fileSystem.isDirectory(packagePath.appending(component: $0))
-        }) ?? PackageBuilder.predefinedSourceDirectories[0]
-
-        let testTargetDir = PackageBuilder.predefinedTestDirectories.first(where: {
-            fileSystem.isDirectory(packagePath.appending(component: $0))
-        }) ?? PackageBuilder.predefinedTestDirectories[0]
-
+    static let predefinedTestDirectories = ["Tests", "", "Sources", "Source", "src", "srcs"]
+    
+    /// Finds the predefined directories for regular and test targets based on the package targets.
+    private func findPredefinedTargetDirectory(for targets: [PackageDescription4.Target]) -> (targetDir: String, testTargetDir: String) {
+        /// Returns the pre-defined directory from the passed list which best suits for the given targets.
+        func predefinedDirectory(from predefinedDirectories: [String], for targets: [PackageDescription4.Target]) -> String {
+            let dir: String
+            
+            // Holds the list of pre-defined directories in which passed targets are located.
+            // This list is used later for detection of the right pre-defined directory based on the priority.
+            var targetsDirectories = [String]()
+            
+            for predefinedDirectory in predefinedDirectories {
+                for target in targets {
+                    let path = packagePath.appending(components: predefinedDirectory, target.name)
+                    if fileSystem.isDirectory(path) {
+                        targetsDirectories.append(predefinedDirectory)
+                    }
+                }
+            }
+            
+            if targetsDirectories.count > 0 {
+                // Sort based on the pre-defined directory priority.
+                targetsDirectories.sort {
+                    return predefinedDirectories.index(of: $0)! < predefinedDirectories.index(of: $1)!
+                }
+                dir = targetsDirectories[0]
+            } else {
+                dir = predefinedDirectories[0]
+            }
+            
+            return dir
+        }
+        
+        let targetDir = predefinedDirectory(from: PackageBuilder.predefinedSourceDirectories, for: targets.filter { !$0.isTest })
+        let testTargetDir = predefinedDirectory(from: PackageBuilder.predefinedTestDirectories, for: targets.filter { $0.isTest })
+        
         return (targetDir, testTargetDir)
     }
 
     /// Construct targets according to PackageDescription 4 conventions.
     fileprivate func constructV4Targets() throws -> [Target] {
-        // Select the correct predefined directory list.
-        let predefinedDirs = findPredefinedTargetDirectory()
+        // Select the correct predefined directory list for targets without the custom path.
+        let predefinedDirs = findPredefinedTargetDirectory(for: manifest.package.targets.filter { $0.path == nil })
 
         /// Returns the path of the given target.
         func findPath(for target: PackageDescription4.Target) throws -> AbsolutePath {

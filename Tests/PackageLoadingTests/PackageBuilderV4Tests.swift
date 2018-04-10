@@ -219,7 +219,7 @@ class PackageBuilderV4Tests: XCTestCase {
         package.targets[0].exclude = ["Tests"]
         PackageBuilderTester(package, in: fs) { result in
 
-            result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+            result.checkPredefinedPaths(target: "/", testTarget: "/Tests")
 
             result.checkModule("bar") { moduleResult in
                 moduleResult.check(c99name: "bar", type: .library)
@@ -271,50 +271,88 @@ class PackageBuilderV4Tests: XCTestCase {
     }
 
     func testTestsLayoutsv4() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/main.swift",
-            "/Tests/B/Foo.swift",
-            "/Tests/ATests/Foo.swift",
-            "/Tests/TheTestOfA/Foo.swift")
-
-        let package = Package(
-            name: "Foo",
-            targets: [
-                .target(name: "A"),
-                .testTarget(name: "TheTestOfA", dependencies: ["A"]),
-                .testTarget(name: "ATests"),
-                .testTarget(name: "B"),
-            ])
-
-        PackageBuilderTester(package, in: fs) { result in
-
-            result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
-
-            result.checkModule("A") { moduleResult in
-                moduleResult.check(c99name: "A", type: .executable)
-                moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
+        do {
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Sources/A/main.swift",
+                "/Tests/B/Foo.swift",
+                "/Tests/ATests/Foo.swift",
+                "/Tests/TheTestOfA/Foo.swift"
+            )
+            
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "A"),
+                    .testTarget(name: "TheTestOfA", dependencies: ["A"]),
+                    .testTarget(name: "ATests"),
+                    .testTarget(name: "B"),
+                ]
+            )
+            
+            PackageBuilderTester(package, in: fs) { result in
+                
+                result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+                
+                result.checkModule("A") { moduleResult in
+                    moduleResult.check(c99name: "A", type: .executable)
+                    moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
+                }
+                
+                result.checkModule("TheTestOfA") { moduleResult in
+                    moduleResult.check(c99name: "TheTestOfA", type: .test)
+                    moduleResult.checkSources(root: "/Tests/TheTestOfA", paths: "Foo.swift")
+                    moduleResult.check(dependencies: ["A"])
+                }
+                
+                result.checkModule("B") { moduleResult in
+                    moduleResult.check(c99name: "B", type: .test)
+                    moduleResult.checkSources(root: "/Tests/B", paths: "Foo.swift")
+                    moduleResult.check(dependencies: [])
+                }
+                
+                result.checkModule("ATests") { moduleResult in
+                    moduleResult.check(c99name: "ATests", type: .test)
+                    moduleResult.checkSources(root: "/Tests/ATests", paths: "Foo.swift")
+                    moduleResult.check(dependencies: [])
+                }
+                
+                result.checkProduct("FooPackageTests") { _ in }
+                result.checkProduct("A") { _ in }
             }
-
-            result.checkModule("TheTestOfA") { moduleResult in
-                moduleResult.check(c99name: "TheTestOfA", type: .test)
-                moduleResult.checkSources(root: "/Tests/TheTestOfA", paths: "Foo.swift")
-                moduleResult.check(dependencies: ["A"])
+        }
+        
+        do {
+            // Check that root directory works as espected.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/A/main.swift",
+                "/B/Foo.swift"
+            )
+            
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "A"),
+                    .testTarget(name: "B"),
+                ]
+            )
+            
+            PackageBuilderTester(package, in: fs) { result in
+                result.checkPredefinedPaths(target: "/", testTarget: "/")
+                
+                result.checkModule("A") { moduleResult in
+                    moduleResult.check(c99name: "A", type: .executable)
+                    moduleResult.checkSources(root: "/A", paths: "main.swift")
+                }
+                
+                result.checkModule("B") { moduleResult in
+                    moduleResult.check(c99name: "B", type: .test)
+                    moduleResult.checkSources(root: "/B", paths: "Foo.swift")
+                    moduleResult.check(dependencies: [])
+                }
+                
+                result.checkProduct("FooPackageTests") { _ in }
+                result.checkProduct("A") { _ in }
             }
-
-            result.checkModule("B") { moduleResult in
-                moduleResult.check(c99name: "B", type: .test)
-                moduleResult.checkSources(root: "/Tests/B", paths: "Foo.swift")
-                moduleResult.check(dependencies: [])
-            }
-
-            result.checkModule("ATests") { moduleResult in
-                moduleResult.check(c99name: "ATests", type: .test)
-                moduleResult.checkSources(root: "/Tests/ATests", paths: "Foo.swift")
-                moduleResult.check(dependencies: [])
-            }
-
-            result.checkProduct("FooPackageTests") { _ in }
-            result.checkProduct("A") { _ in }
         }
     }
 
@@ -735,6 +773,26 @@ class PackageBuilderV4Tests: XCTestCase {
                 result.checkDiagnostic("could not find source files for target(s): Bar; use the 'path' property in the Swift 4 manifest to set a custom target path")
             }
         }
+        
+        do {
+            // We should look only in one of the predefined search paths.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Bar/Bar.swift",
+                "/Source/Foo/Foo.swift"
+            )
+            
+            let package = Package(
+                name: "pkg",
+                targets: [
+                    .target(name: "Foo", dependencies: ["Bar"]),
+                    .target(name: "Bar"),
+                    ]
+            )
+            
+            PackageBuilderTester(package, in: fs) { result in
+                result.checkDiagnostic("could not find target(s): Foo; use the 'path' property in the Swift 4 manifest to set a custom target path")
+            }
+        }
 
         do {
             // We should look only in one of the predefined search paths.
@@ -765,6 +823,26 @@ class PackageBuilderV4Tests: XCTestCase {
                     moduleResult.check(c99name: "FooTests", type: .test)
                 }
                 result.checkProduct("pkgPackageTests") { _ in }
+            }
+        }
+        
+        do {
+            // We should look only in one of the predefined search paths.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Source/Foo/Foo.swift",
+                "/FooTests/Foo.swift",
+                "/Sources/BarTests/Foo.swift")
+            
+            let package = Package(
+                name: "pkg",
+                targets: [
+                    .testTarget(name: "BarTests"),
+                    .testTarget(name: "FooTests"),
+                    ]
+            )
+            
+            PackageBuilderTester(package, in: fs) { result in
+                result.checkDiagnostic("could not find target(s): BarTests; use the 'path' property in the Swift 4 manifest to set a custom target path")
             }
         }
     }
