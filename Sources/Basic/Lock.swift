@@ -63,12 +63,10 @@ public final class FileLock {
     /// Note: This method can throw if underlying POSIX methods fail.
     public func lock() throws {
         // Open the lock file.
-        let fp = SPMLibc.fopen(lockFile.asString, "w")
-        if fp == nil {
+        fd = SPMLibc.open(lockFile.asString, O_WRONLY | O_CREAT, 0644)
+        if fd == -1 {
             throw FileSystemError(errno: errno)
         }
-        // Save the fd to close and remove lock later.
-        fd = fileno(fp)
         // Aquire lock on the file.
         while true {
             if flock(fd!, LOCK_EX) == 0 {
