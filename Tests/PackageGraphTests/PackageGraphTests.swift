@@ -296,6 +296,41 @@ class PackageGraphTests: XCTestCase {
             result.check(diagnostic: "multiple targets named 'Foo'", behavior: .error, location: "'Dep2' /Dep2")
         }
     }
+    
+    func testDuplicateDependencies() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
+            "/Bar/Sources/Bar/source.swift"
+        )
+        
+        let diagnostics = DiagnosticsEngine()
+        
+        let g = loadMockPackageGraph4([
+            "/Bar": Package(
+                name: "Bar",
+                products: [
+                    .library(name: "Bar", targets: ["Bar"]),
+                    ],
+                targets: [
+                    .target(name: "Bar"),
+                    ]),
+            "/Foo": .init(
+                name: "Foo",
+                dependencies: [
+                    .package(url: "/Bar", from: "1.0.0"),
+                    .package(url: "/Bar", from: "1.0.2"),
+                    ],
+                targets: [
+                    .target(name: "Foo", dependencies: ["Bar"]),
+                    ]),
+            ], root: "/Foo", diagnostics: diagnostics, in: fs)
+        
+        XCTAssertEqual(g.rootPackages[0].dependencies.count, 1)
+        
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "dependency 'Bar' already exists; merging requirements to version 1.0.0", behavior: .warning)
+        }
+    }
 
     static var allTests = [
         ("testBasic", testBasic),
@@ -307,5 +342,6 @@ class PackageGraphTests: XCTestCase {
         ("testUnusedDependency", testUnusedDependency),
         ("testUnusedDependency2", testUnusedDependency2),
         ("testDuplicateInterPackageTargetNames", testDuplicateInterPackageTargetNames),
+        ("testDuplicateDependencies", testDuplicateDependencies),
     ]
 }

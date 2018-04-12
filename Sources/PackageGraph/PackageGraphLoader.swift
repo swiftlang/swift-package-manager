@@ -25,6 +25,27 @@ struct UnusedDependencyDiagnostic: DiagnosticData {
     public let dependencyName: String
 }
 
+public struct DuplicateDependencyDiagnostic: DiagnosticData, Swift.Error {
+    public static var id = DiagnosticID(
+        type: DuplicateDependencyDiagnostic.self,
+        name: "org.swift.diags.duplicate-dependency",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "dependency" <<< { "'\($0.dependencyName)'" } <<< "already exists;"
+            $0 <<< "merging requirements" <<< { $0.versionText }
+        })
+    
+    public let dependencyName: String
+    public let version: Version?
+    
+    private var versionText: String {
+        if let version = version {
+            return "to version \(version)"
+        }
+        return ""
+    }
+}
+
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no targets.
     case noModules(Package)
@@ -222,9 +243,21 @@ private func createResolvedPackages(
         let package = packageBuilder.package
 
         // Establish the manifest-declared package dependencies.
-        packageBuilder.dependencies = package.manifest.package.dependencies.compactMap({
+        let dependencies = package.manifest.package.dependencies.compactMap({
             packageMap[PackageReference.computeIdentity(packageURL: $0.url)]
         })
+        
+        // Detect duplicate dependencies
+        for duplicate in dependencies.findDuplicates() {
+            let diagnostic = DuplicateDependencyDiagnostic(
+                dependencyName: duplicate.package.name,
+                version: duplicate.package.manifest.version
+            )
+            diagnostics.emit(diagnostic)
+        }
+        
+        // Remove duplicate dependencies
+        packageBuilder.dependencies = Array(Set(dependencies))
 
         // Create target builders for each target in the package.
         let targetBuilders = package.targets.map(ResolvedTargetBuilder.init(target:))
