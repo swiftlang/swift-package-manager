@@ -40,9 +40,17 @@ class PosixTests: XCTestCase {
 
     func testExecutableRealpath() throws {
         var path = ""
+
+        // case: resolve absolute path
         XCTAssertNoThrow(path = try realpath(executable: CommandLine.arguments.first!))
         XCTAssertTrue(path.hasPrefix("/"))
 
+        // case: resolve relative path
+        try! chdir("/usr/bin")
+        XCTAssertNoThrow(path = try realpath(executable: "./swift"))
+        XCTAssertEqual(path, "/usr/bin/swift")
+
+        // case: resolve executable path from PATH
         XCTAssertNoThrow(path = try realpath(executable: "swift"))
         XCTAssertEqual(path, "/usr/bin/swift")
 

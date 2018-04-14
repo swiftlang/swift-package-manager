@@ -33,7 +33,7 @@ public func realpath(_ path: String) throws -> String {
  Resolves executable, both absolute and relative paths and referred from `PATH` environment variable and
  return the absolute pathname.
 
- All components in executable must exists when realpath(executable:) is called.
+ All components in executable must exist when realpath(executable:) is called.
 */
 public func realpath(executable: String) throws -> String {
     // when executable is an absolute path like `/usr/bin/swift`
