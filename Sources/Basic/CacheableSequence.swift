@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-/// Wrapper for caching an arbitrary sequnce.
+/// Wrapper for caching an arbitrary sequence.
 public final class CacheableSequence<T: Sequence>: Sequence {
     public typealias Element = T.Element
     public typealias Iterator = CacheableSequenceIterator<T>
