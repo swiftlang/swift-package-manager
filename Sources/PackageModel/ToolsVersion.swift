@@ -52,7 +52,7 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
     }
 
     /// The underlying backing store.
-    private let _version: Version
+    fileprivate let _version: Version
 
     /// Create an instance of tools version from a given string.
     public init?(string: String) {
@@ -92,5 +92,67 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
 
     public static func < (lhs: ToolsVersion, rhs: ToolsVersion) -> Bool {
         return lhs._version < rhs._version
+    }
+}
+
+/// Represents a Swift language version.
+public struct SwiftLanguageVersion: CustomStringConvertible, Comparable {
+
+    /// The raw value of the language version.
+    //
+    // This should be passed as a value to Swift compiler's -swift-version flag.
+    public let rawValue: String
+    
+    /// The underlying backing store.
+    private let _version: Version
+
+    /// Regex for parsing the Swift language version.
+    private static let regex = try! RegEx(pattern: "^(\\d+)(?:\\.(\\d+))?(?:\\.(\\d+))?$")
+
+    /// Create an instance of Swift language version from the given string.
+    ///
+    // The Swift language version is not officially fixed but we require it to
+    // be a valid SemVer-like string.
+    public init?(string: String) {
+        let parsedVersion = SwiftLanguageVersion.regex.matchGroups(in: string)
+        guard parsedVersion.count == 1, parsedVersion[0].count == 3 else {
+            return nil
+        }
+        let major = Int(parsedVersion[0][0])!
+        let minor = parsedVersion[0][1].isEmpty ? 0 : Int(parsedVersion[0][1])!
+        let patch = parsedVersion[0][2].isEmpty ? 0 : Int(parsedVersion[0][2])!
+
+        self.rawValue = string
+        self._version = Version(major, minor, patch)
+    }
+
+    // MARK: - CustomStringConvertible
+
+    public var description: String {
+        return rawValue
+    }
+
+    // MARK: - Comparable
+
+    public static func == (lhs: SwiftLanguageVersion, rhs: SwiftLanguageVersion) -> Bool {
+        return lhs._version == rhs._version
+    }
+
+    public static func < (lhs: SwiftLanguageVersion, rhs: SwiftLanguageVersion) -> Bool {
+        return lhs._version < rhs._version
+    }
+
+    // MAKR: - Compare with ToolsVersion
+
+    public static func == (lhs: SwiftLanguageVersion, rhs: ToolsVersion) -> Bool {
+        return lhs._version == rhs._version
+    }
+
+    public static func < (lhs: SwiftLanguageVersion, rhs: ToolsVersion) -> Bool {
+        return lhs._version < rhs._version
+    }
+
+    public static func <= (lhs: SwiftLanguageVersion, rhs: ToolsVersion) -> Bool {
+        return (lhs < rhs) || (lhs == rhs)
     }
 }
