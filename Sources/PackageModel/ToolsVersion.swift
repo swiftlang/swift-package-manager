@@ -98,6 +98,23 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
 /// Represents a Swift language version.
 public struct SwiftLanguageVersion: CustomStringConvertible, Comparable {
 
+    /// Swift language version 3.
+    public static let v3 = SwiftLanguageVersion(uncheckedString: "3")
+
+    /// Swift language version 4.
+    public static let v4 = SwiftLanguageVersion(uncheckedString: "4")
+    
+    /// Swift language version 4.2.
+    public static let v4_2 = SwiftLanguageVersion(uncheckedString: "4.2")
+
+    /// Swift language version 5.
+    public static let v5 = SwiftLanguageVersion(uncheckedString: "5")
+
+    /// The list of known Swift language versions.
+    public static let knownSwiftLanguageVersions = [
+        v3, v4, v4_2, v5,
+    ]
+
     /// The raw value of the language version.
     //
     // This should be passed as a value to Swift compiler's -swift-version flag.
@@ -124,6 +141,11 @@ public struct SwiftLanguageVersion: CustomStringConvertible, Comparable {
 
         self.rawValue = string
         self._version = Version(major, minor, patch)
+    }
+
+    /// Create an instance assuming the string is valid.
+    private init(uncheckedString string: String) {
+        self.init(string: string)!
     }
 
     // MARK: - CustomStringConvertible

@@ -204,11 +204,19 @@ extension Manifest.RawPackage {
         }
     }
 
-    public var swiftLanguageVersions: [Int]? {
+    public var swiftLanguageVersions: [SwiftLanguageVersion]? {
+        let swiftLanguageVersions: [Int]?
         switch self {
-        case .v3(let package): return package.swiftLanguageVersions
-        case .v4(let package): return package.swiftLanguageVersions
+        case .v3(let package): 
+            swiftLanguageVersions = package.swiftLanguageVersions
+        case .v4(let package): 
+            swiftLanguageVersions = package.swiftLanguageVersions
         }
+
+        // FIXME: We need to report an error if we are unable to create
+        // a language version object from the input.  The error checking
+        // probably belongs in the manifest loader or the package builder.
+        return swiftLanguageVersions?.map(String.init).compactMap(SwiftLanguageVersion.init(string:))
     }
 
     public var cLanguageStandard: PackageDescription4.CLanguageStandard? {

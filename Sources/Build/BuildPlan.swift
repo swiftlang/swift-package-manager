@@ -303,7 +303,7 @@ public final class SwiftTargetDescription {
     fileprivate var additionalFlags: [String] = []
 
     /// The swift version for this target.
-    var swiftVersion: Int {
+    var swiftVersion: SwiftLanguageVersion {
         return (target.underlyingTarget as! SwiftTarget).swiftVersion
     }
 
@@ -322,7 +322,7 @@ public final class SwiftTargetDescription {
     /// The arguments needed to compile this target.
     public func compileArguments() -> [String] {
         var args = [String]()
-        args += ["-swift-version", String(swiftVersion)]
+        args += ["-swift-version", swiftVersion.rawValue]
         args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
         args += ["-j\(SwiftCompilerTool.numThreads)"]

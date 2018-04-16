@@ -675,7 +675,7 @@ class PackageBuilderV4Tests: XCTestCase {
             swiftLanguageVersions: [3, 4])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("foo") { moduleResult in
-                moduleResult.check(swiftVersion: 4)
+                moduleResult.check(swiftVersion: "4")
             }
             result.checkProduct("foo") { _ in }
         }
@@ -683,7 +683,7 @@ class PackageBuilderV4Tests: XCTestCase {
         package.swiftLanguageVersions = [3]
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("foo") { moduleResult in
-                moduleResult.check(swiftVersion: 3)
+                moduleResult.check(swiftVersion: "3")
             }
             result.checkProduct("foo") { _ in }
         }
@@ -691,7 +691,7 @@ class PackageBuilderV4Tests: XCTestCase {
         package.swiftLanguageVersions = [4]
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("foo") { moduleResult in
-                moduleResult.check(swiftVersion: 4)
+                moduleResult.check(swiftVersion: "4")
             }
             result.checkProduct("foo") { _ in }
         }
@@ -699,7 +699,7 @@ class PackageBuilderV4Tests: XCTestCase {
         package.swiftLanguageVersions = nil
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("foo") { moduleResult in
-                moduleResult.check(swiftVersion: 4)
+                moduleResult.check(swiftVersion: "4")
             }
             result.checkProduct("foo") { _ in }
         }
@@ -709,9 +709,9 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkDiagnostic("package 'pkg' supported Swift language versions is empty")
         }
 
-        package.swiftLanguageVersions = [500, 600]
+        package.swiftLanguageVersions = [5, 6]
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("package \'pkg\' not compatible with current tools version (4); it supports: 500, 600")
+            result.checkDiagnostic("package \'pkg\' not compatible with current tools version (4.2.0); it supports: 5, 6")
         }
     }
 

@@ -57,7 +57,7 @@ public enum ModuleError: Swift.Error {
     case mustSupportSwift3Compiler(package: String)
 
     /// The tools version in use is not compatible with target's sources.
-    case incompatibleToolsVersions(package: String, required: [Int], current: Int)
+    case incompatibleToolsVersions(package: String, required: [SwiftLanguageVersion], current: ToolsVersion)
 
     /// The target path is outside the package.
     case targetOutsidePackage(package: String, target: String)
@@ -505,7 +505,7 @@ public final class PackageBuilder {
         // that its sources are compatible with Swift 3 compiler since this
         // manifest is allowed to be picked by Swift 3 tools during resolution.
         if let swiftLanguageVersions = manifest.package.swiftLanguageVersions {
-            guard swiftLanguageVersions.contains(ManifestVersion.three.rawValue) else {
+            guard swiftLanguageVersions.contains(.v3) else {
                 throw ModuleError.mustSupportSwift3Compiler(package: manifest.name)
             }
         }
@@ -805,31 +805,33 @@ public final class PackageBuilder {
     }
 
     /// Computes the swift version to use for this manifest.
-    private func swiftVersion() throws -> Int {
+    private func swiftVersion() throws -> SwiftLanguageVersion {
         if let swiftVersion = _swiftVersion {
             return swiftVersion
         }
-        let computedSwiftVersion: Int
+
+        let computedSwiftVersion: SwiftLanguageVersion
+
         // Figure out the swift version from declared list in the manifest.
         if let swiftLanguageVersions = manifest.package.swiftLanguageVersions {
-            let majorToolsVersion = ToolsVersion.currentToolsVersion.major
-            guard let swiftVersion = swiftLanguageVersions.sorted(by: >).first(where: { $0 <= majorToolsVersion }) else {
+            guard let swiftVersion = swiftLanguageVersions.sorted(by: >).first(where: { $0 <= ToolsVersion.currentToolsVersion }) else {
                 throw ModuleError.incompatibleToolsVersions(
-                    package: manifest.name, required: swiftLanguageVersions, current: majorToolsVersion)
+                    package: manifest.name, required: swiftLanguageVersions, current: .currentToolsVersion)
             }
             computedSwiftVersion = swiftVersion
         } else if isVersion3Manifest {
             // Otherwise, use the version depending on the manifest version.
-            // FIXME: This feels weird, we should store the reference of the tools
-            // version inside the manifest so we can return the major version directly.
-            computedSwiftVersion = ManifestVersion.three.rawValue
+            //
+            // FIXME: We need to store the tools version in the Manifest so we can
+            // compute the right language version for this package.
+            computedSwiftVersion = .v3
         } else {
-            computedSwiftVersion = ManifestVersion.four.rawValue
+            computedSwiftVersion = .v4
         }
-        _swiftVersion = computedSwiftVersion 
+        _swiftVersion = computedSwiftVersion
         return computedSwiftVersion
     }
-    private var _swiftVersion: Int? = nil
+    private var _swiftVersion: SwiftLanguageVersion? = nil
 
     /// The set of the sources computed so far.
     private var allSources = Set<AbsolutePath>()
