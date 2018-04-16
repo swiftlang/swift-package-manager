@@ -141,7 +141,7 @@ class PackageBuilderTests: XCTestCase {
             result.checkModule(name) { moduleResult in
                 moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/", paths: "main.swift", "Bar.swift")
-                moduleResult.check(swiftVersion: 3)
+                moduleResult.check(swiftVersion: "3")
             }
             result.checkProduct(name) { _ in }
         }
@@ -181,7 +181,7 @@ class PackageBuilderTests: XCTestCase {
         var package = Package(name: "pkg", swiftLanguageVersions: [3, 4])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("foo") { moduleResult in
-                moduleResult.check(swiftVersion: 4)
+                moduleResult.check(swiftVersion: "4")
             }
             result.checkProduct("foo") { _ in }
         }
@@ -189,7 +189,7 @@ class PackageBuilderTests: XCTestCase {
         package = Package(name: "pkg", swiftLanguageVersions: [3])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("foo") { moduleResult in
-                moduleResult.check(swiftVersion: 3)
+                moduleResult.check(swiftVersion: "3")
             }
             result.checkProduct("foo") { _ in }
         }
@@ -202,7 +202,7 @@ class PackageBuilderTests: XCTestCase {
         package = Package(name: "pkg")
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("foo") { moduleResult in
-                moduleResult.check(swiftVersion: 3)
+                moduleResult.check(swiftVersion: "3")
             }
             result.checkProduct("foo") { _ in }
         }
@@ -1300,11 +1300,11 @@ final class PackageBuilderTester {
             }
         }
 
-        func check(swiftVersion: Int, file: StaticString = #file, line: UInt = #line) {
+        func check(swiftVersion: String, file: StaticString = #file, line: UInt = #line) {
             guard case let swiftTarget as SwiftTarget = target else {
                 return XCTFail("\(target) is not a swift target", file: file, line: line)
             }
-            XCTAssertEqual(swiftVersion, swiftTarget.swiftVersion, file: file, line: line)
+            XCTAssertEqual(SwiftLanguageVersion(string: swiftVersion)!, swiftTarget.swiftVersion, file: file, line: line)
         }
     }
 }

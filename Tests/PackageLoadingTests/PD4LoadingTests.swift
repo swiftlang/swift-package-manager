@@ -150,7 +150,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.package.swiftLanguageVersions ?? [], [3, 4])
+            XCTAssertEqual(manifest.package.swiftLanguageVersions?.map({$0.rawValue}), ["3", "4"])
         }
 
         stream = BufferedOutputByteStream()
@@ -162,7 +162,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.package.swiftLanguageVersions!, [])
+            XCTAssertEqual(manifest.package.swiftLanguageVersions, [])
         }
 
         stream = BufferedOutputByteStream()
@@ -172,7 +172,7 @@ class PackageDescription4LoadingTests: XCTestCase {
                name: "Foo")
             """
         loadManifest(stream.bytes) { manifest in
-            XCTAssert(manifest.package.swiftLanguageVersions == nil)
+            XCTAssertEqual(manifest.package.swiftLanguageVersions, nil)
         }
     }
 

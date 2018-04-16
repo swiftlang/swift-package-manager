@@ -76,13 +76,14 @@ public class SwiftTarget: Target {
             return target.type == .test
         }).flatMap({ $0 as? SwiftTarget })
 
-        self.swiftVersion = swiftTestTarget?.swiftVersion ?? ToolsVersion.currentToolsVersion.major
+        // FIXME: We need to select the latest version that can satisfy the current tools version.
+        self.swiftVersion = swiftTestTarget?.swiftVersion ?? .v4
         let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
         super.init(name: name, type: .executable, sources: sources, dependencies: dependencies)
     }
 
     /// The swift version of this target.
-    public let swiftVersion: Int
+    public let swiftVersion: SwiftLanguageVersion
 
     public init(
         name: String,
@@ -90,7 +91,7 @@ public class SwiftTarget: Target {
         sources: Sources,
         dependencies: [Target] = [],
         productDependencies: [(name: String, package: String?)] = [],
-        swiftVersion: Int
+        swiftVersion: SwiftLanguageVersion
     ) {
         let type: Kind = isTest ? .test : sources.computeTargetType()
         self.swiftVersion = swiftVersion
