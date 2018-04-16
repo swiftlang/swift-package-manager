@@ -303,7 +303,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         binder.bind(
             option: parser.add(option: "--no-static-swift-stdlib", kind: Bool.self,
-                usage: "Do not link Swift stdlib statically"),
+                usage: "Do not link Swift stdlib statically [default]"),
             to: { $0.shouldLinkStaticSwiftStdlib = !$1 })
 
         binder.bind(
