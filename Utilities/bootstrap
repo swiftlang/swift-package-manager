@@ -632,6 +632,7 @@ def build_runtimes(targets, sandbox_path, args):
         target_copy = copy.copy(target)
         target_copy.name = 'PackageDescription'
         target_copy.release = args.release
+        target_copy.swiftflags = ["-DPACKAGE_DESCRIPTION_%s" % (version)]
         build = llbuild(
                 os.path.join(sandbox_path, "runtimes", version), [target_copy], args)
         build.create_manifest()

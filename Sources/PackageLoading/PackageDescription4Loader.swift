@@ -66,10 +66,10 @@ extension PackageDescription4.Package {
         }
 
         // Parse the compatible swift versions.
-        var swiftLanguageVersions: [Int]? = nil
+        var swiftLanguageVersions: [String]? = nil
         if case .array(let array)? = package["swiftLanguageVersions"] {
             swiftLanguageVersions = array.map({
-                guard case .int(let value) = $0 else { fatalError("swiftLanguageVersions contains non int element") }
+                guard case .string(let value) = $0 else { fatalError("swiftLanguageVersions contains non string element") }
                 return value
             })
         }
@@ -96,17 +96,18 @@ extension PackageDescription4.Package {
             }
         }
 
-        return PackageDescription4.Package(
+        let p = PackageDescription4.Package(
             name: name,
             pkgConfig: pkgConfig,
             providers: providers,
             products: products,
             dependencies: dependencies,
             targets: targets,
-            swiftLanguageVersions: swiftLanguageVersions,
             cLanguageStandard: cLanguageStandard,
             cxxLanguageStandard: cxxLanguageStandard
         )
+        p.swiftLanguageVersions = swiftLanguageVersions
+        return p
     }
 }
 

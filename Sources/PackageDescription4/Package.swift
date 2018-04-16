@@ -61,8 +61,16 @@ public final class Package {
     /// The list of dependencies.
     public var dependencies: [Dependency]
 
+  #if PACKAGE_DESCRIPTION_4
     /// The list of swift versions, this package is compatible with.
     public var swiftLanguageVersions: [Int]?
+  #else
+    // The public API is an Int array but we will use String internally to
+    // allow storing different types in the module when its loaded into SwiftPM.
+    // This should go away in future once we stop using the same modules
+    // internally and as the runtime.
+    public var swiftLanguageVersions: [String]?
+  #endif
 
     /// The C language standard to use for all C targets in this package.
     public var cLanguageStandard: CLanguageStandard?
@@ -88,7 +96,14 @@ public final class Package {
         self.products = products
         self.dependencies = dependencies
         self.targets = targets
+
+      #if PACKAGE_DESCRIPTION_4
+        /// The list of swift versions, this package is compatible with.
         self.swiftLanguageVersions = swiftLanguageVersions
+      #else
+        self.swiftLanguageVersions = swiftLanguageVersions?.map(String.init)
+      #endif
+
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
 
@@ -172,9 +187,17 @@ extension Package {
         if let providers = self.providers {
             dict["providers"] = .array(providers.map({ $0.toJSON() }))
         }
-        if let swiftLanguageVersions = self.swiftLanguageVersions {
-            dict["swiftLanguageVersions"] = .array(swiftLanguageVersions.map(JSON.int))
+
+        let swiftLanguageVersionsString: [String]?
+      #if PACKAGE_DESCRIPTION_4
+        swiftLanguageVersionsString = self.swiftLanguageVersions?.map(String.init)
+      #else
+        swiftLanguageVersionsString = self.swiftLanguageVersions
+      #endif
+        if let swiftLanguageVersions = swiftLanguageVersionsString {
+            dict["swiftLanguageVersions"] = .array(swiftLanguageVersions.map(JSON.string))
         }
+
         dict["cLanguageStandard"] = cLanguageStandard?.toJSON() ?? .null
         dict["cxxLanguageStandard"] = cxxLanguageStandard?.toJSON() ?? .null
         return .dictionary(dict)

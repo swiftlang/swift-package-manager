@@ -680,7 +680,7 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkProduct("foo") { _ in }
         }
 
-        package.swiftLanguageVersions = [3]
+        package.swiftLanguageVersions = ["3"]
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("foo") { moduleResult in
                 moduleResult.check(swiftVersion: "3")
@@ -688,7 +688,7 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkProduct("foo") { _ in }
         }
 
-        package.swiftLanguageVersions = [4]
+        package.swiftLanguageVersions = ["4"]
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("foo") { moduleResult in
                 moduleResult.check(swiftVersion: "4")
@@ -709,7 +709,7 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkDiagnostic("package 'pkg' supported Swift language versions is empty")
         }
 
-        package.swiftLanguageVersions = [5, 6]
+        package.swiftLanguageVersions = ["5", "6"]
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("package \'pkg\' not compatible with current tools version (4.2.0); it supports: 5, 6")
         }
