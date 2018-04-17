@@ -56,7 +56,7 @@ public extension ManifestResourceProvider {
 extension ToolsVersion {
     /// Returns the manifest version for this tools version.
     public var manifestVersion: ManifestVersion {
-        return major == 3 ? .three : .four
+        return major == 3 ? .v3 : .v4
     }
 }
 
@@ -149,7 +149,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         path inputPath: AbsolutePath,
         baseURL: String,
         version: Version?,
-        manifestVersion: ManifestVersion = .three,
+        manifestVersion: ManifestVersion = .v3,
         fileSystem: FileSystem? = nil
     ) throws -> Manifest {
         // If we were given a file system, load via a temporary file.
@@ -191,7 +191,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // Load the correct version from JSON.
         switch manifestVersion {
-        case .three:
+        case .v3:
             let pd = try loadPackageDescription(json, baseURL: baseURL)
             manifest = Manifest(
                 path: inputPath,
@@ -201,7 +201,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 version: version,
                 interpreterFlags: parseResult.interpreterFlags)
 
-        case .four:
+        case .v4:
             let package = try loadPackageDescription4(json, baseURL: baseURL)
             manifest = Manifest(
                 path: inputPath,
