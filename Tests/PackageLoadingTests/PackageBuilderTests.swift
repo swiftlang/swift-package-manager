@@ -1158,7 +1158,16 @@ final class PackageBuilderTester {
     ) {
         let diagnostics = DiagnosticsEngine()
         do {
-            let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil)
+            // FIXME: This is not very correct and is expected to be addressed when we kill
+            // merge the two different PackageDescription.
+            let manifestVersion: ManifestVersion
+            switch package {
+            case .v3:
+                manifestVersion = .v3
+            case .v4:
+                manifestVersion = .v4
+            }
+            let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil, manifestVersion: manifestVersion)
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
                 manifest: manifest, path: path, fileSystem: fs, diagnostics: diagnostics,

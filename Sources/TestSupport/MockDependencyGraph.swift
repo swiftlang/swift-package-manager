@@ -146,7 +146,8 @@ public struct MockManifestGraph {
             package: .v3(PackageDescription.Package(
                 name: "Root",
                 dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: rootDeps))),
-            version: nil
+            version: nil,
+            manifestVersion: .v3
         )
 
         // Create the manifests from mock packages.
@@ -160,7 +161,9 @@ public struct MockManifestGraph {
                     dependencies: MockManifestGraph.createDependencies(
                         repos: repos,
                         dependencies: package.dependencies))),
-                version: package.version)
+                version: package.version,
+                manifestVersion: .v3
+            )
             return (MockManifestLoader.Key(url: url, version: package.version), manifest)
         }))
         // Add the root manifest.

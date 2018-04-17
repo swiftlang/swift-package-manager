@@ -819,14 +819,24 @@ public final class PackageBuilder {
                     package: manifest.name, required: swiftLanguageVersions, current: .currentToolsVersion)
             }
             computedSwiftVersion = swiftVersion
-        } else if isVersion3Manifest {
+        } else {
             // Otherwise, use the version depending on the manifest version.
             //
-            // FIXME: We need to store the tools version in the Manifest so we can
-            // compute the right language version for this package.
-            computedSwiftVersion = .v3
-        } else {
-            computedSwiftVersion = .v4
+            // FIXME: This is not very scalable. We need to store the tools
+            // version in the manifest and then use that to compute the right
+            // Swift version instead of relying on the manifest version.  The
+            // manifest version is just the version that was used to load the
+            // manifest and shouldn't contribute to what Swift version is
+            // chosen. For e.g., we might have a new manifest version 4.3, but
+            // the language version should still be 4.2.
+            switch manifest.manifestVersion {
+            case .v3:
+                computedSwiftVersion = .v3
+            case .v4:
+                computedSwiftVersion = .v4
+            case .v4_2:
+                computedSwiftVersion = .v4_2
+            }
         }
         _swiftVersion = computedSwiftVersion
         return computedSwiftVersion
