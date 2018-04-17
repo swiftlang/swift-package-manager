@@ -33,7 +33,7 @@ class PackageDescription4LoadingTests: XCTestCase {
         let m = try manifestLoader.load(
             package: AbsolutePath.root,
             baseURL: AbsolutePath.root.asString,
-            manifestVersion: .four,
+            manifestVersion: .v4,
             fileSystem: fs)
         if case .v4 = m.package {} else {
             return XCTFail("Invalid manfiest version")
@@ -63,7 +63,7 @@ class PackageDescription4LoadingTests: XCTestCase {
 
         for version in threeVersions {
             let toolsVersion = ToolsVersion(string: version)!
-            XCTAssertEqual(toolsVersion.manifestVersion, .three)
+            XCTAssertEqual(toolsVersion.manifestVersion, .v3)
         }
 
         let fourVersions = [
@@ -72,7 +72,7 @@ class PackageDescription4LoadingTests: XCTestCase {
 
         for version in fourVersions {
             let toolsVersion = ToolsVersion(string: version)!
-            XCTAssertEqual(toolsVersion.manifestVersion, .four)
+            XCTAssertEqual(toolsVersion.manifestVersion, .v4)
         }
     }
 
@@ -87,7 +87,7 @@ class PackageDescription4LoadingTests: XCTestCase {
 
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            XCTAssertEqual(manifest.manifestVersion, .four)
+            XCTAssertEqual(manifest.manifestVersion, .v4)
             XCTAssertEqual(manifest.package.targets, [])
             XCTAssertEqual(manifest.package.dependencies, [])
             let flags = manifest.interpreterFlags.joined(separator: " ")
@@ -385,7 +385,7 @@ class PackageDescription4LoadingTests: XCTestCase {
 
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            XCTAssertEqual(manifest.manifestVersion, .four)
+            XCTAssertEqual(manifest.manifestVersion, .v4)
             XCTAssertEqual(manifest.package.targets, [])
             XCTAssertEqual(manifest.package.dependencies, [])
         }

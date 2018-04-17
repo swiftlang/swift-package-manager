@@ -56,7 +56,7 @@ class ManifestTests: XCTestCase {
         // Check a trivial manifest.
         loadManifest("trivial-manifest.swift") { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            XCTAssertEqual(manifest.manifestVersion, .three)
+            XCTAssertEqual(manifest.manifestVersion, .v3)
             XCTAssertEqual(manifest.package.targets, [])
             XCTAssertEqual(manifest.package.dependencies, [])
         }
@@ -174,7 +174,7 @@ class ManifestTests: XCTestCase {
                     bytes: bogusManifest)
             }
             // Check we can load the repository.
-            let manifest = try manifestLoader.load(package: root, baseURL: root.asString, manifestVersion: .three, fileSystem: fs)
+            let manifest = try manifestLoader.load(package: root, baseURL: root.asString, manifestVersion: .v3, fileSystem: fs)
             XCTAssertEqual(manifest.name, "Trivial")
         }
     }

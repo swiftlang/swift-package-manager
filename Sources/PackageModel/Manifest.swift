@@ -14,9 +14,9 @@ import PackageDescription4
 import Utility
 
 /// The supported manifest versions.
-public enum ManifestVersion: Int {
-    case three = 3
-    case four
+public enum ManifestVersion: String {
+    case v3 = "3"
+    case v4 = "4"
 }
 
 /**
@@ -84,8 +84,8 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
     /// The manifest version.
     public var manifestVersion: ManifestVersion {
         switch package {
-        case .v3: return .three
-        case .v4: return .four
+        case .v3: return .v3
+        case .v4: return .v4
         }
     }
 
