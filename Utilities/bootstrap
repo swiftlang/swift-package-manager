@@ -625,6 +625,7 @@ def build_runtimes(targets, sandbox_path, args):
     runtimes = {}
     runtimes['3'] = target_map['PackageDescription']
     runtimes['4'] = target_map['PackageDescription4']
+    runtimes['4_2'] = target_map['PackageDescription4']
 
     built_runtimes = {}
     for version, target in runtimes.items():

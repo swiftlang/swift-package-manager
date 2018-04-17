@@ -38,6 +38,38 @@ public enum CXXLanguageStandard: String {
     case gnucxx1z = "gnu++1z"
 }
 
+#if PACKAGE_DESCRIPTION_4_2
+/// Represents the version of the Swift language that should be used for
+/// compiling Swift sources in the package.
+public enum SwiftVersion {
+    case v3
+    case v4
+    case v4_2
+
+    /// User-defined value of Swift version.
+    ///
+    /// The value is passed as-is to Swift compiler's `-swift-version` flag.
+    case version(String)
+}
+
+extension SwiftVersion {
+    func toString() -> String {
+        let value: String
+        switch self {
+        case .v3:
+            value = "3"
+        case .v4:
+            value = "4"
+        case .v4_2:
+            value = "4.2"
+        case .version(let v):
+            value = v
+        }
+        return value
+    }
+}
+#endif
+
 extension CLanguageStandard {
     func toJSON() -> JSON {
         return .string(self.rawValue)

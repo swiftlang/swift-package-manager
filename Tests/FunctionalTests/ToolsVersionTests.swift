@@ -78,7 +78,7 @@ class ToolsVersionTests: XCTestCase {
                     """
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set-current"], packagePath: primaryPath).chomp()
+                ["tools-version", "--set", "4.0"], packagePath: primaryPath).chomp()
 
             // Build the primary package.
             _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
@@ -109,7 +109,7 @@ class ToolsVersionTests: XCTestCase {
                     """
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set-current"], packagePath: primaryPath).chomp()
+                ["tools-version", "--set", "4.0"], packagePath: primaryPath).chomp()
 
             do {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
@@ -117,7 +117,7 @@ class ToolsVersionTests: XCTestCase {
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTAssertTrue(
                     stderr.contains("package 'Primary' not compatible with current tools version (") &&
-                    stderr.contains("); it supports: 1000\n"))
+                    stderr.contains("); it supports: 1000\n"), stderr)
             }
 
              try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
@@ -131,7 +131,7 @@ class ToolsVersionTests: XCTestCase {
                     """
              }
              _ = try SwiftPMProduct.SwiftPackage.execute(
-                 ["tools-version", "--set-current"], packagePath: primaryPath).chomp()
+                 ["tools-version", "--set", "4.0"], packagePath: primaryPath).chomp()
              _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
         }
     }

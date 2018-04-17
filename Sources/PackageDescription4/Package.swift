@@ -64,6 +64,9 @@ public final class Package {
   #if PACKAGE_DESCRIPTION_4
     /// The list of swift versions, this package is compatible with.
     public var swiftLanguageVersions: [Int]?
+  #elseif PACKAGE_DESCRIPTION_4_2
+    /// The list of swift versions, this package is compatible with.
+    public var swiftLanguageVersions: [SwiftVersion]?
   #else
     // The public API is an Int array but we will use String internally to
     // allow storing different types in the module when its loaded into SwiftPM.
@@ -78,6 +81,31 @@ public final class Package {
     /// The C++ language standard to use for all C++ targets in this package.
     public var cxxLanguageStandard: CXXLanguageStandard?
 
+  #if PACKAGE_DESCRIPTION_4_2
+    /// Construct a package.
+    public init(
+        name: String,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProvider]? = nil,
+        products: [Product] = [],
+        dependencies: [Dependency] = [],
+        targets: [Target] = [],
+        swiftLanguageVersions: [SwiftVersion]? = nil,
+        cLanguageStandard: CLanguageStandard? = nil,
+        cxxLanguageStandard: CXXLanguageStandard? = nil
+    ) {
+        self.name = name
+        self.pkgConfig = pkgConfig
+        self.providers = providers
+        self.products = products
+        self.dependencies = dependencies
+        self.targets = targets
+        self.swiftLanguageVersions = swiftLanguageVersions
+        self.cLanguageStandard = cLanguageStandard
+        self.cxxLanguageStandard = cxxLanguageStandard
+        registerExitHandler()
+    }
+  #else
     /// Construct a package.
     public init(
         name: String,
@@ -100,13 +128,19 @@ public final class Package {
       #if PACKAGE_DESCRIPTION_4
         /// The list of swift versions, this package is compatible with.
         self.swiftLanguageVersions = swiftLanguageVersions
+      #elseif PACKAGE_DESCRIPTION_4_2
+        self.swiftLanguageVersions = swiftLanguageVersions?.map(String.init).map(SwiftVersion.version)
       #else
         self.swiftLanguageVersions = swiftLanguageVersions?.map(String.init)
       #endif
 
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
+        registerExitHandler()
+    }
+  #endif
 
+    private func registerExitHandler() {
         // Add custom exit handler to cause package to be dumped at exit, if
         // requested.
         //
@@ -191,6 +225,8 @@ extension Package {
         let swiftLanguageVersionsString: [String]?
       #if PACKAGE_DESCRIPTION_4
         swiftLanguageVersionsString = self.swiftLanguageVersions?.map(String.init)
+      #elseif PACKAGE_DESCRIPTION_4_2
+        swiftLanguageVersionsString = self.swiftLanguageVersions?.map({ $0.toString() })
       #else
         swiftLanguageVersionsString = self.swiftLanguageVersions
       #endif

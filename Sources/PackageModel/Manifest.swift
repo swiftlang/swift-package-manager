@@ -17,6 +17,22 @@ import Utility
 public enum ManifestVersion: String {
     case v3 = "3"
     case v4 = "4"
+    case v4_2 = "4_2"
+
+    /// The Swift language version to use when parsing the manifest file.
+    public var swiftLanguageVersion: SwiftLanguageVersion {
+        switch self {
+        case .v3: return .v3
+        case .v4: return .v4
+
+        // To temporarily keep SwiftPM's tests compatible with Swift 4.1.
+      #if swift(>=4.1.50)
+        case .v4_2: return .v4_2
+      #else
+        case .v4_2: return .v4
+      #endif
+        }
+    }
 }
 
 /**
@@ -82,12 +98,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
     }
 
     /// The manifest version.
-    public var manifestVersion: ManifestVersion {
-        switch package {
-        case .v3: return .v3
-        case .v4: return .v4
-        }
-    }
+    public let manifestVersion: ManifestVersion
 
     /// The flags that were used to interprete the manifest.
     public let interpreterFlags: [String]
@@ -98,7 +109,8 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
         package: RawPackage,
         legacyProducts: [PackageDescription.Product] = [],
         version: Version?,
-        interpreterFlags: [String] = []
+        interpreterFlags: [String] = [],
+        manifestVersion: ManifestVersion
     ) {
         if case .v4 = package {
             precondition(legacyProducts.isEmpty, "Legacy products are not supported in v4 manifest.")
@@ -109,6 +121,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
         self.legacyProducts = legacyProducts
         self.version = version
         self.interpreterFlags = interpreterFlags
+        self.manifestVersion = manifestVersion
     }
 
     public var description: String {

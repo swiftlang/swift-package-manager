@@ -67,12 +67,21 @@ class PackageDescription4LoadingTests: XCTestCase {
         }
 
         let fourVersions = [
-            "2.0.0", "4.0.0", "4.0.10", "5.1.0", "6.1.100", "4.3",
+            "4.0.0", "4.0.10", "4.1", "4.1.999", "4.1.0",
         ]
 
         for version in fourVersions {
             let toolsVersion = ToolsVersion(string: version)!
-            XCTAssertEqual(toolsVersion.manifestVersion, .v4)
+            XCTAssertEqual(toolsVersion.manifestVersion, .v4, "version: \(version)")
+        }
+
+        let fourTwoVersions = [
+            "4.2.0", "4.2.1", "5.1.0", "6.1.100", "4.3", "5.0.0",
+        ]
+
+        for version in fourTwoVersions {
+            let toolsVersion = ToolsVersion(string: version)!
+            XCTAssertEqual(toolsVersion.manifestVersion, .v4_2)
         }
     }
 
