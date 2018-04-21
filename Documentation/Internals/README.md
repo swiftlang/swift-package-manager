@@ -5,3 +5,7 @@ This directory contains documentation on the engineering design decisions and in
 * [Swift-based Manifest Format](SwiftBasedManifestFormat.md)
 
 This document explains our motivation in choosing a Swift-based manifest format, and the exact behavior we intend to support.
+
+* [Makefile Generation Support](MakefileSupport.md)
+
+This document explains the Makefile support provided by SwiftPM.

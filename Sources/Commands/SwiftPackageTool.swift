@@ -56,6 +56,20 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .clean:
             try getActiveWorkspace().clean(with: diagnostics)
 
+        case .internalTools:
+            switch options.internalToolsMode {
+            case .default:
+                print("Please specify a mode; use --help to list all modes")
+
+            case .generateMakefile:
+                let graph = try loadPackageGraph()
+                let packageRoot = try getPackageRoot()
+                let makefilePath = packageRoot.appending(
+                    components: "swift-ci", "Makefile")
+                let generator = MakefileGenerator(graph, packageRoot: packageRoot)
+                try generator.generateMakefile(at: makefilePath)
+            }
+
         case .reset:
             try getActiveWorkspace().reset(with: diagnostics)
 
@@ -243,6 +257,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
         parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
 
+        let internalToolsParser = parser.add(subparser: PackageMode.internalTools.rawValue, overview: "")
+        binder.bind(
+            option: internalToolsParser.add(
+                option: "--generate-makefile", kind: Bool.self,
+                usage: "Generate Makefile for the package"),
+            to: { if $1 { $0.internalToolsMode = .generateMakefile } })
+
         let initPackageParser = parser.add(
             subparser: PackageMode.initPackage.rawValue,
             overview: "Initialize a new package")
@@ -406,12 +427,19 @@ public class PackageToolOptions: ToolOptions {
         case setCurrent
     }
     var toolsVersionMode: ToolsVersionMode = .display
+
+    enum InternalToolsMode {
+        case generateMakefile
+        case `default`
+    }
+    var internalToolsMode: InternalToolsMode = .default
 }
 
 public enum PackageMode: String, StringEnumArgument {
     case clean
     case describe
     case dumpPackage = "dump-package"
+    case internalTools = "__internal-tools"
     case edit
     case fetch
     case generateXcodeproj = "generate-xcodeproj"

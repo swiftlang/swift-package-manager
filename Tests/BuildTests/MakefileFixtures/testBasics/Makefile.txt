@@ -1,0 +1,243 @@
+# Follow POSIX standards.
+.POSIX:
+
+# Disable all inference rules.
+.SUFFIXES:
+
+# Compute platform specific variables.
+ifeq ($(shell uname -s), Darwin)
+  CC := $(shell xcrun --sdk macosx --find clang)
+  SDKROOT := $(shell xcrun --sdk macosx --show-sdk-path)
+  SWIFT_EXEC := $(shell xcrun --sdk macosx --find swiftc)
+  FRAMEWORKS_DIR := $(shell xcrun --sdk macosx --show-sdk-platform-path)/Developer/Library/Frameworks
+  EXTRA_SWIFT_FLAGS := -F $(FRAMEWORKS_DIR)
+  EXTRA_CC_FLAGS := -F $(FRAMEWORKS_DIR)
+  TARGET := x86_64-apple-macosx10.10
+  TEST_LINKER_ARGS := -Xlinker -bundle
+  NUM_THREADS := $(shell sysctl -n hw.ncpu)
+  CLANG_PLATFORM_FLAGS := -fobjc-arc -arch x86_64 -mmacosx-version-min=10.10
+else ifeq ($(shell uname -s), Linux)
+  SDKROOT := /
+  CC := $(shell which clang)
+  SWIFT_EXEC := $(shell which swiftc)
+  EXTRA_SWIFT_FLAGS :=
+  EXTRA_CC_FLAGS :=
+  TARGET := x86_64-unknown-linux
+  TEST_LINKER_ARGS := -emit-executable -Xlinker -rpath=$ORIGIN
+  NUM_THREADS := $(shell nproc --all)
+  CLANG_PLATFORM_FLAGS :=
+endif
+
+MAKE_FILE_PATH := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+SRCROOT := $(abspath $(MAKE_FILE_PATH)/..)
+BUILD_DIR_PATH := $(SRCROOT)/.build
+CONFIG := debug
+UTILS := $(MAKE_FILE_PATH)/utils.py
+BUILD_DIR := $(BUILD_DIR_PATH)/$(TARGET)/$(CONFIG)
+
+ifeq ($(CONFIG), debug)
+  SWIFT_CONFIG_FLAGS := -Onone -g -enable-testing -DDEBUG
+  CLANG_CONFIG_FLAGS := -g -DDEBUG=1 -O0
+else
+  SWIFT_CONFIG_FLAGS := -O -enable-testing
+  CLANG_CONFIG_FLAGS := -O2
+endif
+
+.PHONY: all
+all: ccore.exe core.exe coretests.exe exec.exe exec.exe pkgpackagetests.exe
+	@echo --done--
+
+.PHONY: clean
+clean: 
+	rm -rf $(BUILD_DIR)
+	@echo --cleaned--
+
+# --------------------------------------------------------------- #
+# Target: CCore
+CCORE_TARGET_NAME := CCore
+CCORE_SRCROOT := $(SRCROOT)/Sources/CCore
+CCORE_INCLUDE_DIR := $(CCORE_SRCROOT)/include
+CCORE_SOURCES := $(wildcard $(CCORE_SRCROOT)/*.c)
+CCORE_TEMP_DIR := $(BUILD_DIR)/$(CCORE_TARGET_NAME).build
+CCORE_OBJS := $(subst $(CCORE_SRCROOT),$(CCORE_TEMP_DIR),$(CCORE_SOURCES:%.c=%.c.o))
+CCORE_INCLUDE_PATHS = 
+
+define CCORE_TARGET_RULE
+SRC = $(1)
+OBJ = $$(subst $(2),$(3),$$(SRC:%.c=%.c.o))
+DEPS = $$(OBJ:.o=.d)
+$$(OBJ):
+	@echo Compile $$@
+	@mkdir -p $$(CCORE_TEMP_DIR)
+	@$$(CC) --sysroot $$(SDKROOT) $$(CLANG_PLATFORM_FLAGS) $$(EXTRA_CC_FLAGS) $$(CLANG_CONFIG_FLAGS) -DSWIFT_PACKAGE=1 -fblocks -fmodules -fmodule-name=$$(CCORE_TARGET_NAME) -I $$(CCORE_INCLUDE_DIR) -fmodules-cache-path=$$(BUILD_DIR)/ModuleCache -MD -MT dependencies -MF $$(DEPS) -c $(1) -o $$@
+endef
+
+$(foreach source,$(CCORE_SOURCES),$(eval $(call CCORE_TARGET_RULE, $(source), $(CCORE_SRCROOT), $(CCORE_TEMP_DIR))))
+
+.PHONY: ccore.exe
+ccore.exe: $(CCORE_OBJS)
+
+$(CCORE_OBJS): $(CCORE_SOURCES)
+# --------------------------------------------------------------- #
+
+# --------------------------------------------------------------- #
+# Target: Core
+CORE_TARGET_NAME := Core
+CORE_SRCROOT := $(SRCROOT)/Sources/Core
+CORE_SOURCES := $(wildcard $(CORE_SRCROOT)/*.swift)
+CORE_TEMP_DIR := $(BUILD_DIR)/$(CORE_TARGET_NAME).build
+CORE_SRCLIST := $(CORE_TEMP_DIR)/sourceslist
+CORE_OUTPUTFILEMAP := $(CORE_TEMP_DIR)/output-file-map.json
+CORE_SWIFT_MODULE := $(BUILD_DIR)/$(CORE_TARGET_NAME).swiftmodule
+CORE_OBJS := $(subst $(CORE_SRCROOT),$(CORE_TEMP_DIR),$(CORE_SOURCES:%.swift=%.swift.o))
+CORE_INCLUDE_PATHS = -I$(CCORE_INCLUDE_DIR) 
+
+.PHONY: core.exe
+core.exe: $(CORE_SWIFT_MODULE)
+
+$(CORE_SWIFT_MODULE): $(CORE_SOURCES) $(CORE_OUTPUTFILEMAP)
+	@echo Compile Swift Module $(CORE_TARGET_NAME)
+	@$(SWIFT_EXEC) -module-name $(CORE_TARGET_NAME) -incremental -emit-dependencies -emit-module -emit-module-path $(CORE_SWIFT_MODULE) -output-file-map $(CORE_OUTPUTFILEMAP) -num-threads $(NUM_THREADS) -I $(BUILD_DIR) -swift-version 4 -c $(CORE_SOURCES) -target $(TARGET) -sdk $(SDKROOT) $(EXTRA_SWIFT_FLAGS) $(SWIFT_CONFIG_FLAGS) -j$(NUM_THREADS) -DSWIFT_PACKAGE $(CORE_INCLUDE_PATHS) -parse-as-library -module-cache-path $(BUILD_DIR)/ModuleCache
+	@touch $(CORE_SWIFT_MODULE)
+
+$(CORE_OBJS): $(CORE_SWIFT_MODULE)
+
+$(CORE_OUTPUTFILEMAP): $(CORE_SOURCES)
+	@echo Generating output file map for $(CORE_TARGET_NAME)
+	@mkdir -p $(CORE_TEMP_DIR)
+	@echo > $(CORE_SRCLIST)
+	@for source in $(CORE_SOURCES); do \
+		echo $$source >> $(CORE_SRCLIST) ; \
+	done
+	@python $(UTILS) $(CORE_SRCLIST)
+# --------------------------------------------------------------- #
+
+# --------------------------------------------------------------- #
+# Target: CoreTests
+CORETESTS_TARGET_NAME := CoreTests
+CORETESTS_SRCROOT := $(SRCROOT)/Tests/CoreTests
+CORETESTS_SOURCES := $(wildcard $(CORETESTS_SRCROOT)/*.swift)
+CORETESTS_TEMP_DIR := $(BUILD_DIR)/$(CORETESTS_TARGET_NAME).build
+CORETESTS_SRCLIST := $(CORETESTS_TEMP_DIR)/sourceslist
+CORETESTS_OUTPUTFILEMAP := $(CORETESTS_TEMP_DIR)/output-file-map.json
+CORETESTS_SWIFT_MODULE := $(BUILD_DIR)/$(CORETESTS_TARGET_NAME).swiftmodule
+CORETESTS_OBJS := $(subst $(CORETESTS_SRCROOT),$(CORETESTS_TEMP_DIR),$(CORETESTS_SOURCES:%.swift=%.swift.o))
+CORETESTS_INCLUDE_PATHS = -I$(CCORE_INCLUDE_DIR) 
+
+.PHONY: coretests.exe
+coretests.exe: $(CORETESTS_SWIFT_MODULE)
+
+$(CORETESTS_SWIFT_MODULE): $(CORETESTS_SOURCES) $(CORETESTS_OUTPUTFILEMAP)
+	@echo Compile Swift Module $(CORETESTS_TARGET_NAME)
+	@$(SWIFT_EXEC) -module-name $(CORETESTS_TARGET_NAME) -incremental -emit-dependencies -emit-module -emit-module-path $(CORETESTS_SWIFT_MODULE) -output-file-map $(CORETESTS_OUTPUTFILEMAP) -num-threads $(NUM_THREADS) -I $(BUILD_DIR) -swift-version 4 -c $(CORETESTS_SOURCES) -target $(TARGET) -sdk $(SDKROOT) $(EXTRA_SWIFT_FLAGS) $(SWIFT_CONFIG_FLAGS) -j$(NUM_THREADS) -DSWIFT_PACKAGE $(CORETESTS_INCLUDE_PATHS) -parse-as-library -module-cache-path $(BUILD_DIR)/ModuleCache
+	@touch $(CORETESTS_SWIFT_MODULE)
+
+$(CORETESTS_OBJS): $(CORETESTS_SWIFT_MODULE)
+
+$(CORETESTS_OUTPUTFILEMAP): $(CORETESTS_SOURCES)
+	@echo Generating output file map for $(CORETESTS_TARGET_NAME)
+	@mkdir -p $(CORETESTS_TEMP_DIR)
+	@echo > $(CORETESTS_SRCLIST)
+	@for source in $(CORETESTS_SOURCES); do \
+		echo $$source >> $(CORETESTS_SRCLIST) ; \
+	done
+	@python $(UTILS) $(CORETESTS_SRCLIST)
+# --------------------------------------------------------------- #
+
+# --------------------------------------------------------------- #
+# Target: Exec
+EXEC_TARGET_NAME := Exec
+EXEC_SRCROOT := $(SRCROOT)/Sources/Exec
+EXEC_SOURCES := $(wildcard $(EXEC_SRCROOT)/*.swift)
+EXEC_TEMP_DIR := $(BUILD_DIR)/$(EXEC_TARGET_NAME).build
+EXEC_SRCLIST := $(EXEC_TEMP_DIR)/sourceslist
+EXEC_OUTPUTFILEMAP := $(EXEC_TEMP_DIR)/output-file-map.json
+EXEC_SWIFT_MODULE := $(BUILD_DIR)/$(EXEC_TARGET_NAME).swiftmodule
+EXEC_OBJS := $(subst $(EXEC_SRCROOT),$(EXEC_TEMP_DIR),$(EXEC_SOURCES:%.swift=%.swift.o))
+EXEC_INCLUDE_PATHS = -I$(CCORE_INCLUDE_DIR) 
+
+.PHONY: exec.exe
+exec.exe: $(EXEC_SWIFT_MODULE)
+
+$(EXEC_SWIFT_MODULE): $(EXEC_SOURCES) $(EXEC_OUTPUTFILEMAP)
+	@echo Compile Swift Module $(EXEC_TARGET_NAME)
+	@$(SWIFT_EXEC) -module-name $(EXEC_TARGET_NAME) -incremental -emit-dependencies -emit-module -emit-module-path $(EXEC_SWIFT_MODULE) -output-file-map $(EXEC_OUTPUTFILEMAP) -num-threads $(NUM_THREADS) -I $(BUILD_DIR) -swift-version 4 -c $(EXEC_SOURCES) -target $(TARGET) -sdk $(SDKROOT) $(EXTRA_SWIFT_FLAGS) $(SWIFT_CONFIG_FLAGS) -j$(NUM_THREADS) -DSWIFT_PACKAGE $(EXEC_INCLUDE_PATHS)  -module-cache-path $(BUILD_DIR)/ModuleCache
+	@touch $(EXEC_SWIFT_MODULE)
+
+$(EXEC_OBJS): $(EXEC_SWIFT_MODULE)
+
+$(EXEC_OUTPUTFILEMAP): $(EXEC_SOURCES)
+	@echo Generating output file map for $(EXEC_TARGET_NAME)
+	@mkdir -p $(EXEC_TEMP_DIR)
+	@echo > $(EXEC_SRCLIST)
+	@for source in $(EXEC_SOURCES); do \
+		echo $$source >> $(EXEC_SRCLIST) ; \
+	done
+	@python $(UTILS) $(EXEC_SRCLIST)
+# --------------------------------------------------------------- #
+
+# --------------------------------------------------------------- #
+ifeq ($(shell uname -s), Linux)
+# Target: PkgPackageTests
+PKGPACKAGETESTS_TARGET_NAME := PkgPackageTests
+PKGPACKAGETESTS_SRCROOT := $(SRCROOT)/Tests
+PKGPACKAGETESTS_SOURCES := $(wildcard $(PKGPACKAGETESTS_SRCROOT)/*.swift)
+PKGPACKAGETESTS_TEMP_DIR := $(BUILD_DIR)/$(PKGPACKAGETESTS_TARGET_NAME).build
+PKGPACKAGETESTS_SRCLIST := $(PKGPACKAGETESTS_TEMP_DIR)/sourceslist
+PKGPACKAGETESTS_OUTPUTFILEMAP := $(PKGPACKAGETESTS_TEMP_DIR)/output-file-map.json
+PKGPACKAGETESTS_SWIFT_MODULE := $(BUILD_DIR)/$(PKGPACKAGETESTS_TARGET_NAME).swiftmodule
+PKGPACKAGETESTS_OBJS := $(subst $(PKGPACKAGETESTS_SRCROOT),$(PKGPACKAGETESTS_TEMP_DIR),$(PKGPACKAGETESTS_SOURCES:%.swift=%.swift.o))
+PKGPACKAGETESTS_INCLUDE_PATHS = -I$(CCORE_INCLUDE_DIR) 
+
+.PHONY: pkgpackagetests.exe
+pkgpackagetests.exe: $(PKGPACKAGETESTS_SWIFT_MODULE)
+
+$(PKGPACKAGETESTS_SWIFT_MODULE): $(PKGPACKAGETESTS_SOURCES) $(PKGPACKAGETESTS_OUTPUTFILEMAP)
+	@echo Compile Swift Module $(PKGPACKAGETESTS_TARGET_NAME)
+	@$(SWIFT_EXEC) -module-name $(PKGPACKAGETESTS_TARGET_NAME) -incremental -emit-dependencies -emit-module -emit-module-path $(PKGPACKAGETESTS_SWIFT_MODULE) -output-file-map $(PKGPACKAGETESTS_OUTPUTFILEMAP) -num-threads $(NUM_THREADS) -I $(BUILD_DIR) -swift-version 4 -c $(PKGPACKAGETESTS_SOURCES) -target $(TARGET) -sdk $(SDKROOT) $(EXTRA_SWIFT_FLAGS) $(SWIFT_CONFIG_FLAGS) -j$(NUM_THREADS) -DSWIFT_PACKAGE $(PKGPACKAGETESTS_INCLUDE_PATHS)  -module-cache-path $(BUILD_DIR)/ModuleCache
+	@touch $(PKGPACKAGETESTS_SWIFT_MODULE)
+
+$(PKGPACKAGETESTS_OBJS): $(PKGPACKAGETESTS_SWIFT_MODULE)
+
+$(PKGPACKAGETESTS_OUTPUTFILEMAP): $(PKGPACKAGETESTS_SOURCES)
+	@echo Generating output file map for $(PKGPACKAGETESTS_TARGET_NAME)
+	@mkdir -p $(PKGPACKAGETESTS_TEMP_DIR)
+	@echo > $(PKGPACKAGETESTS_SRCLIST)
+	@for source in $(PKGPACKAGETESTS_SOURCES); do \
+		echo $$source >> $(PKGPACKAGETESTS_SRCLIST) ; \
+	done
+	@python $(UTILS) $(PKGPACKAGETESTS_SRCLIST)
+endif
+# --------------------------------------------------------------- #
+
+# Dependencies
+$(CORE_SWIFT_MODULE): $(CCORE_SWIFT_MODULE)
+$(CORETESTS_SWIFT_MODULE): $(CORE_SWIFT_MODULE)
+$(EXEC_SWIFT_MODULE): $(CORE_SWIFT_MODULE)
+$(PKGPACKAGETESTS_SWIFT_MODULE): $(CORETESTS_SWIFT_MODULE)
+
+# --------------------------------------------------------------- #
+# Product: Exec
+EXEC_EXE := $(BUILD_DIR)/Exec
+
+.PHONY: exec.exe
+exec.exe: $(EXEC_EXE)
+
+$(EXEC_EXE): $(EXEC_OBJS) $(CORE_OBJS) $(CCORE_OBJS)
+	@echo Linking Exec
+	@$(SWIFT_EXEC) -target $(TARGET) -sdk $(SDKROOT) $(EXTRA_SWIFT_FLAGS) -g -L $(BUILD_DIR) -o $(EXEC_EXE) -module-name Exec -emit-executable $(EXEC_OBJS) $(CORE_OBJS) $(CCORE_OBJS)
+# --------------------------------------------------------------- #
+
+# --------------------------------------------------------------- #
+# Product: PkgPackageTests
+PKGPACKAGETESTS_EXE := $(BUILD_DIR)/PkgPackageTests
+
+.PHONY: pkgpackagetests.exe
+pkgpackagetests.exe: $(PKGPACKAGETESTS_EXE)
+
+$(PKGPACKAGETESTS_EXE): $(CORETESTS_OBJS) $(CORE_OBJS) $(CCORE_OBJS) $(PKGPACKAGETESTS_OBJS)
+	@echo Linking PkgPackageTests
+	@mkdir -p $(dir $(PKGPACKAGETESTS_EXE))
+	@$(SWIFT_EXEC) -target $(TARGET) -sdk $(SDKROOT) $(EXTRA_SWIFT_FLAGS) -g -L $(BUILD_DIR) -o $(PKGPACKAGETESTS_EXE) -module-name PkgPackageTests $(TEST_LINKER_ARGS) $(CORETESTS_OBJS) $(CORE_OBJS) $(CCORE_OBJS) $(PKGPACKAGETESTS_OBJS)
+# --------------------------------------------------------------- #
+
