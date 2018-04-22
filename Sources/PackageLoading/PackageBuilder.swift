@@ -61,6 +61,9 @@ public enum ModuleError: Swift.Error {
 
     /// The target path is outside the package.
     case targetOutsidePackage(package: String, target: String)
+
+    /// Unsupported target path
+    case unsupportedTargetPath(String)
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -96,6 +99,8 @@ extension ModuleError: CustomStringConvertible {
             return "package '\(package)' not compatible with current tools version (\(current)); it supports: \(required)"
         case .targetOutsidePackage(let package, let target):
             return "target '\(target)' in package '\(package)' is outside the package root"
+        case .unsupportedTargetPath(let targetPath):
+            return "target path '\(targetPath)' is not supported; it should be relative to package root"
         }
     }
 }
@@ -489,7 +494,13 @@ public final class PackageBuilder {
                 if subpath == "" || subpath == "." {
                     return packagePath
                 }
-                let path = packagePath.appending(RelativePath(subpath))
+
+                // Make sure target is not refenced by absolute path
+                guard let relativeSubPath = try? RelativePath(validating: subpath) else {
+                    throw ModuleError.unsupportedTargetPath(subpath)
+                }
+
+                let path = packagePath.appending(relativeSubPath)
                 // Make sure the target is inside the package root.
                 guard path.contains(packagePath) else {
                     throw ModuleError.targetOutsidePackage(package: manifest.name, target: target.name)
