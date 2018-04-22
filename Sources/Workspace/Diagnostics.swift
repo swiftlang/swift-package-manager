@@ -179,7 +179,7 @@ public enum WorkspaceDiagnostics {
             type: BranchAlreadyExists.self,
             name: "org.swift.diags.workspace.branch-already-exists",
             description: {
-                $0 <<< "branch" <<< { "'\($0.branch)''" } <<< "already exists"
+                $0 <<< "branch" <<< { "'\($0.branch)'" } <<< "already exists"
             })
         
         /// The branch to create.
