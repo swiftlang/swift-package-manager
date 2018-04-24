@@ -21,7 +21,7 @@ import Foundation
 /// sible, while making it fairly easy to find those calls later.
 
 /// Returns a structure containing information about the file system entity at `path`, or nil
-/// if that path doesn't exist in the file system.  Read, write or execute permission of the 
+/// if that path doesn't exist in the file system.  Read, write or execute permission of the
 /// file system entity at `path` itself is not required, but all ancestor directories must be searchable.
 /// If they are not, or if any other file system error occurs, this function throws a SystemError.
 /// If `followSymlink` is true and the file system entity at `path` is a symbolic link, it is traversed;
@@ -44,11 +44,11 @@ public func exists(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
 }
 
 /// Returns true if and only if `path` refers to an existent file system entity and that entity is a regular file.
-/// If `followSymlink` is true, and the last path component is a symbolic link, the result pertains to the destination 
+/// If `followSymlink` is true, and the last path component is a symbolic link, the result pertains to the destination
 /// of the symlink; otherwise it pertains to the symlink itself. If any file system error other than non-existence
 /// occurs, this function throws an error.
 public func isFile(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
-    guard let status = try? stat(path, followSymlink: followSymlink), status.kind == .file else {
+    guard let status = try? stat(path, followSymlink: followSymlink), status.st_mode & S_IFMT == S_IFREG else {
         return false
     }
     return true
@@ -59,7 +59,7 @@ public func isFile(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
 /// of the symlink; otherwise it pertains to the symlink itself.  If any file system error other than non-existence
 /// occurs, this function throws an error.
 public func isDirectory(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
-    guard let status = try? stat(path, followSymlink: followSymlink), status.kind == .directory else {
+    guard let status = try? stat(path, followSymlink: followSymlink), status.st_mode & S_IFMT == S_IFDIR else {
         return false
     }
     return true
@@ -68,7 +68,7 @@ public func isDirectory(_ path: AbsolutePath, followSymlink: Bool = true) -> Boo
 /// Returns true if and only if `path` refers to an existent file system entity and that entity is a symbolic link.
 /// If any file system error other than non-existence occurs, this function throws an error.
 public func isSymlink(_ path: AbsolutePath) -> Bool {
-    guard let status = try? stat(path, followSymlink: false), status.kind == .symlink else {
+    guard let status = try? stat(path, followSymlink: false), status.st_mode & S_IFMT == S_IFLNK else {
         return false
     }
     return true
