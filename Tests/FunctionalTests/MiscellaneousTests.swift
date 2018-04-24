@@ -210,9 +210,9 @@ class MiscellaneousTestCase: XCTestCase {
         // Make sure that swiftpm doesn't rebuild second time if the modulemap is being generated.
         fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
             var output = try executeSwiftBuild(prefix, printIfError: true)
-            XCTAssertFalse(output.isEmpty)
+            XCTAssertFalse(output.isEmpty, output)
             output = try executeSwiftBuild(prefix, printIfError: true)
-            XCTAssertTrue(output.isEmpty)
+            XCTAssertTrue(output.isEmpty, output)
         }
     }
 
