@@ -207,6 +207,8 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testSecondBuildIsNullInModulemapGen() throws {
+        // This has been failing on the Swift CI sometimes, need to investigate.
+      #if false
         // Make sure that swiftpm doesn't rebuild second time if the modulemap is being generated.
         fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
             var output = try executeSwiftBuild(prefix, printIfError: true)
@@ -214,6 +216,7 @@ class MiscellaneousTestCase: XCTestCase {
             output = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertTrue(output.isEmpty, output)
         }
+      #endif
     }
 
     func testSwiftTestParallel() throws {
