@@ -15,7 +15,7 @@
 
 ## Support
 
-User-to-user support for Swift Package Manager is available on [swift-users mailing list](mailto:swift-users@swift.org).
+User-to-user support for Swift Package Manager is available on [swift-forums](https://forums.swift.org/c/development/SwiftPM).
 
 ---
 
