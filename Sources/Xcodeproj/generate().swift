@@ -46,7 +46,7 @@ public func buildXcodeprojPath(outputDir: AbsolutePath, projectName: String) -> 
 
 /// Generates an Xcode project and all needed support files.  The .xcodeproj
 /// wrapper directory is created to the path specified by `xcodeprojPath`
-/// Returns the path of the generated project.  All ancillary files will
+/// Returns the generated project.  All ancillary files will
 /// be generated inside of the .xcodeproj wrapper directory.
 @discardableResult
 public func generate(
