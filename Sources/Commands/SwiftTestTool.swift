@@ -94,6 +94,9 @@ public class TestToolOptions: ToolOptions {
     var shouldGenerateLinuxMain = false
 
     var testCaseSpecifier: TestCaseSpecifier = .none
+
+    /// Path where the xUnit xml file should be generated.
+    var xUnitOutput: AbsolutePath?
 }
 
 /// Tests filtering specifier
@@ -210,7 +213,12 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
             // Run the tests using the parallel runner.
             let runner = ParallelTestRunner(
-                testPath: testPath, processSet: processSet, sanitizers: options.sanitizers, toolchain: toolchain)
+                testPath: testPath,
+                processSet: processSet,
+                sanitizers: options.sanitizers,
+                toolchain: toolchain,
+                xUnitOutput: options.xUnitOutput
+            )
             try runner.run(tests)
 
             if !runner.ranSuccessfully {
@@ -265,6 +273,10 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         binder.bind(
             option: parser.add(option: "--specifier", shortName: "-s", kind: String.self),
             to: { $0.testCaseSpecifier = .specific($1) })
+
+        binder.bind(
+            option: parser.add(option: "--xunit-output", kind: PathArgument.self),
+            to: { $0.xUnitOutput = $1.path })
 
         binder.bind(
             option: parser.add(option: "--filter", kind: String.self,
@@ -489,12 +501,20 @@ final class ParallelTestRunner {
 
     let sanitizers: EnabledSanitizers
     let toolchain: UserToolchain
+    let xUnitOutput: AbsolutePath?
 
-    init(testPath: AbsolutePath, processSet: ProcessSet, sanitizers: EnabledSanitizers, toolchain: UserToolchain) {
+    init(
+        testPath: AbsolutePath,
+        processSet: ProcessSet,
+        sanitizers: EnabledSanitizers,
+        toolchain: UserToolchain,
+        xUnitOutput: AbsolutePath? = nil
+    ) {
         self.testPath = testPath
         self.processSet = processSet
         self.sanitizers = sanitizers
         self.toolchain = toolchain
+        self.xUnitOutput = xUnitOutput
         progressBar = createProgressBar(forStream: stdoutStream, header: "Testing:")
     }
 
@@ -582,6 +602,11 @@ final class ParallelTestRunner {
             if !test.success || shouldOutputSuccess {
                 print(test)
             }
+        }
+
+        // Generate xUnit file if requested.
+        if let xUnitOutput = xUnitOutput {
+            try XUnitGenerator(processedTests).generate(at: xUnitOutput)
         }
     }
 
@@ -729,4 +754,59 @@ fileprivate func constructTestEnvironment(
     env["DYLD_INSERT_LIBRARIES"] = runtimes.joined(separator: ":")
     return env
   #endif
+}
+
+/// xUnit XML file generator for a swift-test run.
+final class XUnitGenerator {
+    typealias TestResult = ParallelTestRunner.TestResult
+
+    /// The test results.
+    let results: [TestResult]
+
+    init(_ results: [TestResult]) {
+        self.results = results
+    }
+
+    /// Generate the file at the given path.
+    func generate(at path: AbsolutePath) throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            <?xml version="1.0" encoding="UTF-8"?>
+            
+            """
+        stream <<< "<testsuites>\n"
+
+        // Get the failure count.
+        let failures = results.filter({ !$0.success }).count
+
+        // FIXME: This should contain the right elapsed time.
+        //
+        // We need better output reporting from XCTest.
+        stream <<< """
+            <testsuite name="TestResults" errors="0" tests="\(results.count)" failures="\(failures)" time="0.0">
+
+            """
+
+        // Generate a testcase entry for each result.
+        //
+        // FIXME: This is very minimal right now. We should allow including test output etc.
+        for result in results {
+            let test = result.unitTest
+            stream <<< """
+                <testcase classname="\(test.testCase)" name="\(test.name)" time="0.0">
+
+                """
+
+            if !result.success {
+                stream <<< "<failure message=\"failed\"></failure>\n"
+            }
+
+            stream <<< "</testcase>\n"
+        }
+
+        stream <<< "</testsuite>\n"
+        stream <<< "</testsuites>\n"
+
+        try localFileSystem.writeFileContents(path, bytes: stream.bytes)
+    }
 }
