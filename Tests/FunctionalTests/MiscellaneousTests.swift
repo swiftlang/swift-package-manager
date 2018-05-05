@@ -225,7 +225,7 @@ class MiscellaneousTestCase: XCTestCase {
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
           // First try normal serial testing.
           do {
-            _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix, printIfError: true)
+            _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix, printIfError: false)
           } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
             XCTAssertTrue(stderr.contains("Executed 2 tests"))
           }
@@ -241,9 +241,12 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssert(output.contains("100%"))
           }
 
+          let xUnitOutput = prefix.appending(component: "result.xml")
           do {
             // Run tests in parallel with verbose output.
-            _ = try SwiftPMProduct.SwiftTest.execute(["--parallel", "--verbose"], packagePath: prefix, printIfError: false)
+            _ = try SwiftPMProduct.SwiftTest.execute(
+                ["--parallel", "--verbose", "--xunit-output", xUnitOutput.asString],
+                packagePath: prefix, printIfError: false)
           } catch SwiftPMProductError.executionFailure(_, let output, _) {
             XCTAssert(output.contains("testExample1"))
             XCTAssert(output.contains("testExample2"))
@@ -251,6 +254,11 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
             XCTAssert(output.contains("100%"))
           }
+
+          // Check the xUnit output.
+          XCTAssertTrue(localFileSystem.exists(xUnitOutput))
+          let contents = try localFileSystem.readFileContents(xUnitOutput).asString!
+          XCTAssertTrue(contents.contains("tests=\"3\" failures=\"1\""))
         }
       #endif
     }
