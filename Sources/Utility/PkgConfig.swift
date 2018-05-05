@@ -23,9 +23,13 @@ public enum PkgConfigError: Swift.Error {
 /// This is needed because on Linux machines, the search paths can be different
 /// from the standard locations that we are currently searching.
 private let pkgConfigSearchPaths: [AbsolutePath] = {
-    let searchPaths = try? Process.checkNonZeroExit(
-        args: "pkg-config", "--variable", "pc_path", "pkg-config").chomp()
-    return searchPaths?.split(separator: ":").map({ AbsolutePath(String($0)) }) ?? []
+    if let searchPaths = try? Process.checkNonZeroExit(
+        args: "pkg-config", "--variable", "pc_path", "pkg-config").chomp() {
+        return searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
+    } else {
+        stderrStream <<< "Warning: Could not find the program 'pkg-config' on your system"
+        return []
+    }
 }()
 
 /// Information on an individual `pkg-config` supported package.
