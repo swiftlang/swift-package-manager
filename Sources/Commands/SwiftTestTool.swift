@@ -551,41 +551,45 @@ final class ParallelTestRunner {
             return thread
         })
 
-        // Holds the output of test cases.
-        var outputs: (success: [String], failure: [String]) = ([], [])
+        // List of processed tests.
+        var processedTests: [TestResult] = []
+        let processedTestsLock = Basic.Lock()
 
         // Report (consume) the tests which have finished running.
         while let result = finishedTests.dequeue() {
             updateProgress(for: result.unitTest)
-            if result.success {
-                if shouldOutputSuccess {
-                    outputs.success.append(result.output)
-                }
-            } else {
-                outputs.failure.append(result.output)
+
+            // Store the result.
+            processedTestsLock.withLock {
+                processedTests.append(result)
             }
+
             // We can't enqueue a sentinel into finished tests queue because we won't know
             // which test is last one so exit this when all the tests have finished running.
-            if numCurrentTest == numTests { break }
+            if numCurrentTest == numTests {
+                break
+            }
         }
 
         // Wait till all threads finish execution.
         workers.forEach { $0.join() }
-        progressBar.complete(success: outputs.failure.isEmpty)
+
+        // Report the completion.
+        progressBar.complete(success: processedTests.contains(where: { !$0.success }))
         
-        if shouldOutputSuccess {
-            printOutput(outputs.success)
+        // Print test results.
+        for test in processedTests {
+            if !test.success || shouldOutputSuccess {
+                print(test)
+            }
         }
-        printOutput(outputs.failure)
     }
 
-    /// Prints the output of the tests.
-    private func printOutput(_ lineOutput: [String]) {
+    // Print a test result.
+    private func print(_ test: TestResult) {
         stdoutStream <<< "\n"
-        for error in lineOutput {
-            stdoutStream <<< error
-        }
-        if !lineOutput.isEmpty {
+        stdoutStream <<< test.output
+        if !test.output.isEmpty {
             stdoutStream <<< "\n"
         }
         stdoutStream.flush()
