@@ -72,12 +72,10 @@ public func generate(
     let extraDirs = try findDirectoryReferences(path: srcroot)
 
     /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
-    var project: Xcode.Project!
+    // FIXME: This could be more efficient by directly writing to a stream
+    // instead of first creating a string.
+    let project = try pbxproj(xcodeprojPath: xcodeprojPath, graph: graph, extraDirs: extraDirs, options: options)
     try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
-        // FIXME: This could be more efficient by directly writing to a stream
-        // instead of first creating a string.
-        project = try pbxproj(xcodeprojPath: xcodeprojPath, graph: graph, extraDirs: extraDirs, options: options)
-        
         // Serialize the project model we created to a plist, and return
         // its string description.
         let str = "// !$*UTF8*$!\n" + project.generatePlist().description
