@@ -53,7 +53,8 @@ public func generate(
     projectName: String,
     xcodeprojPath: AbsolutePath,
     graph: PackageGraph,
-    options: XcodeprojOptions
+    options: XcodeprojOptions,
+    diagnostics: DiagnosticsEngine
 ) throws -> Xcode.Project {
     // Note that the output directory might be completely separate from the
     // path of the root package (which is where the sources live).
@@ -74,7 +75,7 @@ public func generate(
     /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
     // FIXME: This could be more efficient by directly writing to a stream
     // instead of first creating a string.
-    let project = try pbxproj(xcodeprojPath: xcodeprojPath, graph: graph, extraDirs: extraDirs, options: options)
+    let project = try pbxproj(xcodeprojPath: xcodeprojPath, graph: graph, extraDirs: extraDirs, options: options, diagnostics: diagnostics)
     try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
         // Serialize the project model we created to a plist, and return
         // its string description.

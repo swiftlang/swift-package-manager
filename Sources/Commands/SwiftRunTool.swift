@@ -113,7 +113,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
                 return
             }
                     
-            let plan = try BuildPlan(buildParameters: self.buildParameters(), graph: loadPackageGraph())
+            let plan = try BuildPlan(buildParameters: self.buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
             let product = try findProduct(in: plan.graph)
 
             if options.shouldBuild {

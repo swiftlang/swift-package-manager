@@ -33,6 +33,7 @@ public func pbxproj(
         graph: PackageGraph,
         extraDirs: [AbsolutePath],
         options: XcodeprojOptions,
+        diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem
     ) throws -> Xcode.Project {
     return try xcodeProject(
@@ -40,7 +41,8 @@ public func pbxproj(
         graph: graph,
         extraDirs: extraDirs,
         options: options,
-        fileSystem: fileSystem)
+        fileSystem: fileSystem,
+        diagnostics: diagnostics)
 }
 
 /// A set of c99 target names that are invalid for Xcode Framework targets.
@@ -55,6 +57,7 @@ func xcodeProject(
     extraDirs: [AbsolutePath],
     options: XcodeprojOptions,
     fileSystem: FileSystem,
+    diagnostics: DiagnosticsEngine,
     warningStream: OutputByteStream = stdoutStream
     ) throws -> Xcode.Project {
 
@@ -472,7 +475,7 @@ func xcodeProject(
             switch depModule.underlyingTarget {
               case let systemTarget as SystemLibraryTarget:
                 hdrInclPaths.append("$(SRCROOT)/" + systemTarget.path.relative(to: sourceRootDir).asString)
-                if let pkgArgs = pkgConfigArgs(for: systemTarget) {
+                if let pkgArgs = pkgConfigArgs(for: systemTarget, diagnostics: diagnostics) {
                     targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
                     targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
                     targetSettings.common.OTHER_CFLAGS += pkgArgs.cFlags

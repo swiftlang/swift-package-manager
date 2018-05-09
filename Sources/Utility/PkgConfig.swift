@@ -16,6 +16,25 @@ public enum PkgConfigError: Swift.Error {
     case couldNotFindConfigFile
     case parsingError(String)
     case nonWhitelistedFlags(String)
+    case pkgConfigExecutionError
+}
+
+extension PkgConfigError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .couldNotFindConfigFile:
+            return "Could not locate .pc file"
+
+        case .parsingError(let issue):
+            return issue
+
+        case .nonWhitelistedFlags(let flags):
+            return flags
+
+        case .pkgConfigExecutionError:
+            return "Warning: Issue running 'pkg-config' on your system"
+        }
+    }
 }
 
 /// Get search paths from pkg-config itself.
@@ -26,10 +45,8 @@ private let pkgConfigSearchPaths: [AbsolutePath] = {
     if let searchPaths = try? Process.checkNonZeroExit(
         args: "pkg-config", "--variable", "pc_path", "pkg-config").chomp() {
         return searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
-    } else {
-        stderrStream <<< "Warning: Could not find the program 'pkg-config' on your system"
-        return []
     }
+    return []
 }()
 
 /// Information on an individual `pkg-config` supported package.
@@ -45,6 +62,9 @@ public struct PkgConfig {
 
     /// The list of libraries to link.
     public let libs: [String]
+
+    /// DiagnosticsEngine to emit warnings
+    public let diagnostics: DiagnosticsEngine
 
     /// The built-in search path list.
     ///
@@ -72,14 +92,17 @@ public struct PkgConfig {
     public init(
         name: String,
         additionalSearchPaths: [AbsolutePath] = [],
+        diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem
     ) throws {
         self.name = name
         self.pcFile = try PkgConfig.locatePCFile(
             name: name,
             customSearchPaths: PkgConfig.envSearchPaths + additionalSearchPaths,
-            fileSystem: fileSystem)
+            fileSystem: fileSystem,
+            diagnostics: diagnostics)
 
+        self.diagnostics = diagnostics
         var parser = PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
         try parser.parse()
 
@@ -92,7 +115,8 @@ public struct PkgConfig {
                 // FIXME: This is wasteful, we should be caching the PkgConfig result.
                 let pkg = try PkgConfig(
                     name: dep, 
-                    additionalSearchPaths: additionalSearchPaths, 
+                    additionalSearchPaths: additionalSearchPaths,
+                    diagnostics: self.diagnostics,
                     fileSystem: fileSystem
                 )
                 cFlags += pkg.cFlags
@@ -114,11 +138,15 @@ public struct PkgConfig {
     static func locatePCFile(
         name: String,
         customSearchPaths: [AbsolutePath],
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        diagnostics: DiagnosticsEngine
     ) throws -> AbsolutePath {
         // FIXME: We should consider building a registry for all items in the
         // search paths, which is likely to be substantially more efficient if
         // we end up searching for a reasonably sized number of packages.
+        if pkgConfigSearchPaths == [] {
+            diagnostics.emit(PkgConfigError.pkgConfigExecutionError)
+        }
         for path in OrderedSet(customSearchPaths + pkgConfigSearchPaths + searchPaths) {
             let pcFile = path.appending(component: name + ".pc")
             if fileSystem.isFile(pcFile) {

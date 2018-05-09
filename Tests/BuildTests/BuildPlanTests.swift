@@ -71,7 +71,7 @@ final class BuildPlanTests: XCTestCase {
         let graph = loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", diagnostics: diagnostics, in: fs)
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
-            graph: graph)
+            graph: graph, diagnostics: diagnostics)
         )
  
         result.checkProductsCount(1)
@@ -140,7 +140,7 @@ final class BuildPlanTests: XCTestCase {
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
-            graph: graph,
+            graph: graph, diagnostics: diagnostics,
             fileSystem: fileSystem))
 
         XCTAssertEqual(Set(result.productMap.keys), ["APackageTests"])
@@ -162,7 +162,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let diagnostics = DiagnosticsEngine()
         let graph = loadMockPackageGraph(["/Pkg": Package(name: "Pkg")], root: "/Pkg", diagnostics: diagnostics, in: fs)
-        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(config: .release), graph: graph))
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(config: .release), graph: graph, diagnostics: diagnostics))
 
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
@@ -205,7 +205,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let diagnostics = DiagnosticsEngine()
         let graph = loadMockPackageGraph(["/Pkg": pkg, "/ExtPkg": Package(name: "ExtPkg")], root: "/Pkg", diagnostics: diagnostics, in: fs)
-        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs))
  
         result.checkProductsCount(1)
         result.checkTargetsCount(3)
@@ -271,7 +271,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let diagnostics = DiagnosticsEngine()
         let graph = loadMockPackageGraph4(["/Pkg": pkg], root: "/Pkg", diagnostics: diagnostics, in: fs)
-        let plan = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs)
+        let plan = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs)
         let result = BuildPlanResult(plan: plan)
  
         result.checkProductsCount(1)
@@ -319,7 +319,8 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
         let graph = loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
-        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
+        let diagnostics = DiagnosticsEngine()
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
         
@@ -362,7 +363,8 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Tests/FooTests/foo.swift"
         )
         let graph = loadMockPackageGraph(["/Pkg": Package(name: "Pkg")], root: "/Pkg", in: fs)
-        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
+        let diagnostics = DiagnosticsEngine()
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs))
         result.checkProductsCount(1)
       #if os(macOS)
         result.checkTargetsCount(2)
@@ -409,7 +411,8 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
         let graph = loadMockPackageGraph(["/Pkg": pkg, "/Clibgit": Package(name: "Clinbgit")], root: "/Pkg", in: fs)
-        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
+        let diagnostics = DiagnosticsEngine()
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs))
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
 
@@ -444,7 +447,8 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
         let graph = loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
-        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
+        let diagnostics = DiagnosticsEngine()
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
         let linkArgs = try result.buildProduct(for: "exe").linkArguments()
@@ -482,7 +486,8 @@ final class BuildPlanTests: XCTestCase {
                 swiftLanguageVersions: [2, ToolsVersion.currentToolsVersion.major]),
         ], root: "/Foo", in: fs)
 
-        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: g, fileSystem: fs))
+        let diagnostics = DiagnosticsEngine()
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: g, diagnostics: diagnostics, fileSystem: fs))
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
 
@@ -545,7 +550,7 @@ final class BuildPlanTests: XCTestCase {
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
-            graph: graph, fileSystem: fs)
+            graph: graph, diagnostics: diagnostics, fileSystem: fs)
         )
 
         result.checkProductsCount(2)
@@ -596,7 +601,7 @@ final class BuildPlanTests: XCTestCase {
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
-            graph: graph,
+            graph: graph, diagnostics: diagnostics,
             fileSystem: fs)
         )
 
@@ -681,7 +686,7 @@ final class BuildPlanTests: XCTestCase {
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
-            graph: graph,
+            graph: graph, diagnostics: diagnostics,
             fileSystem: fileSystem))
 
         XCTAssertEqual(Set(result.productMap.keys), ["aexec", "BLibrary", "bexec", "cexec"])
