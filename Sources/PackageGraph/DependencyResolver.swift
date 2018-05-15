@@ -17,6 +17,7 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
     case unsatisfiable
 
     /// The resolver encountered a versioned container which has a revision dependency.
+    // FIXME: Rename this to incompatible constraints.
     case revisionConstraints(
         dependency: (AnyPackageContainerIdentifier, String),
         revisions: [(AnyPackageContainerIdentifier, String)])
@@ -41,7 +42,7 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
             return "unable to resolve dependencies"
         case let .revisionConstraints(dependency, revisions):
             let stream = BufferedOutputByteStream()
-            stream <<< "the package \(dependency.0.identifier) @ \(dependency.1) contains revisioned dependencies:\n"
+            stream <<< "the package \(dependency.0.identifier) @ \(dependency.1) contains incompatible dependencies:\n"
             for (i, revision) in revisions.enumerated() {
                 stream <<< "    "
                 stream <<< "\(revision.0.identifier)" <<< " @ " <<< revision.1
@@ -1072,10 +1073,18 @@ public class DependencyResolver<
                     // dependencies can have a revision constraints.
                     let revisionConstraints: [(AnyPackageContainerIdentifier, String)]
                     revisionConstraints = constraints.compactMap({
-                        if case .revision(let revision) = $0.requirement {
+                        switch $0.requirement {
+                        case .versionSet:
+                            return nil
+                        case .revision(let revision):
                             return (AnyPackageContainerIdentifier($0.identifier), revision)
+                        case .unversioned:
+                            // FIXME: Maybe we should have metadata inside unversion to signify
+                            // if its a local or edited dependency. We add edited constraints
+                            // as inputs so it shouldn't really matter because an edited
+                            // requirement can't be specified in the manifest file.
+                            return (AnyPackageContainerIdentifier($0.identifier), "local")
                         }
-                        return nil
                     })
                     // If we have any revision constraints, set the error and abort.
                     guard revisionConstraints.isEmpty else {

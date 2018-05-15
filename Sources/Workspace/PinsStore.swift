@@ -115,7 +115,7 @@ public final class PinsStore {
         switch dependency.state {
         case .checkout(let state):
             checkoutState = state
-        case .edited:
+        case .edited, .local:
             return
         }
 

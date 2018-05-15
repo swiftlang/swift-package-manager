@@ -26,6 +26,7 @@ public final class Package {
             case rangeItem(Range<Version>)
             case revisionItem(String)
             case branchItem(String)
+            case localPackageItem
         }
 
         /// The url of the dependency.

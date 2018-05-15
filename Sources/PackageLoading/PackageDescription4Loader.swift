@@ -142,7 +142,10 @@ extension PackageDescription4.Package.Dependency {
             guard case .string(let identifier)? = requirementDict["identifier"] else { fatalError() }
             requirement = .exactItem(Version(identifier)!)
 
-        default: fatalError()
+        case .string("localPackage")?:
+            requirement = .localPackageItem
+
+        default: fatalError("Unexpected requirement dict \(requirementDict)")
         }
 
         let isBaseURLRemote = baseURL.flatMap(URL.scheme) != nil

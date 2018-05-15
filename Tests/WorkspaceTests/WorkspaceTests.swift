@@ -1738,6 +1738,208 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testLocalDependencyBasics() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
+                        TestTarget(name: "FooTests", dependencies: ["Foo"], type: .test),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .localPackageItem),
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0", nil]
+                ),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz", dependencies: ["Bar"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Bar", "Baz", "Foo")
+                result.check(targets: "Bar", "Baz", "Foo")
+                result.check(testModules: "FooTests")
+                result.check(dependencies: "Bar", target: "Baz")
+                result.check(dependencies: "Baz", "Bar", target: "Foo")
+                result.check(dependencies: "Foo", target: "FooTests")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.5.0")))
+            result.check(dependency: "bar", at: .local)
+        }
+
+        // Test that its not possible to edit or resolve this package.
+        workspace.checkEdit(packageName: "Bar") { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("local dependency 'Bar' can't be edited"), behavior: .error)
+            }
+        }
+        workspace.checkResolve(pkg: "Bar", roots: ["Foo"], version: "1.0.0") { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("local dependency 'Bar' can't be edited"), behavior: .error)
+            }
+        }
+    }
+
+    func testLocalDependencyTransitive() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                        TestTarget(name: "FooTests", dependencies: ["Foo"], type: .test),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar", dependencies: ["Baz"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .localPackageItem),
+                    ],
+                    versions: ["1.0.0", "1.5.0", nil]
+                ),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0", nil]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Foo")
+                result.check(targets: "Foo")
+            }
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("1.5.0 contains incompatible dependencies"), behavior: .error)
+                result.check(diagnostic: .contains("product dependency 'Bar' not found"), behavior: .error, location: "'Foo' /tmp/ws/roots/Foo")
+            }
+        }
+    }
+
+    func testLocalDependencyWithPackageUpdate() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0", nil]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Bar", "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "bar", at: .checkout(.version("1.5.0")))
+        }
+
+        // Override with local package and run update.
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Bar", requirement: .localPackageItem),
+        ]
+        workspace.checkUpdate(roots: ["Foo"], deps: deps) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "bar", at: .local)
+        }
+
+        // Go back to the versioned state.
+        workspace.checkUpdate(roots: ["Foo"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "bar", at: .checkout(.version("1.5.0")))
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testCanResolveWithIncompatiblePins", testCanResolveWithIncompatiblePins),
@@ -1763,6 +1965,9 @@ final class WorkspaceTests: XCTestCase {
         ("testChangeOneDependency", testChangeOneDependency),
         ("testResolutionFailureWithEditedDependency", testResolutionFailureWithEditedDependency),
         ("testSkipUpdate", testSkipUpdate),
+        ("testLocalDependencyBasics", testLocalDependencyBasics),
+        ("testLocalDependencyTransitive", testLocalDependencyTransitive),
+        ("testLocalDependencyWithPackageUpdate", testLocalDependencyWithPackageUpdate),
     ]
 }
 
@@ -2088,6 +2293,7 @@ private final class TestWorkspace {
         }
         case checkout(CheckoutState)
         case edited(AbsolutePath?)
+        case local
     }
 
     struct ManagedDependencyResult {
@@ -2124,6 +2330,10 @@ private final class TestWorkspace {
             case .edited(let path):
                 if dependency.state != .edited(path) {
                     XCTFail("Expected edited dependency", file: file, line: line)
+                }
+            case .local:
+                if dependency.state != .local {
+                    XCTFail("Expected local dependency", file: file, line: line)
                 }
             }
         }
@@ -2178,7 +2388,7 @@ private final class TestWorkspace {
                 case .revision, .branch:
                     XCTFail("Unimplemented", file: file, line: line)
                 }
-            case .edited:
+            case .edited, .local:
                 XCTFail("Unimplemented", file: file, line: line)
             }
         }

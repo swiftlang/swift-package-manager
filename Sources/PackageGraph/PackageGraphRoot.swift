@@ -58,7 +58,8 @@ public struct PackageGraphRoot {
         public func createPackageRef() -> PackageReference {
             return PackageReference(
                 identity: PackageReference.computeIdentity(packageURL: url),
-                path: url
+                path: url,
+                isLocal: (requirement == .localPackageItem)
             )
         }
 
@@ -133,6 +134,9 @@ extension PackageDescription4.Package.Dependency.Requirement {
 
         case .exactItem(let version):
             return .versionSet(.exact(Version(pdVersion: version)))
+
+        case .localPackageItem:
+            return .unversioned
         }
     }
 }
