@@ -24,6 +24,12 @@ extension Package.Dependency: Equatable {
         url: String,
         _ requirement: Package.Dependency.Requirement
     ) -> Package.Dependency {
+        // FIXME: This is suboptimal but its the only way to do this right now.
+      #if PACKAGE_DESCRIPTION_4
+        precondition(requirement != .localPackageItem, "Use `.package(path:)` API to declare a local package dependency")
+      #elseif PACKAGE_DESCRIPTION_4_2
+        precondition(requirement != .localPackageItem, "Use `.package(path:)` API to declare a local package dependency")
+      #endif
         return .init(url: url, requirement: requirement)
     }
 
@@ -48,6 +54,15 @@ extension Package.Dependency: Equatable {
             buildMetadataIdentifiers: upper.buildMetadataIdentifiers)
         return .package(url: url, range.lowerBound..<upperBound)
     }
+
+  #if PACKAGE_DESCRIPTION_4_2
+    /// Add a dependency to a local package on the filesystem.
+    public static func package(
+        path: String
+    ) -> Package.Dependency {
+        return .init(url: path, requirement: .localPackageItem)
+    }
+  #endif
 
     public static func == (lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
         return lhs.url == rhs.url && lhs.requirement == rhs.requirement

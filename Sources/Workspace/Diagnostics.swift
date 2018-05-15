@@ -144,6 +144,18 @@ public enum WorkspaceDiagnostics {
         public let repositoryPath: AbsolutePath
     }
     
+    public struct LocalDependencyEdited: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: LocalDependencyEdited.self,
+            name: "org.swift.diags.workspace.local-dependency-edited",
+            description: {
+                $0 <<< "local dependency" <<< { "'\($0.dependencyName)'" } <<< "can't be edited"
+            })
+
+        /// The name of the dependency being edited.
+        public let dependencyName: String
+    }
+
     /// The diagnostic triggered when the edit operation fails because the dependency
     /// is already in edit mode.
     public struct DependencyAlreadyInEditMode: DiagnosticData, Swift.Error {

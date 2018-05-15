@@ -166,8 +166,36 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         }
     }
 
+    func testPackageDependencies() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               dependencies: [
+                   .package(url: "/foo1", from: "1.0.0"),
+                   .package(url: "/foo2", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
+                   .package(path: "../foo3"),
+                   .package(path: "/path/to/foo4"),
+               ]
+            )
+            """
+       loadManifest(stream.bytes) { manifest in
+            let deps = Dictionary(items: manifest.package.dependencies.map{ ($0.url, $0) })
+            XCTAssertEqual(deps["/foo1"], .package(url: "/foo1", from: "1.0.0"))
+            XCTAssertEqual(deps["/foo2"], .package(url: "/foo2", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+
+            XCTAssertEqual(deps["/foo3"]?.url, "/foo3")
+            XCTAssertEqual(deps["/foo3"]?.requirement, .localPackageItem)
+
+            XCTAssertEqual(deps["/path/to/foo4"]?.url, "/path/to/foo4")
+            XCTAssertEqual(deps["/path/to/foo4"]?.requirement, .localPackageItem)
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testSwiftLanguageVersions", testSwiftLanguageVersions),
+        ("testPackageDependencies", testPackageDependencies),
     ]
 }

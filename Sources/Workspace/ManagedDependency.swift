@@ -33,6 +33,9 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
         /// for top of the tree style development.
         case edited(AbsolutePath?)
 
+        // The dependency is a local package.
+        case local
+
         /// Returns true if state is checkout.
         var isCheckout: Bool {
             if case .checkout = self { return true }
@@ -65,6 +68,31 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
         self.state = .checkout(checkoutState)
         self.basedOn = nil
         self.subpath = subpath
+    }
+
+    /// Create a dependency present locally on the filesystem.
+    static func local(
+        packageRef: PackageReference
+    ) -> ManagedDependency {
+        return ManagedDependency(
+            packageRef: packageRef,
+            state: .local,
+            // FIXME: This is just a fake entry, we should fix it.
+            subpath: RelativePath(packageRef.identity),
+            basedOn: nil
+        )
+    }
+
+    private init(
+        packageRef: PackageReference,
+        state: State,
+        subpath: RelativePath,
+        basedOn: ManagedDependency?
+    ) {
+        self.packageRef = packageRef
+        self.subpath = subpath
+        self.basedOn = basedOn
+        self.state = state
     }
 
     private init(
@@ -119,6 +147,10 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
                 "name": "edited",
                 "path": path.toJSON(),
             ])
+        case .local:
+            return .init([
+                "name": "local",
+            ])
         }
     }
 
@@ -130,6 +162,8 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
         case "edited":
             let path: String? = json.get("path")
             self = .edited(path.map({AbsolutePath($0)}))
+        case "local":
+            self = .local
         default:
             throw JSON.MapError.custom(key: nil, message: "Invalid state \(name)")
         }

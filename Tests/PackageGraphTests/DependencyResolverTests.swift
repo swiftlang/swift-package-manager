@@ -451,7 +451,7 @@ class DependencyResolverTests: XCTestCase {
             let error = DependencyResolverError.revisionConstraints(
                 dependency: (aIdentifier, "1.0.0"), revisions: [(cIdentifier, develop), (bIdentifier, develop)])
             XCTAssertEqual(error.description, """
-            the package A @ 1.0.0 contains revisioned dependencies:
+            the package A @ 1.0.0 contains incompatible dependencies:
                 C @ develop
                 B @ develop
             """)

@@ -58,6 +58,10 @@ extension Package.Dependency.Requirement: Equatable {
             return lhs == rhs
         case (.exactItem, _):
             return false
+        case (.localPackageItem, .localPackageItem):
+            return true
+        case (.localPackageItem, _):
+            return false
         }
     }
 
@@ -83,6 +87,10 @@ extension Package.Dependency.Requirement: Equatable {
             return .dictionary([
                 "type": .string("revision"),
                 "identifier": .string(identifier),
+            ])
+        case .localPackageItem:
+            return .dictionary([
+                "type": .string("localPackage"),
             ])
         }
     }
