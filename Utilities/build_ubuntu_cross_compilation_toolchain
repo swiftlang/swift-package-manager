@@ -68,7 +68,7 @@ function fix_glibc_modulemap() {
     rm -rf "$inc_dir"
     mkdir "$inc_dir"
     cat "$tmp" | while IFS='' read line; do
-        if [[ "$line" =~ ^(\ *header\ )\"\/\/\/usr\/include\/(x86_64-linux-gnu\/)?([^\"]+)\" ]]; then
+        if [[ "$line" =~ ^(\ *header\ )\"\/+usr\/include\/(x86_64-linux-gnu\/)?([^\"]+)\" ]]; then
             local orig_inc
             local rel_repl_inc
             local repl_inc
