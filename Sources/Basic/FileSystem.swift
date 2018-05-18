@@ -348,6 +348,7 @@ private class LocalFileSystem: FileSystem {
         guard let setMode = setmode(mode.cliArgument) else {
             throw FileSystemError(errno: errno)
         }
+        defer { setMode.deallocate() }
 
         let recursive = options.contains(.recursive)
         // If we're in recursive mode, do physical walk otherwise logical.
@@ -358,6 +359,7 @@ private class LocalFileSystem: FileSystem {
         guard let ftsp = fts_open(paths.cArray, ftsOptions, nil) else {
             throw FileSystemError(errno: errno)
         }
+        defer { fts_close(ftsp) }
 
         // Start traversing.
         while let p = fts_read(ftsp) {
