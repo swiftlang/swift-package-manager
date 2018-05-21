@@ -26,7 +26,7 @@ extension DictionaryLiteral where Key: CustomStringConvertible, Value: CustomStr
 
 // MARK: Equatable
 extension DictionaryLiteral where Key: Equatable, Value: Equatable {
-    public static func ==(lhs: DictionaryLiteral, rhs: DictionaryLiteral) -> Bool {
+    public static func ==(lhs: DictionaryLiteral<Key,Value>, rhs: DictionaryLiteral<Key,Value>) -> Bool {
         if lhs.count != rhs.count {
             return false
         }
