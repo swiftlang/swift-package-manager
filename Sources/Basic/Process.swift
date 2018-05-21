@@ -240,6 +240,7 @@ public final class Process: ObjectIdentifierProtocol {
         var attributes = posix_spawnattr_t()
       #endif
         posix_spawnattr_init(&attributes)
+        defer { posix_spawnattr_destroy(&attributes) }
 
         // Unmask all signals.
         var noSignals = sigset_t()
@@ -283,6 +284,7 @@ public final class Process: ObjectIdentifierProtocol {
         var fileActions = posix_spawn_file_actions_t()
       #endif
         posix_spawn_file_actions_init(&fileActions)
+        defer { posix_spawn_file_actions_destroy(&fileActions) }
 
         // Workaround for https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=89e435f3559c53084498e9baad22172b64429362
         let devNull = strdup("/dev/null")
@@ -319,16 +321,15 @@ public final class Process: ObjectIdentifierProtocol {
             throw SystemError.posix_spawn(rv, arguments)
         }
 
-        posix_spawn_file_actions_destroy(&fileActions)
-        posix_spawnattr_destroy(&attributes)
-
         if redirectOutput {
             // Close the write end of the output pipe.
             try close(fd: &outputPipe[1])
 
             // Create a thread and start reading the output on it.
-            var thread = Thread {
-                self.stdout.result = self.readOutput(onFD: outputPipe[0])
+            var thread = Thread { [weak self] in
+                if let readResult = self?.readOutput(onFD: outputPipe[0]) {
+                    self?.stdout.result = readResult
+                }
             }
             thread.start()
             self.stdout.thread = thread
@@ -337,8 +338,10 @@ public final class Process: ObjectIdentifierProtocol {
             try close(fd: &stderrPipe[1])
 
             // Create a thread and start reading the stderr output on it.
-            thread = Thread {
-                self.stderr.result = self.readOutput(onFD: stderrPipe[0])
+            thread = Thread { [weak self] in
+                if let readResult = self?.readOutput(onFD: stderrPipe[0]) {
+                    self?.stderr.result = readResult
+                }
             }
             thread.start()
             self.stderr.thread = thread

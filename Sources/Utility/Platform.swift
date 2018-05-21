@@ -60,6 +60,7 @@ public enum Platform {
     private static func getConfstr(_ name: Int32) -> AbsolutePath? {
         let len = confstr(name, nil, 0)
         let tmp = UnsafeMutableBufferPointer(start: UnsafeMutablePointer<Int8>.allocate(capacity: len), count:len)
+        defer { tmp.deallocate() }
         guard confstr(name, tmp.baseAddress, len) == len else { return nil }
         let value = String(cString: tmp.baseAddress!)
         guard value.hasSuffix(AbsolutePath.root.asString) else { return nil }
