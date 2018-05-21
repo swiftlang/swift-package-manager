@@ -326,8 +326,10 @@ public final class Process: ObjectIdentifierProtocol {
             try close(fd: &outputPipe[1])
 
             // Create a thread and start reading the output on it.
-            var thread = Thread { [unowned self] in
-                self.stdout.result = self.readOutput(onFD: outputPipe[0])
+            var thread = Thread { [weak self] in
+                if let readResult = self?.readOutput(onFD: outputPipe[0]) {
+                    self?.stdout.result = readResult
+                }
             }
             thread.start()
             self.stdout.thread = thread
@@ -336,8 +338,10 @@ public final class Process: ObjectIdentifierProtocol {
             try close(fd: &stderrPipe[1])
 
             // Create a thread and start reading the stderr output on it.
-            thread = Thread { [unowned self] in
-                self.stderr.result = self.readOutput(onFD: stderrPipe[0])
+            thread = Thread { [weak self] in
+                if let readResult = self?.readOutput(onFD: stderrPipe[0]) {
+                    self?.stderr.result = readResult
+                }
             }
             thread.start()
             self.stderr.thread = thread
