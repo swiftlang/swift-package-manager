@@ -10,7 +10,6 @@
 
 import PackageModel
 import PackageDescription4
-import SourceControl
 
 extension PackageDescription4.Package.Dependency {
     /// Create the package reference object for the dependency.

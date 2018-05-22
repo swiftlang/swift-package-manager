@@ -14,7 +14,6 @@ import Basic
 import PackageLoading
 import PackageModel
 import SourceControl
-import class PackageDescription4.Package
 import Utility
 
 /// Adaptor for exposing repositories as PackageContainerProvider instances.
@@ -110,13 +109,11 @@ public struct PackageReference: PackageContainerIdentifier, JSONMappable, JSONSe
         var lastComponent = packageURL.split(separator: "/", omittingEmptySubsequences: true).last!
 
         // Strip `.git` suffix if present.
-        //
-        // FIXME: We need String() here because of https://bugs.swift.org/browse/SR-5627
-        if String(lastComponent).hasSuffix(".git") {
-            lastComponent = lastComponent[...lastComponent.index(lastComponent.endIndex, offsetBy: -5)]
+        if lastComponent.hasSuffix(".git") {
+            lastComponent = lastComponent.dropLast(4)
         }
 
-        return String(lastComponent).lowercased()
+        return lastComponent.lowercased()
     }
 
     /// The identity of the package.
