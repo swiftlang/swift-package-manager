@@ -87,18 +87,3 @@ public func lookupExecutablePath(
     }
     return nil
 }
-
-#if !swift(>=4.1)
-public func ==<E: Equatable>(a: [[E]], b: [[E]]) -> Bool {
-    if a.count != b.count {
-        return false
-    }
-    return !zip(a, b).contains { $0 != $1 }
-}
-
-extension Array {
-    public func compactMap<T>(_ transform: (Element) throws -> T?) rethrows -> [T] {
-        return try flatMap(transform)
-    }
-}
-#endif
