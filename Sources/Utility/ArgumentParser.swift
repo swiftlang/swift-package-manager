@@ -939,7 +939,7 @@ public final class ArgumentParser {
 /// A class to bind ArgumentParser's arguments to an option structure.
 public final class ArgumentBinder<Options> {
     /// The signature of body closure.
-    private typealias BodyClosure = (inout Options, ArgumentParser.Result) -> Void
+    private typealias BodyClosure = (inout Options, ArgumentParser.Result) throws -> Void
 
     /// This array holds the closures which should be executed to fill the options structure.
     private var bodies = [BodyClosure]()
@@ -1073,11 +1073,11 @@ public final class ArgumentBinder<Options> {
     /// Bind a subparser.
     public func bind(
         parser: ArgumentParser,
-        to body: @escaping (inout Options, String) -> Void
+        to body: @escaping (inout Options, String) throws -> Void
     ) {
         addBody {
             guard let result = $1.subparser(parser) else { return }
-            body(&$0, result)
+            try body(&$0, result)
         }
     }
 
@@ -1088,6 +1088,12 @@ public final class ArgumentBinder<Options> {
 
     /// Fill the result into the options structure.
     public func fill(_ result: ArgumentParser.Result, into options: inout Options) {
-        bodies.forEach { $0(&options, result) }
+        try! tryFill(result, into: &options)
+    }
+
+    /// Fill the result into the options structure, throwing if one of the
+    /// user-specified binder function throws.
+    public func tryFill(_ result: ArgumentParser.Result, into options: inout Options) throws {
+        try bodies.forEach { try $0(&options, result) }
     }
 }
