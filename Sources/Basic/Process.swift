@@ -503,23 +503,6 @@ private func WTERMSIG(_ status: Int32) -> Int32 {
     return status & 0x7f
 }
 
-#if !swift(>=4.1)
-extension ProcessResult.ExitStatus {
-    public static func == (lhs: ProcessResult.ExitStatus, rhs: ProcessResult.ExitStatus) -> Bool {
-        switch (lhs, rhs) {
-        case (.terminated(let l), .terminated(let r)):
-            return l == r
-        case (.terminated(_), _):
-            return false
-        case (.signalled(let l), .signalled(let r)):
-            return l == r
-        case (.signalled(_), _):
-            return false
-        }
-    }
-}
-#endif
-
 /// Open the given pipe.
 private func open(pipe: inout [Int32]) throws {
     let rv = SPMLibc.pipe(&pipe)
