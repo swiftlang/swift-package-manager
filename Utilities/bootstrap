@@ -893,6 +893,8 @@ def main():
         build_target = "x86_64-apple-macosx10.10"
     elif platform.processor() == 's390x':
         build_target = "s390x-unknown-linux"
+    elif platform.system() == 'Linux' and platform.machine() == 'ppc64le':
+        build_target = 'powerpc64le-unknown-linux'
     else:
         build_target = 'x86_64-unknown-linux'
 
