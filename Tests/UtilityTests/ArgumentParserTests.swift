@@ -176,17 +176,7 @@ class ArgumentParserTests: XCTestCase {
             option: parser.add(option: "--foo", kind: String.self),
             to: fillOptions)
 
-        // Old, non-throwing API
-        do {
-            let result = try parser.parse(["--foo", "nothrow"])
-            var options = Options()
-            binder.fill(result, into: &options)
-            XCTAssertEqual(options.foo, "nothrow")
-        } catch {
-            XCTFail("unexpected exception: \(error)")
-        }
-
-        // New, throwing API, not throwing.
+        // Not throwing.
         do {
             let result = try parser.parse(["--foo", "nothrow"])
             var options = Options()
@@ -196,7 +186,7 @@ class ArgumentParserTests: XCTestCase {
             XCTFail("unexpected exception: \(error)")
         }
 
-        // New API, actually throwing.
+        // Actually throwing.
         do {
             let result = try parser.parse(["--foo", "throw at will"])
             var options = Options()
