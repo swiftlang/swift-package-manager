@@ -951,46 +951,46 @@ public final class ArgumentBinder<Options> {
     /// Bind an option argument.
     public func bind<T>(
         option: OptionArgument<T>,
-        to body: @escaping (inout Options, T) -> Void
+        to body: @escaping (inout Options, T) throws -> Void
     ) {
         addBody {
             guard let result = $1.get(option) else { return }
-            body(&$0, result)
+            try body(&$0, result)
         }
     }
 
     /// Bind an array option argument.
     public func bindArray<T>(
         option: OptionArgument<[T]>,
-        to body: @escaping (inout Options, [T]) -> Void
+        to body: @escaping (inout Options, [T]) throws -> Void
     ) {
         addBody {
             guard let result = $1.get(option) else { return }
-            body(&$0, result)
+            try body(&$0, result)
         }
     }
 
     /// Bind a positional argument.
     public func bind<T>(
         positional: PositionalArgument<T>,
-        to body: @escaping (inout Options, T) -> Void
+        to body: @escaping (inout Options, T) throws -> Void
     ) {
         addBody {
             // All the positional argument will always be present.
             guard let result = $1.get(positional) else { return }
-            body(&$0, result)
+            try body(&$0, result)
         }
     }
 
     /// Bind an array positional argument.
     public func bindArray<T>(
         positional: PositionalArgument<[T]>,
-        to body: @escaping (inout Options, [T]) -> Void
+        to body: @escaping (inout Options, [T]) throws -> Void
     ) {
         addBody {
             // All the positional argument will always be present.
             guard let result = $1.get(positional) else { return }
-            body(&$0, result)
+            try body(&$0, result)
         }
     }
 
@@ -998,13 +998,13 @@ public final class ArgumentBinder<Options> {
     public func bindPositional<T, U>(
         _ first: PositionalArgument<T>,
         _ second: PositionalArgument<U>,
-        to body: @escaping (inout Options, T, U) -> Void
+        to body: @escaping (inout Options, T, U) throws -> Void
     ) {
         addBody {
             // All the positional arguments will always be present.
             guard let first = $1.get(first) else { return }
             guard let second = $1.get(second) else { return }
-            body(&$0, first, second)
+            try body(&$0, first, second)
         }
     }
 
@@ -1013,14 +1013,14 @@ public final class ArgumentBinder<Options> {
         _ first: PositionalArgument<T>,
         _ second: PositionalArgument<U>,
         _ third: PositionalArgument<V>,
-        to body: @escaping (inout Options, T, U, V) -> Void
+        to body: @escaping (inout Options, T, U, V) throws -> Void
     ) {
         addBody {
             // All the positional arguments will always be present.
             guard let first = $1.get(first) else { return }
             guard let second = $1.get(second) else { return }
             guard let third = $1.get(third) else { return }
-            body(&$0, first, second, third)
+            try body(&$0, first, second, third)
         }
     }
 
@@ -1028,10 +1028,10 @@ public final class ArgumentBinder<Options> {
     public func bind<T, U>(
         _ first: OptionArgument<T>,
         _ second: OptionArgument<U>,
-        to body: @escaping (inout Options, T?, U?) -> Void
+        to body: @escaping (inout Options, T?, U?) throws -> Void
     ) {
         addBody {
-            body(&$0, $1.get(first), $1.get(second))
+            try body(&$0, $1.get(first), $1.get(second))
         }
     }
 
@@ -1040,10 +1040,10 @@ public final class ArgumentBinder<Options> {
         _ first: OptionArgument<T>,
         _ second: OptionArgument<U>,
         _ third: OptionArgument<V>,
-        to body: @escaping (inout Options, T?, U?, V?) -> Void
+        to body: @escaping (inout Options, T?, U?, V?) throws -> Void
     ) {
         addBody {
-            body(&$0, $1.get(first), $1.get(second), $1.get(third))
+            try body(&$0, $1.get(first), $1.get(second), $1.get(third))
         }
     }
 
@@ -1051,10 +1051,10 @@ public final class ArgumentBinder<Options> {
     public func bindArray<T, U>(
         _ first: OptionArgument<[T]>,
         _ second: OptionArgument<[U]>,
-        to body: @escaping (inout Options, [T], [U]) -> Void
+        to body: @escaping (inout Options, [T], [U]) throws -> Void
     ) {
         addBody {
-            body(&$0, $1.get(first) ?? [], $1.get(second) ?? [])
+            try body(&$0, $1.get(first) ?? [], $1.get(second) ?? [])
         }
     }
 
@@ -1063,10 +1063,10 @@ public final class ArgumentBinder<Options> {
         _ first: OptionArgument<[T]>,
         _ second: OptionArgument<[U]>,
         _ third: OptionArgument<[V]>,
-        to body: @escaping (inout Options, [T], [U], [V]) -> Void
+        to body: @escaping (inout Options, [T], [U], [V]) throws -> Void
      ) {
         addBody {
-            body(&$0, $1.get(first) ?? [], $1.get(second) ?? [], $1.get(third) ?? [])
+            try body(&$0, $1.get(first) ?? [], $1.get(second) ?? [], $1.get(third) ?? [])
         }
     }
 
@@ -1086,14 +1086,16 @@ public final class ArgumentBinder<Options> {
         bodies.append(body)
     }
 
-    /// Fill the result into the options structure.
-    public func fill(_ result: ArgumentParser.Result, into options: inout Options) {
-        try! tryFill(result, into: &options)
-    }
-
-    /// Fill the result into the options structure, throwing if one of the
-    /// user-specified binder function throws.
-    public func tryFill(_ result: ArgumentParser.Result, into options: inout Options) throws {
+    /// Fill the result into the options structure,
+    /// throwing if one of the user-provided binder function throws.
+    public func fill(parseResult result: ArgumentParser.Result, into options: inout Options) throws {
         try bodies.forEach { try $0(&options, result) }
     }
+
+    /// Fill the result into the options structure.
+    @available(*, deprecated, renamed: "fill(parseResult:into:)")
+    public func fill(_ result: ArgumentParser.Result, into options: inout Options) {
+        try! fill(parseResult: result, into: &options)
+    }
+
 }
