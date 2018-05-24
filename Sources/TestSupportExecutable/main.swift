@@ -108,7 +108,7 @@ do {
 
     var options = Options()
     let result = try parser.parse(Array(CommandLine.arguments.dropFirst()))
-    binder.fill(result, into: &options)
+    try binder.fill(parseResult: result, into: &options)
 
     switch options.mode {
     case .fileLockTest:

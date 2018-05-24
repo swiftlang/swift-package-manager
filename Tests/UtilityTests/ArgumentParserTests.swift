@@ -157,6 +157,59 @@ class ArgumentParserTests: XCTestCase {
         }
     }
 
+    func testBinderThrows() throws {
+        let parser = ArgumentParser(usage: "sample", overview: "sample")
+
+        enum Error: Swift.Error {
+        case testException
+        }
+
+        func fillOptions(_ options: inout Options, _ argument: String) throws {
+            guard argument == "nothrow" else {
+                throw Error.testException
+            }
+            options.foo = argument
+        }
+
+        let binder = ArgumentBinder<Options>()
+        binder.bind(
+            option: parser.add(option: "--foo", kind: String.self),
+            to: fillOptions)
+
+        // Old, non-throwing API
+        do {
+            let result = try parser.parse(["--foo", "nothrow"])
+            var options = Options()
+            binder.fill(result, into: &options)
+            XCTAssertEqual(options.foo, "nothrow")
+        } catch {
+            XCTFail("unexpected exception: \(error)")
+        }
+
+        // New, throwing API, not throwing.
+        do {
+            let result = try parser.parse(["--foo", "nothrow"])
+            var options = Options()
+            try binder.fill(parseResult: result, into: &options)
+            XCTAssertEqual(options.foo, "nothrow")
+        } catch {
+            XCTFail("unexpected exception: \(error)")
+        }
+
+        // New API, actually throwing.
+        do {
+            let result = try parser.parse(["--foo", "throw at will"])
+            var options = Options()
+            try binder.fill(parseResult: result, into: &options)
+            XCTFail("unexpected success")
+        } catch Error.testException {
+            // Expected.
+        } catch {
+            XCTFail("unexpected exception: \(error)")
+        }
+
+    }
+
     func testOptions() throws {
         let parser = ArgumentParser(usage: "sample parser", overview: "Sample overview")
         let binder = ArgumentBinder<Options>()
@@ -193,7 +246,7 @@ class ArgumentParserTests: XCTestCase {
         let result = try parser.parse(["MyPkg", "foo", "3", "-b", "bugfix", "--verbose", "-Xld", "foo", "-Xld", "bar", "-xlinker", "a", "-xswiftc", "b"])
 
         var options = Options()
-        binder.fill(result, into: &options)
+        try binder.fill(parseResult: result, into: &options)
 
         XCTAssertEqual(options.branch, "bugfix")
         XCTAssertEqual(options.package, "MyPkg")
@@ -363,7 +416,7 @@ class ArgumentParserTests: XCTestCase {
         let result = try parser.parse(["--branch", "ok", "fetch"])
 
         var options = Options()
-        binder.fill(result, into: &options)
+        try binder.fill(parseResult: result, into: &options)
 
         XCTAssertEqual(options.branch, "ok")
         XCTAssertEqual(options.mode, .fetch)
@@ -403,7 +456,7 @@ class ArgumentParserTests: XCTestCase {
         do {
             let result = try parser.parse(["Foo", "--revision", "bugfix"])
             var options = Options()
-            binder.fill(result, into: &options)
+            try binder.fill(parseResult: result, into: &options)
             XCTAssertEqual(options.package, "Foo")
             XCTAssertEqual(options.revision, "bugfix")
         }
@@ -411,7 +464,7 @@ class ArgumentParserTests: XCTestCase {
         do {
             let result = try parser.parse(["--revision", "bugfix"])
             var options = Options()
-            binder.fill(result, into: &options)
+            try binder.fill(parseResult: result, into: &options)
             XCTAssertEqual(options.package, nil)
             XCTAssertEqual(options.revision, "bugfix")
         }
@@ -684,6 +737,7 @@ class ArgumentParserTests: XCTestCase {
     static var allTests = [
         ("testBasics", testBasics),
         ("testErrors", testErrors),
+        ("testBinderThrows", testBinderThrows),
         ("testOptions", testOptions),
         ("testSubparser", testSubparser),
         ("testSubsubparser", testSubsubparser),

@@ -324,7 +324,7 @@ public class SwiftTool<Options: ToolOptions> {
             let result = try parser.parse(args)
 
             var options = Options()
-            binder.fill(result, into: &options)
+            try binder.fill(parseResult: result, into: &options)
 
             self.options = options
             // Honor package-path option is provided.
