@@ -120,15 +120,21 @@ public class SystemLibraryTarget: Target {
         return sources.root
     }
 
+    /// True if this system library should become implicit target
+    /// dependency of its dependent packages.
+    public let isImplicit: Bool
+
     public init(
         name: String,
         path: AbsolutePath,
+        isImplicit: Bool = true,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil
     ) {
         let sources = Sources(paths: [], root: path)
         self.pkgConfig = pkgConfig
         self.providers = providers
+        self.isImplicit = isImplicit
         super.init(name: name, type: .systemModule, sources: sources, dependencies: [])
     }
 }

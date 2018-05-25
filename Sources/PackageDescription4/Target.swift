@@ -11,6 +11,13 @@
 /// The description for an individual target.
 public final class Target {
 
+    /// The type of this target.
+    public enum TargetType: String {
+        case regular
+        case test
+        case system
+    }
+
     /// Represents a target's dependency on another entity.
     public enum Dependency {
 
@@ -51,7 +58,9 @@ public final class Target {
     public var exclude: [String]
 
     /// If this is a test target.
-    public var isTest: Bool
+    public var isTest: Bool {
+        return type == .test
+    }
 
     /// Dependencies on other entities inside or outside the package.
     public var dependencies: [Dependency]
@@ -61,6 +70,17 @@ public final class Target {
     /// If a value is not provided, the directory will be set to "include".
     public var publicHeadersPath: String?
 
+    /// The type of target.
+    public let type: TargetType
+
+    /// `pkgconfig` name to use for system library target. If present, swiftpm will try to
+    /// search for <name>.pc file to get the additional flags needed for the
+    /// system target.
+    public let pkgConfig: String?
+
+    /// Providers array for the System library target.
+    public let providers: [SystemPackageProvider]?
+
     /// Construct a target.
     init(
         name: String,
@@ -69,7 +89,9 @@ public final class Target {
         exclude: [String],
         sources: [String]?,
         publicHeadersPath: String?,
-        isTest: Bool
+        type: TargetType,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProvider]? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
@@ -77,7 +99,15 @@ public final class Target {
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
         self.exclude = exclude
-        self.isTest = isTest
+        self.type = type
+        self.pkgConfig = pkgConfig
+        self.providers = providers
+
+        switch type {
+        case .regular, .test:
+            precondition(pkgConfig == nil && providers == nil)
+        case .system: break
+        }
     }
 
     public static func target(
@@ -95,7 +125,7 @@ public final class Target {
             exclude: exclude,
             sources: sources,
             publicHeadersPath: publicHeadersPath,
-            isTest: false)
+            type: .regular)
     }
 
     public static func testTarget(
@@ -112,8 +142,28 @@ public final class Target {
             exclude: exclude,
             sources: sources,
             publicHeadersPath: nil,
-            isTest: true)
+            type: .test)
     }
+
+  #if !PACKAGE_DESCRIPTION_4
+    public static func systemLibrary(
+        name: String,
+        path: String? = nil,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProvider]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: [],
+            path: path,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .system,
+            pkgConfig: pkgConfig,
+            providers: providers)
+    }
+  #endif
 }
 
 extension Target.Dependency {

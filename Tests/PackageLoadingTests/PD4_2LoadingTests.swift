@@ -193,9 +193,42 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         }
     }
 
+    func testSystemLibraryTargets() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+                targets: [
+                    .target(
+                        name: "foo",
+                        dependencies: ["bar"]),
+                    .systemLibrary(
+                        name: "bar",
+                        pkgConfig: "libbar"),
+                ]
+            )
+            """
+       loadManifest(stream.bytes) { manifest in
+            let targets = Dictionary(items:
+                manifest.package.targets.map({ ($0.name, $0 as PackageDescription4.Target ) }))
+            let foo = targets["foo"]!
+            XCTAssertEqual(foo.name, "foo")
+            XCTAssertFalse(foo.isTest)
+            XCTAssertEqual(foo.type, .regular)
+            XCTAssertEqual(foo.dependencies, ["bar"])
+
+            let bar = targets["bar"]!
+            XCTAssertEqual(bar.name, "bar")
+            XCTAssertEqual(bar.type, .system)
+            XCTAssertEqual(bar.pkgConfig, "libbar")
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testSwiftLanguageVersions", testSwiftLanguageVersions),
         ("testPackageDependencies", testPackageDependencies),
+        ("testSystemLibraryTargets", testSystemLibraryTargets),
     ]
 }

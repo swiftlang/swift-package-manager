@@ -855,6 +855,100 @@ class PackageBuilderV4Tests: XCTestCase {
         }
     }
 
+    func testSystemPackageDeclaresTargetsDiagnostic() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/module.modulemap",
+            "/Sources/foo/main.swift",
+            "/Sources/bar/main.swift"
+        )
+
+        let pkg = Package(
+            name: "SystemModulePackage",
+            targets: [
+                .target(name: "foo"),
+                .target(name: "bar"),
+            ]
+        )
+        PackageBuilderTester(pkg, in: fs) { result in
+            result.checkModule("SystemModulePackage") { moduleResult in
+                moduleResult.check(c99name: "SystemModulePackage", type: .systemModule)
+                moduleResult.checkSources(root: "/")
+            }
+            result.checkDiagnostic("Ignoring declared target(s) 'foo, bar' in the system package")
+        }
+    }
+
+    func testSystemLibraryTarget() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/module.modulemap",
+            "/Sources/bar/bar.swift"
+        )
+
+        let pkg = Package(
+            name: "SystemModulePackage",
+            products: [
+                .library(name: "foo", targets: ["foo"]),
+            ],
+            targets: [
+                .systemLibrary(name: "foo"),
+                .target(name: "bar", dependencies: ["foo"]),
+            ]
+        )
+        PackageBuilderTester(pkg, in: fs) { result in
+            result.checkModule("foo") { moduleResult in
+                moduleResult.check(c99name: "foo", type: .systemModule)
+                moduleResult.checkSources(root: "/Sources/foo")
+            }
+            result.checkModule("bar") { moduleResult in
+                moduleResult.check(c99name: "bar", type: .library)
+                moduleResult.checkSources(root: "/Sources/bar", paths: "bar.swift")
+                moduleResult.check(dependencies: ["foo"])
+            }
+            result.checkProduct("foo") { productResult in
+                productResult.check(type: .library(.automatic), targets: ["foo"])
+            }
+        }
+    }
+
+    func testSystemLibraryTargetDiagnostics() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/module.modulemap",
+            "/Sources/bar/bar.swift"
+        )
+
+        var pkg = Package(
+            name: "SystemModulePackage",
+            products: [
+                .library(name: "foo", targets: ["foo", "bar"]),
+            ],
+            targets: [
+                .systemLibrary(name: "foo"),
+                .target(name: "bar", dependencies: ["foo"]),
+            ]
+        )
+        PackageBuilderTester(pkg, in: fs) { result in
+            result.checkModule("foo") { _ in }
+            result.checkModule("bar") { _ in }
+            result.checkDiagnostic("system library product foo shouldn\'t have a type and contain only one target")
+        }
+
+        pkg = Package(
+            name: "SystemModulePackage",
+            products: [
+                .library(name: "foo", type: .static, targets: ["foo"]),
+            ],
+            targets: [
+                .systemLibrary(name: "foo"),
+                .target(name: "bar", dependencies: ["foo"]),
+            ]
+        )
+        PackageBuilderTester(pkg, in: fs) { result in
+            result.checkModule("foo") { _ in }
+            result.checkModule("bar") { _ in }
+            result.checkDiagnostic("system library product foo shouldn't have a type and contain only one target")
+        }
+    }
+
     static var allTests = [
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testCustomTargetDependencies", testCustomTargetDependencies),
@@ -876,5 +970,8 @@ class PackageBuilderV4Tests: XCTestCase {
         ("testSpecialTargetDir", testSpecialTargetDir),
         ("testDuplicateTargets", testDuplicateTargets),
         ("testExcludes", testExcludes),
+        ("testSystemPackageDeclaresTargetsDiagnostic", testSystemPackageDeclaresTargetsDiagnostic),
+        ("testSystemLibraryTarget", testSystemLibraryTarget),
+        ("testSystemLibraryTargetDiagnostics", testSystemLibraryTargetDiagnostics),
     ]
 }

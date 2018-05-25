@@ -76,4 +76,41 @@ public enum PackageBuilderDiagnostics {
 
         public let product: Product
     }
+
+    struct SystemPackageDeprecatedDiagnostic: DiagnosticData {
+        static let id = DiagnosticID(
+            type: SystemPackageDeprecatedDiagnostic.self,
+            name: "org.swift.diags.pkg-builder.sys-pkg-deprecated",
+            defaultBehavior: .warning,
+            description: {
+                $0 <<< "system packages are deprecated;"
+                $0 <<< "use system library targets instead"
+            }
+        )
+    }
+
+    struct SystemPackageDeclaresTargetsDiagnostic: DiagnosticData {
+        static let id = DiagnosticID(
+            type: SystemPackageDeclaresTargetsDiagnostic.self,
+            name: "org.swift.diags.pkg-builder.sys-pkg-decl-targets",
+            defaultBehavior: .warning,
+            description: {
+                $0 <<< "Ignoring declared target(s)" <<< { "'\($0.targets.joined(separator: ", "))'" } <<< "in the system package"
+            }
+        )
+
+        let targets: [String]
+    }
+
+    struct SystemPackageProductValidationDiagnostic: DiagnosticData {
+        static let id = DiagnosticID(
+            type: SystemPackageProductValidationDiagnostic.self,
+            name: "org.swift.diags.pkg-builder.sys-pkg-product-validatoin",
+            description: {
+                $0 <<< "system library product" <<< { $0.product } <<< "shouldn't have a type and contain only one target"
+            }
+        )
+
+        let product: String
+    }
 }
