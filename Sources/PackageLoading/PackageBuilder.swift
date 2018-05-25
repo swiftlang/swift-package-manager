@@ -408,12 +408,32 @@ public final class PackageBuilder {
         // Check for a modulemap file, which indicates a system target.
         let moduleMapPath = packagePath.appending(component: moduleMapFilename)
         if fileSystem.isFile(moduleMapPath) {
+
+            // Warn about any declared targets.
+            let targets = manifest.package.targets
+            if !targets.isEmpty {
+                diagnostics.emit(
+                    data: PackageBuilderDiagnostics.SystemPackageDeclaresTargetsDiagnostic(targets: targets.map({ $0.name })),
+                    location: PackageLocation.Local(name: manifest.name, packagePath: packagePath)
+                )
+            }
+
+            // Emit deprecation notice.
+            switch manifest.manifestVersion {
+            case .v3, .v4: break
+            case .v4_2:
+                diagnostics.emit(
+                    data: PackageBuilderDiagnostics.SystemPackageDeprecatedDiagnostic(),
+                    location: PackageLocation.Local(name: manifest.name, packagePath: packagePath)
+                )
+            }
+
             // Package contains a modulemap at the top level, so we assuming
             // it's a system library target.
             return [
                 SystemLibraryTarget(
                     name: manifest.name,
-                    path: packagePath,
+                    path: packagePath, isImplicit: true,
                     pkgConfig: manifest.package.pkgConfig,
                     providers: manifest.package.providers)
             ]
@@ -493,7 +513,7 @@ public final class PackageBuilder {
         let potentialTargets: [PotentialModule]
         potentialTargets = try manifest.package.targets.map({ target in
             let path = try findPath(for: target)
-            return PotentialModule(name: target.name, path: path, isTest: target.isTest)
+            return PotentialModule(name: target.name, path: path, type: target.type)
         })
         return try createModules(potentialTargets)
     }
@@ -543,9 +563,9 @@ public final class PackageBuilder {
         if potentialModulePaths.isEmpty {
             // There are no directories that look like targets, so try to create a target for the source directory
             // itself (with the name coming from the name in the manifest).
-            potentialModules = [PotentialModule(name: manifest.name, path: srcDir, isTest: false)]
+            potentialModules = [PotentialModule(name: manifest.name, path: srcDir, type: .regular)]
         } else {
-            potentialModules = potentialModulePaths.map({ PotentialModule(name: $0.basename, path: $0, isTest: false) })
+            potentialModules = potentialModulePaths.map({ PotentialModule(name: $0.basename, path: $0, type: .regular) })
         }
         return try createModules(potentialModules + potentialTestModules())
     }
@@ -690,6 +710,19 @@ public final class PackageBuilder {
         moduleDependencies: [Target],
         productDeps: [(name: String, package: String?)]
     ) throws -> Target? {
+
+        // Create system library target.
+        if potentialModule.type == .system {
+            let moduleMapPath = potentialModule.path.appending(component: moduleMapFilename)
+            guard fileSystem.isFile(moduleMapPath) else {
+                return nil
+            }
+            return SystemLibraryTarget(
+                    name: potentialModule.name,
+                    path: potentialModule.path, isImplicit: false,
+                    pkgConfig: manifestTarget?.pkgConfig,
+                    providers: manifestTarget?.providers)
+        }
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget?.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
@@ -882,7 +915,7 @@ public final class PackageBuilder {
 
         return testsDirContents
             .filter(shouldConsiderDirectory)
-            .map({ PotentialModule(name: $0.basename, path: $0, isTest: true) })
+            .map({ PotentialModule(name: $0.basename, path: $0, type: .test) })
     }
 
     /// Find the linux main file for the package.
@@ -1054,6 +1087,19 @@ public final class PackageBuilder {
                     case nil: type = .library(.automatic)
                     }
                     let targets = try modulesFrom(targetNames: p.targets, product: p.name)
+
+                    // Peform special validations if this product is exporting
+                    // a system library target.
+                    if targets.contains(where: { $0 is SystemLibraryTarget }) {
+                        if type != .library(.automatic) || targets.count != 1 {
+                            diagnostics.emit(
+                                data: PackageBuilderDiagnostics.SystemPackageProductValidationDiagnostic(product: p.name),
+                                location: PackageLocation.Local(name: manifest.name, packagePath: packagePath)
+                            )
+                            continue
+                        }
+                    }
+
                     append(Product(name: p.name, type: type, targets: targets))
                 default:
                     fatalError("Unreachable")
@@ -1076,12 +1122,17 @@ private struct PotentialModule: Hashable {
     let path: AbsolutePath
 
     /// If this should be a test target.
-    let isTest: Bool
+    var isTest: Bool {
+        return type == .test
+    }
+
+    /// The target type.
+    let type: PackageDescription4.Target.TargetType
 
     /// The base prefix for the test target, used to associate with the target it tests.
     public var basename: String {
         guard isTest else {
-            fatalError("\(type(of: self)) should be a test target to access basename.")
+            fatalError("\(Swift.type(of: self)) should be a test target to access basename.")
         }
         precondition(name.hasSuffix(Target.testModuleNameSuffix))
         let endIndex = name.index(name.endIndex, offsetBy: -Target.testModuleNameSuffix.count)

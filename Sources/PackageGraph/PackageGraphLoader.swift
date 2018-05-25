@@ -252,10 +252,15 @@ private func createResolvedPackages(
         // The diagnostics location for this package.
         let diagnosticLocation = { PackageLocation.Local(name: package.name, packagePath: package.path) }
 
-        // Get all the system module dependencies in this package.
-        let systemModulesDeps = packageBuilder.dependencies
+        // Get all implicit system library dependencies in this package.
+        let implicitSystemTargetDeps = packageBuilder.dependencies
             .flatMap({ $0.targets })
-            .filter({ $0.target.type == .systemModule })
+            .filter({
+                if case let systemLibrary as SystemLibraryTarget = $0.target {
+                    return systemLibrary.isImplicit
+                }
+                return false
+            })
 
         // Get all the products from dependencies of this package.
         let productDependencies = packageBuilder.dependencies
@@ -273,7 +278,7 @@ private func createResolvedPackages(
             allTargetNames.insert(targetName)
 
             // Directly add all the system module dependencies.
-            targetBuilder.dependencies += systemModulesDeps
+            targetBuilder.dependencies += implicitSystemTargetDeps
 
             // Establish product dependencies based on the type of manifest.
             switch package.manifest.package {

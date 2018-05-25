@@ -52,7 +52,8 @@ class PackageGraphTests: XCTestCase {
 
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",
-            "/Bar/Source/Bar/source.swift"
+            "/Bar/Source/Bar/source.swift",
+            "/Bar/Source/CBar/module.modulemap"
         )
 
         let diagnostics = DiagnosticsEngine()
@@ -61,9 +62,11 @@ class PackageGraphTests: XCTestCase {
                 name: "Bar",
                 products: [
                     .library(name: "Bar", targets: ["Bar"]),
+                    .library(name: "CBar", targets: ["CBar"]),
                 ],
                 targets: [
-                    .target(name: "Bar"),
+                    .target(name: "Bar", dependencies: ["CBar"]),
+                    .systemLibrary(name: "CBar"),
                 ]),
             "/Foo": .init(
                 name: "Foo",
@@ -71,14 +74,16 @@ class PackageGraphTests: XCTestCase {
                     .package(url: "/Bar", from: "1.0.0"),
                 ],
                 targets: [
-                    .target(name: "Foo", dependencies: ["Bar"]),
+                    .target(name: "Foo", dependencies: ["Bar", "CBar"]),
                 ]),
         ], root: "/Foo", diagnostics: diagnostics, in: fs)
 
+        XCTAssertNoDiagnostics(diagnostics)
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo")
-            result.check(targets: "Bar", "Foo")
-            result.check(dependencies: "Bar", target: "Foo")
+            result.check(targets: "Bar", "CBar", "Foo")
+            result.check(dependencies: "Bar", "CBar", target: "Foo")
+            result.check(dependencies: "CBar", target: "Bar")
         }
     }
 
