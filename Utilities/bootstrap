@@ -895,14 +895,21 @@ def main():
     # Compute the build paths.
     if platform.system() == 'Darwin':
         build_target = "x86_64-apple-macosx10.10"
-    elif platform.processor() == 's390x':
-        build_target = "s390x-unknown-linux"
-    elif platform.system() == 'Linux' and platform.machine() == 'ppc64le':
-        build_target = 'powerpc64le-unknown-linux'
-    elif platform.system() == 'Linux' and platform.machine() == 'arm':
-        build_target = 'arm-linux-gnueabihf'
+    elif platform.system() == 'Linux':              
+        if platform.machine() == 'x86_64':
+            build_target = "x86_64-unknown-linux"
+        elif platform.machine() == 's390x':
+            build_target = "s390x-unknown-linux"
+        elif platform.machine() == 'ppc64le':
+            build_target = 'powerpc64le-unknown-linux'
+        elif platform.machine().startswith("armv7"):
+            build_target = 'armv7-unknown-linux-gnueabihf'
+        elif platform.machine() == 'aarch64':
+            build_target = 'aarch64-unknown-linux'
+        else:
+            raise SystemExit("ERROR: unsupported machine:",platform.machine())
     else:
-        build_target = 'x86_64-unknown-linux'
+        raise SystemExit("ERROR: unsupported system:",platform.system())
 
     build_path = os.path.join(g_project_root, args.build_path)
     sandbox_path = os.path.join(build_path, ".bootstrap")
