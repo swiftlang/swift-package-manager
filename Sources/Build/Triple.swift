@@ -32,9 +32,10 @@ public struct Triple {
 
     public enum Arch: String {
         case x86_64
-        case armv7
+        case ppc64le
         case s390x
-        case powerpc64le
+        case aarch64
+        case armv7
         case arm
     }
 
@@ -106,20 +107,26 @@ public struct Triple {
     }
 
     public static let macOS = try! Triple("x86_64-apple-macosx10.10")
-    public static let linux = try! Triple("x86_64-unknown-linux")
+    public static let x86Linux = try! Triple("x86_64-unknown-linux")
     public static let ppc64leLinux = try! Triple("powerpc64le-unknown-linux")
-    public static let armLinux = try! Triple("arm-linux-gnueabihf")
+    public static let s390xLinux = try! Triple("s390x-unknown-linux")
+    public static let arm64Linux = try! Triple("aarch64-unknown-linux")
+    public static let armLinux = try! Triple("armv7-unknown-linux-gnueabihf")
     public static let android = try! Triple("armv7-unknown-linux-androideabi")
 
   #if os(macOS)
     public static let hostTriple: Triple = .macOS
-  #elseif os(Linux) && arch(s390x)
-    public static let hostTriple: Triple = try! Triple("s390x-unknown-linux")
-  #elseif os(Linux) && arch(powerpc64le)
-    public static let hostTriple: Triple = .ppc64leLinux
-  #elseif os(Linux) && arch(arm)
-    public static let hostTriple: Triple = .armLinux
-  #else
-    public static let hostTriple: Triple = .linux
+  #elseif os(Linux)
+    #if arch(x86_64)
+      public static let hostTriple: Triple = .x86Linux
+    #elseif arch(powerpc64le)
+      public static let hostTriple: Triple = .ppc64leLinux
+    #elseif arch(s390x)
+      public static let hostTriple: Triple = .s390xLinux
+    #elseif arch(arm64)
+      public static let hostTriple: Triple = .arm64Linux
+    #elseif arch(arm)
+      public static let hostTriple: Triple = .armLinux    
+    #endif
   #endif
 }
