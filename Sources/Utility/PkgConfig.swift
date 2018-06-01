@@ -18,21 +18,6 @@ public enum PkgConfigError: Swift.Error {
     case nonWhitelistedFlags(String)
 }
 
-extension PkgConfigError: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .couldNotFindConfigFile:
-            return "Could not locate .pc file"
-
-        case .parsingError(let issue):
-            return issue
-
-        case .nonWhitelistedFlags(let flags):
-            return flags
-        }
-    }
-}
-
 public struct PkgConfigExecutionDiagnostic: DiagnosticData {
     public static let id = DiagnosticID(
         type: AnyDiagnostic.self,
