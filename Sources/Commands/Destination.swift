@@ -59,7 +59,7 @@ public struct Destination {
     ///
     /// - Parameter originalWorkingDirectory: The working directory when the program was launched.
     private static func hostBinDir(
-        originalWorkingDirectory: AbsolutePath = currentWorkingDirectory
+        originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory
     ) -> AbsolutePath {
       #if Xcode
         // For Xcode, set bin directory to the build directory containing the fake
@@ -74,15 +74,17 @@ public struct Destination {
         return AbsolutePath(#file).parentDirectory
             .parentDirectory.parentDirectory.appending(components: ".build", hostTargetTriple, "debug")
       #else
-        return AbsolutePath(
-            CommandLine.arguments[0], relativeTo: originalWorkingDirectory).parentDirectory
+        guard let cwd = originalWorkingDirectory else {
+            return try! AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory
+        }
+        return AbsolutePath(CommandLine.arguments[0], relativeTo: cwd).parentDirectory
       #endif
     }
 
     /// The destination describing the host OS.
     public static func hostDestination(
         _ binDir: AbsolutePath? = nil,
-        originalWorkingDirectory: AbsolutePath = currentWorkingDirectory
+        originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory
     ) throws -> Destination {
         // Select the correct binDir.
         let binDir = binDir ?? Destination.hostBinDir(

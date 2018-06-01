@@ -292,7 +292,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     private static func xctestHelperPath() -> AbsolutePath {
         let xctestHelperBin = "swiftpm-xctest-helper"
         let binDirectory = AbsolutePath(CommandLine.arguments.first!,
-            relativeTo: currentWorkingDirectory).parentDirectory
+            relativeTo: localFileSystem.currentWorkingDirectory!).parentDirectory
         // XCTestHelper tool is installed in libexec.
         let maybePath = binDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", xctestHelperBin)
         if isFile(maybePath) {

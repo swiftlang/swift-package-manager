@@ -127,7 +127,7 @@ public struct UserToolchain: Toolchain {
 
         // Get the search paths from PATH.
         let envSearchPaths = getEnvSearchPaths(
-            pathString: getenv("PATH"), currentWorkingDirectory: currentWorkingDirectory)
+            pathString: getenv("PATH"), currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
 
         func lookup(fromEnv: String) -> AbsolutePath? {
             return lookupExecutablePath(

@@ -204,7 +204,7 @@ public final class Process: ObjectIdentifierProtocol {
             // FIXME: This can be cached.
             let envSearchPaths = getEnvSearchPaths(
                 pathString: getenv("PATH"),
-                currentWorkingDirectory: currentWorkingDirectory
+                currentWorkingDirectory: localFileSystem.currentWorkingDirectory
             )
             // Lookup the executable.
             let value = lookupExecutablePath(

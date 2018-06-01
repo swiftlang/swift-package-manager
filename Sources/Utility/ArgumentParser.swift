@@ -197,7 +197,11 @@ public struct PathArgument: ArgumentKind {
 
     public init(argument: String) throws {
         // FIXME: This should check for invalid paths.
-        path = AbsolutePath(argument, relativeTo: currentWorkingDirectory)
+        if let cwd = localFileSystem.currentWorkingDirectory {
+            path = AbsolutePath(argument, relativeTo: cwd)
+        } else {
+            path = try AbsolutePath(validating: argument)
+        }
     }
 
     public static var completion: ShellCompletion = .filename

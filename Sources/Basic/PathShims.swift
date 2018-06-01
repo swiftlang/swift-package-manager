@@ -112,10 +112,8 @@ public func unlink(_ path: AbsolutePath) throws {
     guard rv == 0 else { throw SystemError.unlink(errno, path.asString) }
 }
 
-/// The current working directory of the process (same as returned by POSIX' `getcwd()` function or Foundation's
-/// `currentDirectoryPath` method).
-/// FIXME: This should probably go onto `FileSystem`, under the assumption that each file system has its own notion of
-/// the `current` working directory.
+/// The current working directory of the processs.
+@available(*, deprecated, renamed: "localFileSystem.currentWorkingDirectory")
 public var currentWorkingDirectory: AbsolutePath {
     let cwdStr = FileManager.default.currentDirectoryPath
     return AbsolutePath(cwdStr)
@@ -214,13 +212,17 @@ public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
 extension AbsolutePath {
     /// Returns a path suitable for display to the user (if possible, it is made
     /// to be relative to the current working directory).
-    public func prettyPath(cwd: AbsolutePath = currentWorkingDirectory) -> String {
+    public func prettyPath(cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory) -> String {
+        guard let dir = cwd else {
+            // No current directory, display as is.
+            return self.asString
+        }
         // FIXME: Instead of string prefix comparison we should add a proper API
         // to AbsolutePath to determine ancestry.
-        if self == cwd {
+        if self == dir {
             return "."
-        } else if self.asString.hasPrefix(cwd.asString + "/") {
-            return "./" + self.relative(to: cwd).asString
+        } else if self.asString.hasPrefix(dir.asString + "/") {
+            return "./" + self.relative(to: dir).asString
         } else {
             return self.asString
         }

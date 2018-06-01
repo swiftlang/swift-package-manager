@@ -10,6 +10,7 @@
 
 import POSIX
 import SPMLibc
+import Foundation
 
 public enum FileSystemError: Swift.Error {
     /// Access to the path is denied.
@@ -135,6 +136,13 @@ public protocol FileSystem: class {
     // more data than just the name here.
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String]
 
+    /// Get the current working directory (similar to `getcwd(3)`), which can be
+    /// different for different (virtualized) implementations of a FileSystem.
+    /// The current working directory can be empty if e.g. the directory became
+    /// unavailable while the current process was still working in it.
+    /// This follows the POSIX `getcwd(3)` semantics.
+    var currentWorkingDirectory: AbsolutePath? { get }
+
     /// Create the given directory.
     func createDirectory(_ path: AbsolutePath) throws
 
@@ -216,6 +224,11 @@ private class LocalFileSystem: FileSystem {
 
     func isSymlink(_ path: AbsolutePath) -> Bool {
         return Basic.isSymlink(path)
+    }
+
+    var currentWorkingDirectory: AbsolutePath? {
+        let cwdStr = FileManager.default.currentDirectoryPath
+        return try? AbsolutePath(validating: cwdStr)
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
@@ -558,6 +571,11 @@ public class InMemoryFileSystem: FileSystem {
         return false
     }
 
+    /// Virtualized current working directory.
+    public var currentWorkingDirectory: AbsolutePath? {
+        return AbsolutePath("/")
+    }
+
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let node = try getNode(path) else {
             throw FileSystemError.noEntry
@@ -731,6 +749,11 @@ public class RerootedFileSystemView: FileSystem {
 
     public func isExecutableFile(_ path: AbsolutePath) -> Bool {
         return underlyingFileSystem.isExecutableFile(formUnderlyingPath(path))
+    }
+
+    /// Virtualized current working directory.
+    public var currentWorkingDirectory: AbsolutePath? {
+        return AbsolutePath("/")
     }
 
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
