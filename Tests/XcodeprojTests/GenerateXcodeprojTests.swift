@@ -61,8 +61,8 @@ class GenerateXcodeprojTests: XCTestCase {
                    If no build configuration is specified and -scheme is not passed then "Release" is used.
                
                    Schemes:
-                       DummyProjectName-Package
-               """))
+                       Foo-Package
+               """), output)
         }
       #endif
     }
