@@ -16,7 +16,6 @@ public enum PkgConfigError: Swift.Error {
     case couldNotFindConfigFile
     case parsingError(String)
     case nonWhitelistedFlags(String)
-    case pkgConfigExecutionError
 }
 
 extension PkgConfigError: CustomStringConvertible {
@@ -30,24 +29,73 @@ extension PkgConfigError: CustomStringConvertible {
 
         case .nonWhitelistedFlags(let flags):
             return flags
-
-        case .pkgConfigExecutionError:
-            return "Warning: Issue running 'pkg-config' on your system"
         }
     }
 }
 
-/// Get search paths from pkg-config itself.
-///
-/// This is needed because on Linux machines, the search paths can be different
-/// from the standard locations that we are currently searching.
-private let pkgConfigSearchPaths: [AbsolutePath] = {
-    if let searchPaths = try? Process.checkNonZeroExit(
-        args: "pkg-config", "--variable", "pc_path", "pkg-config").chomp() {
-        return searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
+public struct PkgConfigExecutionDiagnostic: DiagnosticData {
+    public static let id = DiagnosticID(
+        type: AnyDiagnostic.self,
+        name: "org.swift.diags.pkg-config-execution",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "Problem executing pkg-config"
+        }
+    )
+}
+
+struct PCFileFinder {
+    /// DiagnosticsEngine to emit warnings
+    let diagnostics: DiagnosticsEngine
+
+    /// Cached results of locations `pkg-config` will search for `.pc` files
+    let pkgConfigPaths: [AbsolutePath]
+
+    /// The built-in search path list.
+    ///
+    /// By default, this is combined with the search paths inferred from
+    /// `pkg-config` itself.
+    static let searchPaths = [
+        AbsolutePath("/usr/local/lib/pkgconfig"),
+        AbsolutePath("/usr/local/share/pkgconfig"),
+        AbsolutePath("/usr/lib/pkgconfig"),
+        AbsolutePath("/usr/share/pkgconfig"),
+    ]
+
+    /// Get search paths from `pkg-config` itself to locate `.pc` files.
+    ///
+    /// This is needed because on Linux machines, the search paths can be different
+    /// from the standard locations that we are currently searching.
+    public init (diagnostics: DiagnosticsEngine
+) {
+        self.diagnostics = diagnostics
+        do {
+            let searchPaths = try Process.checkNonZeroExit(
+            args: "pkg-config", "--variable", "pc_path", "pkg-config").chomp()
+            pkgConfigPaths = searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
+        } catch {
+            diagnostics.emit(data: PkgConfigExecutionDiagnostic())
+            pkgConfigPaths = []
+        }
     }
-    return []
-}()
+
+    public func locatePCFile(
+        name: String,
+        customSearchPaths: [AbsolutePath],
+        fileSystem: FileSystem
+        ) throws -> AbsolutePath {
+        // FIXME: We should consider building a registry for all items in the
+        // search paths, which is likely to be substantially more efficient if
+        // we end up searching for a reasonably sized number of packages.
+        for path in OrderedSet(customSearchPaths + pkgConfigPaths + PCFileFinder.searchPaths) {
+            let pcFile = path.appending(component: name + ".pc")
+            if fileSystem.isFile(pcFile) {
+                return pcFile
+            }
+        }
+        throw PkgConfigError.couldNotFindConfigFile
+    }
+}
 
 /// Information on an individual `pkg-config` supported package.
 public struct PkgConfig {
@@ -66,23 +114,15 @@ public struct PkgConfig {
     /// DiagnosticsEngine to emit warnings
     public let diagnostics: DiagnosticsEngine
 
-    /// The built-in search path list.
-    ///
-    /// By default, this is combined with the search paths inferred from
-    /// `pkg-config` itself.
-    private static let searchPaths = [
-        AbsolutePath("/usr/local/lib/pkgconfig"),
-        AbsolutePath("/usr/local/share/pkgconfig"),
-        AbsolutePath("/usr/lib/pkgconfig"),
-        AbsolutePath("/usr/share/pkgconfig"),
-    ]
+    /// Helper to query `pkg-config` for library locations
+    private let pkgFileFinder: PCFileFinder
 
     /// Load the information for the named package.
     ///
     /// It will search `fileSystem` for the pkg config file in the following order:
     /// * Paths defined in `PKG_CONFIG_PATH` environment variable
     /// * Paths defined in `additionalSearchPaths` argument
-    /// * Built-in search paths (see `PkgConfig.searchPaths`)
+    /// * Built-in search paths (see `PCFileFinder.searchPaths`)
     ///
     /// - parameter name: Name of the pkg config file (without file extension).
     /// - parameter additionalSearchPaths: Additional paths to search for pkg config file.
@@ -96,11 +136,11 @@ public struct PkgConfig {
         fileSystem: FileSystem = localFileSystem
     ) throws {
         self.name = name
-        self.pcFile = try PkgConfig.locatePCFile(
+        self.pkgFileFinder = PCFileFinder(diagnostics: diagnostics)
+        self.pcFile = try pkgFileFinder.locatePCFile(
             name: name,
             customSearchPaths: PkgConfig.envSearchPaths + additionalSearchPaths,
-            fileSystem: fileSystem,
-            diagnostics: diagnostics)
+            fileSystem: fileSystem)
 
         self.diagnostics = diagnostics
         var parser = PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
@@ -135,26 +175,7 @@ public struct PkgConfig {
         return []
     }
 
-    static func locatePCFile(
-        name: String,
-        customSearchPaths: [AbsolutePath],
-        fileSystem: FileSystem,
-        diagnostics: DiagnosticsEngine
-    ) throws -> AbsolutePath {
-        // FIXME: We should consider building a registry for all items in the
-        // search paths, which is likely to be substantially more efficient if
-        // we end up searching for a reasonably sized number of packages.
-        if pkgConfigSearchPaths == [] {
-            diagnostics.emit(PkgConfigError.pkgConfigExecutionError)
-        }
-        for path in OrderedSet(customSearchPaths + pkgConfigSearchPaths + searchPaths) {
-            let pcFile = path.appending(component: name + ".pc")
-            if fileSystem.isFile(pcFile) {
-                return pcFile
-            }
-        }
-        throw PkgConfigError.couldNotFindConfigFile
-    }
+
 }
 
 /// Parser for the `pkg-config` `.pc` file format.
