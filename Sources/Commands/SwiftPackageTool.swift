@@ -308,11 +308,17 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 option: "--output", kind: PathArgument.self,
                 usage: "Path where the Xcode project should be generated"),
             to: {
-                $0.xcodeprojOptions = XcodeprojOptions(
-                    flags: $0.buildFlags,
-                    xcconfigOverrides: $1?.path,
-                    isCodeCoverageEnabled: $2)
+                $0.xcodeprojOptions.flags = $0.buildFlags
+                $0.xcodeprojOptions.xcconfigOverrides = $1?.path
+                if let val = $2 { $0.xcodeprojOptions.isCodeCoverageEnabled = val }
                 $0.outputPath = $3?.path
+            })
+        binder.bind(
+            option: generateXcodeParser.add(
+                option: "--legacy-scheme-generator", kind: Bool.self,
+                usage: "Use the legacy scheme generator"),
+            to: {
+                $0.xcodeprojOptions.useLegacySchemeGenerator = $1
             })
 
         let completionToolParser = parser.add(

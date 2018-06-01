@@ -239,12 +239,69 @@ class PackageGraphTests: XCTestCase {
             }
         }
     }
+
+    func testSchemes() throws {
+      let fs = InMemoryFileSystem(emptyFiles:
+          "/Foo/Sources/a/main.swift",
+          "/Foo/Sources/b/main.swift",
+          "/Foo/Sources/c/main.swift",
+          "/Foo/Sources/d/main.swift",
+          "/Foo/Sources/libd/libd.swift",
+
+          "/Foo/Tests/aTests/fooTests.swift",
+          "/Foo/Tests/bcTests/fooTests.swift",
+          "/Foo/Tests/dTests/fooTests.swift",
+          "/Foo/Tests/libdTests/fooTests.swift",
+          "/end"
+      )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadMockPackageGraph4([
+            "/Foo": .init(
+                name: "Foo",
+                targets: [
+                    .target(name: "a"),
+                    .target(name: "b", dependencies: ["a"]),
+                    .target(name: "c", dependencies: ["a"]),
+                    .target(name: "d", dependencies: ["b"]),
+                    .target(name: "libd", dependencies: ["d"]),
+
+                    .testTarget(name: "aTests", dependencies: ["a"]),
+                    .testTarget(name: "bcTests", dependencies: ["b", "c"]),
+                    .testTarget(name: "dTests", dependencies: ["d"]),
+                    .testTarget(name: "libdTests", dependencies: ["libd"]),
+                ]
+             ),
+        ], root: "/Foo", diagnostics: diagnostics, in: fs)
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let generatedSchemes = SchemesGenerator(
+            graph: graph,
+            container: "Foo.xcodeproj",
+            schemesDir: AbsolutePath("/Foo.xcodeproj/xcshareddata/xcschemes"),
+            isCodeCoverageEnabled: true,
+            fs: fs).buildSchemes()
+
+        let schemes = Dictionary(uniqueKeysWithValues: generatedSchemes.map({ ($0.name, $0) }))
+
+        XCTAssertEqual(generatedSchemes.count, 5)
+        XCTAssertEqual(schemes["a"]?.testTargets.map({ $0.name }).sorted(), ["aTests"])
+        XCTAssertEqual(schemes["a"]?.regularTargets.map({ $0.name }).sorted(), ["a"])
+
+        XCTAssertEqual(schemes["b"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests"])
+        XCTAssertEqual(schemes["c"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests"])
+        XCTAssertEqual(schemes["d"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests", "dTests"])
+
+        XCTAssertEqual(schemes["Foo-Package"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests", "dTests", "libdTests"])
+        XCTAssertEqual(schemes["Foo-Package"]?.regularTargets.map({ $0.name }).sorted(), ["a", "b", "c", "d", "libd"])
+    }
     
     static var allTests = [
         ("testAggregateTarget", testAggregateTarget),
         ("testBasics", testBasics),
         ("testModuleLinkage", testModuleLinkage),
         ("testModulemap", testModulemap),
+        ("testSchemes", testSchemes),
     ]
 }
 
