@@ -93,7 +93,7 @@ class PathShimTests : XCTestCase {
     
     func testCurrentWorkingDirectory() {
         // Test against what POSIX returns, at least for now.
-        let cwd = currentWorkingDirectory;
+        let cwd = localFileSystem.currentWorkingDirectory!
         XCTAssertEqual(cwd, AbsolutePath(getcwd()))
     }
     

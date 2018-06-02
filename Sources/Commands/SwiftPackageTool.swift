@@ -47,7 +47,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             print(Versioning.currentVersion.completeDisplayString)
 
         case .initPackage:
-            let initPackage = try InitPackage(destinationPath: currentWorkingDirectory, packageType: options.initMode)
+            let initPackage = try InitPackage(destinationPath: localFileSystem.currentWorkingDirectory!, packageType: options.initMode)
             initPackage.progressReporter = { message in
                 print(message)
             }

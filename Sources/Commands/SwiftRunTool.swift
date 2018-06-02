@@ -157,7 +157,8 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
     /// Executes the executable at the specified path.
     private func run(_ excutablePath: AbsolutePath, arguments: [String]) throws {
         // Make sure we are running from the original working directory.
-        if originalWorkingDirectory != currentWorkingDirectory {
+        let cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
+        if cwd == nil || originalWorkingDirectory != cwd {
             try POSIX.chdir(originalWorkingDirectory.asString)
         }
 
@@ -169,8 +170,15 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
     private func isValidSwiftFilePath(_ path: String) -> Bool {
         guard path.hasSuffix(".swift") else { return false }
         //FIXME: Return false when the path is not a valid path string.
-        let absolutePath = path.first == "/" ?
-            AbsolutePath(path) : AbsolutePath(currentWorkingDirectory, path)
+        let absolutePath: AbsolutePath
+        if path.first == "/" {
+            absolutePath = AbsolutePath(path)
+        } else {
+            guard let cwd = localFileSystem.currentWorkingDirectory else {
+                return false
+            }
+            absolutePath = AbsolutePath(cwd, path)
+        }
         return localFileSystem.isFile(absolutePath)
     }
 

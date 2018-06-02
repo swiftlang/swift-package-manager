@@ -212,7 +212,7 @@ public class SwiftTool<Options: ToolOptions> {
     /// - parameter args: The command line arguments to be passed to this tool.
     public init(toolName: String, usage: String, overview: String, args: [String], seeAlso: String? = nil) {
         // Capture the original working directory ASAP.
-        originalWorkingDirectory = currentWorkingDirectory
+        originalWorkingDirectory = localFileSystem.currentWorkingDirectory!
         
         // Create the parser.
         parser = ArgumentParser(
@@ -367,7 +367,7 @@ public class SwiftTool<Options: ToolOptions> {
         self.packageRoot = packageRoot
         self.buildPath = getEnvBuildPath() ??
             customBuildPath ??
-            (packageRoot ?? currentWorkingDirectory).appending(component: ".build")
+            (packageRoot ?? localFileSystem.currentWorkingDirectory!).appending(component: ".build")
         
         if options.chdir != nil {
             diagnostics.emit(data: ChdirDeprecatedDiagnostic())
@@ -735,9 +735,11 @@ extension BuildSubset {
 /// Returns path of the nearest directory containing the manifest file w.r.t
 /// current working directory.
 private func findPackageRoot() -> AbsolutePath? {
+    guard var root = localFileSystem.currentWorkingDirectory else {
+        return nil
+    }
     // FIXME: It would be nice to move this to a generalized method which takes path and predicate and
     // finds the lowest path for which the predicate is true.
-    var root = currentWorkingDirectory
     while !isFile(root.appending(component: Manifest.filename)) {
         root = root.parentDirectory
         guard !root.isRoot else {
@@ -751,7 +753,7 @@ private func getEnvBuildPath() -> AbsolutePath? {
     // Don't rely on build path from env for SwiftPM's own tests.
     guard POSIX.getenv("IS_SWIFTPM_TEST") == nil else { return nil }
     guard let env = POSIX.getenv("SWIFTPM_BUILD_DIR") else { return nil }
-    return AbsolutePath(env, relativeTo: currentWorkingDirectory)
+    return AbsolutePath(env, relativeTo: localFileSystem.currentWorkingDirectory!)
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.

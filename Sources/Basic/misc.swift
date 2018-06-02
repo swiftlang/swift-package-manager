@@ -34,15 +34,18 @@ public func exec(path: String, args: [String]) throws {
 /// - Returns: List of search paths.
 public func getEnvSearchPaths(
     pathString: String?,
-    currentWorkingDirectory cwd: AbsolutePath
+    currentWorkingDirectory: AbsolutePath?
 ) -> [AbsolutePath] {
     // Compute search paths from PATH variable.
-    return (pathString ?? "").split(separator: ":").map(String.init).map({ pathString in
+    return (pathString ?? "").split(separator: ":").map(String.init).compactMap({ pathString in
         // If this is an absolute path, we're done.
         if pathString.first == "/" {
             return AbsolutePath(pathString)
         }
         // Otherwise convert it into absolute path relative to the working directory.
+        guard let cwd = currentWorkingDirectory else {
+            return nil
+        }
         return AbsolutePath(pathString, relativeTo: cwd)
     })
 }
@@ -57,20 +60,32 @@ public func getEnvSearchPaths(
 ///
 /// - Parameters:
 ///   - filename: The name of the file to find.
-///   - cwd: The current working directory to look in.
+///   - currentWorkingDirectory: The current working directory to look in.
 ///   - searchPaths: The additional search paths to look in if not found in cwd.
 /// - Returns: Valid path to executable if present, otherwise nil.
 public func lookupExecutablePath(
     filename value: String?,
-    currentWorkingDirectory cwd: AbsolutePath = currentWorkingDirectory,
+    currentWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory,
     searchPaths: [AbsolutePath] = []
 ) -> AbsolutePath? {
+
     // We should have a value to continue.
     guard let value = value, !value.isEmpty else {
         return nil
     }
-    // We have a value, but it could be an absolute or a relative path.
-    let path = AbsolutePath(value, relativeTo: cwd)
+
+    let path: AbsolutePath
+    if let cwd = currentWorkingDirectory {
+        // We have a value, but it could be an absolute or a relative path.
+        path = AbsolutePath(value, relativeTo: cwd)
+    } else if let absPath = try? AbsolutePath(validating: value) {
+        // Current directory not being available is not a problem
+        // for the absolute-specified paths.
+        path = absPath
+    } else {
+        return nil
+    }
+
     if localFileSystem.isExecutableFile(path) {
         return path
     }

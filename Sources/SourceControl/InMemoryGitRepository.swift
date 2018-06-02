@@ -203,6 +203,10 @@ extension InMemoryGitRepository: FileSystem {
         return head.fileSystem.isExecutableFile(path)
     }
 
+    public var currentWorkingDirectory: AbsolutePath? {
+        return AbsolutePath("/")
+    }
+
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         return try head.fileSystem.getDirectoryContents(path)
     }
