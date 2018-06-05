@@ -12,11 +12,12 @@ import class Foundation.ProcessInfo
 import Basic
 
 extension Version {
-    static func vprefix(_ string: String) -> Version? {
-        if string.first == "v" {
-            return Version(string: String(string.dropFirst()))
-        } else {
-            return nil
+    init?(tag: String) {
+        if tag.first == "v" {
+            self.init(string: String(tag.dropFirst()))
+        }
+        else {
+            self.init(string: tag)
         }
     }
 }
@@ -26,27 +27,29 @@ public class Git {
     public static func convertTagsToVersionMap(_ tags: [String]) -> [Version: [String]] {
         // First, check if we need to restrict the tag set to version-specific tags.
         var knownVersions: [Version: [String]] = [:]
-        for versionSpecificKey in Versioning.currentVersionSpecificKeys {
-            for tag in tags where tag.hasSuffix(versionSpecificKey) {
-                let specifier = String(tag.dropLast(versionSpecificKey.count))
-                if let version = Version(string: specifier) ?? Version.vprefix(specifier) {
-                    knownVersions[version, default: []].append(tag)
+        var versionSpecificKnownVersions: [Version: [String]] = [:]
+
+        for tag in tags {
+            for versionSpecificKey in Versioning.currentVersionSpecificKeys {
+                if tag.hasSuffix(versionSpecificKey) {
+                    let trimmedTag = String(tag.dropLast(versionSpecificKey.count))
+                    if let version = Version(tag: trimmedTag) {
+                        versionSpecificKnownVersions[version, default: []].append(tag)
+                    }
+                    break
                 }
             }
-
-            // If we found tags at this version-specific key, we are done.
-            if !knownVersions.isEmpty {
-                return knownVersions
-            }
-        }
-
-        // Otherwise, look for normal and 'v'-prefixed tags.
-        for tag in tags {
-            if let version = Version(string: tag) ?? Version.vprefix(tag) {
+            
+            if let version = Version(tag: tag) {
                 knownVersions[version, default: []].append(tag)
             }
         }
-        return knownVersions
+        if !versionSpecificKnownVersions.isEmpty {
+            return versionSpecificKnownVersions
+        }
+        else {
+            return knownVersions
+        }
     }
 
     /// A shell command to run for Git. Can be either a name or a path.
