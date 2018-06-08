@@ -2245,7 +2245,7 @@ private final class TestWorkspace {
         let workspace = createWorkspace()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies)
-        workspace.updateDependencies(root: rootInput, diagnostics: diagnostics)
+        workspace.updateDependencies(root: rootInput, diagnostics: diagnostics, packages: nil)
         result(diagnostics)
     }
 

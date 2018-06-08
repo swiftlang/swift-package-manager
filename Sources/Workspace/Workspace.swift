@@ -482,7 +482,8 @@ extension Workspace {
     ///       and notes.
     public func updateDependencies(
         root: PackageGraphRootInput,
-        diagnostics: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine,
+        packages: String?
     ) {
         // Create cache directories.
         createCacheDirectories(with: diagnostics)

@@ -152,6 +152,34 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testUpdatePackage() throws {
+        fixture(name: "DependencyResolution/External/Complex") { prefix in
+            let packageRoot = prefix.appending(component: "deck-of-playing-cards")
+
+            // Perform an initial fetch.
+            _ = try execute(["fetch"], packagePath: packageRoot)
+            var path = try SwiftPMProduct.packagePath(for: "PlayingCard", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
+            var path2 = try SwiftPMProduct.packagePath(for: "FisherYates", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path2).tags, ["1.2.3"])
+
+            // Retag all dependencies, and update just one.
+            let repo = GitRepository(path: prefix.appending(component: "PlayingCard"))
+            try repo.tag(name: "1.2.4")
+            let repo2 = GitRepository(path: prefix.appending(component: "FisherYates"))
+            try repo2.tag(name: "1.2.4")
+
+            _ = try execute(["update", "--package", "PlayingCard"], packagePath: packageRoot)
+
+            // We shouldn't assume package path will be same after an update so ask again for it.
+            path = try SwiftPMProduct.packagePath(for: "PlayingCard", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3", "1.2.4"])
+
+            path = try SwiftPMProduct.packagePath(for: "FisherYates", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
+        }
+    }
+
     func testInitExecutable() throws {
         mktmpdir { tmpPath in
             let fs = localFileSystem
