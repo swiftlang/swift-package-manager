@@ -24,12 +24,12 @@ public struct PkgConfigExecutionDiagnostic: DiagnosticData {
         name: "org.swift.diags.pkg-config-execution",
         defaultBehavior: .warning,
         description: {
-            $0 <<< "Failed to retrieve search paths with pkg-config"
+            $0 <<< "failed to retrieve search paths with pkg-config"
         }
     )
 }
 
-struct PCFileFinder {
+private struct PCFileFinder {
     /// DiagnosticsEngine to emit warnings
     let diagnostics: DiagnosticsEngine
 
