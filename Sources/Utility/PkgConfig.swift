@@ -34,7 +34,7 @@ struct PCFileFinder {
     let diagnostics: DiagnosticsEngine
 
     /// Cached results of locations `pkg-config` will search for `.pc` files
-    static var pkgConfigPaths: [AbsolutePath]?
+    private static var pkgConfigPaths: [AbsolutePath]?
 
     /// The built-in search path list.
     ///
