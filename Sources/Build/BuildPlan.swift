@@ -534,7 +534,7 @@ public class BuildPlan {
     /// The filesystem to operate on.
     let fileSystem: FileSystem
 
-    /// Diagnostics Engine to emit errors
+    /// Diagnostics Engine to emit diagnostics
     let diagnostics: DiagnosticsEngine
 
     /// Create a build plan with build parameters and a package graph.
@@ -550,7 +550,6 @@ public class BuildPlan {
         self.diagnostics = diagnostics
         self.delegate = delegate
         self.fileSystem = fileSystem
-
 
         // Create build target description for each target which we need to plan.
         var targetMap = [ResolvedTarget: TargetDescription]()

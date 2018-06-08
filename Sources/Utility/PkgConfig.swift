@@ -20,11 +20,11 @@ public enum PkgConfigError: Swift.Error {
 
 public struct PkgConfigExecutionDiagnostic: DiagnosticData {
     public static let id = DiagnosticID(
-        type: AnyDiagnostic.self,
+        type: PkgConfigExecutionDiagnostic.self,
         name: "org.swift.diags.pkg-config-execution",
         defaultBehavior: .warning,
         description: {
-            $0 <<< "Problem executing pkg-config"
+            $0 <<< "Failed to retrieve search paths with pkg-config"
         }
     )
 }
@@ -34,7 +34,7 @@ struct PCFileFinder {
     let diagnostics: DiagnosticsEngine
 
     /// Cached results of locations `pkg-config` will search for `.pc` files
-    let pkgConfigPaths: [AbsolutePath]
+    static var pkgConfigPaths: [AbsolutePath]?
 
     /// The built-in search path list.
     ///
@@ -51,16 +51,17 @@ struct PCFileFinder {
     ///
     /// This is needed because on Linux machines, the search paths can be different
     /// from the standard locations that we are currently searching.
-    public init (diagnostics: DiagnosticsEngine
-) {
+    public init (diagnostics: DiagnosticsEngine) {
         self.diagnostics = diagnostics
-        do {
-            let searchPaths = try Process.checkNonZeroExit(
-            args: "pkg-config", "--variable", "pc_path", "pkg-config").chomp()
-            pkgConfigPaths = searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
-        } catch {
-            diagnostics.emit(data: PkgConfigExecutionDiagnostic())
-            pkgConfigPaths = []
+        if PCFileFinder.pkgConfigPaths == nil {
+            do {
+                let searchPaths = try Process.checkNonZeroExit(
+                args: "pkg-config", "--variable", "pc_path", "pkg-config").chomp()
+                PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
+            } catch {
+                diagnostics.emit(data: PkgConfigExecutionDiagnostic())
+                PCFileFinder.pkgConfigPaths = []
+            }
         }
     }
 
@@ -68,11 +69,11 @@ struct PCFileFinder {
         name: String,
         customSearchPaths: [AbsolutePath],
         fileSystem: FileSystem
-        ) throws -> AbsolutePath {
+    ) throws -> AbsolutePath {
         // FIXME: We should consider building a registry for all items in the
         // search paths, which is likely to be substantially more efficient if
         // we end up searching for a reasonably sized number of packages.
-        for path in OrderedSet(customSearchPaths + pkgConfigPaths + PCFileFinder.searchPaths) {
+        for path in OrderedSet(customSearchPaths + PCFileFinder.pkgConfigPaths! + PCFileFinder.searchPaths) {
             let pcFile = path.appending(component: name + ".pc")
             if fileSystem.isFile(pcFile) {
                 return pcFile
@@ -96,8 +97,8 @@ public struct PkgConfig {
     /// The list of libraries to link.
     public let libs: [String]
 
-    /// DiagnosticsEngine to emit warnings
-    public let diagnostics: DiagnosticsEngine
+    /// DiagnosticsEngine to emit diagnostics
+    let diagnostics: DiagnosticsEngine
 
     /// Helper to query `pkg-config` for library locations
     private let pkgFileFinder: PCFileFinder
@@ -159,8 +160,6 @@ public struct PkgConfig {
         }
         return []
     }
-
-
 }
 
 /// Parser for the `pkg-config` `.pc` file format.
