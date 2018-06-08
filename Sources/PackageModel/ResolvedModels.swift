@@ -21,6 +21,20 @@ public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProt
 
         /// The target depends on this product.
         case product(ResolvedProduct)
+
+        public var target: ResolvedTarget? {
+            switch self {
+            case .target(let target): return target
+            case .product: return nil
+            }
+        }
+
+        public var product: ResolvedProduct? {
+            switch self {
+            case .target: return nil
+            case .product(let product): return product
+            }
+        }
     }
 
     /// The underlying target represented in this resolved target.
