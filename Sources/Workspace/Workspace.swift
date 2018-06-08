@@ -483,7 +483,7 @@ extension Workspace {
     public func updateDependencies(
         root: PackageGraphRootInput,
         diagnostics: DiagnosticsEngine,
-        packages: String?
+        package: String?
     ) {
         // Create cache directories.
         createCacheDirectories(with: diagnostics)
@@ -521,7 +521,7 @@ extension Workspace {
         diagnostics.emit(data: WorkspaceDiagnostics.ResolverDurationNote(resolutionDuration))
 
 		// Update the checkouts based on new dependency resolution.
-        updateCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, diagnostics: diagnostics)
+        updateCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, diagnostics: diagnostics, package: package)
         guard !diagnostics.hasErrors else { return }
 
         // Update the pins store.
@@ -1081,7 +1081,7 @@ extension Workspace {
         diagnostics.emit(data: WorkspaceDiagnostics.ResolverDurationNote(resolutionDuration))
 
         // Update the checkouts with dependency resolution result.
-        updateCheckouts(root: graphRoot, updateResults: result, diagnostics: diagnostics)
+        updateCheckouts(root: graphRoot, updateResults: result, diagnostics: diagnostics, package: nil)
         guard !diagnostics.hasErrors else {
             return currentManifests
         }
@@ -1394,7 +1394,8 @@ extension Workspace {
         root: PackageGraphRoot,
         updateResults: [(PackageReference, BoundVersion)],
         updateBranches: Bool = false,
-        diagnostics: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine,
+        package: String?
     ) {
         // Get the update package states from resolved results.
         guard let packageStateChanges = diagnostics.wrap({
@@ -1406,14 +1407,18 @@ extension Workspace {
         // Update or clone new packages.
         for (packageRef, state) in packageStateChanges {
             diagnostics.wrap {
-                switch state {
-                case .added(let requirement):
-                    _ = try clone(package: packageRef, requirement: requirement)
-                case .updated(let requirement):
-                    _ = try clone(package: packageRef, requirement: requirement)
-                case .removed:
-                    try remove(package: packageRef)
-                case .unchanged: break
+                // If there is a constraint is the commend
+                if package == nil
+                    || packageRef.name == package {
+                    switch state {
+                    case .added(let requirement):
+                        _ = try clone(package: packageRef, requirement: requirement)
+                    case .updated(let requirement):
+                        _ = try clone(package: packageRef, requirement: requirement)
+                    case .removed:
+                        try remove(package: packageRef)
+                    case .unchanged: break
+                    }
                 }
             }
         }

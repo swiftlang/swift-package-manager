@@ -64,7 +64,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try workspace.updateDependencies(
                 root: getWorkspaceRoot(),
                 diagnostics: diagnostics,
-                packages: options.updateOptions.packageName
+                package: options.updateOptions.packageName
             )
 
         case .fetch:

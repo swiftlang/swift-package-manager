@@ -175,8 +175,8 @@ final class PackageToolTests: XCTestCase {
             path = try SwiftPMProduct.packagePath(for: "PlayingCard", packageRoot: packageRoot)
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3", "1.2.4"])
 
-            path = try SwiftPMProduct.packagePath(for: "FisherYates", packageRoot: packageRoot)
-            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
+            path2 = try SwiftPMProduct.packagePath(for: "FisherYates", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path2).tags, ["1.2.3"])
         }
     }
 
