@@ -24,7 +24,7 @@ public struct PkgConfigExecutionDiagnostic: DiagnosticData {
         name: "org.swift.diags.pkg-config-execution",
         defaultBehavior: .warning,
         description: {
-            $0 <<< "failed to retrieve search paths with pkg-config"
+            $0 <<< "failed to retrieve search paths with pkg-config; maybe pkg-config is not installed"
         }
     )
 }
