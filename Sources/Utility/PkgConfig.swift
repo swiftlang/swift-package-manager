@@ -29,7 +29,7 @@ public struct PkgConfigExecutionDiagnostic: DiagnosticData {
     )
 }
 
-private struct PCFileFinder {
+struct PCFileFinder {
     /// DiagnosticsEngine to emit warnings
     let diagnostics: DiagnosticsEngine
 
