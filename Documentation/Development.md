@@ -77,6 +77,8 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 	$ Utilities/bootstrap test --test-parallel
 	```
 	Use this command to run the tests. All tests must pass before a patch can be accepted.
+
+	If you encounter issues building or testing the Swift Package Manager project, try installing the latest version of the Xcode beta if applicable.
 	
 
 ## Self-hosting
