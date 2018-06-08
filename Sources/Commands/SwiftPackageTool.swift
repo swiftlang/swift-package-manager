@@ -167,7 +167,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 projectName: projectName,
                 xcodeprojPath: xcodeprojPath,
                 graph: graph,
-                options: options.xcodeprojOptions)
+                options: options.xcodeprojOptions,
+                diagnostics: diagnostics)
+
             print("generated:", xcodeprojPath.prettyPath(cwd: originalWorkingDirectory))
 
         case .describe:

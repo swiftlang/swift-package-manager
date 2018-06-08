@@ -534,17 +534,22 @@ public class BuildPlan {
     /// The filesystem to operate on.
     let fileSystem: FileSystem
 
+    /// Diagnostics Engine to emit diagnostics
+    let diagnostics: DiagnosticsEngine
+
     /// Create a build plan with build parameters and a package graph.
     public init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
+        diagnostics: DiagnosticsEngine,
         delegate: BuildPlanDelegate? = nil,
         fileSystem: FileSystem = localFileSystem
     ) throws {
-        self.fileSystem = fileSystem
         self.buildParameters = buildParameters
         self.graph = graph
+        self.diagnostics = diagnostics
         self.delegate = delegate
+        self.fileSystem = fileSystem
 
         // Create build target description for each target which we need to plan.
         var targetMap = [ResolvedTarget: TargetDescription]()
@@ -761,7 +766,7 @@ public class BuildPlan {
             return flags
         }
         // Otherwise, get the result and cache it.
-        guard let result = pkgConfigArgs(for: target) else {
+        guard let result = pkgConfigArgs(for: target, diagnostics: diagnostics) else {
             pkgConfigCache[target] = ([], [])
             return pkgConfigCache[target]!
         }

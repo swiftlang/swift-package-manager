@@ -39,7 +39,7 @@ class PackageGraphTests: XCTestCase {
 
         let options = XcodeprojOptions(xcconfigOverrides: AbsolutePath("/Overrides.xcconfig"))
         
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: options, fileSystem: fs)
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: options, fileSystem: fs, diagnostics: diagnostics)
 
         XcodeProjectTester(project) { result in
             result.check(projectDir: "Bar")
@@ -149,7 +149,7 @@ class PackageGraphTests: XCTestCase {
                 products: [.library(name: "Bar", type: .dynamic, targets: ["Foo"])],
                 targets: [.target(name: "Foo")]),
         ], root: "/Foo", diagnostics: diagnostics, in: fs)
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Foo/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Foo/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
         XcodeProjectTester(project) { result in
             result.check(target: "Foo") { targetResult in
                 targetResult.check(productType: .framework)
@@ -175,7 +175,7 @@ class PackageGraphTests: XCTestCase {
       let g = loadMockPackageGraph([
           "/Bar": Package(name: "Bar", targets: [Target(name: "swift", dependencies: ["Sea", "Sea2"])]),
       ], root: "/Bar", diagnostics: diagnostics, in: fs)
-      let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
 
       XcodeProjectTester(project) { result in
           result.check(target: "swift") { targetResult in
@@ -209,7 +209,7 @@ class PackageGraphTests: XCTestCase {
             "/Pkg": Package(name: "Pkg", targets: [Target(name: "LibraryTests", dependencies: ["Library", "HelperTool"])]),
             ], root: "/Pkg", diagnostics: diagnostics, in: fs)
         
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
         
         XcodeProjectTester(project) { result in
             result.check(projectDir: "Pkg")
