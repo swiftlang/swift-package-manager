@@ -241,7 +241,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
-        parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
+        let updateParser = parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
+
+        binder.bind(
+            option: updateParser.add(
+                option: "--package", kind: String.self,
+                usage: "The package name to update"),
+            to: { $0.updateOptions.packageName = $1 })
 
         let initPackageParser = parser.add(
             subparser: PackageMode.initPackage.rawValue,
@@ -406,6 +412,11 @@ public class PackageToolOptions: ToolOptions {
         case setCurrent
     }
     var toolsVersionMode: ToolsVersionMode = .display
+
+    struct UpdateOptions {
+        var packageName: String?
+    }
+    var updateOptions = UpdateOptions()
 }
 
 public enum PackageMode: String, StringEnumArgument {
