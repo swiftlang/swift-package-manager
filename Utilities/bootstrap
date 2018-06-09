@@ -917,8 +917,7 @@ def main():
 
     # Confirm rsync is available.
     try:
-        FNULL = open(os.devnull, 'w')
-        subprocess.check_call(['rsync', '--version'], stdout=FNULL, stderr=subprocess.STDOUT)
+        subprocess.check_output(['rsync', '--version'], stderr=subprocess.STDOUT)
     except Exception as e:
         error("rsync is not available with error: %s" % e)  
     
