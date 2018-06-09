@@ -1407,7 +1407,7 @@ extension Workspace {
         // Update or clone new packages.
         for (packageRef, state) in packageStateChanges {
             diagnostics.wrap {
-                // If there is a constraint is the commend
+                // If there is a constraint in the command, only perform action on that package
                 if package == nil
                     || packageRef.name == package {
                     switch state {
