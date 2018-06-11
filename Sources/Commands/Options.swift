@@ -31,6 +31,9 @@ public class ToolOptions {
     /// Enable prefetching in resolver which will kick off parallel git cloning.
     public var shouldEnableResolverPrefetching = true
 
+    /// Mute the output of tool operations.
+    public var shouldMuteOutput = true
+
     /// If print version option was passed.
     public var shouldPrintVersion: Bool = false
 
