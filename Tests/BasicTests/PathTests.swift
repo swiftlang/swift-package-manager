@@ -276,11 +276,23 @@ class PathTests: XCTestCase {
         XCTAssertNoThrow(try AbsolutePath(validating: "/a/b/c/d"))
 
         XCTAssertThrowsError(try AbsolutePath(validating: "~/a/b/d")) { error in
-            XCTAssertEqual("\(error)", "invalid absolute path '~/a/b/d'; absolute path must begin with /")
+            XCTAssertEqual("\(error)", "invalid absolute path '~/a/b/d'; absolute path must begin with '/'")
         }
 
         XCTAssertThrowsError(try AbsolutePath(validating: "a/b/d")) { error in
             XCTAssertEqual("\(error)", "invalid absolute path 'a/b/d'")
+        }
+    }
+
+    func testRelativePathValidation() {
+        XCTAssertNoThrow(try RelativePath(validating: "a/b/c/d"))
+
+        XCTAssertThrowsError(try RelativePath(validating: "/a/b/d")) { error in
+            XCTAssertEqual("\(error)", "invalid relative path '/a/b/d'; relative path should not begin with '/' or '~'")
+        }
+
+        XCTAssertThrowsError(try RelativePath(validating: "~/a/b/d")) { error in
+            XCTAssertEqual("\(error)", "invalid relative path '~/a/b/d'; relative path should not begin with '/' or '~'")
         }
     }
 
