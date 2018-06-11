@@ -29,7 +29,7 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 ## Using trunk snapshot
 
 
-1. [Download](https://swift.org/download/#releases) and install latest Trunk Development snapshot.
+1. [Download](https://swift.org/download/#snapshots) and install latest Trunk Development snapshot.
 2. Run the following command depending on your platform.
 
 
