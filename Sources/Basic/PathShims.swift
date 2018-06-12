@@ -168,7 +168,7 @@ public func walk(
  Produced by `walk`.
  */
 public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
-    private var current: (path: AbsolutePath, iterator: IndexingIterator<[String]>)
+    private var current: (path: AbsolutePath, iterator: ArrayIterator<String>)
     private var towalk = [AbsolutePath]()
 
     private let shouldRecurse: (AbsolutePath) -> Bool
