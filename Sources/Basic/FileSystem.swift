@@ -94,6 +94,7 @@ public enum FileMode {
 
     case userUnWritable
     case userWritable
+    case executable
 
     public var cliArgument: String {
         switch self {
@@ -101,6 +102,8 @@ public enum FileMode {
             return "u-w"
         case .userWritable:
             return "u+w"
+        case .executable:
+            return "+x"
         }
     }
 }

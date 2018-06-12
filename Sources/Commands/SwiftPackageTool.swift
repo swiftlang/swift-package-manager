@@ -172,6 +172,15 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             print("generated:", xcodeprojPath.prettyPath(cwd: originalWorkingDirectory))
 
+            // Run the file watcher if requested.
+            if options.xcodeprojOptions.enableAutogeneration {
+                try WatchmanHelper(
+                    diagnostics: diagnostics,
+                    watchmanScriptsDir: buildPath.appending(component: "watchman"),
+                    packageRoot: packageRoot!
+                ).runXcodeprojWatcher(options.xcodeprojOptions)
+            }
+
         case .describe:
             let graph = try loadPackageGraph()
             describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
@@ -314,11 +323,15 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.outputPath = $3?.path
             })
         binder.bind(
-            option: generateXcodeParser.add(
+            generateXcodeParser.add(
                 option: "--legacy-scheme-generator", kind: Bool.self,
                 usage: "Use the legacy scheme generator"),
+            generateXcodeParser.add(
+                option: "--watch", kind: Bool.self,
+                usage: "Watch the filesystem and autogenerate the Xcode project if needed"),
             to: {
-                $0.xcodeprojOptions.useLegacySchemeGenerator = $1
+                $0.xcodeprojOptions.useLegacySchemeGenerator = $1 ?? false
+                $0.xcodeprojOptions.enableAutogeneration = $2 ?? false
             })
 
         let completionToolParser = parser.add(

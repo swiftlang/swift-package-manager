@@ -168,8 +168,8 @@ public final class Process: ObjectIdentifierProtocol {
     /// Cache of validated executables.
     ///
     /// Key: Executable name or path.
-    /// Value: If key was found in the search paths and is executable.
-    static private var validatedExecutablesMap = [String: Bool]()
+    /// Value: Path to the executable, if found.
+    static private var validatedExecutablesMap = [String: AbsolutePath?]()
 
     /// Create a new process instance.
     ///
@@ -195,7 +195,7 @@ public final class Process: ObjectIdentifierProtocol {
     /// Returns true if the given program is present and executable in search path.
     ///
     /// The program can be executable name, relative path or absolute path.
-    func findExecutable(_ program: String) -> Bool {
+    public static func findExecutable(_ program: String) -> AbsolutePath? {
         return Process.executablesQueue.sync {
             // Check if we already have a value for the program.
             if let value = Process.validatedExecutablesMap[program] {
@@ -206,9 +206,9 @@ public final class Process: ObjectIdentifierProtocol {
                 pathString: getenv("PATH"),
                 currentWorkingDirectory: localFileSystem.currentWorkingDirectory
             )
-            // Lookup the executable.
+            // Lookup and cache the executable path.
             let value = lookupExecutablePath(
-                filename: program, searchPaths: envSearchPaths) != nil
+                filename: program, searchPaths: envSearchPaths)
             Process.validatedExecutablesMap[program] = value
             return value
         }
@@ -229,7 +229,7 @@ public final class Process: ObjectIdentifierProtocol {
         }
 
         // Look for executable.
-        guard findExecutable(arguments[0]) else {
+        guard Process.findExecutable(arguments[0]) != nil else {
             throw Process.Error.missingExecutableProgram(program: arguments[0])
         }
 
