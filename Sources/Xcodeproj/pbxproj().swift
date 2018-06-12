@@ -424,6 +424,7 @@ func xcodeProject(
         targetSettings.common.INFOPLIST_FILE = infoPlistFilePath.relative(to: sourceRootDir).asString
 
         if target.type == .test {
+            targetSettings.common.CLANG_ENABLE_MODULES = "YES"
             targetSettings.common.EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES"
             targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["$(inherited)", "@loader_path/../Frameworks", "@loader_path/Frameworks"]
         } else {
@@ -547,16 +548,27 @@ func xcodeProject(
             // Disable defines target for clang target because our clang targets are not proper framework targets.
             // Also see: <rdar://problem/29825757> 
             targetSettings.common.DEFINES_MODULE = "NO"
+
             // Generate a modulemap for clangTarget (if not provided by user) and
             // add to the build settings.
-            let moduleMapPath: AbsolutePath
+            var moduleMapPath: AbsolutePath?
 
             // If the modulemap is generated (as opposed to user provided).
-            let isGenerated: Bool
+            var isGenerated = false
+
             // If user provided the modulemap no need to generate.
             if fileSystem.isFile(clangTarget.moduleMapPath) {
                 moduleMapPath = clangTarget.moduleMapPath
-                isGenerated = false
+            } else if includeGroup.subitems.contains(where: { $0.path == clangTarget.c99name + ".h" }) {
+                // If an umbrella header exists, enable Xcode's builtin module's feature rather than generating
+                // a custom module map. This increases the compatibility of generated Xcode projects.
+                let headerPhase = xcodeTarget.addHeadersBuildPhase()
+                for case let header as Xcode.FileReference in includeGroup.subitems {
+                    let buildFile = headerPhase.addBuildFile(fileRef: header)
+                    buildFile.settings.ATTRIBUTES = ["Public"]
+                }
+                targetSettings.common.CLANG_ENABLE_MODULES = "YES"
+                targetSettings.common.DEFINES_MODULE = "YES"
             } else {
                 // Generate and drop the modulemap inside Xcodeproj folder.
                 let path = xcodeprojPath.appending(components: "GeneratedModuleMap", clangTarget.c99name)
@@ -565,9 +577,12 @@ func xcodeProject(
                 moduleMapPath = path.appending(component: moduleMapFilename)
                 isGenerated = true
             }
-            includeGroup.addFileReference(path: moduleMapPath.asString, name: moduleMapPath.basename)
-            // Save this modulemap path mapped to target so we can later wire it up for its dependees.
-            modulesToModuleMap[target] = (moduleMapPath, isGenerated)
+
+            if let moduleMapPath = moduleMapPath {
+                includeGroup.addFileReference(path: moduleMapPath.asString, name: moduleMapPath.basename)
+                // Save this modulemap path mapped to target so we can later wire it up for its dependees.
+                modulesToModuleMap[target] = (moduleMapPath, isGenerated)
+            }
         }
     }
 

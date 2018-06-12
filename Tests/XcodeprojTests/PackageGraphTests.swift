@@ -27,6 +27,8 @@ class PackageGraphTests: XCTestCase {
           "/Bar/Sources/Sea2/include/Sea2.h",
           "/Bar/Sources/Sea2/include/module.modulemap",
           "/Bar/Sources/Sea2/Sea2.c",
+          "/Bar/Sources/Sea3/include/header.h",
+          "/Bar/Sources/Sea3/Sea3.c",
           "/Bar/Tests/BarTests/barTests.swift",
           "/Overrides.xcconfig"
       )
@@ -47,17 +49,20 @@ class PackageGraphTests: XCTestCase {
             result.check(references:
                 "Package.swift",
                 "Configs/Overrides.xcconfig",
+                "Sources/Sea3/Sea3.c",
+                "Sources/Sea3/include/header.h",
+                "Sources/Sea3/include/module.modulemap",
                 "Sources/Sea2/Sea2.c",
                 "Sources/Sea2/include/Sea2.h",
                 "Sources/Sea2/include/module.modulemap",
                 "Sources/Bar/bar.swift",
                 "Sources/Sea/Sea.c",
                 "Sources/Sea/include/Sea.h",
-                "Sources/Sea/include/module.modulemap",
                 "Tests/BarTests/barTests.swift",
                 "Dependencies/Foo 1.0.0/Package.swift",
                 "Dependencies/Foo 1.0.0/foo.swift",
                 "Products/Foo.framework",
+                "Products/Sea3.framework",
                 "Products/Sea2.framework",
                 "Products/Bar.framework",
                 "Products/Sea.framework",
@@ -97,6 +102,8 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Sea") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
+                XCTAssertEqual(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES, "YES")
+                XCTAssertEqual(targetResult.commonBuildSettings.DEFINES_MODULE, "YES")
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, nil)
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_CFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_LDFLAGS?.first, "$(inherited)")
@@ -108,12 +115,21 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Sea2") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
+                XCTAssertNil(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES)
+                XCTAssertEqual(targetResult.commonBuildSettings.DEFINES_MODULE, "NO")
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, nil)
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_CFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_LDFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_SWIFT_FLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
+            }
+
+            result.check(target: "Sea3") { targetResult in
+                targetResult.check(productType: .framework)
+                XCTAssertNil(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES)
+                XCTAssertEqual(targetResult.commonBuildSettings.DEFINES_MODULE, "NO")
+                XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, nil)
             }
 
             result.check(target: "BarTests") { targetResult in
@@ -182,13 +198,11 @@ class PackageGraphTests: XCTestCase {
               XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
                   "$(inherited)", "-Xcc",
                   "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap",
-                  "-Xcc", "-fmodule-map-file=$(SRCROOT)/build/xcodeproj/GeneratedModuleMap/Sea/module.modulemap",
               ])
               XCTAssertEqual(targetResult.target.buildSettings.common.HEADER_SEARCH_PATHS ?? [], [
                   "$(inherited)",
                   "$(SRCROOT)/Sources/Sea2/include",
                   "$(SRCROOT)/Sources/Sea/include",
-                  "$(SRCROOT)/build/xcodeproj/GeneratedModuleMap/Sea"
               ])
           }
           result.check(target: "Sea") { targetResult in

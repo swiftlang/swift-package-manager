@@ -302,6 +302,13 @@ public struct Xcode {
         init(fileRef: FileReference) {
             self.fileRef = fileRef
         }
+
+        var settings = Settings()
+
+        /// A set of file settings.
+        public struct Settings {
+            var ATTRIBUTES: [String]?
+        }
     }
 
     /// A table of build settings, which for the sake of simplicity consists
@@ -336,6 +343,7 @@ public struct Xcode {
             // they are all either strings or arrays of strings, because even
             // a boolean may be a macro reference expression.
             var CLANG_CXX_LANGUAGE_STANDARD: String?
+            var CLANG_ENABLE_MODULES: String?
             var CLANG_ENABLE_OBJC_ARC: String?
             var COMBINE_HIDPI_IMAGES: String?
             var COPY_PHASE_STRIP: String?
@@ -375,8 +383,50 @@ public struct Xcode {
             var USE_HEADERMAP: String?
             var LD: String?
 
-            init(CLANG_CXX_LANGUAGE_STANDARD: String? = nil, CLANG_ENABLE_OBJC_ARC: String? = nil, COMBINE_HIDPI_IMAGES: String? = nil, COPY_PHASE_STRIP: String? = nil, DEBUG_INFORMATION_FORMAT: String? = nil, DEFINES_MODULE: String? = nil, DYLIB_INSTALL_NAME_BASE: String? = nil, EMBEDDED_CONTENT_CONTAINS_SWIFT: String? = nil, ENABLE_NS_ASSERTIONS: String? = nil, ENABLE_TESTABILITY: String? = nil, FRAMEWORK_SEARCH_PATHS: [String]? = nil, GCC_C_LANGUAGE_STANDARD: String? = nil, GCC_OPTIMIZATION_LEVEL: String? = nil, GCC_PREPROCESSOR_DEFINITIONS: [String]? = nil, HEADER_SEARCH_PATHS: [String]? = nil, INFOPLIST_FILE: String? = nil, LD_RUNPATH_SEARCH_PATHS: [String]? = nil, LIBRARY_SEARCH_PATHS: [String]? = nil, MACOSX_DEPLOYMENT_TARGET: String? = nil, MODULEMAP_FILE: String? = nil, ONLY_ACTIVE_ARCH: String? = nil, OTHER_CFLAGS: [String]? = nil, OTHER_LDFLAGS: [String]? = nil, OTHER_SWIFT_FLAGS: [String]? = nil, PRODUCT_BUNDLE_IDENTIFIER: String? = nil, PRODUCT_MODULE_NAME: String? = nil, PRODUCT_NAME: String? = nil, PROJECT_NAME: String? = nil, SDKROOT: String? = nil, SKIP_INSTALL: String? = nil, SUPPORTED_PLATFORMS: [String]? = nil, SWIFT_ACTIVE_COMPILATION_CONDITIONS: [String]? = nil, SWIFT_FORCE_STATIC_LINK_STDLIB: String? = nil, SWIFT_FORCE_DYNAMIC_LINK_STDLIB: String? = nil, SWIFT_OPTIMIZATION_LEVEL: String? = nil, SWIFT_VERSION: String? = nil, TARGET_NAME: String? = nil, USE_HEADERMAP: String? = nil, LD: String? = nil) {
+            init(
+                CLANG_CXX_LANGUAGE_STANDARD: String? = nil,
+                CLANG_ENABLE_MODULES: String? = nil,
+                CLANG_ENABLE_OBJC_ARC: String? = nil,
+                COMBINE_HIDPI_IMAGES: String? = nil,
+                COPY_PHASE_STRIP: String? = nil,
+                DEBUG_INFORMATION_FORMAT: String? = nil,
+                DEFINES_MODULE: String? = nil,
+                DYLIB_INSTALL_NAME_BASE: String? = nil,
+                EMBEDDED_CONTENT_CONTAINS_SWIFT: String? = nil,
+                ENABLE_NS_ASSERTIONS: String? = nil,
+                ENABLE_TESTABILITY: String? = nil,
+                FRAMEWORK_SEARCH_PATHS: [String]? = nil,
+                GCC_C_LANGUAGE_STANDARD: String? = nil,
+                GCC_OPTIMIZATION_LEVEL: String? = nil,
+                GCC_PREPROCESSOR_DEFINITIONS: [String]? = nil,
+                HEADER_SEARCH_PATHS: [String]? = nil,
+                INFOPLIST_FILE: String? = nil,
+                LD_RUNPATH_SEARCH_PATHS: [String]? = nil,
+                LIBRARY_SEARCH_PATHS: [String]? = nil,
+                MACOSX_DEPLOYMENT_TARGET: String? = nil,
+                MODULEMAP_FILE: String? = nil,
+                ONLY_ACTIVE_ARCH: String? = nil,
+                OTHER_CFLAGS: [String]? = nil,
+                OTHER_LDFLAGS: [String]? = nil,
+                OTHER_SWIFT_FLAGS: [String]? = nil,
+                PRODUCT_BUNDLE_IDENTIFIER: String? = nil,
+                PRODUCT_MODULE_NAME: String? = nil,
+                PRODUCT_NAME: String? = nil,
+                PROJECT_NAME: String? = nil,
+                SDKROOT: String? = nil,
+                SKIP_INSTALL: String? = nil,
+                SUPPORTED_PLATFORMS: [String]? = nil,
+                SWIFT_ACTIVE_COMPILATION_CONDITIONS: [String]? = nil,
+                SWIFT_FORCE_STATIC_LINK_STDLIB: String? = nil,
+                SWIFT_FORCE_DYNAMIC_LINK_STDLIB: String? = nil,
+                SWIFT_OPTIMIZATION_LEVEL: String? = nil,
+                SWIFT_VERSION: String? = nil,
+                TARGET_NAME: String? = nil,
+                USE_HEADERMAP: String? = nil,
+                LD: String? = nil
+            ) {
                 self.CLANG_CXX_LANGUAGE_STANDARD = CLANG_CXX_LANGUAGE_STANDARD
+                self.CLANG_ENABLE_MODULES = CLANG_ENABLE_MODULES
                 self.CLANG_ENABLE_OBJC_ARC = CLANG_CXX_LANGUAGE_STANDARD
                 self.COMBINE_HIDPI_IMAGES = COMBINE_HIDPI_IMAGES
                 self.COPY_PHASE_STRIP = COPY_PHASE_STRIP

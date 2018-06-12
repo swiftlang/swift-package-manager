@@ -141,9 +141,47 @@ class XcodeProjectModelSerializationTests: XCTestCase {
         }
         XCTAssertEqual(activeCompilationConditions, activeCompilationConditionsValues)
     }
+
+    func testBuildFileSettingsSerialization() {
+
+        // Create build file settings.
+        var buildFileSettings = Xcode.BuildFile.Settings()
+
+        let attributeValues = ["Public"]
+        buildFileSettings.ATTRIBUTES = attributeValues
+
+        // Serialize it to a property list.
+        let plist = buildFileSettings.asPropertyList()
+
+        // Assert things about plist
+        guard case let .dictionary(buildFileSettingsDict) = plist else {
+            XCTFail("build file settings plist must be a dictionary")
+            return
+        }
+
+        guard let attributesPlist = buildFileSettingsDict["ATTRIBUTES"] else {
+            XCTFail("build file settings plist must contain ATTRIBUTES")
+            return
+        }
+
+        guard case let .array(attributePlists) = attributesPlist else {
+            XCTFail("attributes plist must be an array")
+            return
+        }
+
+        let attributes = attributePlists.compactMap { attributePlist -> String? in
+            guard case let .string(attribute) = attributePlist else {
+                XCTFail("attribute plist must be a string")
+                return nil
+            }
+            return attribute
+        }
+        XCTAssertEqual(attributes, attributeValues)
+    }
     
     static var allTests = [
         ("testBasicProjectSerialization", testBasicProjectSerialization),
         ("testBuildSettingsSerialization", testBuildSettingsSerialization),
+        ("testBuildFileSettingsSerialization", testBuildFileSettingsSerialization),
     ]
 }
