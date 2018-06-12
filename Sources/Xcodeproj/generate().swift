@@ -30,16 +30,21 @@ public struct XcodeprojOptions {
     /// Whether to use legacy scheme generation logic.
     public var useLegacySchemeGenerator: Bool
 
+    /// Run watchman to auto-generate the project file on changes.
+    public var enableAutogeneration: Bool
+
     public init(
         flags: BuildFlags = BuildFlags(),
         xcconfigOverrides: AbsolutePath? = nil,
         isCodeCoverageEnabled: Bool? = nil,
-        useLegacySchemeGenerator: Bool? = nil
+        useLegacySchemeGenerator: Bool? = nil,
+        enableAutogeneration: Bool? = nil
     ) {
         self.flags = flags
         self.xcconfigOverrides = xcconfigOverrides
         self.isCodeCoverageEnabled = isCodeCoverageEnabled ?? false
         self.useLegacySchemeGenerator = useLegacySchemeGenerator ?? false
+        self.enableAutogeneration = enableAutogeneration ?? false
     }
 }
 
