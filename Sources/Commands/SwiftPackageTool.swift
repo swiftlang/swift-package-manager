@@ -173,7 +173,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             print("generated:", xcodeprojPath.prettyPath(cwd: originalWorkingDirectory))
 
         case .describe:
-            let graph = try loadPackageGraph()
+            let graph = try loadPackageGraph(quiet: true)
             describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
