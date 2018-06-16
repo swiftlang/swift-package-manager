@@ -244,6 +244,9 @@ private func createResolvedPackages(
 
     // The set of all target names.
     var allTargetNames = Set<String>()
+    
+    // Track if multiple targets are found with the same name.
+    var foundDuplicateTarget = false
 
     // Do another pass and establish product dependencies of each target.
     for packageBuilder in packageBuilders {
@@ -270,12 +273,11 @@ private func createResolvedPackages(
 
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {
-            // If a target with similar name was encountered before, we emit a diagnostic.
-            let targetName = targetBuilder.target.name
-            if allTargetNames.contains(targetName) {
-                diagnostics.emit(ModuleError.duplicateModule(targetName), location: diagnosticLocation())
+            if allTargetNames.contains(targetBuilder.target.name) {
+                foundDuplicateTarget = true
             }
-            allTargetNames.insert(targetName)
+            
+            allTargetNames.insert(targetBuilder.target.name)
 
             // Directly add all the system module dependencies.
             targetBuilder.dependencies += implicitSystemTargetDeps
@@ -308,6 +310,20 @@ private func createResolvedPackages(
 
                     targetBuilder.productDeps.append(product)
                 }
+            }
+        }
+    }
+    
+    // If a target with similar name was encountered before, we emit a diagnostic.
+    if foundDuplicateTarget {
+        for targetName in allTargetNames.sorted() {
+            // Find the packages this target is present in.
+            let packageNames = packageBuilders
+                .filter({ $0.targets.contains(where: { $0.target.name == targetName }) })
+                .map({ $0.package.name })
+                .sorted()
+            if packageNames.count > 1 {
+                diagnostics.emit(ModuleError.duplicateModule(targetName, packageNames))
             }
         }
     }

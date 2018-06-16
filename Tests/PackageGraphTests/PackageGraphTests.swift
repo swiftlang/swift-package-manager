@@ -138,7 +138,177 @@ class PackageGraphTests: XCTestCase {
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
         ], root: "/Bar", diagnostics: diagnostics, in: fs)
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple targets named 'Bar'")
+        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple targets named 'Bar' in: Bar, Foo")
+    }
+
+    func testMultipleDuplicateModules() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Fourth/Sources/First/source.swift",
+            "/Third/Sources/First/source.swift",
+            "/Second/Sources/First/source.swift",
+            "/First/Sources/First/source.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadMockPackageGraph4([
+            "/Fourth": Package(
+                name: "Fourth",
+                products: [
+                    .library(name: "Fourth", targets: ["First"]),
+                ],
+                targets: [
+                    .target(name: "First"),
+                ]),
+            "/Third": Package(
+                name: "Third",
+                products: [
+                    .library(name: "Third", targets: ["First"]),
+                ],
+                targets: [
+                    .target(name: "First"),
+                ]),
+            "/Second": Package(
+                name: "Second",
+                products: [
+                    .library(name: "Second", targets: ["First"]),
+                ],
+                targets: [
+                    .target(name: "First"),
+                ]),
+            "/First": Package(
+                name: "First",
+                products: [
+                    .library(name: "First", targets: ["First"]),
+                ],
+                dependencies: [
+                    .package(url: "/Second",  from: "1.0.0"),
+                    .package(url: "/Third",  from: "1.0.0"),
+                    .package(url: "/Fourth",  from: "1.0.0"),
+                ],
+                targets: [
+                    .target(name: "First", dependencies: ["Second", "Third", "Fourth"])
+                ]),
+            ], root: "/First", diagnostics: diagnostics, in: fs)
+
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "multiple targets named 'First' in: First, Fourth, Second, Third", behavior: .error)
+        }
+    }
+
+    func testSeveralDuplicateModules() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Fourth/Sources/Bar/source.swift",
+            "/Third/Sources/Bar/source.swift",
+            "/Second/Sources/Foo/source.swift",
+            "/First/Sources/Foo/source.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadMockPackageGraph4([
+            "/Fourth": Package(
+                name: "Fourth",
+                products: [
+                    .library(name: "Fourth", targets: ["Bar"]),
+                ],
+                targets: [
+                    .target(name: "Bar"),
+                ]),
+            "/Third": Package(
+                name: "Third",
+                products: [
+                    .library(name: "Third", targets: ["Bar"]),
+                ],
+                targets: [
+                    .target(name: "Bar"),
+                ]),
+            "/Second": Package(
+                name: "Second",
+                products: [
+                    .library(name: "Second", targets: ["Foo"]),
+                ],
+                targets: [
+                    .target(name: "Foo"),
+                ]),
+            "/First": Package(
+                name: "First",
+                products: [
+                    .library(name: "First", targets: ["Foo"]),
+                ],
+                dependencies: [
+                    .package(url: "/Second",  from: "1.0.0"),
+                    .package(url: "/Third",  from: "1.0.0"),
+                    .package(url: "/Fourth",  from: "1.0.0"),
+                ],
+                targets: [
+                    .target(name: "Foo", dependencies: ["Second", "Third", "Fourth"])
+                ]),
+            ], root: "/First", diagnostics: diagnostics, in: fs)
+
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "multiple targets named 'Bar' in: Fourth, Third", behavior: .error)
+            result.check(diagnostic: "multiple targets named 'Foo' in: First, Second", behavior: .error)
+        }
+    }
+
+    func testNestedDuplicateModules() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Fourth/Sources/First/source.swift",
+            "/Third/Sources/Third/source.swift",
+            "/Second/Sources/Second/source.swift",
+            "/First/Sources/First/source.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadMockPackageGraph4([
+            "/Fourth": Package(
+                name: "Fourth",
+                products: [
+                    .library(name: "Fourth", targets: ["First"]),
+                ],
+                targets: [
+                    .target(name: "First"),
+                ]),
+            "/Third": Package(
+                name: "Third",
+                products: [
+                    .library(name: "Third", targets: ["Third"]),
+                ],
+                dependencies: [
+                    .package(url: "/Fourth", from: "1.0.0"),
+                ],
+                targets: [
+                    .target(name: "Third", dependencies: ["Fourth"]),
+                ]),
+            "/Second": Package(
+                name: "Second",
+                products: [
+                    .library(name: "Second", targets: ["Second"]),
+                ],
+                dependencies: [
+                    .package(url: "/Third",  from: "1.0.0"),
+                ],
+                targets: [
+                    .target(name: "Second", dependencies: ["Third"]),
+                ]),
+            "/First": Package(
+                name: "First",
+                products: [
+                    .library(name: "First", targets: ["First"]),
+                ],
+                dependencies: [
+                    .package(url: "/Second",  from: "1.0.0"),
+                ],
+                targets: [
+                    .target(name: "First", dependencies: ["Second"]),
+                ]),
+            ], root: "/First", diagnostics: diagnostics, in: fs)
+
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "multiple targets named 'First' in: First, Fourth", behavior: .error)
+        }
     }
 
     func testEmptyDependency() throws {
@@ -225,14 +395,14 @@ class PackageGraphTests: XCTestCase {
             result.check(diagnostic: "dependency 'Baz' is not used by any target", behavior: .warning)
         }
     }
-    
+
     func testUnusedDependency2() throws {
         typealias Package = PackageDescription4.Package
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/module.modulemap",
             "/Bar/Sources/Bar/main.swift"
         )
-        
+
         let diagnostics = DiagnosticsEngine()
         _ = loadMockPackageGraph4([
             "/Foo": Package(name: "Foo"),
@@ -245,7 +415,7 @@ class PackageGraphTests: XCTestCase {
                     .target(name: "Bar"),
                     ]),
             ], root: "/Bar", diagnostics: diagnostics, in: fs)
-        
+
         // We don't expect any unused dependency diagnostics from a system module package.
         DiagnosticsEngineTester(diagnostics) { _ in }
     }
@@ -298,7 +468,7 @@ class PackageGraphTests: XCTestCase {
             ], root: "/Start", diagnostics: diagnostics, in: fs)
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'Foo'", behavior: .error, location: "'Dep2' /Dep2")
+            result.check(diagnostic: "multiple targets named 'Foo' in: Dep2, Start", behavior: .error)
         }
     }
 

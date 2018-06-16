@@ -29,8 +29,8 @@ public enum ModuleError: Swift.Error {
         case modulemapInSources(String)
     }
 
-    /// Indicates two targets with the same name.
-    case duplicateModule(String)
+    /// Indicates two targets with the same name and their corresponding packages.
+    case duplicateModule(String, [String])
 
     /// One or more referenced targets could not be found.
     case modulesNotFound([String])
@@ -66,8 +66,9 @@ public enum ModuleError: Swift.Error {
 extension ModuleError: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .duplicateModule(let name):
-            return "multiple targets named '\(name)'"
+        case .duplicateModule(let name, let packages):
+            let packages = packages.joined(separator: ", ")
+            return "multiple targets named '\(name)' in: \(packages)"
         case .modulesNotFound(let targets):
             let targets = targets.joined(separator: ", ")
             return "could not find source files for target(s): \(targets); use the 'path' property in the Swift 4 manifest to set a custom target path"
