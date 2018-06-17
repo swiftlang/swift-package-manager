@@ -1,4 +1,5 @@
 #include <fts.h>
+#include <git2.h>
 
 #define STR_EXPAND(VALUE) #VALUE
 #define STR(VALUE) STR_EXPAND(VALUE)

@@ -1,4 +1,4 @@
-// swift-tools-version:4.0
+// swift-tools-version:4.2
 
 /*
  This source file is part of the Swift.org open source project
@@ -88,8 +88,12 @@ let package = Package(
             dependencies: ["POSIX", "Basic"]),
         .target(
             /** Source control operations */
+            name: "SPMGit",
+            dependencies: ["Basic", "Utility", "clibc"]),
+        .target(
+            /** Source control operations */
             name: "SourceControl",
-            dependencies: ["Basic", "Utility"]),
+            dependencies: ["Basic", "Utility", "SPMGit"]),
         .target(
             /** Shim for llbuild library */
             name: "SPMLLBuild",
@@ -210,6 +214,9 @@ let package = Package(
             name: "POSIXTests",
             dependencies: ["POSIX", "TestSupport"]),
         .testTarget(
+            name: "SPMGitTests",
+            dependencies: ["SPMGit", "TestSupport"]),
+        .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "TestSupport"]),
         .testTarget(
@@ -222,5 +229,5 @@ let package = Package(
             name: "XcodeprojTests",
             dependencies: ["Xcodeproj", "TestSupport"]),
     ],
-    swiftLanguageVersions: [4]
+    swiftLanguageVersions: [.v4]
 )

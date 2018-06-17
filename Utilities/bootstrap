@@ -275,6 +275,9 @@ class Target(object):
         import_paths.extend(llbuild_import_paths(args))
         if args.llbuild_link_framework:
             other_args.extend(["-F", args.llbuild_build_dir])
+        
+        # Add libgit args
+        other_args.extend(libgit_compile_args())
 
         print("    import-paths: %s" % json.dumps(import_paths), file=output)
         print("    other-args: %s" % json.dumps(other_args),
@@ -585,6 +588,9 @@ class llbuild(object):
 
                 # Add llbuild link flags.
                 link_command.extend(llbuild_link_args(self.args))
+                
+                # Add libgit link flags.
+                link_command.extend(libgit_link_args())
 
             # Write out the link command.
             if target.is_library:
@@ -852,6 +858,37 @@ def llbuild_link_args(args):
     build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libdir])
     return build_flags
 
+def libgit_import_paths():
+    try:
+        iflags = subprocess.check_output(['pkg-config', '--cflags-only-I', 'libgit2']).split()
+    except Exception as e:
+        error("libgit is not available")
+    return list(map(lambda f: f[2:], iflags))
+
+def libgit_compile_args():
+    try:
+        cflags = subprocess.check_output(['pkg-config', '--cflags', 'libgit2']).split()
+    except Exception as e:
+        error("libgit is not available")
+    return [f for flag in cflags for f in ('-Xcc', flag)]
+
+def libgit_link_raw_args():
+    try:
+        lflags_l = subprocess.check_output(['pkg-config', '--libs-only-l', 'libgit2']).split()
+        lflags = subprocess.check_output(['pkg-config', '--libs-only-L', '--libs-only-other', 'libgit2']).split()
+    except Exception as e:
+        error("libgit is not available")
+    for flag in lflags_l:
+        if platform.system() == 'Darwin':
+            lflags.append("-lazy" + flag)
+        else:
+            lflags.extend(["-z", "lazy", flag])
+    return lflags
+
+def libgit_link_args():
+    lflags = libgit_link_raw_args()
+    return [f for flag in lflags for f in ('-Xlinker', flag)]
+
 def write_self_hosting_script(path, args):
     # Construct the build flags.
     swiftpm_flags = []
@@ -861,6 +898,8 @@ def write_self_hosting_script(path, args):
     if args.llbuild_link_framework:
         swiftpm_flags.extend(["-Xswiftc", "-F%s" % args.llbuild_build_dir])
     swiftpm_flags.extend(llbuild_link_args(args))
+    swiftpm_flags.extend(libgit_compile_args())
+    swiftpm_flags.extend(libgit_link_args())
 
     # Construct the string from the build flags.
     swiftpm_flags_str = ' '.join(('"%s"' % flag) for flag in swiftpm_flags)
@@ -1059,7 +1098,7 @@ def main():
     try:
         subprocess.check_output(['rsync', '--version'], stderr=subprocess.STDOUT)
     except Exception as e:
-        error("rsync is not available with error: %s" % e)  
+        error("rsync is not available with error: %s" % e)
     
     # If the action is "clean", just remove the bootstrap and build directories.
     if "clean" in build_actions:
@@ -1217,6 +1256,9 @@ def main():
 
     # Add llbuild link flags.
     build_flags.extend(llbuild_link_args(args))
+
+    # Add libgit flags.
+    build_flags.extend(libgit_compile_args() + libgit_link_args())
     
     # Enable testing in release mode because SwiftPM's tests uses @testable imports.
     #
@@ -1436,12 +1478,15 @@ def main():
         if not os.path.exists(os.path.dirname(xcconfig_path)):
             mkdir_p(os.path.dirname(xcconfig_path))
         with open(xcconfig_path, "w") as f:
-            # Add required build settings for llbuild.
-            swift_include_paths = " ".join(llbuild_import_paths(args))
+            # Add required build settings for llbuild and libgit.
+            swift_include_paths = " ".join(llbuild_import_paths(args) + libgit_import_paths())
             lib_path = llbuild_lib_path(args)
+            linker_flags = " ".join(libgit_link_raw_args())
+            swift_flags = " ".join(libgit_compile_args() + libgit_link_args())
             print("SWIFT_INCLUDE_PATHS = %s" % (swift_include_paths), file=f)
             print("LIBRARY_SEARCH_PATHS = %s" % (lib_path), file=f)
             print("LD_RUNPATH_SEARCH_PATHS = %s" % (lib_path), file=f)
+            print("OTHER_LDFLAGS = %s" % (linker_flags), file=f)
         cmd += ["--xcconfig-overrides", xcconfig_path]
             
         # Call `swift-package` to generate the Xcode project.
