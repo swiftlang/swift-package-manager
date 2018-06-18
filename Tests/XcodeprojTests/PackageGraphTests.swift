@@ -311,6 +311,36 @@ class PackageGraphTests: XCTestCase {
         XCTAssertEqual(schemes["Foo-Package"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests", "dTests", "libdTests"])
         XCTAssertEqual(schemes["Foo-Package"]?.regularTargets.map({ $0.name }).sorted(), ["a", "b", "c", "d", "libd"])
     }
+
+    func testSwiftVersion() throws {
+        // FIXME: Unfortunately, we can't test 4.2 right now.
+        for swiftVersion in [3, 4] {
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Foo/Sources/a/main.swift",
+                "/end"
+            )
+
+            let diagnostics = DiagnosticsEngine()
+            let graph = loadMockPackageGraph4([
+                "/Foo": .init(
+                    name: "Foo",
+                    targets: [
+                        .target(name: "a"),
+                    ],
+                    swiftLanguageVersions: [swiftVersion]
+                 ),
+            ], root: "/Foo", diagnostics: diagnostics, in: fs)
+
+            let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Foo").appending(component: "xcodeproj"), graph: graph, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
+
+            XcodeProjectTester(project) { result in
+                result.check(target: "a") { targetResult in
+                    XCTAssertEqual(targetResult.target.buildSettings.common.SWIFT_VERSION, "\(swiftVersion).0")
+                }
+            }
+        }
+    }
     
     static var allTests = [
         ("testAggregateTarget", testAggregateTarget),
@@ -318,6 +348,7 @@ class PackageGraphTests: XCTestCase {
         ("testModuleLinkage", testModuleLinkage),
         ("testModulemap", testModulemap),
         ("testSchemes", testSchemes),
+        ("testSwiftVersion", testSwiftVersion),
     ]
 }
 

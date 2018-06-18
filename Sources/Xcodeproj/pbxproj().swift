@@ -78,7 +78,7 @@ func xcodeProject(
             interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/" + String(package.manifest.manifestVersion.rawValue)
         }
         pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS += interpreterFlags
-        pdTarget.buildSettings.common.SWIFT_VERSION = "\(package.manifest.manifestVersion.rawValue).0"
+        pdTarget.buildSettings.common.SWIFT_VERSION = package.manifest.manifestVersion.swiftLanguageVersion.xcodeBuildSettingValue
         pdTarget.buildSettings.common.LD = "/usr/bin/true"
     }
 
@@ -459,7 +459,7 @@ func xcodeProject(
 
         // Set the correct SWIFT_VERSION for the Swift targets.
         if case let swiftTarget as SwiftTarget = target.underlyingTarget {
-            targetSettings.common.SWIFT_VERSION = "\(swiftTarget.swiftVersion).0"
+            targetSettings.common.SWIFT_VERSION = swiftTarget.swiftVersion.xcodeBuildSettingValue
         }
 
         // Add header search paths for any C target on which we depend.
@@ -714,5 +714,18 @@ private extension ResolvedTarget {
         default:
             fatalError("unexpected target type")
         }
+    }
+}
+
+private extension SwiftLanguageVersion {
+    /// Returns the build setting value for the given Swift language version.
+    var xcodeBuildSettingValue: String {
+        // Swift version setting are represented differently in Xcode:
+        // 3 -> 4.0, 4 -> 4.0, 4.2 -> 4.2
+        var swiftVersion = "\(rawValue)"
+        if !rawValue.contains(".") {
+            swiftVersion += ".0"
+        }
+        return swiftVersion
     }
 }
