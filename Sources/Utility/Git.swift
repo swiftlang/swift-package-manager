@@ -15,8 +15,7 @@ extension Version {
     init?(tag: String) {
         if tag.first == "v" {
             self.init(string: String(tag.dropFirst()))
-        }
-        else {
+        } else {
             self.init(string: tag)
         }
     }
@@ -46,8 +45,7 @@ public class Git {
         }
         if !versionSpecificKnownVersions.isEmpty {
             return versionSpecificKnownVersions
-        }
-        else {
+        } else {
             return knownVersions
         }
     }
