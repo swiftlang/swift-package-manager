@@ -323,6 +323,17 @@ public final class SwiftTargetDescription {
     public func compileArguments() -> [String] {
         var args = [String]()
         args += ["-swift-version", swiftVersion.rawValue]
+
+        // Enable batch mode in debug mode.
+        //
+        // Technically, it should be enabled whenever WMO is off but we
+        // don't currently make that distinction in SwiftPM
+        switch buildParameters.configuration {
+        case .debug:
+            args += ["-enable-batch-mode"]
+        case .release: break
+        }
+
         args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
         args += ["-j\(SwiftCompilerTool.numThreads)"]
