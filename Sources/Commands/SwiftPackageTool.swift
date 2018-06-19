@@ -328,7 +328,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 usage: "Use the legacy scheme generator"),
             generateXcodeParser.add(
                 option: "--watch", kind: Bool.self,
-                usage: "Watch the filesystem and autogenerate the Xcode project if needed"),
+                usage: "Watch for changes to the Package manifest to regenerate the Xcode project"),
             to: {
                 $0.xcodeprojOptions.useLegacySchemeGenerator = $1 ?? false
                 $0.xcodeprojOptions.enableAutogeneration = $2 ?? false

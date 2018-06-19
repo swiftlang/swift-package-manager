@@ -504,7 +504,7 @@ final class PackageToolTests: XCTestCase {
                 packageRoot: packageRoot)
 
             let script = try helper.createXcodegenScript(
-                XcodeprojOptions())
+                XcodeprojOptions(xcconfigOverrides: .init("/tmp/overrides.xcconfig")))
 
             XCTAssertEqual(try fs.readFileContents(script), """
                 #!/usr/bin/env bash
@@ -515,7 +515,7 @@ final class PackageToolTests: XCTestCase {
 
                 set -eu
 
-                swift package generate-xcodeproj
+                swift package generate-xcodeproj --xcconfig-overrides /tmp/overrides.xcconfig
 
                 """)
         }
