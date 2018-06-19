@@ -17,8 +17,7 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
     case unsatisfiable
 
     /// The resolver encountered a versioned container which has a revision dependency.
-    // FIXME: Rename this to incompatible constraints.
-    case revisionConstraints(
+    case incompatibleConstraints(
         dependency: (AnyPackageContainerIdentifier, String),
         revisions: [(AnyPackageContainerIdentifier, String)])
 
@@ -28,10 +27,10 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
             return true
         case (.unsatisfiable, _):
             return false
-        case (.revisionConstraints(let lDependency, let lRevisions),
-              .revisionConstraints(let rDependency, let rRevisions)):
+        case (.incompatibleConstraints(let lDependency, let lRevisions),
+              .incompatibleConstraints(let rDependency, let rRevisions)):
             return lDependency == rDependency && lRevisions == rRevisions
-        case (.revisionConstraints, _):
+        case (.incompatibleConstraints, _):
             return false
         }
     }
@@ -40,7 +39,7 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
         switch self {
         case .unsatisfiable:
             return "unable to resolve dependencies"
-        case let .revisionConstraints(dependency, revisions):
+        case let .incompatibleConstraints(dependency, revisions):
             let stream = BufferedOutputByteStream()
             stream <<< "the package \(dependency.0.identifier) @ \(dependency.1) contains incompatible dependencies:\n"
             for (i, revision) in revisions.enumerated() {
@@ -1071,8 +1070,8 @@ public class DependencyResolver<
 
                     // Since this is a versioned container, none of its
                     // dependencies can have a revision constraints.
-                    let revisionConstraints: [(AnyPackageContainerIdentifier, String)]
-                    revisionConstraints = constraints.compactMap({
+                    let incompatibleConstraints: [(AnyPackageContainerIdentifier, String)]
+                    incompatibleConstraints = constraints.compactMap({
                         switch $0.requirement {
                         case .versionSet:
                             return nil
@@ -1087,10 +1086,10 @@ public class DependencyResolver<
                         }
                     })
                     // If we have any revision constraints, set the error and abort.
-                    guard revisionConstraints.isEmpty else {
-                        self.error = DependencyResolverError.revisionConstraints(
+                    guard incompatibleConstraints.isEmpty else {
+                        self.error = DependencyResolverError.incompatibleConstraints(
                             dependency: (AnyPackageContainerIdentifier(container.identifier), version.description),
-                            revisions: revisionConstraints)
+                            revisions: incompatibleConstraints)
                         return AnySequence([])
                     }
 

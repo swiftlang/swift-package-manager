@@ -448,7 +448,7 @@ class DependencyResolverTests: XCTestCase {
             let aIdentifier = AnyPackageContainerIdentifier("A")
             let bIdentifier = AnyPackageContainerIdentifier("B")
             let cIdentifier = AnyPackageContainerIdentifier("C")
-            let error = DependencyResolverError.revisionConstraints(
+            let error = DependencyResolverError.incompatibleConstraints(
                 dependency: (aIdentifier, "1.0.0"), revisions: [(cIdentifier, develop), (bIdentifier, develop)])
             XCTAssertEqual(error.description, """
             the package A @ 1.0.0 contains incompatible dependencies:
