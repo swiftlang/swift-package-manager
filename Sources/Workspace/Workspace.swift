@@ -400,8 +400,7 @@ extension Workspace {
         guard let dependency = diagnostics.wrap({ try managedDependencies.dependency(forNameOrIdentity: packageName) }) else {
             return
         }
-        // FIXME: This should be "can resolve" and not "can edit".
-        guard let currentState = canEditDependency(dependency, diagnostics: diagnostics) else {
+        guard let currentState = checkoutState(for: dependency, diagnostics: diagnostics) else {
             return
         }
 
@@ -620,8 +619,8 @@ extension Workspace {
 
 extension Workspace {
 
-    func canEditDependency(
-        _ dependency: ManagedDependency,
+    func checkoutState(
+        for dependency: ManagedDependency,
         diagnostics: DiagnosticsEngine
     ) -> CheckoutState? {
         let name = dependency.packageRef.name ?? dependency.packageRef.identity
@@ -647,7 +646,7 @@ extension Workspace {
         // Look up the dependency and check if we can edit it.
         let dependency = try managedDependencies.dependency(forNameOrIdentity: packageName)
 
-        guard let checkoutState = canEditDependency(dependency, diagnostics: diagnostics) else {
+        guard let checkoutState = checkoutState(for: dependency, diagnostics: diagnostics) else {
             return
         }
 
