@@ -730,10 +730,10 @@ public final class PackageBuilder {
                 return nil
             }
             return SystemLibraryTarget(
-                    name: potentialModule.name,
-                    path: potentialModule.path, isImplicit: false,
-                    pkgConfig: manifestTarget?.pkgConfig,
-                    providers: manifestTarget?.providers)
+                name: potentialModule.name,
+                path: potentialModule.path, isImplicit: false,
+                pkgConfig: manifestTarget?.pkgConfig,
+                providers: manifestTarget?.providers)
         }
 
         // Compute the path to public headers directory.
