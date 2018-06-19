@@ -192,7 +192,7 @@ public final class Process: ObjectIdentifierProtocol {
         self.verbose = verbose
     }
 
-    /// Returns true if the given program is present and executable in search path.
+    /// Returns the path of the the given program if found in the search paths.
     ///
     /// The program can be executable name, relative path or absolute path.
     public static func findExecutable(_ program: String) -> AbsolutePath? {
