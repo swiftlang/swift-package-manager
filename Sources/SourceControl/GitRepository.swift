@@ -92,6 +92,13 @@ public class GitRepositoryProvider: RepositoryProvider {
         }
     }
 
+    public func checkoutExists(at path: AbsolutePath) throws -> Bool {
+        precondition(exists(path))
+
+        let result = try Process.popen(args: Git.tool, "rev-parse", "--is-bare-repository")
+        return try result.exitStatus == .terminated(code: 0) && result.utf8Output().chomp() == "false"
+    }
+
     public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
         return GitRepository(path: path)
     }
@@ -100,6 +107,9 @@ public class GitRepositoryProvider: RepositoryProvider {
 enum GitInterfaceError: Swift.Error {
     /// This indicates a problem communicating with the `git` tool.
     case malformedResponse(String)
+
+    /// This indicates that a fatal error was encountered
+    case fatalError
 }
 
 /// A basic `git` repository. This class is thread safe.
@@ -387,13 +397,19 @@ public class GitRepository: Repository, WorkingCheckout {
         return localFileSystem.isDirectory(AbsolutePath(firstLine))
     }
 
-    public func getIgnoredFiles() -> [AbsolutePath] {
-        return queue.sync {
-            let result = try? Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.asString, "ls-files", "-o", "-i", "--exclude-standard").chomp()
-            return result?.split(separator: "\n").map(String.init).map {
-                return path.appending(RelativePath($0))
-            } ?? []
+    /// Returns true if the file at `path` is ignored by `git`
+    public func isIgnored(_ path: AbsolutePath) throws -> Bool {
+        return try queue.sync {
+            let result = try Process.popen(args: Git.tool, "check-ignore", path.asString)
+
+            switch result.exitStatus {
+            case .terminated(code: 0):
+                return true
+            case .terminated(code: 1):
+                return false
+            default:
+                throw GitInterfaceError.fatalError
+            }
         }
     }
 

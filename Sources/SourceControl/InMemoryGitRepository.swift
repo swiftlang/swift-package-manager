@@ -273,8 +273,8 @@ extension InMemoryGitRepository: WorkingCheckout {
         return true
     }
 
-    public func getIgnoredFiles() -> [AbsolutePath] {
-        return []
+    public func isIgnored(_ path: AbsolutePath) throws -> Bool {
+        return false
     }
 }
 
@@ -325,6 +325,10 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         let checkout = fetchedMap[sourcePath]!.copy(at: destinationPath)
         checkoutsMap[destinationPath] = checkout
         try checkout.installHead()
+    }
+
+    public func checkoutExists(at path: AbsolutePath) throws -> Bool {
+        return checkoutsMap.keys.contains(path)
     }
 
     public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {

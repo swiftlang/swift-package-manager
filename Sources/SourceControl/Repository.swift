@@ -88,6 +88,9 @@ public protocol RepositoryProvider {
         to destinationPath: AbsolutePath,
         editable: Bool) throws
 
+    /// Returns true if a working repository exists at `path`
+    func checkoutExists(at path: AbsolutePath) throws -> Bool
+
     /// Open a working repository copy.
     ///
     /// - Parameters:
@@ -194,8 +197,8 @@ public protocol WorkingCheckout {
     /// Returns true if there is an alternative store in the checkout and it is valid.
     func isAlternateObjectStoreValid() -> Bool
 
-    /// Returns the `AbsolutePath` of the files ignored by git.
-    func getIgnoredFiles() -> [AbsolutePath]
+    /// Returns true if the file at `path` is ignored by `git`
+    func isIgnored(_ path: AbsolutePath) throws -> Bool
 }
 
 /// A single repository revision.

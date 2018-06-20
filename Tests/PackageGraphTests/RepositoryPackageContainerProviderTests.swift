@@ -97,6 +97,10 @@ private class MockRepositories: RepositoryProvider {
         // No-op.
         assert(repositories.index(forKey: repository.url) != nil)
     }
+
+    func checkoutExists(at path: AbsolutePath) throws -> Bool {
+        return false
+    }
     
     func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
         return repositories[repository.url]!
