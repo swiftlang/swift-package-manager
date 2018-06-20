@@ -137,6 +137,9 @@ public final class InitPackage {
                             .target(
                                 name: "\(pkgname)",
                                 dependencies: []),
+                            .testTarget(
+                                name: "\(pkgname)Tests",
+                            	dependencies: []),
                         ]
 
                     """
@@ -260,8 +263,7 @@ public final class InitPackage {
         progressReporter?("Creating \(tests.relative(to: destinationPath).asString)/")
         try makeDirectories(tests)
 
-        // Only libraries are testable for now.
-        if packageType == .library {
+        if packageType == .library || packageType == .executable {
             try writeLinuxMain(testsPath: tests)
             try writeTestFileStubs(testsPath: tests)
         }
@@ -287,25 +289,77 @@ public final class InitPackage {
         try makeDirectories(testModule)
 
         try writePackageFile(testModule.appending(RelativePath("\(moduleName)Tests.swift"))) { stream in
-            stream <<< """
-                import XCTest
-                @testable import \(moduleName)
+            
+            if packageType == .library {
+                stream <<< """
+                    import XCTest
+                    @testable import \(moduleName)
 
-                final class \(moduleName)Tests: XCTestCase {
-                    func testExample() {
-                        // This is an example of a functional test case.
-                        // Use XCTAssert and related functions to verify your tests produce the correct
-                        // results.
-                        XCTAssertEqual(\(typeName)().text, "Hello, World!")
+                    final class \(moduleName)Tests: XCTestCase {
+                        func testExample() {
+                            // This is an example of a functional test case.
+                            // Use XCTAssert and related functions to verify your tests produce the correct
+                            // results.
+                            XCTAssertEqual(\(typeName)().text, "Hello, World!")
+                        }
+                
+                
+                        static var allTests = [
+                            ("testExample", testExample),
+                        ]
                     }
-                
-                
-                    static var allTests = [
-                        ("testExample", testExample),
-                    ]
-                }
 
                 """
+            } else if packageType == .executable {
+                stream <<< """
+                    import XCTest
+                
+                    final class \(moduleName)Tests: XCTestCase {
+                        func testExample() {
+                            // This is an example of a functional test case.
+                            // Use XCTAssert and related functions to verify your tests produce the correct
+                            // results.
+                            let outputStr = execute("\(pkgname)")
+                            XCTAssertNotNil(outputStr)
+                            XCTAssertEqual(outputStr!, "Hello, world!\\n")
+                        }
+                
+                
+                        static var allTests = [
+                            ("testExample", testExample),
+                        ]
+                
+                        private func getPath(forExecutable executable: String) -> String {
+                            #if os(macOS)
+                                let bundlePath = Bundle(for: type(of: self)).bundlePath as NSString
+                                return bundlePath.deletingLastPathComponent.appending("/").appending(executable)
+                            #else
+                                return "\\(FileManager.default.currentDirectoryPath)/.build/debug/\\(executable)\"
+                            #endif
+                        }
+                
+                        private func execute(_ name: String, arguments: [String] = []) -> String? {
+                            let executablePath = getPath(forExecutable: name)
+                
+                            let proc = Process()
+                            let pipe = Pipe()
+                            proc.standardOutput = pipe
+                            if #available(OSX 10.13, *) {
+                                proc.executableURL = URL(fileURLWithPath: executablePath)
+                                try? proc.run()
+                            } else {
+                                proc.launchPath = executablePath
+                                proc.launch()
+                            }
+                            proc.waitUntilExit()
+                
+                            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                            return String(data: data, encoding: .utf8)
+                        }
+                    }
+                
+                """
+            }
         }
 
         try writePackageFile(testModule.appending(component: "XCTestManifests.swift")) { stream in
