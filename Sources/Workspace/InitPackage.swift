@@ -139,7 +139,7 @@ public final class InitPackage {
                                 dependencies: []),
                             .testTarget(
                                 name: "\(pkgname)Tests",
-                            	dependencies: []),
+                                dependencies: []),
                         ]
 
                     """
