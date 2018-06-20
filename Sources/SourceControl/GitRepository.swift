@@ -387,6 +387,16 @@ public class GitRepository: Repository, WorkingCheckout {
         return localFileSystem.isDirectory(AbsolutePath(firstLine))
     }
 
+    public func getIgnoredFiles() -> [AbsolutePath] {
+        return queue.sync {
+            let result = try? Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "ls-files", "-o", "-i", "--exclude-standard").chomp()
+            return result?.split(separator: "\n").map(String.init).map {
+                return path.appending(RelativePath($0))
+            } ?? []
+        }
+    }
+
     // MARK: Git Operations
 
     /// Resolve a "treeish" to a concrete hash.

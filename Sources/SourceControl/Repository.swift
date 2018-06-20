@@ -193,6 +193,9 @@ public protocol WorkingCheckout {
 
     /// Returns true if there is an alternative store in the checkout and it is valid.
     func isAlternateObjectStoreValid() -> Bool
+
+    /// Returns the `AbsolutePath` of the files ignored by git.
+    func getIgnoredFiles() -> [AbsolutePath]
 }
 
 /// A single repository revision.

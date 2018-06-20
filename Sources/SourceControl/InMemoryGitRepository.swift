@@ -272,6 +272,10 @@ extension InMemoryGitRepository: WorkingCheckout {
     public func isAlternateObjectStoreValid() -> Bool {
         return true
     }
+
+    public func getIgnoredFiles() -> [AbsolutePath] {
+        return []
+    }
 }
 
 /// This class implement provider for in memeory git repository.
