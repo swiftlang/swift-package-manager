@@ -605,7 +605,7 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
-    func testIgnored() throws {
+    func testGitIgnored() throws {
         mktmpdir { path in
             // Create a repo.
             let testRepoPath = path.appending(component: "test-repo")
@@ -614,10 +614,15 @@ class GitRepositoryTests: XCTestCase {
             let repo = GitRepository(path: testRepoPath)
 
             // Add a .gitignore
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: ".gitignore"), bytes: "ignored_file")
+            try localFileSystem.writeFileContents(testRepoPath.appending(component: ".gitignore"), bytes: "ignored_file1\nignored_file2")
 
-            XCTAssertTrue(try repo.isIgnored(testRepoPath.appending(component: "ignored_file")))
-            XCTAssertFalse(try repo.isIgnored(testRepoPath.appending(component: "not_ignored_file")))
+            let ignored = try repo.isGitIgnored([testRepoPath.appending(component: "ignored_file1"), testRepoPath.appending(component: "ignored_file2"), testRepoPath.appending(component: "not_ignored")])
+            XCTAssertTrue(ignored[0])
+            XCTAssertTrue(ignored[1])
+            XCTAssertFalse(ignored[2])
+
+            let notIgnored = try repo.isGitIgnored([testRepoPath.appending(component: "not_ignored")])
+            XCTAssertFalse(notIgnored[0])
         }
     }
 
@@ -637,6 +642,6 @@ class GitRepositoryTests: XCTestCase {
         ("testSubmodules", testSubmodules),
         ("testUncommitedChanges", testUncommitedChanges),
         ("testAlternativeObjectStoreValidation", testAlternativeObjectStoreValidation),
-        ("testIgnored", testIgnored),
+        ("testGitIgnored", testGitIgnored),
     ]
 }

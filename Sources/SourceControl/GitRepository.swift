@@ -398,18 +398,19 @@ public class GitRepository: Repository, WorkingCheckout {
     }
 
     /// Returns true if the file at `path` is ignored by `git`
-    public func isIgnored(_ path: AbsolutePath) throws -> Bool {
+    public func isGitIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
         return try queue.sync {
-            let result = try Process.popen(args: Git.tool, "-C", self.path.asString, "check-ignore", path.asString)
+            let stringPaths = paths.map({ $0.asString })
+            let args = [Git.tool, "-C", self.path.asString, "check-ignore"] + stringPaths
+            let result = try Process.popen(arguments: args)
 
-            switch result.exitStatus {
-            case .terminated(code: 0):
-                return true
-            case .terminated(code: 1):
-                return false
-            default:
+            guard result.exitStatus == .terminated(code: 0) || result.exitStatus == .terminated(code: 1) else {
                 throw GitInterfaceError.fatalError
             }
+
+            let output = try result.utf8Output()
+
+            return stringPaths.map(output.contains)
         }
     }
 

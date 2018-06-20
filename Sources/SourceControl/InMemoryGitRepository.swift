@@ -273,8 +273,8 @@ extension InMemoryGitRepository: WorkingCheckout {
         return true
     }
 
-    public func isIgnored(_ path: AbsolutePath) throws -> Bool {
-        return false
+    public func isGitIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
+        return [false]
     }
 }
 
