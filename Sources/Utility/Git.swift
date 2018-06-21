@@ -43,6 +43,9 @@ public class Git {
                 knownVersions[version, default: []].append(tag)
             }
         }
+        // Check if any version specific tags were found.
+        // If true, then return the version specific tags,
+        // or else return the version independent tags.
         if !versionSpecificKnownVersions.isEmpty {
             return versionSpecificKnownVersions
         } else {
