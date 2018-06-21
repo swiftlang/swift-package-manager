@@ -333,7 +333,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(notPresent: "baz")
         }
         XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching repo: /tmp/ws/pkgs/Baz")])
-        XCTAssertMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
+        XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
         XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Baz")])
     }
 
@@ -566,7 +566,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let workspace = try TestWorkspace(
+        let testWorkspace = try TestWorkspace(
             sandbox: sandbox,
             fs: fs,
             roots: [
@@ -579,13 +579,18 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: []
-        ).createWorkspace()
+        )
 
+        let workspace = testWorkspace.createWorkspace()
         let pinsStore = try workspace.pinsStore.load()
+
+        let rootInput = PackageGraphRootInput(packages: testWorkspace.rootPaths(for: ["A"]))
+        let rootManifests = workspace.loadRootManifests(packages: rootInput.packages, diagnostics: DiagnosticsEngine())
+        let root = PackageGraphRoot(input: rootInput, manifests: rootManifests)
 
         // Test Empty case.
         do {
-            let result = workspace.isResolutionRequired(dependencies: [], pinsStore: pinsStore)
+            let result = workspace.isResolutionRequired(root: root, dependencies: [], pinsStore: pinsStore)
             XCTAssertEqual(result.resolve, false)
         }
 
@@ -605,7 +610,7 @@ final class WorkspaceTests: XCTestCase {
 
         // We should need to resolve if input is not satisfiable.
         do {
-            let result = workspace.isResolutionRequired(dependencies: [
+            let result = workspace.isResolutionRequired(root: root, dependencies: [
                 RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
                 RepositoryPackageConstraint(container: aRef, versionRequirement: v2Range),
             ], pinsStore: pinsStore)
@@ -616,7 +621,7 @@ final class WorkspaceTests: XCTestCase {
 
         // We should need to resolve when pins don't satisfy the inputs.
         do {
-            let result = workspace.isResolutionRequired(dependencies: [
+            let result = workspace.isResolutionRequired(root: root, dependencies: [
                 RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
                 RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
                 RepositoryPackageConstraint(container: cRef, versionRequirement: v1Range),
@@ -628,7 +633,7 @@ final class WorkspaceTests: XCTestCase {
 
         // We should need to resolve if managed dependencies is out of sync with pins.
         do {
-            let result = workspace.isResolutionRequired(dependencies: [
+            let result = workspace.isResolutionRequired(root: root, dependencies: [
                 RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
                 RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
                 RepositoryPackageConstraint(container: cRef, versionRequirement: v2Range),
@@ -647,7 +652,7 @@ final class WorkspaceTests: XCTestCase {
             managedDependencies[forIdentity: cRef.identity] = ManagedDependency(
                 packageRef: cRef, subpath: RelativePath("C"), checkoutState: v2)
 
-            let result = workspace.isResolutionRequired(dependencies: [
+            let result = workspace.isResolutionRequired(root: root, dependencies: [
                 RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
                 RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
                 RepositoryPackageConstraint(container: cRef, versionRequirement: v2Range),
@@ -2009,6 +2014,75 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testLocalVersionSwitch() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: []),
+                    ],
+                    products: [],
+                    dependencies: []
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["develop", "1.0.0", nil]
+                ),
+            ]
+        )
+
+        // Test that switching between revision and version requirement works
+        // without running swift package update.
+
+        var deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Foo", requirement: .localPackageItem),
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .local)
+        }
+
+        deps = [
+            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+
+        deps = [
+            .init(name: "Foo", requirement: .localPackageItem),
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .local)
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testCanResolveWithIncompatiblePins", testCanResolveWithIncompatiblePins),
@@ -2038,6 +2112,7 @@ final class WorkspaceTests: XCTestCase {
         ("testLocalDependencyTransitive", testLocalDependencyTransitive),
         ("testLocalDependencyWithPackageUpdate", testLocalDependencyWithPackageUpdate),
         ("testRevisionVersionSwitch", testRevisionVersionSwitch),
+        ("testLocalVersionSwitch", testLocalVersionSwitch),
     ]
 }
 
