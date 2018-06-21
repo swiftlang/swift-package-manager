@@ -404,7 +404,7 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
     }
 
     /// Get the version set specifier associated with the given package `identifier`.
-    subscript(identifier: Identifier) -> Requirement {
+    public subscript(identifier: Identifier) -> Requirement {
         return constraints[identifier] ?? .versionSet(.any)
     }
 
@@ -433,13 +433,16 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
             var result = self
             result.constraints[identifier] = .versionSet(intersection)
             return result
+
         case (.unversioned, .unversioned):
             return self
+
         case (.unversioned, _):
             // Unversioned requirements always *wins*.
             var result = self
             result.constraints[identifier] = requirement
             return result
+
         case (_, .unversioned):
             // Unversioned requirements always *wins*.
             return self
@@ -451,14 +454,18 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
             if lhs == rhs { return self }
             return nil
 
-        case (.revision, _):
-            // The revision requirement *wins*.
+        // We can merge the revision requiement if it currently does not have a requirement.
+        case (.revision, .versionSet(.any)):
             var result = self
             result.constraints[identifier] = requirement
             return result
 
+        // Otherwise, we can't merge the revision requirement.
+        case (.revision, _):
+            return nil
+
+        // Exisiting revision requirements always *wins*.
         case (_, .revision):
-            // The revision requirement *wins*.
             return self
         }
     }

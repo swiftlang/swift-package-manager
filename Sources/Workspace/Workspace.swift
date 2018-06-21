@@ -1127,15 +1127,18 @@ extension Workspace {
             constraintSet = mergedSet
         }
 
-        // Compute the pins which are valid w.r.t dependencies.
-        let validPins: [RepositoryPackageConstraint]
-        validPins = pinConstraints.compactMap { pin in
+        // Merge all the pin constraints.
+        for pin in pinConstraints {
             if let mergedSet = constraintSet.merging(pin) {
                 constraintSet = mergedSet
-                return pin
             }
-            return nil
         }
+
+        // Compute the valid pins, i.e., the pins which are still valid in the
+        // final merged set.
+        let validPins = pinConstraints.filter({
+            $0.requirement == constraintSet[$0.identifier]
+        })
 
         // If there are pins which are not valid anymore, we need to resolve.
         if pinConstraints.count != validPins.count {

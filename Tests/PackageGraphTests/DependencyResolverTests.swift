@@ -408,12 +408,22 @@ class DependencyResolverTests: XCTestCase {
             ]),
         ])
 
+        // It is illegal for a revision constraint to appear after a versioned constraint.
+        do {
+            let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+            XCTAssertThrows(DependencyResolverError.unsatisfiable) {
+                _ = try resolver.resolve(constraints: [
+                    MockPackageConstraint(container: "C", versionRequirement: v1Range),
+                    MockPackageConstraint(container: "C", requirement: .revision(develop)),
+                ])
+            }
+        }
+
         // Having a revision dependency at root should resolve.
         do {
             let resolver = MockDependencyResolver(provider, MockResolverDelegate())
             let result = try resolver.resolve(constraints: [
-                // With version and revision constraints, revision should win.
-                MockPackageConstraint(container: "C", versionRequirement: v1Range),
+                // With version and revision constraints, revision should win if it appears first.
                 MockPackageConstraint(container: "C", requirement: .revision(develop)),
                 MockPackageConstraint(container: "C", versionRequirement: v1Range),
             ])
