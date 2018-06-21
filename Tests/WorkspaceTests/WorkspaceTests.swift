@@ -1940,6 +1940,75 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testRevisionVersionSwitch() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: []),
+                    ],
+                    products: [],
+                    dependencies: []
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["develop", "1.0.0"]
+                ),
+            ]
+        )
+
+        // Test that switching between revision and version requirement works
+        // without running swift package update.
+
+        var deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Foo", requirement: .branch("develop"))
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.branch("develop")))
+        }
+
+        deps = [
+            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+
+        deps = [
+            .init(name: "Foo", requirement: .branch("develop"))
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.branch("develop")))
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testCanResolveWithIncompatiblePins", testCanResolveWithIncompatiblePins),
@@ -1968,6 +2037,7 @@ final class WorkspaceTests: XCTestCase {
         ("testLocalDependencyBasics", testLocalDependencyBasics),
         ("testLocalDependencyTransitive", testLocalDependencyTransitive),
         ("testLocalDependencyWithPackageUpdate", testLocalDependencyWithPackageUpdate),
+        ("testRevisionVersionSwitch", testRevisionVersionSwitch),
     ]
 }
 
