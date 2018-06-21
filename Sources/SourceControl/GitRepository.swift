@@ -11,6 +11,7 @@
 import Basic
 import Dispatch
 import Utility
+import struct Foundation.Data
 
 public enum GitRepositoryProviderError: Swift.Error {
     case gitCloneFailure(errorOutput: String)
@@ -401,16 +402,26 @@ public class GitRepository: Repository, WorkingCheckout {
     public func isGitIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
         return try queue.sync {
             let stringPaths = paths.map({ $0.asString })
-            let args = [Git.tool, "-C", self.path.asString, "check-ignore"] + stringPaths
-            let result = try Process.popen(arguments: args)
+            let pathsFileContent = stringPaths.joined(separator: "\0")
+
+            let pathsFile = try TemporaryFile()
+            let pathsData = Data(pathsFileContent.utf8)
+            pathsFile.fileHandle.write(pathsData)
+
+            let args = [Git.tool, "-C", self.path.asString, "check-ignore", "-z", "--stdin", "<", "\(pathsFile.path.asString)"]
+            let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
+            let result = try Process.popen(arguments: argsWithSh)
+            let output = try result.output.dematerialize()
+
+            let outputs: [String] = output.split(separator: 0).map(Array.init).map({ (bytes: [Int8]) -> String in
+                return String(cString: bytes + [0])
+            })
 
             guard result.exitStatus == .terminated(code: 0) || result.exitStatus == .terminated(code: 1) else {
                 throw GitInterfaceError.fatalError
             }
 
-            let output = try result.utf8Output()
-
-            return stringPaths.map(output.contains)
+            return stringPaths.map(outputs.contains)
         }
     }
 

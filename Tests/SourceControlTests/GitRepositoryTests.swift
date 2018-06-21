@@ -608,15 +608,15 @@ class GitRepositoryTests: XCTestCase {
     func testGitIgnored() throws {
         mktmpdir { path in
             // Create a repo.
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending(component: "test_repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
             let repo = GitRepository(path: testRepoPath)
 
             // Add a .gitignore
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: ".gitignore"), bytes: "ignored_file1\nignored_file2")
+            try localFileSystem.writeFileContents(testRepoPath.appending(component: ".gitignore"), bytes: "ignored_file1\nignored file2")
 
-            let ignored = try repo.isGitIgnored([testRepoPath.appending(component: "ignored_file1"), testRepoPath.appending(component: "ignored_file2"), testRepoPath.appending(component: "not_ignored")])
+            let ignored = try repo.isGitIgnored([testRepoPath.appending(component: "ignored_file1"), testRepoPath.appending(component: "ignored file2"), testRepoPath.appending(component: "not ignored")])
             XCTAssertTrue(ignored[0])
             XCTAssertTrue(ignored[1])
             XCTAssertFalse(ignored[2])
