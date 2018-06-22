@@ -87,6 +87,7 @@ public final class TemporaryFile {
     ///            set, dir will be set to `/tmp/`.
     ///     - prefix: The prefix to the temporary file name.
     ///     - suffix: The suffix to the temporary file name.
+    ///     - deleteOnClose: Whether the file should get deleted when the instance is deallocated.
     ///
     /// - Throws: TempFileError
     public init(dir: AbsolutePath? = nil, prefix: String = "TemporaryFile", suffix: String = "", deleteOnClose: Bool = true) throws {
