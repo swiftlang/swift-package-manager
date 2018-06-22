@@ -1556,6 +1556,19 @@ extension Workspace {
         guard let dependency = managedDependencies[forIdentity: package.identity] else {
             fatalError("This should never happen, trying to remove \(package.identity) which isn't in workspace")
         }
+
+        // We only need to update the managed dependency structure to "remove"
+        // a local package.
+        // 
+        // Note that we don't actually remove a local package from disk.
+        switch dependency.state {
+        case .local:
+            managedDependencies[forIdentity: package.identity] = nil
+            try managedDependencies.saveState()
+            return
+        case .checkout, .edited: 
+            break
+        }
         
         // Inform the delegate.
         delegate.removing(repository: dependency.packageRef.repository.url)
