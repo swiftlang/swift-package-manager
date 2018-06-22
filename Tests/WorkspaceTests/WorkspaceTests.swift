@@ -2045,7 +2045,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        // Test that switching between revision and version requirement works
+        // Test that switching between local and version requirement works
         // without running swift package update.
 
         var deps: [TestWorkspace.PackageDependency] = [
@@ -2080,6 +2080,76 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkManagedDependencies() { result in
             result.check(dependency: "foo", at: .local)
+        }
+    }
+
+    func testLocalLocalSwitch() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: []),
+                    ],
+                    products: [],
+                    dependencies: []
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: [nil]
+                ),
+                TestPackage(
+                    name: "Foo",
+                    path: "Foo2",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: [nil]
+                ),
+            ]
+        )
+
+        // Test that switching between two same local packages placed at
+        // different locations works correctly.
+
+        var deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Foo", requirement: .localPackageItem),
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .local)
+        }
+
+        deps = [
+            .init(name: "Foo2", requirement: .localPackageItem),
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo2", at: .local)
         }
     }
 
@@ -2226,9 +2296,9 @@ private final class TestWorkspace {
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
         func create(package: TestPackage, basePath: AbsolutePath, isRoot: Bool) throws {
-            let packagePath = basePath.appending(component: package.name)
+            let packagePath = basePath.appending(component: package.path ?? package.name)
             let sourcesDir = packagePath.appending(component: "Sources")
-            let url = (isRoot ? packagePath : packagesDir.appending(component: package.name)).asString
+            let url = (isRoot ? packagePath : packagesDir.appending(component: package.path ?? package.name)).asString
             let specifier = RepositorySpecifier(url: url)
             
             // Create targets on disk.
@@ -2608,6 +2678,7 @@ private struct TestDependency {
 private struct TestPackage {
 
     let name: String
+    let path: String?
     let targets: [TestTarget]
     let products: [TestProduct]
     let dependencies: [TestDependency]
@@ -2615,12 +2686,14 @@ private struct TestPackage {
 
     fileprivate init(
         name: String,
+        path: String? = nil,
         targets: [TestTarget],
         products: [TestProduct],
         dependencies: [TestDependency] = [],
         versions: [String?] = []
     ) {
         self.name = name
+        self.path = path
         self.targets = targets
         self.products = products
         self.dependencies = dependencies
