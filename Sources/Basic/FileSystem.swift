@@ -166,6 +166,11 @@ public protocol FileSystem: class {
     // FIXME: This is obviously not a very efficient or flexible API.
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws
 
+    /// Write the contents of a file.
+    //
+    // FIXME: This is obviously not a very efficient or flexible API.
+    func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws
+
     /// Recursively deletes the file system entity at `path`.
     ///
     /// If there is no file system entity at `path`, this function does nothing (in particular, this is not considered
@@ -192,6 +197,15 @@ public extension FileSystem {
     // Change file mode.
     func chmod(_ mode: FileMode, path: AbsolutePath) throws {
         try chmod(mode, path: path, options: [])
+    }
+    
+    // Unless the file system type provides an override for this method, throw
+    // if `atomically` is `true`, otherwise fall back to whatever implementation already exists.
+    func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
+        guard !atomically else {
+            throw FileSystemError.unsupported
+        }
+        try writeFileContents(path, bytes: bytes)
     }
 
     /// Write to a file from a stream producer.
@@ -350,6 +364,16 @@ private class LocalFileSystem: FileSystem {
             }
             break
         }
+    }
+    
+    func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
+        // Perform non-atomic writes using the fast path
+        guard atomically else {
+            return try writeFileContents(path, bytes: bytes)
+        }
+        let temp = try TemporaryFile(deleteOnClose: false)
+        try writeFileContents(temp.path, bytes: bytes)
+        try rename(temp.path, to: path)
     }
 
     func removeFileTree(_ path: AbsolutePath) throws {
