@@ -372,8 +372,16 @@ private class LocalFileSystem: FileSystem {
             return try writeFileContents(path, bytes: bytes)
         }
         let temp = try TemporaryFile(deleteOnClose: false)
-        try writeFileContents(temp.path, bytes: bytes)
-        try rename(temp.path, to: path)
+        do {
+            try writeFileContents(temp.path, bytes: bytes)
+            try rename(temp.path, to: path)
+        } catch {
+            // Write or rename failed, delete the temporary file.
+            // Rethrow the original error, however, as that's the
+            // root cause of the failure.
+            _ = try? self.removeFileTree(temp.path)
+            throw error
+        }
     }
 
     func removeFileTree(_ path: AbsolutePath) throws {

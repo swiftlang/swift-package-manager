@@ -13,6 +13,7 @@ import XCTest
 import Basic
 import TestSupport
 import SPMLibc
+import POSIX
 
 class FileSystemTests: XCTestCase {
 
@@ -150,7 +151,20 @@ class FileSystemTests: XCTestCase {
         XCTAssertNoThrow(try fs.writeFileContents(filePath2, bytes: byteString, atomically: true))
         let read2 = try fs.readFileContents(filePath2)
         XCTAssertEqual(read2, byteString)
-
+        
+        let filePath3 = tmpDir.path.appending(component: "Nope").appending(components: "test-data-3.txt")
+        XCTAssertThrowsError(try fs.writeFileContents(filePath3, bytes: byteString, atomically: true)) { err in
+            guard case let SystemError.rename(code, old, new) = err else {
+                XCTFail("Incorrect error thrown: \(err)")
+                return
+            }
+            XCTAssertEqual(code, 2)
+            let tempPath = AbsolutePath(old)
+            // Verify temp file is gone
+            XCTAssertFalse(fs.exists(tempPath))
+            XCTAssertEqual(new, filePath3.asString)
+        }
+        
         // Check overwrite of a file.
         try! fs.writeFileContents(filePath, bytes: "Hello, new world!")
         XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
