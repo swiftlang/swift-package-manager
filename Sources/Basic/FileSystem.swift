@@ -713,6 +713,12 @@ public class InMemoryFileSystem: FileSystem {
         // Write the file.
         contents.entries[path.basename] = Node(.file(bytes))
     }
+    
+    public func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
+        // In memory file system's writeFileContents is already atomic, so ignore the parameter here
+        // and just call the base implementation.
+        try writeFileContents(path, bytes: bytes)
+    }
 
     public func removeFileTree(_ path: AbsolutePath) throws {
         // Ignore root and get the parent node's content if its a directory.

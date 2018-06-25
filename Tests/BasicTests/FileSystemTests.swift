@@ -137,9 +137,9 @@ class FileSystemTests: XCTestCase {
         XCTAssertEqual(data, ByteString(testData))
         
         // Atomic writes
-        // In-memory file system doesn't have atomic writes implemented, so it throws.
-        XCTAssertThrows(FileSystemError.unsupported, { try Basic.InMemoryFileSystem(files: [:]).writeFileContents(filePath, bytes: ByteString(testData), atomically: true) })
-        XCTAssertNoThrow({ try Basic.InMemoryFileSystem(files: [:]).writeFileContents(filePath, bytes: ByteString(testData), atomically: false) })
+        let inMemoryFilePath = AbsolutePath("/file.text")
+        XCTAssertNoThrow(try Basic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: true))
+        XCTAssertNoThrow(try Basic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: false))
         // Local file system does support atomic writes, so it doesn't throw.
         let byteString = ByteString(testData)
         let filePath1 = tmpDir.path.appending(components: "test-data-1.txt")
