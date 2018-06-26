@@ -28,7 +28,7 @@ extension Package.Dependency: Equatable {
       #if PACKAGE_DESCRIPTION_4
         precondition(requirement != .localPackageItem, "Use `.package(path:)` API to declare a local package dependency")
       #elseif PACKAGE_DESCRIPTION_4_2
-        precondition(requirement != .localPackageItem, "Use `.package(path:)` API to declare a local package dependency")
+        precondition(requirement != ._localPackageItem, "Use `.package(path:)` API to declare a local package dependency")
       #endif
         return .init(url: url, requirement: requirement)
     }
@@ -38,7 +38,11 @@ extension Package.Dependency: Equatable {
         url: String,
         _ range: Range<Version>
     ) -> Package.Dependency {
+      #if PACKAGE_DESCRIPTION_4_2
+        return .init(url: url, requirement: ._rangeItem(range))
+      #else
         return .init(url: url, requirement: .rangeItem(range))
+      #endif
     }
 
     // Add a dependency given a closed range requirement.
@@ -60,7 +64,7 @@ extension Package.Dependency: Equatable {
     public static func package(
         path: String
     ) -> Package.Dependency {
-        return .init(url: path, requirement: .localPackageItem)
+        return .init(url: path, requirement: ._localPackageItem)
     }
   #endif
 

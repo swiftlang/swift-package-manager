@@ -1027,7 +1027,7 @@ extension Workspace {
                 currentManifests.dependencyConstraints() +
                 extraConstraints
 
-            let result = isResolutionRequired(dependencies: dependencies, pinsStore: pinsStore)
+            let result = isResolutionRequired(root: graphRoot, dependencies: dependencies, pinsStore: pinsStore)
 
             // If we don't need resolution and there are no extra constraints,
             // just validate pinsStore and return.
@@ -1092,23 +1092,12 @@ extension Workspace {
 
     /// Computes if dependency resolution is required based on input constraints and pins.
     ///
-    /// A resolution is required if:
-    ///
-    /// * The input dependencies are not mergable. E.g.: root manifest have
-    ///   unmergable constraints.
-    ///
-    /// * Pins are not mergable into the input dependencies. E.g.: if root
-    ///   manifest was updated with constraints such that the current pin does not
-    ///   statisfy it.
-    ///
-    /// * If any of the managed dependency is out of sync with its pin. E.g.:
-    ///   pulling from remote updates the pin file..
-    ///
     /// - Returns: A tuple with two elements.
     ///       resolve: If resolution is required.
     ///       validPins: The pins which are still valid.
     // @testable internal
     func isResolutionRequired(
+        root: PackageGraphRoot,
         dependencies: [RepositoryPackageConstraint],
         pinsStore: PinsStore
     ) -> (resolve: Bool, validPins: [RepositoryPackageConstraint]) {
@@ -1121,10 +1110,11 @@ extension Workspace {
 
         // The input dependencies should be mergable, otherwise we have bigger problems.
         for constraint in dependencies {
-            guard let mergedSet = constraintSet.merging(constraint) else {
+            if let mergedSet = constraintSet.merging(constraint) {
+                constraintSet = mergedSet
+            } else {
                 return (true, pinConstraints)
             }
-            constraintSet = mergedSet
         }
 
         // Merge all the pin constraints.
@@ -1140,25 +1130,40 @@ extension Workspace {
             $0.requirement == constraintSet[$0.identifier]
         })
 
-        // If there are pins which are not valid anymore, we need to resolve.
-        if pinConstraints.count != validPins.count {
-            return (true, validPins)
-        }
-
-        // Otherwise, just check if all checkouts and pins are in sync.
-        for pin in pinsStore.pins {
-            let dependency = managedDependencies[forIdentity: pin.packageRef.identity]
+        // Otherwise, check checkouts and pins.
+        for constraint in constraintSet {
+            let identity = constraint.key.identity
+            let dependency = managedDependencies[forIdentity: identity]
 
             switch dependency?.state {
             case let .checkout(dependencyState)?:
-                // If this pin is not same as the checkout state, we need to re-resolve.
-                if pin.state != dependencyState {
+                // If this constraint is not same as the checkout state, we need to re-resolve.
+                if constraint.value != dependencyState.requirement() {
                     return (true, validPins)
                 }
-            case .edited?, .local?:
-                // Ignore edited dependencies.
+
+                // Ensure that the pin is not out of sync.
+                if dependencyState != pinsStore.pinsMap[identity]?.state {
+                    return (true, validPins)
+                }
+
+            case .local?:
+                switch constraint.value {
+                case .versionSet, .revision:
+                    // We have a local package but the requirement is now different.
+                    return (true, validPins)
+                case .unversioned:
+                    break
+                }
+
+            case .edited?:
                 continue
+
             case nil:
+                // Ignore root packages.
+                if root.packageRefs.contains(constraint.key) {
+                    continue
+                }
                 // We don't have a checkout.
                 return (true, validPins)
             }
@@ -1550,6 +1555,19 @@ extension Workspace {
         
         guard let dependency = managedDependencies[forIdentity: package.identity] else {
             fatalError("This should never happen, trying to remove \(package.identity) which isn't in workspace")
+        }
+
+        // We only need to update the managed dependency structure to "remove"
+        // a local package.
+        // 
+        // Note that we don't actually remove a local package from disk.
+        switch dependency.state {
+        case .local:
+            managedDependencies[forIdentity: package.identity] = nil
+            try managedDependencies.saveState()
+            return
+        case .checkout, .edited: 
+            break
         }
         
         // Inform the delegate.
