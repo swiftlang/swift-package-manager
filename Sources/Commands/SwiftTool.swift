@@ -568,7 +568,7 @@ public class SwiftTool<Options: ToolOptions> {
         
         // Create a temporary directory for the build process.
         let tempDirName = "org.swift.swiftpm.\(NSUserName())"
-        let tempDir = Basic.determineTempDirectory().appending(component: tempDirName)
+        let tempDir = try Basic.determineTempDirectory().appending(component: tempDirName)
         try localFileSystem.createDirectory(tempDir, recursive: true)
 
         // Run the swift-build-tool with the generated manifest.

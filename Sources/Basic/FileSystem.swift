@@ -367,11 +367,11 @@ private class LocalFileSystem: FileSystem {
     }
     
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
-        // Perform non-atomic writes using the fast path
-        guard atomically else {
+        // Perform non-atomic writes using the fast path.
+        if !atomically {
             return try writeFileContents(path, bytes: bytes)
         }
-        let temp = try TemporaryFile(deleteOnClose: false)
+        let temp = try TemporaryFile(dir: path.parentDirectory, deleteOnClose: false)
         do {
             try writeFileContents(temp.path, bytes: bytes)
             try rename(temp.path, to: path)
