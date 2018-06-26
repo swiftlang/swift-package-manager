@@ -21,12 +21,20 @@ public final class Package {
     public class Dependency {
 
         /// The dependency requirement.
-        public enum Requirement {
+        public enum Requirement: Equatable {
+          #if PACKAGE_DESCRIPTION_4_2
+            case _exactItem(Version)
+            case _rangeItem(Range<Version>)
+            case _revisionItem(String)
+            case _branchItem(String)
+            case _localPackageItem
+          #else
             case exactItem(Version)
             case rangeItem(Range<Version>)
             case revisionItem(String)
             case branchItem(String)
             case localPackageItem
+          #endif
         }
 
         /// The url of the dependency.
@@ -157,43 +165,55 @@ public final class Package {
 }
 
 /// Represents system package providers.
-public enum SystemPackageProvider {
+public enum SystemPackageProvider: Equatable {
+
+  #if PACKAGE_DESCRIPTION_4_2
+    case _brewItem([String])
+    case _aptItem([String])
+  #else
     case brewItem([String])
     case aptItem([String])
+  #endif
 
     /// Declare the list of packages installable using the homebrew package
     /// manager on macOS.
     public static func brew(_ packages: [String]) -> SystemPackageProvider {
+      #if PACKAGE_DESCRIPTION_4_2
+        return ._brewItem(packages)
+      #else
         return .brewItem(packages)
+      #endif
     }
 
     /// Declare the list of packages installable using the apt-get package
     /// manager on Ubuntu.
     public static func apt(_ packages: [String]) -> SystemPackageProvider {
+      #if PACKAGE_DESCRIPTION_4_2
+        return ._aptItem(packages)
+      #else
         return .aptItem(packages)
+      #endif
     }
 }
 
 // MARK: Package JSON serialization
 
-extension SystemPackageProvider: Equatable {
-
-    public static func == (lhs: SystemPackageProvider, rhs: SystemPackageProvider) -> Bool {
-        switch (lhs, rhs) {
-        case (.brewItem(let lhs), .brewItem(let rhs)):
-            return lhs == rhs
-        case (.brewItem, _):
-            return false
-        case (.aptItem(let lhs), .aptItem(let rhs)):
-            return lhs == rhs
-        case (.aptItem, _):
-            return false
-        }
-    }
+extension SystemPackageProvider {
 
     func toJSON() -> JSON {
         let name: String
         let values: [String]
+
+      #if PACKAGE_DESCRIPTION_4_2
+        switch self {
+        case ._brewItem(let packages):
+            name = "brew"
+            values = packages
+        case ._aptItem(let packages):
+            name = "apt"
+            values = packages
+        }
+      #else
         switch self {
         case .brewItem(let packages):
             name = "brew"
@@ -202,6 +222,8 @@ extension SystemPackageProvider: Equatable {
             name = "apt"
             values = packages
         }
+      #endif
+
         return .dictionary([
             "name": .string(name),
             "values": .array(values.map(JSON.string)),
@@ -265,6 +287,21 @@ extension Target {
 extension Target.Dependency {
     func toJSON() -> JSON {
         var dict = [String: JSON]()
+
+      #if PACKAGE_DESCRIPTION_4_2
+        switch self {
+        case ._targetItem(let name):
+            dict["name"] = .string(name)
+            dict["type"] = .string("target")
+        case ._productItem(let name, let package):
+            dict["name"] = .string(name)
+            dict["type"] = .string("product")
+            dict["package"] = package.map(JSON.string) ?? .null
+        case ._byNameItem(let name):
+            dict["name"] = .string(name)
+            dict["type"] = .string("byname")
+        }
+      #else
         switch self {
         case .targetItem(let name):
             dict["name"] = .string(name)
@@ -277,6 +314,8 @@ extension Target.Dependency {
             dict["name"] = .string(name)
             dict["type"] = .string("byname")
         }
+      #endif
+
         return .dictionary(dict)
     }
 }

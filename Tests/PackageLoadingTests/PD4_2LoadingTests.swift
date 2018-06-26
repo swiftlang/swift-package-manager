@@ -73,7 +73,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 targets: [
                     .target(
                         name: "foo",
-                        dependencies: ["dep1"]),
+                        dependencies: ["dep1", .product(name: "product"), .target(name: "target")]),
                     .testTarget(
                         name: "bar",
                         dependencies: ["foo"]),
@@ -90,7 +90,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             let foo = targets["foo"]!
             XCTAssertEqual(foo.name, "foo")
             XCTAssertFalse(foo.isTest)
-            XCTAssertEqual(foo.dependencies, ["dep1"])
+            XCTAssertEqual(foo.dependencies, ["dep1", .product(name: "product"), .target(name: "target")])
 
             let bar = targets["bar"]!
             XCTAssertEqual(bar.name, "bar")
@@ -177,6 +177,11 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                    .package(url: "/foo2", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
                    .package(path: "../foo3"),
                    .package(path: "/path/to/foo4"),
+                   .package(url: "/foo5", .exact("1.2.3")),
+                   .package(url: "/foo6", "1.2.3"..<"2.0.0"),
+                   .package(url: "/foo7", .branch("master")),
+                   .package(url: "/foo8", .upToNextMinor(from: "1.3.4")),
+                   .package(url: "/foo9", .upToNextMajor(from: "1.3.4")),
                ]
             )
             """
@@ -190,6 +195,12 @@ class PackageDescription4_2LoadingTests: XCTestCase {
 
             XCTAssertEqual(deps["/path/to/foo4"]?.url, "/path/to/foo4")
             XCTAssertEqual(deps["/path/to/foo4"]?.requirement, .localPackageItem)
+
+            XCTAssertEqual(deps["/foo5"], .package(url: "/foo5", .exact("1.2.3")))
+            XCTAssertEqual(deps["/foo6"], .package(url: "/foo6", "1.2.3"..<"2.0.0"))
+            XCTAssertEqual(deps["/foo7"], .package(url: "/foo7", .branch("master")))
+            XCTAssertEqual(deps["/foo8"], .package(url: "/foo8", .upToNextMinor(from: "1.3.4")))
+            XCTAssertEqual(deps["/foo9"], .package(url: "/foo9", .upToNextMajor(from: "1.3.4")))
         }
     }
 
@@ -205,7 +216,11 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                         dependencies: ["bar"]),
                     .systemLibrary(
                         name: "bar",
-                        pkgConfig: "libbar"),
+                        pkgConfig: "libbar",
+                        providers: [
+                            .brew(["libgit"]),
+                            .apt(["a", "b"]),
+                        ]),
                 ]
             )
             """
@@ -222,6 +237,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             XCTAssertEqual(bar.name, "bar")
             XCTAssertEqual(bar.type, .system)
             XCTAssertEqual(bar.pkgConfig, "libbar")
+            XCTAssertEqual(bar.providers, [.brew(["libgit"]), .apt(["a", "b"])])
         }
     }
 
