@@ -181,6 +181,40 @@ final class SchemesGenerator {
         stream <<< """
                 </Testables>
               </TestAction>
+
+            """
+
+        if let target = scheme.regularTargets.first {
+            if scheme.regularTargets.count == 1 && target.type == .executable {
+                stream <<< """
+                    <LaunchAction
+                       buildConfiguration = "Debug"
+                       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+                       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+                       launchStyle = "0"
+                       useCustomWorkingDirectory = "NO"
+                       ignoresPersistentStateOnLaunch = "NO"
+                       debugDocumentVersioning = "YES"
+                       debugServiceExtension = "internal"
+                       allowLocationSimulation = "YES">
+                       <BuildableProductRunnable
+                          runnableDebuggingMode = "0">
+                          <BuildableReference
+                             BuildableIdentifier = "primary"
+                             BuildableName = "\(target.buildableName)"
+                             BlueprintName = "\(target.blueprintName)"
+                             ReferencedContainer = "container:\(container)">
+                          </BuildableReference>
+                       </BuildableProductRunnable>
+                       <AdditionalOptions>
+                       </AdditionalOptions>
+                    </LaunchAction>
+
+                    """
+            }
+        }
+
+        stream <<< """
             </Scheme>
 
             """
