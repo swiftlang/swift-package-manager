@@ -937,8 +937,18 @@ public final class PackageBuilder {
 
         // Look for linux main file adjacent to each test target root, iterating upto package root.
         for target in testTargets {
+
+            // Form the initial search path.
+            //
+            // If the target root's parent directory is inside the package, start
+            // search there. Otherwise, we start search from the target root.
             var searchPath = target.sources.root.parentDirectory
+            if !searchPath.contains(packagePath) {
+                searchPath = target.sources.root
+            }
+
             while true {
+                assert(searchPath.contains(packagePath), "search path \(searchPath) is outside the package \(packagePath)")
                 // If we have already searched this path, skip.
                 if !pathsSearched.contains(searchPath) {
                     let linuxMain = searchPath.appending(component: SwiftTarget.linuxMainBasename)
