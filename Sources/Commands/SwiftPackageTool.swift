@@ -182,7 +182,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             }
 
         case .describe:
-            let graph = try loadPackageGraph()
+            let graph = try loadPackageGraph(outputTo: stderrStream)
             describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
