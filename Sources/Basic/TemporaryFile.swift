@@ -74,6 +74,9 @@ public final class TemporaryFile {
 
     /// FileHandle of the temporary file, can be used to read/write data.
     public let fileHandle: FileHandle
+    
+    /// Whether the file should be deleted on dealloc.
+    public let deleteOnClose: Bool
 
     /// Creates an instance of Temporary file. The temporary file will live on disk until the instance
     /// goes out of scope.
@@ -84,11 +87,13 @@ public final class TemporaryFile {
     ///            set, dir will be set to `/tmp/`.
     ///     - prefix: The prefix to the temporary file name.
     ///     - suffix: The suffix to the temporary file name.
+    ///     - deleteOnClose: Whether the file should get deleted when the instance is deallocated.
     ///
     /// - Throws: TempFileError
-    public init(dir: AbsolutePath? = nil, prefix: String = "TemporaryFile", suffix: String = "") throws {
+    public init(dir: AbsolutePath? = nil, prefix: String = "TemporaryFile", suffix: String = "", deleteOnClose: Bool = true) throws {
         self.suffix = suffix
         self.prefix = prefix
+        self.deleteOnClose = deleteOnClose
         // Determine in which directory to create the temporary file.
         self.dir = determineTempDirectory(dir)
         // Construct path to the temporary file.
@@ -109,7 +114,9 @@ public final class TemporaryFile {
 
     /// Remove the temporary file before deallocating.
     deinit {
-        unlink(path.asString)
+        if deleteOnClose {
+            unlink(path.asString)
+        }
     }
 }
 
