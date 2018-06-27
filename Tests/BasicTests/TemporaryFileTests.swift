@@ -70,6 +70,8 @@ class TemporaryFileTests: XCTestCase {
         }
         // File should not be deleted.
         XCTAssertTrue(isFile(filePath))
+        // Delete the file now
+        try localFileSystem.removeFileTree(filePath)
     }
 
     func testCanCreateUniqueTempFiles() throws {
