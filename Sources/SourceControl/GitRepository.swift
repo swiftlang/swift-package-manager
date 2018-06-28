@@ -401,10 +401,13 @@ public class GitRepository: Repository, WorkingCheckout {
     public func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
         return try queue.sync {
             let stringPaths = paths.map({ $0.asString })
-            let pathsFileContent = stringPaths.joined(separator: "\0")
 
             let pathsFile = try TemporaryFile()
-            try localFileSystem.writeFileContents(pathsFile.path) { $0 <<< pathsFileContent }
+            try localFileSystem.writeFileContents(pathsFile.path) {
+                for path in paths {
+                    $0 <<< path.asString <<< "\0"
+                }
+            }
 
             let args = [Git.tool, "-C", "\"\(self.path.asString)\"", "check-ignore", "-z", "--stdin", "<", "\"\(pathsFile.path.asString)\""]
             let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
