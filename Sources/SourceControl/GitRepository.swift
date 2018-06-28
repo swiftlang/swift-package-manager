@@ -409,7 +409,7 @@ public class GitRepository: Repository, WorkingCheckout {
                 }
             }
 
-            let args = [Git.tool, "-C", "\"\(self.path.asString)\"", "check-ignore", "-z", "--stdin", "<", "\"\(pathsFile.path.asString)\""]
+            let args = [Git.tool, "-C", self.path.asString.shellEscaped(), "check-ignore", "-z", "--stdin", "<", pathsFile.path.asString.shellEscaped()]
             let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
             let result = try Process.popen(arguments: argsWithSh)
             let output = try result.output.dematerialize()
