@@ -198,7 +198,7 @@ public protocol WorkingCheckout {
     func isAlternateObjectStoreValid() -> Bool
 
     /// Returns true if the file at `path` is ignored by `git`
-    func isGitIgnored(_ paths: [AbsolutePath]) throws -> [Bool]
+    func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool]
 }
 
 /// A single repository revision.

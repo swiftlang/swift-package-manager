@@ -399,7 +399,7 @@ public class GitRepository: Repository, WorkingCheckout {
     }
 
     /// Returns true if the file at `path` is ignored by `git`
-    public func isGitIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
+    public func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
         return try queue.sync {
             let stringPaths = paths.map({ $0.asString })
             let pathsFileContent = stringPaths.joined(separator: "\0")
