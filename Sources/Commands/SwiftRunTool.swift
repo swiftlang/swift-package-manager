@@ -102,9 +102,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
             if let executable = options.executable, isValidSwiftFilePath(executable) {
-                print(diagnostic: Diagnostic(
-                    location: UnknownLocation.location,
-                    data: RunFileDeprecatedDiagnostic()))
+                diagnostics.emit(data: RunFileDeprecatedDiagnostic())
                 // Redirect execution to the toolchain's swift executable.
                 let swiftInterpreterPath = try getToolchain().swiftInterpreter
                 // Prepend the script to interpret to the arguments.
@@ -112,6 +110,10 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
                 try run(swiftInterpreterPath, arguments: arguments)
                 return
             }
+
+            // Redirect stdout to stderr because swift-run clients usually want
+            // to ignore swiftpm's output and only care about the tool's output.
+            self.redirectStdoutToStderr()
                     
             let plan = try BuildPlan(buildParameters: self.buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
             let product = try findProduct(in: plan.graph)
