@@ -175,9 +175,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
-            let graph = try loadPackageGraph()
-            let manifest = graph.rootPackages[0].manifest
-            print(try manifest.jsonString())
+            let workspace = try getActiveWorkspace()
+            let root = try getWorkspaceRoot()
+            let manifests = workspace.loadRootManifests(packages: root.packages, diagnostics: diagnostics)
+            print(try manifests[0].jsonString())
 
         case .completionTool:
             switch options.completionToolMode {
