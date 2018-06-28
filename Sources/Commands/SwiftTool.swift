@@ -69,6 +69,13 @@ struct TargetNotFoundDiagnostic: DiagnosticData {
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
+    /// The stream to use for reporting progress.
+    private let stdoutStream: OutputByteStream
+
+    init(_ stdoutStream: OutputByteStream) {
+        self.stdoutStream = stdoutStream
+    }
+
     func packageGraphWillLoad(
         currentGraph: PackageGraph,
         dependencies: AnySequence<ManagedDependency>,
@@ -77,39 +84,52 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func fetchingWillBegin(repository: String) {
-        print("Fetching \(repository)")
+        stdoutStream <<< "Fetching \(repository)"
+        stdoutStream <<< "\n"
+        stdoutStream.flush()
     }
 
     func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
     }
 
     func repositoryWillUpdate(_ repository: String) {
-        print("Updating \(repository)")
+        stdoutStream <<< "Updating \(repository)"
+        stdoutStream <<< "\n"
+        stdoutStream.flush()
     }
 
     func repositoryDidUpdate(_ repository: String) {
     }
     
     func dependenciesUpToDate() {
-        print("Everything is already up-to-date")
+        stdoutStream <<< "Everything is already up-to-date"
+        stdoutStream <<< "\n"
+        stdoutStream.flush()
     }
 
     func cloning(repository: String) {
-        print("Cloning \(repository)")
+        stdoutStream <<< "Cloning \(repository)"
+        stdoutStream <<< "\n"
+        stdoutStream.flush()
     }
 
     func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
-        // FIXME: This is temporary output similar to old one, we will need to figure
-        // out better reporting text.
-        print("Resolving \(repository) at \(reference)")
+        stdoutStream <<< "Resolving \(repository) at \(reference)"
+        stdoutStream <<< "\n"
+        stdoutStream.flush()
     }
 
     func removing(repository: String) {
-        print("Removing \(repository)")
+        stdoutStream <<< "Removing \(repository)"
+        stdoutStream <<< "\n"
+        stdoutStream.flush()
     }
 
     func warning(message: String) {
-        print("warning: " + message)
+        // FIXME: We should emit warnings through the diagnostic engine.
+        stdoutStream <<< "warning: " <<< message
+        stdoutStream <<< "\n"
+        stdoutStream.flush()
     }
 
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
@@ -165,6 +185,22 @@ final class BuildManifestRegenerationToken {
     }
 }
 
+/// Handler for the main DiagnosticsEngine used by the SwiftTool class.
+private final class DiagnosticsEngineHandler {
+
+    /// The standard output stream.
+    var stdoutStream = Basic.stdoutStream
+
+    /// The default instance.
+    static let `default` = DiagnosticsEngineHandler()
+
+    private init() {}
+
+    func diagnosticsHandler(_ diagnostic: Diagnostic) {
+        print(diagnostic: diagnostic, stdoutStream: stderrStream)
+    }
+}
+
 public class SwiftTool<Options: ToolOptions> {
     /// The original working directory.
     let originalWorkingDirectory: AbsolutePath
@@ -202,10 +238,18 @@ public class SwiftTool<Options: ToolOptions> {
     let interruptHandler: InterruptHandler
 
     /// The diagnostics engine.
-    let diagnostics = DiagnosticsEngine(handlers: [SwiftTool.diagnosticsHandler])
+    let diagnostics: DiagnosticsEngine = DiagnosticsEngine(
+        handlers: [DiagnosticsEngineHandler.default.diagnosticsHandler])
 
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
+
+    /// The stream to print standard output on.
+    fileprivate var stdoutStream: OutputByteStream = Basic.stdoutStream
+
+    /// If true, Redirects the stdout stream to stderr when invoking
+    /// `swift-build-tool`.
+    private var shouldRedirectStdoutToStderr = false
 
     /// Create an instance of this tool.
     ///
@@ -394,7 +438,7 @@ public class SwiftTool<Options: ToolOptions> {
         if let workspace = _workspace {
             return workspace
         }
-        let delegate = ToolWorkspaceDelegate()
+        let delegate = ToolWorkspaceDelegate(self.stdoutStream)
         let rootPackage = try getPackageRoot()
         let provider = GitRepositoryProvider(processSet: processSet)
         let workspace = Workspace(
@@ -431,10 +475,6 @@ public class SwiftTool<Options: ToolOptions> {
         SwiftTool.exit(with: executionStatus)
     }
 
-    static func diagnosticsHandler(_ diagnostic: Diagnostic) {
-        print(diagnostic: diagnostic)
-    }
-
     /// Exit the tool with the given execution status.
     private static func exit(with status: ExecutionStatus) -> Never {
         switch status {
@@ -446,6 +486,13 @@ public class SwiftTool<Options: ToolOptions> {
     /// Run method implementation to be overridden by subclasses.
     func runImpl() throws {
         fatalError("Must be implemented by subclasses")
+    }
+
+    /// Start redirecting the standard output stream to the standard error stream.
+    func redirectStdoutToStderr() {
+        self.shouldRedirectStdoutToStderr = true
+        self.stdoutStream = Basic.stderrStream
+        DiagnosticsEngineHandler.default.stdoutStream = Basic.stdoutStream
     }
 
     /// Resolve the dependencies.
@@ -601,10 +648,18 @@ public class SwiftTool<Options: ToolOptions> {
         env["TMPDIR"] = tempDir.asString
 
         // Run llbuild and print output on standard streams.
-        let process = Process(arguments: args, environment: env, redirectOutput: false)
+        let process = Process(arguments: args, environment: env, redirectOutput: shouldRedirectStdoutToStderr)
         try process.launch()
         try processSet.add(process)
         let result = try process.waitUntilExit()
+
+        // Emit the output to the selected stream if we need to redirect the
+        // stream.
+        if shouldRedirectStdoutToStderr {
+            self.stdoutStream <<< (try result.utf8stderrOutput())
+            self.stdoutStream <<< (try result.utf8Output())
+            self.stdoutStream.flush()
+        }
 
         guard result.exitStatus == .terminated(code: 0) else {
             throw ProcessResult.Error.nonZeroExit(result)
