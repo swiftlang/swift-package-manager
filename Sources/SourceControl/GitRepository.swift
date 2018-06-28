@@ -406,7 +406,7 @@ public class GitRepository: Repository, WorkingCheckout {
             let pathsFile = try TemporaryFile()
             try localFileSystem.writeFileContents(pathsFile.path) { $0 <<< pathsFileContent }
 
-            let args = [Git.tool, "-C", self.path.asString, "check-ignore", "-z", "--stdin", "<", "\(pathsFile.path.asString)"]
+            let args = [Git.tool, "-C", "\"\(self.path.asString)\"", "check-ignore", "-z", "--stdin", "<", "\"\(pathsFile.path.asString)\""]
             let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
             let result = try Process.popen(arguments: argsWithSh)
             let output = try result.output.dematerialize()

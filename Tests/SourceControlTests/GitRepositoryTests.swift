@@ -626,6 +626,22 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    func testAreIgnoredWithSpaceInRepoPath() throws {
+        mktmpdir { path in
+            // Create a repo.
+            let testRepoPath = path.appending(component: "test repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath)
+            let repo = GitRepository(path: testRepoPath)
+
+            // Add a .gitignore
+            try localFileSystem.writeFileContents(testRepoPath.appending(component: ".gitignore"), bytes: "ignored_file1")
+
+            let ignored = try repo.areIgnored([testRepoPath.appending(component: "ignored_file1")])
+            XCTAssertTrue(ignored[0])
+        }
+    }
+
     static var allTests = [
         ("testBranchOperations", testBranchOperations),
         ("testCheckoutRevision", testCheckoutRevision),
