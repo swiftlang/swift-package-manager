@@ -9,6 +9,7 @@
   * [Target Format Reference](#target-format-reference)
   * [Package Manifest File Format Reference](#package-manifest-file-format-reference)
   * [Version](#version)
+* [PackageDescription API Version 4.2](PackageDescriptionV4_2.md)
 * [Resources](Resources.md)
 
 ---
