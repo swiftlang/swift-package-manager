@@ -37,7 +37,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let projectName = "DummyProjectName"
             let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-            try Xcodeproj.generate(projectName: projectName, xcodeprojPath: outpath, graph: graph, options: XcodeprojOptions())
+            try Xcodeproj.generate(projectName: projectName, xcodeprojPath: outpath, graph: graph, options: XcodeprojOptions(), diagnostics: diagnostics)
 
             XCTAssertDirectoryExists(outpath)
             XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))
@@ -61,8 +61,8 @@ class GenerateXcodeprojTests: XCTestCase {
                    If no build configuration is specified and -scheme is not passed then "Release" is used.
                
                    Schemes:
-                       DummyProjectName-Package
-               """))
+                       Foo-Package
+               """), output)
         }
       #endif
     }
@@ -76,7 +76,7 @@ class GenerateXcodeprojTests: XCTestCase {
         let options = XcodeprojOptions(xcconfigOverrides: AbsolutePath("/doesntexist"))
         do {
             _ = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
-                                 graph: graph, extraDirs: [], options: options, fileSystem: fileSystem)
+                                 graph: graph, extraDirs: [], options: options, fileSystem: fileSystem, diagnostics: diagnostics)
             XCTFail("Project generation should have failed")
         } catch ProjectGenerationError.xcconfigOverrideNotFound(let path) {
             XCTAssertEqual(options.xcconfigOverrides, path)
@@ -94,7 +94,7 @@ class GenerateXcodeprojTests: XCTestCase {
         XCTAssertFalse(diagnostics.hasErrors)
 
         _ = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
-                             graph: graph, extraDirs: [], options: XcodeprojOptions(), fileSystem: fileSystem,
+                             graph: graph, extraDirs: [], options: XcodeprojOptions(), fileSystem: fileSystem, diagnostics: diagnostics,
                              warningStream: warningStream)
 
         let warnings = warningStream.bytes.asReadableString

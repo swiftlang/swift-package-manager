@@ -105,7 +105,7 @@ public enum PackageBuilderDiagnostics {
     struct SystemPackageProductValidationDiagnostic: DiagnosticData {
         static let id = DiagnosticID(
             type: SystemPackageProductValidationDiagnostic.self,
-            name: "org.swift.diags.pkg-builder.sys-pkg-product-validatoin",
+            name: "org.swift.diags.pkg-builder.sys-pkg-product-validation",
             description: {
                 $0 <<< "system library product" <<< { $0.product } <<< "shouldn't have a type and contain only one target"
             }

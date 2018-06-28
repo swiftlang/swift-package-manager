@@ -44,6 +44,35 @@ class TemporaryFileTests: XCTestCase {
         // File should be deleted now.
         XCTAssertFalse(isFile(filePath))
     }
+    
+    func testNoCleanupTemporaryFile() throws {
+        let filePath: AbsolutePath
+        do {
+            let file = try TemporaryFile(deleteOnClose: false)
+            
+            // Check if file is created.
+            XCTAssertTrue(isFile(file.path))
+            
+            // Try writing some data to the file.
+            let stream = BufferedOutputByteStream()
+            stream <<< "foo"
+            stream <<< "bar"
+            stream <<< "baz"
+            try fputs(stream.bytes.contents, file.fileHandle)
+            
+            // Go to the beginning of the file.
+            file.fileHandle.seek(toFileOffset: 0)
+            // Read the contents.
+            let contents = try? file.fileHandle.readFileContents()
+            XCTAssertEqual(contents, "foobarbaz")
+            
+            filePath = file.path
+        }
+        // File should not be deleted.
+        XCTAssertTrue(isFile(filePath))
+        // Delete the file now
+        try localFileSystem.removeFileTree(filePath)
+    }
 
     func testCanCreateUniqueTempFiles() throws {
         let filePathOne: AbsolutePath
@@ -133,6 +162,7 @@ class TemporaryFileTests: XCTestCase {
     static var allTests = [
         ("testBasicReadWrite", testBasicReadWrite),
         ("testCanCreateUniqueTempFiles", testCanCreateUniqueTempFiles),
+        ("testNoCleanupTemporaryFile", testNoCleanupTemporaryFile),
         ("testBasicTemporaryDirectory", testBasicTemporaryDirectory),
         ("testCanCreateUniqueTempDirectories", testCanCreateUniqueTempDirectories),
         ("testLeaks", testLeaks),

@@ -408,12 +408,22 @@ class DependencyResolverTests: XCTestCase {
             ]),
         ])
 
+        // It is illegal for a revision constraint to appear after a versioned constraint.
+        do {
+            let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+            XCTAssertThrows(DependencyResolverError.unsatisfiable) {
+                _ = try resolver.resolve(constraints: [
+                    MockPackageConstraint(container: "C", versionRequirement: v1Range),
+                    MockPackageConstraint(container: "C", requirement: .revision(develop)),
+                ])
+            }
+        }
+
         // Having a revision dependency at root should resolve.
         do {
             let resolver = MockDependencyResolver(provider, MockResolverDelegate())
             let result = try resolver.resolve(constraints: [
-                // With version and revision constraints, revision should win.
-                MockPackageConstraint(container: "C", versionRequirement: v1Range),
+                // With version and revision constraints, revision should win if it appears first.
                 MockPackageConstraint(container: "C", requirement: .revision(develop)),
                 MockPackageConstraint(container: "C", versionRequirement: v1Range),
             ])
@@ -448,7 +458,7 @@ class DependencyResolverTests: XCTestCase {
             let aIdentifier = AnyPackageContainerIdentifier("A")
             let bIdentifier = AnyPackageContainerIdentifier("B")
             let cIdentifier = AnyPackageContainerIdentifier("C")
-            let error = DependencyResolverError.revisionConstraints(
+            let error = DependencyResolverError.incompatibleConstraints(
                 dependency: (aIdentifier, "1.0.0"), revisions: [(cIdentifier, develop), (bIdentifier, develop)])
             XCTAssertEqual(error.description, """
             the package A @ 1.0.0 contains incompatible dependencies:

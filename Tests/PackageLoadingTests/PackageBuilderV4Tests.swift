@@ -110,6 +110,38 @@ class PackageBuilderV4Tests: XCTestCase {
         }
     }
 
+    func testLinuxMainSearch() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/pkg/foo.swift",
+            "/pkg/footests.swift"
+        )
+
+        let package = Package(
+            name: "pkg",
+            targets: [
+                .target(
+                    name: "exe",
+                    path: "./",
+                    sources: ["foo.swift"]
+                ),
+                .testTarget(
+                    name: "tests",
+                    path: "./",
+                    sources: ["footests.swift"]
+                ),
+            ]
+        )
+        PackageBuilderTester(package, path: AbsolutePath("/pkg"), in: fs) { result in
+            result.checkModule("exe") { _ in }
+            result.checkModule("tests") { _ in }
+
+            result.checkProduct("pkgPackageTests") { productResult in
+                productResult.check(type: .test, targets: ["tests"])
+                productResult.check(linuxMainPath: nil)
+            }
+        }
+    }
+
     func testLinuxMainError() {
         let fs = InMemoryFileSystem(emptyFiles:
             "/LinuxMain.swift",
@@ -602,6 +634,37 @@ class PackageBuilderV4Tests: XCTestCase {
                 result.checkDiagnostic("target 'Foo' in package 'Foo' is outside the package root")
             }
         }
+        do {
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/pkg/Sources/Foo/Foo.c",
+                "/foo/Bar.c")
+
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "Foo", path: "/foo"),
+                    ])
+
+            PackageBuilderTester(package, path: AbsolutePath("/pkg"), in: fs) { result in
+                result.checkDiagnostic("target path \'/foo\' is not supported; it should be relative to package root")
+            }
+        }
+
+        do {
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/pkg/Sources/Foo/Foo.c",
+                "/foo/Bar.c")
+
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "Foo", path: "~/foo"),
+                    ])
+
+            PackageBuilderTester(package, path: AbsolutePath("/pkg"), in: fs) { result in
+                result.checkDiagnostic("target path \'~/foo\' is not supported; it should be relative to package root")
+            }
+        }
     }
 
     func testExecutableAsADep() {
@@ -973,5 +1036,6 @@ class PackageBuilderV4Tests: XCTestCase {
         ("testSystemPackageDeclaresTargetsDiagnostic", testSystemPackageDeclaresTargetsDiagnostic),
         ("testSystemLibraryTarget", testSystemLibraryTarget),
         ("testSystemLibraryTargetDiagnostics", testSystemLibraryTargetDiagnostics),
+        ("testLinuxMainSearch", testLinuxMainSearch),
     ]
 }

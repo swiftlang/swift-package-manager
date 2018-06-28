@@ -102,14 +102,6 @@ extension ByteString {
 }
 #endif
 
-#if !swift(>=4.1)
-extension ByteString {
-    public static func == (lhs: ByteString, rhs: ByteString) -> Bool {
-        return lhs.contents == rhs.contents
-    }
-}
-#endif
-
 /// ByteStreamable conformance for a ByteString.
 extension ByteString: ByteStreamable {
     public func write(to stream: OutputByteStream) {

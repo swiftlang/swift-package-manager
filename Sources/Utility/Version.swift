@@ -60,18 +60,6 @@ extension Version {
 }
 #endif
 
-#if !swift(>=4.1)
-extension Version {
-    static public func == (lhs: Version, rhs: Version) -> Bool {
-        return lhs.major == rhs.major &&
-            lhs.minor == rhs.minor &&
-            lhs.patch == rhs.patch &&
-            lhs.prereleaseIdentifiers == rhs.prereleaseIdentifiers &&
-            lhs.buildMetadataIdentifiers == rhs.buildMetadataIdentifiers
-    }
-}
-#endif
-
 extension Version: Comparable {
 
     func isEqualWithoutPrerelease(_ other: Version) -> Bool {

@@ -29,7 +29,7 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 ## Using trunk snapshot
 
 
-1. [Download](https://swift.org/download/#releases) and install latest Trunk Development snapshot.
+1. [Download](https://swift.org/download/#snapshots) and install latest Trunk Development snapshot.
 2. Run the following command depending on your platform.
 
 
@@ -128,12 +128,12 @@ For contributors on macOS who need to test on Linux, install Docker and use the
 following commands:
 
 ```sh
-$ Utilities/docker-utils build # will build an image with the latest swift snapshot
-$ Utilities/docker-utils bootstrap # will bootstrap SwiftPM on the linux container
-$ Utilities/docker-utils run bash # to run an interactive bash shell in the container
-$ Utilities/docker-utils swift-build # to run swift-build in the container
-$ Utilities/docker-utils swift-test # to run swift-test in the container
-$ Utilities/docker-utils swift-run # to run swift-run in the container
+$ Utilities/Docker/docker-utils build # will build an image with the latest swift snapshot
+$ Utilities/Docker/docker-utils bootstrap # will bootstrap SwiftPM on the linux container
+$ Utilities/Docker/docker-utils run bash # to run an interactive bash shell in the container
+$ Utilities/Docker/docker-utils swift-build # to run swift-build in the container
+$ Utilities/Docker/docker-utils swift-test # to run swift-test in the container
+$ Utilities/Docker/docker-utils swift-run # to run swift-run in the container
 ```
 
 ## Using custom Swift compilers
