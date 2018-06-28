@@ -81,7 +81,7 @@ Dependencies are specified in your `Package.swift` manifest file.
 
 “Dependency Hell” is the colloquialism for a situation where the graph of dependencies required by a project cannot be met. The end-user is then required to solve the scenario; usually a difficult task:
 
-1. The conflict may be in unfamiliar dependencies (of dependencies) that the user did not explicitly request
+1. The conflict may be in unfamiliar dependencies (of dependencies) that the user did not explicitly request.
 2. Due to the nature of development it would be rare for two dependency graphs to be the same. Thus the amount of help other users (often even the package authors) can offer is limited. Internet searches will likely prove fruitless.
 
 A good package manager should be designed from the start to minimize the risk of dependency hell and where this is not possible, to mitigate it and provide tooling so that the end-user can solve the scenario with a minimum of trouble. The [Package Manager Community Proposal](PackageManagerCommunityProposal.md) contains our thoughts on how we intend to iterate with these hells in mind.

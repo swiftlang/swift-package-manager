@@ -33,6 +33,7 @@ public func pbxproj(
         graph: PackageGraph,
         extraDirs: [AbsolutePath],
         options: XcodeprojOptions,
+        diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem
     ) throws -> Xcode.Project {
     return try xcodeProject(
@@ -40,7 +41,8 @@ public func pbxproj(
         graph: graph,
         extraDirs: extraDirs,
         options: options,
-        fileSystem: fileSystem)
+        fileSystem: fileSystem,
+        diagnostics: diagnostics)
 }
 
 /// A set of c99 target names that are invalid for Xcode Framework targets.
@@ -55,6 +57,7 @@ func xcodeProject(
     extraDirs: [AbsolutePath],
     options: XcodeprojOptions,
     fileSystem: FileSystem,
+    diagnostics: DiagnosticsEngine,
     warningStream: OutputByteStream = stdoutStream
     ) throws -> Xcode.Project {
 
@@ -75,7 +78,7 @@ func xcodeProject(
             interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/" + String(package.manifest.manifestVersion.rawValue)
         }
         pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS += interpreterFlags
-        pdTarget.buildSettings.common.SWIFT_VERSION = "\(package.manifest.manifestVersion.rawValue).0"
+        pdTarget.buildSettings.common.SWIFT_VERSION = package.manifest.manifestVersion.swiftLanguageVersion.xcodeBuildSettingValue
         pdTarget.buildSettings.common.LD = "/usr/bin/true"
     }
 
@@ -162,7 +165,7 @@ func xcodeProject(
     projectSettings.debug.GCC_PREPROCESSOR_DEFINITIONS = ["DEBUG=1", "$(inherited)"]
     projectSettings.debug.ONLY_ACTIVE_ARCH = "YES"
     projectSettings.debug.SWIFT_OPTIMIZATION_LEVEL = "-Onone"
-    projectSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["DEBUG"]
+    projectSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["SWIFT_PACKAGE", "DEBUG"]
 
     // Add some release-specific settings.
     projectSettings.release.COPY_PHASE_STRIP = "YES"
@@ -421,6 +424,7 @@ func xcodeProject(
         targetSettings.common.INFOPLIST_FILE = infoPlistFilePath.relative(to: sourceRootDir).asString
 
         if target.type == .test {
+            targetSettings.common.CLANG_ENABLE_MODULES = "YES"
             targetSettings.common.EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES"
             targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["$(inherited)", "@loader_path/../Frameworks", "@loader_path/Frameworks"]
         } else {
@@ -455,7 +459,7 @@ func xcodeProject(
 
         // Set the correct SWIFT_VERSION for the Swift targets.
         if case let swiftTarget as SwiftTarget = target.underlyingTarget {
-            targetSettings.common.SWIFT_VERSION = "\(swiftTarget.swiftVersion).0"
+            targetSettings.common.SWIFT_VERSION = swiftTarget.swiftVersion.xcodeBuildSettingValue
         }
 
         // Add header search paths for any C target on which we depend.
@@ -472,7 +476,7 @@ func xcodeProject(
             switch depModule.underlyingTarget {
               case let systemTarget as SystemLibraryTarget:
                 hdrInclPaths.append("$(SRCROOT)/" + systemTarget.path.relative(to: sourceRootDir).asString)
-                if let pkgArgs = pkgConfigArgs(for: systemTarget) {
+                if let pkgArgs = pkgConfigArgs(for: systemTarget, diagnostics: diagnostics) {
                     targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
                     targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
                     targetSettings.common.OTHER_CFLAGS += pkgArgs.cFlags
@@ -544,16 +548,27 @@ func xcodeProject(
             // Disable defines target for clang target because our clang targets are not proper framework targets.
             // Also see: <rdar://problem/29825757> 
             targetSettings.common.DEFINES_MODULE = "NO"
+
             // Generate a modulemap for clangTarget (if not provided by user) and
             // add to the build settings.
-            let moduleMapPath: AbsolutePath
+            var moduleMapPath: AbsolutePath?
 
             // If the modulemap is generated (as opposed to user provided).
-            let isGenerated: Bool
+            var isGenerated = false
+
             // If user provided the modulemap no need to generate.
             if fileSystem.isFile(clangTarget.moduleMapPath) {
                 moduleMapPath = clangTarget.moduleMapPath
-                isGenerated = false
+            } else if includeGroup.subitems.contains(where: { $0.path == clangTarget.c99name + ".h" }) {
+                // If an umbrella header exists, enable Xcode's builtin module's feature rather than generating
+                // a custom module map. This increases the compatibility of generated Xcode projects.
+                let headerPhase = xcodeTarget.addHeadersBuildPhase()
+                for case let header as Xcode.FileReference in includeGroup.subitems {
+                    let buildFile = headerPhase.addBuildFile(fileRef: header)
+                    buildFile.settings.ATTRIBUTES = ["Public"]
+                }
+                targetSettings.common.CLANG_ENABLE_MODULES = "YES"
+                targetSettings.common.DEFINES_MODULE = "YES"
             } else {
                 // Generate and drop the modulemap inside Xcodeproj folder.
                 let path = xcodeprojPath.appending(components: "GeneratedModuleMap", clangTarget.c99name)
@@ -562,9 +577,12 @@ func xcodeProject(
                 moduleMapPath = path.appending(component: moduleMapFilename)
                 isGenerated = true
             }
-            includeGroup.addFileReference(path: moduleMapPath.asString, name: moduleMapPath.basename)
-            // Save this modulemap path mapped to target so we can later wire it up for its dependees.
-            modulesToModuleMap[target] = (moduleMapPath, isGenerated)
+
+            if let moduleMapPath = moduleMapPath {
+                includeGroup.addFileReference(path: moduleMapPath.asString, name: moduleMapPath.basename)
+                // Save this modulemap path mapped to target so we can later wire it up for its dependees.
+                modulesToModuleMap[target] = (moduleMapPath, isGenerated)
+            }
         }
     }
 
@@ -696,5 +714,18 @@ private extension ResolvedTarget {
         default:
             fatalError("unexpected target type")
         }
+    }
+}
+
+private extension SwiftLanguageVersion {
+    /// Returns the build setting value for the given Swift language version.
+    var xcodeBuildSettingValue: String {
+        // Swift version setting are represented differently in Xcode:
+        // 3 -> 4.0, 4 -> 4.0, 4.2 -> 4.2
+        var swiftVersion = "\(rawValue)"
+        if !rawValue.contains(".") {
+            swiftVersion += ".0"
+        }
+        return swiftVersion
     }
 }

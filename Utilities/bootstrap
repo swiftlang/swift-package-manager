@@ -915,6 +915,12 @@ def main():
     sandbox_path = os.path.join(build_path, ".bootstrap")
     target_path = os.path.join(build_path, build_target)
 
+    # Confirm rsync is available.
+    try:
+        subprocess.check_output(['rsync', '--version'], stderr=subprocess.STDOUT)
+    except Exception as e:
+        error("rsync is not available with error: %s" % e)  
+    
     # If the action is "clean", just remove the bootstrap and build directories.
     if "clean" in build_actions:
         cmd = ["rm", "-rf", sandbox_path]

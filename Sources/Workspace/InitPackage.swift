@@ -114,7 +114,7 @@ public final class InitPackage {
 
                 """
 
-            if packageType == .library {
+            if packageType == .library || packageType == .executable {
                 stream <<< """
                         targets: [
                             // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -125,18 +125,6 @@ public final class InitPackage {
                             .testTarget(
                                 name: "\(pkgname)Tests",
                                 dependencies: ["\(pkgname)"]),
-                        ]
-
-                    """
-            }
-            if packageType == .executable {
-                stream <<< """
-                        targets: [
-                            // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-                            // Targets can depend on other targets in this package, and on products in packages which this package depends on.
-                            .target(
-                                name: "\(pkgname)",
-                                dependencies: []),
                         ]
 
                     """
@@ -260,8 +248,9 @@ public final class InitPackage {
         progressReporter?("Creating \(tests.relative(to: destinationPath).asString)/")
         try makeDirectories(tests)
 
-        // Only libraries are testable for now.
-        if packageType == .library {
+        switch packageType {
+        case .systemModule, .empty: break
+        case .library, .executable:
             try writeLinuxMain(testsPath: tests)
             try writeTestFileStubs(testsPath: tests)
         }
@@ -281,12 +270,8 @@ public final class InitPackage {
         }
     }
 
-    private func writeTestFileStubs(testsPath: AbsolutePath) throws {
-        let testModule = testsPath.appending(RelativePath(pkgname + Target.testModuleNameSuffix))
-        progressReporter?("Creating \(testModule.relative(to: destinationPath).asString)/")
-        try makeDirectories(testModule)
-
-        try writePackageFile(testModule.appending(RelativePath("\(moduleName)Tests.swift"))) { stream in
+    private func writeLibraryTestsFile(_ path: AbsolutePath) throws {
+        try writePackageFile(path) { stream in
             stream <<< """
                 import XCTest
                 @testable import \(moduleName)
@@ -299,6 +284,60 @@ public final class InitPackage {
                         XCTAssertEqual(\(typeName)().text, "Hello, World!")
                     }
                 
+                    static var allTests = [
+                        ("testExample", testExample),
+                    ]
+                }
+
+                """
+        }
+    }
+
+    private func writeExecutableTestsFile(_ path: AbsolutePath) throws {
+        try writePackageFile(path) { stream in
+            stream <<< """
+                import XCTest
+                import class Foundation.Bundle
+
+                final class \(moduleName)Tests: XCTestCase {
+                    func testExample() throws {
+                        // This is an example of a functional test case.
+                        // Use XCTAssert and related functions to verify your tests produce the correct
+                        // results.
+
+                        // Some of the APIs that we use below are available in macOS 10.13 and above.
+                        guard #available(macOS 10.13, *) else {
+                            return
+                        }
+
+                        let fooBinary = productsDirectory.appendingPathComponent("\(moduleName)")
+
+                        let process = Process()
+                        process.executableURL = fooBinary
+
+                        let pipe = Pipe()
+                        process.standardOutput = pipe
+
+                        try process.run()
+                        process.waitUntilExit()
+
+                        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                        let output = String(data: data, encoding: .utf8)
+
+                        XCTAssertEqual(output, "Hello, world!\\n")
+                    }
+
+                    /// Returns path to the built products directory.
+                    var productsDirectory: URL {
+                      #if os(macOS)
+                        for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
+                            return bundle.bundleURL.deletingLastPathComponent()
+                        }
+                        fatalError("couldn't find the products directory")
+                      #else
+                        return Bundle.main.bundleURL
+                      #endif
+                    }
                 
                     static var allTests = [
                         ("testExample", testExample),
@@ -306,6 +345,21 @@ public final class InitPackage {
                 }
 
                 """
+        }
+    }
+
+    private func writeTestFileStubs(testsPath: AbsolutePath) throws {
+        let testModule = testsPath.appending(RelativePath(pkgname + Target.testModuleNameSuffix))
+        progressReporter?("Creating \(testModule.relative(to: destinationPath).asString)/")
+        try makeDirectories(testModule)
+
+        let testClassFile = testModule.appending(RelativePath("\(moduleName)Tests.swift"))
+        switch packageType {
+        case .systemModule, .empty: break
+        case .library:
+            try writeLibraryTestsFile(testClassFile)
+        case .executable:
+            try writeExecutableTestsFile(testClassFile)
         }
 
         try writePackageFile(testModule.appending(component: "XCTestManifests.swift")) { stream in

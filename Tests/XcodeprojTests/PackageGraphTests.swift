@@ -27,6 +27,8 @@ class PackageGraphTests: XCTestCase {
           "/Bar/Sources/Sea2/include/Sea2.h",
           "/Bar/Sources/Sea2/include/module.modulemap",
           "/Bar/Sources/Sea2/Sea2.c",
+          "/Bar/Sources/Sea3/include/header.h",
+          "/Bar/Sources/Sea3/Sea3.c",
           "/Bar/Tests/BarTests/barTests.swift",
           "/Overrides.xcconfig"
       )
@@ -39,7 +41,7 @@ class PackageGraphTests: XCTestCase {
 
         let options = XcodeprojOptions(xcconfigOverrides: AbsolutePath("/Overrides.xcconfig"))
         
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: options, fileSystem: fs)
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: options, fileSystem: fs, diagnostics: diagnostics)
 
         XcodeProjectTester(project) { result in
             result.check(projectDir: "Bar")
@@ -47,17 +49,20 @@ class PackageGraphTests: XCTestCase {
             result.check(references:
                 "Package.swift",
                 "Configs/Overrides.xcconfig",
+                "Sources/Sea3/Sea3.c",
+                "Sources/Sea3/include/header.h",
+                "Sources/Sea3/include/module.modulemap",
                 "Sources/Sea2/Sea2.c",
                 "Sources/Sea2/include/Sea2.h",
                 "Sources/Sea2/include/module.modulemap",
                 "Sources/Bar/bar.swift",
                 "Sources/Sea/Sea.c",
                 "Sources/Sea/include/Sea.h",
-                "Sources/Sea/include/module.modulemap",
                 "Tests/BarTests/barTests.swift",
                 "Dependencies/Foo 1.0.0/Package.swift",
                 "Dependencies/Foo 1.0.0/foo.swift",
                 "Products/Foo.framework",
+                "Products/Sea3.framework",
                 "Products/Sea2.framework",
                 "Products/Bar.framework",
                 "Products/Sea.framework",
@@ -71,6 +76,8 @@ class PackageGraphTests: XCTestCase {
             XCTAssertEqual(project.buildSettings.common.CLANG_ENABLE_OBJC_ARC, "YES")
             XCTAssertEqual(project.buildSettings.release.SWIFT_OPTIMIZATION_LEVEL, "-Owholemodule")
             XCTAssertEqual(project.buildSettings.debug.SWIFT_OPTIMIZATION_LEVEL, "-Onone")
+            XCTAssertEqual(project.buildSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS!, ["SWIFT_PACKAGE", "DEBUG"])
+            XCTAssertEqual(project.buildSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS!, ["SWIFT_PACKAGE"])
 
             result.check(target: "Foo") { targetResult in
                 targetResult.check(productType: .framework)
@@ -97,6 +104,8 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Sea") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
+                XCTAssertEqual(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES, "YES")
+                XCTAssertEqual(targetResult.commonBuildSettings.DEFINES_MODULE, "YES")
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, nil)
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_CFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_LDFLAGS?.first, "$(inherited)")
@@ -108,12 +117,21 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Sea2") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
+                XCTAssertNil(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES)
+                XCTAssertEqual(targetResult.commonBuildSettings.DEFINES_MODULE, "NO")
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, nil)
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_CFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_LDFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_SWIFT_FLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
+            }
+
+            result.check(target: "Sea3") { targetResult in
+                targetResult.check(productType: .framework)
+                XCTAssertNil(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES)
+                XCTAssertEqual(targetResult.commonBuildSettings.DEFINES_MODULE, "NO")
+                XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, nil)
             }
 
             result.check(target: "BarTests") { targetResult in
@@ -149,7 +167,7 @@ class PackageGraphTests: XCTestCase {
                 products: [.library(name: "Bar", type: .dynamic, targets: ["Foo"])],
                 targets: [.target(name: "Foo")]),
         ], root: "/Foo", diagnostics: diagnostics, in: fs)
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Foo/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Foo/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
         XcodeProjectTester(project) { result in
             result.check(target: "Foo") { targetResult in
                 targetResult.check(productType: .framework)
@@ -175,20 +193,18 @@ class PackageGraphTests: XCTestCase {
       let g = loadMockPackageGraph([
           "/Bar": Package(name: "Bar", targets: [Target(name: "swift", dependencies: ["Sea", "Sea2"])]),
       ], root: "/Bar", diagnostics: diagnostics, in: fs)
-      let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
 
       XcodeProjectTester(project) { result in
           result.check(target: "swift") { targetResult in
               XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
                   "$(inherited)", "-Xcc",
                   "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap",
-                  "-Xcc", "-fmodule-map-file=$(SRCROOT)/build/xcodeproj/GeneratedModuleMap/Sea/module.modulemap",
               ])
               XCTAssertEqual(targetResult.target.buildSettings.common.HEADER_SEARCH_PATHS ?? [], [
                   "$(inherited)",
                   "$(SRCROOT)/Sources/Sea2/include",
                   "$(SRCROOT)/Sources/Sea/include",
-                  "$(SRCROOT)/build/xcodeproj/GeneratedModuleMap/Sea"
               ])
           }
           result.check(target: "Sea") { targetResult in
@@ -209,7 +225,7 @@ class PackageGraphTests: XCTestCase {
             "/Pkg": Package(name: "Pkg", targets: [Target(name: "LibraryTests", dependencies: ["Library", "HelperTool"])]),
             ], root: "/Pkg", diagnostics: diagnostics, in: fs)
         
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
         
         XcodeProjectTester(project) { result in
             result.check(projectDir: "Pkg")
@@ -239,12 +255,100 @@ class PackageGraphTests: XCTestCase {
             }
         }
     }
+
+    func testSchemes() throws {
+      let fs = InMemoryFileSystem(emptyFiles:
+          "/Foo/Sources/a/main.swift",
+          "/Foo/Sources/b/main.swift",
+          "/Foo/Sources/c/main.swift",
+          "/Foo/Sources/d/main.swift",
+          "/Foo/Sources/libd/libd.swift",
+
+          "/Foo/Tests/aTests/fooTests.swift",
+          "/Foo/Tests/bcTests/fooTests.swift",
+          "/Foo/Tests/dTests/fooTests.swift",
+          "/Foo/Tests/libdTests/fooTests.swift",
+          "/end"
+      )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadMockPackageGraph4([
+            "/Foo": .init(
+                name: "Foo",
+                targets: [
+                    .target(name: "a"),
+                    .target(name: "b", dependencies: ["a"]),
+                    .target(name: "c", dependencies: ["a"]),
+                    .target(name: "d", dependencies: ["b"]),
+                    .target(name: "libd", dependencies: ["d"]),
+
+                    .testTarget(name: "aTests", dependencies: ["a"]),
+                    .testTarget(name: "bcTests", dependencies: ["b", "c"]),
+                    .testTarget(name: "dTests", dependencies: ["d"]),
+                    .testTarget(name: "libdTests", dependencies: ["libd"]),
+                ]
+             ),
+        ], root: "/Foo", diagnostics: diagnostics, in: fs)
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let generatedSchemes = SchemesGenerator(
+            graph: graph,
+            container: "Foo.xcodeproj",
+            schemesDir: AbsolutePath("/Foo.xcodeproj/xcshareddata/xcschemes"),
+            isCodeCoverageEnabled: true,
+            fs: fs).buildSchemes()
+
+        let schemes = Dictionary(uniqueKeysWithValues: generatedSchemes.map({ ($0.name, $0) }))
+
+        XCTAssertEqual(generatedSchemes.count, 5)
+        XCTAssertEqual(schemes["a"]?.testTargets.map({ $0.name }).sorted(), ["aTests"])
+        XCTAssertEqual(schemes["a"]?.regularTargets.map({ $0.name }).sorted(), ["a"])
+
+        XCTAssertEqual(schemes["b"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests"])
+        XCTAssertEqual(schemes["c"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests"])
+        XCTAssertEqual(schemes["d"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests", "dTests"])
+
+        XCTAssertEqual(schemes["Foo-Package"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests", "dTests", "libdTests"])
+        XCTAssertEqual(schemes["Foo-Package"]?.regularTargets.map({ $0.name }).sorted(), ["a", "b", "c", "d", "libd"])
+    }
+
+    func testSwiftVersion() throws {
+        // FIXME: Unfortunately, we can't test 4.2 right now.
+        for swiftVersion in [3, 4] {
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Foo/Sources/a/main.swift",
+                "/end"
+            )
+
+            let diagnostics = DiagnosticsEngine()
+            let graph = loadMockPackageGraph4([
+                "/Foo": .init(
+                    name: "Foo",
+                    targets: [
+                        .target(name: "a"),
+                    ],
+                    swiftLanguageVersions: [swiftVersion]
+                 ),
+            ], root: "/Foo", diagnostics: diagnostics, in: fs)
+
+            let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Foo").appending(component: "xcodeproj"), graph: graph, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
+
+            XcodeProjectTester(project) { result in
+                result.check(target: "a") { targetResult in
+                    XCTAssertEqual(targetResult.target.buildSettings.common.SWIFT_VERSION, "\(swiftVersion).0")
+                }
+            }
+        }
+    }
     
     static var allTests = [
         ("testAggregateTarget", testAggregateTarget),
         ("testBasics", testBasics),
         ("testModuleLinkage", testModuleLinkage),
         ("testModulemap", testModulemap),
+        ("testSchemes", testSchemes),
+        ("testSwiftVersion", testSwiftVersion),
     ]
 }
 

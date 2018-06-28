@@ -252,6 +252,16 @@ public struct RelativePath: Hashable {
         _impl = PathImpl(string: normalize(relative: string))
     }
 
+    /// Convenience initializer that verifies that the path is relative.
+    public init(validating path: String) throws {
+        switch path.first {
+        case "/", "~":
+            throw PathValidationError.invalidRelativePath(path)
+        default:
+            self.init(path)
+        }
+    }
+
     /// Directory component.  For a relative path without any path separators,
     /// this is the `.` string instead of the empty string.
     public var dirname: String {
@@ -299,19 +309,6 @@ public struct RelativePath: Hashable {
     }
 }
 
-#if !swift(>=4.1)
-// Make absolute paths Hashable.
-extension AbsolutePath {
-    public static func == (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-        return lhs.asString == rhs.asString
-    }
-
-    public var hashValue: Int {
-        return _impl.hashValue
-    }
-}
-#endif
-
 // Make absolute paths Comparable.
 extension AbsolutePath : Comparable {
     public static func < (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
@@ -335,19 +332,6 @@ extension AbsolutePath : CustomStringConvertible {
         return "<AbsolutePath:\"\(asString)\">"
     }
 }
-
-#if !swift(>=4.1)
-// Make relative paths Equatable.
-extension RelativePath: Equatable {
-    public static func == (lhs: RelativePath, rhs: RelativePath) -> Bool {
-        return lhs.asString == rhs.asString
-    }
-
-    public var hashValue: Int {
-        return _impl.hashValue
-    }
-}
-#endif
 
 /// Make relative paths CustomStringConvertible.
 extension RelativePath : CustomStringConvertible {
@@ -443,27 +427,22 @@ struct PathImpl: Hashable {
     }
 }
 
-#if !swift(>=4.1)
-extension PathImpl {
-    public var hashValue: Int {
-        return string.hashValue
-    }
-}
-#endif
-
 /// Describes the way in which a path is invalid.
 public enum PathValidationError: Error {
     case startsWithTilde(String)
     case invalidAbsolutePath(String)
+    case invalidRelativePath(String)
 }
 
 extension PathValidationError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .startsWithTilde(let path):
-            return "invalid absolute path '\(path)'; absolute path must begin with /"
+            return "invalid absolute path '\(path)'; absolute path must begin with '/'"
         case .invalidAbsolutePath(let path):
             return "invalid absolute path '\(path)'"
+        case .invalidRelativePath(let path):
+            return "invalid relative path '\(path)'; relative path should not begin with '/' or '~'"
         }
     }
 }

@@ -19,17 +19,16 @@ public final class Target {
     }
 
     /// Represents a target's dependency on another entity.
-    public enum Dependency {
-
-        /// A dependency on a target in the same package.
+    public enum Dependency: Equatable {
+      #if PACKAGE_DESCRIPTION_4_2
+        case _targetItem(name: String)
+        case _productItem(name: String, package: String?)
+        case _byNameItem(name: String)
+      #else
         case targetItem(name: String)
-
-        /// A dependency on a product from a package dependency.
         case productItem(name: String, package: String?)
-
-        // A by-name dependency that resolves to either a target or a product,
-        // as above, after the package graph has been loaded.
         case byNameItem(name: String)
+      #endif
     }
 
     /// The name of the target.
@@ -167,16 +166,32 @@ public final class Target {
 }
 
 extension Target.Dependency {
+    /// A dependency on a target in the same package.
     public static func target(name: String) -> Target.Dependency {
+      #if PACKAGE_DESCRIPTION_4_2
+        return ._targetItem(name: name)
+      #else
         return .targetItem(name: name)
+      #endif
     }
 
+    /// A dependency on a product from a package dependency.
     public static func product(name: String, package: String? = nil) -> Target.Dependency {
+      #if PACKAGE_DESCRIPTION_4_2
+        return ._productItem(name: name, package: package)
+      #else
         return .productItem(name: name, package: package)
+      #endif
     }
 
+    // A by-name dependency that resolves to either a target or a product,
+    // as above, after the package graph has been loaded.
     public static func byName(name: String) -> Target.Dependency {
+      #if PACKAGE_DESCRIPTION_4_2
+        return ._byNameItem(name: name)
+      #else
         return .byNameItem(name: name)
+      #endif
     }
 }
 
@@ -189,41 +204,14 @@ extension Target: Equatable {
     }
 }
 
-extension Target.Dependency: Equatable {
-    public static func == (
-        lhs: Target.Dependency,
-        rhs: Target.Dependency
-    ) -> Bool {
-        switch (lhs, rhs) {
-        case (.targetItem(let a), .targetItem(let b)):
-            return a == b
-        case (.targetItem, _):
-            return false
-        case (.productItem(let an, let ap), .productItem(let bn, let bp)):
-            return an == bn && ap == bp
-        case (.productItem, _):
-            return false
-        case (.byNameItem(let a), .byNameItem(let b)):
-            return a == b
-        case (.byNameItem, _):
-            return false
-        }
-    }
-}
-
 // MARK: ExpressibleByStringLiteral
 
 extension Target.Dependency: ExpressibleByStringLiteral {
-
     public init(stringLiteral value: String) {
+      #if PACKAGE_DESCRIPTION_4_2
+        self = ._byNameItem(name: value)
+      #else
         self = .byNameItem(name: value)
-    }
-
-    public init(unicodeScalarLiteral value: String) {
-        self.init(stringLiteral: value)
-    }
-
-    public init(extendedGraphemeClusterLiteral value: String) {
-        self.init(stringLiteral: value)
+      #endif
     }
 }

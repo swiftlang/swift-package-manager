@@ -29,8 +29,8 @@ public enum ModuleError: Swift.Error {
         case modulemapInSources(String)
     }
 
-    /// Indicates two targets with the same name.
-    case duplicateModule(String)
+    /// Indicates two targets with the same name and their corresponding packages.
+    case duplicateModule(String, [String])
 
     /// One or more referenced targets could not be found.
     case modulesNotFound([String])
@@ -61,13 +61,17 @@ public enum ModuleError: Swift.Error {
 
     /// The target path is outside the package.
     case targetOutsidePackage(package: String, target: String)
+
+    /// Unsupported target path
+    case unsupportedTargetPath(String)
 }
 
 extension ModuleError: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .duplicateModule(let name):
-            return "multiple targets named '\(name)'"
+        case .duplicateModule(let name, let packages):
+            let packages = packages.joined(separator: ", ")
+            return "multiple targets named '\(name)' in: \(packages)"
         case .modulesNotFound(let targets):
             let targets = targets.joined(separator: ", ")
             return "could not find source files for target(s): \(targets); use the 'path' property in the Swift 4 manifest to set a custom target path"
@@ -96,6 +100,8 @@ extension ModuleError: CustomStringConvertible {
             return "package '\(package)' not compatible with current tools version (\(current)); it supports: \(required)"
         case .targetOutsidePackage(let package, let target):
             return "target '\(target)' in package '\(package)' is outside the package root"
+        case .unsupportedTargetPath(let targetPath):
+            return "target path '\(targetPath)' is not supported; it should be relative to package root"
         }
     }
 }
@@ -489,7 +495,13 @@ public final class PackageBuilder {
                 if subpath == "" || subpath == "." {
                     return packagePath
                 }
-                let path = packagePath.appending(RelativePath(subpath))
+
+                // Make sure target is not refenced by absolute path
+                guard let relativeSubPath = try? RelativePath(validating: subpath) else {
+                    throw ModuleError.unsupportedTargetPath(subpath)
+                }
+
+                let path = packagePath.appending(relativeSubPath)
                 // Make sure the target is inside the package root.
                 guard path.contains(packagePath) else {
                     throw ModuleError.targetOutsidePackage(package: manifest.name, target: target.name)
@@ -718,10 +730,10 @@ public final class PackageBuilder {
                 return nil
             }
             return SystemLibraryTarget(
-                    name: potentialModule.name,
-                    path: potentialModule.path, isImplicit: false,
-                    pkgConfig: manifestTarget?.pkgConfig,
-                    providers: manifestTarget?.providers)
+                name: potentialModule.name,
+                path: potentialModule.path, isImplicit: false,
+                pkgConfig: manifestTarget?.pkgConfig,
+                providers: manifestTarget?.providers)
         }
 
         // Compute the path to public headers directory.
@@ -925,8 +937,18 @@ public final class PackageBuilder {
 
         // Look for linux main file adjacent to each test target root, iterating upto package root.
         for target in testTargets {
+
+            // Form the initial search path.
+            //
+            // If the target root's parent directory is inside the package, start
+            // search there. Otherwise, we start search from the target root.
             var searchPath = target.sources.root.parentDirectory
+            if !searchPath.contains(packagePath) {
+                searchPath = target.sources.root
+            }
+
             while true {
+                assert(searchPath.contains(packagePath), "search path \(searchPath) is outside the package \(packagePath)")
                 // If we have already searched this path, skip.
                 if !pathsSearched.contains(searchPath) {
                     let linuxMain = searchPath.appending(component: SwiftTarget.linuxMainBasename)

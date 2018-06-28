@@ -29,7 +29,7 @@ Please use [this guide](https://swift.org/getting-started/#using-the-package-man
 
 ## Documentation
 
-For Quick Help use the ```swift package --help ``` command 
+For Quick Help use the ```swift package --help ``` command.
 
 For extensive documentation on using Swift Package Manager, creating packages, and more, see [Documentation](Documentation).
 

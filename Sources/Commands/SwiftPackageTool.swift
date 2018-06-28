@@ -167,8 +167,19 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 projectName: projectName,
                 xcodeprojPath: xcodeprojPath,
                 graph: graph,
-                options: options.xcodeprojOptions)
+                options: options.xcodeprojOptions,
+                diagnostics: diagnostics)
+
             print("generated:", xcodeprojPath.prettyPath(cwd: originalWorkingDirectory))
+
+            // Run the file watcher if requested.
+            if options.xcodeprojOptions.enableAutogeneration {
+                try WatchmanHelper(
+                    diagnostics: diagnostics,
+                    watchmanScriptsDir: buildPath.appending(component: "watchman"),
+                    packageRoot: packageRoot!
+                ).runXcodeprojWatcher(options.xcodeprojOptions)
+            }
 
         case .describe:
             let graph = try loadPackageGraph()
@@ -311,11 +322,21 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 option: "--output", kind: PathArgument.self,
                 usage: "Path where the Xcode project should be generated"),
             to: {
-                $0.xcodeprojOptions = XcodeprojOptions(
-                    flags: $0.buildFlags,
-                    xcconfigOverrides: $1?.path,
-                    isCodeCoverageEnabled: $2)
+                $0.xcodeprojOptions.flags = $0.buildFlags
+                $0.xcodeprojOptions.xcconfigOverrides = $1?.path
+                if let val = $2 { $0.xcodeprojOptions.isCodeCoverageEnabled = val }
                 $0.outputPath = $3?.path
+            })
+        binder.bind(
+            generateXcodeParser.add(
+                option: "--legacy-scheme-generator", kind: Bool.self,
+                usage: "Use the legacy scheme generator"),
+            generateXcodeParser.add(
+                option: "--watch", kind: Bool.self,
+                usage: "Watch for changes to the Package manifest to regenerate the Xcode project"),
+            to: {
+                $0.xcodeprojOptions.useLegacySchemeGenerator = $1 ?? false
+                $0.xcodeprojOptions.enableAutogeneration = $2 ?? false
             })
 
         let completionToolParser = parser.add(

@@ -57,7 +57,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             let regenerateManifest = try shouldRegenerateManifest()
             if regenerateManifest {
                 // Create the build plan and build normally.
-                let plan = try BuildPlan(buildParameters: buildParameters(), graph: loadPackageGraph())
+                let plan = try BuildPlan(buildParameters: buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
                 try build(plan: plan, subset: subset)
             } else {
                 // Otherwise, run llbuild directly.

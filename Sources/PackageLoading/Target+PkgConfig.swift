@@ -58,7 +58,7 @@ public struct PkgConfigResult {
 }
 
 /// Get pkgConfig result for a system library target.
-public func pkgConfigArgs(for target: SystemLibraryTarget, fileSystem: FileSystem = localFileSystem) -> PkgConfigResult? {
+public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: DiagnosticsEngine, fileSystem: FileSystem = localFileSystem) -> PkgConfigResult? {
     // If there is no pkg config name defined, we're done.
     guard let pkgConfigName = target.pkgConfig else { return nil }
     // Compute additional search paths for the provider, if any.
@@ -69,6 +69,7 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, fileSystem: FileSyste
         let pkgConfig = try PkgConfig(
             name: pkgConfigName,
             additionalSearchPaths: additionalSearchPaths,
+            diagnostics: diagnostics,
             fileSystem: fileSystem)
         // Run the whitelist checker.
         try whitelist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
