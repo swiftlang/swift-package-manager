@@ -92,6 +92,13 @@ public class GitRepositoryProvider: RepositoryProvider {
         }
     }
 
+    public func checkoutExists(at path: AbsolutePath) throws -> Bool {
+        precondition(exists(path))
+
+        let result = try Process.popen(args: Git.tool, "-C", path.asString, "rev-parse", "--is-bare-repository")
+        return try result.exitStatus == .terminated(code: 0) && result.utf8Output().chomp() == "false"
+    }
+
     public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
         return GitRepository(path: path)
     }
@@ -100,6 +107,9 @@ public class GitRepositoryProvider: RepositoryProvider {
 enum GitInterfaceError: Swift.Error {
     /// This indicates a problem communicating with the `git` tool.
     case malformedResponse(String)
+
+    /// This indicates that a fatal error was encountered
+    case fatalError
 }
 
 /// A basic `git` repository. This class is thread safe.
@@ -385,6 +395,35 @@ public class GitRepository: Repository, WorkingCheckout {
             return false
         }
         return localFileSystem.isDirectory(AbsolutePath(firstLine))
+    }
+
+    /// Returns true if the file at `path` is ignored by `git`
+    public func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
+        return try queue.sync {
+            let stringPaths = paths.map({ $0.asString })
+
+            let pathsFile = try TemporaryFile()
+            try localFileSystem.writeFileContents(pathsFile.path) {
+                for path in paths {
+                    $0 <<< path.asString <<< "\0"
+                }
+            }
+
+            let args = [Git.tool, "-C", self.path.asString.shellEscaped(), "check-ignore", "-z", "--stdin", "<", pathsFile.path.asString.shellEscaped()]
+            let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
+            let result = try Process.popen(arguments: argsWithSh)
+            let output = try result.output.dematerialize()
+
+            let outputs: [String] = output.split(separator: 0).map(Array.init).map({ (bytes: [Int8]) -> String in
+                return String(cString: bytes + [0])
+            })
+
+            guard result.exitStatus == .terminated(code: 0) || result.exitStatus == .terminated(code: 1) else {
+                throw GitInterfaceError.fatalError
+            }
+
+            return stringPaths.map(outputs.contains)
+        }
     }
 
     // MARK: Git Operations
