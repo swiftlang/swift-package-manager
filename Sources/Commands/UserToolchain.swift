@@ -138,6 +138,15 @@ public struct UserToolchain: Toolchain {
         // Get the binDir from destination.
         let binDir = destination.binDir
 
+        #if LIB_64
+        let libDirComponent = "lib64"
+        #elseif LIB_32
+        let libDirComponent = "lib32"
+        #else
+        let libDirComponent = "lib"
+        #endif
+
+
         let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: lookup(fromEnv:))
         self.swiftCompiler = swiftCompilers.compile
 
@@ -183,9 +192,10 @@ public struct UserToolchain: Toolchain {
             "--sysroot", destination.sdk.asString
         ] + destination.extraCCFlags
 
+
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompilers.manifest,
-            libDir: binDir.parentDirectory.appending(components: "lib", "swift", "pm"),
+            libDir: binDir.parentDirectory.appending(components: libDirComponent, "swift", "pm"),
             sdkRoot: self.destination.sdk
         )
     }
