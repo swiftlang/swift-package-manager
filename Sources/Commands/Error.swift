@@ -75,9 +75,15 @@ func print(error: Any) {
     writer.write("\n")
 }
 
-func print(diagnostic: Diagnostic) {
+func print(diagnostic: Diagnostic, stdoutStream: OutputByteStream) {
 
-    let writer = diagnostic.behavior == .note ? InteractiveWriter.stdout : InteractiveWriter.stderr
+    let writer: InteractiveWriter
+
+    if diagnostic.behavior == .note {
+        writer = InteractiveWriter(stream: stdoutStream)
+    } else {
+        writer = InteractiveWriter.stderr
+    }
 
     if !(diagnostic.location is UnknownLocation) {
         writer.write(diagnostic.location.localizedDescription)
