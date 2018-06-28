@@ -175,8 +175,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
-            options.shouldMuteOutput = !options.dumpPackageOptions.includeToolOutput
-
             let graph = try loadPackageGraph()
             let manifest = graph.rootPackages[0].manifest
             print(try manifest.jsonString())
@@ -214,10 +212,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             option: describeParser.add(option: "--type", kind: DescribeMode.self, usage: "json|text"),
             to: { $0.describeMode = $1 })
 
-        let dumpParser = parser.add(subparser: PackageMode.dumpPackage.rawValue, overview: "Print parsed Package.swift as JSON")
-        binder.bind(
-            option: dumpParser.add(option: "--include-tool-output", kind: Bool.self, usage: "Show package manager output"),
-            to: { $0.dumpPackageOptions.includeToolOutput = $1 })
+        _ = parser.add(subparser: PackageMode.dumpPackage.rawValue, overview: "Print parsed Package.swift as JSON")
 
         let editParser = parser.add(subparser: PackageMode.edit.rawValue, overview: "Put a package in editable mode")
         binder.bind(
@@ -375,12 +370,6 @@ public class PackageToolOptions: ToolOptions {
 
     var inputPath: AbsolutePath?
     var showDepsMode: ShowDependenciesMode = .text
-
-	struct DumpPackageOptions {
-		var includeToolOutput = false
-	}
-
-	var dumpPackageOptions = DumpPackageOptions()
 
     struct EditOptions {
         var packageName: String?

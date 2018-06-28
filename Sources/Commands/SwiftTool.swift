@@ -69,12 +69,6 @@ struct TargetNotFoundDiagnostic: DiagnosticData {
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
-    private let options: ToolOptions
-
-    init(toolOptions: ToolOptions) {
-        options = toolOptions
-    }
-
     func packageGraphWillLoad(
         currentGraph: PackageGraph,
         dependencies: AnySequence<ManagedDependency>,
@@ -83,53 +77,39 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func fetchingWillBegin(repository: String) {
-        if !options.shouldMuteOutput {
-            print("Fetching \(repository)")
-        }
+        print("Fetching \(repository)")
     }
 
     func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
     }
 
     func repositoryWillUpdate(_ repository: String) {
-        if !options.shouldMuteOutput {
-            print("Updating \(repository)")
-        }
+        print("Updating \(repository)")
     }
 
     func repositoryDidUpdate(_ repository: String) {
     }
     
     func dependenciesUpToDate() {
-        if !options.shouldMuteOutput {
-            print("Everything is already up-to-date")
-        }
+        print("Everything is already up-to-date")
     }
 
     func cloning(repository: String) {
-        if !options.shouldMuteOutput {
-            print("Cloning \(repository)")
-        }
+        print("Cloning \(repository)")
     }
 
     func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
         // FIXME: This is temporary output similar to old one, we will need to figure
         // out better reporting text.
-        if !options.shouldMuteOutput {
-            print("Resolving \(repository) at \(reference)")
-        }
+        print("Resolving \(repository) at \(reference)")
     }
 
     func removing(repository: String) {
-        if !options.shouldMuteOutput {
-            print("Removing \(repository)")
-        }
+        print("Removing \(repository)")
     }
 
     func warning(message: String) {
-        if !options.shouldMuteOutput {
-            print("warning: " + message)
-        }
+        print("warning: " + message)
     }
 
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
@@ -222,7 +202,7 @@ public class SwiftTool<Options: ToolOptions> {
     let interruptHandler: InterruptHandler
 
     /// The diagnostics engine.
-	let diagnostics: DiagnosticsEngine
+    let diagnostics = DiagnosticsEngine(handlers: [SwiftTool.diagnosticsHandler])
 
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
@@ -345,9 +325,8 @@ public class SwiftTool<Options: ToolOptions> {
 
             var options = Options()
             try binder.fill(parseResult: result, into: &options)
-            diagnostics = DiagnosticsEngine(handlers: [setupDiagnosticsHandler(with: options)])
-            self.options = options
 
+            self.options = options
             // Honor package-path option is provided.
             if let packagePath = options.packagePath ?? options.chdir {
                 // FIXME: This should be an API which takes AbsolutePath and maybe
@@ -389,7 +368,7 @@ public class SwiftTool<Options: ToolOptions> {
         self.buildPath = getEnvBuildPath() ??
             customBuildPath ??
             (packageRoot ?? localFileSystem.currentWorkingDirectory!).appending(component: ".build")
-
+        
         if options.chdir != nil {
             diagnostics.emit(data: ChdirDeprecatedDiagnostic())
         }
@@ -415,8 +394,7 @@ public class SwiftTool<Options: ToolOptions> {
         if let workspace = _workspace {
             return workspace
         }
-        let delegate = ToolWorkspaceDelegate(toolOptions: options)
-
+        let delegate = ToolWorkspaceDelegate()
         let rootPackage = try getPackageRoot()
         let provider = GitRepositoryProvider(processSet: processSet)
         let workspace = Workspace(
@@ -451,6 +429,10 @@ public class SwiftTool<Options: ToolOptions> {
             handle(error: error)
         }
         SwiftTool.exit(with: executionStatus)
+    }
+
+    static func diagnosticsHandler(_ diagnostic: Diagnostic) {
+        print(diagnostic: diagnostic)
     }
 
     /// Exit the tool with the given execution status.
@@ -695,14 +677,6 @@ public class SwiftTool<Options: ToolOptions> {
     enum ExecutionStatus {
         case success
         case failure
-    }
-}
-
-func setupDiagnosticsHandler(with options: ToolOptions) -> (Diagnostic) -> Void {
-    return { diagnostic in
-        if !options.shouldMuteOutput || diagnostic.behavior == .error {
-            print(diagnostic: diagnostic)
-        }
     }
 }
 
