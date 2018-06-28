@@ -34,18 +34,25 @@ final class RunToolTests: XCTestCase {
 
     func testUnkownProductAndArgumentPassing() throws {
         fixture(name: "Miscellaneous/EchoExecutable") { path in
+
+            let result = try SwiftPMProduct.SwiftRun.executeProcess(
+                ["secho", "1", "--hello", "world"], packagePath: path)
+
+            // We only expect tool's output on the stdout stream.
+            XCTAssertMatch(try result.utf8Output(), .contains("""
+                "1" "--hello" "world"
+                """))
+
+            // swift-build-tool output should go to stderr.
+            XCTAssertMatch(try result.utf8stderrOutput(), .contains("Compile Swift Module"))
+            XCTAssertMatch(try result.utf8stderrOutput(), .contains("Linking"))
+
             do {
                 _ = try execute(["unknown"], packagePath: path)
                 XCTFail("Unexpected success")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTAssertEqual(stderr, "error: no executable product named 'unknown'\n")
             }
-
-            let runOutput = try execute(["secho", "1", "--hello", "world"], packagePath: path)
-            let outputLines = runOutput.split(separator: "\n")
-            XCTAssertEqual(String(outputLines.last!), """
-                "\(getcwd())" "1" "--hello" "world"
-                """)
         }
     }
 
@@ -59,11 +66,10 @@ final class RunToolTests: XCTestCase {
             }
             
             var runOutput = try execute(["exec1"], packagePath: path)
-            var outputLines = runOutput.split(separator: "\n")
-            XCTAssertEqual(outputLines.last!, "1")
+            XCTAssertMatch(runOutput, .contains("1"))
+
             runOutput = try execute(["exec2"], packagePath: path)
-            outputLines = runOutput.split(separator: "\n")
-            XCTAssertEqual(outputLines.last!, "2")
+            XCTAssertMatch(runOutput, .contains("2"))
         }
     }
 
@@ -71,7 +77,7 @@ final class RunToolTests: XCTestCase {
         fixture(name: "Miscellaneous/UnreachableTargets") { path in
             let output = try execute(["bexec"], packagePath: path.appending(component: "A"))
             let outputLines = output.split(separator: "\n")
-            XCTAssertEqual(outputLines.last!, "BTarget2")
+            XCTAssertEqual(outputLines.first, "BTarget2")
         }
     }
 
