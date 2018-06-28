@@ -11,7 +11,6 @@
 import Basic
 import Dispatch
 import Utility
-import struct Foundation.Data
 
 public enum GitRepositoryProviderError: Swift.Error {
     case gitCloneFailure(errorOutput: String)
@@ -405,8 +404,7 @@ public class GitRepository: Repository, WorkingCheckout {
             let pathsFileContent = stringPaths.joined(separator: "\0")
 
             let pathsFile = try TemporaryFile()
-            let pathsData = Data(pathsFileContent.utf8)
-            pathsFile.fileHandle.write(pathsData)
+            try localFileSystem.writeFileContents(pathsFile.path) { $0 <<< pathsFileContent }
 
             let args = [Git.tool, "-C", self.path.asString, "check-ignore", "-z", "--stdin", "<", "\(pathsFile.path.asString)"]
             let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
