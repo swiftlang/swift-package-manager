@@ -182,7 +182,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             }
 
         case .describe:
-            let graph = try loadPackageGraph()
+            let graph = try loadPackageGraph(quiet: true)
             describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
@@ -192,15 +192,19 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             print(try manifests[0].jsonString())
 
         case .completionTool:
-            switch options.completionToolMode {
-            case .generateBashScript?:
+            guard let completionToolMode = options.completionToolMode else {
+                preconditionFailure("somehow we ended up with an invalid positional argument")
+            }
+
+            switch completionToolMode {
+            case .generateBashScript:
                 bash_template(on: stdoutStream)
-            case .generateZshScript?:
+            case .generateZshScript:
                 zsh_template(on: stdoutStream)
-            case .listDependencies?:
+            case .listDependencies:
                 let graph = try loadPackageGraph()
                 dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist)
-            case .listExecutables?:
+            case .listExecutables:
                 let graph = try loadPackageGraph()
                 let package = graph.rootPackages[0].underlyingPackage
                 let executables = package.targets.filter { $0.type == .executable }
@@ -208,8 +212,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                     stdoutStream <<< "\(executable.name)\n"
                 }
                 stdoutStream.flush()
-            default:
-                preconditionFailure("somehow we ended up with an invalid positional argument")
             }
         case .help:
             parser.printUsage(on: stdoutStream)

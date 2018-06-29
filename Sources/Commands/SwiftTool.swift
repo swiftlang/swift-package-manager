@@ -68,6 +68,11 @@ struct TargetNotFoundDiagnostic: DiagnosticData {
 }
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
+    private let quiet: Bool
+
+    init(quiet: Bool = false) {
+        self.quiet = quiet
+    }
 
     func packageGraphWillLoad(
         currentGraph: PackageGraph,
@@ -77,6 +82,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func fetchingWillBegin(repository: String) {
+        guard !quiet else { return }
         print("Fetching \(repository)")
     }
 
@@ -84,6 +90,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func repositoryWillUpdate(_ repository: String) {
+        guard !quiet else { return }
         print("Updating \(repository)")
     }
 
@@ -91,24 +98,29 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
     
     func dependenciesUpToDate() {
+        guard !quiet else { return }
         print("Everything is already up-to-date")
     }
 
     func cloning(repository: String) {
+        guard !quiet else { return }
         print("Cloning \(repository)")
     }
 
     func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
+        guard !quiet else { return }
         // FIXME: This is temporary output similar to old one, we will need to figure
         // out better reporting text.
         print("Resolving \(repository) at \(reference)")
     }
 
     func removing(repository: String) {
+        guard !quiet else { return }
         print("Removing \(repository)")
     }
 
     func warning(message: String) {
+        guard !quiet else { return }
         print("warning: " + message)
     }
 
@@ -390,11 +402,11 @@ public class SwiftTool<Options: ToolOptions> {
     private var _workspace: Workspace?
 
     /// Returns the currently active workspace.
-    func getActiveWorkspace() throws -> Workspace {
+    func getActiveWorkspace(quiet: Bool = false) throws -> Workspace {
         if let workspace = _workspace {
             return workspace
         }
-        let delegate = ToolWorkspaceDelegate()
+        let delegate = ToolWorkspaceDelegate(quiet: quiet)
         let rootPackage = try getPackageRoot()
         let provider = GitRepositoryProvider(processSet: processSet)
         let workspace = Workspace(
@@ -462,9 +474,9 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Fetch and load the complete package graph.
     @discardableResult
-    func loadPackageGraph() throws -> PackageGraph {
+    func loadPackageGraph(quiet: Bool = false) throws -> PackageGraph {
         do {
-            let workspace = try getActiveWorkspace()
+            let workspace = try getActiveWorkspace(quiet: quiet)
 
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph(
