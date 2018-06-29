@@ -100,7 +100,9 @@ class InMemoryGitRepositoryTests: XCTestCase {
         XCTAssert(fooRepo.exists(revision: try fooRepo.resolveRevision(tag: v1)))
 
         let fooCheckoutPath = AbsolutePath("/fooCheckout")
+        XCTAssertFalse(try provider.checkoutExists(at: fooCheckoutPath))
         try provider.cloneCheckout(repository: specifier, at: fooRepoPath, to: fooCheckoutPath, editable: false)
+        XCTAssertTrue(try provider.checkoutExists(at: fooCheckoutPath))
         let fooCheckout = try provider.openCheckout(at: fooCheckoutPath)
 
         XCTAssertEqual(fooCheckout.tags.sorted(), [v1, v2])

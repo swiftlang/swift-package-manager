@@ -95,6 +95,10 @@ private class DummyRepositoryProvider: RepositoryProvider {
         try localFileSystem.writeFileContents(destinationPath.appending(component: "README.txt"), bytes: "Hi")
     }
 
+    func checkoutExists(at path: AbsolutePath) throws -> Bool {
+        return false
+    }
+
     func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
         fatalError("unsupported")
     }

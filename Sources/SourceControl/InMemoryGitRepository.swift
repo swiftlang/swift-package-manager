@@ -272,6 +272,10 @@ extension InMemoryGitRepository: WorkingCheckout {
     public func isAlternateObjectStoreValid() -> Bool {
         return true
     }
+
+    public func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
+        return [false]
+    }
 }
 
 /// This class implement provider for in memeory git repository.
@@ -321,6 +325,10 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         let checkout = fetchedMap[sourcePath]!.copy(at: destinationPath)
         checkoutsMap[destinationPath] = checkout
         try checkout.installHead()
+    }
+
+    public func checkoutExists(at path: AbsolutePath) throws -> Bool {
+        return checkoutsMap.keys.contains(path)
     }
 
     public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {

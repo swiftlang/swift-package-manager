@@ -420,6 +420,16 @@ public final class ProductBuildDescription {
     /// Any additional flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
 
+    /// Path to the temporary directory for this product.
+    var tempsPath: AbsolutePath {
+        return buildParameters.buildPath.appending(component: product.name + ".product")
+    }
+
+    /// Path to the link filelist file.
+    var linkFileListPath: AbsolutePath {
+        return tempsPath.appending(component: "Objects.LinkFileList")
+    }
+
     /// Create a build description for a product.
     init(product: ResolvedProduct, buildParameters: BuildParameters) {
         assert(product.type != .library(.automatic), "Automatic type libraries should not be described.")
@@ -482,12 +492,24 @@ public final class ProductBuildDescription {
         // adjacent to the product. This happens by default on macOS.
         args += ["-Xlinker", "-rpath=$ORIGIN"]
       #endif
-        args += objects.map({ $0.asString })
+        args += ["@" + linkFileListPath.asString]
 
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.linkerFlags
         args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
         return args
+    }
+
+    /// Writes link filelist to the filesystem.
+    func writeLinkFilelist(_ fs: FileSystem) throws {
+        let stream = BufferedOutputByteStream()
+
+        for object in objects {
+            stream <<< object.asString.shellEscaped() <<< "\n"
+        }
+
+        try fs.createDirectory(linkFileListPath.parentDirectory, recursive: true)
+        try fs.writeFileContents(linkFileListPath, bytes: stream.bytes)
     }
 }
 
@@ -612,7 +634,7 @@ public class BuildPlan {
 
         // Plan products.
         for buildProduct in buildProducts {
-            plan(buildProduct)
+            try plan(buildProduct)
         }
         // FIXME: We need to find out if any product has a target on which it depends 
         // both static and dynamically and then issue a suitable diagnostic or auto
@@ -620,7 +642,7 @@ public class BuildPlan {
     }
 
     /// Plan a product.
-    private func plan(_ buildProduct: ProductBuildDescription) {
+    private func plan(_ buildProduct: ProductBuildDescription) throws {
         // Compute the product's dependency.
         let dependencies = computeDependencies(of: buildProduct.product)
         // Add flags for system targets.
@@ -643,6 +665,12 @@ public class BuildPlan {
 
         buildProduct.dylibs = dependencies.dylibs.map({ productMap[$0]! })
         buildProduct.objects += dependencies.staticTargets.flatMap({ targetMap[$0]!.objects })
+
+        // Write the link filelist file.
+        //
+        // FIXME: We should write this as a custom llbuild task once we adopt it
+        // as a library.
+        try buildProduct.writeLinkFilelist(fileSystem)
     }
 
     /// Computes the dependencies of a product.

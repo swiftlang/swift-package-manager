@@ -309,19 +309,6 @@ public struct RelativePath: Hashable {
     }
 }
 
-#if !swift(>=4.1)
-// Make absolute paths Hashable.
-extension AbsolutePath {
-    public static func == (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-        return lhs.asString == rhs.asString
-    }
-
-    public var hashValue: Int {
-        return _impl.hashValue
-    }
-}
-#endif
-
 // Make absolute paths Comparable.
 extension AbsolutePath : Comparable {
     public static func < (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
@@ -345,19 +332,6 @@ extension AbsolutePath : CustomStringConvertible {
         return "<AbsolutePath:\"\(asString)\">"
     }
 }
-
-#if !swift(>=4.1)
-// Make relative paths Equatable.
-extension RelativePath: Equatable {
-    public static func == (lhs: RelativePath, rhs: RelativePath) -> Bool {
-        return lhs.asString == rhs.asString
-    }
-
-    public var hashValue: Int {
-        return _impl.hashValue
-    }
-}
-#endif
 
 /// Make relative paths CustomStringConvertible.
 extension RelativePath : CustomStringConvertible {
@@ -452,14 +426,6 @@ struct PathImpl: Hashable {
         return nil
     }
 }
-
-#if !swift(>=4.1)
-extension PathImpl {
-    public var hashValue: Int {
-        return string.hashValue
-    }
-}
-#endif
 
 /// Describes the way in which a path is invalid.
 public enum PathValidationError: Error {

@@ -18,6 +18,7 @@ We’ve designed the system to make it really easy to share packages on services
 * [Usage](Usage.md)
 * [PackageDescription API Version 3](PackageDescriptionV3.md)
 * [PackageDescription API Version 4](PackageDescriptionV4.md)
+* [PackageDescription API Version 4.2](PackageDescriptionV4_2.md)
 * [Resources](Resources.md)
 
 ---
@@ -84,7 +85,7 @@ Dependencies are specified in your `Package.swift` manifest file.
 1. The conflict may be in unfamiliar dependencies (of dependencies) that the user did not explicitly request.
 2. Due to the nature of development it would be rare for two dependency graphs to be the same. Thus the amount of help other users (often even the package authors) can offer is limited. Internet searches will likely prove fruitless.
 
-A good package manager should be designed from the start to minimize the risk of dependency hell and where this is not possible, to mitigate it and provide tooling so that the end-user can solve the scenario with a minimum of trouble. The [Package Manager Community Proposal](PackageManagerCommunityProposal.md) contains our thoughts on how we intend to iterate with these hells in mind.
+A good package manager should be designed from the start to minimize the risk of dependency hell and where this is not possible, to mitigate it and provide tooling so that the end-user can solve the scenario with a minimum of trouble. The [Package Manager Community Proposal](Internals/PackageManagerCommunityProposal.md) contains our thoughts on how we intend to iterate with these hells in mind.
 
 The following are some of the most common “dependency hell” scenarios:
 

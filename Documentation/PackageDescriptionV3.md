@@ -15,6 +15,7 @@
     * [Package Dependency](#package-dependency)
   * [Version](#version)
 * [PackageDescription API Version 4](PackageDescriptionV4.md)
+* [PackageDescription API Version 4.2](PackageDescriptionV4_2.md)
 * [Resources](Resources.md)
 
 ---

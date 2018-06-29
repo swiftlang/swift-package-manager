@@ -26,6 +26,7 @@
   * [Shell completion scripts](#shell-completion-scripts)
 * [PackageDescription API Version 3](PackageDescriptionV3.md)
 * [PackageDescription API Version 4](PackageDescriptionV4.md)
+* [PackageDescription API Version 4.2](PackageDescriptionV4_2.md)
 * [Resources](Resources.md)
 
 ---
@@ -70,10 +71,10 @@ its sources. Complete reference for layout is
 
 ## Define Dependencies
 
-All you need to do to depend on a package is define the dependency and the
-version, in manifest of your package.  For e.g. if you want to use
-https://github.com/apple/example-package-playingcard as a dependency, add the
-github URL in dependencies of your `Package.swift`:
+To depend on a package, define the dependency and the version in manifest of
+your package, and add a product from that package as a dependency. For e.g. if
+you want to use https://github.com/apple/example-package-playingcard as
+a dependency, add the GitHub URL in dependencies of your `Package.swift`:
 
 ```swift
 import PackageDescription
@@ -81,18 +82,26 @@ import PackageDescription
 let package = Package(
     name: "MyPackage",
     dependencies: [
-        .Package(url: "https://github.com/apple/example-package-playingcard.git", majorVersion: 3),
+        .package(url: "https://github.com/apple/example-package-playingcard.git", from: "3.0.4"),
+    ],
+    targets: [
+        .target(
+            name: "MyPackage",
+            dependencies: ["PlayingCard"]
+        ),
+        .testTarget(
+            name: "MyPackageTests",
+            dependencies: ["MyPackage"]
+        ),
     ]
 )
 ```
 
-Now you should be able to `import PlayingCard` anywhere in your package and use
-the public APIs.
+Now you should be able to `import PlayingCard` in the `MyPackage` target.
 
 ## Publish a package
 
-To publish a package, you just have to initialize a git repository and create a
-semantic version tag:
+To publish a package, create and push a semantic version tag:
 
     $ git init
     $ git add .
@@ -108,10 +117,9 @@ https://github.com/apple/example-package-fisheryates
 
 ## Require System Libraries
 
-You can link against system libraries using the package manager. To do so,
-there needs to be a special package for each system library that contains a
-module map for that library. Such a wrapper package does not contain any code
-of its own.
+You can link against system libraries using the package manager. To do so, there
+needs to be a special package for each system library that contains a modulemap
+for that library. Such a wrapper package does not contain any code of its own.
 
 Let's see an example of using [libgit2](https://libgit2.github.com) from an
 executable.
@@ -204,7 +212,7 @@ import PackageDescription
 let package = Package(
     name: "example",
     dependencies: [
-        .Package(url: "../Clibgit", majorVersion: 1)
+        .package(url: "../Clibgit", from: "1.0.0")
     ]
 )
 ```
@@ -286,7 +294,7 @@ import PackageDescription
 let package = Package(
     name: "example",
     dependencies: [
-        .Package(url: "../CJPEG", majorVersion: 1)
+        .package(url: "../CJPEG", from: "1.0.0")
     ]
 )
 ```
@@ -301,8 +309,8 @@ executable:
     example$
 
 We have to specify path where the libjpeg is present using `-Xlinker` because
-there is no pkg-config file for it. We plan to provide solution to avoid
-passing the flag in commandline.
+there is no pkg-config file for it. We plan to provide solution to avoid passing
+the flag in commandline.
 
 ### Packages That Provide Multiple Libraries
 
@@ -345,8 +353,8 @@ that system libraries and system packagers will provide module maps and thus
 this component of the package manager will become redundant.
 
 *Notably* the above steps will not work if you installed JPEG and JasPer with
-[Homebrew](http://brew.sh) since the files will be installed to `/usr/local`
-for now adapt the paths, but as said, we plan to support basic relocations like
+[Homebrew](http://brew.sh) since the files will be installed to `/usr/local` for
+now adapt the paths, but as said, we plan to support basic relocations like
 these.
 
 
@@ -373,8 +381,8 @@ uses libarchive with xz you must make a `CArchive+CXz` package that depends on
 
 ## Packaging legacy code
 
-You may be working with code that builds both as a package and not. For
-example, you may be packaging a project that also builds with Xcode.
+You may be working with code that builds both as a package and not. For example,
+you may be packaging a project that also builds with Xcode.
 
 In these cases, you can use the build configuration `SWIFT_PACKAGE` to
 conditionally compile code for Swift packages.
@@ -387,27 +395,27 @@ import Foundation
 
 ## Handling version-specific logic
 
-The package manager is designed to support packages which work with a variety
-of Swift project versions, including both the language and the package manager
+The package manager is designed to support packages which work with a variety of
+Swift project versions, including both the language and the package manager
 version.
 
 In most cases, if you want to support multiple Swift versions in a package you
 should do so by using the language-specific version checks available in the
-source code itself. However, in some circumstances this may become
-unmanageable; in particular, when the package manifest itself cannot be written
-to be Swift version agnostic (for example, because it optionally adopts new
-package manager features not present in older versions).
+source code itself. However, in some circumstances this may become unmanageable;
+in particular, when the package manifest itself cannot be written to be Swift
+version agnostic (for example, because it optionally adopts new package manager
+features not present in older versions).
 
 The package manager has support for a mechanism to allow Swift version-specific
-customizations for the both package manifest and the package versions which
-will be considered.
+customizations for the both package manifest and the package versions which will
+be considered.
 
 ### Version-specific tag selection
 
 The tags which define the versions of the package available for clients to use
 can _optionally_ be suffixed with a marker in the form of `@swift-3`. When the
-package manager is determining the available tags for a repository, _if_ a
-version-specific marker is available which matches the current tool version,
+package manager is determining the available tags for a repository, _if_
+a version-specific marker is available which matches the current tool version,
 then it will *only* consider the versions which have the version-specific
 marker. Conversely, version-specific tags will be ignored by any non-matching
 tool version.

@@ -40,6 +40,7 @@ class GitRepositoryTests: XCTestCase {
             // Test the provider.
             let testCheckoutPath = path.appending(component: "checkout")
             let provider = GitRepositoryProvider()
+            XCTAssertTrue(try provider.checkoutExists(at: testRepoPath))
             let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
             try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
 
@@ -604,6 +605,43 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    func testAreIgnored() throws {
+        mktmpdir { path in
+            // Create a repo.
+            let testRepoPath = path.appending(component: "test_repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath)
+            let repo = GitRepository(path: testRepoPath)
+
+            // Add a .gitignore
+            try localFileSystem.writeFileContents(testRepoPath.appending(component: ".gitignore"), bytes: "ignored_file1\nignored file2")
+
+            let ignored = try repo.areIgnored([testRepoPath.appending(component: "ignored_file1"), testRepoPath.appending(component: "ignored file2"), testRepoPath.appending(component: "not ignored")])
+            XCTAssertTrue(ignored[0])
+            XCTAssertTrue(ignored[1])
+            XCTAssertFalse(ignored[2])
+
+            let notIgnored = try repo.areIgnored([testRepoPath.appending(component: "not_ignored")])
+            XCTAssertFalse(notIgnored[0])
+        }
+    }
+
+    func testAreIgnoredWithSpaceInRepoPath() throws {
+        mktmpdir { path in
+            // Create a repo.
+            let testRepoPath = path.appending(component: "test repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath)
+            let repo = GitRepository(path: testRepoPath)
+
+            // Add a .gitignore
+            try localFileSystem.writeFileContents(testRepoPath.appending(component: ".gitignore"), bytes: "ignored_file1")
+
+            let ignored = try repo.areIgnored([testRepoPath.appending(component: "ignored_file1")])
+            XCTAssertTrue(ignored[0])
+        }
+    }
+
     static var allTests = [
         ("testBranchOperations", testBranchOperations),
         ("testCheckoutRevision", testCheckoutRevision),
@@ -620,5 +658,6 @@ class GitRepositoryTests: XCTestCase {
         ("testSubmodules", testSubmodules),
         ("testUncommitedChanges", testUncommitedChanges),
         ("testAlternativeObjectStoreValidation", testAlternativeObjectStoreValidation),
+        ("testGitIgnored", testAreIgnored),
     ]
 }

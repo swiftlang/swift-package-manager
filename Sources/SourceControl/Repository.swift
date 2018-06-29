@@ -88,12 +88,21 @@ public protocol RepositoryProvider {
         to destinationPath: AbsolutePath,
         editable: Bool) throws
 
+    /// Returns true if a working repository exists at `path`
+    func checkoutExists(at path: AbsolutePath) throws -> Bool
+
     /// Open a working repository copy.
     ///
     /// - Parameters:
     ///   - path: The location of the repository on disk, at which the
     ///     repository has previously been created via `cloneCheckout`.
     func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout
+}
+
+extension RepositoryProvider {
+    public func checkoutExists(at path: AbsolutePath) throws -> Bool {
+        fatalError("Unimplemented")
+    }
 }
 
 /// Abstract repository operations.
@@ -193,6 +202,15 @@ public protocol WorkingCheckout {
 
     /// Returns true if there is an alternative store in the checkout and it is valid.
     func isAlternateObjectStoreValid() -> Bool
+
+    /// Returns true if the file at `path` is ignored by `git`
+    func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool]
+}
+
+extension WorkingCheckout {
+    public func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
+        fatalError("Unimplemented")
+    }
 }
 
 /// A single repository revision.
