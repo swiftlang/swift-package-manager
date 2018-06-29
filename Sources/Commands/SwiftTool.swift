@@ -69,6 +69,12 @@ struct TargetNotFoundDiagnostic: DiagnosticData {
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
+    private var outputStream: OutputByteStream
+
+    init(outputTo stream: OutputByteStream = stdoutStream) {
+        outputStream = stream
+    }
+
     func packageGraphWillLoad(
         currentGraph: PackageGraph,
         dependencies: AnySequence<ManagedDependency>,
@@ -77,39 +83,39 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func fetchingWillBegin(repository: String) {
-        print("Fetching \(repository)")
+        print("Fetching \(repository)", to: &outputStream)
     }
 
     func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
     }
 
     func repositoryWillUpdate(_ repository: String) {
-        print("Updating \(repository)")
+        print("Updating \(repository)", to: &outputStream)
     }
 
     func repositoryDidUpdate(_ repository: String) {
     }
     
     func dependenciesUpToDate() {
-        print("Everything is already up-to-date")
+        print("Everything is already up-to-date", to: &outputStream)
     }
 
     func cloning(repository: String) {
-        print("Cloning \(repository)")
+        print("Cloning \(repository)", to: &outputStream)
     }
 
     func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
         // FIXME: This is temporary output similar to old one, we will need to figure
         // out better reporting text.
-        print("Resolving \(repository) at \(reference)")
+        print("Resolving \(repository) at \(reference)", to: &outputStream)
     }
 
     func removing(repository: String) {
-        print("Removing \(repository)")
+        print("Removing \(repository)", to: &outputStream)
     }
 
     func warning(message: String) {
-        print("warning: " + message)
+        print("warning: " + message, to: &outputStream)
     }
 
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
@@ -390,11 +396,11 @@ public class SwiftTool<Options: ToolOptions> {
     private var _workspace: Workspace?
 
     /// Returns the currently active workspace.
-    func getActiveWorkspace() throws -> Workspace {
+    func getActiveWorkspace(outputTo stream: OutputByteStream = stdoutStream) throws -> Workspace {
         if let workspace = _workspace {
             return workspace
         }
-        let delegate = ToolWorkspaceDelegate()
+        let delegate = ToolWorkspaceDelegate(outputTo: stream)
         let rootPackage = try getPackageRoot()
         let provider = GitRepositoryProvider(processSet: processSet)
         let workspace = Workspace(
@@ -462,9 +468,9 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Fetch and load the complete package graph.
     @discardableResult
-    func loadPackageGraph() throws -> PackageGraph {
+    func loadPackageGraph(outputTo stream: OutputByteStream = stdoutStream) throws -> PackageGraph {
         do {
-            let workspace = try getActiveWorkspace()
+            let workspace = try getActiveWorkspace(outputTo: stream)
 
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph(
@@ -477,6 +483,9 @@ public class SwiftTool<Options: ToolOptions> {
                 throw Error.hasFatalDiagnostics
             }
             try buildManifestRegenerationToken().set(valid: true)
+
+            stream.flush()
+
             return graph
         } catch {
             try buildManifestRegenerationToken().set(valid: false)
