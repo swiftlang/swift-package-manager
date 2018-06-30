@@ -244,14 +244,17 @@ func generateSchemes(
 }
 
 /// Finds the non-source files from `path` recursively
+/// Finds the non-source files from `path`
+/// - parameters:
+///   - path: The path of the directory to get the files from
+///   - recursively: Specifies if the directory at `path` should be searched recursively
 func findNonSourceFiles(path: AbsolutePath, recursively: Bool = false) throws -> [AbsolutePath] {
     let filesFromPath = try walk(path, recursively: recursively)
 
     return filesFromPath.filter {
         if !isFile($0) { return false }
-        if let `extension` = $0.extension {
-            if SupportedLanguageExtension.cFamilyExtensions.contains(`extension`) { return false }
-            if SupportedLanguageExtension.swiftExtensions.contains(`extension`) { return false }
+        if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions.contains(`extension`) {
+            return false
         }
         return true
     }
