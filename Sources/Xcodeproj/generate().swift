@@ -13,6 +13,7 @@ import POSIX
 import PackageGraph
 import PackageModel
 import PackageLoading
+import SourceControl
 import Utility
 
 public struct XcodeprojOptions {
@@ -63,6 +64,7 @@ public func generate(
     projectName: String,
     xcodeprojPath: AbsolutePath,
     graph: PackageGraph,
+    repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
     options: XcodeprojOptions,
     diagnostics: DiagnosticsEngine
 ) throws -> Xcode.Project {
@@ -82,14 +84,21 @@ public func generate(
     // references in the project.
     let extraDirs = try findDirectoryReferences(path: srcroot)
 
-    // Find non-source files in the source directories that should be added
+    // Find non-source files in the source directories and root that should be added
     // as a reference to the project.
     var extraFiles = try findNonSourceFiles(path: srcroot)
-    if let sourceExtraFiles = try? findNonSourceFiles(path: srcroot.appending(component: "Sources"), recursively: true) {
-        extraFiles.append(contentsOf: sourceExtraFiles)
+    if let sourcesExtraFiles = try? findNonSourceFiles(path: srcroot.appending(component: "Sources"), recursively: true) {
+        extraFiles.append(contentsOf: sourcesExtraFiles)
     }
     if let testsExtraFiles = try? findNonSourceFiles(path: srcroot.appending(component: "Tests"), recursively: true) {
         extraFiles.append(contentsOf: testsExtraFiles)
+    }
+
+    // Get the ignored files and exclude them
+    if try repositoryProvider.checkoutExists(at: srcroot) {
+        let repository = try repositoryProvider.openCheckout(at: srcroot)
+        let areIgnored = try repository.areIgnored(extraFiles)
+        extraFiles = extraFiles.enumerated().filter({ !areIgnored[$0.offset] }).map({ $0.element })
     }
 
     /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
