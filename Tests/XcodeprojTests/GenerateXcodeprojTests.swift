@@ -183,5 +183,8 @@ class GenerateXcodeprojTests: XCTestCase {
         ("testXcodebuildCanParseIt", testXcodebuildCanParseIt),
         ("testXcconfigOverrideValidatesPath", testXcconfigOverrideValidatesPath),
         ("testGenerateXcodeprojWithInvalidModuleNames", testGenerateXcodeprojWithInvalidModuleNames),
+        ("testGenerateXcodeprojWithRootFiles", testGenerateXcodeprojWithRootFiles),
+        ("testGenerateXcodeprojWithNonSourceFilesInSourceDirectories", testGenerateXcodeprojWithNonSourceFilesInSourceDirectories),
+        ("testGenerateXcodeprojWithFilesIgnoredByGit", testGenerateXcodeprojWithFilesIgnoredByGit),
     ]
 }

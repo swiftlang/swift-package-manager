@@ -84,28 +84,11 @@ public func generate(
     // references in the project.
     let extraDirs = try findDirectoryReferences(path: srcroot)
 
-    // Find non-source files in the source directories and root that should be added
-    // as a reference to the project.
-    var extraFiles = try findNonSourceFiles(path: srcroot)
-
-    let sourcesDirectory = srcroot.appending(component: "Sources")
-    if localFileSystem.isDirectory(sourcesDirectory) {
-        let sourcesExtraFiles = try findNonSourceFiles(path: sourcesDirectory, recursively: true)
-        extraFiles.append(contentsOf: sourcesExtraFiles)
-    }
-
-    let testsDirectory = srcroot.appending(component: "Tests")
-    if localFileSystem.isDirectory(testsDirectory) {
-        let testsExtraFiles = try findNonSourceFiles(path: testsDirectory, recursively: true)
-        extraFiles.append(contentsOf: testsExtraFiles)
-    }
-
-    // Get the ignored files and exclude them
+    var workingCheckout: WorkingCheckout?
     if try repositoryProvider.checkoutExists(at: srcroot) {
-        let repository = try repositoryProvider.openCheckout(at: srcroot)
-        let areIgnored = try repository.areIgnored(extraFiles)
-        extraFiles = extraFiles.enumerated().filter({ !areIgnored[$0.offset] }).map({ $0.element })
+        workingCheckout = try repositoryProvider.openCheckout(at: srcroot)
     }
+    let extraFiles = try getExtraFilesFor(package: graph.rootPackages[0], in: workingCheckout)
 
     /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
     // FIXME: This could be more efficient by directly writing to a stream
@@ -249,7 +232,28 @@ func generateSchemes(
     }
 }
 
-/// Finds the non-source files from `path` recursively
+// Find and return non-source files in the source directories and root that should be added
+// as a reference to the project.
+func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheckout? = nil) throws -> [AbsolutePath] {
+    let srcroot = package.path
+    var extraFiles = try findNonSourceFiles(path: srcroot)
+
+    for target in package.targets {
+        let sourcesDirectory = target.sources.root
+        if localFileSystem.isDirectory(sourcesDirectory) {
+            let sourcesExtraFiles = try findNonSourceFiles(path: sourcesDirectory, recursively: true)
+            extraFiles.append(contentsOf: sourcesExtraFiles)
+        }
+    }
+
+    if let checkout = workingCheckout {
+        let isIgnored = try checkout.areIgnored(extraFiles)
+        extraFiles = extraFiles.enumerated().filter({ !isIgnored[$0.offset] }).map({ $0.element })
+    }
+
+    return extraFiles
+}
+
 /// Finds the non-source files from `path`
 /// - parameters:
 ///   - path: The path of the directory to get the files from
