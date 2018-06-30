@@ -257,11 +257,11 @@ func generateSchemes(
 func findNonSourceFiles(path: AbsolutePath, recursively: Bool = false) throws -> [AbsolutePath] {
     let filesFromPath = try walk(path, recursively: recursively)
 
-    return filesFromPath.filter {
+    return filesFromPath.filter({
         if !isFile($0) { return false }
         if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions.contains(`extension`) {
             return false
         }
         return true
-    }
+    })
 }
