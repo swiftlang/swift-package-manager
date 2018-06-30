@@ -87,10 +87,16 @@ public func generate(
     // Find non-source files in the source directories and root that should be added
     // as a reference to the project.
     var extraFiles = try findNonSourceFiles(path: srcroot)
-    if let sourcesExtraFiles = try? findNonSourceFiles(path: srcroot.appending(component: "Sources"), recursively: true) {
+
+    let sourcesDirectory = srcroot.appending(component: "Sources")
+    if localFileSystem.isDirectory(sourcesDirectory) {
+        let sourcesExtraFiles = try findNonSourceFiles(path: sourcesDirectory, recursively: true)
         extraFiles.append(contentsOf: sourcesExtraFiles)
     }
-    if let testsExtraFiles = try? findNonSourceFiles(path: srcroot.appending(component: "Tests"), recursively: true) {
+
+    let testsDirectory = srcroot.appending(component: "Tests")
+    if localFileSystem.isDirectory(testsDirectory) {
+        let testsExtraFiles = try findNonSourceFiles(path: testsDirectory, recursively: true)
         extraFiles.append(contentsOf: testsExtraFiles)
     }
 
