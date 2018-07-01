@@ -13,6 +13,7 @@ import XCTest
 import Basic
 import TestSupport
 import SPMLibc
+import POSIX
 
 class FileSystemTests: XCTestCase {
 
@@ -134,7 +135,23 @@ class FileSystemTests: XCTestCase {
         XCTAssertTrue(fs.isFile(filePath))
         let data = try! fs.readFileContents(filePath)
         XCTAssertEqual(data, ByteString(testData))
+        
+        // Atomic writes
+        let inMemoryFilePath = AbsolutePath("/file.text")
+        XCTAssertNoThrow(try Basic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: true))
+        XCTAssertNoThrow(try Basic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: false))
+        // Local file system does support atomic writes, so it doesn't throw.
+        let byteString = ByteString(testData)
+        let filePath1 = tmpDir.path.appending(components: "test-data-1.txt")
+        XCTAssertNoThrow(try fs.writeFileContents(filePath1, bytes: byteString, atomically: false))
+        let read1 = try fs.readFileContents(filePath1)
+        XCTAssertEqual(read1, byteString)
 
+        let filePath2 = tmpDir.path.appending(components: "test-data-2.txt")
+        XCTAssertNoThrow(try fs.writeFileContents(filePath2, bytes: byteString, atomically: true))
+        let read2 = try fs.readFileContents(filePath2)
+        XCTAssertEqual(read2, byteString)
+                
         // Check overwrite of a file.
         try! fs.writeFileContents(filePath, bytes: "Hello, new world!")
         XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")

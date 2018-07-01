@@ -166,6 +166,11 @@ public protocol FileSystem: class {
     // FIXME: This is obviously not a very efficient or flexible API.
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws
 
+    /// Write the contents of a file.
+    //
+    // FIXME: This is obviously not a very efficient or flexible API.
+    func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws
+
     /// Recursively deletes the file system entity at `path`.
     ///
     /// If there is no file system entity at `path`, this function does nothing (in particular, this is not considered
@@ -192,6 +197,15 @@ public extension FileSystem {
     // Change file mode.
     func chmod(_ mode: FileMode, path: AbsolutePath) throws {
         try chmod(mode, path: path, options: [])
+    }
+    
+    // Unless the file system type provides an override for this method, throw
+    // if `atomically` is `true`, otherwise fall back to whatever implementation already exists.
+    func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
+        guard !atomically else {
+            throw FileSystemError.unsupported
+        }
+        try writeFileContents(path, bytes: bytes)
     }
 
     /// Write to a file from a stream producer.
@@ -349,6 +363,24 @@ private class LocalFileSystem: FileSystem {
                 throw FileSystemError.ioError
             }
             break
+        }
+    }
+    
+    func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
+        // Perform non-atomic writes using the fast path.
+        if !atomically {
+            return try writeFileContents(path, bytes: bytes)
+        }
+        let temp = try TemporaryFile(dir: path.parentDirectory, deleteOnClose: false)
+        do {
+            try writeFileContents(temp.path, bytes: bytes)
+            try rename(temp.path, to: path)
+        } catch {
+            // Write or rename failed, delete the temporary file.
+            // Rethrow the original error, however, as that's the
+            // root cause of the failure.
+            _ = try? self.removeFileTree(temp.path)
+            throw error
         }
     }
 
@@ -680,6 +712,12 @@ public class InMemoryFileSystem: FileSystem {
 
         // Write the file.
         contents.entries[path.basename] = Node(.file(bytes))
+    }
+    
+    public func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
+        // In memory file system's writeFileContents is already atomic, so ignore the parameter here
+        // and just call the base implementation.
+        try writeFileContents(path, bytes: bytes)
     }
 
     public func removeFileTree(_ path: AbsolutePath) throws {
