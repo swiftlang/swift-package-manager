@@ -343,4 +343,18 @@ public enum WorkspaceDiagnostics {
             self.duration = duration
         }
     }
+
+    public struct PD3DeprecatedDiagnostic: DiagnosticData {
+        public static let id = DiagnosticID(
+            type: PD3DeprecatedDiagnostic.self,
+            name: "org.swift.diags.workspace.\(PD3DeprecatedDiagnostic.self)",
+            defaultBehavior: .warning,
+            description: {
+                $0 <<< "PackageDescription API v3 is deprecated and will be removed in the future;"
+                $0 <<< "used by package(s):" <<< { $0.manifests.joined(separator: ", ") }
+            }
+        )
+
+        let manifests: [String]
+    }
 }

@@ -83,7 +83,8 @@ final class PackageToolTests: XCTestCase {
 
     func testDescribe() throws {
         fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
-            let output = try execute(["describe", "--type=json"], packagePath: prefix)
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
+            let output = try result.utf8Output()
             let json = try JSON(bytes: ByteString(encodingAsUTF8: output))
 
             XCTAssertEqual(json["name"]?.string, "SwiftCMixed")
@@ -126,19 +127,17 @@ final class PackageToolTests: XCTestCase {
     func testShowDependencies() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let packageRoot = prefix.appending(component: "app")
-            let textOutput = try execute(["show-dependencies", "--format=text"], packagePath: packageRoot)
+            let textOutput = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies", "--format=text"], packagePath: packageRoot).utf8Output()
             XCTAssert(textOutput.contains("FisherYates@1.2.3"))
 
-            // FIXME: We have to fetch first otherwise the fetching output is mingled with the JSON data.
-            let jsonOutput = try execute(["show-dependencies", "--format=json"], packagePath: packageRoot)
-            print("output = \(jsonOutput)")
+            let jsonOutput = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies", "--format=json"], packagePath: packageRoot).utf8Output()
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
             guard case let .string(name)? = contents["name"] else { XCTFail("unexpected result"); return }
             XCTAssertEqual(name, "Dealer")
             guard case let .string(path)? = contents["path"] else { XCTFail("unexpected result"); return }
             XCTAssertEqual(resolveSymlinks(AbsolutePath(path)), resolveSymlinks(packageRoot))
-        }
+        } 
     }
 
     func testInitEmpty() throws {
