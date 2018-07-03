@@ -84,11 +84,11 @@ public func generate(
     // references in the project.
     let extraDirs = try findDirectoryReferences(path: srcroot)
 
-    var workingCheckout: WorkingCheckout?
+    var extraFiles = [AbsolutePath]()
     if try repositoryProvider.checkoutExists(at: srcroot) {
-        workingCheckout = try repositoryProvider.openCheckout(at: srcroot)
+        let workingCheckout = try repositoryProvider.openCheckout(at: srcroot)
+        extraFiles = try getExtraFilesFor(package: graph.rootPackages[0], in: workingCheckout)
     }
-    let extraFiles = try getExtraFilesFor(package: graph.rootPackages[0], in: workingCheckout)
 
     /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
     // FIXME: This could be more efficient by directly writing to a stream
@@ -234,7 +234,7 @@ func generateSchemes(
 
 // Find and return non-source files in the source directories and root that should be added
 // as a reference to the project.
-func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheckout? = nil) throws -> [AbsolutePath] {
+func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheckout) throws -> [AbsolutePath] {
     let srcroot = package.path
     var extraFiles = try findNonSourceFiles(path: srcroot)
 
@@ -246,10 +246,8 @@ func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheck
         }
     }
 
-    if let checkout = workingCheckout {
-        let isIgnored = try checkout.areIgnored(extraFiles)
-        extraFiles = extraFiles.enumerated().filter({ !isIgnored[$0.offset] }).map({ $0.element })
-    }
+    let isIgnored = try workingCheckout.areIgnored(extraFiles)
+    extraFiles = extraFiles.enumerated().filter({ !isIgnored[$0.offset] }).map({ $0.element })
 
     return extraFiles
 }
