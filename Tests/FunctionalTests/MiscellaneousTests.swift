@@ -34,6 +34,7 @@ class MiscellaneousTestCase: XCTestCase {
             let output = try executeSwiftBuild(prefix.appending(component: "Bar"))
             XCTAssertTrue(output.contains("Resolving"))
             XCTAssertTrue(output.contains("at 1.2.3"))
+            XCTAssertTrue(output.contains("warning: PackageDescription API v3 is deprecated and will be removed in the future; used by package(s): Bar, Foo"))
         }
     }
 
