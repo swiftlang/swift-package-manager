@@ -261,10 +261,10 @@ func findNonSourceFiles(path: AbsolutePath, recursively: Bool = false) throws ->
 
     return filesFromPath.filter({
         if !isFile($0) { return false }
+        if $0.basename.hasPrefix(".") { return false }
         if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions.contains(`extension`) {
             return false
         }
-        if $0.basename.hasPrefix(".") { return false }
         return true
     })
 }
