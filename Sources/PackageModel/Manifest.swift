@@ -9,9 +9,9 @@
 */
 
 import Basic
-import PackageDescription
-import PackageDescription4
 import Utility
+import struct PackageDescription.Version
+import struct PackageDescription4.Version
 
 /// The supported manifest versions.
 public enum ManifestVersion: String {
@@ -29,10 +29,8 @@ public enum ManifestVersion: String {
     }
 }
 
-/**
- This contains the declarative specification loaded from package manifest
- files, and the tools for working with the manifest.
-*/
+/// This contains the declarative specification loaded from package manifest
+/// files, and the tools for working with the manifest.
 public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
 
     /// The standard filename for the manifest.
@@ -56,7 +54,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
     }
 
     /// The standard basename for the manifest.
-    public static var basename = "Package"
+    public static let basename = "Package"
 
     /// The path of the manifest file.
     //
@@ -70,52 +68,85 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
     // to the repository state, it shouldn't matter where it is.
     public let url: String
 
-    /// The raw package description representation from manifest API targets.
-    /// We support v3 and v4 right now.
-    public enum RawPackage {
-        case v3(PackageDescription.Package)
-        case v4(PackageDescription4.Package)
-    }
-
-    /// The raw package description.
-    public let package: RawPackage
-
-    /// The legacy product descriptions.
-    public let legacyProducts: [PackageDescription.Product]
-
     /// The version this package was loaded from, if known.
-    public let version: Version?
+    public let version: Utility.Version?
+
+    /// The version of manifest.
+    public let manifestVersion: ManifestVersion
 
     /// The name of the package.
-    public var name: String {
-        return package.name
-    }
+    public let name: String
 
-    /// The manifest version.
-    public let manifestVersion: ManifestVersion
+    /// The declared package dependencies.
+    public let dependencies: [PackageDependencyDescription]
+
+    /// The targets declared in the manifest.
+    public let targets: [TargetDescription]
+
+    /// The products declared in the manifest.
+    public let products: [ProductDescription]
 
     /// The flags that were used to interprete the manifest.
     public let interpreterFlags: [String]
 
+    /// The C language standard flag.
+    public let cLanguageStandard: String?
+
+    /// The C++ language standard flag.
+    public let cxxLanguageStandard: String?
+
+    /// The supported Swift language versions of the package.
+    public let swiftLanguageVersions: [SwiftLanguageVersion]?
+
+    /// The pkg-config name of a system package.
+    public let pkgConfig: String?
+
+    /// The system package providers of a system package.
+    public let providers: [SystemPackageProviderDescription]?
+
+    /// The legacy style products that can be declared in the v3 manifests.
+    public let legacyProducts: [ProductDescription]
+
+    /// The legacy style excludes that can be declared in the v3 manifests.
+    public let legacyExclude: [String]
+
     public init(
+        name: String,
         path: AbsolutePath,
         url: String,
-        package: RawPackage,
-        legacyProducts: [PackageDescription.Product] = [],
-        version: Version?,
+        legacyProducts: [ProductDescription] = [],
+        legacyExclude: [String] = [],
+        version: Utility.Version?,
         interpreterFlags: [String] = [],
-        manifestVersion: ManifestVersion
+        manifestVersion: ManifestVersion,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProviderDescription]? = nil,
+        cLanguageStandard: String? = nil,
+        cxxLanguageStandard: String? = nil,
+        swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
+        dependencies: [PackageDependencyDescription] = [],
+        products: [ProductDescription] = [],
+        targets: [TargetDescription] = []
     ) {
-        if case .v4 = package {
+        if manifestVersion != .v3 {
             precondition(legacyProducts.isEmpty, "Legacy products are not supported in v4 manifest.")
         }
+        self.name = name
         self.path = path
         self.url = url
-        self.package = package
         self.legacyProducts = legacyProducts
         self.version = version
         self.interpreterFlags = interpreterFlags
         self.manifestVersion = manifestVersion
+        self.legacyExclude = legacyExclude
+        self.pkgConfig = pkgConfig
+        self.providers = providers
+        self.cLanguageStandard = cLanguageStandard
+        self.cxxLanguageStandard = cxxLanguageStandard
+        self.swiftLanguageVersions = swiftLanguageVersions
+        self.dependencies = dependencies
+        self.products = products
+        self.targets = targets
     }
 
     public var description: String {
@@ -125,122 +156,165 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
 
 extension Manifest {
     /// Returns JSON representation of this manifest.
-    // Note: Right now we just return the JSON representation of the package,
-    // but this can be expanded to include the details about manifest too.
     public func jsonString() throws -> String {
-        // FIXME: It is unfortunate to re-parse the JSON string.
-        return try JSON(string:  package.jsonString).toString(prettyPrint: true)
+        fatalError("unsupported for now")
     }
 }
 
-// Common Raw Package properties exposed in terms of PackageDescription4 models.
-// This way the high level code doesn't need to concern itself with conversion.
-extension Manifest.RawPackage {
+/// The description of an individual target.
+public struct TargetDescription: Equatable {
 
-    var jsonString: String {
-        switch self {
-            case .v3(let package): return PackageDescription.jsonString(package: package)
-            case .v4(let package): return PackageDescription4.jsonString(package: package)
+    /// The target type.
+    public enum TargetType: String, Equatable {
+        case regular
+        case test
+        case system
+    }
+
+    /// Represents a target's dependency on another entity.
+    public enum Dependency: Equatable, ExpressibleByStringLiteral {
+        case target(name: String)
+        case product(name: String, package: String?)
+        case byName(name: String)
+
+        public init(stringLiteral value: String) {
+            self = .byName(name: value)
+        }
+
+        public static func product(name: String) -> Dependency {
+            return .product(name: name, package: nil)
         }
     }
 
-    public var name: String {
-        switch self {
-            case .v3(let package): return package.name
-            case .v4(let package): return package.name
+    /// The name of the target.
+    public let name: String
+
+    /// The custom path of the target.
+    public let path: String?
+
+    /// The custom sources of the target.
+    public let sources: [String]?
+
+    /// The exclude patterns.
+    public let exclude: [String]
+
+    /// Returns true if the target type is test.
+    // FIXME: Kill this.
+    public var isTest: Bool {
+        return type == .test
+    }
+
+    /// The declared target dependencies.
+    public let dependencies: [Dependency]
+
+    /// The custom public headers path.
+    public let publicHeadersPath: String?
+
+    /// The type of target.
+    public let type: TargetType
+
+    /// The pkg-config name of a system library target.
+    public let pkgConfig: String?
+
+    /// The providers of a system library target.
+    public let providers: [SystemPackageProviderDescription]?
+
+    public init(
+        name: String,
+        dependencies: [Dependency],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        publicHeadersPath: String? = nil,
+        type: TargetType = .regular,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProviderDescription]? = nil
+    ) {
+        switch type {
+        case .regular, .test:
+            precondition(pkgConfig == nil && providers == nil)
+        case .system: break
+        }
+
+        self.name = name
+        self.dependencies = dependencies
+        self.path = path
+        self.publicHeadersPath = publicHeadersPath
+        self.sources = sources
+        self.exclude = exclude
+        self.type = type
+        self.pkgConfig = pkgConfig
+        self.providers = providers
+    }
+}
+
+/// The product description
+public struct ProductDescription: Equatable {
+
+    /// The name of the product.
+    public let name: String
+
+    /// The targets in the product.
+    public let targets: [String]
+
+    /// The type of product.
+    public let type: ProductType
+
+    public init(
+        name: String,
+        type: ProductType,
+        targets: [String]
+    ) {
+        precondition(type != .test, "Declaring test products isn't supported: \(name):\(targets)")
+        self.name = name
+        self.type = type
+        self.targets = targets
+    }
+
+}
+
+/// Represents system package providers.
+public enum SystemPackageProviderDescription: Equatable {
+    case brew([String])
+    case apt([String])
+}
+
+/// Represents a package dependency.
+public struct PackageDependencyDescription: Equatable {
+
+    /// The dependency requirement.
+    public enum Requirement: Equatable {
+        case exact(Utility.Version)
+        case range(Range<Utility.Version>)
+        case revision(String)
+        case branch(String)
+        case localPackage
+
+        public static func upToNextMajor(from version: Utility.Version) -> Requirement {
+            return .range(version..<Version(version.major + 1, 0, 0))
+        }
+
+        public static func upToNextMinor(from version: Utility.Version) -> Requirement {
+            return .range(version..<Version(version.major, version.minor + 1, 0))
         }
     }
 
-    public var exclude: [String] {
-        switch self {
-            case .v3(let package): return package.exclude
-            case .v4: return []
-        }
-    }
+    /// The url of the dependency.
+    public let url: String
 
-    public var pkgConfig: String? {
-        switch self {
-            case .v3(let package): return package.pkgConfig
-            case .v4(let package): return package.pkgConfig
-        }
-    }
+    /// The dependency requirement.
+    public let requirement: Requirement
 
-    public var targets: [PackageDescription4.Target] {
-        switch self {
-        case .v3(let package):
-            return package.targets.map({ target in
-                let dependencies: [PackageDescription4.Target.Dependency]
-                dependencies = target.dependencies.map({ dependency in
-                    switch dependency {
-                    case .Target(let name):
-                        return .target(name: name)
-                    }
-                })
-                return .target(name: target.name, dependencies: dependencies)
-            })
-
-            case .v4(let package):
-                return package.targets
-        }
-    }
-
-    public var dependencies: [PackageDescription4.Package.Dependency] {
-        switch self {
-        case .v3(let package):
-            return package.dependencies.map({
-                .package(url: $0.url, $0.versionRange.asPD4Version)
-            })
-
-        case .v4(let package):
-            return package.dependencies
-        }
-    }
-
-    public var providers: [PackageDescription4.SystemPackageProvider]? {
-        switch self {
-        case .v3(let package):
-            return package.providers?.map({
-                switch $0 {
-                case .Brew(let name): return .brew([name])
-                case .Apt(let name): return .apt([name])
-                }
-            })
-
-        case .v4(let package):
-            return package.providers
-        }
-    }
-
-    public var swiftLanguageVersions: [SwiftLanguageVersion]? {
-        // FIXME: We need to report an error if we are unable to create
-        // a language version object from the input.  The error checking
-        // probably belongs in the manifest loader or the package builder.
-        switch self {
-        case .v3(let package): 
-            return package.swiftLanguageVersions?.map(String.init).compactMap(SwiftLanguageVersion.init(string:))
-        case .v4(let package): 
-            return package.swiftLanguageVersions?.compactMap(SwiftLanguageVersion.init(string:))
-        }
-    }
-
-    public var cLanguageStandard: PackageDescription4.CLanguageStandard? {
-        switch self {
-        case .v3: return nil
-        case .v4(let package): return package.cLanguageStandard
-        }
-    }
-
-    public var cxxLanguageStandard: PackageDescription4.CXXLanguageStandard? {
-        switch self {
-        case .v3: return nil
-        case .v4(let package): return package.cxxLanguageStandard
-        }
+    /// Create a dependency.
+    public init(url: String, requirement: Requirement) {
+        self.url = url
+        self.requirement = requirement
     }
 }
 
 // MARK: - Version shim for PackageDescription4 -> PackageDescription.
 
-extension PackageDescription4.Version {
+extension Utility.Version {
     fileprivate init(pdVersion version: PackageDescription.Version) {
         let buildMetadata = version.buildMetadataIdentifier?.split(separator: ".").map(String.init)
         self.init(
@@ -253,7 +327,24 @@ extension PackageDescription4.Version {
 }
 
 extension Range where Bound == PackageDescription.Version {
-    fileprivate var asPD4Version: Range<PackageDescription4.Version> {
-        return PackageDescription4.Version(pdVersion: lowerBound) ..< PackageDescription4.Version(pdVersion: upperBound)
+    public var asUtilityVersion: Range<Utility.Version> {
+        return Utility.Version(pdVersion: lowerBound) ..< Utility.Version(pdVersion: upperBound)
+    }
+}
+
+extension Utility.Version {
+    /// Create Utility.Version object from PackageDescription4.Version object.
+    public init(pdVersion version: PackageDescription4.Version) {
+        self.init(
+            version.major, version.minor, version.patch,
+            prereleaseIdentifiers: version.prereleaseIdentifiers,
+            buildMetadataIdentifiers: version.buildMetadataIdentifiers)
+    }
+}
+
+extension Range where Bound == PackageDescription4.Version {
+    /// Converts PackageDescription.Version Range to Utility.Version Range.
+    public var asUtilityVersion: Range<Utility.Version> {
+        return Utility.Version(pdVersion: lowerBound) ..< Utility.Version(pdVersion: upperBound)
     }
 }

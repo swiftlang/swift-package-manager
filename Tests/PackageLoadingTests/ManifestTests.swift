@@ -13,7 +13,6 @@ import XCTest
 import Basic
 import Utility
 
-import PackageDescription
 import PackageModel
 import TestSupport
 
@@ -43,7 +42,7 @@ class ManifestTests: XCTestCase {
     private func loadManifest(_ contents: ByteString, baseURL: String? = nil, line: UInt = #line, body: (Manifest) -> Void) {
         do {
             let manifest = try loadManifest(contents, baseURL: baseURL)
-            if case .v3 = manifest.package {} else {
+            guard manifest.manifestVersion == .v3 else {
                 return XCTFail("Invalid manfiest version")
             }
             body(manifest)
@@ -57,33 +56,31 @@ class ManifestTests: XCTestCase {
         loadManifest("trivial-manifest.swift") { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
             XCTAssertEqual(manifest.manifestVersion, .v3)
-            XCTAssertEqual(manifest.package.targets, [])
-            XCTAssertEqual(manifest.package.dependencies, [])
+            XCTAssertEqual(manifest.targets, [])
+            XCTAssertEqual(manifest.dependencies, [])
         }
 
         // Check a manifest with package specifications.
         loadManifest("package-deps-manifest.swift") { manifest in
             XCTAssertEqual(manifest.name, "PackageDeps")
-            guard case .v3(let package) = manifest.package else {
-                return XCTFail()
-            }
-            XCTAssertEqual(package.targets, [])
-            XCTAssertEqual(package.dependencies, [Package.Dependency.Package(url: "https://example.com/example", majorVersion: 1)])
+            XCTAssertEqual(manifest.manifestVersion, .v3)
+            XCTAssertEqual(manifest.targets, [])
+            XCTAssertEqual(manifest.dependencies.count, 1)
+            let dependency = manifest.dependencies[0]
+            XCTAssertEqual(dependency.url, "https://example.com/example")
         }
 
         // Check a manifest with targets.
         loadManifest("target-deps-manifest.swift") { manifest in
             XCTAssertEqual(manifest.name, "TargetDeps")
-            guard case .v3(let package) = manifest.package else {
-                return XCTFail()
-            }
-            XCTAssertEqual(package.targets, [
-                Target(
+            XCTAssertEqual(manifest.manifestVersion, .v3)
+            XCTAssertEqual(manifest.targets, [
+                TargetDescription(
                     name: "sys",
-                    dependencies: [.Target(name: "libc")]),
-                Target(
+                    dependencies: [.target(name: "libc")]),
+                TargetDescription(
                     name: "dep",
-                    dependencies: [.Target(name: "sys"), .Target(name: "libc")])])
+                    dependencies: [.target(name: "sys"), .target(name: "libc")])])
         }
 
         // Check loading a manifest from a file system.
@@ -92,8 +89,8 @@ class ManifestTests: XCTestCase {
                 "let package = Package(name: \"Trivial\")"))
         loadManifest(trivialManifest) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            XCTAssertEqual(manifest.package.targets, [])
-            XCTAssertEqual(manifest.package.dependencies, [])
+            XCTAssertEqual(manifest.targets, [])
+            XCTAssertEqual(manifest.dependencies, [])
         }
     }
 
@@ -120,11 +117,11 @@ class ManifestTests: XCTestCase {
         stream <<< ")" <<< "\n"
         loadManifest(stream.bytes, baseURL: "/non-existent-path") { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            XCTAssertEqual(manifest.package.targets.count, 1)
-            let foo = manifest.package.targets[0]
+            XCTAssertEqual(manifest.targets.count, 1)
+            let foo = manifest.targets[0]
             XCTAssertEqual(foo.name, "Foo")
             XCTAssertEqual(foo.dependencies, [.target(name: "Bar")])
-            XCTAssertEqual(manifest.package.dependencies, [])
+            XCTAssertEqual(manifest.dependencies, [])
         }
     }
 
@@ -201,7 +198,7 @@ class ManifestTests: XCTestCase {
         stream <<< "   swiftLanguageVersions: [3, 4]" <<< "\n"
         stream <<< ")" <<< "\n"
         var manifest = try loadManifest(stream.bytes)
-        XCTAssertEqual(manifest.package.swiftLanguageVersions?.map({ $0.rawValue }), ["3", "4"])
+        XCTAssertEqual(manifest.swiftLanguageVersions?.map({ $0.rawValue }), ["3", "4"])
 
         stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription" <<< "\n"
@@ -210,14 +207,14 @@ class ManifestTests: XCTestCase {
         stream <<< "   swiftLanguageVersions: []" <<< "\n"
         stream <<< ")" <<< "\n"
         manifest = try loadManifest(stream.bytes)
-        XCTAssertEqual(manifest.package.swiftLanguageVersions, [])
+        XCTAssertEqual(manifest.swiftLanguageVersions, [])
 
         stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription" <<< "\n"
         stream <<< "let package = Package(" <<< "\n"
         stream <<< "   name: \"Foo\")" <<< "\n"
         manifest = try loadManifest(stream.bytes)
-        XCTAssertEqual(manifest.package.swiftLanguageVersions, nil)
+        XCTAssertEqual(manifest.swiftLanguageVersions, nil)
     }
 
     func testRuntimeManifestErrors() throws {
@@ -250,9 +247,10 @@ class ManifestTests: XCTestCase {
         let manifest = try loadManifest(stream.bytes)
         let products = Dictionary(items: manifest.legacyProducts.map{ ($0.name, $0) })
 
-        XCTAssertEqual(products["libfooD"], PackageDescription.Product(name: "libfooD", type: .Library(.Dynamic), modules: ["Foo"]))
-        XCTAssertEqual(products["libfooS"], PackageDescription.Product(name: "libfooS", type: .Library(.Static), modules: ["Foo"]))
-        XCTAssertEqual(products["exe"], PackageDescription.Product(name: "exe", type: .Executable, modules: ["Foo"]))
+
+        XCTAssertEqual(products["libfooD"], ProductDescription(name: "libfooD", type: .library(.dynamic), targets: ["Foo"]))
+        XCTAssertEqual(products["libfooS"], ProductDescription(name: "libfooS", type: .library(.static), targets: ["Foo"]))
+        XCTAssertEqual(products["exe"], ProductDescription(name: "exe", type: .executable, targets: ["Foo"]))
     }
 
     func testSwiftInterpreterErrors() throws {

@@ -12,11 +12,8 @@ import XCTest
 
 import Basic
 import Utility
-
-import PackageDescription4
-import PackageModel
 import TestSupport
-
+import PackageModel
 import PackageLoading
 
 // FIXME: We should share the infra with other loading tests.
@@ -36,7 +33,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             baseURL: AbsolutePath.root.asString,
             manifestVersion: .v4_2,
             fileSystem: fs)
-        if case .v4 = m.package {} else {
+        guard m.manifestVersion == .v4_2 else {
             return XCTFail("Invalid manfiest version")
         }
         body(m)
@@ -86,7 +83,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
 
             // Check targets.
             let targets = Dictionary(items:
-                manifest.package.targets.map({ ($0.name, $0 as PackageDescription4.Target ) }))
+                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
             let foo = targets["foo"]!
             XCTAssertEqual(foo.name, "foo")
             XCTAssertFalse(foo.isTest)
@@ -98,20 +95,20 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             XCTAssertEqual(bar.dependencies, ["foo"])
 
             // Check dependencies.
-            let deps = Dictionary(items: manifest.package.dependencies.map{ ($0.url, $0) })
-            XCTAssertEqual(deps["/foo1"], .package(url: "/foo1", from: "1.0.0"))
+            let deps = Dictionary(items: manifest.dependencies.map{ ($0.url, $0) })
+            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
 
             // Check products.
-            guard case .v4(let package) = manifest.package else { return XCTFail() }
-            let products = Dictionary(items: package.products.map{ ($0.name, $0) })
+            let products = Dictionary(items: manifest.products.map{ ($0.name, $0) })
 
-            let tool = products["tool"]! as! PackageDescription4.Product.Executable
+            let tool = products["tool"]!
             XCTAssertEqual(tool.name, "tool")
             XCTAssertEqual(tool.targets, ["tool"])
+            XCTAssertEqual(tool.type, .executable)
 
-            let fooProduct = products["Foo"]! as! PackageDescription4.Product.Library
+            let fooProduct = products["Foo"]!
             XCTAssertEqual(fooProduct.name, "Foo")
-            XCTAssertEqual(fooProduct.type, nil)
+            XCTAssertEqual(fooProduct.type, .library(.automatic))
             XCTAssertEqual(fooProduct.targets, ["Foo"])
         }
     }
@@ -147,7 +144,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.package.swiftLanguageVersions, [])
+            XCTAssertEqual(manifest.swiftLanguageVersions, [])
         }
 
         stream = BufferedOutputByteStream()
@@ -160,7 +157,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             """
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(
-                manifest.package.swiftLanguageVersions,
+                manifest.swiftLanguageVersions,
                 [.v3, .v4, .v4_2, SwiftLanguageVersion(string: "5")!]
             )
         }
@@ -186,21 +183,21 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             )
             """
        loadManifest(stream.bytes) { manifest in
-            let deps = Dictionary(items: manifest.package.dependencies.map{ ($0.url, $0) })
-            XCTAssertEqual(deps["/foo1"], .package(url: "/foo1", from: "1.0.0"))
-            XCTAssertEqual(deps["/foo2"], .package(url: "/foo2", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            let deps = Dictionary(items: manifest.dependencies.map{ ($0.url, $0) })
+            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo2"], PackageDependencyDescription(url: "/foo2", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
 
             XCTAssertEqual(deps["/foo3"]?.url, "/foo3")
-            XCTAssertEqual(deps["/foo3"]?.requirement, .localPackageItem)
+            XCTAssertEqual(deps["/foo3"]?.requirement, .localPackage)
 
             XCTAssertEqual(deps["/path/to/foo4"]?.url, "/path/to/foo4")
-            XCTAssertEqual(deps["/path/to/foo4"]?.requirement, .localPackageItem)
+            XCTAssertEqual(deps["/path/to/foo4"]?.requirement, .localPackage)
 
-            XCTAssertEqual(deps["/foo5"], .package(url: "/foo5", .exact("1.2.3")))
-            XCTAssertEqual(deps["/foo6"], .package(url: "/foo6", "1.2.3"..<"2.0.0"))
-            XCTAssertEqual(deps["/foo7"], .package(url: "/foo7", .branch("master")))
-            XCTAssertEqual(deps["/foo8"], .package(url: "/foo8", .upToNextMinor(from: "1.3.4")))
-            XCTAssertEqual(deps["/foo9"], .package(url: "/foo9", .upToNextMajor(from: "1.3.4")))
+            XCTAssertEqual(deps["/foo5"], PackageDependencyDescription(url: "/foo5", requirement: .exact("1.2.3")))
+            XCTAssertEqual(deps["/foo6"], PackageDependencyDescription(url: "/foo6", requirement: .range("1.2.3"..<"2.0.0")))
+            XCTAssertEqual(deps["/foo7"], PackageDependencyDescription(url: "/foo7", requirement: .branch("master")))
+            XCTAssertEqual(deps["/foo8"], PackageDependencyDescription(url: "/foo8", requirement: .upToNextMinor(from: "1.3.4")))
+            XCTAssertEqual(deps["/foo9"], PackageDependencyDescription(url: "/foo9", requirement: .upToNextMajor(from: "1.3.4")))
         }
     }
 
@@ -226,7 +223,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             """
        loadManifest(stream.bytes) { manifest in
             let targets = Dictionary(items:
-                manifest.package.targets.map({ ($0.name, $0 as PackageDescription4.Target ) }))
+                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
             let foo = targets["foo"]!
             XCTAssertEqual(foo.name, "foo")
             XCTAssertFalse(foo.isTest)

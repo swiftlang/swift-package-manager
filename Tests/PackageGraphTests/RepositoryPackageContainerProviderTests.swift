@@ -183,26 +183,21 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 url: "A",
                 versions: [
                     v1: Manifest(
+                        name: "Foo",
                         path: AbsolutePath("/Package.swift"),
                         url: "A",
-                        package: .v3(PackageDescription.Package(
-                            name: "Foo",
-                            dependencies: [
-                                .Package(url: "B", majorVersion: 2)
-                            ]
-                        )),
                         version: v1,
-                        manifestVersion: .v3
+                        manifestVersion: .v3,
+                        dependencies: [PackageDependencyDescription(url: "B", requirement: .upToNextMajor(from: "2.0.0"))]
                     )
                 ])
             let repoB = MockRepository(
                 url: "B",
                 versions: [
                     v2: Manifest(
+                        name: "Bar",
                         path: AbsolutePath("/Package.swift"),
                         url: "B",
-                        package: .v3(PackageDescription.Package(
-                            name: "Bar")),
                         version: v2,
                         manifestVersion: .v3
                     )

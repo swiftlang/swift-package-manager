@@ -211,11 +211,14 @@ public func loadMockPackageGraph(
     var rootManifest: Manifest!
     for (url, package) in packageMap {
         let manifest = Manifest(
+            name: package.name,
             path: AbsolutePath(url).appending(component: Manifest.filename),
             url: url,
-            package: .v3(package),
             version: "1.0.0",
-            manifestVersion: .v3
+            manifestVersion: .v3,
+            pkgConfig: package.pkgConfig,
+            dependencies: package.dependencyDescriptions(),
+            targets: package.ts()
         )
         if url == root {
             rootManifest = manifest
@@ -237,11 +240,18 @@ public func loadMockPackageGraph4(
     var rootManifest: Manifest!
     for (url, package) in packageMap {
         let manifest = Manifest(
+            name: package.name,
             path: AbsolutePath(url).appending(component: Manifest.filename),
             url: url,
-            package: .v4(package),
             version: "1.0.0",
-            manifestVersion: .v4
+            manifestVersion: .v4,
+            pkgConfig: package.pkgConfig,
+            cLanguageStandard: package.cLanguageStandard?.rawValue,
+            cxxLanguageStandard: package.cxxLanguageStandard?.rawValue,
+            swiftLanguageVersions: package.swiftVersions(),
+            dependencies: package.deps(),
+            products: package.productDescriptions(),
+            targets: package.ts()
         )
         if url == root {
             rootManifest = manifest

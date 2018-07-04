@@ -152,7 +152,7 @@ public class Workspace {
 
             var requiredIdentities = transitiveClosure(inputIdentities) { identity in
                 guard let manifest = manifestsMap[identity] else { return [] }
-                return manifest.package.dependencies.map({ PackageReference.computeIdentity(packageURL: $0.url) })
+                return manifest.dependencies.map({ PackageReference.computeIdentity(packageURL: $0.url) })
             }
             requiredIdentities.formUnion(inputIdentities)
 
@@ -186,7 +186,7 @@ public class Workspace {
 
                 case .checkout, .local: 
                     // For checkouts, add all the constraints in the manifest.
-                    allConstraints += externalManifest.package.dependencyConstraints()
+                    allConstraints += externalManifest.dependencyConstraints()
                 }
             }
             return allConstraints
@@ -901,7 +901,7 @@ extension Workspace {
 
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.name) })) { node in
-            return node.item.package.dependencies.compactMap({ dependency in
+            return node.item.dependencies.compactMap({ dependency in
                 let ref = dependency.createPackageRef()
                 let manifest = loadedManifests[ref.identity] ?? loadManifest(for: ref, diagnostics: diagnostics)
                 loadedManifests[ref.identity] = manifest
@@ -1032,7 +1032,7 @@ extension Workspace {
             let dependencies =
                 graphRoot.constraints +
                 // Include constraints from the manifests in the graph root.
-                graphRoot.manifests.flatMap({ $0.package.dependencyConstraints() }) +
+                graphRoot.manifests.flatMap({ $0.dependencyConstraints() }) +
                 currentManifests.dependencyConstraints() +
                 extraConstraints
 

@@ -314,7 +314,7 @@ struct GitRepositoryResolutionHelper {
     }
 
     var constraints: [RepositoryPackageConstraint] { 
-        return manifestGraph.rootManifest.package.dependencyConstraints()
+        return manifestGraph.rootManifest.dependencyConstraints()
     }
 
     func resolve(prefetchingEnabled: Bool = false) -> [(container: PackageReference, binding: BoundVersion)] {

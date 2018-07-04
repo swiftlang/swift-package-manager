@@ -29,7 +29,7 @@ public enum MockManifestLoaderError: Swift.Error {
 ///
 /// This implementation will throw an error if a request to load an unknown
 /// manifest is made.
-public struct MockManifestLoader: ManifestLoaderProtocol {
+public final class MockManifestLoader: ManifestLoaderProtocol {
     public struct Key: Hashable {
         public let url: String
         public let version: Version?
@@ -45,7 +45,7 @@ public struct MockManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    public let manifests: [Key: Manifest]
+    public var manifests: [Key: Manifest]
 
     public init(manifests: [Key: Manifest]) {
         self.manifests = manifests

@@ -10,16 +10,12 @@
 
 import XCTest
 
-import XCTest
-
 import Basic
 import PackageDescription4
 import PackageModel
 import Utility
 
 @testable import PackageLoading
-
-fileprivate typealias Package = PackageDescription4.Package
 
 class PackageBuilderV4Tests: XCTestCase {
 
@@ -364,7 +360,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 .testTarget(name: "barTests"),
             ]
         )
-        PackageBuilderTester(.v4(package), shouldCreateMultipleTestProducts: true, in: fs) { result in
+        PackageBuilderTester(package, shouldCreateMultipleTestProducts: true, in: fs) { result in
             result.checkModule("foo") { _ in }
             result.checkModule("fooTests") { _ in }
             result.checkModule("barTests") { _ in }
@@ -376,7 +372,7 @@ class PackageBuilderV4Tests: XCTestCase {
             }
         }
 
-        PackageBuilderTester(.v4(package), shouldCreateMultipleTestProducts: false, in: fs) { result in
+        PackageBuilderTester(package, shouldCreateMultipleTestProducts: false, in: fs) { result in
             result.checkModule("foo") { _ in }
             result.checkModule("fooTests") { _ in }
             result.checkModule("barTests") { _ in }
