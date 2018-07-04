@@ -264,6 +264,7 @@ func findNonSourceFiles(path: AbsolutePath, recursively: Bool = false) throws ->
         if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions.contains(`extension`) {
             return false
         }
+        if $0.basename.hasPrefix(".") { return false }
         return true
     })
 }

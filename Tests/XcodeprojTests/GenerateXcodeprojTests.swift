@@ -123,6 +123,29 @@ class GenerateXcodeprojTests: XCTestCase {
         }
     }
 
+    func testGenerateXcodeprojWithDotFiles() {
+        mktmpdir { dstdir in
+
+            let packagePath = dstdir.appending(component: "Foo")
+            let modulePath = packagePath.appending(components: "Sources", "DummyModule")
+            try makeDirectories(modulePath)
+            try localFileSystem.writeFileContents(modulePath.appending(component: "dummy.swift"), bytes: "dummy_data")
+            try localFileSystem.writeFileContents(packagePath.appending(component: ".a.txt"), bytes: "dummy_data")
+
+            initGitRepo(packagePath, addFile: false)
+
+            let diagnostics = DiagnosticsEngine()
+            let graph = loadMockPackageGraph([packagePath.asString: Package(name: "Foo")], root: packagePath.asString, diagnostics: diagnostics, in: localFileSystem)
+            XCTAssertFalse(diagnostics.hasErrors)
+
+            let projectName = "DummyProjectName"
+            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
+            let project = try Xcodeproj.generate(projectName: projectName, xcodeprojPath: outpath, graph: graph, options: XcodeprojOptions(), diagnostics: diagnostics)
+
+            XCTAssertFalse(project.mainGroup.subitems.contains { $0.path == ".a.txt" })
+        }
+    }
+
     func testGenerateXcodeprojWithRootFiles() {
         mktmpdir { dstdir in
 
