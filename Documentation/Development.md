@@ -111,6 +111,24 @@ $ open SwiftPM.xcodeproj
 Note: If you make any changes to `PackageDescription` or `PackageDescription4`
 target, you will need to regenerate the Xcode project using the above command.
 
+## Continuous Integration
+
+SwiftPM uses [swift-ci](https://ci.swift.org) infrastructure for its continuous integration testing. The
+bots can be triggered on pull-requests if you have commit access, otherwise ask
+one of the code owner to trigger them for you. The following commands are supported:
+
+### @swift-ci please smoke test
+
+Run tests with trunk compiler and other projects. This is **required** before
+a pull-request can be merged.
+
+### @swift-ci test with toolchain
+
+Run tests with latest trunk snapshot. This has fast turnaround times so it can
+be used to get quick feedback.
+
+Note: Smoke tests are still required for merging the pull-requests.
+
 ## Running the performance tests
 
 Running performance tests is a little awkward right now. First, generate the
