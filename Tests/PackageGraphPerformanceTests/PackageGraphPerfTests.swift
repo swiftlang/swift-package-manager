@@ -12,7 +12,6 @@ import XCTest
 
 import Basic
 import PackageGraph
-import PackageDescription
 import PackageModel
 import TestSupport
 
@@ -28,21 +27,23 @@ class PackageGraphPerfTests: XCTestCasePerf {
         for pkg in 1...N {
             let name = "Foo\(pkg)"
             let url = "/" + name
+
+            let dependencies: [PackageDependencyDescription]
             // Create package.
-            let package: PackageDescription.Package
             if pkg == N {
-                package = Package(name: name)
+                dependencies = []
             } else {
-                let depUrl = "/Foo\(pkg + 1)"
-                package = Package(name: name, dependencies: [.Package(url: depUrl, majorVersion: 1)])
+                 let depUrl = "/Foo\(pkg + 1)"
+                dependencies = [PackageDependencyDescription(url: depUrl, requirement: .upToNextMajor(from: "1.0.0"))]
             }
             // Create manifest.
             let manifest = Manifest(
+                name: name,
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
-                package: .v3(package),
                 version: "1.0.0",
-                manifestVersion: .v3
+                manifestVersion: .v3,
+                dependencies: dependencies
             )
             if pkg == 1 {
                 rootManifests = [manifest]

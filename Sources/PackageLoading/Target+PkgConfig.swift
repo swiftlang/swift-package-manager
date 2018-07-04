@@ -25,7 +25,7 @@ public struct PkgConfigResult {
     public let libs: [String]
 
     /// Available provider, if any.
-    public let provider: SystemPackageProvider?
+    public let provider: SystemPackageProviderDescription?
 
     /// Any error encountered during operation.
     public let error: Swift.Error?
@@ -48,7 +48,7 @@ public struct PkgConfigResult {
     }
 
     /// Create an error result.
-    fileprivate init(pkgConfigName: String, error: Swift.Error, provider: SystemPackageProvider?) {
+    fileprivate init(pkgConfigName: String, error: Swift.Error, provider: SystemPackageProviderDescription?) {
         self.cFlags = []
         self.libs = []
         self.error = error
@@ -81,12 +81,12 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: Diagnost
     }
 }
 
-extension SystemPackageProvider {
+extension SystemPackageProviderDescription {
     public var installText: String {
         switch self {
-        case .brewItem(let packages):
+        case .brew(let packages):
             return "    brew install \(packages.joined(separator: " "))\n"
-        case .aptItem(let packages):
+        case .apt(let packages):
             return "    apt-get install \(packages.joined(separator: " "))\n"
         }
     }
@@ -95,11 +95,11 @@ extension SystemPackageProvider {
     var isAvailable: Bool {
         guard let platform = Platform.currentPlatform else { return false }
         switch self {
-        case .brewItem:
+        case .brew:
             if case .darwin = platform {
                 return true
             }
-        case .aptItem:
+        case .apt:
             if case .linux(.debian) = platform {
                 return true
             }
@@ -109,7 +109,7 @@ extension SystemPackageProvider {
 
     func pkgConfigSearchPath() -> [AbsolutePath] {
         switch self {
-        case .brewItem(let packages):
+        case .brew(let packages):
             // Homebrew can have multiple versions of the same package. The
             // user can choose another version than the latest by running
             // ``brew switch NAME VERSION``, so we shouldn't assume to link
@@ -120,13 +120,13 @@ extension SystemPackageProvider {
             }
             guard let brewPrefix = Static.value else { return [] }
             return packages.map({ AbsolutePath(brewPrefix).appending(components: "opt", $0, "lib", "pkgconfig") })
-        case .aptItem:
+        case .apt:
             return []
         }
     }
 
     // FIXME: Get rid of this method once we move on to new Build code.
-    static func providerForCurrentPlatform(providers: [SystemPackageProvider]) -> SystemPackageProvider? {
+    static func providerForCurrentPlatform(providers: [SystemPackageProviderDescription]) -> SystemPackageProviderDescription? {
         return providers.first(where: { $0.isAvailable })
     }
 }

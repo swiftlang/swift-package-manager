@@ -209,25 +209,42 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         switch manifestVersion {
         case .v3:
             let pd = try loadPackageDescription(json, baseURL: baseURL)
+            let package = pd.package
+
             manifest = Manifest(
+                name: package.name,
                 path: inputPath,
                 url: baseURL,
-                package: .v3(pd.package),
                 legacyProducts: pd.products,
+                legacyExclude: package.exclude,
                 version: version,
                 interpreterFlags: parseResult.interpreterFlags,
-                manifestVersion: manifestVersion
+                manifestVersion: manifestVersion,
+                pkgConfig: package.pkgConfig,
+                providers: package.providerDescriptions(),
+                swiftLanguageVersions: package.swiftVersions(),
+                dependencies: package.dependencyDescriptions(),
+                targets: package.ts()
             )
 
         case .v4, .v4_2:
             let package = try loadPackageDescription4(json, baseURL: baseURL)
+            
             manifest = Manifest(
+                name: package.name,
                 path: inputPath,
                 url: baseURL,
-                package: .v4(package),
                 version: version,
                 interpreterFlags: parseResult.interpreterFlags,
-                manifestVersion: manifestVersion
+                manifestVersion: manifestVersion,
+                pkgConfig: package.pkgConfig,
+                providers: package.providerDescriptions(),
+                cLanguageStandard: package.cLanguageStandard?.rawValue,
+                cxxLanguageStandard: package.cxxLanguageStandard?.rawValue,
+                swiftLanguageVersions: package.swiftVersions(),
+                dependencies: package.deps(),
+                products: package.productDescriptions(),
+                targets: package.ts()
             )
         }
 

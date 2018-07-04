@@ -10,8 +10,6 @@
 
 import Basic
 
-@_exported import enum PackageDescription4.SystemPackageProvider
-
 public class Target: ObjectIdentifierProtocol {
     /// The target kind.
     public enum Kind: String {
@@ -113,7 +111,7 @@ public class SystemLibraryTarget: Target {
     public let pkgConfig: String?
 
     /// List of system package providers, if any.
-    public let providers: [SystemPackageProvider]?
+    public let providers: [SystemPackageProviderDescription]?
 
     /// The package path.
     public var path: AbsolutePath {
@@ -129,7 +127,7 @@ public class SystemLibraryTarget: Target {
         path: AbsolutePath,
         isImplicit: Bool = true,
         pkgConfig: String? = nil,
-        providers: [SystemPackageProvider]? = nil
+        providers: [SystemPackageProviderDescription]? = nil
     ) {
         let sources = Sources(paths: [], root: path)
         self.pkgConfig = pkgConfig

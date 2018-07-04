@@ -11,11 +11,30 @@
 import Basic
 import Utility
 import PackageDescription
+import PackageModel
+
+private extension PackageModel.ProductType {
+
+    /// Create instance from package description's product type.
+    init(_ type: PackageDescription.ProductType) {
+        switch type {
+        case .Test:
+            self = .test
+        case .Executable:
+            self = .executable
+        case .Library(.Static):
+            self = .library(.static)
+        case .Library(.Dynamic):
+            self = .library(.dynamic)
+        }
+    }
+}
+
 
 /// Load PackageDescription models from the given JSON. The JSON is expected to be completely valid.
 /// The base url is used to resolve any relative paths in the dependency declarations.
 func loadPackageDescription(_ json: JSON, baseURL: String) throws
-    -> (package: PackageDescription.Package, products: [PackageDescription.Product]) {
+    -> (package: PackageDescription.Package, products: [ProductDescription]) {
     // Construct objects from JSON.
     let package = PackageDescription.Package.fromJSON(json, baseURL: baseURL)
     let products = PackageDescription.Product.fromJSON(json)
@@ -23,7 +42,53 @@ func loadPackageDescription(_ json: JSON, baseURL: String) throws
     guard errors.isEmpty else {
         throw ManifestParseError.runtimeManifestErrors(errors)
     }
-    return (package, products)
+    let ps = products.map({ ProductDescription(name: $0.name, type: .init($0.type), targets: $0.modules) })
+    return (package, ps)
+}
+
+extension PackageDescription.Package {
+
+    public func swiftVersions() -> [SwiftLanguageVersion]? {
+        return swiftLanguageVersions?.map(String.init).compactMap(SwiftLanguageVersion.init(string:))
+    }
+
+    public func providerDescriptions() -> [PackageModel.SystemPackageProviderDescription]? {
+        return providers?.map({
+            switch $0 {
+            case .Brew(let name): return .brew([name])
+            case .Apt(let name): return .apt([name])
+            }
+        })
+    }
+
+    public func dependencyDescriptions() -> [PackageModel.PackageDependencyDescription] {
+        return dependencies.map({
+            PackageDependencyDescription(url: $0.url, requirement: .range($0.versionRange.asUtilityVersion))
+        })
+    }
+
+	public func ts() -> [TargetDescription] {
+        return targets.map({
+            let dependencies: [TargetDescription.Dependency]
+            dependencies = $0.dependencies.map({
+                switch $0 {
+                case .Target(let name):
+                    return .target(name: name)
+                }
+            })
+            return TargetDescription(
+                name: $0.name,
+                dependencies: dependencies,
+                path: nil,
+                exclude: [],
+                sources: nil,
+                publicHeadersPath: nil,
+                type: .regular,
+                pkgConfig: nil,
+                providers: nil
+            )
+        })
+    }
 }
 
 // All of these methods are file private and are unit tested using manifest loader.
@@ -170,7 +235,7 @@ extension PackageDescription.Product {
             guard case JSON.string(let string) = $0 else { fatalError("invalid item") }
             return string
         })
-        self.init(name: name, type: ProductType(productType), modules: modules)
+        self.init(name: name, type: PackageDescription.ProductType(productType), modules: modules)
     }
 }
 

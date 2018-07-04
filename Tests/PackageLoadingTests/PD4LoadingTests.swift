@@ -13,7 +13,6 @@ import XCTest
 import Basic
 import Utility
 
-import PackageDescription4
 import PackageModel
 import TestSupport
 
@@ -35,7 +34,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             baseURL: AbsolutePath.root.asString,
             manifestVersion: .v4,
             fileSystem: fs)
-        if case .v4 = m.package {} else {
+        guard m.manifestVersion == .v4 else {
             return XCTFail("Invalid manfiest version")
         }
         body(m)
@@ -97,8 +96,8 @@ class PackageDescription4LoadingTests: XCTestCase {
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
             XCTAssertEqual(manifest.manifestVersion, .v4)
-            XCTAssertEqual(manifest.package.targets, [])
-            XCTAssertEqual(manifest.package.dependencies, [])
+            XCTAssertEqual(manifest.targets, [])
+            XCTAssertEqual(manifest.dependencies, [])
             let flags = manifest.interpreterFlags.joined(separator: " ")
             XCTAssertTrue(flags.contains("/swift/pm/4"))
             XCTAssertTrue(flags.contains("-swift-version 4"))
@@ -128,12 +127,12 @@ class PackageDescription4LoadingTests: XCTestCase {
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
             let targets = Dictionary(items:
-                manifest.package.targets.map({ ($0.name, $0 as PackageDescription4.Target ) }))
+                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
             let foo = targets["foo"]!
             XCTAssertEqual(foo.name, "foo")
             XCTAssertFalse(foo.isTest)
 
-            let expectedDependencies: [PackageDescription4.Target.Dependency]
+            let expectedDependencies: [TargetDescription.Dependency]
             expectedDependencies = [
                 .byName(name: "dep1"),
                 .target(name: "dep2"),
@@ -159,7 +158,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.package.swiftLanguageVersions?.map({$0.rawValue}), ["3", "4"])
+            XCTAssertEqual(manifest.swiftLanguageVersions?.map({$0.rawValue}), ["3", "4"])
         }
 
         stream = BufferedOutputByteStream()
@@ -171,7 +170,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.package.swiftLanguageVersions, [])
+            XCTAssertEqual(manifest.swiftLanguageVersions, [])
         }
 
         stream = BufferedOutputByteStream()
@@ -181,7 +180,7 @@ class PackageDescription4LoadingTests: XCTestCase {
                name: "Foo")
             """
         loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.package.swiftLanguageVersions, nil)
+            XCTAssertEqual(manifest.swiftLanguageVersions, nil)
         }
     }
 
@@ -202,13 +201,13 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
        loadManifest(stream.bytes) { manifest in
-            let deps = Dictionary(items: manifest.package.dependencies.map{ ($0.url, $0) })
-            XCTAssertEqual(deps["/foo1"], .package(url: "/foo1", from: "1.0.0"))
-            XCTAssertEqual(deps["/foo2"], .package(url: "/foo2", .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["/foo3"], .package(url: "/foo3", .upToNextMinor(from: "1.0.0")))
-            XCTAssertEqual(deps["/foo4"], .package(url: "/foo4", .exact("1.0.0")))
-            XCTAssertEqual(deps["/foo5"], .package(url: "/foo5", .branch("master")))
-            XCTAssertEqual(deps["/foo6"], .package(url: "/foo6", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            let deps = Dictionary(items: manifest.dependencies.map{ ($0.url, $0) })
+            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo2"], PackageDependencyDescription(url: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo3"], PackageDependencyDescription(url: "/foo3", requirement: .upToNextMinor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo4"], PackageDependencyDescription(url: "/foo4", requirement: .exact("1.0.0")))
+            XCTAssertEqual(deps["/foo5"], PackageDependencyDescription(url: "/foo5", requirement: .branch("master")))
+            XCTAssertEqual(deps["/foo6"], PackageDependencyDescription(url: "/foo6", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
         }
     }
 
@@ -226,23 +225,21 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            guard case .v4(let package) = manifest.package else {
-                return XCTFail()
-            }
-            let products = Dictionary(items: package.products.map{ ($0.name, $0) })
+            let products = Dictionary(items: manifest.products.map{ ($0.name, $0) })
             // Check tool.
-            let tool = products["tool"]! as! PackageDescription4.Product.Executable
+            let tool = products["tool"]!
             XCTAssertEqual(tool.name, "tool")
             XCTAssertEqual(tool.targets, ["tool"])
+            XCTAssertEqual(tool.type, .executable)
             // Check Foo.
-            let foo = products["Foo"]! as! PackageDescription4.Product.Library
+            let foo = products["Foo"]!
             XCTAssertEqual(foo.name, "Foo")
-            XCTAssertEqual(foo.type, nil)
+            XCTAssertEqual(foo.type, .library(.automatic))
             XCTAssertEqual(foo.targets, ["Foo"])
             // Check FooDy.
-            let fooDy = products["FooDy"]! as! PackageDescription4.Product.Library
+            let fooDy = products["FooDy"]!
             XCTAssertEqual(fooDy.name, "FooDy")
-            XCTAssertEqual(fooDy.type, .dynamic)
+            XCTAssertEqual(fooDy.type, .library(.dynamic))
             XCTAssertEqual(fooDy.targets, ["Foo"])
         }
     }
@@ -262,8 +259,8 @@ class PackageDescription4LoadingTests: XCTestCase {
             """
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Copenssl")
-            XCTAssertEqual(manifest.package.pkgConfig, "openssl")
-            XCTAssertEqual(manifest.package.providers!, [
+            XCTAssertEqual(manifest.pkgConfig, "openssl")
+            XCTAssertEqual(manifest.providers, [
                 .brew(["openssl"]),
                 .apt(["openssl", "libssl-dev"]),
             ])
@@ -287,7 +284,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             """
         loadManifest(stream.bytes) { manifest in
             let targets = Dictionary(items:
-                manifest.package.targets.map({ ($0.name, $0 as PackageDescription4.Target ) }))
+                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
 
             let foo = targets["Foo"]!
             XCTAssertEqual(foo.publicHeadersPath, "inc")
@@ -317,7 +314,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             """
         loadManifest(stream.bytes) { manifest in
             let targets = Dictionary(items:
-                manifest.package.targets.map({ ($0.name, $0 as PackageDescription4.Target ) }))
+                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
 
             let foo = targets["Foo"]!
             XCTAssertEqual(foo.publicHeadersPath, "inc")
@@ -374,9 +371,9 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
         """
         loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.package.name, "testPackage")
-            XCTAssertEqual(manifest.package.cLanguageStandard, .iso9899_199409)
-            XCTAssertEqual(manifest.package.cxxLanguageStandard, .gnucxx14)
+            XCTAssertEqual(manifest.name, "testPackage")
+            XCTAssertEqual(manifest.cLanguageStandard, "iso9899:1994")
+            XCTAssertEqual(manifest.cxxLanguageStandard, "gnu++14")
         }
     }
 
@@ -395,8 +392,8 @@ class PackageDescription4LoadingTests: XCTestCase {
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
             XCTAssertEqual(manifest.manifestVersion, .v4)
-            XCTAssertEqual(manifest.package.targets, [])
-            XCTAssertEqual(manifest.package.dependencies, [])
+            XCTAssertEqual(manifest.targets, [])
+            XCTAssertEqual(manifest.dependencies, [])
         }
     }
     

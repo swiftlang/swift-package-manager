@@ -12,7 +12,6 @@ import XCTest
 
 import Basic
 import PackageLoading
-import PackageDescription4
 import PackageModel
 import PackageGraph
 import SourceControl
@@ -1614,8 +1613,17 @@ final class WorkspaceTests: XCTestCase {
         // Check that changing the requirement to 1.5.0 triggers re-resolution.
         //
         // FIXME: Find a cleaner way to change a dependency requirement.
-        let package = workspace.manifestLoader.manifests[MockManifestLoader.Key(url: "Foo")]!.package.pkg
-        package.dependencies[0] = .package(url: package.dependencies[0].url, .exact("1.5.0"))
+        let fooKey = MockManifestLoader.Key(url: "Foo")
+        let manifest = workspace.manifestLoader.manifests[fooKey]!
+        workspace.manifestLoader.manifests[fooKey] = Manifest(
+            name: manifest.name,
+            path: manifest.path,
+            url: manifest.url,
+            version: manifest.version,
+            manifestVersion: manifest.manifestVersion,
+            dependencies: [PackageDependencyDescription(url: manifest.dependencies[0].url, requirement: .exact("1.5.0"))],
+            targets: manifest.targets
+        )
 
         workspace.checkPackageGraph(roots: ["Foo"]) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
@@ -1762,7 +1770,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .localPackageItem),
+                        TestDependency(name: "Bar", requirement: .localPackage),
                         TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
@@ -1854,7 +1862,7 @@ final class WorkspaceTests: XCTestCase {
                         TestProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Baz", requirement: .localPackageItem),
+                        TestDependency(name: "Baz", requirement: .localPackage),
                     ],
                     versions: ["1.0.0", "1.5.0", nil]
                 ),
@@ -1930,7 +1938,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Override with local package and run update.
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Bar", requirement: .localPackageItem),
+            .init(name: "Bar", requirement: .localPackage),
         ]
         workspace.checkUpdate(roots: ["Foo"], deps: deps) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -2052,7 +2060,7 @@ final class WorkspaceTests: XCTestCase {
         // without running swift package update.
 
         var deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Foo", requirement: .localPackageItem),
+            .init(name: "Foo", requirement: .localPackage),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
@@ -2076,7 +2084,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Foo", requirement: .localPackageItem),
+            .init(name: "Foo", requirement: .localPackage),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
@@ -2132,7 +2140,7 @@ final class WorkspaceTests: XCTestCase {
         // different locations works correctly.
 
         var deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Foo", requirement: .localPackageItem),
+            .init(name: "Foo", requirement: .localPackage),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
@@ -2146,7 +2154,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Foo2", requirement: .localPackageItem),
+            .init(name: "Foo2", requirement: .localPackage),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
@@ -2187,15 +2195,6 @@ final class WorkspaceTests: XCTestCase {
         ("testRevisionVersionSwitch", testRevisionVersionSwitch),
         ("testLocalVersionSwitch", testLocalVersionSwitch),
     ]
-}
-
-extension Manifest.RawPackage {
-    var pkg: PackageDescription4.Package {
-        switch self {
-        case .v4(let pkg): return pkg
-        default: fatalError()
-        }
-    }
 }
 
 // MARK:- Test Infrastructure
@@ -2317,16 +2316,14 @@ private final class TestWorkspace {
             for version in versions {
                 let v = version.flatMap(Version.init(string:))
                 manifests[.init(url: url, version: v)] = Manifest(
+                    name: package.name,
                     path: packagePath.appending(component: Manifest.filename),
                     url: url,
-                    package: .v4(.init(
-                        name: package.name,
-                        products: package.products.map({ .library(name: $0.name, targets: $0.targets) }),
-                        dependencies: package.dependencies.map({ $0.convert(baseURL: packagesDir) }),
-                        targets: package.targets.map({ $0.convert() })
-                    )),
                     version: v,
-                    manifestVersion: .v4
+                    manifestVersion: .v4,
+                    dependencies: package.dependencies.map({ $0.convert(baseURL: packagesDir) }),
+                    products: package.products.map({ ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) }),
+                    targets: package.targets.map({ $0.convert() })
                 )
                 if let version = version {
                     try repo.tag(name: version)
@@ -2642,12 +2639,12 @@ private struct TestTarget {
         self.type = type
     }
 
-    func convert() -> PackageDescription4.Target {
+    func convert() -> TargetDescription {
         switch type {
         case .regular:
-            return .target(name: name, dependencies: dependencies.map({ .byName(name: $0) }))
+            return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular)
         case .test:
-            return .testTarget(name: name, dependencies: dependencies.map({ .byName(name: $0) }))
+            return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .test)
         }
     }
 }
@@ -2666,15 +2663,15 @@ private struct TestProduct {
 private struct TestDependency {
     let name: String
     let requirement: Requirement
-    typealias Requirement = PackageDescription4.Package.Dependency.Requirement
+    typealias Requirement = PackageDependencyDescription.Requirement
 
     fileprivate init(name: String, requirement: Requirement) {
         self.name = name
         self.requirement = requirement
     }
 
-    func convert(baseURL: AbsolutePath) -> PackageDescription4.Package.Dependency {
-        return .package(url: baseURL.appending(component: name).asString, requirement)
+    func convert(baseURL: AbsolutePath) -> PackageDependencyDescription {
+        return PackageDependencyDescription(url: baseURL.appending(component: name).asString, requirement: requirement)
     }
 }
 

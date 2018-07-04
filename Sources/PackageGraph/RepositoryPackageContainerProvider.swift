@@ -269,7 +269,7 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
     }
     
     public override func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {
-        return try loadManifest().package.dependencyConstraints()
+        return try loadManifest().dependencyConstraints()
     }
     
     public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
@@ -468,7 +468,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             manifestVersion: toolsVersion.manifestVersion,
             fileSystem: fs)
 
-        return (manifest, manifest.package.dependencyConstraints())
+        return (manifest, manifest.dependencyConstraints())
     }
 
     public override func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {

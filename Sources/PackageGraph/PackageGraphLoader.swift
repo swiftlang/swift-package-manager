@@ -83,7 +83,7 @@ public struct PackageGraphLoader {
             externalManifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (Manifest) -> [Manifest] = { manifest in
-            manifest.package.dependencies.compactMap({ 
+            manifest.dependencies.compactMap({ 
                 manifestMap[PackageReference.computeIdentity(packageURL: $0.url)] 
             })
         }
@@ -222,7 +222,7 @@ private func createResolvedPackages(
         let package = packageBuilder.package
 
         // Establish the manifest-declared package dependencies.
-        packageBuilder.dependencies = package.manifest.package.dependencies.compactMap({
+        packageBuilder.dependencies = package.manifest.dependencies.compactMap({
             packageMap[PackageReference.computeIdentity(packageURL: $0.url)]
         })
 
@@ -283,11 +283,11 @@ private func createResolvedPackages(
             targetBuilder.dependencies += implicitSystemTargetDeps
 
             // Establish product dependencies based on the type of manifest.
-            switch package.manifest.package {
+            switch package.manifest.manifestVersion {
             case .v3:
                 targetBuilder.productDeps = productDependencies
 
-            case .v4:
+            case .v4, .v4_2:
                 for productRef in targetBuilder.target.productDependencies {
                     // Find the product in this package's dependency products.
                     guard let product = productDependencyMap[productRef.name] else {

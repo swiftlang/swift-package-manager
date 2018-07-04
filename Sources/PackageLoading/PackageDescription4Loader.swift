@@ -11,6 +11,7 @@
 import Basic
 import Utility
 import PackageDescription4
+import PackageModel
 
 /// Load PackageDescription4 models from the given JSON. The JSON is expected to be completely valid.
 /// The base url is used to resolve any relative paths in the dependency declarations.
@@ -25,6 +26,109 @@ func loadPackageDescription4(
         throw ManifestParseError.runtimeManifestErrors(errors)
     }
     return package
+}
+
+extension PackageDescription4.Package {
+
+    public func swiftVersions() -> [SwiftLanguageVersion]? {
+        return swiftLanguageVersions?.compactMap(SwiftLanguageVersion.init(string:))
+    }
+
+    public func providerDescriptions() -> [PackageModel.SystemPackageProviderDescription]? {
+        return providers?.map({
+            switch $0 {
+            case .brewItem(let names): return .brew(names)
+            case .aptItem(let names): return .apt(names)
+            }
+        })
+    }
+
+    public func ts() -> [TargetDescription] {
+        return targets.map({ target in
+
+            let providers: [PackageModel.SystemPackageProviderDescription]? = target.providers?.map({
+                switch $0 {
+                case .brewItem(let names): return .brew(names)
+                case .aptItem(let names): return .apt(names)
+                }
+            })
+
+            let dependencies: [TargetDescription.Dependency] = target.dependencies.map({
+                switch $0 {
+                case .targetItem(let name):
+                    return .target(name: name)
+                case .productItem(let name, let package):
+                    return .product(name: name, package: package)
+                case .byNameItem(let name):
+                    return .byName(name: name)
+                }
+            })
+
+            let type: TargetDescription.TargetType
+            switch target.type {
+            case .regular:
+                type = .regular
+            case .test:
+                type = .test
+            case .system:
+                type = .system
+            }
+
+            return TargetDescription(
+                name: target.name,
+                dependencies: dependencies,
+                path: target.path,
+                exclude: target.exclude,
+                sources: target.sources,
+                publicHeadersPath: target.publicHeadersPath,
+                type: type,
+                pkgConfig: target.pkgConfig,
+                providers: providers
+            )
+        })
+    }
+
+    public func productDescriptions() -> [ProductDescription] {
+        var result: [ProductDescription] = []
+        for product in products {
+            switch product {
+            case let p as PackageDescription4.Product.Executable:
+                result.append(ProductDescription(name: product.name, type: .executable, targets: p.targets))
+            case let p as PackageDescription4.Product.Library:
+                // Get the library type.
+                let type: PackageModel.ProductType
+                switch p.type {
+                case .static?: type = .library(.static)
+                case .dynamic?: type = .library(.dynamic)
+                case nil: type = .library(.automatic)
+                }
+
+                result.append(ProductDescription(name: product.name, type: type, targets: p.targets))
+            default:
+                fatalError("Unreachable")
+            }
+        }
+        return result
+    }
+}
+
+extension PackageDescription4.Package {
+    public func deps() -> [PackageDependencyDescription] {
+        return dependencies.map({
+            switch $0.requirement {
+            case .exactItem(let version):
+                return PackageDependencyDescription(url: $0.url, requirement: .exact(Utility.Version(pdVersion: version)))
+            case .rangeItem(let range):
+                return PackageDependencyDescription(url: $0.url, requirement: .range(range.asUtilityVersion))
+            case .revisionItem(let revision):
+                return PackageDependencyDescription(url: $0.url, requirement: .revision(revision))
+            case .branchItem(let branch):
+                return PackageDependencyDescription(url: $0.url, requirement: .branch(branch))
+            case .localPackageItem:
+                return PackageDependencyDescription(url: $0.url, requirement: .localPackage)
+            }
+        })
+    }
 }
 
 // All of these methods are file private and are unit tested using manifest loader.
@@ -119,7 +223,7 @@ extension PackageDescription4.Package.Dependency {
             fatalError("Unexpected item")
         }
 
-        let requirement: Package.Dependency.Requirement
+        let requirement: PackageDescription4.Package.Dependency.Requirement
 
         switch requirementDict["type"] {
         case .string("branch")?:

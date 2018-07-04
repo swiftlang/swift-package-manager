@@ -17,7 +17,7 @@ import Utility
 import TestSupport
 
 extension SystemLibraryTarget {
-    convenience init(pkgConfig: String, providers: [SystemPackageProvider] = []) {
+    convenience init(pkgConfig: String, providers: [SystemPackageProviderDescription] = []) {
         self.init(
             name: "Foo",
             path: AbsolutePath("/fake"),
@@ -52,9 +52,9 @@ class PkgConfigTests: XCTestCase {
             XCTAssertEqual(result.cFlags, [])
             XCTAssertEqual(result.libs, [])
             switch result.provider {
-            case .brewItem(let names)?:
+            case .brew(let names)?:
                 XCTAssertEqual(names, ["libFoo"])
-            case .aptItem(let names)?:
+            case .apt(let names)?:
                 XCTAssertEqual(names, ["libFoo-dev"])
             case nil:
                 XCTFail("Expected a provider here")

@@ -367,7 +367,7 @@ class PackageBuilderTests: XCTestCase {
                 "/Tests/FooTests/BarTests.swift",
                 "/Tests/BarTests/BazTests.swift")
 
-            PackageBuilderTester(.v3(.init(name: "Foo")), in: fs) { result in
+            PackageBuilderTester(Package(name: "Foo"), in: fs) { result in
                 result.checkModule("Foo") { moduleResult in
                     moduleResult.check(c99name: "Foo", type: .library)
                     moduleResult.checkSources(root: singleModuleSource.asString, paths: "Foo.swift")
@@ -400,7 +400,7 @@ class PackageBuilderTests: XCTestCase {
             "/Tests/DTests/Foo.swift",
             "/Tests/ETests/Foo.swift")
 
-       PackageBuilderTester(.v3(.init(name: "Foo")), in: fs) { result in
+       PackageBuilderTester(PackageDescription.Package(name: "Foo"), in: fs) { result in
            result.checkModule("A") { moduleResult in
                moduleResult.check(c99name: "A", type: .executable)
                moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
@@ -1112,14 +1112,45 @@ final class PackageBuilderTester {
 
     @discardableResult
     convenience init(
-        _ package: PackageDescription4.Package,
+        _ name: String,
         path: AbsolutePath = .root,
         in fs: FileSystem,
         file: StaticString = #file,
         line: UInt = #line,
         _ body: (PackageBuilderTester) -> Void
     ) {
-       self.init(.v4(package), path: path, in: fs, file: file, line: line, body)
+        self.init(PackageDescription.Package(name: name), path: path, in: fs, file: file, line: line, body)
+    }
+
+    @discardableResult
+    convenience init(
+        _ package: PackageDescription4.Package,
+        path: AbsolutePath = .root,
+        shouldCreateMultipleTestProducts: Bool = false,
+        in fs: FileSystem,
+        file: StaticString = #file,
+        line: UInt = #line,
+        _ body: (PackageBuilderTester) -> Void
+    ) {
+        let manifest = Manifest(
+            name: package.name,
+            path: path.appending(component: Manifest.filename),
+            url: "",
+            legacyExclude: [],
+            version: nil,
+            manifestVersion: .v4,
+            pkgConfig: package.pkgConfig,
+            providers: package.providerDescriptions(),
+            swiftLanguageVersions: package.swiftVersions(),
+            products: package.productDescriptions(),
+            targets: package.ts()
+        )
+
+        self.init(
+            manifest,
+            path: path,
+            shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+            in: fs, file: file, line: line, body)
     }
 
     @discardableResult
@@ -1131,24 +1162,29 @@ final class PackageBuilderTester {
         line: UInt = #line,
         _ body: (PackageBuilderTester) -> Void
     ) {
-       self.init(.v3(package), path: path, in: fs, file: file, line: line, body)
+        let manifest = Manifest(
+            name: package.name,
+            path: path.appending(component: Manifest.filename),
+            url: "",
+            legacyExclude: package.exclude,
+            version: nil,
+            manifestVersion: .v3,
+            pkgConfig: package.pkgConfig,
+            providers: package.providerDescriptions(),
+            swiftLanguageVersions: package.swiftVersions(),
+            products: [],
+            targets: package.ts()
+        )
+
+        self.init(
+            manifest,
+            path: path,
+            in: fs, file: file, line: line, body)
     }
 
     @discardableResult
-    convenience init(
-        _ name: String,
-        path: AbsolutePath = .root,
-        in fs: FileSystem,
-        file: StaticString = #file,
-        line: UInt = #line,
-        _ body: (PackageBuilderTester) -> Void
-    ) {
-       self.init(PackageDescription.Package(name: name), path: path, in: fs, file: file, line: line, body)
-    }
-
-    @discardableResult
-    init(
-        _ package: Manifest.RawPackage,
+    private init(
+        _ manifest: Manifest,
         path: AbsolutePath = .root,
         shouldCreateMultipleTestProducts: Bool = false,
         in fs: FileSystem,
@@ -1158,16 +1194,6 @@ final class PackageBuilderTester {
     ) {
         let diagnostics = DiagnosticsEngine()
         do {
-            // FIXME: This is not very correct and is expected to be addressed when we kill
-            // merge the two different PackageDescription.
-            let manifestVersion: ManifestVersion
-            switch package {
-            case .v3:
-                manifestVersion = .v3
-            case .v4:
-                manifestVersion = .v4
-            }
-            let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil, manifestVersion: manifestVersion)
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
                 manifest: manifest, path: path, fileSystem: fs, diagnostics: diagnostics,

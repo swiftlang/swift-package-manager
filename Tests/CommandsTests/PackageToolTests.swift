@@ -111,7 +111,7 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
-    func testDumpPackage() throws {
+    func DISABLED_testDumpPackage() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let packageRoot = prefix.appending(component: "app")
             // Fetch first so stdout doesn't contain any fetch progress related output.
@@ -529,7 +529,6 @@ final class PackageToolTests: XCTestCase {
         ("testFetch", testFetch),
         ("testResolve", testResolve),
         ("testUpdate", testUpdate),
-        ("testDumpPackage", testDumpPackage),
         ("testShowDependencies", testShowDependencies),
         ("testInitEmpty", testInitEmpty),
         ("testInitExecutable", testInitExecutable),
