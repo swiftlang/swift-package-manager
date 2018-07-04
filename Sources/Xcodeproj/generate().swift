@@ -13,6 +13,7 @@ import POSIX
 import PackageGraph
 import PackageModel
 import PackageLoading
+import SourceControl
 import Utility
 
 public struct XcodeprojOptions {
@@ -63,6 +64,7 @@ public func generate(
     projectName: String,
     xcodeprojPath: AbsolutePath,
     graph: PackageGraph,
+    repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
     options: XcodeprojOptions,
     diagnostics: DiagnosticsEngine
 ) throws -> Xcode.Project {
@@ -82,10 +84,16 @@ public func generate(
     // references in the project.
     let extraDirs = try findDirectoryReferences(path: srcroot)
 
+    var extraFiles = [AbsolutePath]()
+    if try repositoryProvider.checkoutExists(at: srcroot) {
+        let workingCheckout = try repositoryProvider.openCheckout(at: srcroot)
+        extraFiles = try getExtraFilesFor(package: graph.rootPackages[0], in: workingCheckout)
+    }
+
     /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
     // FIXME: This could be more efficient by directly writing to a stream
     // instead of first creating a string.
-    let project = try pbxproj(xcodeprojPath: xcodeprojPath, graph: graph, extraDirs: extraDirs, options: options, diagnostics: diagnostics)
+    let project = try pbxproj(xcodeprojPath: xcodeprojPath, graph: graph, extraDirs: extraDirs, extraFiles: extraFiles, options: options, diagnostics: diagnostics)
     try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
         // Serialize the project model we created to a plist, and return
         // its string description.
@@ -222,4 +230,41 @@ func generateSchemes(
             fs: localFileSystem
         ).generate()
     }
+}
+
+// Find and return non-source files in the source directories and root that should be added
+// as a reference to the project.
+func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheckout) throws -> [AbsolutePath] {
+    let srcroot = package.path
+    var extraFiles = try findNonSourceFiles(path: srcroot)
+
+    for target in package.targets {
+        let sourcesDirectory = target.sources.root
+        if localFileSystem.isDirectory(sourcesDirectory) {
+            let sourcesExtraFiles = try findNonSourceFiles(path: sourcesDirectory, recursively: true)
+            extraFiles.append(contentsOf: sourcesExtraFiles)
+        }
+    }
+
+    let isIgnored = try workingCheckout.areIgnored(extraFiles)
+    extraFiles = extraFiles.enumerated().filter({ !isIgnored[$0.offset] }).map({ $0.element })
+
+    return extraFiles
+}
+
+/// Finds the non-source files from `path`
+/// - parameters:
+///   - path: The path of the directory to get the files from
+///   - recursively: Specifies if the directory at `path` should be searched recursively
+func findNonSourceFiles(path: AbsolutePath, recursively: Bool = false) throws -> [AbsolutePath] {
+    let filesFromPath = try walk(path, recursively: recursively)
+
+    return filesFromPath.filter({
+        if !isFile($0) { return false }
+        if $0.basename.hasPrefix(".") { return false }
+        if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions.contains(`extension`) {
+            return false
+        }
+        return true
+    })
 }
