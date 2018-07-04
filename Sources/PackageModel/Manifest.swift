@@ -24,13 +24,7 @@ public enum ManifestVersion: String {
         switch self {
         case .v3: return .v3
         case .v4: return .v4
-
-        // To temporarily keep SwiftPM's tests compatible with Swift 4.1.
-      #if swift(>=4.1.50)
         case .v4_2: return .v4_2
-      #else
-        case .v4_2: return .v4
-      #endif
         }
     }
 }
