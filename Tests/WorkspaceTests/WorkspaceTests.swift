@@ -1682,12 +1682,15 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .edited(nil))
         }
+        workspace.checkResolved() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
 
         // Try resolving a bad graph.
         let deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Bar", requirement: .exact("1.1.0")),
         ]
-        workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("/tmp/ws/pkgs/Bar @ 1.1.0"), behavior: .error)
             }
