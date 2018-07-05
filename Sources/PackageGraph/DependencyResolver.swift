@@ -1332,7 +1332,7 @@ private struct ResolverDebugger<
     /// This algorithm can be exponential, so we abort after the predefined time limit.
     func debug(
         dependencies inputDependencies: [Constraint],
-        pins: [Constraint]
+        pins inputPins: [Constraint]
     ) throws -> (dependencies: [Constraint], pins: [Constraint]) {
 
         // Form the dependencies array.
@@ -1353,10 +1353,12 @@ private struct ResolverDebugger<
             }
         }
 
-        // Remove the unversioned constraints which may be added as result of the above loop.
-        dependencies = dependencies.filter({ dep in
-            return !inputDependencies.contains(where: { $0.identifier == dep.identifier && $0.requirement == .unversioned })
-        })
+        // Form a set of all unversioned dependencies.
+        let unversionedDependencies = Set(inputDependencies.filter({ $0.requirement == .unversioned }).map({ $0.identifier }))
+
+        // Remove the unversioned constraints from dependencies and pins.
+        dependencies = dependencies.filter({ !unversionedDependencies.contains($0.identifier) })
+        let pins = inputPins.filter({ !unversionedDependencies.contains($0.identifier) })
 
         // Put the resolver in incomplete mode to avoid cloning new repositories.
         resolver.isInIncompleteMode = true
