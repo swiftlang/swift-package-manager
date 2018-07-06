@@ -223,7 +223,7 @@ public struct LLBuildManifestGenerator {
     }
 
     /// Create a llbuild target for a Swift target description.
-    private func createSwiftCompileTarget(_ target: SwiftTargetDescription) -> Target {
+    private func createSwiftCompileTarget(_ target: SwiftTargetBuildDescription) -> Target {
         // Compute inital inputs.
         var inputs = SortedArray<String>()
         inputs += target.target.sources.paths.map({ $0.asString })
@@ -272,7 +272,7 @@ public struct LLBuildManifestGenerator {
     }
 
     /// Create a llbuild target for a Clang target description.
-    private func createClangCompileTarget(_ target: ClangTargetDescription) -> Target {
+    private func createClangCompileTarget(_ target: ClangTargetBuildDescription) -> Target {
 
         let standards = [
             (target.clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),

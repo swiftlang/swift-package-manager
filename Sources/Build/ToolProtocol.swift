@@ -106,11 +106,11 @@ struct SwiftCompilerTool: ToolProtocol {
     }
 
     /// The underlying Swift build target.
-    let target: SwiftTargetDescription
+    let target: SwiftTargetBuildDescription
 
     static let numThreads = ProcessInfo.processInfo.activeProcessorCount
 
-    init(target: SwiftTargetDescription, inputs: [String]) {
+    init(target: SwiftTargetBuildDescription, inputs: [String]) {
         self.target = target
         self.inputs = inputs
     }
