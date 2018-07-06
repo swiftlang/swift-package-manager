@@ -118,13 +118,13 @@ public struct BuildParameters {
 }
 
 /// A target description which can either be for a Swift or Clang target.
-public enum TargetDescription {
+public enum TargetBuildDescription {
 
     /// Swift target description.
-    case swift(SwiftTargetDescription)
+    case swift(SwiftTargetBuildDescription)
 
     /// Clang target description.
-    case clang(ClangTargetDescription)
+    case clang(ClangTargetBuildDescription)
 
     /// The objects in this target.
     var objects: [AbsolutePath] {
@@ -138,7 +138,7 @@ public enum TargetDescription {
 }
 
 /// Target description for a Clang target i.e. C language family target.
-public final class ClangTargetDescription {
+public final class ClangTargetBuildDescription {
 
     /// The target described by this target.
     public let target: ResolvedTarget
@@ -276,7 +276,7 @@ public final class ClangTargetDescription {
 }
 
 /// Target description for a Swift target.
-public final class SwiftTargetDescription {
+public final class SwiftTargetBuildDescription {
 
     /// The target described by this target.
     public let target: ResolvedTarget
@@ -546,13 +546,13 @@ public class BuildPlan {
     public let graph: PackageGraph
 
     /// The target build description map.
-    public let targetMap: [ResolvedTarget: TargetDescription]
+    public let targetMap: [ResolvedTarget: TargetBuildDescription]
 
     /// The product build description map.
     public let productMap: [ResolvedProduct: ProductBuildDescription]
 
     /// The build targets.
-    public var targets: AnySequence<TargetDescription> {
+    public var targets: AnySequence<TargetBuildDescription> {
         return AnySequence(targetMap.values)
     }
 
@@ -585,13 +585,13 @@ public class BuildPlan {
         self.fileSystem = fileSystem
 
         // Create build target description for each target which we need to plan.
-        var targetMap = [ResolvedTarget: TargetDescription]()
+        var targetMap = [ResolvedTarget: TargetBuildDescription]()
         for target in graph.allTargets {
              switch target.underlyingTarget {
              case is SwiftTarget:
-                 targetMap[target] = .swift(SwiftTargetDescription(target: target, buildParameters: buildParameters))
+                 targetMap[target] = .swift(SwiftTargetBuildDescription(target: target, buildParameters: buildParameters))
              case is ClangTarget:
-                targetMap[target] = try .clang(ClangTargetDescription(
+                targetMap[target] = try .clang(ClangTargetBuildDescription(
                     target: target,
                     buildParameters: buildParameters,
                     fileSystem: fileSystem))
@@ -611,7 +611,7 @@ public class BuildPlan {
                 guard let linuxMainTarget = product.linuxMainTarget else {
                     throw Error.missingLinuxMain
                 }
-                let target = SwiftTargetDescription(
+                let target = SwiftTargetBuildDescription(
                         target: linuxMainTarget, buildParameters: buildParameters, isTestTarget: true)
                 targetMap[linuxMainTarget] = .swift(target)
             }
@@ -754,7 +754,7 @@ public class BuildPlan {
     }
 
     /// Plan a Clang target.
-    private func plan(clangTarget: ClangTargetDescription) {
+    private func plan(clangTarget: ClangTargetBuildDescription) {
         for dependency in clangTarget.target.recursiveDependencies {
             switch dependency.underlyingTarget {
             case let target as ClangTarget where target.type == .library:
@@ -772,7 +772,7 @@ public class BuildPlan {
     }
 
     /// Plan a Swift target.
-    private func plan(swiftTarget: SwiftTargetDescription) throws {
+    private func plan(swiftTarget: SwiftTargetBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
         for dependency in swiftTarget.target.recursiveDependencies {
