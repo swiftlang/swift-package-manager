@@ -100,7 +100,7 @@ let package = Package(
         .target(
             /** Primitive Package model objects */
             name: "PackageModel",
-            dependencies: ["Basic", "PackageDescription", "PackageDescription4", "Utility"]),
+            dependencies: ["Basic", "Utility"]),
         .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
