@@ -12,32 +12,58 @@ import XCTest
 
 import Basic
 import PackageGraph
-import PackageDescription
 import TestSupport
+import PackageModel
 @testable import Xcodeproj
 
 class PackageGraphTests: XCTestCase {
     func testBasics() throws {
-      let fs = InMemoryFileSystem(emptyFiles:
-          "/Foo/Sources/foo.swift",
-          "/Foo/Tests/FooTests/fooTests.swift",
-          "/Bar/Sources/Bar/bar.swift",
-          "/Bar/Sources/Sea/include/Sea.h",
-          "/Bar/Sources/Sea/Sea.c",
-          "/Bar/Sources/Sea2/include/Sea2.h",
-          "/Bar/Sources/Sea2/include/module.modulemap",
-          "/Bar/Sources/Sea2/Sea2.c",
-          "/Bar/Sources/Sea3/include/header.h",
-          "/Bar/Sources/Sea3/Sea3.c",
-          "/Bar/Tests/BarTests/barTests.swift",
-          "/Overrides.xcconfig"
-      )
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Foo/Tests/FooTests/fooTests.swift",
+            "/Bar/Sources/Bar/bar.swift",
+            "/Bar/Sources/Sea/include/Sea.h",
+            "/Bar/Sources/Sea/Sea.c",
+            "/Bar/Sources/Sea2/include/Sea2.h",
+            "/Bar/Sources/Sea2/include/module.modulemap",
+            "/Bar/Sources/Sea2/Sea2.c",
+            "/Bar/Sources/Sea3/include/header.h",
+            "/Bar/Sources/Sea3/Sea3.c",
+            "/Bar/Tests/BarTests/barTests.swift",
+            "/Overrides.xcconfig"
+        )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadMockPackageGraph([
-            "/Foo": Package(name: "Foo"),
-            "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
-        ], root: "/Bar", diagnostics: diagnostics, in: fs)
+        let g = loadPackageGraph(root: "/Bar", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    url: "/Foo",
+                    products: [
+                        ProductDescription(name: "Foo", targets: ["Foo"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: []),
+                        TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    url: "/Bar",
+                    dependencies: [
+                        PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar", dependencies: ["Foo"]),
+                        TargetDescription(name: "BarTests", dependencies: ["Bar"], type: .test),
+                        TargetDescription(name: "Sea", dependencies: ["Foo"]),
+                        TargetDescription(name: "Sea2", dependencies: ["Foo"]),
+                        TargetDescription(name: "Sea3", dependencies: ["Foo"]),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
 
         let options = XcodeprojOptions(xcconfigOverrides: AbsolutePath("/Overrides.xcconfig"))
         
@@ -59,8 +85,8 @@ class PackageGraphTests: XCTestCase {
                 "Sources/Sea/Sea.c",
                 "Sources/Sea/include/Sea.h",
                 "Tests/BarTests/barTests.swift",
-                "Dependencies/Foo 1.0.0/Package.swift",
-                "Dependencies/Foo 1.0.0/foo.swift",
+                "Dependencies/Foo/Package.swift",
+                "Dependencies/Foo/Foo/foo.swift",
                 "Products/Foo.framework",
                 "Products/Sea3.framework",
                 "Products/Sea2.framework",
@@ -160,13 +186,24 @@ class PackageGraphTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift"
         )
+
         let diagnostics = DiagnosticsEngine()
-        let g = loadMockPackageGraph4([
-            "/Foo": .init(
-                name: "Foo",
-                products: [.library(name: "Bar", type: .dynamic, targets: ["Foo"])],
-                targets: [.target(name: "Foo")]),
-        ], root: "/Foo", diagnostics: diagnostics, in: fs)
+        let g = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    url: "/Foo",
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.dynamic), targets: ["Foo"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
         let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Foo/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
         XcodeProjectTester(project) { result in
             result.check(target: "Foo") { targetResult in
@@ -181,36 +218,48 @@ class PackageGraphTests: XCTestCase {
     }
     
     func testModulemap() throws {
-      let fs = InMemoryFileSystem(emptyFiles:
-          "/Bar/Sources/Sea/include/Sea.h",
-          "/Bar/Sources/Sea/Sea.c",
-          "/Bar/Sources/Sea2/include/Sea2.h",
-          "/Bar/Sources/Sea2/include/module.modulemap",
-          "/Bar/Sources/Sea2/Sea2.c",
-          "/Bar/Sources/swift/main.swift"
-      )
-      let diagnostics = DiagnosticsEngine()
-      let g = loadMockPackageGraph([
-          "/Bar": Package(name: "Bar", targets: [Target(name: "swift", dependencies: ["Sea", "Sea2"])]),
-      ], root: "/Bar", diagnostics: diagnostics, in: fs)
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Bar/Sources/Sea/include/Sea.h",
+            "/Bar/Sources/Sea/Sea.c",
+            "/Bar/Sources/Sea2/include/Sea2.h",
+            "/Bar/Sources/Sea2/include/module.modulemap",
+            "/Bar/Sources/Sea2/Sea2.c",
+            "/Bar/Sources/swift/main.swift"
+        )
 
-      XcodeProjectTester(project) { result in
-          result.check(target: "swift") { targetResult in
-              XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
-                  "$(inherited)", "-Xcc",
-                  "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap",
-              ])
-              XCTAssertEqual(targetResult.target.buildSettings.common.HEADER_SEARCH_PATHS ?? [], [
-                  "$(inherited)",
-                  "$(SRCROOT)/Sources/Sea2/include",
-                  "$(SRCROOT)/Sources/Sea/include",
-              ])
-          }
-          result.check(target: "Sea") { targetResult in
-              XCTAssertEqual(targetResult.target.buildSettings.common.MODULEMAP_FILE, nil)
-          }
-      }
+        let diagnostics = DiagnosticsEngine()
+        let g = loadPackageGraph(root: "/Bar", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    url: "/Bar",
+                    targets: [
+                        TargetDescription(name: "Sea", dependencies: []),
+                        TargetDescription(name: "Sea2", dependencies: []),
+                        TargetDescription(name: "swift", dependencies: ["Sea", "Sea2"]),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+		let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
+		XcodeProjectTester(project) { result in
+      	    result.check(target: "swift") { targetResult in
+      	        XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
+      	            "$(inherited)", "-Xcc",
+      	            "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap",
+      	        ])
+      	        XCTAssertEqual(targetResult.target.buildSettings.common.HEADER_SEARCH_PATHS ?? [], [
+      	            "$(inherited)",
+      	            "$(SRCROOT)/Sources/Sea2/include",
+      	            "$(SRCROOT)/Sources/Sea/include",
+      	        ])
+      	    }
+      	    result.check(target: "Sea") { targetResult in
+      	        XCTAssertEqual(targetResult.target.buildSettings.common.MODULEMAP_FILE, nil)
+      	    }
+      	}
     }
 
     func testModuleLinkage() throws {
@@ -219,11 +268,22 @@ class PackageGraphTests: XCTestCase {
             "/Pkg/Sources/Library/lib.swift",
             "/Pkg/Tests/LibraryTests/aTest.swift"
         )
-        
+
         let diagnostics = DiagnosticsEngine()
-        let g = loadMockPackageGraph([
-            "/Pkg": Package(name: "Pkg", targets: [Target(name: "LibraryTests", dependencies: ["Library", "HelperTool"])]),
-            ], root: "/Pkg", diagnostics: diagnostics, in: fs)
+        let g = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "HelperTool", dependencies: []),
+                        TargetDescription(name: "Library", dependencies: []),
+                        TargetDescription(name: "LibraryTests", dependencies: ["Library", "HelperTool"], type: .test),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
         
         let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
         
@@ -257,38 +317,41 @@ class PackageGraphTests: XCTestCase {
     }
 
     func testSchemes() throws {
-      let fs = InMemoryFileSystem(emptyFiles:
-          "/Foo/Sources/a/main.swift",
-          "/Foo/Sources/b/main.swift",
-          "/Foo/Sources/c/main.swift",
-          "/Foo/Sources/d/main.swift",
-          "/Foo/Sources/libd/libd.swift",
+        let fs = InMemoryFileSystem(emptyFiles:
+      	    "/Foo/Sources/a/main.swift",
+      	    "/Foo/Sources/b/main.swift",
+      	    "/Foo/Sources/c/main.swift",
+      	    "/Foo/Sources/d/main.swift",
+      	    "/Foo/Sources/libd/libd.swift",
 
-          "/Foo/Tests/aTests/fooTests.swift",
-          "/Foo/Tests/bcTests/fooTests.swift",
-          "/Foo/Tests/dTests/fooTests.swift",
-          "/Foo/Tests/libdTests/fooTests.swift",
-          "/end"
-      )
+      	    "/Foo/Tests/aTests/fooTests.swift",
+      	    "/Foo/Tests/bcTests/fooTests.swift",
+      	    "/Foo/Tests/dTests/fooTests.swift",
+      	    "/Foo/Tests/libdTests/fooTests.swift",
+      	    "/end"
+      	)
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadMockPackageGraph4([
-            "/Foo": .init(
-                name: "Foo",
-                targets: [
-                    .target(name: "a"),
-                    .target(name: "b", dependencies: ["a"]),
-                    .target(name: "c", dependencies: ["a"]),
-                    .target(name: "d", dependencies: ["b"]),
-                    .target(name: "libd", dependencies: ["d"]),
-
-                    .testTarget(name: "aTests", dependencies: ["a"]),
-                    .testTarget(name: "bcTests", dependencies: ["b", "c"]),
-                    .testTarget(name: "dTests", dependencies: ["d"]),
-                    .testTarget(name: "libdTests", dependencies: ["libd"]),
-                ]
-             ),
-        ], root: "/Foo", diagnostics: diagnostics, in: fs)
+        let graph = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    url: "/Foo",
+                    targets: [
+                        TargetDescription(name: "a"),
+                        TargetDescription(name: "b", dependencies: ["a"]),
+                        TargetDescription(name: "c", dependencies: ["a"]),
+                        TargetDescription(name: "d", dependencies: ["b"]),
+                        TargetDescription(name: "libd", dependencies: ["d"]),
+        
+                        TargetDescription(name: "aTests", dependencies: ["a"], type: .test),
+                        TargetDescription(name: "bcTests", dependencies: ["b", "c"], type: .test),
+                        TargetDescription(name: "dTests", dependencies: ["d"], type: .test),
+                        TargetDescription(name: "libdTests", dependencies: ["libd"], type: .test),
+                    ]),
+            ]
+        )
         XCTAssertNoDiagnostics(diagnostics)
 
         let generatedSchemes = SchemesGenerator(
@@ -314,29 +377,33 @@ class PackageGraphTests: XCTestCase {
 
     func testSwiftVersion() throws {
         // FIXME: Unfortunately, we can't test 4.2 right now.
-        for swiftVersion in [3, 4] {
+        for swiftVersion in ["3.0", "4.0", "4.2"] {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/Foo/Sources/a/main.swift",
                 "/end"
             )
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadMockPackageGraph4([
-                "/Foo": .init(
-                    name: "Foo",
-                    targets: [
-                        .target(name: "a"),
-                    ],
-                    swiftLanguageVersions: [swiftVersion]
-                 ),
-            ], root: "/Foo", diagnostics: diagnostics, in: fs)
+            let graph = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+                manifests: [
+                    Manifest.createV4Manifest(
+                        name: "Foo",
+                        path: "/Foo",
+                        url: "/Foo",
+                        swiftLanguageVersions: [SwiftLanguageVersion(string: swiftVersion)!],
+                        targets: [
+                            TargetDescription(name: "a"),
+                        ]),
+                ]
+            )
+            XCTAssertNoDiagnostics(diagnostics)
 
             let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Foo").appending(component: "xcodeproj"), graph: graph, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
             XCTAssertNoDiagnostics(diagnostics)
 
             XcodeProjectTester(project) { result in
                 result.check(target: "a") { targetResult in
-                    XCTAssertEqual(targetResult.target.buildSettings.common.SWIFT_VERSION, "\(swiftVersion).0")
+                    XCTAssertEqual(targetResult.target.buildSettings.common.SWIFT_VERSION, swiftVersion)
                 }
             }
         }
