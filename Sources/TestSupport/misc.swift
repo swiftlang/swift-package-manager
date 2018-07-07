@@ -263,6 +263,35 @@ public func loadMockPackageGraph4(
     return PackageGraphLoader().load(root: root, externalManifests: externalManifests, diagnostics: diagnostics, fileSystem: fs)
 }
 
+public func loadPackageGraph(
+    roots: [String],
+    fs: FileSystem,
+    diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
+    manifests: [Manifest]
+) -> PackageGraph {
+    let input = PackageGraphRootInput(packages: roots.map({ AbsolutePath($0) }))
+    let rootManifests = manifests.filter({ roots.contains($0.path.parentDirectory.asString) })
+    let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests)
+    let externalManifests = manifests.filter({ !roots.contains($0.path.parentDirectory.asString) })
+
+    return PackageGraphLoader().load(
+        root: graphRoot,
+        externalManifests: externalManifests,
+        diagnostics: diagnostics,
+        fileSystem: fs)
+}
+
+public func loadPackageGraph(
+    root: String,
+    fs: FileSystem,
+    diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
+    manifests: [Manifest]
+) -> PackageGraph {
+    return loadPackageGraph(
+        roots: [root], fs: fs,
+        diagnostics: diagnostics, manifests: manifests)
+}
+
 /// Temporary override environment variables
 ///
 /// WARNING! This method is not thread-safe. POSIX environments are shared 
