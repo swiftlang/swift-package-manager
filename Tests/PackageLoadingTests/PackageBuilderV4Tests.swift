@@ -14,48 +14,7 @@ import Basic
 import PackageModel
 import Utility
 
-@testable import PackageLoading
-
-extension Manifest {
-    // FIXME: Can be replaced with Manifest.createV4Manifest.
-    fileprivate convenience init(
-        name: String,
-        path: String = "/",
-        url: String = "/",
-        legacyProducts: [ProductDescription] = [],
-        legacyExclude: [String] = [],
-        version: Utility.Version? = nil,
-        interpreterFlags: [String] = [],
-        manifestVersion: ManifestVersion = .v4,
-        pkgConfig: String? = nil,
-        providers: [SystemPackageProviderDescription]? = nil,
-        cLanguageStandard: String? = nil,
-        cxxLanguageStandard: String? = nil,
-        swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
-        dependencies: [PackageDependencyDescription] = [],
-        products: [ProductDescription] = [],
-        targets: [TargetDescription] = []
-    ) {
-        self.init(
-            name: name,
-            path: AbsolutePath(path).appending(component: Manifest.filename),
-            url: url,
-            legacyProducts: legacyProducts,
-            legacyExclude: legacyExclude,
-            version: version,
-            interpreterFlags: interpreterFlags,
-            manifestVersion: manifestVersion,
-            pkgConfig: pkgConfig,
-            providers: providers,
-            cLanguageStandard: cLanguageStandard,
-            cxxLanguageStandard: cxxLanguageStandard,
-            swiftLanguageVersions: swiftLanguageVersions,
-            dependencies: dependencies,
-            products: products,
-            targets: targets
-        )
-    }
-}
+import PackageLoading
 
 class PackageBuilderV4Tests: XCTestCase {
 
@@ -67,7 +26,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/foo/foo.swift"
         )
 
-        var manifest = Manifest(
+        var manifest = Manifest.createV4Manifest(
             name: "pkg",
             products: [
                 ProductDescription(name: "exec", type: .executable, targets: ["exec", "foo"]),
@@ -85,7 +44,7 @@ class PackageBuilderV4Tests: XCTestCase {
             }
         }
 
-        manifest = Manifest(
+        manifest = Manifest.createV4Manifest(
             name: "pkg",
             products: [],
             targets: [
@@ -103,7 +62,7 @@ class PackageBuilderV4Tests: XCTestCase {
 
         // If we already have an explicit product, we shouldn't create an
         // implicit one.
-        manifest = Manifest(
+        manifest = Manifest.createV4Manifest(
             name: "pkg",
             products: [
                 ProductDescription(name: "exec1", type: .executable, targets: ["exec"]),
@@ -129,7 +88,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/swift/tests/footests.swift"
         )
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
                 TargetDescription(name: "exe", path: "swift/exe"),
@@ -160,7 +119,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/pkg/footests.swift"
         )
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
                 TargetDescription(
@@ -194,7 +153,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/swift/tests/footests.swift"
         )
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
                 TargetDescription(
@@ -223,7 +182,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/bar/bar/fixture/fix2.swift"
         )
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
                 TargetDescription(
@@ -278,7 +237,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/target/bar/Tests/barTests.swift"
         )
 
-        var manifest = Manifest(
+        var manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
                 TargetDescription(
@@ -294,7 +253,7 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkDiagnostic("target 'barTests' has sources overlapping sources: /target/bar/Tests/barTests.swift")
         }
 
-        manifest = Manifest(
+        manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
                 TargetDescription(
@@ -335,7 +294,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/Bar/Bar.c"
         )
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "Foo",
             targets: [
                 TargetDescription(
@@ -371,7 +330,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Tests/ATests/Foo.swift",
             "/Tests/TheTestOfA/Foo.swift")
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "Foo",
             targets: [
                 TargetDescription(name: "A"),
@@ -419,7 +378,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Tests/barTests/bar.swift"
         )
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
                 TargetDescription(name: "foo"),
@@ -457,7 +416,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/Baz/Baz.swift")
 
         // Direct.
-        var manifest = Manifest(
+        var manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
                 TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -481,7 +440,7 @@ class PackageBuilderV4Tests: XCTestCase {
         }
 
         // Transitive.
-        manifest = Manifest(
+        manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
                 TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -517,7 +476,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/C/baz.swift"
         )
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "A",
             targets: [
                 TargetDescription(name: "A"),
@@ -537,7 +496,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/Bar/Bar.swift",
             "/Sources/Baz/Baz.swift")
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
                 TargetDescription(name: "Bar"),
@@ -573,7 +532,7 @@ class PackageBuilderV4Tests: XCTestCase {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/Foo.swift")
 
-            let manifest = Manifest(
+            let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
                     TargetDescription(name: "Random"),
@@ -588,7 +547,7 @@ class PackageBuilderV4Tests: XCTestCase {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/src/pkg/Foo.swift")
             // Reference an invalid dependency.
-            let manifest = Manifest(
+            let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
                     TargetDescription(name: "pkg", dependencies: [.target(name: "Foo")]),
@@ -603,7 +562,7 @@ class PackageBuilderV4Tests: XCTestCase {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/Source/pkg/Foo.swift")
             // Reference self in dependencies.
-            let manifest = Manifest(
+            let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
                     TargetDescription(name: "pkg", dependencies: [.target(name: "pkg")]),
@@ -618,7 +577,7 @@ class PackageBuilderV4Tests: XCTestCase {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/Source/pkg/Foo.swift")
             // Reference invalid target.
-            let manifest = Manifest(
+            let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
                     TargetDescription(name: "foo"),
@@ -636,7 +595,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 "/Sources/pkg3/Foo.swift"
             )
             // Cyclic dependency.
-            var manifest = Manifest(
+            var manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
                     TargetDescription(name: "pkg1", dependencies: ["pkg2"]),
@@ -648,7 +607,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 result.checkDiagnostic("cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg1")
             }
 
-            manifest = Manifest(
+            manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
                     TargetDescription(name: "pkg1", dependencies: ["pkg2"]),
@@ -667,7 +626,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 "/Sources/pkg1/Foo.swift",
                 "/Sources/pkg2/readme.txt")
 
-            let manifest = Manifest(
+            let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
                     TargetDescription(name: "pkg1", dependencies: ["pkg2"]),
@@ -688,7 +647,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 "/Sources/Foo/Foo.c",
                 "/Sources/Bar/Bar.c")
 
-            var manifest = Manifest(
+            var manifest = Manifest.createV4Manifest(
                 name: "Foo",
                 targets: [
                     TargetDescription(name: "Foo", publicHeadersPath: "../inc"),
@@ -699,7 +658,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 result.checkDiagnostic("public headers directory path for 'Foo' is invalid or not contained in the target")
             }
 
-            manifest = Manifest(
+            manifest = Manifest.createV4Manifest(
                 name: "Foo",
                 targets: [
                     TargetDescription(name: "Bar", publicHeadersPath: "inc/../../../foo"),
@@ -715,7 +674,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 "/pkg/Sources/Foo/Foo.c",
                 "/foo/Bar.c")
 
-            let manifest = Manifest(
+            let manifest = Manifest.createV4Manifest(
                 name: "Foo",
                 targets: [
                     TargetDescription(name: "Foo", path: "../foo"),
@@ -730,7 +689,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 "/pkg/Sources/Foo/Foo.c",
                 "/foo/Bar.c")
 
-            let manifest = Manifest(
+            let manifest = Manifest.createV4Manifest(
                 name: "Foo",
                 targets: [
                     TargetDescription(name: "Foo", path: "/foo"),
@@ -746,7 +705,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 "/pkg/Sources/Foo/Foo.c",
                 "/foo/Bar.c")
 
-            let manifest = Manifest(
+            let manifest = Manifest.createV4Manifest(
                 name: "Foo",
                 targets: [
                     TargetDescription(name: "Foo", path: "~/foo"),
@@ -764,7 +723,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/exec/main.swift",
             "/Sources/lib/lib.swift")
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
                 TargetDescription(name: "lib", dependencies: ["exec"]),
@@ -791,7 +750,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/main.swift"
         )
 
-        var manifest = Manifest(
+        var manifest = Manifest.createV4Manifest(
             name: "pkg",
             pkgConfig: "foo"
         )
@@ -803,7 +762,7 @@ class PackageBuilderV4Tests: XCTestCase {
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/main.c"
         )
-        manifest = Manifest(
+        manifest = Manifest.createV4Manifest(
             name: "pkg",
             providers: [.brew(["foo"])]
         )
@@ -817,7 +776,7 @@ class PackageBuilderV4Tests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/module.modulemap")
 
-        let manifest = Manifest(name: "SystemModulePackage")
+        let manifest = Manifest.createV4Manifest(name: "SystemModulePackage")
         PackageBuilderTester(manifest, in: fs) { result in
             result.checkModule("SystemModulePackage") { moduleResult in
                 moduleResult.check(c99name: "SystemModulePackage", type: .systemModule)
@@ -833,7 +792,7 @@ class PackageBuilderV4Tests: XCTestCase {
         )
 
         func createManifest(swiftVersions: [SwiftLanguageVersion]?) -> Manifest {
-            return Manifest(
+            return Manifest.createV4Manifest(
                 name: "pkg",
                 swiftLanguageVersions: swiftVersions,
                 targets: [
@@ -896,7 +855,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 "/Source/Foo/Foo.swift",
                 "/src/Bar/Bar.swift")
 
-            let manifest = Manifest(
+            let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
                     TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -916,7 +875,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 "/Tests/FooTests/Foo.swift",
                 "/Source/BarTests/Foo.swift")
 
-            var manifest = Manifest(
+            var manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
                     TargetDescription(name: "BarTests", type: .test),
@@ -928,7 +887,7 @@ class PackageBuilderV4Tests: XCTestCase {
             }
 
             // We should be able to fix this by using custom paths.
-            manifest = Manifest(
+            manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
                     TargetDescription(name: "BarTests", path: "Source/BarTests", type: .test),
@@ -953,7 +912,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/src/A/Foo.swift",
             "/src/ATests/Foo.swift")
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "Foo",
             targets: [
                 TargetDescription(name: "A"),
@@ -983,7 +942,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/bar/bar.swift"
         )
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
                 TargetDescription(
@@ -1008,7 +967,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/foo/foo.swift"
         )
         
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "pkg",
             products: [
                 ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
@@ -1040,7 +999,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/bar/main.swift"
         )
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "SystemModulePackage",
             targets: [
                 TargetDescription(name: "foo"),
@@ -1062,7 +1021,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/bar/bar.swift"
         )
 
-        let manifest = Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "pkg",
             products: [
                 ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
@@ -1094,7 +1053,7 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/bar/bar.swift"
         )
 
-        var manifest = Manifest(
+        var manifest = Manifest.createV4Manifest(
             name: "SystemModulePackage",
             products: [
                 ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo", "bar"]),
@@ -1110,7 +1069,7 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkDiagnostic("system library product foo shouldn\'t have a type and contain only one target")
         }
 
-        manifest = Manifest(
+        manifest = Manifest.createV4Manifest(
             name: "SystemModulePackage",
             products: [
                 ProductDescription(name: "foo", type: .library(.static), targets: ["foo"]),
