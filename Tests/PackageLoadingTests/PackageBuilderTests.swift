@@ -14,7 +14,7 @@ import Basic
 import PackageModel
 import Utility
 
-@testable import PackageLoading
+import PackageLoading
 
 extension Manifest {
     fileprivate static func createV3Manifest(
