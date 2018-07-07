@@ -12,13 +12,6 @@ import Basic
 import PackageModel
 import Utility
 
-import enum PackageDescription.ProductType
-import class PackageDescription4.Product
-import class PackageDescription4.Target
-
-fileprivate typealias Product = PackageModel.Product
-fileprivate typealias Target = PackageModel.Target
-
 /// An error in the structure or layout of a package.
 public enum ModuleError: Swift.Error {
 

@@ -10,8 +10,6 @@
 
 import Basic
 import Utility
-import struct PackageDescription.Version
-import struct PackageDescription4.Version
 
 /// The supported manifest versions.
 public enum ManifestVersion: String {
@@ -309,42 +307,5 @@ public struct PackageDependencyDescription: Equatable {
     public init(url: String, requirement: Requirement) {
         self.url = url
         self.requirement = requirement
-    }
-}
-
-// MARK: - Version shim for PackageDescription4 -> PackageDescription.
-
-extension Utility.Version {
-    fileprivate init(pdVersion version: PackageDescription.Version) {
-        let buildMetadata = version.buildMetadataIdentifier?.split(separator: ".").map(String.init)
-        self.init(
-            version.major,
-            version.minor,
-            version.patch,
-            prereleaseIdentifiers: version.prereleaseIdentifiers,
-            buildMetadataIdentifiers: buildMetadata ?? [])
-    }
-}
-
-extension Range where Bound == PackageDescription.Version {
-    public var asUtilityVersion: Range<Utility.Version> {
-        return Utility.Version(pdVersion: lowerBound) ..< Utility.Version(pdVersion: upperBound)
-    }
-}
-
-extension Utility.Version {
-    /// Create Utility.Version object from PackageDescription4.Version object.
-    public init(pdVersion version: PackageDescription4.Version) {
-        self.init(
-            version.major, version.minor, version.patch,
-            prereleaseIdentifiers: version.prereleaseIdentifiers,
-            buildMetadataIdentifiers: version.buildMetadataIdentifiers)
-    }
-}
-
-extension Range where Bound == PackageDescription4.Version {
-    /// Converts PackageDescription.Version Range to Utility.Version Range.
-    public var asUtilityVersion: Range<Utility.Version> {
-        return Utility.Version(pdVersion: lowerBound) ..< Utility.Version(pdVersion: upperBound)
     }
 }

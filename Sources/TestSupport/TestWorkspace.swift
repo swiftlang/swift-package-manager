@@ -123,6 +123,7 @@ public final class TestWorkspace {
         if let workspace = _workspace {
             return workspace
         }
+
         _workspace = Workspace(
             dataPath: sandbox.appending(component: ".build"),
             editablesPath: sandbox.appending(component: "edits"),

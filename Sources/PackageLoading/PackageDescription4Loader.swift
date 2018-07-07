@@ -28,6 +28,23 @@ func loadPackageDescription4(
     return package
 }
 
+extension Utility.Version {
+    /// Create Utility.Version object from PackageDescription4.Version object.
+    fileprivate init(pdVersion version: PackageDescription4.Version) {
+        self.init(
+            version.major, version.minor, version.patch,
+            prereleaseIdentifiers: version.prereleaseIdentifiers,
+            buildMetadataIdentifiers: version.buildMetadataIdentifiers)
+    }
+}
+
+extension Range where Bound == PackageDescription4.Version {
+    /// Converts PackageDescription.Version Range to Utility.Version Range.
+    fileprivate var asUtilityVersion: Range<Utility.Version> {
+        return Utility.Version(pdVersion: lowerBound) ..< Utility.Version(pdVersion: upperBound)
+    }
+}
+
 extension PackageDescription4.Package {
 
     public func swiftVersions() -> [SwiftLanguageVersion]? {
