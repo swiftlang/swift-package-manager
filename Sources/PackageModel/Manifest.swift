@@ -114,7 +114,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
         url: String,
         legacyProducts: [ProductDescription] = [],
         legacyExclude: [String] = [],
-        version: Utility.Version?,
+        version: Utility.Version? = nil,
         interpreterFlags: [String] = [],
         manifestVersion: ManifestVersion,
         pkgConfig: String? = nil,
@@ -219,7 +219,7 @@ public struct TargetDescription: Equatable {
 
     public init(
         name: String,
-        dependencies: [Dependency],
+        dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
