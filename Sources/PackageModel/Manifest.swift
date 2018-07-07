@@ -268,7 +268,6 @@ public struct ProductDescription: Equatable {
         self.type = type
         self.targets = targets
     }
-
 }
 
 /// Represents system package providers.

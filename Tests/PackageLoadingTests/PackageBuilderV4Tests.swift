@@ -17,6 +17,7 @@ import Utility
 @testable import PackageLoading
 
 extension Manifest {
+    // FIXME: Can be replaced with Manifest.createV4Manifest.
     fileprivate convenience init(
         name: String,
         path: String = "/",
