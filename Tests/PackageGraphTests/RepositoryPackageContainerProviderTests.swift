@@ -11,7 +11,6 @@
 import XCTest
 
 import Basic
-import class PackageDescription.Package
 import PackageLoading
 import PackageModel
 @testable import PackageGraph

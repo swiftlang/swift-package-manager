@@ -22,7 +22,6 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(PackageDescription4_2LoadingTests.allTests),
         testCase(PkgConfigTests.allTests),
         testCase(PkgConfigWhitelistTests.allTests),
-        testCase(VersionShimTests.allTests),
         testCase(ToolsVersionLoaderTests.allTests),
     ]
 }

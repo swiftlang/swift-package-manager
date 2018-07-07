@@ -30,6 +30,23 @@ private extension PackageModel.ProductType {
     }
 }
 
+extension Utility.Version {
+    fileprivate init(pdVersion version: PackageDescription.Version) {
+        let buildMetadata = version.buildMetadataIdentifier?.split(separator: ".").map(String.init)
+        self.init(
+            version.major,
+            version.minor,
+            version.patch,
+            prereleaseIdentifiers: version.prereleaseIdentifiers,
+            buildMetadataIdentifiers: buildMetadata ?? [])
+    }
+}
+
+extension Range where Bound == PackageDescription.Version {
+    fileprivate var asUtilityVersion: Range<Utility.Version> {
+        return Utility.Version(pdVersion: lowerBound) ..< Utility.Version(pdVersion: upperBound)
+    }
+}
 
 /// Load PackageDescription models from the given JSON. The JSON is expected to be completely valid.
 /// The base url is used to resolve any relative paths in the dependency declarations.

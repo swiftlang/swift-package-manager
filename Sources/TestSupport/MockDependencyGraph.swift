@@ -11,7 +11,6 @@
 import XCTest
 
 import Basic
-import PackageDescription
 import PackageLoading
 import PackageModel
 import PackageGraph
@@ -180,16 +179,5 @@ public struct MockManifestGraph {
                 url: repos[dependency.name]?.url ?? "//\(dependency.name)",
                 requirement: .range(dependency.version.lowerBound ..< dependency.version.upperBound))
         })
-    }
-}
-
-fileprivate extension PackageDescription.Version {
-    init(_ version: Utility.Version) {
-        self.init(
-            version.major,
-            version.minor,
-            version.patch,
-            prereleaseIdentifiers: version.prereleaseIdentifiers,
-            buildMetadataIdentifier: version.buildMetadataIdentifiers.joined(separator: "."))
     }
 }
