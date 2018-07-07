@@ -12,8 +12,6 @@ import func XCTest.XCTFail
 import class Foundation.NSDate
 
 import Basic
-import PackageDescription
-import PackageDescription4
 import PackageGraph
 import PackageModel
 import POSIX
@@ -198,69 +196,6 @@ public func systemQuietly(_ args: [String]) throws {
 
 public func systemQuietly(_ args: String...) throws {
     try systemQuietly(args)
-}
-
-/// Loads a mock package graph based on package packageMap dictionary provided where key is path to a package.
-public func loadMockPackageGraph(
-    _ packageMap: [String: PackageDescription.Package],
-    root: String,
-    diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
-    in fs: FileSystem
-) -> PackageGraph {
-    var externalManifests = [Manifest]()
-    var rootManifest: Manifest!
-    for (url, package) in packageMap {
-        let manifest = Manifest(
-            name: package.name,
-            path: AbsolutePath(url).appending(component: Manifest.filename),
-            url: url,
-            version: "1.0.0",
-            manifestVersion: .v3,
-            pkgConfig: package.pkgConfig,
-            dependencies: package.dependencyDescriptions(),
-            targets: package.ts()
-        )
-        if url == root {
-            rootManifest = manifest
-        } else {
-            externalManifests.append(manifest)
-        }
-    }
-    let root = PackageGraphRoot(input: PackageGraphRootInput(packages: [AbsolutePath(root)]), manifests: [rootManifest])
-    return PackageGraphLoader().load(root: root, externalManifests: externalManifests, diagnostics: diagnostics, fileSystem: fs)
-}
-
-public func loadMockPackageGraph4(
-    _ packageMap: [String: PackageDescription4.Package],
-    root: String,
-    diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
-    in fs: FileSystem
-) -> PackageGraph {
-    var externalManifests = [Manifest]()
-    var rootManifest: Manifest!
-    for (url, package) in packageMap {
-        let manifest = Manifest(
-            name: package.name,
-            path: AbsolutePath(url).appending(component: Manifest.filename),
-            url: url,
-            version: "1.0.0",
-            manifestVersion: .v4,
-            pkgConfig: package.pkgConfig,
-            cLanguageStandard: package.cLanguageStandard?.rawValue,
-            cxxLanguageStandard: package.cxxLanguageStandard?.rawValue,
-            swiftLanguageVersions: package.swiftVersions(),
-            dependencies: package.deps(),
-            products: package.productDescriptions(),
-            targets: package.ts()
-        )
-        if url == root {
-            rootManifest = manifest
-        } else {
-            externalManifests.append(manifest)
-        }
-    }
-    let root = PackageGraphRoot(input: PackageGraphRootInput(packages: [AbsolutePath(root)]), manifests: [rootManifest])
-    return PackageGraphLoader().load(root: root, externalManifests: externalManifests, diagnostics: diagnostics, fileSystem: fs)
 }
 
 public func loadPackageGraph(
