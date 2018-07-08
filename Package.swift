@@ -104,7 +104,7 @@ let package = Package(
         .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
-            dependencies: ["Basic", "PackageDescription4", "PackageModel", "Utility"]),
+            dependencies: ["Basic", "PackageModel", "Utility"]),
 
         // MARK: Package Dependency Resolution
         

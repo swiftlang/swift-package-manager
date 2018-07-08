@@ -12,7 +12,6 @@ import PackageModel
 
 struct ManifestBuilder {
     var name: String
-    var exclude: [String]
     var targets: [TargetDescription]
     var pkgConfig: String?
     var swiftLanguageVersions: [SwiftLanguageVersion]?
@@ -20,4 +19,8 @@ struct ManifestBuilder {
     var providers: [SystemPackageProviderDescription]?
     var errors: [String]
     var products: [ProductDescription]
+    var cxxLanguageStandard: String?
+    var cLanguageStandard: String?
+    var legacyProducts: [ProductDescription]
+    var legacyExclude: [String]
 }

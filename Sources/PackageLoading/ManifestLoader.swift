@@ -202,57 +202,38 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
         let json = try JSON(string: jsonString)
 
-        // The loaded manifest object.
-        let manifest: Manifest
-
         // Load the correct version from JSON.
+        let manifestBuilder: ManifestBuilder
         switch manifestVersion {
         case .v3:
-
-            // Build the manifest from JSON.
-            let manifestBuilder = try ManifestBuilder(v3: json, baseURL: baseURL)
-
-            // Throw if we encountered any runtime errors.
-            guard manifestBuilder.errors.isEmpty else {
-                throw ManifestParseError.runtimeManifestErrors(manifestBuilder.errors)
-            }
-
-            manifest = Manifest(
-                name: manifestBuilder.name,
-                path: inputPath,
-                url: baseURL,
-                legacyProducts: manifestBuilder.products,
-                legacyExclude: manifestBuilder.exclude,
-                version: version,
-                interpreterFlags: parseResult.interpreterFlags,
-                manifestVersion: manifestVersion,
-                pkgConfig: manifestBuilder.pkgConfig,
-                providers: manifestBuilder.providers,
-                swiftLanguageVersions: manifestBuilder.swiftLanguageVersions,
-                dependencies: manifestBuilder.dependencies,
-                targets: manifestBuilder.targets
-            )
-
+            manifestBuilder = try ManifestBuilder(v3: json, baseURL: baseURL)
         case .v4, .v4_2:
-            let package = try loadPackageDescription4(json, baseURL: baseURL)
-            
-            manifest = Manifest(
-                name: package.name,
-                path: inputPath,
-                url: baseURL,
-                version: version,
-                interpreterFlags: parseResult.interpreterFlags,
-                manifestVersion: manifestVersion,
-                pkgConfig: package.pkgConfig,
-                providers: package.providerDescriptions(),
-                cLanguageStandard: package.cLanguageStandard?.rawValue,
-                cxxLanguageStandard: package.cxxLanguageStandard?.rawValue,
-                swiftLanguageVersions: package.swiftVersions(),
-                dependencies: package.deps(),
-                products: package.productDescriptions(),
-                targets: package.ts()
-            )
+            manifestBuilder = try ManifestBuilder(v4: json, baseURL: baseURL)
         }
+
+        // Throw if we encountered any runtime errors.
+        guard manifestBuilder.errors.isEmpty else {
+            throw ManifestParseError.runtimeManifestErrors(manifestBuilder.errors)
+        }
+
+        let manifest = Manifest(
+            name: manifestBuilder.name,
+            path: inputPath,
+            url: baseURL,
+            legacyProducts: manifestBuilder.legacyProducts,
+            legacyExclude: manifestBuilder.legacyExclude,
+            version: version,
+            interpreterFlags: parseResult.interpreterFlags,
+            manifestVersion: manifestVersion,
+            pkgConfig: manifestBuilder.pkgConfig,
+            providers: manifestBuilder.providers,
+            cLanguageStandard: manifestBuilder.cLanguageStandard,
+            cxxLanguageStandard: manifestBuilder.cxxLanguageStandard,
+            swiftLanguageVersions: manifestBuilder.swiftLanguageVersions,
+            dependencies: manifestBuilder.dependencies,
+            products: manifestBuilder.products,
+            targets: manifestBuilder.targets
+        )
 
         return manifest
     }

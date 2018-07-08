@@ -16,7 +16,6 @@ extension ManifestBuilder {
     init(v3 json: JSON, baseURL: String) throws {
         let package = try json.getJSON("package")
         self.name = try package.get("name")
-        self.exclude = try package.get("exclude")
         self.targets = try package.getArray("targets").map(TargetDescription.init(v3:))
         self.pkgConfig = package.get("pkgConfig")
         self.providers = try? package.getArray("providers").map(SystemPackageProviderDescription.init(v3:))
@@ -28,7 +27,13 @@ extension ManifestBuilder {
         self.swiftLanguageVersions = slv?.map(String.init).compactMap(SwiftLanguageVersion.init(string:))
 
         self.errors = try json.get("errors")
-        self.products = try json.getArray("products").map(ProductDescription.init(v3:))
+        self.products = []
+
+        self.cxxLanguageStandard = nil
+        self.cLanguageStandard = nil
+
+        self.legacyExclude = try package.get("exclude")
+        self.legacyProducts = try json.getArray("products").map(ProductDescription.init(v3:))
     }
 }
 
