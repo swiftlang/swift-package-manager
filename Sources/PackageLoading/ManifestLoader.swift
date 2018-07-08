@@ -208,23 +208,29 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // Load the correct version from JSON.
         switch manifestVersion {
         case .v3:
-            let pd = try loadPackageDescription(json, baseURL: baseURL)
-            let package = pd.package
+
+            // Build the manifest from JSON.
+            let manifestBuilder = try ManifestBuilder(v3: json, baseURL: baseURL)
+
+            // Throw if we encountered any runtime errors.
+            guard manifestBuilder.errors.isEmpty else {
+                throw ManifestParseError.runtimeManifestErrors(manifestBuilder.errors)
+            }
 
             manifest = Manifest(
-                name: package.name,
+                name: manifestBuilder.name,
                 path: inputPath,
                 url: baseURL,
-                legacyProducts: pd.products,
-                legacyExclude: package.exclude,
+                legacyProducts: manifestBuilder.products,
+                legacyExclude: manifestBuilder.exclude,
                 version: version,
                 interpreterFlags: parseResult.interpreterFlags,
                 manifestVersion: manifestVersion,
-                pkgConfig: package.pkgConfig,
-                providers: package.providerDescriptions(),
-                swiftLanguageVersions: package.swiftVersions(),
-                dependencies: package.dependencyDescriptions(),
-                targets: package.ts()
+                pkgConfig: manifestBuilder.pkgConfig,
+                providers: manifestBuilder.providers,
+                swiftLanguageVersions: manifestBuilder.swiftLanguageVersions,
+                dependencies: manifestBuilder.dependencies,
+                targets: manifestBuilder.targets
             )
 
         case .v4, .v4_2:

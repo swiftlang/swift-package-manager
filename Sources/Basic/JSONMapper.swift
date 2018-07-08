@@ -34,6 +34,11 @@ extension JSON {
         return try T(json: object)
     }
 
+    public func get<T: JSONMappable>(_ type: T.Type, forKey key: String) throws -> T {
+        let object: JSON = try get(key)
+        return try T(json: object)
+    }
+
     /// Returns an optional JSON mappable object from a given key.
     public func get<T: JSONMappable>(_ key: String) -> T? {
         return try? get(key)
@@ -41,6 +46,11 @@ extension JSON {
 
     /// Returns a JSON mappable array from a given key.
     public func get<T: JSONMappable>(_ key: String) throws -> [T] {
+        let array: [JSON] = try get(key)
+        return try array.map(T.init(json:))
+    }
+
+    public func get<T: JSONMappable>(_ type: [T].Type, forKey key: String) throws -> [T] {
         let array: [JSON] = try get(key)
         return try array.map(T.init(json:))
     }
@@ -77,6 +87,10 @@ extension JSON {
         return object
     }
 
+    public func getJSON(_ key: String) throws -> JSON {
+        return try get(key)
+    }
+
     /// Returns JSON array entry in the dictionary from a given key.
     public func get(_ key: String) throws -> [JSON] {
 		let object: JSON = try get(key)
@@ -84,6 +98,10 @@ extension JSON {
             throw MapError.typeMismatch(key: key, expected: Array<JSON>.self, json: object)
         }
         return array
+    }
+
+    public func getArray(_ key: String) throws -> [JSON] {
+        return try get(key)
     }
 }
 
