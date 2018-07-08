@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import Foundation
 
 import Basic
 import POSIX
@@ -296,6 +297,48 @@ class PathTests: XCTestCase {
         }
     }
 
+    func testCodable() throws {
+        struct Foo: Codable, Equatable {
+            var path: AbsolutePath
+        }
+
+        struct Bar: Codable, Equatable {
+            var path: RelativePath
+        }
+
+        do {
+            let foo = Foo(path: AbsolutePath("/path/to/foo"))
+            let data = try JSONEncoder().encode(foo)
+            let decodedFoo = try JSONDecoder().decode(Foo.self, from: data)
+            XCTAssertEqual(foo, decodedFoo)
+        }
+
+        do {
+            let foo = Foo(path: AbsolutePath("/path/to/../to/foo"))
+            let data = try JSONEncoder().encode(foo)
+            let decodedFoo = try JSONDecoder().decode(Foo.self, from: data)
+            XCTAssertEqual(foo, decodedFoo)
+            XCTAssertEqual(foo.path.asString, "/path/to/foo")
+            XCTAssertEqual(decodedFoo.path.asString, "/path/to/foo")
+        }
+
+        do {
+            let bar = Bar(path: RelativePath("path/to/bar"))
+            let data = try JSONEncoder().encode(bar)
+            let decodedBar = try JSONDecoder().decode(Bar.self, from: data)
+            XCTAssertEqual(bar, decodedBar)
+        }
+
+        do {
+            let bar = Bar(path: RelativePath("path/to/../to/bar"))
+            let data = try JSONEncoder().encode(bar)
+            let decodedBar = try JSONDecoder().decode(Bar.self, from: data)
+            XCTAssertEqual(bar, decodedBar)
+            XCTAssertEqual(bar.path.asString, "path/to/bar")
+            XCTAssertEqual(decodedBar.path.asString, "path/to/bar")
+        }
+    }
+
     // FIXME: We also need tests for join() operations.
     
     // FIXME: We also need tests for dirname, basename, suffix, etc.
@@ -321,5 +364,6 @@ class PathTests: XCTestCase {
         ("testRelativePathFromAbsolutePaths", testRelativePathFromAbsolutePaths),
         ("testComparison",                    testComparison),
         ("testAbsolutePathValidation",        testAbsolutePathValidation),
+        ("testCodable",                       testCodable),
     ]
 }

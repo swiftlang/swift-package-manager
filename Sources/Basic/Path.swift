@@ -309,24 +309,39 @@ public struct RelativePath: Hashable {
     }
 }
 
+extension AbsolutePath: Codable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(asString)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        try self.init(container.decode(String.self))
+    }
+}
+
+extension RelativePath: Codable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(asString)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        try self.init(container.decode(String.self))
+    }
+}
+
 // Make absolute paths Comparable.
-extension AbsolutePath : Comparable {
+extension AbsolutePath: Comparable {
     public static func < (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
         return lhs.asString < rhs.asString
-    }
-    public static func <= (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-        return lhs.asString <= rhs.asString
-    }
-    public static func >= (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-        return lhs.asString >= rhs.asString
-    }
-    public static func > (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-        return lhs.asString > rhs.asString
     }
 }
 
 /// Make absolute paths CustomStringConvertible.
-extension AbsolutePath : CustomStringConvertible {
+extension AbsolutePath: CustomStringConvertible {
     public var description: String {
         // FIXME: We should really be escaping backslashes and quotes here.
         return "<AbsolutePath:\"\(asString)\">"
@@ -334,7 +349,7 @@ extension AbsolutePath : CustomStringConvertible {
 }
 
 /// Make relative paths CustomStringConvertible.
-extension RelativePath : CustomStringConvertible {
+extension RelativePath: CustomStringConvertible {
     public var description: String {
         // FIXME: We should really be escaping backslashes and quotes here.
         return "<RelativePath:\"\(asString)\">"
