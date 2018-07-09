@@ -21,6 +21,4 @@ struct ManifestBuilder {
     var products: [ProductDescription]
     var cxxLanguageStandard: String?
     var cLanguageStandard: String?
-    var legacyProducts: [ProductDescription]
-    var legacyExclude: [String]
 }

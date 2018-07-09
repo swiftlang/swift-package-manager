@@ -177,7 +177,6 @@ func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
         if $0.suffix == ".xcodeproj" { return false }
         if $0.suffix == ".playground" { return false }
         if $0.basename.hasPrefix(".") { return false }
-        if PackageBuilder.isReservedDirectory(pathComponent: $0.basename) { return false }
         return isDirectory($0)
     })
 }

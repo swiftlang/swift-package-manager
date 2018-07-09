@@ -61,11 +61,6 @@ extension ToolsVersion {
         // ManifestVersion a proper version type and then automatically
         // determine the best version from the available versions.
         //
-        // Return manifest version 3 if major component of tools version is 3.
-        if major == 3 {
-            return .v3
-        }
-
         // If the tools version is less than 4.2, return manifest version 4.
         if major == 4 && minor < 2 {
             return .v4
@@ -165,7 +160,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         path inputPath: AbsolutePath,
         baseURL: String,
         version: Version?,
-        manifestVersion: ManifestVersion = .v3,
+        manifestVersion: ManifestVersion,
         fileSystem: FileSystem? = nil
     ) throws -> Manifest {
         // If we were given a file system, load via a temporary file.
@@ -202,14 +197,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
         let json = try JSON(string: jsonString)
 
-        // Load the correct version from JSON.
-        let manifestBuilder: ManifestBuilder
-        switch manifestVersion {
-        case .v3:
-            manifestBuilder = try ManifestBuilder(v3: json, baseURL: baseURL)
-        case .v4, .v4_2:
-            manifestBuilder = try ManifestBuilder(v4: json, baseURL: baseURL)
-        }
+        // Load the manifest from JSON.
+        let manifestBuilder = try ManifestBuilder(v4: json, baseURL: baseURL)
 
         // Throw if we encountered any runtime errors.
         guard manifestBuilder.errors.isEmpty else {
@@ -220,8 +209,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             name: manifestBuilder.name,
             path: inputPath,
             url: baseURL,
-            legacyProducts: manifestBuilder.legacyProducts,
-            legacyExclude: manifestBuilder.legacyExclude,
             version: version,
             interpreterFlags: parseResult.interpreterFlags,
             manifestVersion: manifestVersion,

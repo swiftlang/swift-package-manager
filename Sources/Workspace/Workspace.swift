@@ -545,14 +545,6 @@ extension Workspace {
         let manifests = self._resolve(root: root, diagnostics: diagnostics)
         let externalManifests = manifests.allManifests()
 
-        // Emit deprecation warning for v3 manifests.
-        let v3Manifests = (manifests.root.manifests + externalManifests).filter({ $0.manifestVersion == .v3 })
-        if !v3Manifests.isEmpty {
-            let warning = WorkspaceDiagnostics.PD3DeprecatedDiagnostic(
-                manifests: v3Manifests.map({ $0.name }))
-            diagnostics.emit(data: warning)
-        }
-
         // Load the graph.
         return PackageGraphLoader().load(
             root: manifests.root,

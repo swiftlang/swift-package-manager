@@ -186,7 +186,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                         path: AbsolutePath("/Package.swift"),
                         url: "A",
                         version: v1,
-                        manifestVersion: .v3,
+                        manifestVersion: .v4,
                         dependencies: [PackageDependencyDescription(url: "B", requirement: .upToNextMajor(from: "2.0.0"))]
                     )
                 ])
@@ -198,7 +198,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                         path: AbsolutePath("/Package.swift"),
                         url: "B",
                         version: v2,
-                        manifestVersion: .v3
+                        manifestVersion: .v4
                     )
                 ])
             let resolver = MockDependencyResolver(repositories: repoA, repoB)

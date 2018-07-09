@@ -623,7 +623,6 @@ class llbuild(object):
 def build_runtimes(targets, sandbox_path, args):
     target_map = dict((t.name, t) for t in targets)
     runtimes = {}
-    runtimes['3'] = target_map['PackageDescription']
     runtimes['4'] = target_map['PackageDescription4']
     runtimes['4_2'] = target_map['PackageDescription4']
 
