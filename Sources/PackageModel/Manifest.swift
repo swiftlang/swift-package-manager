@@ -32,7 +32,7 @@ public enum ManifestVersion: String, Codable {
 public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, Codable {
 
     /// The standard filename for the manifest.
-    public static var filename = basename + ".swift"
+    public static let filename = basename + ".swift"
 
     /// Returns the manifest at the given package path.
     ///
@@ -149,6 +149,39 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
 
     public var description: String {
         return "<Manifest: \(name)>"
+    }
+
+    /// Coding user info key for dump-package command.
+    ///
+    /// Presence of this key will hide some keys when encoding the Manifest object.
+    public static let dumpPackageKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "dumpPackage")!
+}
+
+extension Manifest {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+
+        // Hide the keys that users shouldn't see when
+        // we're encoding for the dump-package command.
+        if encoder.userInfo[Manifest.dumpPackageKey] == nil {
+            try container.encode(path, forKey: .path)
+            try container.encode(url, forKey: .url)
+            try container.encode(legacyProducts, forKey: .legacyProducts)
+            try container.encode(version, forKey: .version)
+            try container.encode(interpreterFlags, forKey: .interpreterFlags)
+            try container.encode(legacyExclude, forKey: .legacyExclude)
+        }
+
+        try container.encode(manifestVersion, forKey: .manifestVersion)
+        try container.encode(pkgConfig, forKey: .pkgConfig)
+        try container.encode(providers, forKey: .providers)
+        try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
+        try container.encode(cxxLanguageStandard, forKey: .cxxLanguageStandard)
+        try container.encode(swiftLanguageVersions, forKey: .swiftLanguageVersions)
+        try container.encode(dependencies, forKey: .dependencies)
+        try container.encode(products, forKey: .products)
+        try container.encode(targets, forKey: .targets)
     }
 }
 
