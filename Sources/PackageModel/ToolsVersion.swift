@@ -178,3 +178,16 @@ public struct SwiftLanguageVersion: CustomStringConvertible, Comparable {
         return (lhs < rhs) || (lhs == rhs)
     }
 }
+
+extension SwiftLanguageVersion: Codable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        self.init(uncheckedString: rawValue)
+    }
+}
