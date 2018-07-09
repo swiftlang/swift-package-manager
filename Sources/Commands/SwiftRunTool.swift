@@ -68,6 +68,9 @@ public class RunToolOptions: ToolOptions {
     
     /// If the executable product should be built before running.
     var shouldBuild = true
+
+    /// If the test should be built.
+    var shouldBuildTests = false
     
     /// The executable product to run.
     var executable: String?
@@ -118,7 +121,15 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             let plan = try BuildPlan(buildParameters: self.buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
             let product = try findProduct(in: plan.graph)
 
-            if options.shouldBuild {
+            if options.shouldBuildTests && !options.shouldBuild {
+                diagnostics.emit(data: MutuallyExclusiveArgumentsDiagnostic(arguments:
+                    [buildTestsOptionName, skipBuildOptionName]))
+                return
+            }
+
+            if options.shouldBuildTests {
+                try build(plan: plan, subset: .allIncludingTests)
+            } else if options.shouldBuild {
                 try build(plan: plan, subset: .product(product.name))
             }
 
@@ -186,9 +197,14 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
 
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<RunToolOptions>) {
         binder.bind(
-            option: parser.add(option: "--skip-build", kind: Bool.self,
+            option: parser.add(option: skipBuildOptionName, kind: Bool.self,
                 usage: "Skip building the executable product"),
             to: { $0.shouldBuild = !$1 })
+
+        binder.bind(
+            option: parser.add(option: buildTestsOptionName, kind: Bool.self,
+                               usage: "Build both source and test targets"),
+            to: { $0.shouldBuildTests = $1 })
         
         binder.bindArray(
             positional: parser.add(
@@ -200,6 +216,9 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             })
     }
 }
+
+fileprivate let buildTestsOptionName = "--build-tests"
+fileprivate let skipBuildOptionName = "--skip-build"
 
 extension SwiftRunTool: ToolName {
     static var toolName: String {
