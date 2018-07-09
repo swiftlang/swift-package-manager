@@ -129,6 +129,7 @@ final class RunToolTests: XCTestCase {
         ("testMultipleExecutableAndExplicitExecutable", testMultipleExecutableAndExplicitExecutable),
         ("testUnreachableExecutable", testUnreachableExecutable),
         ("testFileDeprecation", testFileDeprecation),
+        ("testMutualExclusiveFlags", testMutualExclusiveFlags),
         ("testSanitizeThread", testSanitizeThread),
     ]
 }
