@@ -17,6 +17,7 @@ import SourceControl
 import Utility
 import Xcodeproj
 import Workspace
+import Foundation
 
 struct FetchDeprecatedDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
@@ -188,8 +189,21 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .dumpPackage:
             let workspace = try getActiveWorkspace()
             let root = try getWorkspaceRoot()
-            let manifests = workspace.loadRootManifests(packages: root.packages, diagnostics: diagnostics)
-            print(try manifests[0].jsonString())
+            let manifest = workspace.loadRootManifests(
+                packages: root.packages, diagnostics: diagnostics)[0]
+
+            let encoder = JSONEncoder()
+          #if os(macOS)
+            if #available(OSX 10.13, *) {
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            }
+          #else
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+          #endif
+
+            let jsonData = try encoder.encode(manifest)
+            let jsonString = String(data: jsonData, encoding: .utf8)!
+            print(jsonString)
 
         case .completionTool:
             switch options.completionToolMode {

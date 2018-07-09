@@ -152,13 +152,6 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     }
 }
 
-extension Manifest {
-    /// Returns JSON representation of this manifest.
-    public func jsonString() throws -> String {
-        fatalError("unsupported for now")
-    }
-}
-
 /// The description of an individual target.
 public struct TargetDescription: Equatable, Codable {
 
