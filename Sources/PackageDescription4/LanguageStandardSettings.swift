@@ -38,7 +38,7 @@ public enum CXXLanguageStandard: String {
     case gnucxx1z = "gnu++1z"
 }
 
-#if PACKAGE_DESCRIPTION_4_2
+#if !PACKAGE_DESCRIPTION_4
 /// Represents the version of the Swift language that should be used for
 /// compiling Swift sources in the package.
 public enum SwiftVersion {

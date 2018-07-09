@@ -21,20 +21,29 @@ public final class Package {
     public class Dependency {
 
         /// The dependency requirement.
-        public enum Requirement: Equatable {
-          #if PACKAGE_DESCRIPTION_4_2
-            case _exactItem(Version)
-            case _rangeItem(Range<Version>)
-            case _revisionItem(String)
-            case _branchItem(String)
-            case _localPackageItem
-          #else
+        public enum Requirement {
+          #if PACKAGE_DESCRIPTION_4
             case exactItem(Version)
             case rangeItem(Range<Version>)
             case revisionItem(String)
             case branchItem(String)
             case localPackageItem
+          #else
+            case _exactItem(Version)
+            case _rangeItem(Range<Version>)
+            case _revisionItem(String)
+            case _branchItem(String)
+            case _localPackageItem
           #endif
+
+            var isLocalPackage: Bool {
+              #if PACKAGE_DESCRIPTION_4
+                if case .localPackageItem = self { return true }
+              #else
+                if case ._localPackageItem = self { return true }
+              #endif
+                return false
+            }
         }
 
         /// The url of the dependency.
@@ -73,15 +82,9 @@ public final class Package {
   #if PACKAGE_DESCRIPTION_4
     /// The list of swift versions, this package is compatible with.
     public var swiftLanguageVersions: [Int]?
-  #elseif PACKAGE_DESCRIPTION_4_2
+  #else
     /// The list of swift versions, this package is compatible with.
     public var swiftLanguageVersions: [SwiftVersion]?
-  #else
-    // The public API is an Int array but we will use String internally to
-    // allow storing different types in the module when its loaded into SwiftPM.
-    // This should go away in future once we stop using the same modules
-    // internally and as the runtime.
-    public var swiftLanguageVersions: [String]?
   #endif
 
     /// The C language standard to use for all C targets in this package.
@@ -90,7 +93,31 @@ public final class Package {
     /// The C++ language standard to use for all C++ targets in this package.
     public var cxxLanguageStandard: CXXLanguageStandard?
 
-  #if PACKAGE_DESCRIPTION_4_2
+  #if PACKAGE_DESCRIPTION_4
+    /// Construct a package.
+    public init(
+        name: String,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProvider]? = nil,
+        products: [Product] = [],
+        dependencies: [Dependency] = [],
+        targets: [Target] = [],
+        swiftLanguageVersions: [Int]? = nil,
+        cLanguageStandard: CLanguageStandard? = nil,
+        cxxLanguageStandard: CXXLanguageStandard? = nil
+    ) {
+        self.name = name
+        self.pkgConfig = pkgConfig
+        self.providers = providers
+        self.products = products
+        self.dependencies = dependencies
+        self.targets = targets
+        self.swiftLanguageVersions = swiftLanguageVersions
+        self.cLanguageStandard = cLanguageStandard
+        self.cxxLanguageStandard = cxxLanguageStandard
+        registerExitHandler()
+    }
+  #else
     /// Construct a package.
     public init(
         name: String,
@@ -114,39 +141,6 @@ public final class Package {
         self.cxxLanguageStandard = cxxLanguageStandard
         registerExitHandler()
     }
-  #else
-    /// Construct a package.
-    public init(
-        name: String,
-        pkgConfig: String? = nil,
-        providers: [SystemPackageProvider]? = nil,
-        products: [Product] = [],
-        dependencies: [Dependency] = [],
-        targets: [Target] = [],
-        swiftLanguageVersions: [Int]? = nil,
-        cLanguageStandard: CLanguageStandard? = nil,
-        cxxLanguageStandard: CXXLanguageStandard? = nil
-    ) {
-        self.name = name
-        self.pkgConfig = pkgConfig
-        self.providers = providers
-        self.products = products
-        self.dependencies = dependencies
-        self.targets = targets
-
-      #if PACKAGE_DESCRIPTION_4
-        /// The list of swift versions, this package is compatible with.
-        self.swiftLanguageVersions = swiftLanguageVersions
-      #elseif PACKAGE_DESCRIPTION_4_2
-        self.swiftLanguageVersions = swiftLanguageVersions?.map(String.init).map(SwiftVersion.version)
-      #else
-        self.swiftLanguageVersions = swiftLanguageVersions?.map(String.init)
-      #endif
-
-        self.cLanguageStandard = cLanguageStandard
-        self.cxxLanguageStandard = cxxLanguageStandard
-        registerExitHandler()
-    }
   #endif
 
     private func registerExitHandler() {
@@ -165,33 +159,33 @@ public final class Package {
 }
 
 /// Represents system package providers.
-public enum SystemPackageProvider: Equatable {
+public enum SystemPackageProvider {
 
-  #if PACKAGE_DESCRIPTION_4_2
-    case _brewItem([String])
-    case _aptItem([String])
-  #else
+  #if PACKAGE_DESCRIPTION_4
     case brewItem([String])
     case aptItem([String])
+  #else
+    case _brewItem([String])
+    case _aptItem([String])
   #endif
 
     /// Declare the list of packages installable using the homebrew package
     /// manager on macOS.
     public static func brew(_ packages: [String]) -> SystemPackageProvider {
-      #if PACKAGE_DESCRIPTION_4_2
-        return ._brewItem(packages)
-      #else
+      #if PACKAGE_DESCRIPTION_4
         return .brewItem(packages)
+      #else
+        return ._brewItem(packages)
       #endif
     }
 
     /// Declare the list of packages installable using the apt-get package
     /// manager on Ubuntu.
     public static func apt(_ packages: [String]) -> SystemPackageProvider {
-      #if PACKAGE_DESCRIPTION_4_2
-        return ._aptItem(packages)
-      #else
+      #if PACKAGE_DESCRIPTION_4
         return .aptItem(packages)
+      #else
+        return ._aptItem(packages)
       #endif
     }
 }
@@ -204,21 +198,21 @@ extension SystemPackageProvider {
         let name: String
         let values: [String]
 
-      #if PACKAGE_DESCRIPTION_4_2
-        switch self {
-        case ._brewItem(let packages):
-            name = "brew"
-            values = packages
-        case ._aptItem(let packages):
-            name = "apt"
-            values = packages
-        }
-      #else
+      #if PACKAGE_DESCRIPTION_4
         switch self {
         case .brewItem(let packages):
             name = "brew"
             values = packages
         case .aptItem(let packages):
+            name = "apt"
+            values = packages
+        }
+      #else
+        switch self {
+        case ._brewItem(let packages):
+            name = "brew"
+            values = packages
+        case ._aptItem(let packages):
             name = "apt"
             values = packages
         }
@@ -248,10 +242,8 @@ extension Package {
         let swiftLanguageVersionsString: [String]?
       #if PACKAGE_DESCRIPTION_4
         swiftLanguageVersionsString = self.swiftLanguageVersions?.map(String.init)
-      #elseif PACKAGE_DESCRIPTION_4_2
-        swiftLanguageVersionsString = self.swiftLanguageVersions?.map({ $0.toString() })
       #else
-        swiftLanguageVersionsString = self.swiftLanguageVersions
+        swiftLanguageVersionsString = self.swiftLanguageVersions?.map({ $0.toString() })
       #endif
         if let swiftLanguageVersions = swiftLanguageVersionsString {
             dict["swiftLanguageVersions"] = .array(swiftLanguageVersions.map(JSON.string))
@@ -288,20 +280,7 @@ extension Target.Dependency {
     func toJSON() -> JSON {
         var dict = [String: JSON]()
 
-      #if PACKAGE_DESCRIPTION_4_2
-        switch self {
-        case ._targetItem(let name):
-            dict["name"] = .string(name)
-            dict["type"] = .string("target")
-        case ._productItem(let name, let package):
-            dict["name"] = .string(name)
-            dict["type"] = .string("product")
-            dict["package"] = package.map(JSON.string) ?? .null
-        case ._byNameItem(let name):
-            dict["name"] = .string(name)
-            dict["type"] = .string("byname")
-        }
-      #else
+      #if PACKAGE_DESCRIPTION_4
         switch self {
         case .targetItem(let name):
             dict["name"] = .string(name)
@@ -311,6 +290,19 @@ extension Target.Dependency {
             dict["type"] = .string("product")
             dict["package"] = package.map(JSON.string) ?? .null
         case .byNameItem(let name):
+            dict["name"] = .string(name)
+            dict["type"] = .string("byname")
+        }
+      #else
+        switch self {
+        case ._targetItem(let name):
+            dict["name"] = .string(name)
+            dict["type"] = .string("target")
+        case ._productItem(let name, let package):
+            dict["name"] = .string(name)
+            dict["type"] = .string("product")
+            dict["package"] = package.map(JSON.string) ?? .null
+        case ._byNameItem(let name):
             dict["name"] = .string(name)
             dict["type"] = .string("byname")
         }
