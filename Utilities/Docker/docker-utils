@@ -49,7 +49,7 @@ def build(_):
     snapshot_name = snapshot_filename.replace("-ubuntu16.04.tar.gz", "")
     base_url = latest_build_url.rsplit("/", 1)[0]
     latest_snapshot_url = base_url + "/" + snapshot_name + "/" + snapshot_filename
-    docker_dir = os.path.dirname(os.path.realpath(__file__)) + "/Docker"
+    docker_dir = os.path.dirname(os.path.realpath(__file__))
 
     # Download latest snapshot (if necessary).
     if snapshot_filename in os.listdir(docker_dir):
