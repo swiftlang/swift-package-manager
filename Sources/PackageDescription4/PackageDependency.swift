@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-extension Package.Dependency: Equatable {
+extension Package.Dependency {
 
     // Add a dependency starting from a minimum version, going upto the next
     // major version.
@@ -24,12 +24,7 @@ extension Package.Dependency: Equatable {
         url: String,
         _ requirement: Package.Dependency.Requirement
     ) -> Package.Dependency {
-        // FIXME: This is suboptimal but its the only way to do this right now.
-      #if PACKAGE_DESCRIPTION_4
-        precondition(requirement != .localPackageItem, "Use `.package(path:)` API to declare a local package dependency")
-      #elseif PACKAGE_DESCRIPTION_4_2
-        precondition(requirement != ._localPackageItem, "Use `.package(path:)` API to declare a local package dependency")
-      #endif
+        precondition(!requirement.isLocalPackage, "Use `.package(path:)` API to declare a local package dependency")
         return .init(url: url, requirement: requirement)
     }
 
@@ -38,10 +33,10 @@ extension Package.Dependency: Equatable {
         url: String,
         _ range: Range<Version>
     ) -> Package.Dependency {
-      #if PACKAGE_DESCRIPTION_4_2
-        return .init(url: url, requirement: ._rangeItem(range))
-      #else
+      #if PACKAGE_DESCRIPTION_4
         return .init(url: url, requirement: .rangeItem(range))
+      #else
+        return .init(url: url, requirement: ._rangeItem(range))
       #endif
     }
 
@@ -59,7 +54,7 @@ extension Package.Dependency: Equatable {
         return .package(url: url, range.lowerBound..<upperBound)
     }
 
-  #if PACKAGE_DESCRIPTION_4_2
+  #if !PACKAGE_DESCRIPTION_4
     /// Add a dependency to a local package on the filesystem.
     public static func package(
         path: String
@@ -67,10 +62,6 @@ extension Package.Dependency: Equatable {
         return .init(url: path, requirement: ._localPackageItem)
     }
   #endif
-
-    public static func == (lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
-        return lhs.url == rhs.url && lhs.requirement == rhs.requirement
-    }
 
     func toJSON() -> JSON {
         return .dictionary([
