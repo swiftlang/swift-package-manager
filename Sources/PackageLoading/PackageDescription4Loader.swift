@@ -30,8 +30,6 @@ extension ManifestBuilder {
         self.cLanguageStandard = package.get("cLanguageStandard")
 
         self.errors = try json.get("errors")
-        self.legacyExclude = []
-        self.legacyProducts = []
     }
 }
 

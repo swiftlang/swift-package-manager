@@ -13,14 +13,12 @@ import Utility
 
 /// The supported manifest versions.
 public enum ManifestVersion: String, Codable {
-    case v3 = "3"
     case v4 = "4"
     case v4_2 = "4_2"
 
     /// The Swift language version to use when parsing the manifest file.
     public var swiftLanguageVersion: SwiftLanguageVersion {
         switch self {
-        case .v3: return .v3
         case .v4: return .v4
         case .v4_2: return .v4_2
         }
@@ -102,18 +100,10 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The system package providers of a system package.
     public let providers: [SystemPackageProviderDescription]?
 
-    /// The legacy style products that can be declared in the v3 manifests.
-    public let legacyProducts: [ProductDescription]
-
-    /// The legacy style excludes that can be declared in the v3 manifests.
-    public let legacyExclude: [String]
-
     public init(
         name: String,
         path: AbsolutePath,
         url: String,
-        legacyProducts: [ProductDescription] = [],
-        legacyExclude: [String] = [],
         version: Utility.Version? = nil,
         interpreterFlags: [String] = [],
         manifestVersion: ManifestVersion,
@@ -126,17 +116,12 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         products: [ProductDescription] = [],
         targets: [TargetDescription] = []
     ) {
-        if manifestVersion != .v3 {
-            precondition(legacyProducts.isEmpty, "Legacy products are not supported in v4 manifest.")
-        }
         self.name = name
         self.path = path
         self.url = url
-        self.legacyProducts = legacyProducts
         self.version = version
         self.interpreterFlags = interpreterFlags
         self.manifestVersion = manifestVersion
-        self.legacyExclude = legacyExclude
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.cLanguageStandard = cLanguageStandard
@@ -167,10 +152,8 @@ extension Manifest {
         if encoder.userInfo[Manifest.dumpPackageKey] == nil {
             try container.encode(path, forKey: .path)
             try container.encode(url, forKey: .url)
-            try container.encode(legacyProducts, forKey: .legacyProducts)
             try container.encode(version, forKey: .version)
             try container.encode(interpreterFlags, forKey: .interpreterFlags)
-            try container.encode(legacyExclude, forKey: .legacyExclude)
         }
 
         try container.encode(manifestVersion, forKey: .manifestVersion)

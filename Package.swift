@@ -29,7 +29,6 @@ let package = Package(
                 "Basic",
                 "Utility",
                 "SourceControl",
-                "PackageDescription",
                 "PackageDescription4",
                 "PackageModel",
                 "PackageLoading",
@@ -59,10 +58,6 @@ let package = Package(
     targets: [
         // The `PackageDescription` targets are special, they define the API which
         // is available to the `Package.swift` manifest files.
-        .target(
-            /** Package Definition API version 3 */
-            name: "PackageDescription",
-            dependencies: []),
         .target(
             /** Package Definition API version 4 */
             name: "PackageDescription4",
@@ -187,9 +182,6 @@ let package = Package(
         .testTarget(
             name: "FunctionalPerformanceTests",
             dependencies: ["swift-build", "swift-package", "swift-test", "swift-build", "swift-package", "TestSupport"]),
-        .testTarget(
-            name: "PackageDescriptionTests",
-            dependencies: ["PackageDescription"]),
         .testTarget(
             name: "PackageDescription4Tests",
             dependencies: ["PackageDescription4"]),

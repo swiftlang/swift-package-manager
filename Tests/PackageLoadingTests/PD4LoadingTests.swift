@@ -56,15 +56,6 @@ class PackageDescription4LoadingTests: XCTestCase {
     }
 
     func testManiestVersionToToolsVersion() {
-        let threeVersions = [
-            "3.0.0", "3.0.1", "3.0.10", "3.1.0", "3.1.100", "3.5", "3.9.9999",
-        ]
-
-        for version in threeVersions {
-            let toolsVersion = ToolsVersion(string: version)!
-            XCTAssertEqual(toolsVersion.manifestVersion, .v3)
-        }
-
         let fourVersions = [
             "4.0.0", "4.0.10", "4.1", "4.1.999", "4.1.0",
         ]

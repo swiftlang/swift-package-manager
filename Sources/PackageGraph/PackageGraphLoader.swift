@@ -282,34 +282,28 @@ private func createResolvedPackages(
             // Directly add all the system module dependencies.
             targetBuilder.dependencies += implicitSystemTargetDeps
 
-            // Establish product dependencies based on the type of manifest.
-            switch package.manifest.manifestVersion {
-            case .v3:
-                targetBuilder.productDeps = productDependencies
+            // Establish product dependencies.
+            for productRef in targetBuilder.target.productDependencies {
+                // Find the product in this package's dependency products.
+                guard let product = productDependencyMap[productRef.name] else {
+                    let error = PackageGraphError.productDependencyNotFound(name: productRef.name, package: productRef.package)
+                    diagnostics.emit(error, location: diagnosticLocation())
+                    continue
+                }
 
-            case .v4, .v4_2:
-                for productRef in targetBuilder.target.productDependencies {
-                    // Find the product in this package's dependency products.
-                    guard let product = productDependencyMap[productRef.name] else {
-                        let error = PackageGraphError.productDependencyNotFound(name: productRef.name, package: productRef.package)
+                // If package name is mentioned, ensure it is valid.
+                if let packageName = productRef.package {
+                    // Find the declared package and check that it contains
+                    // the product we found above.
+                    guard let dependencyPackage = packageMap[packageName.lowercased()], dependencyPackage.products.contains(product) else {
+                        let error = PackageGraphError.productDependencyIncorrectPackage(
+                            name: productRef.name, package: packageName)
                         diagnostics.emit(error, location: diagnosticLocation())
                         continue
                     }
-
-                    // If package name is mentioned, ensure it is valid.
-                    if let packageName = productRef.package {
-                        // Find the declared package and check that it contains
-                        // the product we found above.
-                        guard let dependencyPackage = packageMap[packageName.lowercased()], dependencyPackage.products.contains(product) else {
-                            let error = PackageGraphError.productDependencyIncorrectPackage(
-                                name: productRef.name, package: packageName)
-                            diagnostics.emit(error, location: diagnosticLocation())
-                            continue
-                        }
-                    }
-
-                    targetBuilder.productDeps.append(product)
                 }
+
+                targetBuilder.productDeps.append(product)
             }
         }
     }

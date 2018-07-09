@@ -42,7 +42,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
                 version: "1.0.0",
-                manifestVersion: .v3,
+                manifestVersion: .v4,
                 dependencies: dependencies
             )
             if pkg == 1 {
