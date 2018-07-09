@@ -86,6 +86,17 @@ final class RunToolTests: XCTestCase {
         }
     }
 
+    func testMutualExclusiveFlags() throws {
+        fixture(name: "Miscellaneous/EchoExecutable") { path in
+            do {
+                _ = try execute(["--build-tests", "--skip-build"], packagePath: path)
+                XCTFail("Expected to fail")
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTAssertEqual(stderr, "error: '--build-tests' and '--skip-build' are mutually exclusive\n")
+            }
+        }
+    }
+
     // Test that thread sanitizer works.
     func testSanitizeThread() throws {
         // FIXME: We need to figure out how to test this for linux.
