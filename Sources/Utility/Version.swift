@@ -181,15 +181,39 @@ extension Version: JSONMappable, JSONSerializable {
         guard let version = Version(string: string) else {
             throw JSON.MapError.custom(key: nil, message: "Invalid version string \(string)")
         }
+        self.init(version)
+    }
+
+    public func toJSON() -> JSON {
+        return .string(description)
+    }
+
+    init(_ version: Version) {
         self.init(
             version.major, version.minor, version.patch,
             prereleaseIdentifiers: version.prereleaseIdentifiers,
             buildMetadataIdentifiers: version.buildMetadataIdentifiers
         )
     }
+}
 
-    public func toJSON() -> JSON {
-        return .string(description)
+extension Version: Codable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(description)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let string = try container.decode(String.self)
+
+        guard let version = Version(string: string) else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Invalid version string \(string)"))
+        }
+
+        self.init(version)
     }
 }
 

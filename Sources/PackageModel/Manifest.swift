@@ -12,7 +12,7 @@ import Basic
 import Utility
 
 /// The supported manifest versions.
-public enum ManifestVersion: String {
+public enum ManifestVersion: String, Codable {
     case v3 = "3"
     case v4 = "4"
     case v4_2 = "4_2"
@@ -29,7 +29,7 @@ public enum ManifestVersion: String {
 
 /// This contains the declarative specification loaded from package manifest
 /// files, and the tools for working with the manifest.
-public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
+public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, Codable {
 
     /// The standard filename for the manifest.
     public static var filename = basename + ".swift"
@@ -67,7 +67,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
     public let url: String
 
     /// The version this package was loaded from, if known.
-    public let version: Utility.Version?
+    public let version: Version?
 
     /// The version of manifest.
     public let manifestVersion: ManifestVersion
@@ -160,7 +160,7 @@ extension Manifest {
 }
 
 /// The description of an individual target.
-public struct TargetDescription: Equatable {
+public struct TargetDescription: Equatable, Codable {
 
     /// The target type.
     public enum TargetType: String, Equatable, Codable {
@@ -247,7 +247,7 @@ public struct TargetDescription: Equatable {
 }
 
 /// The product description
-public struct ProductDescription: Equatable {
+public struct ProductDescription: Equatable, Codable {
 
     /// The name of the product.
     public let name: String
@@ -277,7 +277,7 @@ public enum SystemPackageProviderDescription: Equatable {
 }
 
 /// Represents a package dependency.
-public struct PackageDependencyDescription: Equatable {
+public struct PackageDependencyDescription: Equatable, Codable {
 
     /// The dependency requirement.
     public enum Requirement: Equatable {
