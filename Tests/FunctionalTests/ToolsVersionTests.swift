@@ -31,9 +31,17 @@ class ToolsVersionTests: XCTestCase {
 
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
                 $0 <<< """
-                    // swift-tools-version:3.1
+                    // swift-tools-version:4.2
                     import PackageDescription
-                    let package = Package(name: "Dep")
+                    let package = Package(
+                        name: "Dep",
+                        products: [
+                            .library(name: "Dep", targets: ["Dep"]),
+                        ],
+                        targets: [
+                            .target(name: "Dep", path: "./")
+                        ]
+                    )
                     """
             }
             try fs.writeFileContents(depPath.appending(component: "foo.swift")) {

@@ -124,20 +124,7 @@ class ManifestTests: XCTestCase {
             XCTAssertEqual(manifest.dependencies, [])
         }
     }
-
-    func testInvalidTargetName() {
-        fixture(name: "Miscellaneous/PackageWithInvalidTargets") { (prefix: AbsolutePath) in
-            do {
-                let manifest = try manifestLoader.loadFile(path: prefix.appending(component: "Package.swift"), baseURL: prefix.asString, version: nil)
-                _ = try PackageBuilder(manifest: manifest, path: prefix, diagnostics: DiagnosticsEngine(), isRootPackage: false).construct()
-            } catch ModuleError.modulesNotFound(let moduleNames) {
-                XCTAssertEqual(Set(moduleNames), Set(["Bake", "Fake"]))
-            } catch {
-                XCTFail("Failed with error: \(error)")
-            }
-        }
-    }
-
+    
     /// Check that we load the manifest appropriate for the current version, if
     /// version specific customization is used.
     func testVersionSpecificLoading() throws {
@@ -293,7 +280,6 @@ class ManifestTests: XCTestCase {
         ("testManifestLoading", testManifestLoading),
         ("testNoManifest", testNoManifest),
         ("testNonexistentBaseURL", testNonexistentBaseURL),
-        ("testInvalidTargetName", testInvalidTargetName),
         ("testVersionSpecificLoading", testVersionSpecificLoading),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testRuntimeManifestErrors", testRuntimeManifestErrors),

@@ -86,7 +86,7 @@ class FunctionalTests: XCTestCase {
     }
 
     func testModuleNamesWithNonC99Names() {
-#if os(macOS)
+      #if os(macOS)
         fixture(name: "Miscellaneous/PackageWithNonc99NameModules") { prefix in
             XCTAssertXcodeprojGen(prefix)
             let pbx = prefix.appending(component: "PackageWithNonc99NameModules.xcodeproj")
@@ -97,7 +97,7 @@ class FunctionalTests: XCTestCase {
             XCTAssertDirectoryExists(build.appending(component: "B_C.framework"))
             XCTAssertDirectoryExists(build.appending(component: "C_D.framework"))
         }
-#endif
+      #endif
     }
     
     func testSystemModule() {

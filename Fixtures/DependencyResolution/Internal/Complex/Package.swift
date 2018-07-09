@@ -1,15 +1,13 @@
+// swift-tools-version:4.2
 import PackageDescription
 
 let package = Package(
-    name: "Complex",
+    name: "Foo",
     targets: [
-        Target(
-            name: "Foo",
-            dependencies: [.Target(name: "Bar")]),
-        Target(
-            name: "Bar",
-            dependencies: [.Target(name: "Baz"), .Target(name:"Cat")]),
-        Target(
-            name: "Cat",
-            dependencies: [.Target(name: "Sound")])
-    ])
+        .target(name: "Bar", dependencies: ["Baz", "Cat"]),
+        .target(name: "Baz", dependencies: []),
+        .target(name: "Cat", dependencies: ["Sound"]),
+        .target(name: "Foo", dependencies: ["Bar"]),
+        .target(name: "Sound", dependencies: []),
+    ]
+)

@@ -1,2 +1,0 @@
-import XCTest
-XCTMain([])
