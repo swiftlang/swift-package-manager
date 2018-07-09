@@ -14,7 +14,7 @@ import Basic
 public enum ProductType: CustomStringConvertible, Equatable {
 
     /// The type of library.
-    public enum LibraryType {
+    public enum LibraryType: String, Codable {
 
         /// Static library.
         case `static`

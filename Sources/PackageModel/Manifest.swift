@@ -163,7 +163,7 @@ extension Manifest {
 public struct TargetDescription: Equatable {
 
     /// The target type.
-    public enum TargetType: String, Equatable {
+    public enum TargetType: String, Equatable, Codable {
         case regular
         case test
         case system
@@ -281,8 +281,8 @@ public struct PackageDependencyDescription: Equatable {
 
     /// The dependency requirement.
     public enum Requirement: Equatable {
-        case exact(Utility.Version)
-        case range(Range<Utility.Version>)
+        case exact(Version)
+        case range(Range<Version>)
         case revision(String)
         case branch(String)
         case localPackage
