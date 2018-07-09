@@ -1,8 +1,15 @@
+// swift-tools-version:4.2
 import PackageDescription
 
 let package = Package(
     name: "dep2",
+    products: [
+        .executable(name: "dep2", targets: ["dep2"]),
+    ],
     dependencies: [
-        .Package(url: "../dep1", versions: "1.1.0"..<"2.0.0"),
+        .package(url: "../dep1", from: "1.0.0"),
+    ],
+    targets: [
+        .target(name: "dep2", dependencies:[ "dep1"], path: "./"),
     ]
 )

@@ -1,7 +1,12 @@
+// swift-tools-version:4.2
 import PackageDescription
 
 let package = Package(
     name: "App",
     dependencies: [
-        .Package(url: "../CFoo", majorVersion: 1),
-    ])
+        .package(url: "../CFoo", from: "1.0.0"),
+    ],
+    targets: [
+        .target(name: "App", path: "./"),
+    ]
+)

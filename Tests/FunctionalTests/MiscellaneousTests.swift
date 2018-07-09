@@ -34,16 +34,6 @@ class MiscellaneousTestCase: XCTestCase {
             let output = try executeSwiftBuild(prefix.appending(component: "Bar"))
             XCTAssertTrue(output.contains("Resolving"))
             XCTAssertTrue(output.contains("at 1.2.3"))
-            XCTAssertTrue(output.contains("warning: PackageDescription API v3 is deprecated and will be removed in the future; used by package(s): Bar, Foo"))
-        }
-    }
-
-    func testPackageWithNoSources() throws {
-        // Tests that a package with no source files doesn't error.
-        fixture(name: "Miscellaneous/Empty") { prefix in
-            let output = try executeSwiftBuild(prefix, configuration: .Debug)
-            let expected = "warning: target 'Empty' in package 'Empty' contains no valid source files"
-            XCTAssert(output.contains(expected), "unexpected output: \(output)")
         }
     }
 
@@ -274,11 +264,11 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testOverridingSwiftcArguments() throws {
-#if os(macOS)
+      #if os(macOS)
         fixture(name: "Miscellaneous/OverrideSwiftcArgs") { prefix in
             try executeSwiftBuild(prefix, printIfError: true, Xswiftc: ["-target", "x86_64-apple-macosx10.20"])
         }
-#endif
+      #endif
     }
 
     func testPkgConfigCFamilyTargets() throws {
@@ -443,7 +433,6 @@ class MiscellaneousTestCase: XCTestCase {
 
     static var allTests = [
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
-        ("testPackageWithNoSources", testPackageWithNoSources),
         ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
         ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
         ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),

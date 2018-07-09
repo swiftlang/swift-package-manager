@@ -65,18 +65,11 @@ class DependencyResolutionTests: XCTestCase {
         }
     }
 
-    func testIndirectTestsDontBuild() {
-        fixture(name: "DependencyResolution/External/IgnoreIndirectTests") { prefix in
-            XCTAssertBuilds(prefix.appending(component: "app"))
-        }
-    }
-
     static var allTests = [
         ("testInternalSimple", testInternalSimple),
         ("testInternalExecAsDep", testInternalExecAsDep),
         ("testInternalComplex", testInternalComplex),
         ("testExternalSimple", testExternalSimple),
         ("testExternalComplex", testExternalComplex),
-        ("testIndirectTestsDontBuild", testIndirectTestsDontBuild),
     ]
 }
