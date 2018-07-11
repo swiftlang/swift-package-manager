@@ -227,7 +227,7 @@ func xcodeProject(
             packagesByProduct[product] = package
         }
     }
-    
+
     // To avoid creating multiple groups for the same path, we keep a mapping
     // of the paths we've seen and the corresponding groups we've created.
     var srcPathsToGroups: [AbsolutePath: Xcode.Group] = [:]
@@ -554,7 +554,7 @@ func xcodeProject(
             }
 
             // Disable defines target for clang target because our clang targets are not proper framework targets.
-            // Also see: <rdar://problem/29825757> 
+            // Also see: <rdar://problem/29825757>
             targetSettings.common.DEFINES_MODULE = "NO"
 
             // Generate a modulemap for clangTarget (if not provided by user) and
@@ -729,7 +729,7 @@ private extension SwiftLanguageVersion {
     /// Returns the build setting value for the given Swift language version.
     var xcodeBuildSettingValue: String {
         // Swift version setting are represented differently in Xcode:
-        // 3 -> 4.0, 4 -> 4.0, 4.2 -> 4.2
+        // 3 -> 3.0, 4 -> 4.0, 4.2 -> 4.2
         var swiftVersion = "\(rawValue)"
         if !rawValue.contains(".") {
             swiftVersion += ".0"
