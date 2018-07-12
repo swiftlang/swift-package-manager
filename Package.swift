@@ -29,6 +29,7 @@ let package = Package(
                 "Basic",
                 "Utility",
                 "SourceControl",
+                "SPMLLBuild",
                 "PackageDescription4",
                 "PackageModel",
                 "PackageLoading",
