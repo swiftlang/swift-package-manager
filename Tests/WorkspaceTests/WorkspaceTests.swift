@@ -1198,15 +1198,23 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: []
                 ),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: []
+                ),
             ],
             packages: [],
-            toolsVersion: ToolsVersion(version: "4.0.0")
+            toolsVersion: .v4
         )
 
-        let roots = workspace.rootPaths(for: ["Foo", "Bar"]).map({ $0.appending(component: "Package.swift") })
+        let roots = workspace.rootPaths(for: ["Foo", "Bar", "Baz"]).map({ $0.appending(component: "Package.swift") })
 
         try fs.writeFileContents(roots[0], bytes: "// swift-tools-version:4.0")
         try fs.writeFileContents(roots[1], bytes: "// swift-tools-version:4.1.0")
+        try fs.writeFileContents(roots[2], bytes: "// swift-tools-version:3.1")
 
         workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
@@ -1219,6 +1227,11 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .equal("package at '/tmp/ws/roots/Bar' requires a minimum Swift tools version of 4.1.0 (currently 4.0.0)"), behavior: .error, location: "/tmp/ws/roots/Bar")
+            }
+        }
+        workspace.checkPackageGraph(roots: ["Baz"]) { (graph, diagnostics) in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Baz' requires a minimum Swift tools version of 4.0.0 (currently 3.1.0)"), behavior: .error, location: "/tmp/ws/roots/Baz")
             }
         }
     }

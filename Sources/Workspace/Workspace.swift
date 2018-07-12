@@ -958,7 +958,15 @@ extension Workspace {
             let toolsVersion = try toolsVersionLoader.load(
                 at: packagePath, fileSystem: fileSystem)
 
-            // Ensure that the tools version is compatible.
+            // Make sure the package has the right minimum tools version.
+            guard toolsVersion >= .v4 else {
+                throw WorkspaceDiagnostics.IncompatibleToolsVersion(
+                    rootPackagePath: packagePath,
+                    requiredToolsVersion: .v4,
+                    currentToolsVersion: toolsVersion)
+            }
+
+            // Make sure the package isn't newer than the current tools version.
             guard currentToolsVersion >= toolsVersion else {
                 throw WorkspaceDiagnostics.IncompatibleToolsVersion(
                     rootPackagePath: packagePath,
