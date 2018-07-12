@@ -829,13 +829,16 @@ def llbuild_import_paths(args):
     import_paths.append(os.path.join(args.llbuild_source_dir, "products/libllbuild/include"))
     return import_paths
 
+def llbuild_lib_path(args):
+    return os.path.join(args.llbuild_build_dir, "lib")
+
 def llbuild_link_args(args):
     build_flags = []
     if args.llbuild_link_framework:
         llbuild_libdir = args.llbuild_build_dir
         build_flags.extend(["-Xlinker", "-F%s" % llbuild_libdir])
     else: 
-        llbuild_libdir = os.path.join(args.llbuild_build_dir, "lib")
+        llbuild_libdir = llbuild_lib_path(args)
         build_flags.extend(["-Xlinker", "-L%s" % llbuild_libdir])
     build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libdir])
     return build_flags
@@ -1362,7 +1365,13 @@ def main():
         if not os.path.exists(os.path.dirname(xcconfig_path)):
             mkdir_p(os.path.dirname(xcconfig_path))
         with open(xcconfig_path, "w") as f:
-            print("\n", file=f)
+            if args.link_llbuild:
+                # Add required build settings for llbuild.
+                swift_include_paths = " ".join(llbuild_import_paths(args))
+                lib_path = llbuild_lib_path(args)
+                print("SWIFT_INCLUDE_PATHS = %s" % (swift_include_paths), file=f)
+                print("LIBRARY_SEARCH_PATHS = %s" % (lib_path), file=f)
+                print("LD_RUNPATH_SEARCH_PATHS = %s" % (lib_path), file=f)
         cmd += ["--xcconfig-overrides", xcconfig_path]
             
         # Call `swift-package` to generate the Xcode project.
