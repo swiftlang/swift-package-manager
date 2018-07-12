@@ -829,9 +829,6 @@ def installBinary(binary_path, install_path, swiftc_path, add_rpaths=[], delete_
         # Add additional RPATHs, if requested.
         for rpath in add_rpaths:
             add_rpath(rpath, installed_path)
-    else:
-        if add_rpath:
-            error("unable to add RPATHs on this platform")
 
 
 def llbuild_import_paths(args):
