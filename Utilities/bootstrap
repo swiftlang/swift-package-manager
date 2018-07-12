@@ -1145,6 +1145,9 @@ def main():
                 llbuild_libs_rpath = "$ORIGIN/../lib/swift/pm/llbuild"
             build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libs_rpath])
 
+        if args.llbuild_link_framework:
+            build_flags.extend(["-Xswiftc", "-F%s" % args.llbuild_build_dir])
+
         # Add llbuild link flags.
         build_flags.extend(llbuild_link_args(args))
     
