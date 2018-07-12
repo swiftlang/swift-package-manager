@@ -882,6 +882,22 @@ public final class PackageBuilder {
                     continue
                 }
             }
+
+            // Do some validation for executable products.
+            switch product.type {
+            case .library, .test:
+                break
+            case .executable:
+                let executableTargets = targets.filter({ $0.type == .executable })
+                if executableTargets.count != 1 {
+                    diagnostics.emit(
+                        data: PackageBuilderDiagnostics.InvalidExecutableProductDecl(product: product.name),
+                        location: PackageLocation.Local(name: manifest.name, packagePath: packagePath)
+                    )
+                    continue
+                }
+            }
+
             append(Product(name: product.name, type: product.type, targets: targets))
         }
 
