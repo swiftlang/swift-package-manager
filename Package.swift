@@ -89,6 +89,10 @@ let package = Package(
             /** Source control operations */
             name: "SourceControl",
             dependencies: ["Basic", "Utility"]),
+        .target(
+            /** Shim for llbuild library */
+            name: "SPMLLBuild",
+            dependencies: ["Basic", "Utility"]),
 
         // MARK: Project Model
         
@@ -99,7 +103,7 @@ let package = Package(
         .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
-            dependencies: ["Basic", "PackageModel", "Utility"]),
+            dependencies: ["Basic", "PackageModel", "Utility", "SPMLLBuild"]),
 
         // MARK: Package Dependency Resolution
         
