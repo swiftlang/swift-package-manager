@@ -24,8 +24,11 @@ private class MockRepository: Repository {
     
     /// The known repository versions, as a map of tags to manifests.
     let versions: [Version: Manifest]
+
+    let fs: FileSystem
     
-    init(url: String, versions: [Version: Manifest]) {
+    init(fs: FileSystem, url: String, versions: [Version: Manifest]) {
+        self.fs = fs
         self.url = url
         self.versions = versions
     }
@@ -65,8 +68,8 @@ private class MockRepository: Repository {
 
     func openFileView(revision: Revision) throws -> FileSystem {
         assert(versions.index(forKey: Version(string: revision.identifier)!) != nil)
-        // This isn't actually used, see `MockManifestLoader`.
-        return InMemoryFileSystem()
+        // This is used for reading the tools version.
+        return fs
     }
 }
 
@@ -176,51 +179,53 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         assertIdentity("/path/to/foo/bar/baz.git", "baz")
     }
 
-    func testBasics() {
-        mktmpdir{ path in
-            let repoA = MockRepository(
-                url: "A",
-                versions: [
-                    v1: Manifest(
-                        name: "Foo",
-                        path: AbsolutePath("/Package.swift"),
-                        url: "A",
-                        version: v1,
-                        manifestVersion: .v4,
-                        dependencies: [PackageDependencyDescription(url: "B", requirement: .upToNextMajor(from: "2.0.0"))]
-                    )
-                ])
-            let repoB = MockRepository(
-                url: "B",
-                versions: [
-                    v2: Manifest(
-                        name: "Bar",
-                        path: AbsolutePath("/Package.swift"),
-                        url: "B",
-                        version: v2,
-                        manifestVersion: .v4
-                    )
-                ])
-            let resolver = MockDependencyResolver(repositories: repoA, repoB)
+    func testBasics() throws {
+        let fs = InMemoryFileSystem()
+        try fs.writeFileContents(AbsolutePath("/Package.swift"), bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)\n"))
+        let repoA = MockRepository(
+            fs: fs,
+            url: "A",
+            versions: [
+                v1: Manifest(
+                    name: "Foo",
+                    path: AbsolutePath("/Package.swift"),
+                    url: "A",
+                    version: v1,
+                    manifestVersion: .v4,
+                    dependencies: [PackageDependencyDescription(url: "B", requirement: .upToNextMajor(from: "2.0.0"))]
+                )
+            ])
+        let repoB = MockRepository(
+            fs: fs,
+            url: "B",
+            versions: [
+                v2: Manifest(
+                    name: "Bar",
+                    path: AbsolutePath("/Package.swift"),
+                    url: "B",
+                    version: v2,
+                    manifestVersion: .v4
+                )
+            ])
+        let resolver = MockDependencyResolver(repositories: repoA, repoB)
 
-            let constraints = [
-                RepositoryPackageConstraint(
-                    container: repoA.packageRef,
-                    versionRequirement: v1Range)
-            ]
-            let result: [(PackageReference, Version)] = try resolver.resolve(constraints: constraints).compactMap {
-                guard case .version(let version) = $0.binding else {
-                    XCTFail("Unexpecting non version binding \($0.binding)")
-                    return nil
-                }
-                return ($0.container, version)
+        let constraints = [
+            RepositoryPackageConstraint(
+                container: repoA.packageRef,
+                versionRequirement: v1Range)
+        ]
+        let result: [(PackageReference, Version)] = try resolver.resolve(constraints: constraints).compactMap {
+            guard case .version(let version) = $0.binding else {
+                XCTFail("Unexpecting non version binding \($0.binding)")
+                return nil
             }
-            XCTAssertEqual(result, [
-                    repoA.packageRef: v1,
-                    repoB.packageRef: v2,
-                ])
-            XCTAssertEqual(resolver.delegate.fetched, [repoA.specifier, repoB.specifier])
+            return ($0.container, version)
         }
+        XCTAssertEqual(result, [
+                repoA.packageRef: v1,
+                repoB.packageRef: v2,
+            ])
+        XCTAssertEqual(resolver.delegate.fetched, [repoA.specifier, repoB.specifier])
     }
 
     func testVprefixVersions() throws {
