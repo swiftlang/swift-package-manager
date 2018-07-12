@@ -1243,11 +1243,15 @@ def main():
                               args.swiftc_path,
                               add_rpaths=["@executable_path/../../../lib/swift/macosx"])
 
+            delete_rpaths = []
+            if args.link_llbuild:
+                delete_rpaths = [llbuild_lib_path(args)]
+
             # Install the main executables.
             for product_path in [swift_package_path, swiftpm_build_dir,
                                  swift_test_path, swift_run_path]:
                 installBinary(product_path, bin_install_path, args.swiftc_path, 
-                              delete_rpaths=[llbuild_lib_path(args)])
+                              delete_rpaths=delete_rpaths)
 
             # Install the runtimes.
             for version, runtime in processed_runtimes.items():
@@ -1294,6 +1298,10 @@ def main():
         libswiftpm_add_rpaths = []
         if args.libswiftpm_add_rpath:
             libswiftpm_add_rpaths = [args.libswiftpm_add_rpath]
+
+        libswiftpm_delete_rpaths = []
+        if args.link_llbuild:
+            libswiftpm_delete_rpaths = [llbuild_lib_path(args)]
         
         # Copy the libSwiftPM library.
         # FIXME: This shouldn't require so much knowledge of the manifest.
@@ -1301,7 +1309,7 @@ def main():
         src_path = os.path.join(target_path, conf, libswiftpm_product.product_name)
         installBinary(src_path, libswiftpm_library_dir, args.swiftc_path,
                       add_rpaths=libswiftpm_add_rpaths,
-                      delete_rpaths=[llbuild_lib_path(args)])
+                      delete_rpaths=libswiftpm_delete_rpaths)
         
         # If it's a dynamic library, and if we're on Darwin, fix the dylib id.
         if platform.system() == 'Darwin':
