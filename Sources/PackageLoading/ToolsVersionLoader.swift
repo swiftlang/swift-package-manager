@@ -36,7 +36,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         public var description: String {
             switch self {
             case .malformed(let versionSpecifier, let file):
-                return "The version specifier '\(versionSpecifier)' in '\(file.asString)' is not valid"
+                return "the version specifier '\(versionSpecifier)' in '\(file.asString)' is not valid"
             }
         }
     }
@@ -45,8 +45,11 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         // The file which contains the tools version.
         let file = Manifest.path(atPackagePath: path, fileSystem: fileSystem)
         guard fileSystem.isFile(file) else {
-            return ToolsVersion.defaultToolsVersion
+            // FIXME: We should return an error from here but Workspace tests rely on this in order to work.
+            // This doesn't really cause issues (yet) in practice though.
+            return ToolsVersion.currentToolsVersion
         }
+
         // FIXME: We don't need the entire file, just the first line.
         let contents = try fileSystem.readFileContents(file)
 
@@ -62,8 +65,8 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
                misspellings.first(where: firstLine.lowercased().contains) != nil {
                 throw Error.malformed(specifier: firstLine, file: file)
             }
-            // Otherwise assume the default.
-            return ToolsVersion.defaultToolsVersion
+            // Otherwise assume the default to be v3.
+            return .v3
         }
 
         // Ensure we can construct the version from the specifier.

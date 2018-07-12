@@ -66,7 +66,7 @@ extension ToolsVersion {
             return .v4
         }
 
-        // Return 4.2 for otherwise.
+        // Return 4.2 otherwise.
         return .v4_2
     }
 }

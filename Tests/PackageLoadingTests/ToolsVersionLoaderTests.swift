@@ -83,12 +83,12 @@ class ToolsVersionLoaderTests: XCTestCase {
             stream <<< "// swift-tools-version:4.1.0\n\n\n\n"
             stream <<< "let package = .."
             try load(stream.bytes) { toolsVersion in
-                XCTAssertEqual(toolsVersion, ToolsVersion.defaultToolsVersion)
+                XCTAssertEqual(toolsVersion, .v3)
             }
         }
 
         try load("// \n// swift-tools-version:6.1.0\n") { toolsVersion in
-            XCTAssertEqual(toolsVersion, ToolsVersion.defaultToolsVersion)
+            XCTAssertEqual(toolsVersion, .v3)
         }
 
         assertFailure("//swift-tools-:6.1.0\n", "//swift-tools-:6.1.0")
