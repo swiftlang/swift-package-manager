@@ -1251,6 +1251,26 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testBadExecutableProductDecl() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/foo.swift"
+        )
+
+        let manifest = Manifest.createV4Manifest(
+            name: "MyPackage",
+            products: [
+                ProductDescription(name: "foo", type: .executable, targets: ["foo"]),
+            ],
+            targets: [
+                TargetDescription(name: "foo"),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkModule("foo") { _ in }
+            result.checkDiagnostic("executable product \'foo\' should have exactly one executable target")
+        }
+    }
+
     static var allTests = [
         ("testCInTests", testCInTests),
         ("testDotFilesAreIgnored", testDotFilesAreIgnored),
@@ -1282,6 +1302,7 @@ class PackageBuilderTests: XCTestCase {
         ("testSystemLibraryTarget", testSystemLibraryTarget),
         ("testSystemLibraryTargetDiagnostics", testSystemLibraryTargetDiagnostics),
         ("testLinuxMainSearch", testLinuxMainSearch),
+        ("testBadExecutableProductDecl", testBadExecutableProductDecl),
     ]
 }
 

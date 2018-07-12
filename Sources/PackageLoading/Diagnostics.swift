@@ -113,4 +113,16 @@ public enum PackageBuilderDiagnostics {
 
         let product: String
     }
+
+    struct InvalidExecutableProductDecl: DiagnosticData {
+        static let id = DiagnosticID(
+            type: InvalidExecutableProductDecl.self,
+            name: "org.swift.diags.pkg-builder.invalid-exec-product",
+            description: {
+                $0 <<< "executable product" <<< { "'" + $0.product + "'" } <<< "should have exactly one executable target"
+            }
+        )
+
+        let product: String
+    }
 }
