@@ -775,10 +775,32 @@ def get_swiftc_path():
     except:
         error("unable to find 'swiftc' tool for bootstrap build")
 
+def delete_rpath(rpath, binary):
+    if platform.system() == 'Darwin':
+        cmd = ["install_name_tool", "-delete_rpath", rpath, binary]
+        note("removing RPATH from %s: %s" % (
+                binary, ' '.join(cmd)))
+        result = subprocess.call(cmd)
+        if result != 0:
+            error("command failed with exit status %d" % (result,))
+    else:
+        error("unable to remove RPATHs on this platform")
+
+def add_rpath(rpath, binary):
+    if platform.system() == 'Darwin':
+        cmd = ["install_name_tool", "-add_rpath", rpath, binary]
+        note("adding RPATH in %s: %s" % (
+                binary, ' '.join(cmd)))
+        result = subprocess.call(cmd)
+        if result != 0:
+            error("command failed with exit status %d" % (result,))
+    else:
+        error("unable to add RPATHs on this platform")
+
 # Install a binary file at the install path.
 #
 # This method removes the hardcoded stdlib path from the binary.
-def installBinary(binary_path, install_path, swiftc_path, add_rpath=None):
+def installBinary(binary_path, install_path, swiftc_path, add_rpaths=[], delete_rpaths=[]):
     mkdir_p(install_path)
     cmd = ["rsync", "-a", binary_path, install_path]
     note("installing %s: %s" % (
@@ -798,23 +820,15 @@ def installBinary(binary_path, install_path, swiftc_path, add_rpath=None):
         stdlib_path = os.path.realpath(
             os.path.join(os.path.dirname(swiftc_path), "..",
                          "lib", "swift", "macosx"))
-        cmd = ["install_name_tool", "-delete_rpath",
-               stdlib_path, installed_path]
-        note("removing stray RPATH from %s: %s" % (
-                installed_path, ' '.join(cmd)))
-        result = subprocess.call(cmd)
-        if result != 0:
-            error("command  failed with exit status %d" % (result,))
+        delete_rpath(stdlib_path, installed_path)
 
-        # Add an additional RPATH, if requested.
-        if add_rpath:
-            cmd = ["install_name_tool", "-add_rpath",
-                   add_rpath, installed_path]
-            note("adding RPATH to %s: %s" % (
-                    installed_path, ' '.join(cmd)))
-            result = subprocess.call(cmd)
-            if result != 0:
-                error("command  failed with exit status %d" % (result,))
+        # Remove additional RPATHs, if requested.
+        for rpath in delete_rpaths:
+            delete_rpath(rpath, installed_path)
+
+        # Add additional RPATHs, if requested.
+        for rpath in add_rpaths:
+            add_rpath(rpath, installed_path)
     else:
         if add_rpath:
             error("unable to add RPATHs on this platform")
@@ -830,15 +844,18 @@ def llbuild_import_paths(args):
     return import_paths
 
 def llbuild_lib_path(args):
-    return os.path.join(args.llbuild_build_dir, "lib")
+    if args.llbuild_link_framework:
+        llbuild_libdir = args.llbuild_build_dir
+    else: 
+        llbuild_libdir = os.path.join(args.llbuild_build_dir, "lib")
+    return llbuild_libdir
 
 def llbuild_link_args(args):
     build_flags = []
+    llbuild_libdir = llbuild_lib_path(args)
     if args.llbuild_link_framework:
-        llbuild_libdir = args.llbuild_build_dir
         build_flags.extend(["-Xlinker", "-F%s" % llbuild_libdir])
     else: 
-        llbuild_libdir = llbuild_lib_path(args)
         build_flags.extend(["-Xlinker", "-L%s" % llbuild_libdir])
     build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libdir])
     return build_flags
@@ -907,6 +924,8 @@ def main():
                         help="Directory in which to put libSwiftPM library")
     parser.add_argument("--libswiftpm-modules-dir", dest="libswiftpm_modules_dir",
                         help="Directory in which to put libSwiftPM modules")
+    parser.add_argument("--libswiftpm-add-rpath", dest="libswiftpm_add_rpath",
+                        help="Add the given rpath to libswiftpm during installation")
     parser.add_argument("--libswiftpm-skip-c-headers", action="store_true",
                         help="Skip installing C headers in libSwiftPM install directory")
     args = parser.parse_args()
@@ -1140,8 +1159,10 @@ def main():
         for import_path in llbuild_import_paths(args):
             build_flags.extend(["-Xswiftc", "-I%s" % import_path])
 
-        # Embed rpath to find llbuild libraries in the toolchain.
-        if not args.llbuild_link_framework:
+        # Embed rpath to find llbuild library or framework at runtime.
+        if args.llbuild_link_framework:
+            llbuild_libs_rpath = "@executable_path/../../../../../SharedFrameworks"
+        else:
             if platform.system() == 'Darwin':
                 llbuild_libs_rpath = "@executable_path/../lib/swift/pm/llbuild"
             else:
@@ -1220,13 +1241,13 @@ def main():
                 # package manager. https://bugs.swift.org/browse/SR-1968
                 installBinary(swiftpm_xctest_helper_path, libexec_install_path,
                               args.swiftc_path,
-                              add_rpath=("@executable_path/../../../"
-                                         "lib/swift/macosx"))
+                              add_rpaths=["@executable_path/../../../lib/swift/macosx"])
 
             # Install the main executables.
             for product_path in [swift_package_path, swiftpm_build_dir,
                                  swift_test_path, swift_run_path]:
-                installBinary(product_path, bin_install_path, args.swiftc_path)
+                installBinary(product_path, bin_install_path, args.swiftc_path, 
+                              delete_rpaths=[llbuild_lib_path(args)])
 
             # Install the runtimes.
             for version, runtime in processed_runtimes.items():
@@ -1268,12 +1289,19 @@ def main():
             libswiftpm_product = product_map["SwiftPM"]
         except:
             error("unable to find 'SwiftPM' product in package manifest; cannot copy library to '%s'" % (libswiftpm_library_dir, ))
+
+        # Compute the RPATHs that should be added to libSwiftPM.
+        libswiftpm_add_rpaths = []
+        if args.libswiftpm_add_rpath:
+            libswiftpm_add_rpaths = [args.libswiftpm_add_rpath]
         
         # Copy the libSwiftPM library.
         # FIXME: This shouldn't require so much knowledge of the manifest.
         # FIXME: We should handle what happens if it's a static library.
         src_path = os.path.join(target_path, conf, libswiftpm_product.product_name)
-        installBinary(src_path, libswiftpm_library_dir, args.swiftc_path)
+        installBinary(src_path, libswiftpm_library_dir, args.swiftc_path,
+                      add_rpaths=libswiftpm_add_rpaths,
+                      delete_rpaths=[llbuild_lib_path(args)])
         
         # If it's a dynamic library, and if we're on Darwin, fix the dylib id.
         if platform.system() == 'Darwin':
