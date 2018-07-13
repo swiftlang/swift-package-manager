@@ -28,10 +28,8 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 
 ## Using trunk snapshot
 
-
 1. [Download](https://swift.org/download/#snapshots) and install latest Trunk Development snapshot.
 2. Run the following command depending on your platform.
-
 
 	### macOS
 	```sh
@@ -62,14 +60,12 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
     You can also use the built binaries: `swift-build`, `swift-package`,
     `swift-test`, `swift-run`.
 	
-	
 	### Example:
 	```sh
 	$ cd /tmp && mkdir hello && cd hello
 	$ /path/to/swiftpm/.build/x86_64-apple-macosx10.10/debug/swift-package init
 	$ /path/to/swiftpm/.build/x86_64-apple-macosx10.10/debug/swift-build
 	```
-	
 
 4. Testing the Swift Package Manager.
 
@@ -77,7 +73,6 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 	$ Utilities/bootstrap test --test-parallel
 	```
 	Use this command to run the tests. All tests must pass before a patch can be accepted.
-	
 
 ## Self-hosting
 
@@ -115,7 +110,7 @@ target, you will need to regenerate the Xcode project using the above command.
 
 SwiftPM uses [swift-ci](https://ci.swift.org) infrastructure for its continuous integration testing. The
 bots can be triggered on pull-requests if you have commit access, otherwise ask
-one of the code owner to trigger them for you. The following commands are supported:
+one of the code owners to trigger them for you. The following commands are supported:
 
 ### @swift-ci please smoke test
 
@@ -132,7 +127,7 @@ Note: Smoke tests are still required for merging the pull-requests.
 ## Running the performance tests
 
 Running performance tests is a little awkward right now. First, generate the
-Xcode project using this command.
+Xcode project using this command:
 
 ```sh
 $ Utilities/bootstrap --generate-xcodeproj --enable-perf-tests
@@ -161,11 +156,11 @@ compile Swift source files. You can use `SWIFT_EXEC` and `SWIFT_EXEC_MANIFEST`
 environment variables to control which compiler to use for these operations.
 
 `SWIFT_EXEC_MANIFEST`: This variable controls which compiler to use for parsing
-Package.swift manifest files. The lookup order for manifest compiler is:
+Package.swift manifest files. The lookup order for the manifest compiler is:
 SWIFT_EXEC_MANIFEST, swiftc adjacent to swiftpm binaries, SWIFT_EXEC
 
 `SWIFT_EXEC`: This variable controls which compiler to use for compiling Swift
-sources. The lookup order for manifest compiler is: SWIFT_EXEC, swiftc adjacent
+sources. The lookup order for the sources compiler is: SWIFT_EXEC, swiftc adjacent
 to swiftpm binaries. This is also useful for Swift compiler developers when they
 want to use a debug compiler with SwiftPM.
 
