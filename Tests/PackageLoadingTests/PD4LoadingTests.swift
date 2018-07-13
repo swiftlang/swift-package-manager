@@ -89,9 +89,6 @@ class PackageDescription4LoadingTests: XCTestCase {
             XCTAssertEqual(manifest.manifestVersion, .v4)
             XCTAssertEqual(manifest.targets, [])
             XCTAssertEqual(manifest.dependencies, [])
-            let flags = manifest.interpreterFlags.joined(separator: " ")
-            XCTAssertTrue(flags.contains("/swift/pm/4"))
-            XCTAssertTrue(flags.contains("-swift-version 4"))
         }
     }
 

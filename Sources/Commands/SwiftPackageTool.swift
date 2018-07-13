@@ -164,12 +164,17 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 projectName = graph.rootPackages[0].name
             }
             let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
+
+            var genOptions = options.xcodeprojOptions
+            genOptions.manifestLoader = try getManifestLoader()
+
             try Xcodeproj.generate(
                 projectName: projectName,
                 xcodeprojPath: xcodeprojPath,
                 graph: graph,
-                options: options.xcodeprojOptions,
-                diagnostics: diagnostics)
+                options: genOptions,
+                diagnostics: diagnostics
+            )
 
             print("generated:", xcodeprojPath.prettyPath(cwd: originalWorkingDirectory))
 
