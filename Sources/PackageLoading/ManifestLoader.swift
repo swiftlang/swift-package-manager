@@ -160,16 +160,20 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         manifestVersion: ManifestVersion,
         fileSystem: FileSystem? = nil
     ) throws -> Manifest {
+
+        // Validate that the file exists.
+        let fs = (fileSystem ?? localFileSystem)
+        guard fs.isFile(inputPath) else {
+            throw PackageModel.Package.Error.noManifest(
+                baseURL: baseURL, version: version?.description)
+        }
+
         // If we were given a file system, load via a temporary file.
         if let fileSystem = fileSystem {
-            let contents: ByteString
-            do {
-                contents = try fileSystem.readFileContents(inputPath)
-            } catch FileSystemError.noEntry {
-                throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description)
-            }
+            let contents = try fileSystem.readFileContents(inputPath)
             let tmpFile = try TemporaryFile(suffix: ".swift")
             try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
+
             return try loadFile(
                 path: tmpFile.path,
                 baseURL: baseURL,
@@ -177,15 +181,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 manifestVersion: manifestVersion)
         }
 
-        // Validate that the file exists.
-        guard isFile(inputPath) else {
-            throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description)
-        }
-
         // Get the json from manifest.
-        let parseResult = try parse(path: inputPath, manifestVersion: manifestVersion)
-
-        let json = try JSON(string: parseResult.jsonString)
+        let jsonString = try parse(path: inputPath, manifestVersion: manifestVersion)
+        let json = try JSON(string: jsonString)
 
         // Load the manifest from JSON.
         let manifestBuilder = try ManifestBuilder(v4: json, baseURL: baseURL)
@@ -200,7 +198,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             path: inputPath,
             url: baseURL,
             version: version,
-            interpreterFlags: parseResult.interpreterFlags,
+            interpreterFlags: interpreterFlags(for: manifestVersion),
             manifestVersion: manifestVersion,
             pkgConfig: manifestBuilder.pkgConfig,
             providers: manifestBuilder.providers,
@@ -219,7 +217,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func parse(
         path manifestPath: AbsolutePath,
         manifestVersion: ManifestVersion
-    ) throws -> (jsonString: String, interpreterFlags: [String]) {
+    ) throws -> String {
         // The compiler has special meaning for files with extensions like .ll, .bc etc.
         // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
         assert(manifestPath.extension == "swift",
@@ -269,7 +267,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             throw ManifestParseError.invalidEncoding
         }
 
-        return (json, interpreterFlags)
+        return json
     }
 
     /// Returns path to the sdk, if possible.
