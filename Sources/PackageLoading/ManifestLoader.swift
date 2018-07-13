@@ -12,8 +12,6 @@ import Basic
 import PackageModel
 import Utility
 
-import func POSIX.realpath
-
 public enum ManifestParseError: Swift.Error {
     /// The manifest had a string encoding error.
     case invalidEncoding
