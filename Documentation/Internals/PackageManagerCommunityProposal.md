@@ -1,6 +1,6 @@
 # Swift Package Manager Community Proposal
 
-> **PLEASE NOTE** This document represents the initial proposal for Swift Package Manger, and is provided for historical purposes only. It does not represent the current state or future direction of the project. For current documentation, see the main Swift Package Manager [documentation](README.md).
+> **PLEASE NOTE** This document represents the initial proposal for Swift Package Manger, and is provided for historical purposes only. It does not represent the current state or future direction of the project. For current documentation, see the main Swift Package Manager [documentation](../README.md).
 
 --- 
 
