@@ -66,7 +66,7 @@ public class TestToolOptions: ToolOptions {
             return .version
         }
 
-        if shouldRunInParallel {
+        if shouldRunInParallel || numberOfWorkers>0 {
             return .runParallel
         }
 
@@ -87,6 +87,9 @@ public class TestToolOptions: ToolOptions {
     /// If tests should run in parallel mode.
     var shouldRunInParallel = false
 
+    /// Run tests in parallel mode specifying number of workers spawned
+    var numberOfWorkers = 0
+    
     /// List the tests and exit.
     var shouldListTests = false
 
@@ -217,7 +220,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 processSet: processSet,
                 sanitizers: options.sanitizers,
                 toolchain: toolchain,
-                xUnitOutput: options.xUnitOutput
+                xUnitOutput: options.xUnitOutput,
+                numJobs: options.numberOfWorkers > 0 ? options.numberOfWorkers : ProcessInfo.processInfo.activeProcessorCount
             )
             try runner.run(tests)
 
@@ -269,6 +273,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             option: parser.add(option: "--parallel", kind: Bool.self,
                 usage: "Run the tests in parallel."),
             to: { $0.shouldRunInParallel = $1 })
+        
+        binder.bind(
+            option: parser.add(option: "--num-workers", kind: Int.self,
+                               usage: "Run the tests in parallel specifying number of workers spawned."),
+            to: { $0.numberOfWorkers = $1 })
 
         binder.bind(
             option: parser.add(option: "--specifier", shortName: "-s", kind: String.self),
@@ -479,11 +488,6 @@ final class ParallelTestRunner {
     /// The queue containing tests which are finished running.
     private let finishedTests = SynchronizedQueue<TestResult?>()
 
-    /// Number of parallel workers to spawn.
-    private var numJobs: Int {
-        return ProcessInfo.processInfo.activeProcessorCount
-    }
-
     /// Instance of progress bar. Animating progress bar if stream is a terminal otherwise
     /// a simple progress bar.
     private let progressBar: ProgressBarProtocol
@@ -502,19 +506,23 @@ final class ParallelTestRunner {
     let sanitizers: EnabledSanitizers
     let toolchain: UserToolchain
     let xUnitOutput: AbsolutePath?
-
+    /// Number of parallel workers to spawn.
+    let numJobs: Int
+    
     init(
         testPath: AbsolutePath,
         processSet: ProcessSet,
         sanitizers: EnabledSanitizers,
         toolchain: UserToolchain,
-        xUnitOutput: AbsolutePath? = nil
+        xUnitOutput: AbsolutePath? = nil,
+        numJobs: Int
     ) {
         self.testPath = testPath
         self.processSet = processSet
         self.sanitizers = sanitizers
         self.toolchain = toolchain
         self.xUnitOutput = xUnitOutput
+        self.numJobs = numJobs
         progressBar = createProgressBar(forStream: stdoutStream, header: "Testing:")
     }
 
