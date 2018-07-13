@@ -82,9 +82,6 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The products declared in the manifest.
     public let products: [ProductDescription]
 
-    /// The flags that were used to interprete the manifest.
-    public let interpreterFlags: [String]
-
     /// The C language standard flag.
     public let cLanguageStandard: String?
 
@@ -105,7 +102,6 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         path: AbsolutePath,
         url: String,
         version: Utility.Version? = nil,
-        interpreterFlags: [String] = [],
         manifestVersion: ManifestVersion,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
@@ -120,7 +116,6 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         self.path = path
         self.url = url
         self.version = version
-        self.interpreterFlags = interpreterFlags
         self.manifestVersion = manifestVersion
         self.pkgConfig = pkgConfig
         self.providers = providers
@@ -153,7 +148,6 @@ extension Manifest {
             try container.encode(path, forKey: .path)
             try container.encode(url, forKey: .url)
             try container.encode(version, forKey: .version)
-            try container.encode(interpreterFlags, forKey: .interpreterFlags)
         }
 
         try container.encode(manifestVersion, forKey: .manifestVersion)

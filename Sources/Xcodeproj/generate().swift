@@ -34,6 +34,9 @@ public struct XcodeprojOptions {
     /// Run watchman to auto-generate the project file on changes.
     public var enableAutogeneration: Bool
 
+    /// Reference to manifest loader, if present.
+    public var manifestLoader: ManifestLoader?
+
     public init(
         flags: BuildFlags = BuildFlags(),
         xcconfigOverrides: AbsolutePath? = nil,

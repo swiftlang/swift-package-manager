@@ -62,7 +62,7 @@ func xcodeProject(
     fileSystem: FileSystem,
     diagnostics: DiagnosticsEngine,
     warningStream: OutputByteStream = stdoutStream
-    ) throws -> Xcode.Project {
+) throws -> Xcode.Project {
 
     // Create the project.
     let project = Xcode.Project()
@@ -75,7 +75,7 @@ func xcodeProject(
         let compilePhase = pdTarget.addSourcesBuildPhase()
         compilePhase.addBuildFile(fileRef: manifestFileRef)
 
-        var interpreterFlags = package.manifest.interpreterFlags
+        var interpreterFlags = options.manifestLoader?.interpreterFlags(for: package.manifest.manifestVersion) ?? []
         if !interpreterFlags.isEmpty {
             // Patch the interpreter flags to use Xcode supported toolchain macro instead of the resolved path.
             interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/" + String(package.manifest.manifestVersion.rawValue)

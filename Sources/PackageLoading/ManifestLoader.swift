@@ -198,7 +198,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             path: inputPath,
             url: baseURL,
             version: version,
-            interpreterFlags: interpreterFlags(for: manifestVersion),
             manifestVersion: manifestVersion,
             pkgConfig: manifestBuilder.pkgConfig,
             providers: manifestBuilder.providers,
