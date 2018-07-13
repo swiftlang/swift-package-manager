@@ -15,9 +15,6 @@ import Utility
 import func POSIX.realpath
 
 public enum ManifestParseError: Swift.Error {
-    /// The manifest file is empty.
-    case emptyManifestFile(url: String, version: String?)
-
     /// The manifest had a string encoding error.
     case invalidEncoding
 
@@ -180,22 +177,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 manifestVersion: manifestVersion)
         }
 
-        guard baseURL.chuzzle() != nil else { fatalError() }  //TODO
-
         // Validate that the file exists.
         guard isFile(inputPath) else {
             throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description)
         }
 
+        // Get the json from manifest.
         let parseResult = try parse(path: inputPath, manifestVersion: manifestVersion)
 
-        // Get the json from manifest.
-        guard let jsonString = parseResult.jsonString else {
-            // FIXME: This only supports version right now, we need support for
-            // branch and revision too.
-            throw ManifestParseError.emptyManifestFile(url: baseURL, version: version?.description) 
-        }
-        let json = try JSON(string: jsonString)
+        let json = try JSON(string: parseResult.jsonString)
 
         // Load the manifest from JSON.
         let manifestBuilder = try ManifestBuilder(v4: json, baseURL: baseURL)
@@ -229,7 +219,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func parse(
         path manifestPath: AbsolutePath,
         manifestVersion: ManifestVersion
-    ) throws -> (jsonString: String?, interpreterFlags: [String]) {
+    ) throws -> (jsonString: String, interpreterFlags: [String]) {
         // The compiler has special meaning for files with extensions like .ll, .bc etc.
         // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
         assert(manifestPath.extension == "swift",
@@ -279,7 +269,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             throw ManifestParseError.invalidEncoding
         }
 
-        return (json.isEmpty ? nil : json, interpreterFlags)
+        return (json, interpreterFlags)
     }
 
     /// Returns path to the sdk, if possible.
