@@ -11,11 +11,11 @@
 import Basic
 import PackageModel
 import Utility
+import SPMLLBuild
+import struct POSIX.FileInfo
+public typealias FileSystem = Basic.FileSystem
 
 public enum ManifestParseError: Swift.Error {
-    /// The manifest had a string encoding error.
-    case invalidEncoding
-
     /// The manifest contains invalid format.
     case invalidManifestFormat(String)
 
@@ -109,6 +109,11 @@ extension ManifestLoaderProtocol {
     }
 }
 
+public protocol ManifestLoaderDelegate {
+    func willLoad(manifest: AbsolutePath)
+    func willParse(manifest: AbsolutePath)
+}
+
 /// Utility class for loading manifest files.
 ///
 /// This class is responsible for reading the manifest data and produce a
@@ -120,13 +125,43 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     let resources: ManifestResourceProvider
     let isManifestSandboxEnabled: Bool
+    let isManifestCachingEnabled: Bool
+    let engine: LLBuildEngine
+    let delegate: ManifestLoaderDelegate?
 
     public init(
         resources: ManifestResourceProvider,
-        isManifestSandboxEnabled: Bool = true
-    ) {
+        isManifestSandboxEnabled: Bool = true,
+        isManifestCachingEnabled: Bool = true,
+        cacheDir: AbsolutePath = determineTempDirectory(),
+        delegate: ManifestLoaderDelegate? = nil
+    ) throws {
         self.resources = resources
         self.isManifestSandboxEnabled = isManifestSandboxEnabled
+        self.isManifestCachingEnabled = isManifestCachingEnabled
+        self.delegate = delegate
+
+        let cacheDelegate = ManifestCacheDelegate()
+        self.engine = LLBuildEngine(delegate: cacheDelegate)
+        cacheDelegate.loader = self
+
+        if isManifestCachingEnabled {
+            try localFileSystem.createDirectory(cacheDir, recursive: true)
+            try engine.attachDB(path: cacheDir.appending(component: "manifest.db").asString)
+        }
+    }
+
+    @available(*, deprecated)
+    public convenience init(
+        resources: ManifestResourceProvider,
+        isManifestSandboxEnabled: Bool = true
+    ) {
+        try! self.init(
+            resources: resources,
+            isManifestSandboxEnabled: isManifestSandboxEnabled,
+            isManifestCachingEnabled: false,
+            cacheDir: determineTempDirectory()
+       )
     }
 
     public func load(
@@ -159,31 +194,26 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         fileSystem: FileSystem? = nil
     ) throws -> Manifest {
 
+        // Inform the delegate.
+        self.delegate?.willLoad(manifest: inputPath)
+
         // Validate that the file exists.
-        let fs = (fileSystem ?? localFileSystem)
-        guard fs.isFile(inputPath) else {
+        guard (fileSystem ?? localFileSystem).isFile(inputPath) else {
             throw PackageModel.Package.Error.noManifest(
                 baseURL: baseURL, version: version?.description)
         }
 
-        // If we were given a file system, load via a temporary file.
-        if let fileSystem = fileSystem {
-            let contents = try fileSystem.readFileContents(inputPath)
-            let tmpFile = try TemporaryFile(suffix: ".swift")
-            try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
-
-            return try loadFile(
-                path: tmpFile.path,
-                baseURL: baseURL,
-                version: version,
-                manifestVersion: manifestVersion)
+        // Get the JSON string for the manifest.
+        let jsonString: String
+        do {
+            jsonString = try loadJSONString(
+                path: inputPath, manifestVersion: manifestVersion, fs: fileSystem)
+        } catch let error as StringError {
+            throw ManifestParseError.invalidManifestFormat(error.description)
         }
 
-        // Get the json from manifest.
-        let jsonString = try parse(path: inputPath, manifestVersion: manifestVersion)
-        let json = try JSON(string: jsonString)
-
         // Load the manifest from JSON.
+        let json = try JSON(string: jsonString)
         let manifestBuilder = try ManifestBuilder(v4: json, baseURL: baseURL)
 
         // Throw if we encountered any runtime errors.
@@ -210,11 +240,40 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return manifest
     }
 
+    /// Load the JSON string for the given manifest.
+    func loadJSONString(
+        path inputPath: AbsolutePath,
+        manifestVersion: ManifestVersion,
+        fs: FileSystem? = nil
+    ) throws -> String {
+        // If we were given a filesystem, load via a temporary file.
+        if let fs = fs {
+            let contents = try fs.readFileContents(inputPath)
+            let tmpFile = try TemporaryFile(suffix: ".swift")
+            try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
+            return try parse(path: tmpFile.path, manifestVersion: manifestVersion)
+        }
+
+        // Load directly if manifest caching is not enabled.
+        if !self.isManifestCachingEnabled {
+            return try parse(path: inputPath, manifestVersion: manifestVersion)
+        }
+
+        // Otherwise load via llbuild.
+        let key = ManifestLoadRule.RuleKey(
+            path: inputPath, manifestVersion: manifestVersion)
+        let value = engine.build(key: key)
+
+        return try value.dematerialize()
+    }
+
     /// Parse the manifest at the given path to JSON.
-    private func parse(
+    func parse(
         path manifestPath: AbsolutePath,
         manifestVersion: ManifestVersion
     ) throws -> String {
+        self.delegate?.willParse(manifest: manifestPath)
+
         // The compiler has special meaning for files with extensions like .ll, .bc etc.
         // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
         assert(manifestPath.extension == "swift",
@@ -257,11 +316,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // We expect output from interpreter to be empty, if something was emitted
         // throw and report it.
         if let output = output {
-            throw ManifestParseError.invalidManifestFormat(output)
+            throw StringError(output)
         }
 
         guard let json = try localFileSystem.readFileContents(file.path).asString else {
-            throw ManifestParseError.invalidEncoding
+            throw StringError("the manifest has invalid encoding")
         }
 
         return json
@@ -331,4 +390,167 @@ private func sandboxProfile() -> String {
     }
     stream <<< ")" <<< "\n"
     return stream.bytes.asString!
+}
+
+/// Represents a string error.
+// FIXME: We should probably just remove this and make all Manifest errors Codable.
+struct StringError: Equatable, Codable, CustomStringConvertible, Error {
+
+    /// The description of the error.
+    public let description: String
+
+    /// Create an instance of StringError.
+    public init(_ description: String) {
+        self.description = description
+    }
+}
+
+extension Result where ErrorType == StringError {
+    /// Create an instance of Result<Value, StringError>.
+    ///
+    /// Errors will be encoded as StringError using their description.
+    init(string body: () throws -> Value) {
+        do {
+            self = .success(try body())
+        } catch let error as StringError {
+            self = .failure(error)
+        } catch {
+            self = .failure(StringError(String(describing: error)))
+        }
+    }
+}
+
+// MARK:- Caching support.
+
+extension Result: LLBuildValue where Value: Codable, ErrorType: Codable {}
+
+final class ManifestCacheDelegate: LLBuildEngineDelegate {
+
+    weak var loader: ManifestLoader!
+
+    func lookupRule(rule: String, key: Key) -> Rule {
+        switch rule {
+        case ManifestLoadRule.ruleName:
+            return ManifestLoadRule(key, loader: loader)
+        case FileInfoRule.ruleName:
+            return FileInfoRule(key)
+        case SwiftPMVersionRule.ruleName:
+            return SwiftPMVersionRule()
+        default:
+            fatalError("Unknown rule \(rule)")
+        }
+    }
+}
+
+/// A rule to load a package manifest.
+///
+/// The rule can currently only load manifests which are physically present on
+/// the local file system. The rule will re-run if the manifest is modified.
+final class ManifestLoadRule: LLBuildRule {
+
+    struct RuleKey: LLBuildKey {
+        typealias BuildValue = RuleValue
+        typealias BuildRule = ManifestLoadRule
+
+        let path: AbsolutePath
+        let manifestVersion: ManifestVersion
+    }
+
+    typealias RuleValue = Result<String, StringError>
+
+    override class var ruleName: String { return "\(ManifestLoadRule.self)" }
+
+    private let key: RuleKey
+    private weak var loader: ManifestLoader!
+
+    init(_ key: Key, loader: ManifestLoader) {
+        self.key = RuleKey(key)
+        self.loader = loader
+        super.init()
+    }
+
+    override func start(_ engine: LLTaskBuildEngine) {
+        engine.taskNeedsInput(SwiftPMVersionRule.RuleKey(), inputID: 1)
+        engine.taskNeedsInput(FileInfoRule.RuleKey(path: key.path), inputID: 2)
+    }
+
+    override func inputsAvailable(_ engine: LLTaskBuildEngine) {
+        let value = RuleValue(string: {
+            try loader.parse(path: key.path, manifestVersion: key.manifestVersion)
+        })
+        engine.taskIsComplete(value)
+    }
+}
+
+/// A rule to get file info of a file on disk.
+// FIXME: Find a proper place for this rule.
+final class FileInfoRule: LLBuildRule {
+
+    struct RuleKey: LLBuildKey {
+        typealias BuildValue = RuleValue
+        typealias BuildRule = FileInfoRule
+
+        let path: AbsolutePath
+    }
+
+    typealias RuleValue = Result<FileInfo, StringError>
+
+    override class var ruleName: String { return "\(FileInfoRule.self)" }
+
+    private let key: RuleKey
+
+    init(_ key: Key) {
+        self.key = RuleKey(key)
+        super.init()
+    }
+
+    override func isResultValid(_ priorValue: Value) -> Bool {
+        let priorValue = RuleValue(priorValue)
+
+        // Always rebuild if we had a failure.
+        if case .failure = priorValue {
+            return false
+        }
+        return getFileInfo(key.path) == priorValue
+    }
+
+    override func inputsAvailable(_ engine: LLTaskBuildEngine) {
+        engine.taskIsComplete(getFileInfo(key.path))
+    }
+
+    private func getFileInfo(_ path: AbsolutePath) -> RuleValue {
+        return RuleValue(string: {
+            try localFileSystem.getFileInfo(key.path)
+        })
+    }
+}
+
+/// A rule to compute the current version of the pacakge manager.
+///
+/// This rule will always run.
+// FIXME: Find a proper place for this rule.
+final class SwiftPMVersionRule: LLBuildRule {
+
+    struct RuleKey: LLBuildKey {
+        typealias BuildValue = RuleValue
+        typealias BuildRule = SwiftPMVersionRule
+    }
+
+    struct RuleValue: LLBuildValue, Equatable {
+        let version: String
+    }
+
+    override class var ruleName: String { return "\(SwiftPMVersionRule.self)" }
+
+    override func isResultValid(_ priorValue: Value) -> Bool {
+        // Always rebuild this rule.
+        return false
+    }
+
+    override func inputsAvailable(_ engine: LLTaskBuildEngine) {
+        // FIXME: We need to include git hash in the version 
+        // string to make this rule more correct.
+        let version = Versioning.currentVersion.displayString
+        engine.taskIsComplete(RuleValue(version: version))
+    }
 }

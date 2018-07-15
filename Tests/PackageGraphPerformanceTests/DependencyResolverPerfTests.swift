@@ -94,8 +94,8 @@ class DependencyResolverPerfTests: XCTestCasePerf {
                 delegate: GitRepositoryResolutionHelper.DummyRepositoryManagerDelegate()
             )
 
-            let containerProvider = RepositoryPackageContainerProvider(
-                repositoryManager: repositoryManager, manifestLoader: ManifestLoader(resources: Resources.default))
+            let containerProvider = try RepositoryPackageContainerProvider(
+                repositoryManager: repositoryManager, manifestLoader: ManifestLoader(resources: Resources.default, isManifestCachingEnabled: false, cacheDir: path))
 
             let resolver = DependencyResolver(containerProvider, GitRepositoryResolutionHelper.DummyResolverDelegate())
             let container = PackageReference(identity: "dep", path: dep.asString)

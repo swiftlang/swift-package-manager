@@ -332,6 +332,11 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.shouldDisableSandbox = $1 })
 
         binder.bind(
+            option: parser.add(option: "--disable-package-manifest-caching", kind: Bool.self,
+            usage: "Disable caching Package.swift manifests"),
+            to: { $0.shouldDisableManifestCaching = $1 })
+
+        binder.bind(
             option: parser.add(option: "--version", kind: Bool.self),
             to: { $0.shouldPrintVersion = $1 })
 
@@ -723,7 +728,9 @@ public class SwiftTool<Options: ToolOptions> {
             try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 resources: self._hostToolchain.dematerialize().manifestResources,
-                isManifestSandboxEnabled: !self.options.shouldDisableSandbox
+                isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
+                isManifestCachingEnabled: !self.options.shouldDisableManifestCaching,
+                cacheDir: self.buildPath
             )
         })
     }()

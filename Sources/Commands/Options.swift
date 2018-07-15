@@ -40,6 +40,9 @@ public class ToolOptions {
     /// Disables sandboxing when executing subprocesses.
     public var shouldDisableSandbox = false
 
+    /// Disables manifest caching.
+    public var shouldDisableManifestCaching = false
+
     /// Path to the compilation destination describing JSON file.
     public var customCompileDestination: AbsolutePath?
 

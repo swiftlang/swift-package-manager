@@ -367,10 +367,9 @@ class MiscellaneousTestCase: XCTestCase {
 
             // Launch swift-build.
             let app = prefix.appending(component: "Bar")
-            let process = Process(args: SwiftPMProduct.SwiftBuild.path.asString, "--package-path", app.asString)
-            try process.launch()
 
-            let result = try process.waitUntilExit()
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
+
             // We should exited with a failure from the attempt to "git clone"
             // something that doesn't exist.
             XCTAssert(result.exitStatus != .terminated(code: 0))
