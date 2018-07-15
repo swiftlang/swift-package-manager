@@ -20,20 +20,6 @@ import Utility
 
 import TestSupport
 
-private let sharedManifestLoader = ManifestLoader(resources: Resources.default)
-
-extension Workspace {
-    static func create(at tempPath: AbsolutePath) -> Workspace {
-        let sandbox = tempPath.appending(component: "ws")
-        return Workspace(
-            dataPath: sandbox.appending(component: ".build"),
-            editablesPath: sandbox.appending(component: "edits"),
-            pinsFile: sandbox.appending(component: "Package.resolved"),
-            manifestLoader: sharedManifestLoader,
-            delegate: TestWorkspaceDelegate()
-        )
-    }
-}
 
 
 final class WorkspaceTests: XCTestCase {
@@ -134,7 +120,19 @@ final class WorkspaceTests: XCTestCase {
                 )
                 """
             }
-            let ws = Workspace.create(at: path)
+
+            let manifestLoader = try ManifestLoader(
+                resources: Resources.default, isManifestCachingEnabled: false)
+
+            let sandbox = path.appending(component: "ws")
+            let ws = Workspace(
+                dataPath: sandbox.appending(component: ".build"),
+                editablesPath: sandbox.appending(component: "edits"),
+                pinsFile: sandbox.appending(component: "Package.resolved"),
+                manifestLoader: manifestLoader,
+                delegate: TestWorkspaceDelegate()
+            )
+
             XCTAssertMatch((ws.interpreterFlags(for: foo)), [.contains("swift/pm/4")])
             XCTAssertMatch((ws.interpreterFlags(for: foo)), [.equal("-swift-version"), .equal("4")])
         }

@@ -33,8 +33,6 @@ public struct ManifestParseDiagnostic: DiagnosticData {
 extension ManifestParseError: DiagnosticDataConvertible {
     public var diagnosticData: DiagnosticData {
         switch self {
-        case .invalidEncoding:
-            return ManifestParseDiagnostic(["The manifest has invalid encoding"])
         case .invalidManifestFormat(let error):
             return ManifestParseDiagnostic([error])
         case .runtimeManifestErrors(let errors):

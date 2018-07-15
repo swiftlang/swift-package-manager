@@ -18,7 +18,7 @@ import PackageLoading
 
 // FIXME: We should share the infra with other loading tests.
 class PackageDescription4_2LoadingTests: XCTestCase {
-    let manifestLoader = ManifestLoader(resources: Resources.default)
+    let manifestLoader = try! ManifestLoader(resources: Resources.default, isManifestCachingEnabled: false)
 
     private func loadManifestThrowing(
         _ contents: ByteString,
@@ -309,6 +309,95 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         }
     }
 
+    func testCaching() {
+        mktmpdir { path in
+            let fs = localFileSystem
+
+            let manifestPath = path.appending(components: "pkg", "Package.swift")
+            try fs.writeFileContents(manifestPath) { stream in
+                stream <<< """
+                    import PackageDescription
+                    let package = Package(
+                        name: "Trivial",
+                        targets: [
+                            .target(
+                                name: "foo",
+                                dependencies: []),
+                        ]
+                    )
+                    """
+            }
+
+            let delegate = ManifestTestDelegate()
+            let manifestLoader = try! ManifestLoader(
+                resources: Resources.default, cacheDir: path, delegate: delegate)
+
+            func check(loader: ManifestLoader, expectCached: Bool) {
+                delegate.clear()
+                let manifest = try! loader.load(
+                    package: manifestPath.parentDirectory,
+                    baseURL: manifestPath.asString,
+                    manifestVersion: .v4_2)
+
+                XCTAssertEqual(delegate.loaded, [manifestPath])
+                XCTAssertEqual(delegate.parsed, expectCached ? [] : [manifestPath])
+                XCTAssertEqual(manifest.name, "Trivial")
+                XCTAssertEqual(manifest.targets[0].name, "foo")
+            }
+
+            check(loader: manifestLoader, expectCached: false)
+            for _ in 0..<2 {
+                check(loader: manifestLoader, expectCached: true)
+            }
+
+            try fs.writeFileContents(manifestPath) { stream in
+                stream <<< """
+                    import PackageDescription
+
+                    let package = Package(
+
+                        name: "Trivial",
+                        targets: [
+                            .target(
+                                name: "foo",
+                                dependencies: [  ]),
+                        ]
+                    )
+
+                    """
+            }
+
+            check(loader: manifestLoader, expectCached: false)
+            for _ in 0..<2 {
+                check(loader: manifestLoader, expectCached: true)
+            }
+
+            let noCacheLoader = try! ManifestLoader(
+                resources: Resources.default, isManifestCachingEnabled: false, delegate: delegate)
+            for _ in 0..<2 {
+                check(loader: noCacheLoader, expectCached: false)
+            }
+        }
+    }
+
+    final class ManifestTestDelegate: ManifestLoaderDelegate {
+        var loaded: [AbsolutePath] = []
+        var parsed: [AbsolutePath] = []
+
+        func willLoad(manifest: AbsolutePath) {
+            loaded.append(manifest)
+        }
+
+        func willParse(manifest: AbsolutePath) {
+            parsed.append(manifest)
+        }
+
+        func clear() {
+            loaded.removeAll()
+            parsed.removeAll()
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testSwiftLanguageVersions", testSwiftLanguageVersions),
@@ -316,5 +405,6 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         ("testSystemLibraryTargets", testSystemLibraryTargets),
         ("testVersionSpecificLoading", testVersionSpecificLoading),
         ("testRuntimeManifestErrors", testRuntimeManifestErrors),
+        ("testCaching", testCaching),
     ]
 }
