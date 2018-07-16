@@ -179,6 +179,15 @@ public protocol FileSystem: class {
 
     /// Change file mode.
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws
+
+
+    /// Returns the file info of the given path.
+    ///
+    /// If `followSymlink` is true and the file system entity at `path` is a symbolic link, it is traversed;
+    /// otherwise it is not (any symbolic links in path components other than the last one are always traversed).
+    ///
+    /// The method throws if the underlying stat call fails.
+    func getFileInfo(_ path: AbsolutePath, followSymlink: Bool) throws -> FileInfo
 }
 
 /// Convenience implementations (default arguments aren't permitted in protocol
@@ -215,6 +224,14 @@ public extension FileSystem {
         try createDirectory(path.parentDirectory, recursive: true)
         try writeFileContents(path, bytes: contents.bytes)
     }
+
+    func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
+        return try getFileInfo(path, followSymlink: true)
+    }
+
+    func getFileInfo(_ path: AbsolutePath, followSymlink: Bool) throws -> FileInfo {
+        fatalError("This file system currently doesn't support this method")
+    }
 }
 
 /// Concrete FileSystem implementation which communicates with the local file system.
@@ -241,6 +258,11 @@ private class LocalFileSystem: FileSystem {
 
     func isSymlink(_ path: AbsolutePath) -> Bool {
         return Basic.isSymlink(path)
+    }
+
+    func getFileInfo(_ path: AbsolutePath, followSymlink: Bool = true) throws -> FileInfo {
+        let statBuf = try stat(path, followSymlink: followSymlink)
+        return FileInfo(statBuf)
     }
 
     var currentWorkingDirectory: AbsolutePath? {

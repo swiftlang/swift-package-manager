@@ -28,7 +28,7 @@ import Foundation
 /// otherwise it is not (any symbolic links in path components other than the last one are always traversed).
 /// If symbolic links are followed and the file system entity at `path` is a symbolic link that points to a
 /// non-existent path, then this function returns nil.
-private func stat(_ path: AbsolutePath, followSymlink: Bool = true) throws -> SPMLibc.stat {
+func stat(_ path: AbsolutePath, followSymlink: Bool = true) throws -> SPMLibc.stat {
     if followSymlink {
         return try stat(path.asString)
     }
