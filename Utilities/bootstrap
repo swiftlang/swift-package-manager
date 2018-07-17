@@ -1164,7 +1164,7 @@ def main():
                 llbuild_libs_rpath = "@executable_path/../lib/swift/pm/llbuild"
             else:
                 llbuild_libs_rpath = "$ORIGIN/../lib/swift/pm/llbuild"
-            build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libs_rpath])
+        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libs_rpath])
 
         if args.llbuild_link_framework:
             build_flags.extend(["-Xswiftc", "-F%s" % args.llbuild_build_dir])
@@ -1229,6 +1229,10 @@ def main():
             mkdir_p(lib_install_path)
             mkdir_p(libexec_install_path)
 
+            delete_rpaths = []
+            if args.link_llbuild:
+                delete_rpaths = [llbuild_lib_path(args)]
+
             # Install XCTest helper inside libexec.
             if platform.system() == 'Darwin':
                 # Append the required RPATH for finding the standard libraries from
@@ -1238,11 +1242,8 @@ def main():
                 # package manager. https://bugs.swift.org/browse/SR-1968
                 installBinary(swiftpm_xctest_helper_path, libexec_install_path,
                               args.swiftc_path,
-                              add_rpaths=["@executable_path/../../../lib/swift/macosx"])
-
-            delete_rpaths = []
-            if args.link_llbuild:
-                delete_rpaths = [llbuild_lib_path(args)]
+                              add_rpaths=["@executable_path/../../../lib/swift/macosx"],
+                              delete_rpaths=delete_rpaths)
 
             # Install the main executables.
             for product_path in [swift_package_path, swiftpm_build_dir,
