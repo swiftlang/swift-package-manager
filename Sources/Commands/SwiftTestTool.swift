@@ -45,6 +45,7 @@ struct NoMatchingTestsWarning: DiagnosticData {
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
     case testsExecutableNotFound
+    case invalidUsage(argument: String)
 }
 
 extension TestError: CustomStringConvertible {
@@ -54,6 +55,8 @@ extension TestError: CustomStringConvertible {
             return "no tests found; create a target in the 'Tests' directory"
         case .invalidListTestJSONData:
             return "invalid list test JSON structure"
+        case .invalidUsage(let argument):
+            return "invalid usage of \(argument); use --help to print usage"
         }
     }
 }
@@ -208,6 +211,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             let testSuites = try getTestSuites(path: testPath)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
+            // if user called --num-workers without the --parallel option, throw an error
+            if (options.numberOfWorkers>0) && !options.shouldRunInParallel {
+                throw TestError.invalidUsage(argument: "--num-workers")
+            }
+
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
                 diagnostics.emit(data: NoMatchingTestsWarning())
@@ -276,7 +284,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         
         binder.bind(
             option: parser.add(option: "--num-workers", kind: Int.self,
-                               usage: "Run the tests in parallel specifying number of workers spawned."),
+                               usage: "Run the tests in parallel specifying number of workers spawned. Usage: --parallel --num-workers"),
             to: { $0.numberOfWorkers = $1 })
 
         binder.bind(
