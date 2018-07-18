@@ -76,22 +76,22 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 
 ## Self-hosting
 
-It is possible to build the Package Manager with itself. This is useful when you
-want to rebuild just the sources or run a single test. Make sure you run the
-bootstrap script first.
+It is possible to build SwiftPM with itself using a special script that is
+emitted during bootstrapping. This is useful when you want to rebuild just the
+sources or run a single test. Make sure you run the bootstrap script first.
 
 ```sh
 $ cd swiftpm
 
 # Rebuild just the sources.
-$ .build/x86_64-apple-macosx10.10/debug/swift-build
+$ .build/x86_64-apple-macosx10.10/debug/spm build
 
 # Run a single test.
-$ .build/x86_64-apple-macosx10.10/debug/swift-test --filter BasicTests.GraphAlgorithmsTests/testCycleDetection
+$ .build/x86_64-apple-macosx10.10/debug/spm test --filter BasicTests.GraphAlgorithmsTests/testCycleDetection
 ```
 
-Note: If you make any changes to `PackageDescription` or `PackageDescription4`
-target, you **will** need to rebuild using the bootstrap script.
+Note: If you make any changes to `PackageDescription` runtime-related targets,
+you **will** need to rebuild using the bootstrap script.
 
 ## Developing using Xcode
 
