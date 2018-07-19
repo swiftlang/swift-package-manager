@@ -25,11 +25,16 @@ public struct RepositorySpecifier: Hashable {
     /// This identifier is suitable for use in a file system path, and
     /// unique for each repository.
     public var fileSystemIdentifier: String {
-        // FIXME: Need to do something better here. In particular, we should use
-        // a stable hash function since this interacts with the RepositoryManager
-        // persistence.
-        let basename = url.components(separatedBy: "/").last!
-        return basename + "-" + String(url.hashValue)
+        var basename = url.components(separatedBy: "/").last!
+        if basename.hasSuffix(".git") {
+            basename = String(basename.dropLast(4))
+        }
+
+        // Use first 8 chars of a stable hash.
+        let hash = SHA256(url).digestString()
+        let suffix = hash.dropLast(hash.count - 8)
+
+        return basename + "-" + suffix
     }
 }
 
