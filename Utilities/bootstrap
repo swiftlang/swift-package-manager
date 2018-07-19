@@ -269,11 +269,10 @@ class Target(object):
         if args.xctest_path:
             import_paths.append(args.xctest_path)
 
-        if args.link_llbuild:
-            # Add llbuild import paths.
-            import_paths.extend(llbuild_import_paths(args))
-            if args.llbuild_link_framework:
-                other_args.extend(["-F", args.llbuild_build_dir])
+        # Add llbuild import paths.
+        import_paths.extend(llbuild_import_paths(args))
+        if args.llbuild_link_framework:
+            other_args.extend(["-F", args.llbuild_build_dir])
 
         print("    import-paths: %s" % json.dumps(import_paths), file=output)
         print("    other-args: %s" % json.dumps(other_args),
@@ -590,8 +589,7 @@ class llbuild(object):
                     link_command.extend(["-L", os.path.join(self.args.libdispatch_build_dir, "src", ".libs")])
 
                 # Add llbuild link flags.
-                if self.args.link_llbuild:
-                    link_command.extend(llbuild_link_args(self.args))
+                link_command.extend(llbuild_link_args(self.args))
 
             # Write out the link command.
             if target.is_library:
@@ -937,7 +935,7 @@ def main():
     parser.add_argument("--libdispatch-source-dir", dest="libdispatch_source_dir",
                         help="Path to the libdispatch source directory")
     parser.add_argument("--link-llbuild", dest="link_llbuild",
-                        action="store_true", help="link llbuild", default=False)
+                        action="store_true", help="link llbuild", default=True)
     parser.add_argument("--llbuild-link-framework", dest="llbuild_link_framework",
                         action="store_true", help="link llbuild framework")
     parser.add_argument("--llbuild-build-dir", dest="llbuild_build_dir",
@@ -971,29 +969,23 @@ def main():
     if not args.swiftc_path:
         args.swiftc_path = get_swiftc_path()
 
-    # Make sure link-llbuild is passed if any of these options are used.
-    if args.llbuild_link_framework or args.llbuild_build_dir or args.llbuild_source_dir:
-        if not args.link_llbuild:
-            error("link llbuild is false")
-
-    if args.link_llbuild:
-        # We either support linking the llbuild framework or dynamic library.
-        #
-        # llbuild-build-dir is expected to be path llbuild's CMake build
-        # directory when linking the dylib. Otherwise, it should contain
-        # llbuild.framework and we don't require the llbuild source directory.
-        if args.llbuild_link_framework:
-            if args.llbuild_source_dir:
-                error("--llbuild-link-framework can't be used with --llbuild-source-dir")
-            if not args.llbuild_build_dir:
-                error("--llbuild-link-framework requires --llbuild-build-dir")
-        elif not args.llbuild_source_dir:
-            args.llbuild_source_dir = get_llbuild_source_path()
-
+    # We either support linking the llbuild framework or dynamic library.
+    #
+    # llbuild-build-dir is expected to be path llbuild's CMake build
+    # directory when linking the dylib. Otherwise, it should contain
+    # llbuild.framework and we don't require the llbuild source directory.
+    if args.llbuild_link_framework:
+        if args.llbuild_source_dir:
+            error("--llbuild-link-framework can't be used with --llbuild-source-dir")
         if not args.llbuild_build_dir:
-            args.llbuild_build_dir = os.path.join(args.llbuild_source_dir, "build")
-            if not os.path.exists(args.llbuild_build_dir):
-                error("Unable to find llbuild build directory")
+            error("--llbuild-link-framework requires --llbuild-build-dir")
+    elif not args.llbuild_source_dir:
+        args.llbuild_source_dir = get_llbuild_source_path()
+
+    if not args.llbuild_build_dir:
+        args.llbuild_build_dir = os.path.join(args.llbuild_source_dir, "build")
+        if not os.path.exists(args.llbuild_build_dir):
+            error("Unable to find llbuild build directory")
 
     # Absolutize input paths.
     if args.build_path:
@@ -1192,26 +1184,24 @@ def main():
             args.libdispatch_source_dir)])
         build_flags.extend(["-Xcc", "-fblocks"])
 
-    if args.link_llbuild:
-        # Add llbuild import flags.
-        for import_path in llbuild_import_paths(args):
-            build_flags.extend(["-Xswiftc", "-I%s" % import_path])
+    # Add llbuild import flags.
+    for import_path in llbuild_import_paths(args):
+        build_flags.extend(["-Xswiftc", "-I%s" % import_path])
+    if args.llbuild_link_framework:
+        build_flags.extend(["-Xswiftc", "-F%s" % args.llbuild_build_dir])
 
-        # Embed rpath to find llbuild library or framework at runtime.
-        if args.llbuild_link_framework:
-            llbuild_libs_rpath = "@executable_path/../../../../../SharedFrameworks"
+    # Embed rpath to find llbuild library or framework at runtime.
+    if args.llbuild_link_framework:
+        llbuild_libs_rpath = "@executable_path/../../../../../SharedFrameworks"
+    else:
+        if platform.system() == 'Darwin':
+            llbuild_libs_rpath = "@executable_path/../lib/swift/pm/llbuild"
         else:
-            if platform.system() == 'Darwin':
-                llbuild_libs_rpath = "@executable_path/../lib/swift/pm/llbuild"
-            else:
-                llbuild_libs_rpath = "$ORIGIN/../lib/swift/pm/llbuild"
-        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libs_rpath])
+            llbuild_libs_rpath = "$ORIGIN/../lib/swift/pm/llbuild"
+    build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libs_rpath])
 
-        if args.llbuild_link_framework:
-            build_flags.extend(["-Xswiftc", "-F%s" % args.llbuild_build_dir])
-
-        # Add llbuild link flags.
-        build_flags.extend(llbuild_link_args(args))
+    # Add llbuild link flags.
+    build_flags.extend(llbuild_link_args(args))
     
     # Enable testing in release mode because SwiftPM's tests uses @testable imports.
     #
@@ -1273,9 +1263,7 @@ def main():
             mkdir_p(lib_install_path)
             mkdir_p(libexec_install_path)
 
-            delete_rpaths = []
-            if args.link_llbuild:
-                delete_rpaths = [llbuild_lib_path(args)]
+            delete_rpaths = [llbuild_lib_path(args)]
 
             # Install XCTest helper inside libexec.
             if platform.system() == 'Darwin':
@@ -1341,9 +1329,7 @@ def main():
         if args.libswiftpm_add_rpath:
             libswiftpm_add_rpaths = [args.libswiftpm_add_rpath]
 
-        libswiftpm_delete_rpaths = []
-        if args.link_llbuild:
-            libswiftpm_delete_rpaths = [llbuild_lib_path(args)]
+        libswiftpm_delete_rpaths = [llbuild_lib_path(args)]
         
         # Copy the libSwiftPM library.
         # FIXME: This shouldn't require so much knowledge of the manifest.
@@ -1443,13 +1429,12 @@ def main():
         if not os.path.exists(os.path.dirname(xcconfig_path)):
             mkdir_p(os.path.dirname(xcconfig_path))
         with open(xcconfig_path, "w") as f:
-            if args.link_llbuild:
-                # Add required build settings for llbuild.
-                swift_include_paths = " ".join(llbuild_import_paths(args))
-                lib_path = llbuild_lib_path(args)
-                print("SWIFT_INCLUDE_PATHS = %s" % (swift_include_paths), file=f)
-                print("LIBRARY_SEARCH_PATHS = %s" % (lib_path), file=f)
-                print("LD_RUNPATH_SEARCH_PATHS = %s" % (lib_path), file=f)
+            # Add required build settings for llbuild.
+            swift_include_paths = " ".join(llbuild_import_paths(args))
+            lib_path = llbuild_lib_path(args)
+            print("SWIFT_INCLUDE_PATHS = %s" % (swift_include_paths), file=f)
+            print("LIBRARY_SEARCH_PATHS = %s" % (lib_path), file=f)
+            print("LD_RUNPATH_SEARCH_PATHS = %s" % (lib_path), file=f)
         cmd += ["--xcconfig-overrides", xcconfig_path]
             
         # Call `swift-package` to generate the Xcode project.
