@@ -377,10 +377,10 @@ public final class PackageBuilder {
     }
 
     /// Predefined source directories, in order of preference.
-    static let predefinedSourceDirectories = ["Sources", "Source", "src", "srcs"]
+    public static let predefinedSourceDirectories = ["Sources", "Source", "src", "srcs"]
 
     /// Predefined test directories, in order of preference.
-    static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
+    public static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
 
     /// Finds the predefined directories for regular and test targets.
     private func findPredefinedTargetDirectory() -> (targetDir: String, testTargetDir: String) {
