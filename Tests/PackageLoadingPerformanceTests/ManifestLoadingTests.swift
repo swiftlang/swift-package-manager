@@ -47,11 +47,12 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
             import PackageDescription
             let package = Package(
                 name: "Foo",
-                targets: [
-                    Target(name: "sys", dependencies: ["libc"]),
-                    Target(name: "dep", dependencies: ["sys", "libc"])],
                 dependencies: [
-                    .Package(url: "https://example.com/example", majorVersion: 1)
+                    .package(url: "https://example.com/example", from: "1.0.0")
+                ],
+                targets: [
+                    .target(name: "sys", dependencies: ["libc"]),
+                    .target(name: "dep", dependencies: ["sys", "libc"])
                 ]
             )
             """)
