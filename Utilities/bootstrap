@@ -895,6 +895,21 @@ exec ${{__dir}}/swift-$1 ${{SPM_FLAGS[@]}} "${{@:2}}" """.format(options=swiftpm
     st = os.stat(script_path)
     os.chmod(script_path, st.st_mode | stat.S_IEXEC)
 
+def build_llbuild(args):
+    note("Building llbuild")
+
+    llbuild_build_dir = args.llbuild_build_dir
+    llbuild_source_dir = args.llbuild_source_dir
+
+    # Run CMake if needed.
+    # FIXME: Is this check enough?
+    if not os.path.isfile(os.path.join(llbuild_build_dir, "CMakeCache.txt")):
+	mkdir_p(llbuild_build_dir)
+        cmd = ["cmake", "-G", "Ninja", "-DCMAKE_BUILD_TYPE:=Debug", "-DCMAKE_C_COMPILER:=clang", "-DCMAKE_CXX_COMPILER:=clang++", "-DLLBUILD_SUPPORT_BINDINGS:=Swift", llbuild_source_dir]
+        subprocess.check_call(cmd, cwd=llbuild_build_dir)
+
+    # Build.
+    subprocess.check_call(["ninja"], cwd=llbuild_build_dir)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -982,11 +997,6 @@ def main():
     elif not args.llbuild_source_dir:
         args.llbuild_source_dir = get_llbuild_source_path()
 
-    if not args.llbuild_build_dir:
-        args.llbuild_build_dir = os.path.join(args.llbuild_source_dir, "build")
-        if not os.path.exists(args.llbuild_build_dir):
-            error("Unable to find llbuild build directory")
-
     # Absolutize input paths.
     if args.build_path:
         args.build_path = os.path.abspath(args.build_path)
@@ -1039,6 +1049,15 @@ def main():
     sandbox_path = os.path.join(build_path, ".bootstrap")
     target_path = os.path.join(build_path, build_target)
 
+    # Compute the build path for llbuild if it wasn't provided.
+    #
+    # We will also try to build llbuild if we're computing the build
+    # path ourselves.
+    should_build_llbuild = False
+    if not args.llbuild_build_dir:
+        args.llbuild_build_dir = os.path.join(build_path, "llbuild")
+        should_build_llbuild = True
+
     # Confirm rsync is available.
     try:
         subprocess.check_output(['rsync', '--version'], stderr=subprocess.STDOUT)
@@ -1064,6 +1083,10 @@ def main():
 
     # Create the sandbox.
     mkdir_p(sandbox_path)
+
+    # Build llbuild if needed.
+    if should_build_llbuild:
+        build_llbuild(args)
 
     # Determine the swift-build-tool to use.
     args.sbt_path = os.path.abspath(
