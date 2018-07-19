@@ -330,7 +330,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         }
         try Process.checkNonZeroExit(arguments: args, environment: env)
         // Read the temporary file's content.
-        let data = try fopen(tempFile.path).readFileContents()
+        let data = try localFileSystem.readFileContents(tempFile.path).asString ?? ""
       #else
         let args = [path.asString, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args)
