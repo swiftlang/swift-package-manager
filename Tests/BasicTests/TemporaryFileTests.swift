@@ -31,12 +31,12 @@ class TemporaryFileTests: XCTestCase {
             stream <<< "foo"
             stream <<< "bar"
             stream <<< "baz"
-            try fputs(stream.bytes.contents, file.fileHandle)
+            try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
 
             // Go to the beginning of the file.
             file.fileHandle.seek(toFileOffset: 0)
             // Read the contents.
-            let contents = try? file.fileHandle.readFileContents()
+            let contents = try localFileSystem.readFileContents(file.path)
             XCTAssertEqual(contents, "foobarbaz")
 
             filePath = file.path
@@ -58,12 +58,12 @@ class TemporaryFileTests: XCTestCase {
             stream <<< "foo"
             stream <<< "bar"
             stream <<< "baz"
-            try fputs(stream.bytes.contents, file.fileHandle)
+            try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
             
             // Go to the beginning of the file.
             file.fileHandle.seek(toFileOffset: 0)
             // Read the contents.
-            let contents = try? file.fileHandle.readFileContents()
+            let contents = try localFileSystem.readFileContents(file.path)
             XCTAssertEqual(contents, "foobarbaz")
             
             filePath = file.path

@@ -102,16 +102,6 @@ public func createSymlink(_ path: AbsolutePath, pointingAt dest: AbsolutePath, r
     guard rv == 0 else { throw SystemError.symlink(errno, path.asString, dest: destString) }
 }
 
-public func rename(_ path: AbsolutePath, to dest: AbsolutePath) throws {
-    let rv = SPMLibc.rename(path.asString, dest.asString)
-    guard rv == 0 else { throw SystemError.rename(errno, old: path.asString, new: dest.asString) }
-}
-
-public func unlink(_ path: AbsolutePath) throws {
-    let rv = SPMLibc.unlink(path.asString)
-    guard rv == 0 else { throw SystemError.unlink(errno, path.asString) }
-}
-
 /// The current working directory of the processs.
 @available(*, deprecated, renamed: "localFileSystem.currentWorkingDirectory")
 public var currentWorkingDirectory: AbsolutePath {
@@ -226,74 +216,5 @@ extension AbsolutePath {
         } else {
             return self.asString
         }
-    }
-}
-
-// FIXME: All of the following will move to the FileSystem class.
-
-public enum FileAccessError: Swift.Error {
-    case unicodeDecodingError
-    case unicodeEncodingError
-    case couldNotCreateFile(path: String)
-    case fileDoesNotExist(path: String)
-}
-
-extension FileAccessError: CustomStringConvertible {
-    public var description: String {
-        switch self {
-          case .unicodeDecodingError: return "could not decode input file into unicode"
-          case .unicodeEncodingError: return "could not encode string into unicode"
-          case .couldNotCreateFile(let path): return "could not create file: \(path)"
-          case .fileDoesNotExist(let path): return "file does not exist: \(path)"
-        }
-    }
-}
-
-public enum FopenMode: String {
-    case read = "r"
-    case write = "w"
-}
-
-public func fopen(_ path: AbsolutePath, mode: FopenMode = .read) throws -> FileHandle {
-    let handle: FileHandle!
-    switch mode {
-      case .read: handle = FileHandle(forReadingAtPath: path.asString)
-      case .write:
-        let success = FileManager.default.createFile(atPath: path.asString, contents: nil)
-        guard success else {
-            throw FileAccessError.couldNotCreateFile(path: path.asString)
-        }
-        handle = FileHandle(forWritingAtPath: path.asString)
-    }
-    guard handle != nil else {
-        throw FileAccessError.fileDoesNotExist(path: path.asString)
-    }
-    return handle
-}
-
-public func fopen<T>(_ path: AbsolutePath, mode: FopenMode = .read, body: (FileHandle) throws -> T) throws -> T {
-    let fp = try fopen(path, mode: mode)
-    defer { fp.closeFile() }
-    return try body(fp)
-}
-
-public func fputs(_ string: String, _ handle: FileHandle) throws {
-    guard let data = string.data(using: .utf8) else {
-        throw FileAccessError.unicodeEncodingError
-    }
-
-    handle.write(data)
-}
-
-public func fputs(_ bytes: [UInt8], _ handle: FileHandle) throws {
-    handle.write(Data(bytes: bytes))
-}
-
-extension FileHandle {
-    public func readFileContents() throws -> String {
-        guard let contents = String(data: readDataToEndOfFile(), encoding: .utf8) else {
-            throw FileAccessError.unicodeDecodingError
-        }
-        return contents
     }
 }
