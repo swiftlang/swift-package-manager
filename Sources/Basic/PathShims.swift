@@ -88,12 +88,6 @@ public func makeDirectories(_ path: AbsolutePath) throws {
     try FileManager.default.createDirectory(atPath: path.asString, withIntermediateDirectories: true, attributes: [:])
 }
 
-/// Recursively deletes the file system entity at `path`.  If there is no file system entity at `path`, this function
-/// throws an error.
-public func removeFileTree(_ path: AbsolutePath) throws {
-    try FileManager.default.removeItem(atPath: path.asString)
-}
-
 /// Creates a symbolic link at `path` whose content points to `dest`.  If `relative` is true, the symlink contents will
 /// be a relative path, otherwise it will be absolute.
 public func createSymlink(_ path: AbsolutePath, pointingAt dest: AbsolutePath, relative: Bool = true) throws {

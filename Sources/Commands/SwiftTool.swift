@@ -610,7 +610,7 @@ public class SwiftTool<Options: ToolOptions> {
         // Create backwards-compatibilty symlink to old build path.
         let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
         if exists(oldBuildPath) {
-            try removeFileTree(oldBuildPath)
+            try localFileSystem.removeFileTree(oldBuildPath)
         }
         try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
     }

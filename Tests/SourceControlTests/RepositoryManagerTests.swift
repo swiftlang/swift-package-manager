@@ -294,7 +294,7 @@ class RepositoryManagerTests: XCTestCase {
             do {
                 let delegate = DummyRepositoryManagerDelegate()
                 var manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
-                try! removeFileTree(path.appending(component: "checkouts-state.json"))
+                try! localFileSystem.removeFileTree(path.appending(component: "checkouts-state.json"))
                 manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
 

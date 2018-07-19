@@ -408,7 +408,7 @@ private class LocalFileSystem: FileSystem {
 
     func removeFileTree(_ path: AbsolutePath) throws {
         if self.exists(path, followSymlink: false) {
-            try Basic.removeFileTree(path)
+            try FileManager.default.removeItem(atPath: path.asString)
         }
     }
 

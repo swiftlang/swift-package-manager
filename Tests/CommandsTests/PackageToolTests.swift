@@ -193,7 +193,7 @@ final class PackageToolTests: XCTestCase {
             let bazEditsPath = fooPath.appending(components: "Packages", "baz")
             XCTAssert(isDirectory(bazEditsPath))
             // Removing baz externally should just emit an warning and not a build failure.
-            try removeFileTree(bazEditsPath)
+            try localFileSystem.removeFileTree(bazEditsPath)
 
             // Do a modification in bar and build.
             try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 88888\n")
