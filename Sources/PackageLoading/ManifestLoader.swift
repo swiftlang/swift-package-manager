@@ -126,7 +126,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     let resources: ManifestResourceProvider
     let isManifestSandboxEnabled: Bool
     let isManifestCachingEnabled: Bool
-    let engine: LLBuildEngine
+    let cacheDir: AbsolutePath
     let delegate: ManifestLoaderDelegate?
 
     public init(
@@ -135,20 +135,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         isManifestCachingEnabled: Bool = true,
         cacheDir: AbsolutePath = determineTempDirectory(),
         delegate: ManifestLoaderDelegate? = nil
-    ) throws {
+    ) {
         self.resources = resources
         self.isManifestSandboxEnabled = isManifestSandboxEnabled
         self.isManifestCachingEnabled = isManifestCachingEnabled
         self.delegate = delegate
-
-        let cacheDelegate = ManifestCacheDelegate()
-        self.engine = LLBuildEngine(delegate: cacheDelegate)
-        cacheDelegate.loader = self
-
-        if isManifestCachingEnabled {
-            try localFileSystem.createDirectory(cacheDir, recursive: true)
-            try engine.attachDB(path: cacheDir.appending(component: "manifest.db").asString)
-        }
+        self.cacheDir = cacheDir
     }
 
     @available(*, deprecated)
@@ -156,7 +148,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         resources: ManifestResourceProvider,
         isManifestSandboxEnabled: Bool = true
     ) {
-        try! self.init(
+        self.init(
             resources: resources,
             isManifestSandboxEnabled: isManifestSandboxEnabled,
             isManifestCachingEnabled: false,
@@ -262,7 +254,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // Otherwise load via llbuild.
         let key = ManifestLoadRule.RuleKey(
             path: inputPath, manifestVersion: manifestVersion)
-        let value = engine.build(key: key)
+        let value = try getEngine().build(key: key)
 
         return try value.dematerialize()
     }
@@ -368,6 +360,25 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func runtimePath(for version: ManifestVersion) -> AbsolutePath {
         return resources.libDir.appending(component: version.rawValue)
     }
+
+    /// Returns the build engine.
+    private func getEngine() throws -> LLBuildEngine {
+        if let engine = _engine {
+            return engine
+        }
+
+        let cacheDelegate = ManifestCacheDelegate()
+        let engine = LLBuildEngine(delegate: cacheDelegate)
+        cacheDelegate.loader = self
+
+        if isManifestCachingEnabled {
+            try localFileSystem.createDirectory(cacheDir, recursive: true)
+            try engine.attachDB(path: cacheDir.appending(component: "manifest.db").asString)
+        }
+        _engine = engine
+        return engine
+    }
+    private var _engine: LLBuildEngine?
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.

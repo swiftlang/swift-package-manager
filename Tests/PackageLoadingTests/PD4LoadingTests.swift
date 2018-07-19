@@ -19,7 +19,7 @@ import TestSupport
 import PackageLoading
 
 class PackageDescription4LoadingTests: XCTestCase {
-    let manifestLoader = try! ManifestLoader(resources: Resources.default, isManifestCachingEnabled: false)
+    let manifestLoader = ManifestLoader(resources: Resources.default, isManifestCachingEnabled: false)
 
     private func loadManifestThrowing(
         _ contents: ByteString,

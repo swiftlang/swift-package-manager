@@ -15,7 +15,7 @@ import TestSupport
 import PackageLoading
 
 class ManifestLoadingPerfTests: XCTestCasePerf {
-    let manifestLoader = try! ManifestLoader(resources: Resources.default, isManifestCachingEnabled: false)
+    let manifestLoader = ManifestLoader(resources: Resources.default, isManifestCachingEnabled: false)
 
     func write(_ bytes: ByteString, body: (AbsolutePath) -> ()) {
         mktmpdir { path in
