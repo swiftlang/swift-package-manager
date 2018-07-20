@@ -27,9 +27,4 @@ class CollectionAlgorithmsTests: XCTestCase {
         XCTAssertEqual(["foo", "bar"].findDuplicates(), [])
         XCTAssertEqual(["foo", "Foo"].findDuplicates(), [])
     }
-
-    static var allTests = [
-        ("testRIndex", testRIndex),
-        ("testFindDuplicates", testFindDuplicates),
-    ]
 }

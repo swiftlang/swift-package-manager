@@ -133,10 +133,4 @@ class DiagnosticsEngineTests: XCTestCase {
         XCTAssertEqual(handledDiagnostics[1].localizedDescription, "diag 2")
         XCTAssertEqual(handledDiagnostics[2].localizedDescription, "end")
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testMerging", testMerging),
-        ("testHandlers", testHandlers),
-    ]
 }

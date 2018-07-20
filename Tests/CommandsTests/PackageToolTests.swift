@@ -507,23 +507,4 @@ final class PackageToolTests: XCTestCase {
                 """)
         }
     }
-
-    static var allTests = [
-        ("testDescribe", testDescribe),
-        ("testUsage", testUsage),
-        ("testVersion", testVersion),
-        ("testResolve", testResolve),
-        ("testUpdate", testUpdate),
-        ("testShowDependencies", testShowDependencies),
-        ("testInitEmpty", testInitEmpty),
-        ("testInitExecutable", testInitExecutable),
-        ("testInitLibrary", testInitLibrary),
-        ("testPackageClean", testPackageClean),
-        ("testPackageEditAndUnedit", testPackageEditAndUnedit),
-        ("testPackageReset", testPackageReset),
-        ("testPinning", testPinning),
-        ("testPinningBranchAndRevision", testPinningBranchAndRevision),
-        ("testSymlinkedDependency", testSymlinkedDependency),
-        ("testWatchmanXcodeprojgen", testWatchmanXcodeprojgen),
-    ]
 }

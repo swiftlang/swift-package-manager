@@ -758,23 +758,6 @@ class DependencyResolverTests: XCTestCase {
         check(range: "1.0.0-alpha"..<"1.1.0-beta", result: "1.1.0-alpha")
         check(range: "1.0.0"..<"1.1.0-beta", result: "1.1.0-alpha")
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testVersionSetSpecifier", testVersionSetSpecifier),
-        ("testContainerConstraintSet", testContainerConstraintSet),
-        ("testVersionAssignment", testVersionAssignment),
-        ("testResolveSubtree", testResolveSubtree),
-        ("testResolve", testResolve),
-        ("testRevisionConstraint", testRevisionConstraint),
-        ("testCompleteness", testCompleteness),
-        ("testLazyResolve", testLazyResolve),
-        ("testExactConstraint", testExactConstraint),
-        ("testUnversionedConstraint", testUnversionedConstraint),
-        ("testIncompleteMode", testIncompleteMode),
-        ("testDiagnostics", testDiagnostics),
-        ("testPrereleaseResolve", testPrereleaseResolve),
-    ]
 }
 
 /// Validate the solution made by `resolver` for the given `constraints`.

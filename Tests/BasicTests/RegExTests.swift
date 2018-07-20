@@ -25,9 +25,4 @@ class RegExTests: XCTestCase {
         try XCTAssert(RegEx(pattern: "[0-9]+").matchGroups(in: "foo bar baz") == [])
         try XCTAssert(RegEx(pattern: "[0-9]+").matchGroups(in: "1") == [[]])
     }
-
-    static var allTests = [
-        ("testErrors", testErrors),
-        ("testMatchGroups", testMatchGroups),
-    ]
 }

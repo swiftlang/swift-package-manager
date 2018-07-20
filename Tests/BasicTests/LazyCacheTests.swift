@@ -36,8 +36,4 @@ class LazyCacheTests: XCTestCase {
             }
         }
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

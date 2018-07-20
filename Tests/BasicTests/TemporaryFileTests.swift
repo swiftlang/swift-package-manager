@@ -158,13 +158,4 @@ class TemporaryFileTests: XCTestCase {
         let endFD = try Int(TemporaryFile().fileHandle.fileDescriptor)
         XCTAssertEqual(initialFD, endFD)
     }
-    
-    static var allTests = [
-        ("testBasicReadWrite", testBasicReadWrite),
-        ("testCanCreateUniqueTempFiles", testCanCreateUniqueTempFiles),
-        ("testNoCleanupTemporaryFile", testNoCleanupTemporaryFile),
-        ("testBasicTemporaryDirectory", testBasicTemporaryDirectory),
-        ("testCanCreateUniqueTempDirectories", testCanCreateUniqueTempDirectories),
-        ("testLeaks", testLeaks),
-    ]
 }

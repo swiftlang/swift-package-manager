@@ -1,20 +1,34 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
-
+#if !os(macOS)
 import XCTest
 
-#if !os(macOS)
-public func allTests() -> [XCTestCaseEntry] {
+extension BuildPlanTests {
+    static let __allTests = [
+        ("testBasicClangPackage", testBasicClangPackage),
+        ("testBasicExtPackages", testBasicExtPackages),
+        ("testBasicReleasePackage", testBasicReleasePackage),
+        ("testBasicSwiftPackage", testBasicSwiftPackage),
+        ("testClangTargets", testClangTargets),
+        ("testCLanguageStandard", testCLanguageStandard),
+        ("testCModule", testCModule),
+        ("testCppModule", testCppModule),
+        ("testDynamicProducts", testDynamicProducts),
+        ("testExecAsDependency", testExecAsDependency),
+        ("testNonReachableProductsAndTargets", testNonReachableProductsAndTargets),
+        ("testSwiftCMixed", testSwiftCMixed),
+        ("testTestModule", testTestModule),
+    ]
+}
+
+extension IncrementalBuildTests {
+    static let __allTests = [
+        ("testIncrementalSingleModuleCLibraryInSources", testIncrementalSingleModuleCLibraryInSources),
+    ]
+}
+
+public func __allTests() -> [XCTestCaseEntry] {
     return [
-        testCase(BuildPlanTests.allTests),
-        testCase(IncrementalBuildTests.allTests),
+        testCase(BuildPlanTests.__allTests),
+        testCase(IncrementalBuildTests.__allTests),
     ]
 }
 #endif

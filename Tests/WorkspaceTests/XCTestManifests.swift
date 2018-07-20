@@ -1,22 +1,72 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
-
+#if !os(macOS)
 import XCTest
 
-#if !os(macOS)
-public func allTests() -> [XCTestCaseEntry] {
+extension InitTests {
+    static let __allTests = [
+        ("testInitPackageEmpty", testInitPackageEmpty),
+        ("testInitPackageExecutable", testInitPackageExecutable),
+        ("testInitPackageLibrary", testInitPackageLibrary),
+        ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
+        ("testInitPackageSystemModule", testInitPackageSystemModule),
+    ]
+}
+
+extension PinsStoreTests {
+    static let __allTests = [
+        ("testBasics", testBasics),
+        ("testLoadingSchema1", testLoadingSchema1),
+    ]
+}
+
+extension ToolsVersionWriterTests {
+    static let __allTests = [
+        ("testBasics", testBasics),
+        ("testZeroedPatchVersion", testZeroedPatchVersion),
+    ]
+}
+
+extension WorkspaceTests {
+    static let __allTests = [
+        ("testBasics", testBasics),
+        ("testBranchAndRevision", testBranchAndRevision),
+        ("testCanResolveWithIncompatiblePins", testCanResolveWithIncompatiblePins),
+        ("testCanUneditRemovedDependencies", testCanUneditRemovedDependencies),
+        ("testChangeOneDependency", testChangeOneDependency),
+        ("testCleanAndReset", testCleanAndReset),
+        ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory),
+        ("testDependencyManifestLoading", testDependencyManifestLoading),
+        ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
+        ("testEditDependency", testEditDependency),
+        ("testGraphData", testGraphData),
+        ("testGraphRootDependencies", testGraphRootDependencies),
+        ("testInterpreterFlags", testInterpreterFlags),
+        ("testIsResolutionRequired", testIsResolutionRequired),
+        ("testLoadingRootManifests", testLoadingRootManifests),
+        ("testLocalDependencyBasics", testLocalDependencyBasics),
+        ("testLocalDependencyTransitive", testLocalDependencyTransitive),
+        ("testLocalDependencyWithPackageUpdate", testLocalDependencyWithPackageUpdate),
+        ("testLocalLocalSwitch", testLocalLocalSwitch),
+        ("testLocalVersionSwitch", testLocalVersionSwitch),
+        ("testMissingEditCanRestoreOriginalCheckout", testMissingEditCanRestoreOriginalCheckout),
+        ("testMultipleRootPackages", testMultipleRootPackages),
+        ("testResolutionFailureWithEditedDependency", testResolutionFailureWithEditedDependency),
+        ("testResolve", testResolve),
+        ("testResolverCanHaveError", testResolverCanHaveError),
+        ("testRevisionVersionSwitch", testRevisionVersionSwitch),
+        ("testRootAsDependency1", testRootAsDependency1),
+        ("testRootAsDependency2", testRootAsDependency2),
+        ("testSkipUpdate", testSkipUpdate),
+        ("testToolsVersionRootPackages", testToolsVersionRootPackages),
+        ("testUpdate", testUpdate),
+    ]
+}
+
+public func __allTests() -> [XCTestCaseEntry] {
     return [
-        testCase(InitTests.allTests),
-        testCase(PinsStoreTests.allTests),
-        testCase(ToolsVersionWriterTests.allTests),
-        testCase(WorkspaceTests.allTests),
+        testCase(InitTests.__allTests),
+        testCase(PinsStoreTests.__allTests),
+        testCase(ToolsVersionWriterTests.__allTests),
+        testCase(WorkspaceTests.__allTests),
     ]
 }
 #endif

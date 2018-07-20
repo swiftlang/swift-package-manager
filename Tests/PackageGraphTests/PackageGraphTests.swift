@@ -628,16 +628,4 @@ class PackageGraphTests: XCTestCase {
             result.check(diagnostic: "multiple targets named 'Foo' in: Dep2, Start", behavior: .error)
         }
     }
-
-    static var allTests = [
-        ("testBasic", testBasic),
-        ("testDuplicateModules", testDuplicateModules),
-        ("testCycle", testCycle),
-        ("testProductDependencies", testProductDependencies),
-        ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
-        ("testEmptyDependency", testEmptyDependency),
-        ("testUnusedDependency", testUnusedDependency),
-        ("testUnusedDependency2", testUnusedDependency2),
-        ("testDuplicateInterPackageTargetNames", testDuplicateInterPackageTargetNames),
-    ]
 }

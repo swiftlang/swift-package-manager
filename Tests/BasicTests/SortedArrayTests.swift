@@ -92,11 +92,4 @@ class SortedArrayTests: XCTestCase {
         let arr = SortedArray<Int>([5, 4, 3, 2, 1], areInIncreasingOrder: <)
         XCTAssertEqual(arr.values, [1, 2, 3, 4, 5])
     }
-    
-    static var allTests = [
-        ("testSortedArrayInAscendingOrder", testSortedArrayInAscendingOrder),
-        ("testSortedArrayInDescendingOrder", testSortedArrayInDescendingOrder),
-        ("testSortedArrayInsertIntoSmallerArray", testSortedArrayInsertIntoSmallerArray),
-        ("testSortedArrayWithValues", testSortedArrayWithValues)
-    ]
 }

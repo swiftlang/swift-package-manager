@@ -188,14 +188,6 @@ class ResultTests: XCTestCase {
                 .flatMap { String -> Result<String, OtherDummyError> in .failure(.andYetAnotherThingToGoWrong) }.dematerialize()
         }
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testAnyError", testAnyError),
-        ("testMap", testMap),
-        ("testMapAny", testMapAny),
-        ("testFlatMap", testFlatMap)
-    ]
 }
 
 public func XCTAssertThrowsAny<T: Swift.Error>(_ expectedError: T, file: StaticString = #file, line: UInt = #line, _ body: () throws -> ()) where T: Equatable {

@@ -95,11 +95,4 @@ class JSONTests: XCTestCase {
 
             """)
     }
-
-    static var allTests = [
-        ("testEncoding", testEncoding),
-        ("testDecoding", testDecoding),
-        ("testStringInitalizer", testStringInitalizer),
-        ("testPrettyPrinting", testPrettyPrinting),
-    ]
 }

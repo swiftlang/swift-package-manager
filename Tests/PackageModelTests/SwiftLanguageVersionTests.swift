@@ -67,10 +67,4 @@ class SwiftLanguageVersionTests: XCTestCase {
         XCTAssertTrue(SwiftLanguageVersion(string: "4.2")! <= ToolsVersion(string: "5.0")!)
         XCTAssertTrue(SwiftLanguageVersion(string: "4")! < ToolsVersion(string: "5.0")!)
     }
-
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testComparison", testComparison),
-    ]
 }

@@ -209,15 +209,4 @@ class ProcessTests: XCTestCase {
             XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
         }
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testCheckNonZeroExit", testCheckNonZeroExit),
-        ("testFindExecutable", testFindExecutable),
-        ("testNonExecutableLaunch", testNonExecutableLaunch),
-        ("testPopen", testPopen),
-        ("testSignals", testSignals),
-        ("testThreadSafetyOnWaitUntilExit", testThreadSafetyOnWaitUntilExit),
-        ("testStdoutStdErr", testStdoutStdErr),
-    ]
 }

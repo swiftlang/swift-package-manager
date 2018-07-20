@@ -89,12 +89,6 @@ class GraphAlgorithmsTests: XCTestCase {
 
         XCTAssertNotCycle(findCycle(1, [1: [2, 3], 2: [], 3: [2]]))
     }
-
-    static var allTests = [
-        ("testCycleDetection", testCycleDetection),
-        ("testTransitiveClosure", testTransitiveClosure),
-        ("testTopologicalSort", testTopologicalSort),
-    ]
 }
 
 private func XCTAssertCycle<T: Equatable>(_ cycleResult: (path: [T], cycle: [T])?, path: [T], cycle: [T], file: StaticString = #file, line: UInt = #line) {

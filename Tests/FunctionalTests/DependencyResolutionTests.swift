@@ -64,12 +64,4 @@ class DependencyResolutionTests: XCTestCase {
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
     }
-
-    static var allTests = [
-        ("testInternalSimple", testInternalSimple),
-        ("testInternalExecAsDep", testInternalExecAsDep),
-        ("testInternalComplex", testInternalComplex),
-        ("testExternalSimple", testExternalSimple),
-        ("testExternalComplex", testExternalComplex),
-    ]
 }

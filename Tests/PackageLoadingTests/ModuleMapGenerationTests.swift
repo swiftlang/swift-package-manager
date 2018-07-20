@@ -134,14 +134,6 @@ class ModuleMapGeneration: XCTestCase {
         checkExpected("target 'Foo' failed modulemap generation; umbrella header defined at '/include/Foo.h', but " +
             "directories exist: /include/Bar; consider removing them")
     }
-
-    static var allTests = [
-        ("testModuleNameDirAndHeaderInInclude", testModuleNameDirAndHeaderInInclude),
-        ("testModuleNameHeaderInInclude", testModuleNameHeaderInInclude),
-        ("testOtherCases", testOtherCases),
-        ("testUnsupportedLayouts", testUnsupportedLayouts),
-        ("testWarnings", testWarnings),
-    ]
 }
 
 func ModuleMapTester(_ name: String, includeDir: String = "include", in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {

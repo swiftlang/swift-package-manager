@@ -101,8 +101,4 @@ final class ProgressBarTests: XCTestCase {
         }
         bar.complete(success: true)
     }
-
-    static var allTests = [
-        ("testProgressBar", testProgressBar),
-    ]
 }

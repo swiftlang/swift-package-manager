@@ -285,15 +285,4 @@ class VersionTests: XCTestCase {
             XCTAssertFalse(range.contains(version: "1.1.0-beta"))
         }
     }
-
-    static var allTests = [
-        ("testEquality", testEquality),
-        ("testHashable", testHashable),
-        ("testComparable", testComparable),
-        ("testDescription", testDescription),
-        ("testFromString", testFromString),
-        ("testOrder", testOrder),
-        ("testRange", testRange),
-        ("testContains", testContains),
-    ]
 }

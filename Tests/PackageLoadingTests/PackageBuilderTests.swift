@@ -1270,40 +1270,6 @@ class PackageBuilderTests: XCTestCase {
             result.checkDiagnostic("executable product \'foo\' should have exactly one executable target")
         }
     }
-
-    static var allTests = [
-        ("testCInTests", testCInTests),
-        ("testDotFilesAreIgnored", testDotFilesAreIgnored),
-        ("testMixedSources", testMixedSources),
-        ("testModuleMapLayout", testModuleMapLayout),
-        ("testValidSources", testValidSources),
-        ("testVersionSpecificManifests", testVersionSpecificManifests),
-        ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
-        ("testCustomTargetDependencies", testCustomTargetDependencies),
-        ("testCustomTargetPaths", testCustomTargetPaths),
-        ("testCustomTargetPathsOverlap", testCustomTargetPathsOverlap),
-        ("testDeclaredExecutableProducts", testDeclaredExecutableProducts),
-        ("testDuplicateProducts", testDuplicateProducts),
-        ("testExecutableAsADep", testExecutableAsADep),
-        ("testInvalidManifestConfigForNonSystemModules", testInvalidManifestConfigForNonSystemModules),
-        ("testLinuxMain", testLinuxMain),
-        ("testLinuxMainError", testLinuxMainError),
-        ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
-        ("testMultipleTestProducts", testMultipleTestProducts),
-        ("testPublicHeadersPath", testPublicHeadersPath),
-        ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
-        ("testTargetDependencies", testTargetDependencies),
-        ("testTestsLayoutsv4", testTestsLayoutsv4),
-        ("testPredefinedTargetSearchError", testPredefinedTargetSearchError),
-        ("testSpecialTargetDir", testSpecialTargetDir),
-        ("testDuplicateTargets", testDuplicateTargets),
-        ("testExcludes", testExcludes),
-        ("testSystemPackageDeclaresTargetsDiagnostic", testSystemPackageDeclaresTargetsDiagnostic),
-        ("testSystemLibraryTarget", testSystemLibraryTarget),
-        ("testSystemLibraryTargetDiagnostics", testSystemLibraryTargetDiagnostics),
-        ("testLinuxMainSearch", testLinuxMainSearch),
-        ("testBadExecutableProductDecl", testBadExecutableProductDecl),
-    ]
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}

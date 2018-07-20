@@ -1,22 +1,58 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
-
+#if !os(macOS)
 import XCTest
 
-#if !os(macOS)
-public func allTests() -> [XCTestCaseEntry] {
+extension DependencyResolverTests {
+    static let __allTests = [
+        ("testBasics", testBasics),
+        ("testCompleteness", testCompleteness),
+        ("testContainerConstraintSet", testContainerConstraintSet),
+        ("testDiagnostics", testDiagnostics),
+        ("testExactConstraint", testExactConstraint),
+        ("testIncompleteMode", testIncompleteMode),
+        ("testLazyResolve", testLazyResolve),
+        ("testPrereleaseResolve", testPrereleaseResolve),
+        ("testResolve", testResolve),
+        ("testResolveSubtree", testResolveSubtree),
+        ("testRevisionConstraint", testRevisionConstraint),
+        ("testUnversionedConstraint", testUnversionedConstraint),
+        ("testVersionAssignment", testVersionAssignment),
+        ("testVersionSetSpecifier", testVersionSetSpecifier),
+    ]
+}
+
+extension PackageGraphTests {
+    static let __allTests = [
+        ("testBasic", testBasic),
+        ("testCycle", testCycle),
+        ("testDuplicateInterPackageTargetNames", testDuplicateInterPackageTargetNames),
+        ("testDuplicateModules", testDuplicateModules),
+        ("testEmptyDependency", testEmptyDependency),
+        ("testMultipleDuplicateModules", testMultipleDuplicateModules),
+        ("testNestedDuplicateModules", testNestedDuplicateModules),
+        ("testProductDependencies", testProductDependencies),
+        ("testSeveralDuplicateModules", testSeveralDuplicateModules),
+        ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
+        ("testUnusedDependency2", testUnusedDependency2),
+        ("testUnusedDependency", testUnusedDependency),
+    ]
+}
+
+extension RepositoryPackageContainerProviderTests {
+    static let __allTests = [
+        ("testBasics", testBasics),
+        ("testPackageReference", testPackageReference),
+        ("testPrereleaseVersions", testPrereleaseVersions),
+        ("testSimultaneousVersions", testSimultaneousVersions),
+        ("testVersions", testVersions),
+        ("testVprefixVersions", testVprefixVersions),
+    ]
+}
+
+public func __allTests() -> [XCTestCaseEntry] {
     return [
-        testCase(DependencyResolverTests.allTests),
-        testCase(RepositoryPackageContainerProviderTests.allTests),
-        testCase(PackageGraphTests.allTests),
+        testCase(DependencyResolverTests.__allTests),
+        testCase(PackageGraphTests.__allTests),
+        testCase(RepositoryPackageContainerProviderTests.__allTests),
     ]
 }
 #endif
-

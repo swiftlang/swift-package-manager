@@ -115,8 +115,4 @@ class VersionSpecificTests: XCTestCase {
             XCTAssertBuilds(primaryPath)
         }
     }
-
-    static var allTests = [
-        ("testEndToEndResolution", testEndToEndResolution),
-    ]
 }

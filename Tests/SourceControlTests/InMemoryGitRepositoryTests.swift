@@ -115,9 +115,4 @@ class InMemoryGitRepositoryTests: XCTestCase {
         try fooCheckout.checkout(tag: v2)
         XCTAssertEqual(try checkoutRepo.readFileContents(filePath), "two")
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testProvider", testProvider),
-    ]
 }

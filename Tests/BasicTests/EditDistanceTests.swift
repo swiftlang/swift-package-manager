@@ -22,8 +22,4 @@ class EditDistanceTests: XCTestCase {
         XCTAssertEqual(editDistance("sunday", "saturday"), 3)
         XCTAssertEqual(editDistance("FOO", "foo"), 3)
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

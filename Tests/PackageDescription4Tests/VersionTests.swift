@@ -24,9 +24,5 @@ class VersionTests: XCTestCase {
 
         XCTAssertEqual(Version("1.2.3-alpha.beta.2")?.description, "1.2.3-alpha.beta.2")
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }
 

@@ -133,9 +133,4 @@ final class PinsStoreTests: XCTestCase {
         let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
         XCTAssertEqual(store.pinsMap.keys.map{$0}.sorted(), ["clang_c", "commandant"])
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testLoadingSchema1", testLoadingSchema1),
-    ]
 }

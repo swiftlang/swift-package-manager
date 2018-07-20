@@ -42,8 +42,4 @@ class POSIXTests : XCTestCase {
         XCTAssertFalse(isDirectory(dirSym, followSymlink: false))
         XCTAssertTrue(isDirectory(dirSym, followSymlink: true))
     }
-    
-    static var allTests = [
-        ("testFileStatus", testFileStatus),
-    ]
 }

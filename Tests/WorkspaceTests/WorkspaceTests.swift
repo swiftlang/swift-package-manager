@@ -2174,38 +2174,6 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo2", at: .local)
         }
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testCanResolveWithIncompatiblePins", testCanResolveWithIncompatiblePins),
-        ("testGraphData", testGraphData),
-        ("testIsResolutionRequired", testIsResolutionRequired),
-        ("testMultipleRootPackages", testMultipleRootPackages),
-        ("testResolverCanHaveError", testResolverCanHaveError),
-        ("testRootAsDependency1", testRootAsDependency1),
-        ("testRootAsDependency2", testRootAsDependency1),
-        ("testLoadingRootManifests", testLoadingRootManifests),
-        ("testUpdate", testUpdate),
-        ("testCleanAndReset", testCleanAndReset),
-        ("testDependencyManifestLoading", testDependencyManifestLoading),
-        ("testBranchAndRevision", testBranchAndRevision),
-        ("testResolve", testResolve),
-        ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory),
-        ("testToolsVersionRootPackages", testToolsVersionRootPackages),
-        ("testEditDependency", testEditDependency),
-        ("testMissingEditCanRestoreOriginalCheckout", testMissingEditCanRestoreOriginalCheckout),
-        ("testCanUneditRemovedDependencies", testCanUneditRemovedDependencies),
-        ("testInterpreterFlags", testInterpreterFlags),
-        ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
-        ("testChangeOneDependency", testChangeOneDependency),
-        ("testResolutionFailureWithEditedDependency", testResolutionFailureWithEditedDependency),
-        ("testSkipUpdate", testSkipUpdate),
-        ("testLocalDependencyBasics", testLocalDependencyBasics),
-        ("testLocalDependencyTransitive", testLocalDependencyTransitive),
-        ("testLocalDependencyWithPackageUpdate", testLocalDependencyWithPackageUpdate),
-        ("testRevisionVersionSwitch", testRevisionVersionSwitch),
-        ("testLocalVersionSwitch", testLocalVersionSwitch),
-    ]
 }
 
 extension PackageGraph {

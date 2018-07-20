@@ -143,8 +143,4 @@ class ToolsVersionTests: XCTestCase {
              _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
         }
     }
-
-    static var allTests = [
-        ("testToolsVersion", testToolsVersion),
-    ]
 }

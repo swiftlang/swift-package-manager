@@ -161,10 +161,4 @@ class ToolsVersionLoaderTests: XCTestCase {
             XCTFail("Failed with error \(error)")
         }
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testNonMatching", testNonMatching),
-        ("testVersionSpecificManifest", testVersionSpecificManifest),
-    ]
 }

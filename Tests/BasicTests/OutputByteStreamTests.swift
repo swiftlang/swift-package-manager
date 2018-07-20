@@ -200,14 +200,4 @@ class OutputByteStreamTests: XCTestCase {
 
         XCTAssertEqual(stream.bytes.count, 5 * 2000)
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testBufferCorrectness", testBufferCorrectness),
-        ("testStreamOperator", testStreamOperator),
-        ("testJSONEncoding", testJSONEncoding),
-        ("testFormattedOutput", testFormattedOutput),
-        ("testLocalFileStream", testLocalFileStream),
-        ("testThreadSafeStream", testThreadSafeStream),
-    ]
 }

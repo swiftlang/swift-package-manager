@@ -1,24 +1,74 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
-
+#if !os(macOS)
 import XCTest
 
-#if !os(macOS)
-public func allTests() -> [XCTestCaseEntry] {
+extension FunctionalTests {
+    static let __allTests = [
+        ("testModuleNamesWithNonC99Names", testModuleNamesWithNonC99Names),
+        ("testSingleModuleLibrary", testSingleModuleLibrary),
+        ("testSwiftExecWithCDep", testSwiftExecWithCDep),
+        ("testSystemModule", testSystemModule),
+        ("testXcodeProjWithPkgConfig", testXcodeProjWithPkgConfig),
+    ]
+}
+
+extension GenerateXcodeprojTests {
+    static let __allTests = [
+        ("testBuildXcodeprojPath", testBuildXcodeprojPath),
+        ("testGenerateXcodeprojWithDotFiles", testGenerateXcodeprojWithDotFiles),
+        ("testGenerateXcodeprojWithFilesIgnoredByGit", testGenerateXcodeprojWithFilesIgnoredByGit),
+        ("testGenerateXcodeprojWithInvalidModuleNames", testGenerateXcodeprojWithInvalidModuleNames),
+        ("testGenerateXcodeprojWithNonSourceFilesInSourceDirectories", testGenerateXcodeprojWithNonSourceFilesInSourceDirectories),
+        ("testGenerateXcodeprojWithoutGitRepo", testGenerateXcodeprojWithoutGitRepo),
+        ("testGenerateXcodeprojWithRootFiles", testGenerateXcodeprojWithRootFiles),
+        ("testXcconfigOverrideValidatesPath", testXcconfigOverrideValidatesPath),
+        ("testXcodebuildCanParseIt", testXcodebuildCanParseIt),
+    ]
+}
+
+extension PackageGraphTests {
+    static let __allTests = [
+        ("testAggregateTarget", testAggregateTarget),
+        ("testBasics", testBasics),
+        ("testModuleLinkage", testModuleLinkage),
+        ("testModulemap", testModulemap),
+        ("testSchemes", testSchemes),
+        ("testSwiftVersion", testSwiftVersion),
+    ]
+}
+
+extension PropertyListTests {
+    static let __allTests = [
+        ("testBasics", testBasics),
+    ]
+}
+
+extension XcodeProjectModelSerializationTests {
+    static let __allTests = [
+        ("testBasicProjectSerialization", testBasicProjectSerialization),
+        ("testBuildFileSettingsSerialization", testBuildFileSettingsSerialization),
+        ("testBuildSettingsSerialization", testBuildSettingsSerialization),
+    ]
+}
+
+extension XcodeProjectModelTests {
+    static let __allTests = [
+        ("testBasicProjectCreation", testBasicProjectCreation),
+        ("testBuildPhases", testBuildPhases),
+        ("testBuildSettings", testBuildSettings),
+        ("testProductReferences", testProductReferences),
+        ("testTargetCreation", testTargetCreation),
+        ("testTargetDependencies", testTargetDependencies),
+    ]
+}
+
+public func __allTests() -> [XCTestCaseEntry] {
     return [
-        testCase(GenerateXcodeprojTests.allTests),
-        testCase(FunctionalTests.allTests),
-        testCase(PackageGraphTests.allTests),
-        testCase(PropertyListTests.allTests),
-        testCase(XcodeProjectModelTests.allTests),
-        testCase(XcodeProjectModelSerializationTests.allTests),
+        testCase(FunctionalTests.__allTests),
+        testCase(GenerateXcodeprojTests.__allTests),
+        testCase(PackageGraphTests.__allTests),
+        testCase(PropertyListTests.__allTests),
+        testCase(XcodeProjectModelSerializationTests.__allTests),
+        testCase(XcodeProjectModelTests.__allTests),
     ]
 }
 #endif

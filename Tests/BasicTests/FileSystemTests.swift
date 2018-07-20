@@ -425,21 +425,6 @@ class FileSystemTests: XCTestCase {
         }
       #endif
     }
-    
-    static var allTests = [
-        ("testLocalBasics", testLocalBasics),
-        ("testLocalCreateDirectory", testLocalCreateDirectory),
-        ("testLocalReadWriteFile", testLocalReadWriteFile),
-        ("testLocalExistsSymlink", testLocalExistsSymlink),
-        ("testInMemoryBasics", testInMemoryBasics),
-        ("testInMemoryCreateDirectory", testInMemoryCreateDirectory),
-        ("testInMemoryFsCopy", testInMemoryFsCopy),
-        ("testInMemoryReadWriteFile", testInMemoryReadWriteFile),
-        ("testRootedFileSystem", testRootedFileSystem),
-        ("testRemoveFileTree", testRemoveFileTree),
-        ("testSetAttribute", testSetAttribute),
-        ("testInMemRemoveFileTree", testInMemRemoveFileTree),
-    ]
 }
 
 /// Helper method to test file tree removal method on the given file system.

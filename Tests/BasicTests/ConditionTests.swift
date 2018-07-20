@@ -93,10 +93,4 @@ class ConditionTests: XCTestCase {
 
         XCTAssert(doneWaiting)
     }
-
-    static var allTests = [
-        ("testSignal", testSignal),
-        ("testBroadcast", testBroadcast),
-        ("testWaitUntil", testWaitUntil),
-    ]
 }

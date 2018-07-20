@@ -55,8 +55,4 @@ class ReaddirTests: XCTestCase {
             XCTAssertEqual(s.name, String(repeating: "A", count: n))
         }
     }
-    
-    static var allTests = [
-        ("testName", testName),
-    ]
 }

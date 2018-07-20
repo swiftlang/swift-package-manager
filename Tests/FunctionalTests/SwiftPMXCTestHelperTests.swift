@@ -41,10 +41,6 @@ class SwiftPMXCTestHelperTests: XCTestCase {
         }
       #endif
     }
-    
-    static var allTests = [
-        ("testBasicXCTestHelper", testBasicXCTestHelper),
-    ]
 }
 
 

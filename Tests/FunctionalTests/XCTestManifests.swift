@@ -1,26 +1,83 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
-
+#if !os(macOS)
 import XCTest
 
-#if !os(macOS)
-public func allTests() -> [XCTestCaseEntry] {
+extension CFamilyTargetTestCase {
+    static let __allTests = [
+        ("testCanForwardExtraFlagsToClang", testCanForwardExtraFlagsToClang),
+        ("testCUsingCAndSwiftDep", testCUsingCAndSwiftDep),
+        ("testiquoteDep", testiquoteDep),
+        ("testModuleMapGenerationCases", testModuleMapGenerationCases),
+        ("testObjectiveCPackageWithTestTarget", testObjectiveCPackageWithTestTarget),
+    ]
+}
+
+extension DependencyResolutionTests {
+    static let __allTests = [
+        ("testExternalComplex", testExternalComplex),
+        ("testExternalSimple", testExternalSimple),
+        ("testInternalComplex", testInternalComplex),
+        ("testInternalExecAsDep", testInternalExecAsDep),
+        ("testInternalSimple", testInternalSimple),
+    ]
+}
+
+extension MiscellaneousTestCase {
+    static let __allTests = [
+        ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
+        ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),
+        ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
+        ("testExternalDependencyEdges1", testExternalDependencyEdges1),
+        ("testExternalDependencyEdges2", testExternalDependencyEdges2),
+        ("testInternalDependencyEdges", testInternalDependencyEdges),
+        ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
+        ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
+        ("testPackageManagerDefineAndXArgs", testPackageManagerDefineAndXArgs),
+        ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
+        ("testPkgConfigCFamilyTargets", testPkgConfigCFamilyTargets),
+        ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
+        ("testReportingErrorFromGitCommand", testReportingErrorFromGitCommand),
+        ("testSecondBuildIsNullInModulemapGen", testSecondBuildIsNullInModulemapGen),
+        ("testSpaces", testSpaces),
+        ("testSwiftTestFilter", testSwiftTestFilter),
+        ("testSwiftTestLinuxMainGeneration", testSwiftTestLinuxMainGeneration),
+        ("testSwiftTestParallel", testSwiftTestParallel),
+    ]
+}
+
+extension ModuleMapsTestCase {
+    static let __allTests = [
+        ("testDirectDependency", testDirectDependency),
+        ("testTransitiveDependency", testTransitiveDependency),
+    ]
+}
+
+extension SwiftPMXCTestHelperTests {
+    static let __allTests = [
+        ("testBasicXCTestHelper", testBasicXCTestHelper),
+    ]
+}
+
+extension ToolsVersionTests {
+    static let __allTests = [
+        ("testToolsVersion", testToolsVersion),
+    ]
+}
+
+extension VersionSpecificTests {
+    static let __allTests = [
+        ("testEndToEndResolution", testEndToEndResolution),
+    ]
+}
+
+public func __allTests() -> [XCTestCaseEntry] {
     return [
-        testCase(CFamilyTargetTestCase.allTests),
-        testCase(DependencyResolutionTests.allTests),
-        testCase(MiscellaneousTestCase.allTests),
-        testCase(ModuleMapsTestCase.allTests),
-        testCase(SwiftPMXCTestHelperTests.allTests),
-        testCase(ToolsVersionTests.allTests),
-        testCase(VersionSpecificTests.allTests),
+        testCase(CFamilyTargetTestCase.__allTests),
+        testCase(DependencyResolutionTests.__allTests),
+        testCase(MiscellaneousTestCase.__allTests),
+        testCase(ModuleMapsTestCase.__allTests),
+        testCase(SwiftPMXCTestHelperTests.__allTests),
+        testCase(ToolsVersionTests.__allTests),
+        testCase(VersionSpecificTests.__allTests),
     ]
 }
 #endif
-

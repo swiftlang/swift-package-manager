@@ -123,14 +123,6 @@ class FunctionalTests: XCTestCase {
         }
 #endif
     }
-
-    static var allTests = [
-        ("testSingleModuleLibrary", testSingleModuleLibrary),
-        ("testSwiftExecWithCDep", testSwiftExecWithCDep),
-        ("testXcodeProjWithPkgConfig", testXcodeProjWithPkgConfig),
-        ("testModuleNamesWithNonC99Names", testModuleNamesWithNonC99Names),
-        ("testSystemModule", testSystemModule),
-    ]
 }
 
 func write(path: AbsolutePath, write: (OutputByteStream) -> Void) throws {

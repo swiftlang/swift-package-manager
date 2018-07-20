@@ -1,43 +1,34 @@
-/*
-This source file is part of the Swift.org open source project
-
-Copyright 2015 - 2016 Apple Inc. and the Swift project authors
-Licensed under Apache License v2.0 with Runtime Library Exception
-
-See http://swift.org/LICENSE.txt for license information
-See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
-
 import XCTest
 
+import UtilityTests
 import BasicTests
 import BuildTests
 import CommandsTests
 import FunctionalTests
-import POSIXTests
-import PackageDescription4Tests
 import PackageGraphTests
+import POSIXTests
+import XcodeprojTests
+import SourceControlTests
+import WorkspaceTests
+import PackageDescription4Tests
 import PackageLoadingTests
 import PackageModelTests
-import SourceControlTests
-import TestSupportTests 
-import UtilityTests
-import WorkspaceTests 
-import XcodeprojTests
+import TestSupportTests
 
 var tests = [XCTestCaseEntry]()
-tests += BasicTests.allTests()
-tests += BuildTests.allTests()
-tests += CommandsTests.allTests()
-tests += FunctionalTests.allTests()
-tests += POSIXTests.allTests()
-tests += PackageDescription4Tests.allTests()
-tests += PackageGraphTests.allTests()
-tests += PackageLoadingTests.allTests()
-tests += PackageModelTests.allTests()
-tests += SourceControlTests.allTests()
-tests += TestSupportTests.allTests()
-tests += UtilityTests.allTests()
-tests += WorkspaceTests.allTests()
-tests += XcodeprojTests.allTests()
+tests += UtilityTests.__allTests()
+tests += BasicTests.__allTests()
+tests += BuildTests.__allTests()
+tests += CommandsTests.__allTests()
+tests += FunctionalTests.__allTests()
+tests += PackageGraphTests.__allTests()
+tests += POSIXTests.__allTests()
+tests += XcodeprojTests.__allTests()
+tests += SourceControlTests.__allTests()
+tests += WorkspaceTests.__allTests()
+tests += PackageDescription4Tests.__allTests()
+tests += PackageLoadingTests.__allTests()
+tests += PackageModelTests.__allTests()
+tests += TestSupportTests.__allTests()
+
 XCTMain(tests)

@@ -61,10 +61,4 @@ class miscTests: XCTestCase {
         let nilPaths = getEnvSearchPaths(pathString: nil, currentWorkingDirectory: cwd)
         XCTAssertEqual(nilPaths, [])
     }
-
-    static var allTests = [
-        ("testExecutableLookup", testExecutableLookup),
-        ("testEnvSearchPaths", testEnvSearchPaths),
-        ("testEmptyEnvSearchPaths", testEnvSearchPaths),
-    ]
 }
