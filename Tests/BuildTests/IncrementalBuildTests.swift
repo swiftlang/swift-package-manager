@@ -82,8 +82,4 @@ final class IncrementalBuildTests: XCTestCase {
     
     // FIXME:  We should add a lot more test cases here; the one above is just
     // a starter test.
-    
-    static var allTests = [
-        ("testIncrementalSingleModuleCLibraryInSources", testIncrementalSingleModuleCLibraryInSources),
-    ]
 }

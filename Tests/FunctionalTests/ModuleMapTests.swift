@@ -66,9 +66,4 @@ class ModuleMapsTestCase: XCTestCase {
             try verify("release")
         }
     }
-
-    static var allTests = [
-        ("testDirectDependency", testDirectDependency),
-        ("testTransitiveDependency", testTransitiveDependency),
-    ]
 }

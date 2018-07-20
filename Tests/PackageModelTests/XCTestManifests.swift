@@ -1,21 +1,42 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2018 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
-
+#if !os(macOS)
 import XCTest
 
-#if !os(macOS)
-public func allTests() -> [XCTestCaseEntry] {
+extension PackageModelTests {
+    static let __allTests = [
+        ("testProductTypeCodable", testProductTypeCodable),
+    ]
+}
+
+extension SwiftLanguageVersionTests {
+    static let __allTests = [
+        ("testBasics", testBasics),
+        ("testComparison", testComparison),
+    ]
+}
+
+extension TargetDependencyTests {
+    static let __allTests = [
+        ("test1", test1),
+        ("test2", test2),
+        ("test3", test3),
+        ("test4", test4),
+        ("test5", test5),
+        ("test6", test6),
+    ]
+}
+
+extension ToolsVersionTests {
+    static let __allTests = [
+        ("testBasics", testBasics),
+    ]
+}
+
+public func __allTests() -> [XCTestCaseEntry] {
     return [
-        testCase(TargetDependencyTests.allTests),
-        testCase(ToolsVersionTests.allTests),
-        testCase(PackageModelTests.allTests),
+        testCase(PackageModelTests.__allTests),
+        testCase(SwiftLanguageVersionTests.__allTests),
+        testCase(TargetDependencyTests.__allTests),
+        testCase(ToolsVersionTests.__allTests),
     ]
 }
 #endif

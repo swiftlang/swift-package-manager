@@ -20,8 +20,4 @@ class CacheableSequenceTests: XCTestCase {
         let s2 = CacheableSequence(s)
         XCTAssertEqual(Array(s2), Array(s2))
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

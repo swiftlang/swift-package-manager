@@ -84,12 +84,4 @@ class CFamilyTargetTestCase: XCTestCase {
         }
       #endif
     }
-
-    static var allTests = [
-        ("testiquoteDep", testiquoteDep),
-        ("testCUsingCAndSwiftDep", testCUsingCAndSwiftDep),
-        ("testModuleMapGenerationCases", testModuleMapGenerationCases),
-        ("testCanForwardExtraFlagsToClang", testCanForwardExtraFlagsToClang),
-        ("testObjectiveCPackageWithTestTarget", testObjectiveCPackageWithTestTarget),
-    ]
 }

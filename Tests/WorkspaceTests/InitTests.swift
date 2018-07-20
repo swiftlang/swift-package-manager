@@ -172,13 +172,4 @@ class InitTests: XCTestCase {
         XCTAssertBuilds(packageRoot)
         XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.host.target, "debug", "some_package.swiftmodule"))
     }
-    
-    static var allTests = [
-        ("testInitPackageEmpty", testInitPackageEmpty),
-        ("testInitPackageExecutable", testInitPackageExecutable),
-        ("testInitPackageLibrary", testInitPackageLibrary),
-        ("testInitPackageSystemModule", testInitPackageSystemModule),
-        ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
-    ]
-
 }

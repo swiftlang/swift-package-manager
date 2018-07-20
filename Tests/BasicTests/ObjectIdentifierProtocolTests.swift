@@ -49,8 +49,4 @@ class ObjectIdentifierProtocolTests: XCTestCase {
         XCTAssertEqual(dict[bar], "Bar")
         XCTAssertEqual(dict[bar2], "Bar")
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

@@ -409,13 +409,4 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let v = container.versions(filter: { _ in true }).map{$0}
         XCTAssertEqual(v, ["2.0.1", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
     }
-
-    static var allTests = [
-        ("testPackageReference", testPackageReference),
-        ("testBasics", testBasics),
-        ("testVersions", testVersions),
-        ("testVprefixVersions", testVprefixVersions),
-        ("testPrereleaseVersions", testPrereleaseVersions),
-        ("testSimultaneousVersions", testSimultaneousVersions)
-    ]
 }

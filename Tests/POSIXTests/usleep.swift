@@ -24,8 +24,4 @@ class UsleepTests: XCTestCase {
 
         XCTAssert(diff >= ms, "Slept for \(diff) usec, which is less than \(ms) usec")
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

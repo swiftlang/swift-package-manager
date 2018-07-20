@@ -121,9 +121,4 @@ class ToolsVersionWriterTests: XCTestCase {
             XCTFail("Failed with error \(error)")
         }
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testZeroedPatchVersion", testZeroedPatchVersion),
-    ]
 }

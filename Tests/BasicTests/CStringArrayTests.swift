@@ -19,8 +19,4 @@ class CStringArrayTests: XCTestCase {
         XCTAssertEqual(String(cString: array.cArray[1]!), "world")
         XCTAssertNil(array.cArray[2])
     }
-
-    static var allTests = [
-        ("testInitialization",  testInitialization),
-    ]
 }

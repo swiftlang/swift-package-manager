@@ -73,9 +73,4 @@ class ProcessSetTests: XCTestCase {
 
         t.join()
     }
-
-    static var allTests = [
-        ("testSigInt", testSigInt),
-        ("testSigKillEscalation", testSigKillEscalation),
-    ]
 }

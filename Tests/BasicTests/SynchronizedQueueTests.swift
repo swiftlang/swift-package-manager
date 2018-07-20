@@ -134,10 +134,4 @@ class SyncronizedQueueTests: XCTestCase {
         // Make sure everything was consumed.
         XCTAssertEqual(consumed, queueElementsOne.union(queueElementsTwo))
     }
-
-    static var allTests = [
-        ("testSingleProducerConsumer", testSingleProducerConsumer),
-        ("testMultipleProducerConsumer", testMultipleProducerConsumer),
-        ("testMultipleProducerConsumer2", testMultipleProducerConsumer2),
-    ]
 }

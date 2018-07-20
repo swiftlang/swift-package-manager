@@ -17,8 +17,4 @@ class PropertyListTests: XCTestCase {
         XCTAssertEqual("(\n   \"hello world\",\n   \"cool\"\n)", PropertyList.array([.string("hello world"), .string("cool")]).serialize())
         XCTAssertEqual("{\n   polo = (\n      \"hello \\\" world\",\n      \"cool\"\n   );\n   user = \"cool\";\n}", PropertyList.dictionary(["user": .string("cool"), "polo": PropertyList.array([.string("hello \" world"), .string("cool")])]).serialize())
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

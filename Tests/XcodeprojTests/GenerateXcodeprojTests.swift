@@ -313,13 +313,4 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertFalse(project.mainGroup.subitems.contains { $0.path == "ignored_file" })
         }
     }
-
-    static var allTests = [
-        ("testXcodebuildCanParseIt", testXcodebuildCanParseIt),
-        ("testXcconfigOverrideValidatesPath", testXcconfigOverrideValidatesPath),
-        ("testGenerateXcodeprojWithInvalidModuleNames", testGenerateXcodeprojWithInvalidModuleNames),
-        ("testGenerateXcodeprojWithRootFiles", testGenerateXcodeprojWithRootFiles),
-        ("testGenerateXcodeprojWithNonSourceFilesInSourceDirectories", testGenerateXcodeprojWithNonSourceFilesInSourceDirectories),
-        ("testGenerateXcodeprojWithFilesIgnoredByGit", testGenerateXcodeprojWithFilesIgnoredByGit),
-    ]
 }

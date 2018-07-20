@@ -55,10 +55,4 @@ final class TestToolTests: XCTestCase {
         }
       #endif
     }
-
-    static var allTests = [
-        ("testUsage", testUsage),
-        ("testVersion", testVersion),
-        ("testSanitizeThread", testSanitizeThread),
-    ]
 }

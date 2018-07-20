@@ -32,8 +32,4 @@ class InterruptHandlerTests: XCTestCase {
         }
       #endif
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

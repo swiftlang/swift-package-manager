@@ -127,15 +127,4 @@ final class RunToolTests: XCTestCase {
         }
       #endif
     }
-
-    static var allTests = [
-        ("testUsage", testUsage),
-        ("testVersion", testVersion),
-        ("testUnkownProductAndArgumentPassing", testUnkownProductAndArgumentPassing),
-        ("testMultipleExecutableAndExplicitExecutable", testMultipleExecutableAndExplicitExecutable),
-        ("testUnreachableExecutable", testUnreachableExecutable),
-        ("testFileDeprecation", testFileDeprecation),
-        ("testMutualExclusiveFlags", testMutualExclusiveFlags),
-        ("testSanitizeThread", testSanitizeThread),
-    ]
 }

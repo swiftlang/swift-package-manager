@@ -1,22 +1,70 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
-
+#if !os(macOS)
 import XCTest
 
-#if !os(macOS)
-public func allTests() -> [XCTestCaseEntry] {
+extension BuildToolTests {
+    static let __allTests = [
+        ("testBinPathAndSymlink", testBinPathAndSymlink),
+        ("testLLBuildManifestCachingBasics", testLLBuildManifestCachingBasics),
+        ("testNonReachableProductsAndTargetsFunctional", testNonReachableProductsAndTargetsFunctional),
+        ("testProductAndTarget", testProductAndTarget),
+        ("testSeeAlso", testSeeAlso),
+        ("testUsage", testUsage),
+        ("testVersion", testVersion),
+    ]
+}
+
+extension PackageToolTests {
+    static let __allTests = [
+        ("testDescribe", testDescribe),
+        ("testDumpPackage", testDumpPackage),
+        ("testInitEmpty", testInitEmpty),
+        ("testInitExecutable", testInitExecutable),
+        ("testInitLibrary", testInitLibrary),
+        ("testPackageClean", testPackageClean),
+        ("testPackageEditAndUnedit", testPackageEditAndUnedit),
+        ("testPackageReset", testPackageReset),
+        ("testPinning", testPinning),
+        ("testPinningBranchAndRevision", testPinningBranchAndRevision),
+        ("testResolve", testResolve),
+        ("testSeeAlso", testSeeAlso),
+        ("testShowDependencies", testShowDependencies),
+        ("testSymlinkedDependency", testSymlinkedDependency),
+        ("testUpdate", testUpdate),
+        ("testUsage", testUsage),
+        ("testVersion", testVersion),
+        ("testWatchmanXcodeprojgen", testWatchmanXcodeprojgen),
+    ]
+}
+
+extension RunToolTests {
+    static let __allTests = [
+        ("testFileDeprecation", testFileDeprecation),
+        ("testMultipleExecutableAndExplicitExecutable", testMultipleExecutableAndExplicitExecutable),
+        ("testMutualExclusiveFlags", testMutualExclusiveFlags),
+        ("testSanitizeThread", testSanitizeThread),
+        ("testSeeAlso", testSeeAlso),
+        ("testUnkownProductAndArgumentPassing", testUnkownProductAndArgumentPassing),
+        ("testUnreachableExecutable", testUnreachableExecutable),
+        ("testUsage", testUsage),
+        ("testVersion", testVersion),
+    ]
+}
+
+extension TestToolTests {
+    static let __allTests = [
+        ("testSanitizeThread", testSanitizeThread),
+        ("testSeeAlso", testSeeAlso),
+        ("testUsage", testUsage),
+        ("testVersion", testVersion),
+    ]
+}
+
+public func __allTests() -> [XCTestCaseEntry] {
     return [
-        testCase(BuildToolTests.allTests),
-        testCase(PackageToolTests.allTests),
-        testCase(TestToolTests.allTests),
-        testCase(RunToolTests.allTests),
+        testCase(BuildToolTests.__allTests),
+        testCase(PackageToolTests.__allTests),
+        testCase(RunToolTests.__allTests),
+        testCase(TestToolTests.__allTests),
     ]
 }
 #endif

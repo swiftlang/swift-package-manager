@@ -27,9 +27,4 @@ class DictionaryLiteralExtensionsTests: XCTestCase {
         XCTAssertFalse(DictionaryLiteral(dictionaryLiteral: ("foo", 1), ("bar", 2), ("hoge", 3)) == DictionaryLiteral(dictionaryLiteral: ("foo", 1), ("bar", 2)))
         XCTAssertFalse(DictionaryLiteral(dictionaryLiteral: ("foo", 1), ("bar", 2)) == DictionaryLiteral(dictionaryLiteral: ("bar", 2), ("foo", 1)))
     }
-
-    static var allTests = [
-        ("testDescription", testDescription),
-        ("testEquality", testEquality),
-    ]
 }

@@ -397,14 +397,4 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             parsed.removeAll()
         }
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testSwiftLanguageVersions", testSwiftLanguageVersions),
-        ("testPackageDependencies", testPackageDependencies),
-        ("testSystemLibraryTargets", testSystemLibraryTargets),
-        ("testVersionSpecificLoading", testVersionSpecificLoading),
-        ("testRuntimeManifestErrors", testRuntimeManifestErrors),
-        ("testCaching", testCaching),
-    ]
 }

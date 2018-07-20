@@ -408,15 +408,6 @@ class PackageGraphTests: XCTestCase {
             }
         }
     }
-    
-    static var allTests = [
-        ("testAggregateTarget", testAggregateTarget),
-        ("testBasics", testBasics),
-        ("testModuleLinkage", testModuleLinkage),
-        ("testModulemap", testModulemap),
-        ("testSchemes", testSchemes),
-        ("testSwiftVersion", testSwiftVersion),
-    ]
 }
 
 private func XcodeProjectTester(_ project: Xcode.Project, _ result: (XcodeProjectResult) -> Void) {

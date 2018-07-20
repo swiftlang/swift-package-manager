@@ -372,12 +372,4 @@ class RepositoryManagerTests: XCTestCase {
             XCTAssertEqual(delegate.didUpdate.count, 2)
         }
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testParallelLookups", testParallelLookups),
-        ("testPersistence", testPersistence),
-        ("testReset", testReset),
-        ("testSkipUpdate", testSkipUpdate),
-    ]
 }

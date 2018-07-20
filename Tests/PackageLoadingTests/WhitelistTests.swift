@@ -54,11 +54,4 @@ final class PkgConfigWhitelistTests: XCTestCase {
         XCTAssertEqual(result.0, ["-I", "/usr/include/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello"])
         XCTAssertEqual(result.1, ["-L/usr/lib/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "-lcool", "ok", "name"])
     }
-
-    static var allTests = [
-        ("testSimpleFlags", testSimpleFlags),
-        ("testFlagsWithInvalidFlags", testFlagsWithInvalidFlags),
-        ("testFlagsWithValueInNextFlag", testFlagsWithValueInNextFlag),
-        ("testRemoveDefaultFlags", testRemoveDefaultFlags),
-    ]
 }

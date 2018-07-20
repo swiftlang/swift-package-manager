@@ -641,23 +641,4 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertTrue(ignored[0])
         }
     }
-
-    static var allTests = [
-        ("testBranchOperations", testBranchOperations),
-        ("testCheckoutRevision", testCheckoutRevision),
-        ("testCheckouts", testCheckouts),
-        ("testFetch", testFetch),
-        ("testGitFileView", testGitFileView),
-        ("testGitRepositoryHash", testGitRepositoryHash),
-        ("testHasUnpushedCommits", testHasUnpushedCommits),
-        ("testProvider", testProvider),
-        ("testRawRepository", testRawRepository),
-        ("testRepositorySpecifier", testRepositorySpecifier),
-        ("testSetRemote", testSetRemote),
-        ("testSubmoduleRead", testSubmoduleRead),
-        ("testSubmodules", testSubmodules),
-        ("testUncommitedChanges", testUncommitedChanges),
-        ("testAlternativeObjectStoreValidation", testAlternativeObjectStoreValidation),
-        ("testGitIgnored", testAreIgnored),
-    ]
 }

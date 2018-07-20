@@ -41,8 +41,4 @@ class KeyedPairTests: XCTestCase {
 
         XCTAssertEqual(whereCanIGo(from: sf).map{ $0.name }.sorted(), ["Москва", "नई दिल्ली", "北京市"])
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

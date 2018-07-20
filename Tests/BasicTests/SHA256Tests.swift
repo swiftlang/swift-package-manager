@@ -42,9 +42,4 @@ class SHA256Tests: XCTestCase {
         let digest = SHA256(data).digestString()
         XCTAssertEqual(digest, "907422e2f24d749d0add2b504ccae8ad1aa392477591905880fb2dc494e33d63")
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testLargeData", testLargeData),
-    ]
 }

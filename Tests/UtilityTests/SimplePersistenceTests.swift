@@ -204,10 +204,4 @@ class SimplePersistenceTests: XCTestCase {
         XCTAssertEqual(foo.path, AbsolutePath("/oldpath"))
         XCTAssertEqual(foo.int, 4)
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testBackwardsCompatibleStateFile", testBackwardsCompatibleStateFile),
-        ("testCanLoadFromOldSchema", testCanLoadFromOldSchema),
-    ]
 }

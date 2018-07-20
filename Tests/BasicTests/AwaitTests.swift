@@ -42,8 +42,4 @@ class AwaitTests: XCTestCase {
             XCTAssertEqual(error.underlyingError as? DummyError, DummyError.error)
         }
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

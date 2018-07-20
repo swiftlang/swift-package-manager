@@ -50,8 +50,4 @@ class OrderedSetTests: XCTestCase {
         XCTAssertTrue(set.isEmpty)
         XCTAssertEqual(set.contents, [])
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

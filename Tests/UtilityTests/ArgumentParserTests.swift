@@ -723,21 +723,4 @@ class ArgumentParserTests: XCTestCase {
         args = try parser.parse(["0"])
         XCTAssertEqual(args.get(positional), 0)
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testErrors", testErrors),
-        ("testBinderThrows", testBinderThrows),
-        ("testOptions", testOptions),
-        ("testSubparser", testSubparser),
-        ("testSubsubparser", testSubsubparser),
-        ("testSubparserBinder", testSubparserBinder),
-        ("testOptionalPositionalArg", testOptionalPositionalArg),
-        ("testPathArgument", testPathArgument),
-        ("testShellCompletionGeneration", testShellCompletionGeneration),
-        ("testUpToNextOptionStrategy", testUpToNextOptionStrategy),
-        ("testRemainingStrategy", testRemainingStrategy),
-        ("testBoolParsing", testBoolParsing),
-        ("testIntParsing", testIntParsing)
-    ]
 }

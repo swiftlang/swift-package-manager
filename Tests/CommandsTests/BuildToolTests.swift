@@ -203,13 +203,4 @@ final class BuildToolTests: XCTestCase {
             XCTAssert(output.isEmpty, output)
         }
     }
-
-    static var allTests = [
-        ("testUsage", testUsage),
-        ("testVersion", testVersion),
-        ("testBinPathAndSymlink", testBinPathAndSymlink),
-        ("testProductAndTarget", testProductAndTarget),
-        ("testNonReachableProductsAndTargetsFunctional", testNonReachableProductsAndTargetsFunctional),
-        ("testLLBuildManifestCachingBasics", testLLBuildManifestCachingBasics),
-    ]
 }

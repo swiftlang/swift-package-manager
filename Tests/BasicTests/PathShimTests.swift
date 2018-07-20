@@ -65,12 +65,6 @@ class PathShimTests : XCTestCase {
         let cwd = localFileSystem.currentWorkingDirectory!
         XCTAssertEqual(cwd, AbsolutePath(getcwd()))
     }
-    
-    static var allTests = [
-        ("testResolvingSymlinks",            testResolvingSymlinks),
-        ("testRescursiveDirectoryCreation",  testRescursiveDirectoryCreation),
-        ("testCurrentWorkingDirectory",      testCurrentWorkingDirectory)
-    ]
 }
 
 class WalkTests : XCTestCase {
@@ -141,11 +135,4 @@ class WalkTests : XCTestCase {
 
         XCTAssertEqual(results, [tmpDirPath.appending(components: "symlink", "bar"), tmpDirPath.appending(components: "symlink", "baz")])
     }
-
-    static var allTests = [
-        ("testNonRecursive",                          testNonRecursive),
-        ("testRecursive",                             testRecursive),
-        ("testSymlinksNotWalked",                     testSymlinksNotWalked),
-        ("testWalkingADirectorySymlinkResolvesOnce",  testWalkingADirectorySymlinkResolvesOnce),
-    ]
 }

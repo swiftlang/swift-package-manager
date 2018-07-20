@@ -178,10 +178,4 @@ class XcodeProjectModelSerializationTests: XCTestCase {
         }
         XCTAssertEqual(attributes, attributeValues)
     }
-    
-    static var allTests = [
-        ("testBasicProjectSerialization", testBasicProjectSerialization),
-        ("testBuildSettingsSerialization", testBuildSettingsSerialization),
-        ("testBuildFileSettingsSerialization", testBuildFileSettingsSerialization),
-    ]
 }

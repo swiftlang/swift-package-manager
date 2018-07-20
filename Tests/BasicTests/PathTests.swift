@@ -344,26 +344,4 @@ class PathTests: XCTestCase {
     // FIXME: We also need tests for dirname, basename, suffix, etc.
     
     // FIXME: We also need test for stat() operations.
-        
-    static var allTests = [
-        ("testBasics",                        testBasics),
-        ("testContains",                      testContains),
-        ("testStringInitialization",          testStringInitialization),
-        ("testStringLiteralInitialization",   testStringLiteralInitialization),
-        ("testRepeatedPathSeparators",        testRepeatedPathSeparators),
-        ("testTrailingPathSeparators",        testTrailingPathSeparators),
-        ("testDotPathComponents",             testDotPathComponents),
-        ("testDotDotPathComponents",          testDotDotPathComponents),
-        ("testCombinationsAndEdgeCases",      testCombinationsAndEdgeCases),
-        ("testDirectoryNameExtraction",       testDirectoryNameExtraction),
-        ("testBaseNameExtraction",            testBaseNameExtraction),
-        ("testSuffixExtraction",              testSuffixExtraction),
-        ("testParentDirectory",               testParentDirectory),
-        ("testConcatenation",                 testConcatenation),
-        ("testPathComponents",                testPathComponents),
-        ("testRelativePathFromAbsolutePaths", testRelativePathFromAbsolutePaths),
-        ("testComparison",                    testComparison),
-        ("testAbsolutePathValidation",        testAbsolutePathValidation),
-        ("testCodable",                       testCodable),
-    ]
 }

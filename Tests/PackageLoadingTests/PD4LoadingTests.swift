@@ -384,20 +384,4 @@ class PackageDescription4LoadingTests: XCTestCase {
             XCTAssertEqual(manifest.dependencies, [])
         }
     }
-    
-
-    static var allTests = [
-        ("testCTarget", testCTarget),
-        ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
-        ("testManiestVersionToToolsVersion", testManiestVersionToToolsVersion),
-        ("testPackageDependencies", testPackageDependencies),
-        ("testProducts", testProducts),
-        ("testSystemPackage", testSystemPackage),
-        ("testTargetDependencies", testTargetDependencies),
-        ("testTargetProperties", testTargetProperties),
-        ("testTrivial", testTrivial),
-        ("testUnavailableAPIs", testUnavailableAPIs),
-        ("testLanguageStandards", testLanguageStandards),
-        ("testManifestWithWarnings", testManifestWithWarnings),
-    ]
 }

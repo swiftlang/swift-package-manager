@@ -76,8 +76,4 @@ final class TerminalControllerTests: XCTestCase {
         XCTAssertEqual(wrapped, "\u{001B}[32mgreen\u{001B}[0m")
         pty.close()
     }
-
-    static var allTests = [
-        ("testBasic", testBasic),
-    ]
 }

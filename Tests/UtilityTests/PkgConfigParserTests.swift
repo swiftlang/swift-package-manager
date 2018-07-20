@@ -95,14 +95,4 @@ final class PkgConfigParserTests: XCTestCase {
         try parser.parse()
         body?(parser)
     }
-
-    static var allTests = [
-        ("testCustomPcFileSearchPath", testCustomPcFileSearchPath),
-        ("testEmptyCFlags", testEmptyCFlags),
-        ("testEscapedSpaces", testEscapedSpaces),
-        ("testGTK3PCFile", testGTK3PCFile),
-        ("testUnevenQuotes", testUnevenQuotes),
-        ("testUnresolvablePCFile", testUnresolvablePCFile),
-        ("testVariableinDependency", testVariableinDependency),
-    ]
 }

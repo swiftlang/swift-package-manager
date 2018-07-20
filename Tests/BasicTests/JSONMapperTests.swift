@@ -141,9 +141,4 @@ class JSONMapperTests: XCTestCase {
             XCTAssertEqual(json, .string("Hello"))
         }
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testErrors", testErrors),
-    ]
 }

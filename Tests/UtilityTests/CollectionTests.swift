@@ -26,9 +26,5 @@ class CollectionTests: XCTestCase {
         eq([":", "b", "a", "r"].split(around: [":"]), ([], ["b", "a", "r"]))
         eq(["f", "o", "o", ":", "b", "a", "r"].split(around: [":"]), (["f", "o", "o"], ["b", "a", "r"]))
     }
-
-    static var allTests = [
-        ("testSplitAround", testSplitAround),
-    ]
 }
 

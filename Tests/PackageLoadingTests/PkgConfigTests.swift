@@ -104,9 +104,4 @@ class PkgConfigTests: XCTestCase {
         XCTAssertEqual(result.cFlags, ["-I/path/to/dependent/include", "-I/path/to/dependency/include"])
         XCTAssertEqual(result.libs, ["-L/path/to/dependent/lib", "-L/path/to/dependency/lib"])
     }
-    
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testDependencies", testDependencies),
-    ]
 }

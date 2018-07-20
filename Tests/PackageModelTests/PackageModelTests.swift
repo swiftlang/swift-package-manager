@@ -38,8 +38,4 @@ class PackageModelTests: XCTestCase {
         checkCodable(.executable)
         checkCodable(.test)
     }
-
-    static var allTests = [
-        ("testProductTypeCodable", testProductTypeCodable),
-    ]
 }

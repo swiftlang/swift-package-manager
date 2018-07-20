@@ -801,23 +801,6 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(Set(result.productMap.keys), ["aexec", "BLibrary", "bexec", "cexec"])
         XCTAssertEqual(Set(result.targetMap.keys), ["ATarget", "BTarget1", "BTarget2", "CTarget"])
     }
-
-
-    static var allTests = [
-        ("testBasicClangPackage", testBasicClangPackage),
-        ("testBasicExtPackages", testBasicExtPackages),
-        ("testBasicReleasePackage", testBasicReleasePackage),
-        ("testBasicSwiftPackage", testBasicSwiftPackage),
-        ("testCModule", testCModule),
-        ("testCLanguageStandard", testCLanguageStandard),
-        ("testCppModule", testCppModule),
-        ("testDynamicProducts", testDynamicProducts),
-        ("testSwiftCMixed", testSwiftCMixed),
-        ("testTestModule", testTestModule),
-        ("testExecAsDependency", testExecAsDependency),
-        ("testClangTargets", testClangTargets),
-        ("testNonReachableProductsAndTargets", testNonReachableProductsAndTargets)
-    ]
 }
 
 // MARK:- Test Helpers

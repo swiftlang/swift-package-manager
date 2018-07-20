@@ -429,25 +429,4 @@ class MiscellaneousTestCase: XCTestCase {
         }
       #endif
     }
-
-    static var allTests = [
-        ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
-        ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
-        ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
-        ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
-        ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
-        ("testPackageManagerDefineAndXArgs", testPackageManagerDefineAndXArgs),
-        ("testInternalDependencyEdges", testInternalDependencyEdges),
-        ("testExternalDependencyEdges1", testExternalDependencyEdges1),
-        ("testExternalDependencyEdges2", testExternalDependencyEdges2),
-        ("testSpaces", testSpaces),
-        ("testSecondBuildIsNullInModulemapGen", testSecondBuildIsNullInModulemapGen),
-        ("testSwiftTestParallel", testSwiftTestParallel),
-        ("testSwiftTestFilter", testSwiftTestFilter),
-        ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
-        ("testPkgConfigCFamilyTargets", testPkgConfigCFamilyTargets),
-        ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),
-        ("testReportingErrorFromGitCommand", testReportingErrorFromGitCommand),
-        ("testSwiftTestLinuxMainGeneration", testSwiftTestLinuxMainGeneration),
-    ]
 }
