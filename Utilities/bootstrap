@@ -586,6 +586,8 @@ class llbuild(object):
                 if self.args.foundation_path:
                     link_command.extend(["-L", self.args.foundation_path])
                 if self.args.libdispatch_build_dir:
+                    link_command.extend(['-L', self.args.libdispatch_build_dir,
+                                         '-Xlinker', '-lBlocksRuntime'])
                     link_command.extend(["-L", os.path.join(self.args.libdispatch_build_dir, "src", ".libs")])
 
                 # Add llbuild link flags.
@@ -1140,6 +1142,9 @@ def main():
             symlink_force(os.path.join(args.foundation_path, 'libFoundation.so'),
                 libswiftdir)
             if args.libdispatch_build_dir:
+                symlink_force(os.path.join(args.libdispatch_build_dir,
+                                           'libBlocksRuntime.so'),
+                              libswiftdir)
                 symlink_force(os.path.join(args.libdispatch_build_dir, "src", ".libs", "libdispatch.so"),
                     libswiftdir)
 
@@ -1206,6 +1211,8 @@ def main():
         build_flags.extend(["-Xswiftc", "-I{}".format(
             args.libdispatch_source_dir)])
         build_flags.extend(["-Xcc", "-fblocks"])
+        build_flags.extend(['-Xlinker', '-L', '-Xlinker', args.libdispatch_build_dir,
+                            '-Xlinker', '-lBlocksRuntime'])
 
     # Add llbuild import flags.
     for import_path in llbuild_import_paths(args):
