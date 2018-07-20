@@ -110,10 +110,12 @@ def write_file_if_changed(path, data):
 
 ###
 
-def find_xcode_version():
-    return subprocess.check_output(
-        ["xcodebuild", "-version"],
-        universal_newlines=True).strip().splitlines()[0]
+def get_current_sha(project_root):
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], universal_newlines=True).strip()
+    except:
+        return None
 
 g_num_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
 g_default_sysroot = None
@@ -440,9 +442,14 @@ def create_versoning_args(args):
     if args.vendor_name:
         vendor_name = make_c_string_literal(args.vendor_name)
         build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-DSPM_VENDOR_NAME=%s" % (vendor_name)])
+
+    # Try to use current SHA if build_identifier is not provided.
+    build_identifier = args.build_identifier
+    if not build_identifier:
+        build_identifier = get_current_sha(g_project_root)
     
-    if args.build_identifier:
-        build_identifier = make_c_string_literal(args.build_identifier)
+    if build_identifier:
+        build_identifier = make_c_string_literal(build_identifier)
         build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-DSPM_BUILD_IDENT=%s" % (build_identifier)])
     return build_flags
 
