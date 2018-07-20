@@ -42,10 +42,72 @@ struct NoMatchingTestsWarning: DiagnosticData {
     )
 }
 
+/// Diagnostic error when a command is run without its requeried command.
+struct RequiredArgumentDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: RequiredArgumentDiagnostic.self,
+        name: "org.swift.diags.required-argument",
+        defaultBehavior: .error,
+        description: {
+            $0 <<< { "\($0.dependentArgument)" } <<< "must be used with" <<< { "\($0.requiredArgument)" }
+    }
+    )
+    
+    let requiredArgument: String
+    
+    let dependentArgument: String
+}
+
+/// Defines the relational operators
+enum RelationalOperator {
+    
+    case equal
+    case greater
+    case less
+    case greaterOrEqual
+    case lessOrEqual
+}
+
+extension RelationalOperator: CustomStringConvertible {
+    
+    var description: String {
+        switch self {
+        case .equal :
+            return "equal to"
+        case .greater:
+            return "greater than"
+        case .less:
+            return "less than"
+        case .greaterOrEqual:
+            return "greater than or equal to"
+        case .lessOrEqual:
+            return "less than or equal to"
+        }
+    }
+}
+
+
+/// Diagnostic error for unsatisfied Int parameter
+struct UnsatisfiedIntParameterDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: UnsatisfiedIntParameterDiagnostic.self,
+        name: "org.swift.diags.unsatisfied-int-parameter",
+        defaultBehavior: .error,
+        description: {
+            $0 <<< { "\($0.argument)" } <<< "must be" <<< { $0.relationalOperator.description } <<< { "\($0.requiredParameterValue)" }
+    }
+    )
+    
+    let argument: String
+    
+    let relationalOperator: RelationalOperator
+    
+    let requiredParameterValue: Int
+}
+
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
     case testsExecutableNotFound
-    case invalidUsage(argument: String)
 }
 
 extension TestError: CustomStringConvertible {
@@ -55,8 +117,6 @@ extension TestError: CustomStringConvertible {
             return "no tests found; create a target in the 'Tests' directory"
         case .invalidListTestJSONData:
             return "invalid list test JSON structure"
-        case .invalidUsage(let argument):
-            return "invalid usage of \(argument); use --help to print usage"
         }
     }
 }
@@ -69,7 +129,10 @@ public class TestToolOptions: ToolOptions {
             return .version
         }
 
-        if shouldRunInParallel || numberOfWorkers>0 {
+        if shouldRunInParallel {
+            return .runParallel
+            
+        } else if numberOfWorkers != nil {
             return .runParallel
         }
 
@@ -90,8 +153,8 @@ public class TestToolOptions: ToolOptions {
     /// If tests should run in parallel mode.
     var shouldRunInParallel = false
 
-    /// Run tests in parallel mode specifying number of workers spawned
-    var numberOfWorkers = 0
+    /// Number of tests to execute in parallel
+    var numberOfWorkers: Int?
     
     /// List the tests and exit.
     var shouldListTests = false
@@ -212,8 +275,16 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
             // if user called --num-workers without the --parallel option, throw an error
-            if (options.numberOfWorkers>0) && !options.shouldRunInParallel {
-                throw TestError.invalidUsage(argument: "--num-workers")
+            if !options.shouldRunInParallel {
+                
+                diagnostics.emit(data: RequiredArgumentDiagnostic(requiredArgument: "--parallel", dependentArgument: "--num-workers"))
+                return
+                
+            } else if let numberOfWorkers = options.numberOfWorkers, numberOfWorkers <= 0 {
+                // If --num-workers gets called with zero or less
+                
+                diagnostics.emit(data: UnsatisfiedIntParameterDiagnostic(argument: "--num-workers", relationalOperator: .greater, requiredParameterValue: 0))
+                return
             }
 
             // If there were no matches, emit a warning and exit.
@@ -229,7 +300,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 sanitizers: options.sanitizers,
                 toolchain: toolchain,
                 xUnitOutput: options.xUnitOutput,
-                numJobs: options.numberOfWorkers > 0 ? options.numberOfWorkers : ProcessInfo.processInfo.activeProcessorCount
+                numJobs: options.numberOfWorkers != nil ? options.numberOfWorkers! : ProcessInfo.processInfo.activeProcessorCount,
+                diagnostics: diagnostics
             )
             try runner.run(tests)
 
@@ -284,7 +356,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         
         binder.bind(
             option: parser.add(option: "--num-workers", kind: Int.self,
-                               usage: "Run the tests in parallel specifying number of workers spawned. Usage: --parallel --num-workers"),
+                               usage: "Number of tests to execute in parallel. Usage: --parallel --num-workers"),
             to: { $0.numberOfWorkers = $1 })
 
         binder.bind(
@@ -514,16 +586,20 @@ final class ParallelTestRunner {
     let sanitizers: EnabledSanitizers
     let toolchain: UserToolchain
     let xUnitOutput: AbsolutePath?
-    /// Number of parallel workers to spawn.
+    
+    /// Number of tests to execute in parallel
     let numJobs: Int
     
+    let diagnostics: DiagnosticsEngine
+
     init(
         testPath: AbsolutePath,
         processSet: ProcessSet,
         sanitizers: EnabledSanitizers,
         toolchain: UserToolchain,
         xUnitOutput: AbsolutePath? = nil,
-        numJobs: Int
+        numJobs: Int,
+        diagnostics: DiagnosticsEngine
     ) {
         self.testPath = testPath
         self.processSet = processSet
@@ -531,7 +607,15 @@ final class ParallelTestRunner {
         self.toolchain = toolchain
         self.xUnitOutput = xUnitOutput
         self.numJobs = numJobs
+        self.diagnostics = diagnostics
         progressBar = createProgressBar(forStream: stdoutStream, header: "Testing:")
+        
+        if numJobs <= 0 {
+            // FIXME: This diagnostics+return does not terminate the process, it throws the error but the user needs to terminate it manually
+            diagnostics.emit(data: UnsatisfiedIntParameterDiagnostic(argument: "Number of parallel jobs", relationalOperator: .greater, requiredParameterValue: 0))
+            return
+        }
+        
     }
 
     /// Whether to display output from successful tests.
