@@ -1051,7 +1051,7 @@ def main():
     # path ourselves.
     should_build_llbuild = False
     if not args.llbuild_build_dir:
-        args.llbuild_build_dir = os.path.join(build_path, "llbuild")
+        args.llbuild_build_dir = os.path.join(target_path, conf, "llbuild")
         should_build_llbuild = True
 
     # Confirm rsync is available.
