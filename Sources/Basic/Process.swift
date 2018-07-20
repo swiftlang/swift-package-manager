@@ -552,7 +552,7 @@ extension ProcessResult.Error: CustomStringConvertible {
             stream <<< args.map({ $0.shellEscaped() }).joined(separator: " ")
 
             // Include the output, if present.
-            if let output = try? result.utf8Output() {
+            if let output = try? result.utf8Output() + result.utf8stderrOutput() {
                 // We indent the output to keep it visually separated from everything else.
                 let indentation = "    "
                 stream <<< " output:\n" <<< indentation <<< output.replacingOccurrences(of: "\n", with: "\n" + indentation)
