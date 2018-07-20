@@ -57,6 +57,7 @@ final class LinuxMainGenerator {
             let testManifest = target.sources.root.appending(component: "XCTestManifests.swift")
             let stream = try LocalFileOutputByteStream(testManifest)
 
+            stream <<< "#if !os(macOS)" <<< "\n"
             stream <<< "import XCTest" <<< "\n"
             for klass in module.classes.lazy.sorted(by: { $0.name < $1.name }) {
                 stream <<< "\n"
@@ -72,7 +73,6 @@ final class LinuxMainGenerator {
             stream <<<
             """
 
-            #if !os(macOS)
             public func __allTests() -> [XCTestCaseEntry] {
                 return [
 
