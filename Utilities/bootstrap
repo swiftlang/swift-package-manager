@@ -429,36 +429,22 @@ product_map = dict((p.name, p) for p in products)
 
 # Create a quoted C string literal from an arbitrary string.
 def make_c_string_literal(str):
-    return "\"" + str.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+    return str.replace("\\", "\\\\").replace("\"", "\\\"")
 
 # Create a quoted XML string literal from an arbitrary string.
 def make_xml_string_literal(str):
     return "\"" + str.replace("&", "&amp;").replace("\"", "&quot;") + "\""
 
-
-# Write out a header containing version information, and a module map for it.
-def write_bootstrap_version_info(include_path, vendor_name, build_identifier):
-    # Construct the header and write it out if it's changed.
-    output = StringIO()
-    vendor_name_literal = make_c_string_literal(vendor_name)
-    build_identifier_literal = make_c_string_literal(build_identifier)
-    contents = """
-static inline const char* VendorNameString() {
-    return %(vendor_name_literal)s;
-}
-static inline const char* BuildIdentifierString() {
-    return %(build_identifier_literal)s;
-}
-""" % locals()
-    write_file_if_changed(os.path.join(include_path, "VersionInfo.h"), contents)
+def create_versoning_args(args):
+    build_flags = []
+    if args.vendor_name:
+        vendor_name = make_c_string_literal(args.vendor_name)
+        build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-DSPM_VENDOR_NAME=%s" % (vendor_name)])
     
-    # Also construct the module map and write it out if it's changed.
-    contents = """\
-module VersionInfo [extern_c] {
-    header \"VersionInfo.h\"
-}
-"""
-    write_file_if_changed(os.path.join(include_path, "module.map"), contents)
+    if args.build_identifier:
+        build_identifier = make_c_string_literal(args.build_identifier)
+        build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-DSPM_BUILD_IDENT=%s" % (build_identifier)])
+    return build_flags
 
 class llbuild(object):
 
@@ -861,6 +847,7 @@ def llbuild_link_args(args):
 def write_self_hosting_script(path, args):
     # Construct the build flags.
     swiftpm_flags = []
+    swiftpm_flags.extend(create_versoning_args(args))
     for import_path in llbuild_import_paths(args):
         swiftpm_flags.extend(["-Xswiftc", "-I%s" % import_path])
     if args.llbuild_link_framework:
@@ -1168,19 +1155,9 @@ def main():
     if args.verbose:
         build_flags.append("-v")
 
-    # If appropriate, write out the version info header and module map file,
-    # and add flags for a custom version string:
-    if args.vendor_name or args.build_identifier:
-        if not args.vendor_name or not args.build_identifier:
-            error("--build-identifier is required with --vendor-name")
+    # Append the versioning build flags.
+    build_flags.extend(create_versoning_args(args))
 
-        incdir = os.path.join(sandbox_path, "inc")
-        write_bootstrap_version_info(
-                incdir, args.vendor_name, args.build_identifier)
-
-        build_flags.extend(["-Xswiftc", "-I{}".format(incdir)])
-        build_flags.extend(["-Xswiftc", "-DHasCustomVersionString"])
-    
     if args.foundation_path:
         core_foundation_path = os.path.join(
             args.foundation_path, "usr", "lib", "swift")
@@ -1429,14 +1406,6 @@ def main():
                         error("copying failed with exit status %d" % result)
             else:
                 error("Unknown target type " + target)
-        
-        # Also emit the version info, if appropriate.  This appears as a module
-        # consisting of a header file and a module map.
-        if args.vendor_name or args.build_identifier:
-            if not args.vendor_name or not args.build_identifier:
-                error("--build-identifier is required with --vendor-name")
-            note("writing version info ('%s', '%s') to %s" % (args.vendor_name, args.build_identifier, libswiftpm_modules_dir))
-            write_bootstrap_version_info(libswiftpm_modules_dir, args.vendor_name, args.build_identifier)
     
     # If generating an Xcode project, also use the build product to do that.
     if args.generate_xcodeproj:
