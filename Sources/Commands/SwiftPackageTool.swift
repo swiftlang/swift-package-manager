@@ -188,8 +188,19 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             }
 
         case .describe:
-            let graph = try loadPackageGraph()
-            describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
+            let workspace = try getActiveWorkspace()
+            let root = try getWorkspaceRoot()
+            let manifest = workspace.loadRootManifests(
+                packages: root.packages, diagnostics: diagnostics)[0]
+
+            let builder = PackageBuilder(
+                manifest: manifest,
+                path: try getPackageRoot(),
+                diagnostics: diagnostics,
+                isRootPackage: true
+            )
+            let package = try builder.construct()
+            describe(package, in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
             let workspace = try getActiveWorkspace()
