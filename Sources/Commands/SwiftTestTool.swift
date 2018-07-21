@@ -58,15 +58,14 @@ struct RequiredArgumentDiagnostic: DiagnosticData {
     let dependentArgument: String
 }
 
-
 /// Diagnostic error for unsatisfied --num-workers parameter
-struct UnsatisfiedIntParameterDiagnostic: DiagnosticData {
+struct InvalidNumWorkersValueDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
-        type: UnsatisfiedIntParameterDiagnostic.self,
-        name: "org.swift.diags.unsatisfied-int-parameter",
+        type: InvalidNumWorkersValueDiagnostic.self,
+        name: "org.swift.diags.invalid-numWorkers-value",
         defaultBehavior: .error,
         description: {
-            $0 <<< "'--num-workers' must be > 0"
+            $0 <<< "'--num-workers' must be greater than zero"
         }
     )
 }
@@ -97,7 +96,6 @@ public class TestToolOptions: ToolOptions {
 
         if shouldRunInParallel {
             return .runParallel
-            
         }
 
         if shouldListTests {
@@ -167,20 +165,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
     override func runImpl() throws {
         
-        if let workers = options.numberOfWorkers {
-            
-            guard options.mode == .runParallel else {
-                // if user called --num-workers without the --parallel option, emit a diagnostic
-                diagnostics.emit(data: RequiredArgumentDiagnostic(requiredArgument: "--parallel", dependentArgument: "--num-workers"))
-                return
-            }
-            
-            // If --num-workers gets called with zero or less, emit a diagnostic
-            if workers <= 0 {
-                diagnostics.emit(data: UnsatisfiedIntParameterDiagnostic())
-                return
-            }
-        }
+        // Validate commands arguments
+        try validateArguments()
         
         switch options.mode {
         case .version:
@@ -267,8 +253,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 sanitizers: options.sanitizers,
                 toolchain: toolchain,
                 xUnitOutput: options.xUnitOutput,
-                numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                diagnostics: diagnostics
+                numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount
             )
             try runner.run(tests)
 
@@ -393,6 +378,28 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
       #endif
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data)
+    }
+    
+    /// Private function that validates the commands arguments
+    ///
+    /// - Throws: if a command argument is invalid
+    private func validateArguments() throws {
+        
+        // Validation for --num-workers.
+        if let workers = options.numberOfWorkers {
+            
+            // The --num-worker option should be called with --parallel.
+            guard options.mode == .runParallel else {
+                diagnostics.emit(
+                    data: RequiredArgumentDiagnostic(requiredArgument: "--parallel", dependentArgument: "--num-workers"))
+                throw Diagnostics.fatalError
+            }
+            
+            guard workers > 0 else {
+                diagnostics.emit(data: InvalidNumWorkersValueDiagnostic())
+                throw Diagnostics.fatalError
+            }
+        }
     }
 }
 
@@ -557,16 +564,13 @@ final class ParallelTestRunner {
     /// Number of tests to execute in parallel
     let numJobs: Int
     
-    let diagnostics: DiagnosticsEngine
-
     init(
         testPath: AbsolutePath,
         processSet: ProcessSet,
         sanitizers: EnabledSanitizers,
         toolchain: UserToolchain,
         xUnitOutput: AbsolutePath? = nil,
-        numJobs: Int,
-        diagnostics: DiagnosticsEngine
+        numJobs: Int
     ) {
         self.testPath = testPath
         self.processSet = processSet
@@ -574,7 +578,6 @@ final class ParallelTestRunner {
         self.toolchain = toolchain
         self.xUnitOutput = xUnitOutput
         self.numJobs = numJobs
-        self.diagnostics = diagnostics
         progressBar = createProgressBar(forStream: stdoutStream, header: "Testing:")
         
         assert(numJobs > 0, "num jobs should be > 0")
