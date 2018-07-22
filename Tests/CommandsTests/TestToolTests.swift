@@ -55,4 +55,26 @@ final class TestToolTests: XCTestCase {
         }
       #endif
     }
+    
+    func testNumWorkersParallelRequeriment() throws {
+        fixture(name: "Miscellaneous/EchoExecutable") { path in
+            do {
+                _ = try execute(["--num-workers", "1"])
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                // FIXME: remove "error: fatalError\n" when https://bugs.swift.org/browse/SR-8338 gets fixed
+                XCTAssertEqual(stderr, "error: --num-workers must be used with --parallel\nerror: fatalError\n")
+            }
+        }
+    }
+    
+    func testNumWorkersValue() throws {
+        fixture(name: "Miscellaneous/EchoExecutable") { path in
+            do {
+                _ = try execute(["--parallel --num-workers", "0"])
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                // FIXME: remove "error: fatalError\n" when https://bugs.swift.org/browse/SR-8338 gets fixed
+                XCTAssertEqual(stderr, "error: '--num-workers' must be greater than zero\nerror: fatalError\n")
+            }
+        }
+    }
 }
