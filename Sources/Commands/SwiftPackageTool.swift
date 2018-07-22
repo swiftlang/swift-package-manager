@@ -42,13 +42,18 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             seeAlso: type(of: self).otherToolNames()
         )
     }
+    
     override func runImpl() throws {
         switch options.mode {
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
 
         case .initPackage:
-            let initPackage = try InitPackage(destinationPath: localFileSystem.currentWorkingDirectory!, packageType: options.initMode)
+            let packageName = options.packageName ?? localFileSystem.currentWorkingDirectory!.basename
+
+            assert(!packageName.isEmpty) // packageName is never empty since a base name is never empty
+            
+            let initPackage = try InitPackage(name: packageName, destinationPath: localFileSystem.currentWorkingDirectory!, packageType: options.initMode)
             initPackage.progressReporter = { message in
                 print(message)
             }
@@ -294,6 +299,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 option: "--type", kind: InitPackage.PackageType.self,
                 usage: "empty|library|executable|system-module"),
             to: { $0.initMode = $1 })
+        
+        binder.bind(
+            option: initPackageParser.add(
+                option: "--name", kind: String.self,
+                usage: "Provide custom package name"),
+            to: { $0.packageName = $1 })
 
         let uneditParser = parser.add(
             subparser: PackageMode.unedit.rawValue,
@@ -420,6 +431,8 @@ public class PackageToolOptions: ToolOptions {
     var describeMode: DescribeMode = .text
 
     var initMode: InitPackage.PackageType = .library
+    
+    var packageName: String?
 
     var inputPath: AbsolutePath?
     var showDepsMode: ShowDependenciesMode = .text

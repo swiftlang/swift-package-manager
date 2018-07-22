@@ -48,14 +48,12 @@ public final class InitPackage {
         return moduleName
     }
 
-    /// Create an instance that can create a package of the given packageType at the given destinationPath
-    public init(destinationPath: AbsolutePath, packageType: PackageType) throws {
+    /// Create an instance that can create a custom named package of the given packageType at the given destinationPath
+    public init(name: String, destinationPath: AbsolutePath, packageType: PackageType) throws {
         self.packageType = packageType
         self.destinationPath = destinationPath
-        let dirname = destinationPath.basename
-        assert(!dirname.isEmpty)  // a base name is never empty
-        self.pkgname = dirname
-        self.moduleName = dirname.mangledToC99ExtendedIdentifier()
+        self.pkgname = name
+        self.moduleName = name.mangledToC99ExtendedIdentifier()
     }
 
     /// Actually creates the new package at the destinationPath
