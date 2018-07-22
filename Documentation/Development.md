@@ -45,8 +45,19 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 	$ which swift
 	/path/to/swift-toolchain/usr/bin/swift
 	```
+
+3. Clone [llbuild](https://github.com/apple/swift-llbuild) next to the package manager directory.
+
+    ```sh
+    $ git clone https://github.com/apple/swift-llbuild llbuild
+    $ ls
+    swiftpm llbuild
+    ```
+
+    Note: Make sure the directory for llbuild is called "llbuild" and not
+    "swift-llbuild".
  
-3. Building the Swift Package Manager.
+4. Building the Swift Package Manager.
 
 	```sh
 	$ cd swiftpm
@@ -67,7 +78,7 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 	$ /path/to/swiftpm/.build/x86_64-apple-macosx10.10/debug/swift-build
 	```
 
-4. Testing the Swift Package Manager.
+5. Testing the Swift Package Manager.
 
 	```sh
 	$ Utilities/bootstrap test --test-parallel
