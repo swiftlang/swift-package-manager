@@ -48,7 +48,7 @@ public final class InitPackage {
         return moduleName
     }
 
-    /// Create an instance that can create a custom named package of the given packageType at the given destinationPath
+    /// Create an instance that can create a package with given arguments.
     public init(name: String, destinationPath: AbsolutePath, packageType: PackageType) throws {
         self.packageType = packageType
         self.destinationPath = destinationPath

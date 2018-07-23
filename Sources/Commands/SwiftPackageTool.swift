@@ -49,11 +49,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             print(Versioning.currentVersion.completeDisplayString)
 
         case .initPackage:
-            let packageName = options.packageName ?? localFileSystem.currentWorkingDirectory!.basename
-
-            assert(!packageName.isEmpty) // packageName is never empty since a base name is never empty
+            // FIXME: Error handling.
+            let cwd = localFileSystem.currentWorkingDirectory!
             
-            let initPackage = try InitPackage(name: packageName, destinationPath: localFileSystem.currentWorkingDirectory!, packageType: options.initMode)
+            let packageName = options.packageName ?? cwd.basename
+            let initPackage = try InitPackage(
+                name: packageName, destinationPath: cwd, packageType: options.initMode)
             initPackage.progressReporter = { message in
                 print(message)
             }
