@@ -31,7 +31,7 @@ private struct MockToolchain: Toolchain {
   #else
     let dynamicLibraryExtension = "so"
   #endif
-    public func getClangCompiler() throws -> AbsolutePath {
+    func getClangCompiler() throws -> AbsolutePath {
         return AbsolutePath("/fake/path/to/clang")
     }
 }

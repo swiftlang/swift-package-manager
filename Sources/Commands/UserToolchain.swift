@@ -66,6 +66,9 @@ public struct UserToolchain: Toolchain {
     /// The compilation destination object.
     let destination: Destination
 
+    /// Search paths from the PATH environment variable.
+    let envSearchPaths: [AbsolutePath]
+
     /// Returns the runtime library for the given sanitizer.
     func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
         // FIXME: This is only for SwiftPM development time support. It is OK
@@ -119,21 +122,16 @@ public struct UserToolchain: Toolchain {
         return (SWIFT_EXEC ?? resolvedBinDirCompiler, SWIFT_EXEC_MANIFEST ?? resolvedBinDirCompiler)
     }
 
-    public func getClangCompiler() throws -> AbsolutePath {
-        // Get the search paths from PATH.
-        let envSearchPaths = getEnvSearchPaths(
-            pathString: getenv("PATH"), currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+    private static func lookup(variable: String, searchPaths: [AbsolutePath]) -> AbsolutePath? {
+        return lookupExecutablePath(filename: getenv(variable), searchPaths: searchPaths)
+    }
 
-        func lookup(fromEnv: String) -> AbsolutePath? {
-            return lookupExecutablePath(
-                filename: getenv(fromEnv),
-                searchPaths: envSearchPaths)
-        }
+    public func getClangCompiler() throws -> AbsolutePath {
 
         let clangCompiler: AbsolutePath
 
         // Find the Clang compiler, looking first in the environment.
-        if let value = lookup(fromEnv: "CC") {
+        if let value = UserToolchain.lookup(variable: "CC", searchPaths: envSearchPaths) {
             clangCompiler = value
         } else {
             // No value in env, so search for `clang`.
@@ -155,19 +153,15 @@ public struct UserToolchain: Toolchain {
         self.destination = destination
 
         // Get the search paths from PATH.
-        let envSearchPaths = getEnvSearchPaths(
+        let searchPaths = getEnvSearchPaths(
             pathString: getenv("PATH"), currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
 
-        func lookup(fromEnv: String) -> AbsolutePath? {
-            return lookupExecutablePath(
-                filename: getenv(fromEnv),
-                searchPaths: envSearchPaths)
-        }
+        self.envSearchPaths = searchPaths
 
         // Get the binDir from destination.
         let binDir = destination.binDir
 
-        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: lookup(fromEnv:))
+        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) })
         self.swiftCompiler = swiftCompilers.compile
 
         // Look for llbuild in bin dir.
