@@ -171,18 +171,6 @@ final class PackageToolTests: XCTestCase {
                 ["FooTests", "LinuxMain.swift"])
         }
     }
-
-    func testInitCustomNameEmpty() throws {
-        mktmpdir { tmpPath in
-            let fs = localFileSystem
-            let path = tmpPath.appending(component: "Foo")
-            try fs.createDirectory(path)
-            _ = try execute(["-C", path.asString, "init", "--name", "CustomName", "--type", "empty"])
-            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
-        }
-    }
     
     func testInitCustomNameExecutable() throws {
         mktmpdir { tmpPath in
@@ -198,20 +186,6 @@ final class PackageToolTests: XCTestCase {
             
             XCTAssertTrue(fs.exists(manifest))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "CustomName")), ["main.swift"])
-            XCTAssertEqual(
-                try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
-                ["CustomNameTests", "LinuxMain.swift"])
-        }
-    }
-    
-    func testInitCustomNameLibrary() throws {
-        mktmpdir { tmpPath in
-            let fs = localFileSystem
-            let path = tmpPath.appending(component: "Foo")
-            try fs.createDirectory(path)
-            _ = try execute(["-C", path.asString, "init", "--name", "CustomName"])
-            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "CustomName")), ["CustomName.swift"])
             XCTAssertEqual(
                 try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
                 ["CustomNameTests", "LinuxMain.swift"])
