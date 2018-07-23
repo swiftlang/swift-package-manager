@@ -38,9 +38,6 @@ public struct UserToolchain: Toolchain {
     /// Path of the `swiftc` compiler.
     public let swiftCompiler: AbsolutePath
 
-    /// Path of the `clang` compiler.
-    public let clangCompiler: AbsolutePath
-
     public let extraCCFlags: [String]
 
     public let extraSwiftCFlags: [String]
@@ -122,6 +119,38 @@ public struct UserToolchain: Toolchain {
         return (SWIFT_EXEC ?? resolvedBinDirCompiler, SWIFT_EXEC_MANIFEST ?? resolvedBinDirCompiler)
     }
 
+    public func getClangCompiler() throws -> AbsolutePath {
+        // Get the search paths from PATH.
+        let envSearchPaths = getEnvSearchPaths(
+            pathString: getenv("PATH"), currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+
+        func lookup(fromEnv: String) -> AbsolutePath? {
+            return lookupExecutablePath(
+                filename: getenv(fromEnv),
+                searchPaths: envSearchPaths)
+        }
+
+        let clangCompiler: AbsolutePath
+
+        // Find the Clang compiler, looking first in the environment.
+        if let value = lookup(fromEnv: "CC") {
+            clangCompiler = value
+        } else {
+            // No value in env, so search for `clang`.
+            let foundPath = try Process.checkNonZeroExit(arguments: whichClangArgs).chomp()
+            guard !foundPath.isEmpty else {
+                throw Error.invalidToolchain(problem: "could not find `clang`")
+            }
+            clangCompiler = AbsolutePath(foundPath)
+        }
+
+        // Check that it's valid in the file system.
+        guard localFileSystem.isExecutableFile(clangCompiler) else {
+            throw Error.invalidToolchain(problem: "could not find `clang` at expected path \(clangCompiler.asString)")
+        }
+        return clangCompiler
+    }
+
     public init(destination: Destination) throws {
         self.destination = destination
 
@@ -147,22 +176,6 @@ public struct UserToolchain: Toolchain {
             throw Error.invalidToolchain(problem: "could not find `llbuild` at expected path \(llbuild.asString)")
         }
 
-        // Find the Clang compiler, looking first in the environment.
-        if let value = lookup(fromEnv: "CC") {
-            clangCompiler = value
-        } else {
-            // No value in env, so search for `clang`.
-            let foundPath = try Process.checkNonZeroExit(arguments: whichClangArgs).chomp()
-            guard !foundPath.isEmpty else {
-                throw Error.invalidToolchain(problem: "could not find `clang`")
-            }
-            clangCompiler = AbsolutePath(foundPath)
-        }
-
-        // Check that it's valid in the file system.
-        guard localFileSystem.isExecutableFile(clangCompiler) else {
-            throw Error.invalidToolchain(problem: "could not find `clang` at expected path \(clangCompiler.asString)")
-        }
 
         // We require xctest to exist on macOS.
       #if os(macOS)

@@ -19,7 +19,6 @@ import PackageModel
 
 private struct MockToolchain: Toolchain {
     let swiftCompiler = AbsolutePath("/fake/path/to/swiftc")
-    let clangCompiler = AbsolutePath("/fake/path/to/clang")
     let extraCCFlags: [String] = []
     let extraSwiftCFlags: [String] = []
     #if os(macOS)
@@ -32,6 +31,9 @@ private struct MockToolchain: Toolchain {
   #else
     let dynamicLibraryExtension = "so"
   #endif
+    public func getClangCompiler() throws -> AbsolutePath {
+        return AbsolutePath("/fake/path/to/clang")
+    }
 }
 
 final class BuildPlanTests: XCTestCase {

@@ -16,7 +16,7 @@ public protocol Toolchain {
     var swiftCompiler: AbsolutePath { get }
 
     /// Path of the `clang` compiler.
-    var clangCompiler: AbsolutePath { get }
+    func getClangCompiler() throws -> AbsolutePath
 
     /// Additional flags to be passed to the C compiler.
     var extraCCFlags: [String] { get }
