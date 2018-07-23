@@ -171,7 +171,27 @@ final class PackageToolTests: XCTestCase {
                 ["FooTests", "LinuxMain.swift"])
         }
     }
-
+    
+    func testInitCustomNameExecutable() throws {
+        mktmpdir { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending(component: "Foo")
+            try fs.createDirectory(path)
+            _ = try execute(["-C", path.asString, "init", "--name", "CustomName", "--type", "executable"])
+            
+            let manifest = path.appending(component: "Package.swift")
+            let contents = try localFileSystem.readFileContents(manifest).asString!
+            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
+            XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version)\n"))
+            
+            XCTAssertTrue(fs.exists(manifest))
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "CustomName")), ["main.swift"])
+            XCTAssertEqual(
+                try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
+                ["CustomNameTests", "LinuxMain.swift"])
+        }
+    }
+    
     func testPackageEditAndUnedit() {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")

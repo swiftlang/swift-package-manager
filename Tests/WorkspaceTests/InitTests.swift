@@ -23,10 +23,11 @@ class InitTests: XCTestCase {
         mktmpdir { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
+            let name = path.basename
             try fs.createDirectory(path)
             
             // Create the package
-            let initPackage = try InitPackage(destinationPath: path, packageType: InitPackage.PackageType.empty)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.empty)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -48,10 +49,11 @@ class InitTests: XCTestCase {
         mktmpdir { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
+            let name = path.basename
             try fs.createDirectory(path)
 
             // Create the package
-            let initPackage = try InitPackage(destinationPath: path, packageType: InitPackage.PackageType.executable)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.executable)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -91,10 +93,11 @@ class InitTests: XCTestCase {
         mktmpdir { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
+            let name = path.basename
             try fs.createDirectory(path)
 
             // Create the package
-            let initPackage = try InitPackage(destinationPath: path, packageType: InitPackage.PackageType.library)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.library)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -131,10 +134,11 @@ class InitTests: XCTestCase {
         mktmpdir { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
+            let name = path.basename
             try fs.createDirectory(path)
             
             // Create the package
-            let initPackage = try InitPackage(destinationPath: path, packageType: InitPackage.PackageType.systemModule)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.systemModule)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -159,11 +163,12 @@ class InitTests: XCTestCase {
         
         // Create a directory with non c99name.
         let packageRoot = tempDir.path.appending(component: "some-package")
+        let packageName = packageRoot.basename
         try localFileSystem.createDirectory(packageRoot)
         XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
         
         // Create the package
-        let initPackage = try InitPackage(destinationPath: packageRoot, packageType: InitPackage.PackageType.library)
+        let initPackage = try InitPackage(name: packageName, destinationPath: packageRoot, packageType: InitPackage.PackageType.library)
         initPackage.progressReporter = { message in
         }
         try initPackage.writePackageStructure()

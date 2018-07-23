@@ -17,6 +17,7 @@ extension PackageToolTests {
     static let __allTests = [
         ("testDescribe", testDescribe),
         ("testDumpPackage", testDumpPackage),
+        ("testInitCustomNameExecutable", testInitCustomNameExecutable),
         ("testInitEmpty", testInitEmpty),
         ("testInitExecutable", testInitExecutable),
         ("testInitLibrary", testInitLibrary),
