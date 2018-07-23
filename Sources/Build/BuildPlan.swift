@@ -534,9 +534,21 @@ public protocol BuildPlanDelegate: class {
 /// A build plan for a package graph.
 public class BuildPlan {
 
-    public enum Error: Swift.Error {
+    public enum Error: Swift.Error, CustomStringConvertible, Equatable {
         /// The linux main file is missing.
         case missingLinuxMain
+
+        /// There is no buildable target in the graph.
+        case noBuildableTarget
+
+        public var description: String {
+            switch self {
+            case .missingLinuxMain:
+                return "missing LinuxMain.swift file"
+            case .noBuildableTarget:
+                return "the package does not contain a buildable target"
+            }
+        }
     }
 
     /// The build parameters.
@@ -600,6 +612,11 @@ public class BuildPlan {
              default:
                  fatalError("unhandled \(target.underlyingTarget)")
              }
+        }
+
+        /// Ensure we have at least one buildable target.
+        guard !targetMap.isEmpty else {
+            throw Error.noBuildableTarget
         }
 
         if buildParameters.triple.isLinux() {
