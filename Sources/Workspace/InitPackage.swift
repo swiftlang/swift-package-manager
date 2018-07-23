@@ -308,7 +308,7 @@ public final class InitPackage {
                             return
                         }
 
-                        let fooBinary = productsDirectory.appendingPathComponent("\(moduleName)")
+                        let fooBinary = productsDirectory.appendingPathComponent("\(pkgname)")
 
                         let process = Process()
                         process.executableURL = fooBinary

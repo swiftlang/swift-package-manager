@@ -8,6 +8,7 @@ extension InitTests {
         ("testInitPackageLibrary", testInitPackageLibrary),
         ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
         ("testInitPackageSystemModule", testInitPackageSystemModule),
+        ("testNonC99NameExecutablePackage", testNonC99NameExecutablePackage),
     ]
 }
 
