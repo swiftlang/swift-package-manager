@@ -22,9 +22,6 @@ enum Error: Swift.Error {
 
     /// The root manifest was not found.
     case rootManifestFileNotFound
-
-    /// There were fatal diagnostics during the operation.
-    case hasFatalDiagnostics
 }
 
 extension Error: CustomStringConvertible {
@@ -34,8 +31,6 @@ extension Error: CustomStringConvertible {
             return problem
         case .rootManifestFileNotFound:
             return "root manifest not found"
-        case .hasFatalDiagnostics:
-            return ""
         }
     }
 }
@@ -56,7 +51,7 @@ public func handle(error: Any) {
 private func _handle(_ error: Any) {
 
     switch error {
-    case Error.hasFatalDiagnostics:
+    case Diagnostics.fatalError:
         break
 
     case ArgumentParserError.expectedArguments(let parser, _):
