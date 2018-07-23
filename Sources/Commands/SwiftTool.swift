@@ -43,6 +43,16 @@ struct ProductNotFoundDiagnostic: DiagnosticData {
     let productName: String
 }
 
+/// Diagnostic for non-existant working directory.
+struct WorkingDirNotFoundDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: WorkingDirNotFoundDiagnostic.self,
+        name: "org.swift.diags.cwd-not-found",
+        defaultBehavior: .error,
+        description: { $0 <<< "couldn't determine the current working directory" }
+    )
+}
+
 /// Warning when someone tries to build an automatic type product using --product option.
 struct ProductIsAutomaticDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
@@ -256,8 +266,12 @@ public class SwiftTool<Options: ToolOptions> {
     /// - parameter args: The command line arguments to be passed to this tool.
     public init(toolName: String, usage: String, overview: String, args: [String], seeAlso: String? = nil) {
         // Capture the original working directory ASAP.
-        originalWorkingDirectory = localFileSystem.currentWorkingDirectory!
-        
+        guard let cwd = localFileSystem.currentWorkingDirectory else {
+            diagnostics.emit(data: WorkingDirNotFoundDiagnostic())
+            SwiftTool.exit(with: .failure)
+        }
+        originalWorkingDirectory = cwd
+
         // Create the parser.
         parser = ArgumentParser(
             commandName: "swift \(toolName)",
