@@ -52,6 +52,8 @@ extension RunToolTests {
 
 extension TestToolTests {
     static let __allTests = [
+        ("testNumWorkersParallelRequeriment", testNumWorkersParallelRequeriment),
+        ("testNumWorkersValue", testNumWorkersValue),
         ("testSanitizeThread", testSanitizeThread),
         ("testSeeAlso", testSeeAlso),
         ("testUsage", testUsage),
