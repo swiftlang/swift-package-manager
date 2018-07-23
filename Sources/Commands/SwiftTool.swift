@@ -470,7 +470,7 @@ public class SwiftTool<Options: ToolOptions> {
             // Call the implementation.
             try runImpl()
             if diagnostics.hasErrors {
-                throw Error.hasFatalDiagnostics
+                throw Diagnostics.fatalError
             }
         } catch {
             // Set execution status to failure in case of errors.
@@ -508,7 +508,7 @@ public class SwiftTool<Options: ToolOptions> {
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
         guard !diagnostics.hasErrors else {
-            throw Error.hasFatalDiagnostics
+            throw Diagnostics.fatalError
         }
     }
 
@@ -526,7 +526,7 @@ public class SwiftTool<Options: ToolOptions> {
             // The actual errors will be printed before exiting.
             guard !diagnostics.hasErrors else {
                 try buildManifestRegenerationToken().set(valid: false)
-                throw Error.hasFatalDiagnostics
+                throw Diagnostics.fatalError
             }
             try buildManifestRegenerationToken().set(valid: true)
             return graph

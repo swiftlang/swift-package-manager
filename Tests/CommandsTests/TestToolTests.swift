@@ -63,8 +63,7 @@ final class TestToolTests: XCTestCase {
             do {
                 _ = try execute(["--num-workers", "1"])
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                // FIXME: remove "error: fatalError\n" when https://bugs.swift.org/browse/SR-8338 gets fixed
-                XCTAssertEqual(stderr, "error: --num-workers must be used with --parallel\nerror: fatalError\n")
+                XCTAssertEqual(stderr, "error: --num-workers must be used with --parallel\n")
             }
         }
         #endif
@@ -76,8 +75,7 @@ final class TestToolTests: XCTestCase {
             do {
                 _ = try execute(["--parallel", "--num-workers", "0"])
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                // FIXME: remove "error: fatalError\n" when https://bugs.swift.org/browse/SR-8338 gets fixed
-                XCTAssertEqual(stderr, "error: '--num-workers' must be greater than zero\nerror: fatalError\n")
+                XCTAssertEqual(stderr, "error: '--num-workers' must be greater than zero\n")
             }
         }
         #endif

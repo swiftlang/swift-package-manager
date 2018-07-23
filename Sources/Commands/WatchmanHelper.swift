@@ -98,6 +98,6 @@ final class WatchmanHelper {
             return toolPath
         }
         diagnostics.emit(data: WatchmanMissingDiagnostic())
-        throw Error.hasFatalDiagnostics
+        throw Diagnostics.fatalError
     }
 }
