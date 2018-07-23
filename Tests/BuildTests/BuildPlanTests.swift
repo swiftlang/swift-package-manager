@@ -801,6 +801,30 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(Set(result.productMap.keys), ["aexec", "BLibrary", "bexec", "cexec"])
         XCTAssertEqual(Set(result.targetMap.keys), ["ATarget", "BTarget1", "BTarget2", "CTarget"])
     }
+
+    func testSystemPackageBuildPlan() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/module.modulemap"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg"
+                ),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        XCTAssertThrows(BuildPlan.Error.noBuildableTarget) {
+            _ = try BuildPlan(
+                buildParameters: mockBuildParameters(),
+                graph: graph, diagnostics: diagnostics, fileSystem: fs)
+        }
+    }
 }
 
 // MARK:- Test Helpers

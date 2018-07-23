@@ -15,6 +15,7 @@ extension BuildPlanTests {
         ("testExecAsDependency", testExecAsDependency),
         ("testNonReachableProductsAndTargets", testNonReachableProductsAndTargets),
         ("testSwiftCMixed", testSwiftCMixed),
+        ("testSystemPackageBuildPlan", testSystemPackageBuildPlan),
         ("testTestModule", testTestModule),
     ]
 }
