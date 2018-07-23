@@ -177,4 +177,24 @@ class InitTests: XCTestCase {
         XCTAssertBuilds(packageRoot)
         XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.host.target, "debug", "some_package.swiftmodule"))
     }
+    
+    func testNonC99NameExecutablePackage() throws {
+        let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
+        XCTAssertTrue(localFileSystem.isDirectory(tempDir.path))
+        
+        let packageRoot = tempDir.path.appending(component: "Foo")
+        try localFileSystem.createDirectory(packageRoot)
+        XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
+        
+        // Create package with non c99name.
+        let initPackage = try InitPackage(name: "package-name", destinationPath: packageRoot, packageType: InitPackage.PackageType.executable)
+        try initPackage.writePackageStructure()
+        
+        #if os(macOS)
+          XCTAssertSwiftTest(packageRoot)
+        #else
+          XCTAssertBuilds(packageRoot)
+        #endif
+        
+    }
 }
