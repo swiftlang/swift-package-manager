@@ -20,6 +20,8 @@ import os
 import subprocess
 import yaml
 
+script_dir = os.path.dirname(os.path.realpath(__file__))
+
 def call(args):
     """Prints and executes a command."""
     print " ".join(args)
@@ -27,12 +29,15 @@ def call(args):
 
 def docker_run(command_args):
     """Runs a command in the container."""
+    swiftpm_dir = os.path.normpath(os.path.join(script_dir, '../..'))
+    llbuild_dir = os.path.normpath(os.path.join(swiftpm_dir, '../llbuild'))
     call([
         "docker",
         "run",
         "-it",
         "--security-opt", "seccomp=unconfined",
-        "-v", os.getcwd() + ":/swiftpm",
+        "-v", "%s:/swiftpm" % swiftpm_dir,
+        "-v", "%s:/llbuild" % llbuild_dir,
         "-w", "/swiftpm",
         "--rm",
         "swiftpm-docker-1604"
@@ -49,17 +54,16 @@ def build(_):
     snapshot_name = snapshot_filename.replace("-ubuntu16.04.tar.gz", "")
     base_url = latest_build_url.rsplit("/", 1)[0]
     latest_snapshot_url = base_url + "/" + snapshot_name + "/" + snapshot_filename
-    docker_dir = os.path.dirname(os.path.realpath(__file__))
 
     # Download latest snapshot (if necessary).
-    if snapshot_filename in os.listdir(docker_dir):
+    if snapshot_filename in os.listdir(script_dir):
         print "Not downloading: " + latest_snapshot_url
     else:
         # FIXME: We should remove old tarballs if we have newer ones.
         result = call([
             "curl",
             "-o",
-            docker_dir + "/" + snapshot_filename,
+            os.path.join(script_dir, snapshot_filename),
             latest_snapshot_url
         ])
 
@@ -73,7 +77,7 @@ def build(_):
         "build",
         "-t", "swiftpm-docker-1604",
         "--build-arg", "SNAPSHOT=%s" % snapshot_filename,
-        docker_dir
+        script_dir
     ])
 
 def run(args):
