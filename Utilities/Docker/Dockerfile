@@ -25,6 +25,11 @@ RUN apt-get -q update && \
     libcurl4-openssl-dev \
     vim \
     libblocksruntime-dev \
+    cmake \
+    ninja-build \
+    sqlite3 \
+    libsqlite3-dev \
+    libncurses5-dev \
     && update-alternatives --quiet --install /usr/bin/clang clang /usr/bin/clang-3.6 100 \
     && update-alternatives --quiet --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.6 100 \
     && rm -r /var/lib/apt/lists/*
