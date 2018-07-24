@@ -100,7 +100,7 @@ public struct LLBuildManifestGenerator {
                     buildByDefault: plan.graph.reachableTargets.contains(target),
                     isTest: description.isTestTarget)
             case .clang(let description):
-                targets.append(createClangCompileTarget(description),
+                targets.append(try createClangCompileTarget(description),
                     buildByDefault: plan.graph.reachableTargets.contains(target),
                     isTest: description.isTestTarget)
             }
@@ -272,14 +272,14 @@ public struct LLBuildManifestGenerator {
     }
 
     /// Create a llbuild target for a Clang target description.
-    private func createClangCompileTarget(_ target: ClangTargetBuildDescription) -> Target {
+    private func createClangCompileTarget(_ target: ClangTargetBuildDescription) throws -> Target {
 
         let standards = [
             (target.clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
             (target.clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
         ]
 
-        let commands: [Command] = target.compilePaths().map({ path in
+        let commands: [Command] = try target.compilePaths().map({ path in
             var args = target.basicArguments()
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.asString]
 
@@ -298,7 +298,7 @@ public struct LLBuildManifestGenerator {
                 //FIXME: Should we add build time dependency on dependent targets?
                 inputs: [path.source.asString],
                 outputs: [path.object.asString],
-                args: [plan.buildParameters.toolchain.clangCompiler.asString] + args,
+                args: [try plan.buildParameters.toolchain.getClangCompiler().asString] + args,
                 deps: path.deps.asString)
             return Command(name: path.object.asString, tool: clang)
         })

@@ -38,9 +38,6 @@ public struct UserToolchain: Toolchain {
     /// Path of the `swiftc` compiler.
     public let swiftCompiler: AbsolutePath
 
-    /// Path of the `clang` compiler.
-    public let clangCompiler: AbsolutePath
-
     public let extraCCFlags: [String]
 
     public let extraSwiftCFlags: [String]
@@ -68,6 +65,9 @@ public struct UserToolchain: Toolchain {
 
     /// The compilation destination object.
     let destination: Destination
+
+    /// Search paths from the PATH environment variable.
+    let envSearchPaths: [AbsolutePath]
 
     /// Returns the runtime library for the given sanitizer.
     func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
@@ -122,33 +122,16 @@ public struct UserToolchain: Toolchain {
         return (SWIFT_EXEC ?? resolvedBinDirCompiler, SWIFT_EXEC_MANIFEST ?? resolvedBinDirCompiler)
     }
 
-    public init(destination: Destination) throws {
-        self.destination = destination
+    private static func lookup(variable: String, searchPaths: [AbsolutePath]) -> AbsolutePath? {
+        return lookupExecutablePath(filename: getenv(variable), searchPaths: searchPaths)
+    }
 
-        // Get the search paths from PATH.
-        let envSearchPaths = getEnvSearchPaths(
-            pathString: getenv("PATH"), currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+    public func getClangCompiler() throws -> AbsolutePath {
 
-        func lookup(fromEnv: String) -> AbsolutePath? {
-            return lookupExecutablePath(
-                filename: getenv(fromEnv),
-                searchPaths: envSearchPaths)
-        }
-
-        // Get the binDir from destination.
-        let binDir = destination.binDir
-
-        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: lookup(fromEnv:))
-        self.swiftCompiler = swiftCompilers.compile
-
-        // Look for llbuild in bin dir.
-        llbuild = binDir.appending(component: "swift-build-tool")
-        guard localFileSystem.exists(llbuild) else {
-            throw Error.invalidToolchain(problem: "could not find `llbuild` at expected path \(llbuild.asString)")
-        }
+        let clangCompiler: AbsolutePath
 
         // Find the Clang compiler, looking first in the environment.
-        if let value = lookup(fromEnv: "CC") {
+        if let value = UserToolchain.lookup(variable: "CC", searchPaths: envSearchPaths) {
             clangCompiler = value
         } else {
             // No value in env, so search for `clang`.
@@ -163,6 +146,30 @@ public struct UserToolchain: Toolchain {
         guard localFileSystem.isExecutableFile(clangCompiler) else {
             throw Error.invalidToolchain(problem: "could not find `clang` at expected path \(clangCompiler.asString)")
         }
+        return clangCompiler
+    }
+
+    public init(destination: Destination) throws {
+        self.destination = destination
+
+        // Get the search paths from PATH.
+        let searchPaths = getEnvSearchPaths(
+            pathString: getenv("PATH"), currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+
+        self.envSearchPaths = searchPaths
+
+        // Get the binDir from destination.
+        let binDir = destination.binDir
+
+        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) })
+        self.swiftCompiler = swiftCompilers.compile
+
+        // Look for llbuild in bin dir.
+        llbuild = binDir.appending(component: "swift-build-tool")
+        guard localFileSystem.exists(llbuild) else {
+            throw Error.invalidToolchain(problem: "could not find `llbuild` at expected path \(llbuild.asString)")
+        }
+
 
         // We require xctest to exist on macOS.
       #if os(macOS)
