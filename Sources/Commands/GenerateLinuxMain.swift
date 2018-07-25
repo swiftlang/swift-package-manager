@@ -165,7 +165,12 @@ private final class ModulesBuilder {
         for testCase in cases {
             let (module, theKlass) = testCase.name.split(around: ".")
             guard let klass = theKlass else {
-                fatalError("Unsupported test case name \(testCase.name)")
+                // This should only happen if there are no tests in the test case.
+                if testCase.tests.isEmpty {
+                    print("warning: \(testCase.name) does not contain any tests")
+                    continue
+                }
+                fatalError("unreachable \(testCase.name)")
             }
             for method in testCase.tests {
                 add(module, klass, method)
