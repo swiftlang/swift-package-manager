@@ -44,6 +44,12 @@ public struct BuildParameters {
         return dataPath.appending(component: configuration.dirname)
     }
 
+    public var targetBuildPath: AbsolutePath {
+        // XXX discuss - see BuildPlan.swift#TargetBuildDescription.targetOutputPath
+
+        return buildPath.appending(component: "targets")
+    }
+
     /// The toolchain.
     public let toolchain: Toolchain
 
@@ -126,6 +132,47 @@ public enum TargetBuildDescription {
     /// Clang target description.
     case clang(ClangTargetBuildDescription)
 
+    var targetOutputPath: AbsolutePath {
+        // XXX to discuss:
+        //
+        // Option 1) a larger change - 
+        // each target "X" gets a dedicated build folder at "./.build/X"
+        // all intermediate and final build results live there
+        // ie: .build/.../targets/X/
+        //            - ./X.build   # intermediate build results
+        //            - ./X.dysym
+        //            - ./X.swiftmodule
+        //            - ./X.swiftinterface
+        //            - ./X.swiftdoc
+        //            - ./...
+        //
+        // Advantages:
+        // - Limits poluting the top-level (e.g. targets and products might have the same
+        //  name).
+        // - It also makes it very deterministic for tools to find where the output
+        //  of a target is since its always under .build/.../targets/TargetName. 
+        //  e.g. tools like buck follow this convention.
+        // - You can easily just blow away .build/.../targets/X/ to clean things
+        //  rather than tracking multiple top-level directories. 
+        //
+        // Option 2) a more conservative change -
+        // move the X.swiftmodule into .build/.../X.build/X.swiftmodule
+        // Downsides:
+        // - the merged module lives next to the partial modules (the partial modules
+        //   would end up on the import search path)
+        // - what about the location of X.swiftdoc in this case?
+        // - where should the newly proposed X.swiftinterface live
+        // - It feels like the content of the X.build dir should be completely
+        // owned by swift-build-tool / swiftc and SPM shouldn't put anything in there.
+
+        switch self {
+        case .swift(let description):
+            return description.targetOutputPath
+        case .clang(let description):
+            return description.targetOutputPath
+        }
+    }
+
     /// The objects in this target.
     var objects: [AbsolutePath] {
         switch self {
@@ -146,6 +193,10 @@ public final class ClangTargetBuildDescription {
     /// The underlying clang target.
     public var clangTarget: ClangTarget {
         return target.underlyingTarget as! ClangTarget
+    }
+
+    var targetOutputPath: AbsolutePath {
+        return buildParameters.targetBuildPath.appending(component: target.c99name)
     }
 
     /// The build parameters.
@@ -284,9 +335,26 @@ public final class SwiftTargetBuildDescription {
     /// The build parameters.
     let buildParameters: BuildParameters
 
+    var targetOutputPath: AbsolutePath {
+        return buildParameters.targetBuildPath.appending(component: target.c99name)
+    }
+
     /// Path to the temporary directory for this target.
     var tempsPath: AbsolutePath {
-        return buildParameters.buildPath.appending(component: target.c99name + ".build")
+        return targetOutputPath.appending(component: target.c99name + ".build")
+    }
+
+    var importSearchPaths: [AbsolutePath] {
+        return target.sourceDependencies.map({buildParameters.targetBuildPath.appending(component: $0.c99name)})
+    }
+
+    // Path to the imports filelist if there are imports
+    var importsFileListPath: AbsolutePath? {
+        if importSearchPaths.isEmpty {
+            return nil
+        } else {
+            return tempsPath.appending(component: "Imports.FileList")
+        }
     }
 
     /// The objects in this target.
@@ -296,7 +364,7 @@ public final class SwiftTargetBuildDescription {
 
     /// The path to the swiftmodule file after compilation.
     var moduleOutputPath: AbsolutePath {
-        return buildParameters.buildPath.appending(component: target.c99name + ".swiftmodule")
+        return targetOutputPath.appending(component: target.c99name + ".swiftmodule")
     }
 
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
@@ -352,6 +420,25 @@ public final class SwiftTargetBuildDescription {
         return args
     }
 
+    /// Writes imports filelist to the filesystem.
+    func writeImportsFilelist(_ fs: FileSystem) throws {
+        let importPaths = importSearchPaths
+        if importPaths.isEmpty {
+            return
+        }
+
+        let stream = BufferedOutputByteStream()
+
+        for path in importPaths {
+            // XXX discuss:
+            // This file list can't just be the paths since -I takes a single path.
+            stream <<< "-I" <<< path.asString.shellEscaped() <<< "\n"
+        }
+
+        try fs.createDirectory(importsFileListPath!.parentDirectory, recursive: true)
+        try fs.writeFileContents(importsFileListPath!, bytes: stream.bytes)
+    }
+
     /// A list of compilation conditions to enable for conditional compilation expressions.
     private var activeCompilationConditions: [String] {
         var compilationConditions = ["-DSWIFT_PACKAGE"]
@@ -393,6 +480,9 @@ public final class ProductBuildDescription {
 
     /// The path to the product binary produced.
     public var binary: AbsolutePath {
+        // XXX Product names can clash with target names if we have directories
+        // named after targets
+        // see SwiftTargetBuildDescription
         return buildParameters.buildPath.appending(outname)
     }
 
@@ -812,6 +902,12 @@ public class BuildPlan {
                 swiftTarget.additionalFlags += pkgConfig(for: target).cFlags
             default: break
             }
+        }
+
+        if let importsListPath = swiftTarget.importsFileListPath {
+            // XXX this is a bit ugly, the file contains multiple -I /import/paths
+            swiftTarget.additionalFlags += ["@\(importsListPath.asString.shellEscaped())"]
+            try swiftTarget.writeImportsFilelist(fileSystem)
         }
     }
 

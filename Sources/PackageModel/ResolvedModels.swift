@@ -57,6 +57,45 @@ public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProt
         })
     }()
 
+    // Targets that this target depends on directly for compilation
+    // e.g. If the target is `SomeSwiftModule`` and it needs to `import OtherModule`.
+    public lazy var sourceDependencies: [ResolvedTarget] = {
+        // XXX discuss:
+        //
+        // I'd argue that we don't want to make this the transitive closure
+        // of all targets.
+        // e.g if we have modules / targets MyA -> OtherB -> OtherC
+        // where the SPM config for target A only lists B as a dependency
+        // If we allow MyA to `import OtherC` or use OtherC-symbols and later
+        // OtherB stops depending on OtherC for whatever reason, we get a build breakage
+        // even though we didn't change anything (other than bump OtherB's version).
+        //
+        // The downside is that it's a bit tedious to be this strict with our
+        // dependcy configs in Package.swift but I think that can be aleviated through
+        // tooling e.g. "error can not "import OtherS". did you mean to depend on "OtherC".
+        // with an option to let the tool edit / fixup your Package.swift MyA dependencies.
+        //
+        // I took the name sourceDeps from maven / intellij's build engine which
+        // distiguishes source deps, link deps and runtime deps.
+        var dependentTargets = [ResolvedTarget]()
+        for dependency in dependencies {
+
+            // XXX fix before committing - remove dupes.
+            switch dependency {
+                case let .product(product):
+                    // If the dependency is a product, we want to depend on each
+                    // target the product bundles.
+                    dependentTargets.append(contentsOf:product.targets)
+                
+                case let .target(target):
+                    dependentTargets.append(target)
+                }
+        }
+        
+        // XXX is this still missing targets in our own package?
+        return dependentTargets
+    }()
+
     /// The language-level target name.
     public var c99name: String {
         return underlyingTarget.c99name

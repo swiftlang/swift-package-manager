@@ -127,8 +127,9 @@ struct SwiftCompilerTool: ToolProtocol {
             <<< Format.asJSON(inputs) <<< "\n"
         stream <<< "    outputs: "
             <<< Format.asJSON(outputs) <<< "\n"
-        stream <<< "    import-paths: "
-            <<< Format.asJSON([target.buildParameters.buildPath.asString]) <<< "\n"
+        // XXX see BuildPlan.swift:927
+        // stream <<< "    import-paths:"
+        //     <<< Format.asJSON([]) <<< "\n"
         stream <<< "    temps-path: "
             <<< Format.asJSON(target.tempsPath.asString) <<< "\n"
         stream <<< "    objects: "
