@@ -30,6 +30,17 @@ struct SpecifierDeprecatedDiagnostic: DiagnosticData {
     )
 }
 
+struct LinuxTestDiscoveryDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: LinuxTestDiscoveryDiagnostic.self,
+        name: "org.swift.diags.linux-test-discovery",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "can't discover tests on Linux; please use this option on macOS instead"
+        }
+    )
+}
+
 /// Diagnostic data for zero --filter matches.
 struct NoMatchingTestsWarning: DiagnosticData {
     static let id = DiagnosticID(
@@ -185,7 +196,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         case .generateLinuxMain:
           #if os(Linux)
-            warning(message: "can't discover new tests on Linux; please use this option on macOS instead")
+            diagnostics.emit(data: LinuxTestDiscoveryDiagnostic())
           #endif
             let graph = try loadPackageGraph()
             let testPath = try buildTestsIfNeeded(options, graph: graph)

@@ -524,13 +524,6 @@ public final class ProductBuildDescription {
     }
 }
 
-/// The delegate interface used by the build plan to report status information.
-public protocol BuildPlanDelegate: class {
-
-    /// The build plan emitted this warning.
-    func warning(message: String)
-}
-
 /// A build plan for a package graph.
 public class BuildPlan {
 
@@ -573,9 +566,6 @@ public class BuildPlan {
         return AnySequence(productMap.values)
     }
 
-    /// Build plan delegate.
-    public let delegate: BuildPlanDelegate?
-
     /// The filesystem to operate on.
     let fileSystem: FileSystem
 
@@ -587,13 +577,11 @@ public class BuildPlan {
         buildParameters: BuildParameters,
         graph: PackageGraph,
         diagnostics: DiagnosticsEngine,
-        delegate: BuildPlanDelegate? = nil,
         fileSystem: FileSystem = localFileSystem
     ) throws {
         self.buildParameters = buildParameters
         self.graph = graph
         self.diagnostics = diagnostics
-        self.delegate = delegate
         self.fileSystem = fileSystem
 
         // Create build target description for each target which we need to plan.
@@ -828,10 +816,9 @@ public class BuildPlan {
         }
         // If there is no pc file on system and we have an available provider, emit a warning.
         if let provider = result.provider, result.couldNotFindConfigFile {
-            delegate?.warning(message: "you may be able to install \(result.pkgConfigName) using your system-packager:")
-            delegate?.warning(message: provider.installText)
+            diagnostics.emit(data: PkgConfigHintDiagnostic(pkgConfigName: result.pkgConfigName, installText: provider.installText))
         } else if let error = result.error {
-            delegate?.warning(message: "error while trying to use pkgConfig flags for \(target.name): \(error)")
+            diagnostics.emit(error)
         }
         pkgConfigCache[target] = (result.cFlags, result.libs)
         return pkgConfigCache[target]!
@@ -839,4 +826,19 @@ public class BuildPlan {
 
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
+}
+
+public struct PkgConfigHintDiagnostic: DiagnosticData {
+    public static let id = DiagnosticID(
+        type: PkgConfigHintDiagnostic.self,
+        name: "org.swift.diags.pkg-config-hint",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "you may be able to install" <<< { $0.pkgConfigName } <<< "using your system-packager:\n"
+            $0 <<< { $0.installText }
+        }
+    )
+
+    let pkgConfigName: String
+    let installText: String
 }
