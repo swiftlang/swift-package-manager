@@ -374,11 +374,6 @@ public class SwiftTool<Options: ToolOptions> {
                 usage: "Link Swift stdlib statically"),
             to: { $0.shouldLinkStaticSwiftStdlib = $1 })
 
-        binder.bind(
-            option: parser.add(option: "--enable-build-manifest-caching", kind: Bool.self,
-                usage: "Enable llbuild manifest caching [Experimental]"),
-            to: { $0.shouldEnableManifestCaching = $1 })
-
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -539,13 +534,10 @@ public class SwiftTool<Options: ToolOptions> {
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
             guard !diagnostics.hasErrors else {
-                try buildManifestRegenerationToken().set(valid: false)
                 throw Diagnostics.fatalError
             }
-            try buildManifestRegenerationToken().set(valid: true)
             return graph
         } catch {
-            try buildManifestRegenerationToken().set(valid: false)
             throw error
         }
     }
@@ -559,30 +551,6 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.dematerialize()
     }
 
-    func shouldRegenerateManifest() throws -> Bool {
-        // Check if we are allowed to use llbuild manifest caching.
-        guard options.shouldEnableManifestCaching else {
-            return true
-        }
-        
-        // Check if we need to generate the llbuild manifest.
-        let parameters: BuildParameters = try self.buildParameters()
-        guard localFileSystem.isFile(parameters.llbuildManifest) else {
-            return true
-        }
-        
-        // Run the target which computes if regeneration is needed.
-        let args = [try getToolchain().llbuild.asString, "-f", parameters.llbuildManifest.asString, "regenerate"]
-        do {
-            try Process.checkNonZeroExit(arguments: args)
-        } catch {
-            // Regenerate the manifest if this fails for some reason.
-            warning(message: "Failed to run the regeneration check: \(error)")
-            return true
-        }
-        return try !self.buildManifestRegenerationToken().isValid()
-    }
-    
     func computeLLBuildTargetName(for subset: BuildSubset) throws -> String? {
         switch subset {
         case .allExcludingTests:
@@ -711,7 +679,6 @@ public class SwiftTool<Options: ToolOptions> {
                 destinationTriple: triple,
                 flags: options.buildFlags,
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
-                shouldEnableManifestCaching: options.shouldEnableManifestCaching,
                 sanitizers: options.sanitizers
             )
         })

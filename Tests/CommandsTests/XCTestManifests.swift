@@ -4,7 +4,6 @@ import XCTest
 extension BuildToolTests {
     static let __allTests = [
         ("testBinPathAndSymlink", testBinPathAndSymlink),
-        ("testLLBuildManifestCachingBasics", testLLBuildManifestCachingBasics),
         ("testNonReachableProductsAndTargetsFunctional", testNonReachableProductsAndTargetsFunctional),
         ("testProductAndTarget", testProductAndTarget),
         ("testSeeAlso", testSeeAlso),

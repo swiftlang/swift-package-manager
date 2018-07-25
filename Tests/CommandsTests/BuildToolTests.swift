@@ -177,30 +177,4 @@ final class BuildToolTests: XCTestCase {
             }
         }
     }
-
-    func testLLBuildManifestCachingBasics() {
-        fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
-            let fs = localFileSystem
-
-            // First run should produce output.
-            var output = try execute(["--enable-build-manifest-caching"], packagePath: path)
-            XCTAssert(!output.isEmpty, output)
-
-            // Null builds.
-            output = try execute(["--enable-build-manifest-caching"], packagePath: path)
-            XCTAssert(output.isEmpty, output)
-
-            output = try execute(["--enable-build-manifest-caching"], packagePath: path)
-            XCTAssert(output.isEmpty, output)
-
-            // Adding a new file should reset the token.
-            try fs.writeFileContents(path.appending(components: "Sources", "ExecutableNew", "bar.swift"), bytes: "")
-            output = try execute(["--enable-build-manifest-caching"], packagePath: path)
-            XCTAssert(!output.isEmpty, output)
-
-            // This should be another null build.
-            output = try execute(["--enable-build-manifest-caching"], packagePath: path)
-            XCTAssert(output.isEmpty, output)
-        }
-    }
 }
