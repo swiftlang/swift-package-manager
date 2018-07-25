@@ -14,6 +14,7 @@ extension BuildPlanTests {
         ("testDynamicProducts", testDynamicProducts),
         ("testExecAsDependency", testExecAsDependency),
         ("testNonReachableProductsAndTargets", testNonReachableProductsAndTargets),
+        ("testPkgConfigError", testPkgConfigError),
         ("testSwiftCMixed", testSwiftCMixed),
         ("testSystemPackageBuildPlan", testSystemPackageBuildPlan),
         ("testTestModule", testTestModule),

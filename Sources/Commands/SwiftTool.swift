@@ -572,11 +572,6 @@ public class SwiftTool<Options: ToolOptions> {
     
     /// Build a subset of products and targets using swift-build-tool.
     func build(plan: BuildPlan, subset: BuildSubset) throws {
-        guard !plan.graph.rootPackages[0].targets.isEmpty else {
-            warning(message: "no targets to build in package")
-            return
-        }
-
         guard let llbuildTargetName = subset.llbuildTargetName(for: plan.graph, diagnostics: diagnostics) else {
             return
         }
@@ -736,13 +731,6 @@ enum BuildSubset {
 
     /// Represents a specific target.
     case target(String)
-}
-
-extension SwiftTool: BuildPlanDelegate {
-    public func warning(message: String) {
-        // FIXME: Coloring would be nice.
-        print("warning: " + message)
-    }
 }
 
 extension BuildSubset {

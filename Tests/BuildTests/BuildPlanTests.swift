@@ -827,6 +827,40 @@ final class BuildPlanTests: XCTestCase {
                 graph: graph, diagnostics: diagnostics, fileSystem: fs)
         }
     }
+
+    func testPkgConfigError() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/ATarget/foo.swift",
+            "/A/Sources/BTarget/module.modulemap"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/A", fs: fileSystem, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "A",
+                    path: "/A",
+                    url: "/A",
+                    targets: [
+                        TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
+                        TargetDescription(
+                            name: "BTarget",
+                            type: .system,
+                            pkgConfig: "BTarget",
+                            providers: [
+                                .brew(["BTarget"]),
+                                .apt(["BTarget"]),
+                            ]
+                        )
+                    ]),
+            ]
+        )
+
+        _ = try BuildPlan(buildParameters: mockBuildParameters(),
+            graph: graph, diagnostics: diagnostics, fileSystem: fileSystem)
+
+        XCTAssertTrue(diagnostics.diagnostics.contains(where: { ($0.data is PkgConfigHintDiagnostic) }))
+    }
 }
 
 // MARK:- Test Helpers
