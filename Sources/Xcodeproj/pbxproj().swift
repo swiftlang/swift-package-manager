@@ -426,7 +426,7 @@ func xcodeProject(
         // .xcconfig, if we have one.  This lets it override project settings.
         targetSettings.xcconfigFileRef = xcconfigOverridesFileRef
 
-        targetSettings.common.TARGET_NAME = target.name
+        targetSettings.common.TARGET_NAME = target.c99name
 
         let infoPlistFilePath = xcodeprojPath.appending(component: target.infoPlistFileName)
         targetSettings.common.INFOPLIST_FILE = infoPlistFilePath.relative(to: sourceRootDir).asString
