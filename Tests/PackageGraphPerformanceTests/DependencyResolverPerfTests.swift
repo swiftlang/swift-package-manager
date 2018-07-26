@@ -11,6 +11,7 @@
 import XCTest
 
 import Basic
+import PackageModel
 import PackageGraph
 import PackageLoading
 import SourceControl

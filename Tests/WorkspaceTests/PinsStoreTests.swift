@@ -12,6 +12,7 @@ import XCTest
 
 import Basic
 import Utility
+import PackageModel
 import PackageGraph
 import TestSupport
 import SourceControl

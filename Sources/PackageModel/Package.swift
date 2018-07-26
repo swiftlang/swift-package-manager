@@ -116,3 +116,79 @@ extension Package: Hashable, Equatable {
         return ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
 }
+
+/// A package reference.
+///
+/// This represents a reference to a package containing its identity and location.
+public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConvertible {
+
+    /// Compute identity of a package given its URL.
+    public static func computeIdentity(packageURL: String) -> String {
+        // Get the last path component of the URL.
+        var lastComponent = packageURL.split(separator: "/", omittingEmptySubsequences: true).last!
+
+        // Strip `.git` suffix if present.
+        if lastComponent.hasSuffix(".git") {
+            lastComponent = lastComponent.dropLast(4)
+        }
+
+        return lastComponent.lowercased()
+    }
+
+    /// The identity of the package.
+    public let identity: String
+
+    /// The name of the package, if available.
+    public let name: String?
+
+    /// The path of the package.
+    ///
+    /// This could be a remote repository, local repository or local package.
+    public let path: String
+
+    /// The package reference is a local package, i.e., it does not reference
+    /// a git repository.
+    public let isLocal: Bool
+
+    /// Create a package reference given its identity and repository.
+    public init(identity: String, path: String, name: String? = nil, isLocal: Bool = false) {
+        assert(identity == identity.lowercased(), "The identity is expected to be lowercased")
+        self.name = name
+        self.identity = identity
+        self.path = path
+        self.isLocal = isLocal
+    }
+
+    public static func ==(lhs: PackageReference, rhs: PackageReference) -> Bool {
+        return lhs.identity == rhs.identity
+    }
+
+    public var hashValue: Int {
+        return identity.hashValue
+    }
+
+    public init(json: JSON) throws {
+        self.name = json.get("name")
+        self.identity = try json.get("identity")
+        self.path = try json.get("path")
+        self.isLocal = try json.get("isLocal")
+    }
+
+    public func toJSON() -> JSON {
+        return .init([
+            "name": name.toJSON(),
+            "identity": identity,
+            "path": path,
+            "isLocal": isLocal,
+            ])
+    }
+
+    /// Create a new package reference object with the given name.
+    public func with(newName: String) -> PackageReference {
+        return PackageReference(identity: identity, path: path, name: newName, isLocal: isLocal)
+    }
+
+    public var description: String {
+        return identity + "[\(path)]"
+    }
+}
