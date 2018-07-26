@@ -309,6 +309,38 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         }
     }
 
+    func testDuplicateDependencyDecl() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+                name: "Trivial",
+                dependencies: [
+                    .package(path: "../foo1"),
+                    .package(url: "/foo1.git", from: "1.0.1"),
+                    .package(url: "path/to/foo1", from: "3.0.0"),
+                    .package(url: "/foo2.git", from: "1.0.1"),
+                    .package(url: "/foo2.git", from: "1.1.1"),
+                    .package(url: "/foo3.git", from: "1.0.1"),
+                ],
+                targets: [
+                    .target(
+                        name: "foo",
+                        dependencies: ["dep1", .target(name: "target")]),
+                ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch ManifestParseError.duplicateDependencyDecl(let duplicates) {
+            XCTAssertEqual(duplicates.count, 2)
+            let urls = duplicates.flatMap({$0}).map({ $0.url }).sorted()
+            XCTAssertEqual(urls, ["/foo1", "/foo1.git", "/foo2.git", "/foo2.git", "/path/to/foo1"])
+        }
+    }
+
     func testCaching() {
         mktmpdir { path in
             let fs = localFileSystem

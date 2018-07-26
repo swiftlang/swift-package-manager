@@ -30,6 +30,36 @@ public struct ManifestParseDiagnostic: DiagnosticData {
     }
 }
 
+public struct ManifestDuplicateDeclDiagnostic: DiagnosticData {
+    public static let id = DiagnosticID(
+        type: ManifestParseDiagnostic.self,
+        name: "org.swift.diags.manifest-dup-dep-decl",
+        description: {
+            $0 <<< .substitution({
+                let `self` = $0 as! ManifestDuplicateDeclDiagnostic
+                let stream = BufferedOutputByteStream()
+
+                stream <<< "manifest parse error(s): duplicate dependency declaration\n"
+                let indent = Format.asRepeating(string: " ", count: 4)
+
+                for duplicateDecls in self.duplicates {
+                    for duplicate in duplicateDecls {
+                        stream <<< indent <<< duplicate.url <<< " @ " <<< "\(duplicate.requirement)" <<< "\n"
+                    }
+                    stream <<< "\n"
+                }
+
+                return stream.bytes.asString!
+            }, preference: .default)
+        }
+    )
+
+    public let duplicates: [[PackageDependencyDescription]]
+    public init(_ duplicates: [[PackageDependencyDescription]]) {
+        self.duplicates = duplicates
+    }
+}
+
 extension ManifestParseError: DiagnosticDataConvertible {
     public var diagnosticData: DiagnosticData {
         switch self {
@@ -37,6 +67,8 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestParseDiagnostic([error])
         case .runtimeManifestErrors(let errors):
             return ManifestParseDiagnostic(errors)
+        case .duplicateDependencyDecl(let duplicates):
+            return ManifestDuplicateDeclDiagnostic(duplicates)
         }
     }
 }
