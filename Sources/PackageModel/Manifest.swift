@@ -283,7 +283,7 @@ public enum SystemPackageProviderDescription: Equatable {
 public struct PackageDependencyDescription: Equatable, Codable {
 
     /// The dependency requirement.
-    public enum Requirement: Equatable {
+    public enum Requirement: Equatable, CustomStringConvertible {
         case exact(Version)
         case range(Range<Version>)
         case revision(String)
@@ -296,6 +296,21 @@ public struct PackageDependencyDescription: Equatable, Codable {
 
         public static func upToNextMinor(from version: Utility.Version) -> Requirement {
             return .range(version..<Version(version.major, version.minor + 1, 0))
+        }
+
+        public var description: String {
+            switch self {
+            case .exact(let version):
+                return version.description
+            case .range(let range):
+                return range.description
+            case .revision(let revision):
+                return "revision[\(revision)]"
+            case .branch(let branch):
+                return "branch[\(branch)]"
+            case .localPackage:
+                return "local"
+            }
         }
     }
 

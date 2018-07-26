@@ -21,6 +21,8 @@ public enum ManifestParseError: Swift.Error {
 
     /// The manifest was successfully loaded by swift interpreter but there were runtime issues.
     case runtimeManifestErrors([String])
+
+    case duplicateDependencyDecl([[PackageDependencyDescription]])
 }
 
 /// Resources required for manifest loading.
@@ -229,7 +231,17 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             targets: manifestBuilder.targets
         )
 
+        try validate(manifest)
+
         return manifest
+    }
+
+    /// Validate the provided manifest.
+    private func validate(_ manifest: Manifest) throws {
+        let duplicateDecls = manifest.dependencies.map({ KeyedPair($0, key: PackageReference.computeIdentity(packageURL: $0.url)) }).findDuplicateElements()
+        if !duplicateDecls.isEmpty {
+            throw ManifestParseError.duplicateDependencyDecl(duplicateDecls.map({ $0.map({ $0.item }) }))
+        }
     }
 
     /// Load the JSON string for the given manifest.

@@ -48,3 +48,15 @@ public extension Sequence where Iterator.Element: Hashable {
         return duplicate
     }
 }
+
+extension Collection where Element: Hashable {
+
+    /// Finds duplicates in given collection of Hashables.
+    public func findDuplicateElements() -> [[Element]] {
+        var table: [Element: [Element]] = [:]
+        for element in self {
+            table[element, default: []].append(element)
+        }
+        return table.values.filter({ $0.count > 1 })
+    }
+}
