@@ -33,29 +33,20 @@ enum ProcessLockError: Swift.Error {
 
 /// Provides functionality to aquire a lock on a file via POSIX's flock() method.
 /// It can be used for things like serializing concurrent mutations on a shared resource
-/// by mutiple instances of a process.
+/// by mutiple instances of a process. The `FileLock` is not thread-safe.
 public final class FileLock {
-    /// The name of the lock, used in filename of the lock file.
-    let name: String
-
-    /// The directory where the lock file should be created.
-    let cachePath: AbsolutePath
-
     /// File descriptor to the lock file.
-    private var fd: Int32?
+    private var fd: CInt?
 
     /// Path to the lock file.
-    private var lockFile: AbsolutePath {
-        return cachePath.appending(component: name + ".lock")
-    }
+    private let lockFile: AbsolutePath
 
     /// Create an instance of process lock with a name and the path where
     /// the lock file can be created.
     ///
     /// Note: The cache path should be a valid directory.
     public init(name: String, cachePath: AbsolutePath) {
-        self.name = name
-        self.cachePath = cachePath
+        self.lockFile = cachePath.appending(component: name + ".lock")
     }
 
     /// Try to aquire a lock. This method will block until lock the already aquired by other process.
@@ -63,9 +54,12 @@ public final class FileLock {
     /// Note: This method can throw if underlying POSIX methods fail.
     public func lock() throws {
         // Open the lock file.
-        fd = SPMLibc.open(lockFile.asString, O_WRONLY | O_CREAT, 0644)
-        if fd == -1 {
-            throw FileSystemError(errno: errno)
+        if fd == nil {
+            let fd = SPMLibc.open(lockFile.asString, O_WRONLY | O_CREAT | O_CLOEXEC, 0o666)
+            if fd == -1 {
+                throw FileSystemError(errno: errno)
+            }
+            self.fd = fd
         }
         // Aquire lock on the file.
         while true {
@@ -82,8 +76,11 @@ public final class FileLock {
     public func unlock() {
         guard let fd = fd else { return }
         flock(fd, LOCK_UN)
+    }
+
+    deinit {
+        guard let fd = fd else { return }
         close(fd)
-        self.fd = nil
     }
 
     /// Execute the given block while holding the lock.
