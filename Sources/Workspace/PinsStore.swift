@@ -11,6 +11,7 @@
 import Basic
 import Utility
 import SourceControl
+import PackageModel
 import PackageGraph
 
 public enum PinOperationError: Swift.Error, CustomStringConvertible {
