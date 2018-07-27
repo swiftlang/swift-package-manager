@@ -273,11 +273,8 @@ private func createResolvedPackages(
 
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {
-            if allTargetNames.contains(targetBuilder.target.name) {
-                foundDuplicateTarget = true
-            }
-            
-            allTargetNames.insert(targetBuilder.target.name)
+            // Record if we see a duplicate target.
+            foundDuplicateTarget = foundDuplicateTarget || !allTargetNames.insert(targetBuilder.target.name).inserted
 
             // Directly add all the system module dependencies.
             targetBuilder.dependencies += implicitSystemTargetDeps
