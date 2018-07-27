@@ -712,10 +712,17 @@ extension Workspace {
             try fileSystem.createDirectory(editablesPath)
             // FIXME: We need this to work with InMem file system too.
             if !(fileSystem is InMemoryFileSystem) {
-                try createSymlink(
-                    editablesPath.appending(component: packageName),
-                    pointingAt: path,
-                    relative: false)
+                let symLinkPath = editablesPath.appending(component: packageName)
+
+                // Cleanup any existing symlink.
+                if fileSystem.isSymlink(symLinkPath) {
+                    try fileSystem.removeFileTree(symLinkPath)
+                }
+
+                // FIXME: We should probably just warn in case we fail to create
+                // this symlink, which could happen if there is some non-symlink
+                // entry at this location.
+                try createSymlink(symLinkPath, pointingAt: path, relative: false)
             }
         }
 
