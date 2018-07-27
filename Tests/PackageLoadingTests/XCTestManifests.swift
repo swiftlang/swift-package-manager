@@ -68,6 +68,7 @@ extension PackageDescription4_2LoadingTests {
     static let __allTests = [
         ("testBasics", testBasics),
         ("testCaching", testCaching),
+        ("testDuplicateDependencyDecl", testDuplicateDependencyDecl),
         ("testPackageDependencies", testPackageDependencies),
         ("testRuntimeManifestErrors", testRuntimeManifestErrors),
         ("testSwiftLanguageVersions", testSwiftLanguageVersions),
