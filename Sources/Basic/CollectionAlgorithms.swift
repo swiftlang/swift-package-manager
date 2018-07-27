@@ -60,3 +60,13 @@ extension Collection where Element: Hashable {
         return table.values.filter({ $0.count > 1 })
     }
 }
+
+extension Sequence {
+    public func findDuplicateElements<Key: Hashable>(
+        by keyPath: KeyPath<Self.Element, Key>
+    ) -> [[Element]] {
+        return Dictionary(grouping: self, by: { $0[keyPath: keyPath] })
+            .values
+            .filter({ $0.count > 1 })
+    }
+}
