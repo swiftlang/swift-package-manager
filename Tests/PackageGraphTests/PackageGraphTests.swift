@@ -588,10 +588,6 @@ class PackageGraphTests: XCTestCase {
                     dependencies: [
                         PackageDependencyDescription(url: "/Dep1", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    products: [
-                        ProductDescription(name: "FooLibrary", targets: ["Foo"]),
-                        ProductDescription(name: "BarLibrary", targets: ["Bar"]),
-                    ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["BazLibrary"]),
                         TargetDescription(name: "Bar"),
@@ -627,5 +623,52 @@ class PackageGraphTests: XCTestCase {
         DiagnosticsEngineTester(diagnostics) { result in
             result.check(diagnostic: "multiple targets named 'Foo' in: Dep2, Start", behavior: .error)
         }
+    }
+
+    func testDuplicateProducts() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift",
+            "/Baz/Sources/Baz/baz.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    url: "/Foo",
+                    dependencies: [
+                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    url: "/Bar",
+                    products: [
+                        ProductDescription(name: "Bar", targets: ["Bar"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "Baz",
+                    path: "/Baz",
+                    url: "/Baz",
+                    products: [
+                        ProductDescription(name: "Bar", targets: ["Baz"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Baz"),
+                    ]),
+            ]
+        )
+
+        XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.localizedDescription.contains("multiple products named 'Bar' in: Bar, Baz") }), "\(diagnostics.diagnostics)")
     }
 }

@@ -26,6 +26,7 @@ extension PackageGraphTests {
         ("testCycle", testCycle),
         ("testDuplicateInterPackageTargetNames", testDuplicateInterPackageTargetNames),
         ("testDuplicateModules", testDuplicateModules),
+        ("testDuplicateProducts", testDuplicateProducts),
         ("testEmptyDependency", testEmptyDependency),
         ("testMultipleDuplicateModules", testMultipleDuplicateModules),
         ("testNestedDuplicateModules", testNestedDuplicateModules),

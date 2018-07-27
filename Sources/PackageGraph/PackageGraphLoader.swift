@@ -37,6 +37,9 @@ enum PackageGraphError: Swift.Error {
 
     /// The product dependency was found but the package name did not match.
     case productDependencyIncorrectPackage(name: String, package: String)
+
+    /// A product was found in multiple packages.
+    case duplicateProduct(product: String, packages: [String])
 }
 
 extension PackageGraphError: CustomStringConvertible {
@@ -55,6 +58,9 @@ extension PackageGraphError: CustomStringConvertible {
 
         case .productDependencyIncorrectPackage(let name, let package):
             return "product dependency '\(name)' in package '\(package)' not found"
+
+        case .duplicateProduct(let product, let packages):
+            return "multiple products named '\(product)' in: \(packages.joined(separator: ", "))"
         }
     }
 }
@@ -240,6 +246,28 @@ private func createResolvedPackages(
         packageBuilder.products = package.products.map({
             ResolvedProductBuilder(product: $0, targets: $0.targets.map({ targetMap[$0]! }))
         })
+    }
+
+    // Find duplicate products in the package graph.
+    let duplicateProducts = packageBuilders
+        .flatMap({ $0.products })
+        .map({ $0.product })
+        .findDuplicateElements(by: \.name)
+        .map({ $0[0].name })
+
+    // Emit diagnostics for duplicate products.
+    for productName in duplicateProducts {
+        let packages = packageBuilders
+            .filter({ $0.products.contains(where: { $0.product.name == productName }) })
+            .map({ $0.package.name })
+            .sorted()
+
+        diagnostics.emit(PackageGraphError.duplicateProduct(product: productName, packages: packages))
+    }
+
+    // Remove the duplicate products from the builders.
+    for packageBuilder in packageBuilders {
+        packageBuilder.products = packageBuilder.products.filter({ !duplicateProducts.contains($0.product.name) })
     }
 
     // The set of all target names.
