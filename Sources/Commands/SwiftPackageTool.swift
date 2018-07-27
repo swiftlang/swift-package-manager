@@ -384,7 +384,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             positional: completionToolParser.add(
                 positional: "mode",
-                kind: PackageToolOptions.CompletionToolMode.self),
+                kind: PackageToolOptions.CompletionToolMode.self,
+                usage: PackageToolOptions.CompletionToolMode.usageText()),
             to: { $0.completionToolMode = $1 })
 
         let resolveParser = parser.add(
@@ -451,11 +452,15 @@ public class PackageToolOptions: ToolOptions {
     var outputPath: AbsolutePath?
     var xcodeprojOptions = XcodeprojOptions()
 
-    enum CompletionToolMode: String {
+    enum CompletionToolMode: String, CaseIterable {
         case generateBashScript = "generate-bash-script"
         case generateZshScript = "generate-zsh-script"
         case listDependencies = "list-dependencies"
         case listExecutables = "list-executables"
+
+        static func usageText() -> String {
+            return self.allCases.map({ $0.rawValue }).joined(separator: " | ")
+        }
     }
     var completionToolMode: CompletionToolMode?
 
