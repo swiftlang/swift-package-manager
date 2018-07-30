@@ -238,6 +238,10 @@ public final class PackageBuilder {
         )
     }
 
+    private func diagnosticLocation() -> DiagnosticLocation {
+        return PackageLocation.Local(name: manifest.name, packagePath: packagePath)
+    }
+
     /// Computes the special directory where targets are present or should be placed in future.
     private func findTargetSpecialDirs(_ targets: [Target]) -> (targetDir: String, testTargetDir: String) {
         let predefinedDirs = findPredefinedTargetDirectory()
@@ -277,8 +281,19 @@ public final class PackageBuilder {
         // Ignore linux main.
         if basename == SwiftTarget.linuxMainBasename { return false }
 
-        // Ignore symlinks to non-files.
-        if !fileSystem.isFile(path) { return false }
+        // Ignore paths which are not valid files.
+        if !fileSystem.isFile(path) {
+
+            // Diagnose broken symlinks.
+            if fileSystem.isSymlink(path) {
+                diagnostics.emit(
+                    data: PackageBuilderDiagnostics.BorkenSymlinkDiagnostic(path: path.asString),
+                    location: diagnosticLocation()
+                )
+            }
+
+            return false
+        }
 
         // Ignore manifest files.
         if path.parentDirectory == packagePath {
@@ -336,7 +351,7 @@ public final class PackageBuilder {
             if !targets.isEmpty {
                 diagnostics.emit(
                     data: PackageBuilderDiagnostics.SystemPackageDeclaresTargetsDiagnostic(targets: targets.map({ $0.name })),
-                    location: PackageLocation.Local(name: manifest.name, packagePath: packagePath)
+                    location: diagnosticLocation()
                 )
             }
 
@@ -346,7 +361,7 @@ public final class PackageBuilder {
             case .v4_2:
                 diagnostics.emit(
                     data: PackageBuilderDiagnostics.SystemPackageDeprecatedDiagnostic(),
-                    location: PackageLocation.Local(name: manifest.name, packagePath: packagePath)
+                    location: diagnosticLocation()
                 )
             }
 
@@ -786,7 +801,7 @@ public final class PackageBuilder {
             if !inserted {
                 diagnostics.emit(
                     data: PackageBuilderDiagnostics.DuplicateProduct(product: product),
-                    location: PackageLocation.Local(name: manifest.name, packagePath: packagePath)
+                    location: diagnosticLocation()
                 )
             }
         }
@@ -877,7 +892,7 @@ public final class PackageBuilder {
                 if product.type != .library(.automatic) || targets.count != 1 {
                     diagnostics.emit(
                         data: PackageBuilderDiagnostics.SystemPackageProductValidationDiagnostic(product: product.name),
-                        location: PackageLocation.Local(name: manifest.name, packagePath: packagePath)
+                        location: diagnosticLocation()
                     )
                     continue
                 }
@@ -892,7 +907,7 @@ public final class PackageBuilder {
                 if executableTargets.count != 1 {
                     diagnostics.emit(
                         data: PackageBuilderDiagnostics.InvalidExecutableProductDecl(product: product.name),
-                        location: PackageLocation.Local(name: manifest.name, packagePath: packagePath)
+                        location: diagnosticLocation()
                     )
                     continue
                 }

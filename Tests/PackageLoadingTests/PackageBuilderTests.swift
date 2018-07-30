@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import TestSupport
 
 import Basic
 import PackageModel
@@ -51,6 +52,35 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { result in
             result.checkDiagnostic("target at '/Sources/foo' contains mixed language source files; feature not supported")
+        }
+    }
+
+    func testBrokenSymlink() throws {
+        mktmpdir { path in
+            let fs = localFileSystem
+
+            let sources = path.appending(components: "Sources", "foo")
+            try fs.createDirectory(sources, recursive: true)
+            try fs.writeFileContents(sources.appending(components: "foo.swift"), bytes: "")
+
+            // Create a stray symlink in sources.
+            let linkDestPath = path.appending(components: "link.swift")
+            let linkPath = sources.appending(components: "link.swift")
+            try fs.writeFileContents(linkDestPath, bytes: "")
+            try createSymlink(linkPath, pointingAt: linkDestPath)
+            try fs.removeFileTree(linkDestPath)
+
+            let manifest = Manifest.createV4Manifest(
+                name: "pkg",
+                targets: [
+                    TargetDescription(name: "foo"),
+                ]
+            )
+
+            PackageBuilderTester(manifest, path: path, in: fs) { result in
+                result.checkDiagnostic("ignoring broken symlink \(linkPath.asString)")
+                result.checkModule("foo")
+            }
         }
     }
 

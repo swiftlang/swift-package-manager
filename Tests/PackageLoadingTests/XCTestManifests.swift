@@ -14,6 +14,7 @@ extension ModuleMapGeneration {
 extension PackageBuilderTests {
     static let __allTests = [
         ("testBadExecutableProductDecl", testBadExecutableProductDecl),
+        ("testBrokenSymlink", testBrokenSymlink),
         ("testCInTests", testCInTests),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testCustomTargetDependencies", testCustomTargetDependencies),
