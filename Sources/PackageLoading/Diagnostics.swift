@@ -125,4 +125,17 @@ public enum PackageBuilderDiagnostics {
 
         let product: String
     }
+
+    struct BorkenSymlinkDiagnostic: DiagnosticData {
+        static let id = DiagnosticID(
+            type: BorkenSymlinkDiagnostic.self,
+            name: "org.swift.diags.pkg-builder.borken-symlink",
+            defaultBehavior: .warning,
+            description: {
+                $0 <<< "ignoring broken symlink" <<< { $0.path }
+            }
+        )
+
+        let path: String
+    }
 }
