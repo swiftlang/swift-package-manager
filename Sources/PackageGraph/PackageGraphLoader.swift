@@ -107,7 +107,8 @@ public struct PackageGraphLoader {
         // Detect cycles in manifest dependencies.
         if let cycle = findCycle(inputManifests, successors: successors) {
             diagnostics.emit(PackageGraphError.cycleDetected(cycle))
-            allManifests = inputManifests
+            // Break the cycle so we can build a partial package graph.
+            allManifests = inputManifests.filter({ $0 != cycle.cycle[0] })
         } else {
             // Sort all manifests toplogically.
             allManifests = try! topologicalSort(inputManifests, successors: successors)
