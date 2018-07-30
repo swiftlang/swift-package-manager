@@ -164,7 +164,7 @@ func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws
     let filtered = filter(flags: flags.cFlags, filters: ["-I", "-F"]) +
       filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework", "-w"])
     guard filtered.isEmpty else {
-        throw PkgConfigError.nonWhitelistedFlags("Non whitelisted flags found: \(filtered) in pc file \(pcFile)")
+        throw PkgConfigError.nonWhitelistedFlags(filtered.joined(separator: ", "))
     }
 }
 

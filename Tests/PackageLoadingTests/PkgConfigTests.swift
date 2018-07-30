@@ -88,7 +88,7 @@ class PkgConfigTests: XCTestCase {
             XCTAssertFalse(result.couldNotFindConfigFile)
             switch result.error {
             case PkgConfigError.nonWhitelistedFlags(let desc)?:
-                XCTAssertEqual(desc, "Non whitelisted flags found: [\"-DBlackListed\"] in pc file Bar")
+                XCTAssertEqual(desc, "-DBlackListed")
             default:
                 XCTFail("unexpected error \(result.error.debugDescription)")
             }
