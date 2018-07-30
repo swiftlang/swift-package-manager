@@ -18,10 +18,10 @@ import Utility
 ///
 /// Each dependency will have a checkout containing the sources at a
 /// particular revision, and may have an associated version.
-public final class ManagedDependency: JSONMappable, JSONSerializable {
+public final class ManagedDependency: JSONMappable, JSONSerializable, CustomStringConvertible {
 
     /// Represents the state of the managed dependency.
-    public enum State: Equatable {
+    public enum State: Equatable, CustomStringConvertible {
 
         /// The dependency is a managed checkout.
         case checkout(CheckoutState)
@@ -40,6 +40,17 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
         var isCheckout: Bool {
             if case .checkout = self { return true }
             return false
+        }
+
+        public var description: String {
+            switch self {
+            case .checkout(let checkout):
+                return "\(checkout)"
+            case .edited:
+                return "edited"
+            case .local:
+                return "local"
+            }
         }
     }
 
@@ -131,6 +142,10 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
             "basedOn": basedOn.toJSON(),
             "state": state,
         ])
+    }
+
+    public var description: String {
+        return "<ManagedDependency: \(packageRef.name ?? packageRef.identity) \(state)>"
     }
 }
 
