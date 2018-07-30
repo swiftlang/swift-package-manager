@@ -23,6 +23,7 @@ extension DependencyResolverTests {
 extension PackageGraphTests {
     static let __allTests = [
         ("testBasic", testBasic),
+        ("testCycle2", testCycle2),
         ("testCycle", testCycle),
         ("testDuplicateInterPackageTargetNames", testDuplicateInterPackageTargetNames),
         ("testDuplicateModules", testDuplicateModules),

@@ -169,6 +169,32 @@ class PackageGraphTests: XCTestCase {
         XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar")
     }
 
+    func testCycle2() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
+            "/Bar/Sources/Bar/source.swift",
+            "/Baz/Sources/Baz/source.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    url: "/Foo",
+                    dependencies: [
+                        PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo"),
+                    ]),
+            ]
+        )
+
+        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "cyclic dependency declaration found: Foo -> Foo")
+    }
+
     // Make sure there is no error when we reference Test targets in a package and then
     // use it as a dependency to another package. SR-2353
     func testTestTargetDeclInExternalPackage() throws {
