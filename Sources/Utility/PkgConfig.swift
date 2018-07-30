@@ -12,10 +12,21 @@ import Basic
 import Foundation
 import func POSIX.getenv
 
-public enum PkgConfigError: Swift.Error {
+public enum PkgConfigError: Swift.Error, CustomStringConvertible {
     case couldNotFindConfigFile
     case parsingError(String)
     case nonWhitelistedFlags(String)
+
+    public var description: String {
+        switch self {
+        case .couldNotFindConfigFile:
+            return "couldn't find pc file"
+        case .parsingError(let error):
+            return "parsing error(s): \(error)"
+        case .nonWhitelistedFlags(let flags):
+            return "non whitelisted flag(s): \(flags)"
+        }
+    }
 }
 
 public struct PkgConfigExecutionDiagnostic: DiagnosticData {

@@ -818,7 +818,9 @@ public class BuildPlan {
         if let provider = result.provider, result.couldNotFindConfigFile {
             diagnostics.emit(data: PkgConfigHintDiagnostic(pkgConfigName: result.pkgConfigName, installText: provider.installText))
         } else if let error = result.error {
-            diagnostics.emit(error)
+            diagnostics.emit(
+                data: PkgConfigGenericDiagnostic(error: "\(error)"),
+                location: PkgConfigDiagnosticLocation(pcFile: result.pkgConfigName, target: target.name))
         }
         pkgConfigCache[target] = (result.cFlags, result.libs)
         return pkgConfigCache[target]!
@@ -826,6 +828,28 @@ public class BuildPlan {
 
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
+}
+
+struct PkgConfigDiagnosticLocation: DiagnosticLocation {
+    let pcFile: String
+    let target: String
+
+    public var localizedDescription: String {
+        return "'\(target)' \(pcFile).pc"
+    }
+}
+
+public struct PkgConfigGenericDiagnostic: DiagnosticData {
+    public static let id = DiagnosticID(
+        type: PkgConfigGenericDiagnostic.self,
+        name: "org.swift.diags.pkg-config-generic",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< { $0.error }
+        }
+    )
+
+    let error: String
 }
 
 public struct PkgConfigHintDiagnostic: DiagnosticData {

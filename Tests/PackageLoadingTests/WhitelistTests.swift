@@ -28,9 +28,7 @@ final class PkgConfigWhitelistTests: XCTestCase {
         do {
             try whitelist(pcFile: "dummy", flags: (cFlags, libs))
         } catch {
-            XCTAssertEqual("\(error)", """
-                nonWhitelistedFlags("Non whitelisted flags found: [\\"-L/hello\\", \\"-module-name\\", \\"name\\", \\"-werror\\"] in pc file dummy")
-                """)
+            XCTAssertEqual("\(error)", "non whitelisted flag(s): -L/hello, -module-name, name, -werror")
         }
     }
 
@@ -40,9 +38,7 @@ final class PkgConfigWhitelistTests: XCTestCase {
         do {
             try whitelist(pcFile: "dummy", flags: (cFlags, libs))
         } catch {
-            XCTAssertEqual("\(error)", """
-                nonWhitelistedFlags("Non whitelisted flags found: [\\"-L/hello\\", \\"-module-name\\", \\"ok\\", \\"name\\"] in pc file dummy")
-                """)
+            XCTAssertEqual("\(error)", "non whitelisted flag(s): -L/hello, -module-name, ok, name")
         }
     }
 
