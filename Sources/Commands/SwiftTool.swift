@@ -506,7 +506,7 @@ public class SwiftTool<Options: ToolOptions> {
     func redirectStdoutToStderr() {
         self.shouldRedirectStdoutToStderr = true
         self.stdoutStream = Basic.stderrStream
-        DiagnosticsEngineHandler.default.stdoutStream = Basic.stdoutStream
+        DiagnosticsEngineHandler.default.stdoutStream = Basic.stderrStream
     }
 
     /// Resolve the dependencies.
