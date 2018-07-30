@@ -30,13 +30,16 @@ private struct UserManifestResources: ManifestResourceProvider {
 }
 
 // FIXME: This is messy and needs a redesign.
-public struct UserToolchain: Toolchain {
+public final class UserToolchain: Toolchain {
 
     /// The manifest resource provider.
     public let manifestResources: ManifestResourceProvider
 
     /// Path of the `swiftc` compiler.
     public let swiftCompiler: AbsolutePath
+
+    /// Storage for clang compiler path.
+    private var _clangCompiler: AbsolutePath?
 
     public let extraCCFlags: [String]
 
@@ -128,6 +131,10 @@ public struct UserToolchain: Toolchain {
 
     public func getClangCompiler() throws -> AbsolutePath {
 
+        if let clangCompiler = _clangCompiler {
+            return clangCompiler
+        }
+
         let clangCompiler: AbsolutePath
 
         // Find the Clang compiler, looking first in the environment.
@@ -146,6 +153,7 @@ public struct UserToolchain: Toolchain {
         guard localFileSystem.isExecutableFile(clangCompiler) else {
             throw Error.invalidToolchain(problem: "could not find `clang` at expected path \(clangCompiler.asString)")
         }
+        _clangCompiler = clangCompiler
         return clangCompiler
     }
 
