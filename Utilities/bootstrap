@@ -751,6 +751,7 @@ def get_llbuild_source_path():
     llbuild_path = os.path.join(g_project_root, "..", "llbuild")
     if os.path.exists(llbuild_path):
         return llbuild_path
+    note("clone llbuild next to swiftpm directory; see development docs: https://github.com/apple/swift-package-manager/blob/master/Documentation/Development.md#using-trunk-snapshot")
     error("unable to find llbuild source directory at %s" % llbuild_path)
 
 def get_swiftc_path():
