@@ -70,14 +70,15 @@ func print(error: Any) {
     writer.write("\n")
 }
 
-func print(diagnostic: Diagnostic, stdoutStream: OutputByteStream) {
+func print(diagnostic: Diagnostic, stdoutStream: OutputByteStream, disableColor: Bool) {
 
     let writer: InteractiveWriter
 
     if diagnostic.behavior == .note {
-        writer = InteractiveWriter(stream: stdoutStream)
+        writer = InteractiveWriter(stream: stdoutStream, disableColor: disableColor)
     } else {
         writer = InteractiveWriter.stderr
+        writer.shouldDisableColor = disableColor
     }
 
     if !(diagnostic.location is UnknownLocation) {
@@ -112,25 +113,35 @@ func print(diagnostic: Diagnostic, stdoutStream: OutputByteStream) {
 private final class InteractiveWriter {
 
     /// The standard error writer.
-    static let stderr = InteractiveWriter(stream: stderrStream)
+    static let stderr = InteractiveWriter(stream: stderrStream, disableColor: false)
 
     /// The standard output writer.
-    static let stdout = InteractiveWriter(stream: stdoutStream)
+    static let stdout = InteractiveWriter(stream: stdoutStream, disableColor: false)
 
     /// The terminal controller, if present.
     let term: TerminalController?
 
     /// The output byte stream reference.
     let stream: OutputByteStream
+    
+    /// Disables color diagnostics.
+    var shouldDisableColor: Bool
 
     /// Create an instance with the given stream.
-    init(stream: OutputByteStream) {
+    init(stream: OutputByteStream, disableColor: Bool) {
         self.term = (stream as? LocalFileOutputByteStream).flatMap(TerminalController.init(stream:))
         self.stream = stream
+        self.shouldDisableColor = disableColor
     }
 
     /// Write the string to the contained terminal or stream.
     func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
+       
+        var color = color
+        if shouldDisableColor {
+            color = .noColor
+        }
+        
         if let term = term {
             term.write(string, inColor: color, bold: bold)
         } else {

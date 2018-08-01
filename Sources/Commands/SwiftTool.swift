@@ -204,10 +204,13 @@ private final class DiagnosticsEngineHandler {
     /// The default instance.
     static let `default` = DiagnosticsEngineHandler()
 
+    /// Disables diagnostics coloring
+    var shouldDisableColor = false
+    
     private init() {}
 
     func diagnosticsHandler(_ diagnostic: Diagnostic) {
-        print(diagnostic: diagnostic, stdoutStream: stderrStream)
+        print(diagnostic: diagnostic, stdoutStream: stderrStream, disableColor: shouldDisableColor)
     }
 }
 
@@ -351,6 +354,11 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.shouldDisableManifestCaching = $1 })
 
         binder.bind(
+            option: parser.add(option: "--disable-color", kind: Bool.self,
+                               usage: "Disable diagnostics coloring."),
+            to: { $0.shouldDisableColorDiagnostics = $1 })
+        
+        binder.bind(
             option: parser.add(option: "--version", kind: Bool.self),
             to: { $0.shouldPrintVersion = $1 })
 
@@ -430,6 +438,9 @@ public class SwiftTool<Options: ToolOptions> {
         if options.chdir != nil {
             diagnostics.emit(data: ChdirDeprecatedDiagnostic())
         }
+        
+        /// Set Disable Color preference to DiagnosticsEngineHandler
+        DiagnosticsEngineHandler.default.shouldDisableColor = options.shouldDisableColorDiagnostics
     }
 
     class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<Options>) {

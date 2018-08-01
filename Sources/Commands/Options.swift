@@ -42,6 +42,9 @@ public class ToolOptions {
 
     /// Disables manifest caching.
     public var shouldDisableManifestCaching = false
+    
+    /// Disables coloring diagnostics.
+    public var shouldDisableColorDiagnostics = false
 
     /// Path to the compilation destination describing JSON file.
     public var customCompileDestination: AbsolutePath?
