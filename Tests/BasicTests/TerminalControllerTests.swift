@@ -9,10 +9,9 @@
 */
 
 import XCTest
-@testable import Basic
-@testable import TestSupport
+import TestSupport
 import SPMLibc
-
+@testable import Basic
 
 final class TerminalControllerTests: XCTestCase {
     func testBasic() {

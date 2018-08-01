@@ -11,8 +11,8 @@
 import XCTest
 import Utility
 import SPMLibc
+import TestSupport
 @testable import Basic
-@testable import TestSupport
 
 typealias Thread = Basic.Thread
 

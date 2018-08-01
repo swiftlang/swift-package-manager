@@ -11,12 +11,12 @@
 @testable import Basic
 import SPMLibc
 
-final class PseudoTerminal {
+public final class PseudoTerminal {
     let master: Int32
     let slave: Int32
-    var outStream: LocalFileOutputByteStream
+    public var outStream: LocalFileOutputByteStream
     
-    init?(){
+    public init?(){
         var master: Int32 = 0
         var slave: Int32 = 0
         if openpty(&master, &slave, nil, nil, nil) != 0 {
@@ -30,7 +30,7 @@ final class PseudoTerminal {
         self.slave = slave
     }
     
-    func readMaster(maxChars n: Int = 1000) -> String? {
+    public func readMaster(maxChars n: Int = 1000) -> String? {
         var buf: [CChar] = [CChar](repeating: 0, count: n)
         if read(master, &buf, n) <= 0 {
             return nil
@@ -38,7 +38,7 @@ final class PseudoTerminal {
         return String(cString: buf)
     }
     
-    func close() {
+    public func close() {
         _ = SPMLibc.close(slave)
         _ = SPMLibc.close(master)
     }
