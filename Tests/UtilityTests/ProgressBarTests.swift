@@ -53,9 +53,9 @@ final class ProgressBarTests: XCTestCase {
         thread.start()
         runProgressBar(bar)
         // Make sure to read the complete output before checking it.
-        pty.close()
+        pty.closeSlave()
         thread.join()
-        pty.close()
+        pty.closeMaster()
         XCTAssertTrue(output.chuzzle()?.hasPrefix("\u{1B}[36m\u{1B}[1mTestHeader\u{1B}[0m") ?? false)
     }
 

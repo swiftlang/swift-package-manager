@@ -38,8 +38,16 @@ public final class PseudoTerminal {
         return String(cString: buf)
     }
     
-    public func close() {
+    public func closeSlave() {
         _ = SPMLibc.close(slave)
+    }
+    
+    public func closeMaster() {
         _ = SPMLibc.close(master)
+    }
+    
+    public func close() {
+        closeSlave()
+        closeMaster()
     }
 }
