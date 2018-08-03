@@ -27,7 +27,7 @@ a package that you depend on, or even if you just want to override the origin
 repository of your packages so that you can fetch from a private mirror and not
 depend on the original repository always being there.
 
-Thread: https://forums.swift.org/t/dependency-mirroring-and-forking/13902
+Thread: https://forums.swift.org/t/dependency-mirroring-and-forking/13902  
 Bug: [SR-679](https://bugs.swift.org/browse/SR-679)
 
 # Build Settings
@@ -80,7 +80,7 @@ SwiftPM, so that it can make sure that they behave correctly and perform well
 for incremental and parallel builds.
 
 
-Thread: https://forums.swift.org/t/package-manager-extensible-build-tools/10900
+Thread: https://forums.swift.org/t/package-manager-extensible-build-tools/10900  
 Bug: N/A
 
 # User-defined Template Support
