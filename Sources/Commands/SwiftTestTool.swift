@@ -459,7 +459,7 @@ final class TestRunner {
     // The toolchain to use.
     private let toolchain: UserToolchain
     
-    /// Diagnostics Engine to emit diagnostics
+    /// Diagnostics Engine to emit diagnostics.
     let diagnostics: DiagnosticsEngine
 
     /// Creates an instance of TestRunner.
@@ -594,10 +594,10 @@ final class ParallelTestRunner {
     let toolchain: UserToolchain
     let xUnitOutput: AbsolutePath?
     
-    /// Number of tests to execute in parallel
+    /// Number of tests to execute in parallel.
     let numJobs: Int
     
-    /// Diagnostics Engine to emit diagnostics
+    /// Diagnostics Engine to emit diagnostics.
     let diagnostics: DiagnosticsEngine
     
     init(
