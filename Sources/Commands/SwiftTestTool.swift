@@ -213,7 +213,13 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             switch options.testCaseSpecifier {
             case .none:
                 let runner = TestRunner(
-                    path: testPath, xctestArg: nil, processSet: processSet, sanitizers: options.sanitizers, toolchain: toolchain, diagnostics: diagnostics)
+                    path: testPath,
+                    xctestArg: nil,
+                    processSet: processSet,
+                    sanitizers: options.sanitizers,
+                    toolchain: toolchain,
+                    diagnostics: diagnostics
+                )
                 ranSuccessfully = runner.test()
 
             case .regex, .specific:
@@ -234,8 +240,13 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 // Finally, run the tests.
                 for test in tests {
                     let runner = TestRunner(
-                        path: testPath, xctestArg: test.specifier, 
-                        processSet: processSet, sanitizers: options.sanitizers, toolchain: toolchain, diagnostics: diagnostics)
+                        path: testPath,
+                        xctestArg: test.specifier,
+                        processSet: processSet,
+                        sanitizers: options.sanitizers,
+                        toolchain: toolchain,
+                        diagnostics: diagnostics
+                    )
                     ranSuccessfully = runner.test() && ranSuccessfully
                 }
             }
@@ -456,7 +467,13 @@ final class TestRunner {
     /// - Parameters:
     ///     - path: Path to valid XCTest binary.
     ///     - xctestArg: Arguments to pass to XCTest.
-    init(path: AbsolutePath, xctestArg: String? = nil, processSet: ProcessSet, sanitizers: EnabledSanitizers, toolchain: UserToolchain, diagnostics: DiagnosticsEngine) {
+    init(path: AbsolutePath,
+         xctestArg: String? = nil,
+         processSet: ProcessSet,
+         sanitizers: EnabledSanitizers,
+         toolchain: UserToolchain,
+         diagnostics: DiagnosticsEngine
+    ) {
         self.path = path
         self.xctestArg = xctestArg
         self.processSet = processSet
@@ -645,7 +662,13 @@ final class ParallelTestRunner {
                 // Dequeue a specifier and run it till we encounter nil.
                 while let test = self.pendingTests.dequeue() {
                     let testRunner = TestRunner(
-                        path: self.testPath, xctestArg: test.specifier, processSet: self.processSet, sanitizers: self.sanitizers, toolchain: self.toolchain, diagnostics: self.diagnostics)
+                        path: self.testPath,
+                        xctestArg: test.specifier,
+                        processSet: self.processSet,
+                        sanitizers: self.sanitizers,
+                        toolchain: self.toolchain,
+                        diagnostics: self.diagnostics
+                    )
                     let (success, output) = testRunner.test()
                     if !success {
                         self.ranSuccessfully = false
