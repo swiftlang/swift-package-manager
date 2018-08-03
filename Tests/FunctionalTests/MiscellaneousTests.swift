@@ -405,13 +405,13 @@ class MiscellaneousTestCase: XCTestCase {
                 import XCTest
 
                 extension ParallelTestsFailureTests {
-                    static let __ParallelTestsFailureTests = [
+                    static let __allTests__ParallelTestsFailureTests = [
                         ("testSureFailure", testSureFailure),
                     ]
                 }
                 
                 extension ParallelTestsTests {
-                    static let __ParallelTestsTests = [
+                    static let __allTests__ParallelTestsTests = [
                         ("testExample1", testExample1),
                         ("testExample2", testExample2),
                     ]
@@ -419,8 +419,8 @@ class MiscellaneousTestCase: XCTestCase {
                 
                 public func __allTests() -> [XCTestCaseEntry] {
                     return [
-                        testCase(ParallelTestsFailureTests.__ParallelTestsFailureTests),
-                        testCase(ParallelTestsTests.__ParallelTestsTests),
+                        testCase(ParallelTestsFailureTests.__allTests__ParallelTestsFailureTests),
+                        testCase(ParallelTestsTests.__allTests__ParallelTestsTests),
                     ]
                 }
                 #endif
