@@ -62,7 +62,7 @@ final class LinuxMainGenerator {
             for klass in module.classes.lazy.sorted(by: { $0.name < $1.name }) {
                 stream <<< "\n"
                 stream <<< "extension " <<< klass.name <<< " {" <<< "\n"
-                stream <<< indent(4) <<< "static let __allTests = [" <<< "\n"
+                stream <<< indent(4) <<< "static let __allTests__\(klass.name) = [" <<< "\n"
                 for method in klass.methods {
                     stream <<< indent(8) <<< "(\"\(method)\", \(method))," <<< "\n"
                 }
@@ -79,7 +79,7 @@ final class LinuxMainGenerator {
             """
 
             for klass in module.classes {
-                stream <<< indent(8) <<< "testCase(" <<< klass.name <<< ".__allTests)," <<< "\n"
+                stream <<< indent(8) <<< "testCase(" <<< klass.name <<< ".__allTests__\(klass.name))," <<< "\n"
             }
 
             stream <<< """
