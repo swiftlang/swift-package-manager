@@ -171,7 +171,7 @@ public class OutputByteStream: TextOutputStream {
     /// Write a string to the buffer (as UTF8).
     public final func write(_ string: String) {
         // FIXME(performance): Use `string.utf8._copyContents(initializing:)`.
-        write(sequence: string.utf8)
+        write(string.utf8)
     }
 
     /// Write a string (as UTF8) to the buffer, with escaping appropriate for
@@ -235,58 +235,6 @@ precedencegroup StreamingPrecedence {
 }
 
 // MARK: Output Operator Implementations
-//
-// NOTE: It would be nice to use a protocol here and the adopt it by all the
-// things we can efficiently stream out. However, that doesn't work because we
-// ultimately need to provide a manual overload sometimes, e.g., TextOutputStreamable, but
-// that will then cause ambiguous lookup versus the implementation just using
-// the defined protocol.
-
-@discardableResult
-public func <<< (stream: OutputByteStream, value: UInt8) -> OutputByteStream {
-    stream.write(value)
-    return stream
-}
-
-@discardableResult
-public func <<< (stream: OutputByteStream, value: [UInt8]) -> OutputByteStream {
-    stream.write(value)
-    return stream
-}
-
-@discardableResult
-public func <<< (stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputByteStream {
-    stream.write(value)
-    return stream
-}
-
-@discardableResult
-public func <<< <C: Collection>(stream: OutputByteStream, value: C)
-    -> OutputByteStream where C.Element == UInt8 {
-    stream.write(value)
-    return stream
-}
-
-@discardableResult
-public func <<< <S: Sequence>(
-    stream: OutputByteStream,
-    value: S
-) -> OutputByteStream where S.Iterator.Element == UInt8 {
-    stream.write(sequence: value)
-    return stream
-}
-
-@discardableResult
-public func <<< (stream: OutputByteStream, value: String) -> OutputByteStream {
-    stream.write(value)
-    return stream
-}
-
-@discardableResult
-public func <<< (stream: OutputByteStream, value: Character) -> OutputByteStream {
-    value.write(to: stream)
-    return stream
-}
 
 @discardableResult
 public func <<< (stream: OutputByteStream, value: ByteStreamable) -> OutputByteStream {
@@ -302,6 +250,12 @@ public func <<< (stream: OutputByteStream, value: TextOutputStreamable) -> Outpu
     return mutableStream
 }
 
+@discardableResult
+public func <<< (stream: OutputByteStream, value: ByteStreamable & TextOutputStreamable) -> OutputByteStream {
+    (value as ByteStreamable).write(to: stream)
+    return stream
+}
+
 extension UInt8: ByteStreamable {
     public func write(to stream: OutputByteStream) {
         stream.write(self)
@@ -315,6 +269,36 @@ extension Character: ByteStreamable {
 }
 
 extension String: ByteStreamable {
+    public func write(to stream: OutputByteStream) {
+        stream.write(self.utf8)
+    }
+}
+
+extension Substring: ByteStreamable {
+    public func write(to stream: OutputByteStream) {
+        stream.write(self.utf8)
+    }
+}
+
+extension StaticString: ByteStreamable {
+    public func write(to stream: OutputByteStream) {
+        withUTF8Buffer { stream.write($0) }
+    }
+}
+
+extension Array: ByteStreamable where Element == UInt8 {
+    public func write(to stream: OutputByteStream) {
+        stream.write(self)
+    }
+}
+
+extension ArraySlice: ByteStreamable where Element == UInt8 {
+    public func write(to stream: OutputByteStream) {
+        stream.write(self)
+    }
+}
+
+extension ContiguousArray: ByteStreamable where Element == UInt8 {
     public func write(to stream: OutputByteStream) {
         stream.write(self)
     }
