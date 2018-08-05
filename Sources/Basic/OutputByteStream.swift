@@ -115,7 +115,7 @@ public class OutputByteStream: TextOutputStream {
     }
 
     /// Write a collection of bytes to the buffer.
-    public final func write<C: Collection>(collection bytes: C)
+    public final func write<C: Collection>(_ bytes: C)
         where C.Element == UInt8 {
         queue.sync {
             // This is based on LLVM's raw_ostream.
@@ -157,21 +157,6 @@ public class OutputByteStream: TextOutputStream {
         }
     }
 
-    /// Write the contents of a UnsafeBufferPointer<UInt8>.
-    final func write(_ ptr: UnsafeBufferPointer<UInt8>) {
-        write(collection: ptr)
-    }
-
-    /// Write a sequence of bytes to the buffer.
-    public final func write(_ bytes: ArraySlice<UInt8>) {
-        write(collection: bytes)
-    }
-
-    /// Write a sequence of bytes to the buffer.
-    public final func write(_ bytes: [UInt8]) {
-        write(collection: bytes)
-    }
-
     /// Write a sequence of bytes to the buffer.
     public final func write<S: Sequence>(sequence: S) where S.Iterator.Element == UInt8 {
         queue.sync {
@@ -187,23 +172,6 @@ public class OutputByteStream: TextOutputStream {
     public final func write(_ string: String) {
         // FIXME(performance): Use `string.utf8._copyContents(initializing:)`.
         write(sequence: string.utf8)
-    }
-
-    /// Write a character to the buffer (as UTF8).
-    public final func write(_ character: Character) {
-        write(String(character))
-    }
-
-    /// Write an arbitrary byte streamable to the buffer.
-    public final func write(_ value: ByteStreamable) {
-        value.write(to: self)
-    }
-
-    /// Write an arbitrary streamable to the buffer.
-    public final func write(_ value: TextOutputStreamable) {
-        // Get a mutable reference.
-        var stream: OutputByteStream = self
-        value.write(to: &stream)
     }
 
     /// Write a string (as UTF8) to the buffer, with escaping appropriate for
@@ -295,7 +263,7 @@ public func <<< (stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputBy
 @discardableResult
 public func <<< <C: Collection>(stream: OutputByteStream, value: C)
     -> OutputByteStream where C.Element == UInt8 {
-    stream.write(collection: value)
+    stream.write(value)
     return stream
 }
 
@@ -316,20 +284,22 @@ public func <<< (stream: OutputByteStream, value: String) -> OutputByteStream {
 
 @discardableResult
 public func <<< (stream: OutputByteStream, value: Character) -> OutputByteStream {
-    stream.write(value)
+    value.write(to: stream)
     return stream
 }
 
 @discardableResult
 public func <<< (stream: OutputByteStream, value: ByteStreamable) -> OutputByteStream {
-    stream.write(value)
+    value.write(to: stream)
     return stream
 }
 
 @discardableResult
 public func <<< (stream: OutputByteStream, value: TextOutputStreamable) -> OutputByteStream {
-    stream.write(value)
-    return stream
+    // Get a mutable reference.
+    var mutableStream = stream
+    value.write(to: &mutableStream)
+    return mutableStream
 }
 
 extension UInt8: ByteStreamable {
@@ -340,7 +310,7 @@ extension UInt8: ByteStreamable {
 
 extension Character: ByteStreamable {
     public func write(to stream: OutputByteStream) {
-        stream.write(self)
+        stream.write(String(self))
     }
 }
 
