@@ -64,6 +64,7 @@ extension WorkspaceTests {
         ("testMultipleRootPackages", testMultipleRootPackages),
         ("testResolutionFailureWithEditedDependency", testResolutionFailureWithEditedDependency),
         ("testResolve", testResolve),
+        ("testResolvedFileUpdate", testResolvedFileUpdate),
         ("testResolverCanHaveError", testResolverCanHaveError),
         ("testRevisionVersionSwitch", testRevisionVersionSwitch),
         ("testRootAsDependency1", testRootAsDependency1),

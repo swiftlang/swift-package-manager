@@ -2174,6 +2174,61 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo2", at: .local)
         }
     }
+
+    func testResolvedFileUpdate() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: []),
+                    ],
+                    products: [],
+                    dependencies: []
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+        workspace.checkResolved() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+
+        workspace.checkPackageGraph(roots: ["Root"], deps: []) { (_, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+        workspace.checkResolved() { result in
+            result.check(notPresent: "foo")
+        }
+    }
 }
 
 extension PackageGraph {
