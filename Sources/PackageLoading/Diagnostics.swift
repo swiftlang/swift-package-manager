@@ -139,3 +139,16 @@ public enum PackageBuilderDiagnostics {
         let path: String
     }
 }
+
+public struct ManifestLoadingDiagnostic: DiagnosticData {
+    public static let id = DiagnosticID(
+        type: ManifestLoadingDiagnostic.self,
+        name: "org.swift.diags.pkg-loading.manifest-output",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< { $0.output }
+        }
+    )
+
+    public let output: String
+}

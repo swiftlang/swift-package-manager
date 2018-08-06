@@ -83,7 +83,8 @@ public protocol ManifestLoaderProtocol {
         baseURL: String,
         version: Version?,
         manifestVersion: ManifestVersion,
-        fileSystem: FileSystem?
+        fileSystem: FileSystem?,
+        diagnostics: DiagnosticsEngine?
     ) throws -> Manifest
 }
 
@@ -100,14 +101,17 @@ extension ManifestLoaderProtocol {
         baseURL: String,
         version: Version? = nil,
         manifestVersion: ManifestVersion,
-        fileSystem: FileSystem? = nil
+        fileSystem: FileSystem? = nil,
+        diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest {
         return try load(
             packagePath: path,
             baseURL: baseURL,
             version: version,
             manifestVersion: manifestVersion,
-            fileSystem: fileSystem)
+            fileSystem: fileSystem,
+            diagnostics: diagnostics
+        )
     }
 }
 
@@ -163,14 +167,17 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         baseURL: String,
         version: Version?,
         manifestVersion: ManifestVersion,
-        fileSystem: FileSystem? = nil
+        fileSystem: FileSystem? = nil,
+        diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest {
         return try loadFile(
             path: Manifest.path(atPackagePath: path, fileSystem: fileSystem ?? localFileSystem),
             baseURL: baseURL,
             version: version,
             manifestVersion: manifestVersion,
-            fileSystem: fileSystem)
+            fileSystem: fileSystem,
+            diagnostics: diagnostics
+        )
     }
 
     /// Create a manifest by loading a specific manifest file from the given `path`.
@@ -185,7 +192,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         baseURL: String,
         version: Version?,
         manifestVersion: ManifestVersion,
-        fileSystem: FileSystem? = nil
+        fileSystem: FileSystem? = nil,
+        diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest {
 
         // Inform the delegate.
@@ -201,7 +209,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let jsonString: String
         do {
             jsonString = try loadJSONString(
-                path: inputPath, manifestVersion: manifestVersion, fs: fileSystem)
+                path: inputPath, manifestVersion: manifestVersion,
+                fs: fileSystem, diagnostics: diagnostics)
         } catch let error as StringError {
             throw ManifestParseError.invalidManifestFormat(error.description)
         }
@@ -248,19 +257,20 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     func loadJSONString(
         path inputPath: AbsolutePath,
         manifestVersion: ManifestVersion,
-        fs: FileSystem? = nil
+        fs: FileSystem? = nil,
+        diagnostics: DiagnosticsEngine? = nil
     ) throws -> String {
         // If we were given a filesystem, load via a temporary file.
         if let fs = fs {
             let contents = try fs.readFileContents(inputPath)
             let tmpFile = try TemporaryFile(suffix: ".swift")
             try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
-            return try parse(path: tmpFile.path, manifestVersion: manifestVersion)
+            return try parse(path: tmpFile.path, manifestVersion: manifestVersion, diagnostics: diagnostics)
         }
 
         // Load directly if manifest caching is not enabled.
         if !self.isManifestCachingEnabled {
-            return try parse(path: inputPath, manifestVersion: manifestVersion)
+            return try parse(path: inputPath, manifestVersion: manifestVersion, diagnostics: diagnostics)
         }
 
         // Otherwise load via llbuild.
@@ -274,7 +284,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     /// Parse the manifest at the given path to JSON.
     func parse(
         path manifestPath: AbsolutePath,
-        manifestVersion: ManifestVersion
+        manifestVersion: ManifestVersion,
+        diagnostics: DiagnosticsEngine? = nil
     ) throws -> String {
         self.delegate?.willParse(manifest: manifestPath)
 
@@ -304,7 +315,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cmd += [resources.swiftCompiler.asString]
         cmd += ["--driver-mode=swift"]
         cmd += verbosity.ccArgs
-        cmd += ["-L", runtimePath, "-lPackageDescription", "-suppress-warnings"]
+        cmd += ["-L", runtimePath, "-lPackageDescription"]
         cmd += interpreterFlags
         cmd += [manifestPath.asString]
 
@@ -317,10 +328,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let result = try Process.popen(arguments: cmd)
         let output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle()
 
-        // We expect output from interpreter to be empty, if something was emitted
-        // throw and report it.
-        if let output = output {
-            throw StringError(output)
+        // Throw an error if there was a non-zero exit or emit the output
+        // produced by the process. A process output will usually mean there
+        // was a warning emitted by the Swift compiler.
+        if result.exitStatus != .terminated(code: 0) {
+            throw StringError(output ?? "<unknown>")
+        } else if let output = output {
+            diagnostics?.emit(data: ManifestLoadingDiagnostic(output: output))
         }
 
         guard let json = try localFileSystem.readFileContents(file.path).asString else {

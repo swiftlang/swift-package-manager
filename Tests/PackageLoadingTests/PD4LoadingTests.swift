@@ -365,8 +365,11 @@ class PackageDescription4LoadingTests: XCTestCase {
         }
     }
 
-    func testManifestWithWarnings() {
+    func testManifestWithWarnings() throws {
+        let fs = InMemoryFileSystem()
+        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
         let stream = BufferedOutputByteStream()
+
         stream <<< """
             import PackageDescription
             func foo() {
@@ -377,11 +380,22 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.name, "Trivial")
-            XCTAssertEqual(manifest.manifestVersion, .v4)
-            XCTAssertEqual(manifest.targets, [])
-            XCTAssertEqual(manifest.dependencies, [])
+        try fs.writeFileContents(manifestPath, bytes: stream.bytes)
+
+        let diagnostics = DiagnosticsEngine()
+        let manifest = try manifestLoader.load(
+            package: .root, baseURL: AbsolutePath.root.asString,
+            manifestVersion: .v4, fileSystem: fs,
+            diagnostics: diagnostics
+        )
+
+        XCTAssertEqual(manifest.name, "Trivial")
+        XCTAssertEqual(manifest.manifestVersion, .v4)
+        XCTAssertEqual(manifest.targets, [])
+        XCTAssertEqual(manifest.dependencies, [])
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: .contains("initialization of immutable value 'a' was never used"), behavior: .warning)
         }
     }
 }

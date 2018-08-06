@@ -56,7 +56,8 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         baseURL: String,
         version: Version?,
         manifestVersion: ManifestVersion,
-        fileSystem: FileSystem?
+        fileSystem: FileSystem?,
+        diagnostics: DiagnosticsEngine?
     ) throws -> PackageModel.Manifest {
         let key = Key(url: PackageReference.computeIdentity(packageURL: baseURL), version: version)
         if let result = manifests[key] {
