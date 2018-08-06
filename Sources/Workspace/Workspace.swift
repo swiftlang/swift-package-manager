@@ -143,6 +143,10 @@ public class Workspace {
 
         /// Computes the identities which are declared in the manifests but aren't present in dependencies.
         func missingPackageIdentities() -> Set<String> {
+            return computePackageIdentities().missing
+        }
+
+        func computePackageIdentities() -> (required: Set<String>, missing: Set<String>) {
             let manifestsMap = Dictionary(items:
                 root.manifests.map({ ($0.name.lowercased(), $0) }) +
                 dependencies.map({ (PackageReference.computeIdentity(packageURL: $0.manifest.url), $0.manifest) }))
@@ -160,7 +164,9 @@ public class Workspace {
             // We should never have loaded a manifest we don't need.
             assert(availableIdentities.isSubset(of: requiredIdentities))
             // These are the missing package identities.
-            return requiredIdentities.subtracting(availableIdentities)
+            let missingIdentities = requiredIdentities.subtracting(availableIdentities)
+
+            return (requiredIdentities, missingIdentities)
         }
 
         /// Returns constraints of the dependencies, including edited package constraints.
@@ -524,6 +530,7 @@ extension Workspace {
 
         // Update the pins store.
         return pinAll(
+            graphRoot: graphRoot,
             pinsStore: pinsStore,
             diagnostics: diagnostics)
     }
@@ -812,13 +819,21 @@ extension Workspace {
 
     /// Pins all of the current managed dependencies at their checkout state.
     fileprivate func pinAll(
+        graphRoot: PackageGraphRoot,
         pinsStore: PinsStore,
         diagnostics: DiagnosticsEngine
     ) {
-        // Reset the pinsStore and start pinning each dependency.
+        // Reset the pinsStore and start pinning the required dependencies.
 		pinsStore.unpinAll()
-        for dependency in managedDependencies.values {
-            pinsStore.pin(dependency)
+
+        let currentManifests = loadDependencyManifests(
+            root: graphRoot, diagnostics: diagnostics)
+        let requiredIdentities = currentManifests.computePackageIdentities().required
+
+        for dependency in managedDependencies.values  {
+            if requiredIdentities.contains(dependency.packageRef.identity) {
+                pinsStore.pin(dependency)
+            }
         }
         diagnostics.wrap({ try pinsStore.saveState() })
     }
@@ -1049,7 +1064,7 @@ extension Workspace {
             // If we don't need resolution and there are no extra constraints,
             // just validate pinsStore and return.
             if !result.resolve && extraConstraints.isEmpty {
-                validatePinsStore(with: diagnostics)
+                validatePinsStore(dependencyManifests: currentManifests, diagnostics: diagnostics)
                 return currentManifests
             }
 
@@ -1102,7 +1117,7 @@ extension Workspace {
         }
 
         // Update the pinsStore.
-        self.pinAll(pinsStore: pinsStore, diagnostics: diagnostics)
+        self.pinAll(graphRoot: graphRoot, pinsStore: pinsStore, diagnostics: diagnostics)
 
         return loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
     }
@@ -1190,20 +1205,33 @@ extension Workspace {
     }
 
     /// Validates that each checked out managed dependency has an entry in pinsStore.
-    private func validatePinsStore(with diagnostics: DiagnosticsEngine) {
+    private func validatePinsStore(dependencyManifests: DependencyManifests, diagnostics: DiagnosticsEngine) {
         guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
             return
         }
+
+		let pins = pinsStore.pinsMap.keys
+        let requiredIdentities = dependencyManifests.computePackageIdentities().required
 
         for dependency in managedDependencies.values {
             switch dependency.state {
             case .checkout: break
             case .edited, .local: continue
             }
-            // If we find any checkout that is not in pins store, invoke pin all and return.
-            if pinsStore.pinsMap[dependency.packageRef.identity] == nil {
-                return self.pinAll(pinsStore: pinsStore, diagnostics: diagnostics)
+
+            let identity = dependency.packageRef.identity
+
+            if requiredIdentities.contains(identity) {
+                // If required identity contains this dependency, it should be in the pins store.
+                if pins.contains(identity) {
+                    continue
+                }
+            } else if !pins.contains(identity) {
+                // Otherwise, it should *not* be in the pins store.
+                continue
             }
+
+            return self.pinAll(graphRoot: dependencyManifests.root, pinsStore: pinsStore, diagnostics: diagnostics)
         }
     }
 
