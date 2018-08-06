@@ -987,7 +987,8 @@ extension Workspace {
                 package: packagePath,
                 baseURL: url,
                 version: version,
-                manifestVersion: toolsVersion.manifestVersion
+                manifestVersion: toolsVersion.manifestVersion,
+                diagnostics: diagnostics
             )
         })
     }

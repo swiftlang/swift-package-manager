@@ -186,7 +186,7 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
 
         // Load the manifest.
         _manifest = try manifestLoader.load(
-            packagePath: AbsolutePath(identifier.path),
+            package: AbsolutePath(identifier.path),
             baseURL: identifier.path,
             version: nil,
             manifestVersion: toolsVersion.manifestVersion,
