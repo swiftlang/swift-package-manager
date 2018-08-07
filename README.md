@@ -97,7 +97,7 @@ If you have any trouble with the package manager, help is available. We recommen
 
 When adding a bug to the tracker you should follow the bug reporting guidelines, they can be found in [Resources.md](./Documentation/Resources.md#reporting-a-good-swiftpm-bug).
 
-If you’re not comfortable sharing your question with the list, contact details for the code owners can be found in [CODE_OWNERS.txt](CODE_OWNERS.txt); however, the mailing list is usually the best place to go for help.
+If you’re not comfortable sharing your question with the list, contact details for the code owners can be found in [CODEOWNERS](CODEOWNERS); however, the mailing list is usually the best place to go for help.
 
 ---
 
