@@ -15,12 +15,14 @@ import Utility
 public enum Sanitizer: String {
     case address
     case thread
+    case undefined
 
     /// Return an established short name for a sanitizer, e.g. "asan".
     public var shortName: String {
         switch self {
             case .address: return "asan"
             case .thread: return "tsan"
+            case .undefined: return "ubsan"
         }
     }
 }
@@ -61,5 +63,6 @@ extension Sanitizer: StringEnumArgument {
     public static let completion: ShellCompletion = .values([
         (address.rawValue, "enable Address sanitizer"),
         (thread.rawValue, "enable Thread sanitizer"),
+        (undefined.rawValue, "enable Undefined Behavior sanitizer")
     ])
 }
