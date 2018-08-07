@@ -249,7 +249,6 @@ public struct LLBuildManifestGenerator {
             switch dependency {
             case .target(let target):
                 addStaticTargetInputs(target)
-
             case .product(let product):
                 switch product.type {
                 case .executable, .library(.dynamic):
@@ -267,11 +266,11 @@ public struct LLBuildManifestGenerator {
             }
         }
 
-        var buildTarget = Target(name: target.target.llbuildTargetName)
+        var buildTarget = Target(name: target.target.getLLBuildTargetName(config: plan.buildParameters.configuration.dirname))
         // The target only cares about the module output.
         buildTarget.outputs.insert(target.moduleOutputPath.asString)
         let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
-        buildTarget.cmds.insert(Command(name: target.target.commandName, tool: tool))
+        buildTarget.cmds.insert(Command(name: target.target.getCommandName(config: plan.buildParameters.configuration.dirname), tool: tool))
         return buildTarget
     }
 
@@ -308,7 +307,7 @@ public struct LLBuildManifestGenerator {
         })
 
         // For Clang, the target requires all command outputs.
-        var buildTarget = Target(name: target.target.llbuildTargetName)            
+        var buildTarget = Target(name: target.target.getLLBuildTargetName(config: plan.buildParameters.configuration.dirname))
         buildTarget.outputs.insert(contentsOf: commands.flatMap({ $0.tool.outputs }))
         buildTarget.cmds += commands
         return buildTarget
@@ -316,12 +315,15 @@ public struct LLBuildManifestGenerator {
 }
 
 extension ResolvedTarget {
-    public var llbuildTargetName: String {
-        return "\(name).module"
+    public func getCommandName(config: String) -> String {
+       return "C." + getLLBuildTargetName(config: config)
     }
-
-    var commandName: String {
-        return "C.\(llbuildTargetName)"
+    
+    public func getLLBuildTargetName(config: String) -> String {
+        if config == "release" {
+            return "\(name)-release.module"
+        }
+        return "\(name)-debug.module"
     }
 }
 

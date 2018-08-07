@@ -565,7 +565,31 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.dematerialize()
     }
 
-    func computeLLBuildTargetName(for subset: BuildSubset) throws -> String? {
+    func shouldRegenerateManifest() throws -> Bool {
+        // Check if we are allowed to use llbuild manifest caching.
+        guard options.shouldEnableManifestCaching else {
+            return true
+        }
+        
+        // Check if we need to generate the llbuild manifest.
+        let parameters: BuildParameters = try self.buildParameters()
+        guard localFileSystem.isFile(parameters.llbuildManifest) else {
+            return true
+        }
+        
+        // Run the target which computes if regeneration is needed.
+        let args = [try getToolchain().llbuild.asString, "-f", parameters.llbuildManifest.asString, "regenerate"]
+        do {
+            try Process.checkNonZeroExit(arguments: args)
+        } catch {
+            // Regenerate the manifest if this fails for some reason.
+            warning(message: "Failed to run the regeneration check: \(error)")
+            return true
+        }
+        return try !self.buildManifestRegenerationToken().isValid()
+    }
+    
+    func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String? {
         switch subset {
         case .allExcludingTests:
             return LLBuildManifestGenerator.llbuildMainTargetName
@@ -573,12 +597,12 @@ public class SwiftTool<Options: ToolOptions> {
             return LLBuildManifestGenerator.llbuildTestTargetName
         default:
             // FIXME: This is super unfortunate that we might need to load the package graph.
-            return try subset.llbuildTargetName(for: loadPackageGraph(), diagnostics: diagnostics)
+            return try subset.llbuildTargetName(for: loadPackageGraph(), diagnostics: diagnostics, config: buildParameters.configuration.dirname)
         }
     }
     
     func build(parameters: BuildParameters, subset: BuildSubset) throws {
-        guard let llbuildTargetName = try computeLLBuildTargetName(for: subset) else {
+        guard let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: parameters) else {
             return
         }
         try runLLBuild(manifest: parameters.llbuildManifest, llbuildTarget: llbuildTargetName)
@@ -586,7 +610,12 @@ public class SwiftTool<Options: ToolOptions> {
     
     /// Build a subset of products and targets using swift-build-tool.
     func build(plan: BuildPlan, subset: BuildSubset) throws {
-        guard let llbuildTargetName = subset.llbuildTargetName(for: plan.graph, diagnostics: diagnostics) else {
+        guard !plan.graph.rootPackages[0].targets.isEmpty else {
+            warning(message: "no targets to build in package")
+            return
+        }
+
+        guard let llbuildTargetName = subset.llbuildTargetName(for: plan.graph, diagnostics: diagnostics, config: plan.buildParameters.configuration.dirname) else {
             return
         }
 
@@ -764,7 +793,7 @@ enum BuildSubset {
 
 extension BuildSubset {
     /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine) -> String? {
+    func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine, config: String) -> String? {
         switch self {
         case .allExcludingTests:
             return LLBuildManifestGenerator.llbuildMainTargetName
@@ -787,7 +816,7 @@ extension BuildSubset {
                 diagnostics.emit(data: TargetNotFoundDiagnostic(targetName: targetName))
                 return nil
             }
-            return target.llbuildTargetName
+            return target.getLLBuildTargetName(config: config)
         }
     }
 }
