@@ -32,12 +32,13 @@ struct MutuallyExclusiveArgumentsDiagnostic: DiagnosticData {
 /// swift-build tool namespace
 public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
 
-   public convenience init(args: [String]) {
-       self.init(
+    public convenience init(args: [String], workingDir: String) {
+        self.init(
             toolName: "build",
             usage: "[options]",
             overview: "Build sources into binary products",
             args: args,
+            packagePath: AbsolutePath(workingDir),
             seeAlso: type(of: self).otherToolNames()
         )
     }

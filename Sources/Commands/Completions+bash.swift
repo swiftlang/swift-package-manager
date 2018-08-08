@@ -90,10 +90,14 @@ func bash_template(on stream: OutputByteStream) {
 
         """
 
-    SwiftBuildTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
-    SwiftRunTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
-    SwiftPackageTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
-    SwiftTestTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
+    guard let cwd = localFileSystem.currentWorkingDirectory else {
+        return
+    }
+
+    SwiftBuildTool(args: [], workingDir: cwd.asString).parser.generateCompletionScript(for: .bash, on: stream)
+    SwiftRunTool(args: [], workingDir: cwd.asString).parser.generateCompletionScript(for: .bash, on: stream)
+    SwiftPackageTool(args: [], workingDir: cwd.asString).parser.generateCompletionScript(for: .bash, on: stream)
+    SwiftTestTool(args: [], workingDir: cwd.asString).parser.generateCompletionScript(for: .bash, on: stream)
 
     // Forward to swift compiler completion, if defined.
     stream <<< """

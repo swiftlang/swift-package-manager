@@ -9,6 +9,11 @@
 */
 
 import Commands
+import Basic
 
-let tool = SwiftTestTool(args: Array(CommandLine.arguments.dropFirst()))
+guard let cwd = localFileSystem.currentWorkingDirectory else {
+    throw FileSystemError.notDirectory
+}
+
+let tool = SwiftTestTool(args: Array(CommandLine.arguments.dropFirst()), workingDir: cwd.asString)
 tool.run()

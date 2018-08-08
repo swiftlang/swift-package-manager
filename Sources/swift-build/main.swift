@@ -9,6 +9,12 @@
 */
 
 import Commands
+import Basic
 
-let tool = SwiftBuildTool(args: Array(CommandLine.arguments.dropFirst()))
+guard let cwd = localFileSystem.currentWorkingDirectory else {
+    throw FileSystemError.notDirectory
+}
+
+let tool = SwiftBuildTool(args: Array(CommandLine.arguments.dropFirst()), workingDir: cwd.asString)
 tool.run()
+

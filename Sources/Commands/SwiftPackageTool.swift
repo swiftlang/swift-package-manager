@@ -57,12 +57,13 @@ struct RequiredSubcommandDiagnostic: DiagnosticData {
 /// swift-package tool namespace
 public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
-   public convenience init(args: [String]) {
-       self.init(
+    public convenience init(args: [String], workingDir: String) {
+        self.init(
             toolName: "package",
             usage: "[options] subcommand",
             overview: "Perform operations on Swift packages",
             args: args,
+            packagePath: AbsolutePath(workingDir),
             seeAlso: type(of: self).otherToolNames()
         )
     }
@@ -119,7 +120,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .initPackage:
             // FIXME: Error handling.
-            let cwd = localFileSystem.currentWorkingDirectory!
+            let cwd = options.packagePath ?? options.chdir ?? localFileSystem.currentWorkingDirectory!
             
             let packageName = options.packageName ?? cwd.basename
             let initPackage = try InitPackage(

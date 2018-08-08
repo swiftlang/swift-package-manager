@@ -77,11 +77,14 @@ func zsh_template(on stream: OutputByteStream) {
 
         """
 
-
-    SwiftBuildTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
-    SwiftRunTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
-    SwiftPackageTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
-    SwiftTestTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
+    guard let cwd = localFileSystem.currentWorkingDirectory else {
+        return
+    }
+    
+    SwiftBuildTool(args: [], workingDir: cwd.asString).parser.generateCompletionScript(for: .zsh, on: stream)
+    SwiftRunTool(args: [], workingDir: cwd.asString).parser.generateCompletionScript(for: .zsh, on: stream)
+    SwiftPackageTool(args: [], workingDir: cwd.asString).parser.generateCompletionScript(for: .zsh, on: stream)
+    SwiftTestTool(args: [], workingDir: cwd.asString).parser.generateCompletionScript(for: .zsh, on: stream)
 
     // Figure out how to forward to swift compiler's bash completion.
     stream <<< """

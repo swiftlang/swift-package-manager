@@ -233,13 +233,13 @@ public class SwiftTool<Options: ToolOptions> {
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
-    public init(toolName: String, usage: String, overview: String, args: [String], seeAlso: String? = nil) {
+    public init(toolName: String, usage: String, overview: String, args: [String], packagePath: AbsolutePath?, seeAlso: String? = nil) {
         // Capture the original working directory ASAP.
-        guard let cwd = localFileSystem.currentWorkingDirectory else {
+        guard let packagePath = packagePath else {
             diagnostics.emit(data: WorkingDirNotFoundDiagnostic())
             SwiftTool.exit(with: .failure)
         }
-        originalWorkingDirectory = cwd
+        originalWorkingDirectory = packagePath
 
         // Setup the build delegate.
         buildDelegate = BuildDelegate(diagnostics: diagnostics)
@@ -354,6 +354,10 @@ public class SwiftTool<Options: ToolOptions> {
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
+        // Create local vars to avoid capture self before init error.
+        var packageRoot: AbsolutePath?
+        var buildPath: AbsolutePath?
+        
         do {
             // Parse the result.
             let result = try parser.parse(args)
@@ -362,12 +366,8 @@ public class SwiftTool<Options: ToolOptions> {
             try binder.fill(parseResult: result, into: &options)
 
             self.options = options
-            // Honor package-path option is provided.
-            if let packagePath = options.packagePath ?? options.chdir {
-                // FIXME: This should be an API which takes AbsolutePath and maybe
-                // should be moved to file system APIs with currentWorkingDirectory.
-                try POSIX.chdir(packagePath.asString)
-            }
+            packageRoot = findPackageRoot(for: options.packagePath ?? options.chdir ?? packagePath)
+            buildPath = getEnvBuildPath(for: options.packagePath ?? options.chdir ?? packagePath)
 
             let processSet = ProcessSet()
             interruptHandler = try InterruptHandler {
@@ -397,12 +397,11 @@ public class SwiftTool<Options: ToolOptions> {
 
         // Create local variables to use while finding build path to avoid capture self before init error.
         let customBuildPath = options.buildPath
-        let packageRoot = findPackageRoot()
 
         self.packageRoot = packageRoot
-        self.buildPath = getEnvBuildPath(workingDir: cwd) ??
+        self.buildPath = buildPath ??
             customBuildPath ??
-            (packageRoot ?? cwd).appending(component: ".build")
+            (packageRoot ?? packagePath).appending(component: ".build")
         
         if options.chdir != nil {
             diagnostics.emit(data: ChdirDeprecatedDiagnostic())
@@ -767,8 +766,8 @@ extension BuildSubset {
 
 /// Returns path of the nearest directory containing the manifest file w.r.t
 /// current working directory.
-private func findPackageRoot() -> AbsolutePath? {
-    guard var root = localFileSystem.currentWorkingDirectory else {
+private func findPackageRoot(for packagePath: AbsolutePath?) -> AbsolutePath? {
+    guard var root = packagePath else {
         return nil
     }
     // FIXME: It would be nice to move this to a generalized method which takes path and predicate and
@@ -782,12 +781,11 @@ private func findPackageRoot() -> AbsolutePath? {
     return root
 }
 
-/// Returns the build path from the environment, if present.
-private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
+private func getEnvBuildPath(for packagePath: AbsolutePath?) -> AbsolutePath? {
     // Don't rely on build path from env for SwiftPM's own tests.
     guard POSIX.getenv("IS_SWIFTPM_TEST") == nil else { return nil }
     guard let env = POSIX.getenv("SWIFTPM_BUILD_DIR") else { return nil }
-    return AbsolutePath(env, relativeTo: workingDir)
+    return AbsolutePath(env, relativeTo: packagePath!)
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.

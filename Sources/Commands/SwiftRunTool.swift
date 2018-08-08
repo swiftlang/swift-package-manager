@@ -93,12 +93,13 @@ public enum RunMode {
 /// swift-run tool namespace
 public class SwiftRunTool: SwiftTool<RunToolOptions> {
 
-   public convenience init(args: [String]) {
-       self.init(
+    public convenience init(args: [String], workingDir: String) {
+        self.init(
             toolName: "run",
             usage: "[options] [executable [arguments ...]]",
             overview: "Build and run an executable product",
             args: args,
+            packagePath: AbsolutePath(workingDir),
             seeAlso: type(of: self).otherToolNames()
         )
     }

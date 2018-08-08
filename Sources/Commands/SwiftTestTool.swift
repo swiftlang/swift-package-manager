@@ -165,12 +165,13 @@ public enum TestMode {
 /// swift-test tool namespace
 public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
-   public convenience init(args: [String]) {
-       self.init(
+    public convenience init(args: [String], workingDir: String) {
+        self.init(
             toolName: "test",
             usage: "[options]",
             overview: "Build and run tests",
             args: args,
+            packagePath: AbsolutePath(workingDir),
             seeAlso: type(of: self).otherToolNames()
         )
     }
