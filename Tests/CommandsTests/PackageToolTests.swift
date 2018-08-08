@@ -131,7 +131,8 @@ final class PackageToolTests: XCTestCase {
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
-            _ = try execute(["-C", path.asString, "init", "--type", "empty"])
+            _ = try execute(["init", "--type", "empty"], packagePath: path)
+            
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
@@ -143,7 +144,7 @@ final class PackageToolTests: XCTestCase {
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
-            _ = try execute(["-C", path.asString, "init", "--type", "executable"])
+            _ = try execute(["init", "--type", "executable"], packagePath: path)
 
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).asString!
@@ -163,7 +164,8 @@ final class PackageToolTests: XCTestCase {
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
-            _ = try execute(["-C", path.asString, "init"])
+            _ = try execute(["init"], packagePath: path)
+            
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
             XCTAssertEqual(
@@ -177,7 +179,7 @@ final class PackageToolTests: XCTestCase {
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
-            _ = try execute(["-C", path.asString, "init", "--name", "CustomName", "--type", "executable"])
+            _ = try execute(["init", "--name", "CustomName", "--type", "executable"], packagePath: path)
             
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).asString!
