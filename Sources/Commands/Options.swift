@@ -53,7 +53,7 @@ public class ToolOptions {
     public var shouldEnableManifestCaching = false
 
     /// If should enable building with llbuild library.
-    public var shouldEnableLLBuildLibrary = false
+    public var shouldEnableLLBuildLibrary = true
 
     /// Skip updating dependencies from their remote during a resolution.
     public var skipDependencyUpdate = false
