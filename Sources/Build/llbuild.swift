@@ -139,16 +139,6 @@ public struct LLBuildManifestGenerator {
 
         stream <<< "default: " <<< Format.asJSON(targets.main.name) <<< "\n"
 
-        // Add manifest regeneration directory nodes as directory structure.
-        let manifestRegenerationInputs = self.manifestRegenerationInputs()
-        if let manifestRegenerationInputs = manifestRegenerationInputs, !manifestRegenerationInputs.dirs.isEmpty {
-            stream <<< "nodes:\n"
-            for dir in manifestRegenerationInputs.dirs {
-                stream <<< "  " <<< Format.asJSON(dir) <<< ":\n"
-                stream <<< "    is-directory-structure: true\n"
-            }
-        }
-        
         stream <<< "commands: \n"
         for command in targets.allCommands.sorted(by: { $0.name < $1.name }) {
             stream <<< "  " <<< Format.asJSON(command.name) <<< ":\n"
@@ -156,49 +146,7 @@ public struct LLBuildManifestGenerator {
             stream <<< "\n"
         }
 
-        if let manifestRegenerationInputs = manifestRegenerationInputs {
-            // Add command for computing manifest regeneration.
-            let regenerationCommand = ShellTool(
-                description: "",
-                inputs: manifestRegenerationInputs.dirs + manifestRegenerationInputs.files,
-                outputs: [buildManifestRegenerationNode],
-                args: ["echo 1 > " + plan.buildParameters.regenerateManifestToken.asString],
-                allowMissingInputs: true
-            )
-            stream <<< "  " <<< Format.asJSON(plan.buildParameters.regenerateManifestToken.asString) <<< ":\n"
-            regenerationCommand.append(to: stream)
-        }
-        
         try localFileSystem.writeFileContents(path, bytes: stream.bytes)
-    }
-    
-    private func manifestRegenerationInputs() -> (dirs: [String], files: [String])? {
-        // If manifest caching is not enabled, just return nil from here.
-        guard plan.buildParameters.shouldEnableManifestCaching else { return nil }
-
-        var directoryNodesToTrack: [AbsolutePath] = []
-        var filesToTrack: [AbsolutePath] = []
-        
-        let graph = plan.graph
-        
-        for package in graph.packages {
-            // Track the package manifest.
-            filesToTrack.append(package.underlyingPackage.manifest.path)
-            
-            if graph.isRootPackage(package) {
-                // Track individual targets for root packages.
-                for target in package.targets {
-                    directoryNodesToTrack.append(target.sources.root)
-                }
-            } else {
-                // Track the entire package and their package manifest.
-                directoryNodesToTrack.append(package.path)
-            }
-        }
-
-        // We also need to track the resolved file.
-        filesToTrack.append(resolvedFile)
-        return (directoryNodesToTrack.map({ $0.asString + "/" }), filesToTrack.map({ $0.asString }))
     }
 
     /// Create a llbuild target for a product description.
