@@ -894,7 +894,19 @@ exec ${{__dir}}/swift-$1 ${{SPM_FLAGS[@]}} "${{@:2}}" """.format(options=swiftpm
 
 def build_llbuild(args):
     note("Building llbuild")
+    
+    # Confirm ninja is available.
+    try:
+        subprocess.check_output(['ninja', '--version'], stderr=subprocess.STDOUT)
+    except Exception as e:
+        error("ninja is not available with error: %s" % e) 
 
+    # Confirm cmake is available.
+    try:
+        subprocess.check_output(['cmake', '--version'], stderr=subprocess.STDOUT)
+    except Exception as e:
+        error("cmake is not available with error: %s" % e) 
+    
     llbuild_build_dir = args.llbuild_build_dir
     llbuild_source_dir = args.llbuild_source_dir
 
