@@ -880,6 +880,32 @@ extension Workspace {
         return manifestLoader.interpreterFlags(for: toolsVersion.manifestVersion)
     }
 
+    /// Checks if the managed dependency for a given package reference is still valid.
+    func validateManagedDependency(for inputRef: PackageReference, diagnostics: DiagnosticsEngine) {
+        // There is nothing to validate if there is no managed dependency for this package.
+        guard let dependencyRef = managedDependencies[forIdentity: inputRef.identity]?.packageRef else {
+            return
+        }
+
+        // Ensure that the package paths are equal.
+        if dependencyRef.path == inputRef.path {
+            return
+        }
+
+        // Otherwise, the managed dependency is out-of-sync and we need to
+        // remove it. This usually happens when a fork is added or removed for
+        // a dependency.
+        diagnostics.wrap {
+            // Remove the dependency.
+            try self.remove(package: dependencyRef)
+
+            // Unpin it.
+            let pinsStore = try self.pinsStore.load()
+            pinsStore.unpin(dependencyRef)
+            try pinsStore.saveState()
+        }
+    }
+
     /// Load the manifests for the current dependency tree.
     ///
     /// This will load the manifests for the root package as well as all the
@@ -905,8 +931,13 @@ extension Workspace {
             return DependencyManifests(root: root, dependencies: [], workspace: self)
         }
 
-        let rootDependencyManifests = root.dependencies.compactMap({
-            return loadManifest(for: $0.createPackageRef(), diagnostics: diagnostics)
+        let rootDependencyManifests: [Manifest] = root.dependencies.compactMap({
+            let dependencyRef = $0.createPackageRef()
+
+            validateManagedDependency(for: dependencyRef, diagnostics: diagnostics)
+            if diagnostics.hasErrors { return nil }
+
+            return loadManifest(for: dependencyRef, diagnostics: diagnostics)
         })
         let inputManifests = root.manifests + rootDependencyManifests
 
@@ -917,6 +948,10 @@ extension Workspace {
         let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.name) })) { node in
             return node.item.dependencies.compactMap({ dependency in
                 let ref = dependency.createPackageRef()
+
+                validateManagedDependency(for: ref, diagnostics: diagnostics)
+                if diagnostics.hasErrors { return nil }
+
                 let manifest = loadedManifests[ref.identity] ?? loadManifest(for: ref, diagnostics: diagnostics)
                 loadedManifests[ref.identity] = manifest
                 return manifest.flatMap({ KeyedPair($0, key: $0.name) })

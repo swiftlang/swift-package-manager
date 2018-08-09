@@ -71,9 +71,10 @@ public final class TestWorkspace {
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
         func create(package: TestPackage, basePath: AbsolutePath, isRoot: Bool) throws {
-            let packagePath = basePath.appending(component: package.path ?? package.name)
+            let packagePath = basePath.appending(RelativePath(package.path ?? package.name))
+
             let sourcesDir = packagePath.appending(component: "Sources")
-            let url = (isRoot ? packagePath : packagesDir.appending(component: package.path ?? package.name)).asString
+            let url = (isRoot ? packagePath : packagesDir.appending(RelativePath(package.path ?? package.name))).asString
             let specifier = RepositorySpecifier(url: url)
             
             // Create targets on disk.
@@ -161,7 +162,7 @@ public final class TestWorkspace {
 
         fileprivate func convert(_ packagesDir: AbsolutePath) -> PackageGraphRootInput.PackageDependency {
             return PackageGraphRootInput.PackageDependency(
-                url: packagesDir.appending(component: name).asString,
+                url: packagesDir.appending(RelativePath(name)).asString,
                 requirement: requirement,
                 location: name
             )
@@ -445,7 +446,7 @@ public struct TestDependency {
     }
 
     public func convert(baseURL: AbsolutePath) -> PackageDependencyDescription {
-        return PackageDependencyDescription(url: baseURL.appending(component: name).asString, requirement: requirement)
+        return PackageDependencyDescription(url: baseURL.appending(RelativePath(name)).asString, requirement: requirement)
     }
 }
 
