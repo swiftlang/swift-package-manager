@@ -249,6 +249,7 @@ public struct LLBuildManifestGenerator {
             switch dependency {
             case .target(let target):
                 addStaticTargetInputs(target)
+
             case .product(let product):
                 switch product.type {
                 case .executable, .library(.dynamic):
@@ -266,11 +267,12 @@ public struct LLBuildManifestGenerator {
             }
         }
 
-        var buildTarget = Target(name: target.target.getLLBuildTargetName(config: plan.buildParameters.configuration.dirname))
+        let buildConfig = plan.buildParameters.configuration.dirname
+        var buildTarget = Target(name: target.target.getLLBuildTargetName(config: buildConfig))
         // The target only cares about the module output.
         buildTarget.outputs.insert(target.moduleOutputPath.asString)
         let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
-        buildTarget.cmds.insert(Command(name: target.target.getCommandName(config: plan.buildParameters.configuration.dirname), tool: tool))
+        buildTarget.cmds.insert(Command(name: target.target.getCommandName(config: buildConfig), tool: tool))
         return buildTarget
     }
 
@@ -318,12 +320,9 @@ extension ResolvedTarget {
     public func getCommandName(config: String) -> String {
        return "C." + getLLBuildTargetName(config: config)
     }
-    
+
     public func getLLBuildTargetName(config: String) -> String {
-        if config == "release" {
-            return "\(name)-release.module"
-        }
-        return "\(name)-debug.module"
+        return "\(name)-\(config).module"
     }
 }
 

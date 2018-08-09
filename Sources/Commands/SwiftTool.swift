@@ -565,30 +565,6 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.dematerialize()
     }
 
-    func shouldRegenerateManifest() throws -> Bool {
-        // Check if we are allowed to use llbuild manifest caching.
-        guard options.shouldEnableManifestCaching else {
-            return true
-        }
-        
-        // Check if we need to generate the llbuild manifest.
-        let parameters: BuildParameters = try self.buildParameters()
-        guard localFileSystem.isFile(parameters.llbuildManifest) else {
-            return true
-        }
-        
-        // Run the target which computes if regeneration is needed.
-        let args = [try getToolchain().llbuild.asString, "-f", parameters.llbuildManifest.asString, "regenerate"]
-        do {
-            try Process.checkNonZeroExit(arguments: args)
-        } catch {
-            // Regenerate the manifest if this fails for some reason.
-            warning(message: "Failed to run the regeneration check: \(error)")
-            return true
-        }
-        return try !self.buildManifestRegenerationToken().isValid()
-    }
-    
     func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String? {
         switch subset {
         case .allExcludingTests:
@@ -610,11 +586,6 @@ public class SwiftTool<Options: ToolOptions> {
     
     /// Build a subset of products and targets using swift-build-tool.
     func build(plan: BuildPlan, subset: BuildSubset) throws {
-        guard !plan.graph.rootPackages[0].targets.isEmpty else {
-            warning(message: "no targets to build in package")
-            return
-        }
-
         guard let llbuildTargetName = subset.llbuildTargetName(for: plan.graph, diagnostics: diagnostics, config: plan.buildParameters.configuration.dirname) else {
             return
         }
