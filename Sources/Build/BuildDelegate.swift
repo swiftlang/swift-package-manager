@@ -173,6 +173,7 @@ private let newLineByte: UInt8 = 10
 public final class BuildDelegate: BuildSystemDelegate {
     private let diagnostics: DiagnosticsEngine
     public var outputStream: OutputByteStream
+    public var isVerbose: Bool = false
     public var onCommmandFailure: (() -> Void)?
 
     public init(diagnostics: DiagnosticsEngine, outputStream: OutputByteStream = stdoutStream) {
@@ -204,7 +205,7 @@ public final class BuildDelegate: BuildSystemDelegate {
 
     public func commandStarted(_ command: SPMLLBuild.Command) {
         guard command.shouldShowStatus else { return }
-        outputStream <<< (command.description + "\n")
+        outputStream <<< ((isVerbose ? command.verboseDescription : command.description) + "\n")
         outputStream.flush()
     }
 
