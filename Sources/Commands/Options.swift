@@ -50,7 +50,7 @@ public class ToolOptions {
     public var shouldLinkStaticSwiftStdlib = false
     
     /// If should enable building with llbuild library.
-    public var shouldEnableLLBuildLibrary = true
+    public var shouldEnableLLBuildLibrary = false
 
     /// Skip updating dependencies from their remote during a resolution.
     public var skipDependencyUpdate = false
