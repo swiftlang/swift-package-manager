@@ -892,20 +892,17 @@ exec ${{__dir}}/swift-$1 ${{SPM_FLAGS[@]}} "${{@:2}}" """.format(options=swiftpm
     st = os.stat(script_path)
     os.chmod(script_path, st.st_mode | stat.S_IEXEC)
 
+def checkTool(cmd):
+    try:
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    except Exception as e:
+        error("%s is not available: %s" % (cmd[0], e))
+
 def build_llbuild(args):
     note("Building llbuild")
-    
-    # Confirm ninja is available.
-    try:
-        subprocess.check_output(['ninja', '--version'], stderr=subprocess.STDOUT)
-    except Exception as e:
-        error("ninja is not available with error: %s" % e) 
 
-    # Confirm cmake is available.
-    try:
-        subprocess.check_output(['cmake', '--version'], stderr=subprocess.STDOUT)
-    except Exception as e:
-        error("cmake is not available with error: %s" % e) 
+    checkTool(["ninja", "--version"])    
+    checkTool(["cmake", "--version"])
     
     llbuild_build_dir = args.llbuild_build_dir
     llbuild_source_dir = args.llbuild_source_dir
@@ -1067,11 +1064,7 @@ def main():
         args.llbuild_build_dir = os.path.join(target_path, conf, "llbuild")
         should_build_llbuild = True
 
-    # Confirm rsync is available.
-    try:
-        subprocess.check_output(['rsync', '--version'], stderr=subprocess.STDOUT)
-    except Exception as e:
-        error("rsync is not available with error: %s" % e)  
+    checkTool(["rsync", "--version"])
     
     # If the action is "clean", just remove the bootstrap and build directories.
     if "clean" in build_actions:
