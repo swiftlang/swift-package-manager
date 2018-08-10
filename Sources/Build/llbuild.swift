@@ -220,9 +220,10 @@ public struct LLBuildManifestGenerator {
             )
         }
 
-        var target = Target(name: buildProduct.product.llbuildTargetName)
+        let buildConfig = plan.buildParameters.configuration.dirname
+        var target = Target(name: buildProduct.product.getLLBuildTargetName(config: buildConfig))
         target.outputs.insert(contentsOf: tool.outputs)
-        target.cmds.insert(Command(name: buildProduct.product.commandName, tool: tool))
+        target.cmds.insert(Command(name: buildProduct.product.getCommandName(config: buildConfig), tool: tool))
         return target
     }
 
@@ -327,22 +328,22 @@ extension ResolvedTarget {
 }
 
 extension ResolvedProduct {
-    public var llbuildTargetName: String {
+    public func getLLBuildTargetName(config: String) -> String {
         switch type {
         case .library(.dynamic):
-            return "\(name).dylib"
+            return "\(name)-\(config).dylib"
         case .test:
-            return "\(name).test"
+            return "\(name)-\(config).test"
         case .library(.static):
-            return "\(name).a"
+            return "\(name)-\(config).a"
         case .library(.automatic):
             fatalError()
         case .executable:
-            return "\(name).exe"
+            return "\(name)-\(config).exe"
         }
     }
 
-    var commandName: String {
-        return "C.\(llbuildTargetName)"
+    public func getCommandName(config: String) -> String {
+        return "C." + getLLBuildTargetName(config: config)
     }
 }

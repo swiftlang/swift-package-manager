@@ -781,7 +781,7 @@ extension BuildSubset {
                 diagnostics.emit(data: ProductIsAutomaticDiagnostic(productName: productName))
                 return LLBuildManifestGenerator.llbuildMainTargetName
             }
-            return product.llbuildTargetName
+            return product.getLLBuildTargetName(config: config)
         case .target(let targetName):
             guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
                 diagnostics.emit(data: TargetNotFoundDiagnostic(targetName: targetName))
