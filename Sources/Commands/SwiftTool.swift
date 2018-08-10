@@ -619,6 +619,7 @@ public class SwiftTool<Options: ToolOptions> {
     func runLLBuildAsLibrary(manifest: AbsolutePath, llbuildTarget: String) throws {
         let databasePath = buildPath.appending(component: "build.db").asString
         let buildSystem = BuildSystem(buildFile: manifest.asString, databaseFile: databasePath, delegate: buildDelegate)
+        buildDelegate.isVerbose = verbosity != .concise
         buildDelegate.onCommmandFailure = { [weak buildSystem] in buildSystem?.cancel() }
         guard buildSystem.build(target: llbuildTarget) else { throw Diagnostics.fatalError }
     }
