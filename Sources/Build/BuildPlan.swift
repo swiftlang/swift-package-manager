@@ -207,14 +207,20 @@ public final class ClangTargetBuildDescription {
         args += activeCompilationConditions
 
         // Only enable ARC on macOS.
-      #if os(macOS)
-        args += ["-fobjc-arc"]
-      #endif
+        if buildParameters.triple.isDarwin() {
+            args += ["-fobjc-arc"]
+        }
         args += ["-fblocks"]
-        args += ["-fmodules", "-fmodule-name=" + target.c99name]
+
+        if !buildParameters.triple.isWindows() {
+            // Using modules currently conflicts with the Windows SDKs.
+            args += ["-fmodules", "-fmodule-name=" + target.c99name]
+        }
         args += ["-I", clangTarget.includeDir.asString]
         args += additionalFlags
-        args += moduleCacheArgs
+        if !buildParameters.triple.isWindows() {
+            args += moduleCacheArgs
+        }
         args += buildParameters.sanitizers.compileCFlags()
 
         // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
@@ -231,7 +237,11 @@ public final class ClangTargetBuildDescription {
     private var optimizationArguments: [String] {
         switch buildParameters.configuration {
         case .debug:
-            return ["-g", "-O0"]
+            if buildParameters.triple.isWindows() {
+                return ["-g", "-gcodeview", "-O0"]
+            } else {
+                return ["-g", "-O0"]
+            }
         case .release:
             return ["-O2"]
         }
@@ -402,7 +412,11 @@ public final class ProductBuildDescription {
 
         switch product.type {
         case .executable:
-            return RelativePath(name)
+            if buildParameters.triple.isWindows() {
+                return RelativePath("\(name).exe")
+            } else {
+                return RelativePath(name)
+            }
         case .library(.static):
             return RelativePath("lib\(name).a")
         case .library(.dynamic):
@@ -466,7 +480,11 @@ public final class ProductBuildDescription {
         args += additionalFlags
 
         if buildParameters.configuration == .debug {
-            args += ["-g"]
+            if buildParameters.triple.isWindows() {
+                args += ["-Xlinker","-debug"]
+            } else {
+                args += ["-g"]
+            }
         }
         args += ["-L", buildParameters.buildPath.asString]
         args += ["-o", binary.asString]
@@ -498,11 +516,12 @@ public final class ProductBuildDescription {
             }
             args += ["-emit-executable"]
         }
-      #if os(Linux)
+        
         // On linux, set rpath such that dynamic libraries are looked up
         // adjacent to the product. This happens by default on macOS.
-        args += ["-Xlinker", "-rpath=$ORIGIN"]
-      #endif
+        if buildParameters.triple.isLinux() {
+            args += ["-Xlinker", "-rpath=$ORIGIN"]
+        }
         args += ["@" + linkFileListPath.asString]
 
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides

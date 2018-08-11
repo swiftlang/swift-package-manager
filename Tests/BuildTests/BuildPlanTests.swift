@@ -46,12 +46,14 @@ final class BuildPlanTests: XCTestCase {
     func mockBuildParameters(
         buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
         config: Build.Configuration = .debug,
-        shouldLinkStaticSwiftStdlib: Bool = false
+        shouldLinkStaticSwiftStdlib: Bool = false,
+        destinationTriple: Triple = Triple.hostTriple
     ) -> BuildParameters {
         return BuildParameters(
             dataPath: buildPath,
             configuration: config,
             toolchain: MockToolchain(),
+            destinationTriple: destinationTriple,
             flags: BuildFlags(),
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib)
     }
@@ -894,6 +896,50 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(diagnostic.localizedDescription, "couldn't find pc file")
         XCTAssertEqual(diagnostic.behavior, .warning)
         XCTAssertEqual(diagnostic.location.localizedDescription, "'BTarget' BTarget.pc")
+    }
+    
+    func testWindowsTarget() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+                                    "/Pkg/Sources/lib/lib.c",
+                                    "/Pkg/Sources/lib/include/lib.h"
+        )
+        
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+                                     manifests: [
+                                        Manifest.createV4Manifest(
+                                            name: "Pkg",
+                                            path: "/Pkg",
+                                            url: "/Pkg",
+                                            targets: [
+                                                TargetDescription(name: "exe", dependencies: ["lib"]),
+                                                TargetDescription(name: "lib", dependencies: []),
+                                                ]),
+                                        ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+        
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(destinationTriple: .windows), graph: graph, diagnostics: diagnostics, fileSystem: fs))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+        
+        let lib = try result.target(for: "lib").clangTarget()
+        var args = ["-g", "-gcodeview", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
+        args += ["-fblocks", "-I", "/Pkg/Sources/lib/include"]
+        XCTAssertEqual(lib.basicArguments(), args)
+        XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")])
+        XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
+        
+        let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+        XCTAssertMatch(exe, ["-swift-version", "4", "-enable-batch-mode", "-Onone", "-g", "-enable-testing", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG","-Xcc", "-fmodule-map-file=/path/to/build/debug/lib.build/module.modulemap", "-I", "/Pkg/Sources/lib/include", "-module-cache-path", "/path/to/build/debug/ModuleCache", .anySequence])
+        
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
+            "/fake/path/to/swiftc", "-Xlinker", "-debug",
+            "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe.exe",
+            "-module-name", "exe", "-emit-executable",
+            "@/path/to/build/debug/exe.product/Objects.LinkFileList",
+            ])
     }
 }
 
