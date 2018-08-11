@@ -48,11 +48,13 @@ public struct Triple {
         case darwin
         case macOS = "macosx"
         case linux
+        case windows
 
         fileprivate static let allKnown:[OS] = [
             .darwin,
             .macOS,
-            .linux
+            .linux,
+            .windows
         ]
     }
 
@@ -106,6 +108,10 @@ public struct Triple {
         return os == .linux
     }
 
+    public func isWindows() -> Bool {
+        return os == .windows
+    }
+
     public static let macOS = try! Triple("x86_64-apple-macosx10.10")
     public static let x86Linux = try! Triple("x86_64-unknown-linux")
     public static let ppc64leLinux = try! Triple("powerpc64le-unknown-linux")
@@ -113,9 +119,12 @@ public struct Triple {
     public static let arm64Linux = try! Triple("aarch64-unknown-linux")
     public static let armLinux = try! Triple("armv7-unknown-linux-gnueabihf")
     public static let android = try! Triple("armv7-unknown-linux-androideabi")
+    public static let windows = try! Triple("x86_64-unknown-windows-msvc")
 
   #if os(macOS)
     public static let hostTriple: Triple = .macOS
+  #elseif os(Windows)
+    public static let hostTriple: Triple = .windows
   #elseif os(Linux)
     #if arch(x86_64)
       public static let hostTriple: Triple = .x86Linux
