@@ -113,7 +113,7 @@ def write_file_if_changed(path, data):
 def get_current_sha(project_root):
     try:
         return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], universal_newlines=True).strip()
+            ["git", "-C", project_root, "rev-parse", "--short", "HEAD"], universal_newlines=True).strip()
     except:
         return None
 
