@@ -236,6 +236,14 @@ precedencegroup StreamingPrecedence {
 
 // MARK: Output Operator Implementations
 
+// FIXME: This override shouldn't be necesary but removing it causes a 30% performance regression. This problem is
+// tracked by the following bug: https://bugs.swift.org/browse/SR-8535
+@discardableResult
+public func <<< (stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputByteStream {
+    value.write(to: stream)
+    return stream
+}
+
 @discardableResult
 public func <<< (stream: OutputByteStream, value: ByteStreamable) -> OutputByteStream {
     value.write(to: stream)
