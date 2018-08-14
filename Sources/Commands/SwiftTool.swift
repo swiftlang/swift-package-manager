@@ -565,7 +565,7 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.dematerialize()
     }
 
-    func computeLLBuildTargetName(for subset: BuildSubset) throws -> String? {
+    func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String? {
         switch subset {
         case .allExcludingTests:
             return LLBuildManifestGenerator.llbuildMainTargetName
@@ -573,12 +573,12 @@ public class SwiftTool<Options: ToolOptions> {
             return LLBuildManifestGenerator.llbuildTestTargetName
         default:
             // FIXME: This is super unfortunate that we might need to load the package graph.
-            return try subset.llbuildTargetName(for: loadPackageGraph(), diagnostics: diagnostics)
+            return try subset.llbuildTargetName(for: loadPackageGraph(), diagnostics: diagnostics, config: buildParameters.configuration.dirname)
         }
     }
     
     func build(parameters: BuildParameters, subset: BuildSubset) throws {
-        guard let llbuildTargetName = try computeLLBuildTargetName(for: subset) else {
+        guard let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: parameters) else {
             return
         }
         try runLLBuild(manifest: parameters.llbuildManifest, llbuildTarget: llbuildTargetName)
@@ -586,7 +586,7 @@ public class SwiftTool<Options: ToolOptions> {
     
     /// Build a subset of products and targets using swift-build-tool.
     func build(plan: BuildPlan, subset: BuildSubset) throws {
-        guard let llbuildTargetName = subset.llbuildTargetName(for: plan.graph, diagnostics: diagnostics) else {
+        guard let llbuildTargetName = subset.llbuildTargetName(for: plan.graph, diagnostics: diagnostics, config: plan.buildParameters.configuration.dirname) else {
             return
         }
 
@@ -765,7 +765,7 @@ enum BuildSubset {
 
 extension BuildSubset {
     /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine) -> String? {
+    func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine, config: String) -> String? {
         switch self {
         case .allExcludingTests:
             return LLBuildManifestGenerator.llbuildMainTargetName
@@ -782,13 +782,13 @@ extension BuildSubset {
                 diagnostics.emit(data: ProductIsAutomaticDiagnostic(productName: productName))
                 return LLBuildManifestGenerator.llbuildMainTargetName
             }
-            return product.llbuildTargetName
+            return product.getLLBuildTargetName(config: config)
         case .target(let targetName):
             guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
                 diagnostics.emit(data: TargetNotFoundDiagnostic(targetName: targetName))
                 return nil
             }
-            return target.llbuildTargetName
+            return target.getLLBuildTargetName(config: config)
         }
     }
 }

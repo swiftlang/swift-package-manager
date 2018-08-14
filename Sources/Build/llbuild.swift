@@ -168,9 +168,10 @@ public struct LLBuildManifestGenerator {
             )
         }
 
-        var target = Target(name: buildProduct.product.llbuildTargetName)
+        let buildConfig = plan.buildParameters.configuration.dirname
+        var target = Target(name: buildProduct.product.getLLBuildTargetName(config: buildConfig))
         target.outputs.insert(contentsOf: tool.outputs)
-        target.cmds.insert(Command(name: buildProduct.product.commandName, tool: tool))
+        target.cmds.insert(Command(name: buildProduct.product.getCommandName(config: buildConfig), tool: tool))
         return target
     }
 
@@ -215,11 +216,12 @@ public struct LLBuildManifestGenerator {
             }
         }
 
-        var buildTarget = Target(name: target.target.llbuildTargetName)
+        let buildConfig = plan.buildParameters.configuration.dirname
+        var buildTarget = Target(name: target.target.getLLBuildTargetName(config: buildConfig))
         // The target only cares about the module output.
         buildTarget.outputs.insert(target.moduleOutputPath.asString)
         let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
-        buildTarget.cmds.insert(Command(name: target.target.commandName, tool: tool))
+        buildTarget.cmds.insert(Command(name: target.target.getCommandName(config: buildConfig), tool: tool))
         return buildTarget
     }
 
@@ -256,7 +258,7 @@ public struct LLBuildManifestGenerator {
         })
 
         // For Clang, the target requires all command outputs.
-        var buildTarget = Target(name: target.target.llbuildTargetName)            
+        var buildTarget = Target(name: target.target.getLLBuildTargetName(config: plan.buildParameters.configuration.dirname))
         buildTarget.outputs.insert(contentsOf: commands.flatMap({ $0.tool.outputs }))
         buildTarget.cmds += commands
         return buildTarget
@@ -264,32 +266,32 @@ public struct LLBuildManifestGenerator {
 }
 
 extension ResolvedTarget {
-    public var llbuildTargetName: String {
-        return "\(name).module"
+    public func getCommandName(config: String) -> String {
+       return "C." + getLLBuildTargetName(config: config)
     }
 
-    var commandName: String {
-        return "C.\(llbuildTargetName)"
+    public func getLLBuildTargetName(config: String) -> String {
+        return "\(name)-\(config).module"
     }
 }
 
 extension ResolvedProduct {
-    public var llbuildTargetName: String {
+    public func getLLBuildTargetName(config: String) -> String {
         switch type {
         case .library(.dynamic):
-            return "\(name).dylib"
+            return "\(name)-\(config).dylib"
         case .test:
-            return "\(name).test"
+            return "\(name)-\(config).test"
         case .library(.static):
-            return "\(name).a"
+            return "\(name)-\(config).a"
         case .library(.automatic):
             fatalError()
         case .executable:
-            return "\(name).exe"
+            return "\(name)-\(config).exe"
         }
     }
 
-    var commandName: String {
-        return "C.\(llbuildTargetName)"
+    public func getCommandName(config: String) -> String {
+        return "C." + getLLBuildTargetName(config: config)
     }
 }
