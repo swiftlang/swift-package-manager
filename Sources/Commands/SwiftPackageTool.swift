@@ -68,11 +68,61 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .update:
             let workspace = try getActiveWorkspace()
-            try workspace.updateDependencies(
-                root: getWorkspaceRoot(),
-                diagnostics: diagnostics
-            )
+            if options.packageUpdateDryRun {
+                guard let result = try workspace.updateDependenciesDryRun(
+                    root: getWorkspaceRoot(),
+                    diagnostics: diagnostics
+                ) else {
+                        return
+                }
+                
+                var maxWidth = 0
+                for (package, state) in result {
+                    if state != .unchanged {
+                        if let packageName = package.name {
+                            let packageString = "\(packageName)"
+                            let stateString = "\(state)"
+                            maxWidth = max(packageString.count + stateString.count , maxWidth)
+                        }    
+                    }
+                }
 
+                /// Prints an argument on a stream 
+                func printUpdate(package: String, state: String, on stream: OutputByteStream) {
+                    // Start with a new line and add some padding.
+                    stream <<< "\n"
+                    let count = package.count
+                    stream <<< package
+                    if maxWidth - count - 60 < 0 {
+                        stream <<< "\n"
+                        stream <<< Format.asRepeating(string: " ", count: maxWidth - 60)
+
+                    } else {
+                        stream <<< Format.asRepeating(string: " ", count: maxWidth - count - 60)
+                    }
+                    
+                    stream <<< state
+                }
+                
+                printUpdate(package: "PACKAGE NAME", state: "PACKAGE STATE", on: stdoutStream) 
+                for (package, state) in result {
+                    if state != .unchanged {
+                        if let packageName = package.name {
+                            let packageString = "\(packageName)"
+                            let stateString = "\(state)"
+                            printUpdate(package: packageString, state: stateString, on: stdoutStream) 
+                        }    
+                    }
+                }
+                stdoutStream <<< "\n"
+                stdoutStream.flush()
+            }
+            else {
+                 try workspace.updateDependencies(
+                    root: getWorkspaceRoot(),
+                    diagnostics: diagnostics
+                )
+            }
         case .fetch:
             diagnostics.emit(data: FetchDeprecatedDiagnostic())
             try resolve()
@@ -290,7 +340,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
-        parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
+
+        let updateParser = parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
+        binder.bind(
+            option: updateParser.add(
+                option: "--dry-run", shortName: "-n", kind: Bool.self,
+                usage: "List package dependencies ready for update"),
+            to: { $0.packageUpdateDryRun = $1 })
 
         let initPackageParser = parser.add(
             subparser: PackageMode.initPackage.rawValue,
@@ -446,6 +502,8 @@ public class PackageToolOptions: ToolOptions {
         var path: AbsolutePath?
         var shouldForceRemove = false
     }
+
+    var packageUpdateDryRun = false
 
     var editOptions = EditOptions()
 

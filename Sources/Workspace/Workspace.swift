@@ -480,15 +480,9 @@ extension Workspace {
         try? fileSystem.removeFileTree(dataPath)
     }
 
-    /// Updates the current dependencies.
-    ///
-    /// - Parameters:
-    ///     - diagnostics: The diagnostics engine that reports errors, warnings
-    ///       and notes.
-    public func updateDependencies(
-        root: PackageGraphRootInput,
-        diagnostics: DiagnosticsEngine
-    ) {
+    /// Loads root and current manifests to create constraints to pass to dependency resolver to return dependencies 
+    /// to be used for either printing or updates.
+    fileprivate func computePackageUpdateResult(root: PackageGraphRootInput, diagnostics: DiagnosticsEngine) throws -> (graphRoot: PackageGraphRoot, updateResults: [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)]) {
         // Create cache directories.
         createCacheDirectories(with: diagnostics)
 
@@ -499,13 +493,8 @@ extension Workspace {
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
         let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
-        // Abort if we're unable to load the pinsStore or have any diagnostics.
-        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else {
-            return
-        }
-
         // Ensure we don't have any error at this point.
-        guard !diagnostics.hasErrors else { return }
+        guard !diagnostics.hasErrors else { return (graphRoot: graphRoot, updateResults: []) }
 
         // Add unversioned constraints for edited packages.
         var updateConstraints = currentManifests.editedPackagesConstraints()
@@ -518,21 +507,37 @@ extension Workspace {
 
         // Resolve the dependencies.
         let updateResults = resolveDependencies(dependencies: updateConstraints, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else { return }
+        guard !diagnostics.hasErrors else { throw Diagnostics.fatalError }
 
         // Emit the time taken to perform dependency resolution.
         let resolutionDuration = Date().timeIntervalSince(resolutionStartTime)
         diagnostics.emit(data: WorkspaceDiagnostics.ResolverDurationNote(resolutionDuration))
 
-		// Update the checkouts based on new dependency resolution.
+        return (graphRoot: graphRoot, updateResults: updateResults)
+    }
+
+    /// Updates the current dependencies.
+    public func updateDependencies(root: PackageGraphRootInput, diagnostics: DiagnosticsEngine)  {
+        guard let (graphRoot, updateResults) = diagnostics.wrap({ try computePackageUpdateResult(root: root, diagnostics: diagnostics) }), !diagnostics.hasErrors else { return } 
+        // Update the checkouts based on new dependency resolution.
         updateCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else { return }
-
+        
+        // Abort if we're unable to load the pinsStore or have any diagnostics.
+        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }), !diagnostics.hasErrors else { return }
         // Update the pins store.
         return pinAll(
             graphRoot: graphRoot,
             pinsStore: pinsStore,
             diagnostics: diagnostics)
+    }
+
+    /// List packages available for update.
+    public func updateDependenciesDryRun(root: PackageGraphRootInput, diagnostics: DiagnosticsEngine) -> [PackageReference: PackageStateChange]? {
+        return diagnostics.wrap({ 
+            let (graphRoot, updateResults) = try computePackageUpdateResult(root: root, diagnostics: diagnostics) 
+            return try computePackageStateChanges(root: graphRoot, resolvedDependencies: updateResults , updateBranches: true)
+        })
     }
 
     /// Fetch and load the complete package at the given path.
@@ -1236,9 +1241,9 @@ extension Workspace {
     }
 
     /// This enum represents state of an external package.
-    fileprivate enum PackageStateChange: Equatable {
+    public enum PackageStateChange: Equatable {
         /// The requirement imposed by the the state.
-        enum Requirement: Equatable {
+        public enum Requirement: Equatable {
             /// A version requirement.
             case version(Version)
 
