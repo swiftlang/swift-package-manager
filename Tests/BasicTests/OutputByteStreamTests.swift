@@ -14,17 +14,17 @@ import Basic
 
 class OutputByteStreamTests: XCTestCase {
     func testBasics() {
-        let stream = BufferedOutputByteStream()
+        var stream = BufferedOutputByteStream()
         
-        stream.write("Hello")
-        stream.write(Character(","))
-        stream.write(Character(" "))
-        stream.write([UInt8]("wor".utf8))
-        stream.write([UInt8]("world".utf8)[3..<5])
+        "Hel".write(to: stream)
+        "Hello".dropFirst(3).write(to: stream)
+        Character(",").write(to: stream)
+        Character(" ").write(to: stream)
+        [UInt8]("wor".utf8).write(to: stream)
+        [UInt8]("world".utf8)[3..<5].write(to: stream)
         
         let streamable: TextOutputStreamable = Character("!")
-        stream.write(streamable)
-
+        streamable.write(to: &stream)
         
         XCTAssertEqual(stream.position, "Hello, world!".utf8.count)
         stream.flush()
@@ -39,10 +39,6 @@ class OutputByteStreamTests: XCTestCase {
         
         XCTAssertEqual(stream.position, "Hello, world!".utf8.count)
         XCTAssertEqual(stream.bytes, "Hello, world!")
-
-        let stream2 = BufferedOutputByteStream()
-        stream2 <<< (0..<5)
-        XCTAssertEqual(stream2.bytes, [0, 1, 2, 3, 4])
     }
     
     func testBufferCorrectness() {

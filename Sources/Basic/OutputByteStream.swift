@@ -115,7 +115,7 @@ public class OutputByteStream: TextOutputStream {
     }
 
     /// Write a collection of bytes to the buffer.
-    public final func write<C: Collection>(collection bytes: C)
+    public final func write<C: Collection>(_ bytes: C)
         where C.Element == UInt8 {
         queue.sync {
             // This is based on LLVM's raw_ostream.
@@ -157,21 +157,6 @@ public class OutputByteStream: TextOutputStream {
         }
     }
 
-    /// Write the contents of a UnsafeBufferPointer<UInt8>.
-    final func write(_ ptr: UnsafeBufferPointer<UInt8>) {
-        write(collection: ptr)
-    }
-
-    /// Write a sequence of bytes to the buffer.
-    public final func write(_ bytes: ArraySlice<UInt8>) {
-        write(collection: bytes)
-    }
-
-    /// Write a sequence of bytes to the buffer.
-    public final func write(_ bytes: [UInt8]) {
-        write(collection: bytes)
-    }
-
     /// Write a sequence of bytes to the buffer.
     public final func write<S: Sequence>(sequence: S) where S.Iterator.Element == UInt8 {
         queue.sync {
@@ -186,24 +171,7 @@ public class OutputByteStream: TextOutputStream {
     /// Write a string to the buffer (as UTF8).
     public final func write(_ string: String) {
         // FIXME(performance): Use `string.utf8._copyContents(initializing:)`.
-        write(sequence: string.utf8)
-    }
-
-    /// Write a character to the buffer (as UTF8).
-    public final func write(_ character: Character) {
-        write(String(character))
-    }
-
-    /// Write an arbitrary byte streamable to the buffer.
-    public final func write(_ value: ByteStreamable) {
-        value.write(to: self)
-    }
-
-    /// Write an arbitrary streamable to the buffer.
-    public final func write(_ value: TextOutputStreamable) {
-        // Get a mutable reference.
-        var stream: OutputByteStream = self
-        value.write(to: &stream)
+        write(string.utf8)
     }
 
     /// Write a string (as UTF8) to the buffer, with escaping appropriate for
@@ -267,68 +235,32 @@ precedencegroup StreamingPrecedence {
 }
 
 // MARK: Output Operator Implementations
-//
-// NOTE: It would be nice to use a protocol here and the adopt it by all the
-// things we can efficiently stream out. However, that doesn't work because we
-// ultimately need to provide a manual overload sometimes, e.g., TextOutputStreamable, but
-// that will then cause ambiguous lookup versus the implementation just using
-// the defined protocol.
 
-@discardableResult
-public func <<< (stream: OutputByteStream, value: UInt8) -> OutputByteStream {
-    stream.write(value)
-    return stream
-}
-
-@discardableResult
-public func <<< (stream: OutputByteStream, value: [UInt8]) -> OutputByteStream {
-    stream.write(value)
-    return stream
-}
-
+// FIXME: This override shouldn't be necesary but removing it causes a 30% performance regression. This problem is
+// tracked by the following bug: https://bugs.swift.org/browse/SR-8535
 @discardableResult
 public func <<< (stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputByteStream {
-    stream.write(value)
-    return stream
-}
-
-@discardableResult
-public func <<< <C: Collection>(stream: OutputByteStream, value: C)
-    -> OutputByteStream where C.Element == UInt8 {
-    stream.write(collection: value)
-    return stream
-}
-
-@discardableResult
-public func <<< <S: Sequence>(
-    stream: OutputByteStream,
-    value: S
-) -> OutputByteStream where S.Iterator.Element == UInt8 {
-    stream.write(sequence: value)
-    return stream
-}
-
-@discardableResult
-public func <<< (stream: OutputByteStream, value: String) -> OutputByteStream {
-    stream.write(value)
-    return stream
-}
-
-@discardableResult
-public func <<< (stream: OutputByteStream, value: Character) -> OutputByteStream {
-    stream.write(value)
+    value.write(to: stream)
     return stream
 }
 
 @discardableResult
 public func <<< (stream: OutputByteStream, value: ByteStreamable) -> OutputByteStream {
-    stream.write(value)
+    value.write(to: stream)
     return stream
 }
 
 @discardableResult
 public func <<< (stream: OutputByteStream, value: TextOutputStreamable) -> OutputByteStream {
-    stream.write(value)
+    // Get a mutable reference.
+    var mutableStream = stream
+    value.write(to: &mutableStream)
+    return mutableStream
+}
+
+@discardableResult
+public func <<< (stream: OutputByteStream, value: ByteStreamable & TextOutputStreamable) -> OutputByteStream {
+    (value as ByteStreamable).write(to: stream)
     return stream
 }
 
@@ -340,11 +272,41 @@ extension UInt8: ByteStreamable {
 
 extension Character: ByteStreamable {
     public func write(to stream: OutputByteStream) {
-        stream.write(self)
+        stream.write(String(self))
     }
 }
 
 extension String: ByteStreamable {
+    public func write(to stream: OutputByteStream) {
+        stream.write(self.utf8)
+    }
+}
+
+extension Substring: ByteStreamable {
+    public func write(to stream: OutputByteStream) {
+        stream.write(self.utf8)
+    }
+}
+
+extension StaticString: ByteStreamable {
+    public func write(to stream: OutputByteStream) {
+        withUTF8Buffer { stream.write($0) }
+    }
+}
+
+extension Array: ByteStreamable where Element == UInt8 {
+    public func write(to stream: OutputByteStream) {
+        stream.write(self)
+    }
+}
+
+extension ArraySlice: ByteStreamable where Element == UInt8 {
+    public func write(to stream: OutputByteStream) {
+        stream.write(self)
+    }
+}
+
+extension ContiguousArray: ByteStreamable where Element == UInt8 {
     public func write(to stream: OutputByteStream) {
         stream.write(self)
     }

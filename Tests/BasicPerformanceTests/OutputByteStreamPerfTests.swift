@@ -22,6 +22,12 @@ struct ByteSequence: Sequence {
     }
 }
 
+extension ByteSequence: ByteStreamable {
+    func write(to stream: OutputByteStream) {
+        stream.write(sequence: self)
+    }
+}
+
 struct ByteSequenceIterator: IteratorProtocol {
     let bytes16: [UInt8]
     var index: Int
