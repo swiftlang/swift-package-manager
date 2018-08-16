@@ -163,7 +163,14 @@ extension Result where ErrorType == StringError {
 
 extension Result: Equatable where Value: Equatable, ErrorType: Equatable {
     public static func == (lhs: Result<Value, ErrorType>, rhs: Result<Value, ErrorType>) -> Bool {
-        return lhs == rhs
+        switch (lhs, rhs) {
+        case let (.success(lValue), .success(rValue)):
+            return lValue == rValue
+        case let (.failure(lError), .failure(rError)):
+            return lError == rError
+        default:
+            return false
+        }
     }
 }
 
