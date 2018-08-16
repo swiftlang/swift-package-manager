@@ -31,11 +31,6 @@ public struct LLBuildManifestGenerator {
     /// Path to the resolved file.
     let resolvedFile: AbsolutePath
 
-    /// The name of the build manifest renegeration node.
-    var buildManifestRegenerationNode: String {
-        return "<C.build.manifest.regeneration>"
-    }
-
     /// Create a new generator with a build plan.
     public init(_ plan: BuildPlan, client: String, resolvedFile: AbsolutePath) {
         self.plan = plan
@@ -129,12 +124,6 @@ public struct LLBuildManifestGenerator {
         for target in targets.allTargets {
             stream <<< "  " <<< Format.asJSON(target.name)
             stream <<< ": " <<< Format.asJSON(target.outputs.values) <<< "\n"
-        }
-
-        if plan.buildParameters.shouldEnableManifestCaching {
-            stream <<< "  " <<< Format.asJSON("regenerate")
-            stream <<< ": " <<< Format.asJSON([buildManifestRegenerationNode])
-            stream <<< "\n"
         }
 
         stream <<< "default: " <<< Format.asJSON(targets.main.name) <<< "\n"
