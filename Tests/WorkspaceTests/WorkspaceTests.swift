@@ -2371,6 +2371,95 @@ final class WorkspaceTests: XCTestCase {
             result.check(notPresent: "foo")
         }
     }
+
+    func testPackageMirror() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Dep"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Dep", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Dep",
+                    targets: [
+                        TestTarget(name: "Dep", dependencies: ["Bar"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Dep", targets: ["Dep"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.4.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Foo", "Dep", "Bar")
+                result.check(targets: "Foo", "Dep", "Bar")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "Dep", at: .checkout(.version("1.5.0")))
+            result.check(dependency: "Bar", at: .checkout(.version("1.5.0")))
+            result.check(notPresent: "Baz")
+        }
+
+        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").asString, forPackageURL: workspace.packagesDir.appending(component: "Bar").asString)
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+             PackageGraphTester(graph) { result in
+                 result.check(roots: "Foo")
+                 result.check(packages: "Foo", "Dep", "Baz")
+                 result.check(targets: "Foo", "Dep", "Baz")
+             }
+             XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "Dep", at: .checkout(.version("1.5.0")))
+            result.check(dependency: "Baz", at: .checkout(.version("1.4.0")))
+            result.check(notPresent: "Bar")
+        }
+    }
 }
 
 extension PackageGraph {

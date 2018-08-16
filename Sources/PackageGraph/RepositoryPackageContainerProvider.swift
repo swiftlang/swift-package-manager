@@ -25,6 +25,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
 
     let repositoryManager: RepositoryManager
     let manifestLoader: ManifestLoaderProtocol
+    let config: SwiftPMConfig
 
     /// The tools version currently in use. Only the container versions less than and equal to this will be provided by
     /// the container.
@@ -45,11 +46,13 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     ///   - toolsVersionLoader: The tools version loader.
     public init(
         repositoryManager: RepositoryManager,
+        config: SwiftPMConfig = SwiftPMConfig(),
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader()
     ) {
         self.repositoryManager = repositoryManager
+        self.config = config
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
@@ -64,6 +67,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         if identifier.isLocal {
             callbacksQueue.async {
                 let container = LocalPackageContainer(identifier,
+                    config: self.config,
                     manifestLoader: self.manifestLoader,
                     toolsVersionLoader: self.toolsVersionLoader,
                     currentToolsVersion: self.currentToolsVersion)
@@ -82,6 +86,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
                 let repository = try handle.open()
                 return RepositoryPackageContainer(
                     identifier: identifier,
+                    config: self.config,
                     repository: repository,
                     manifestLoader: self.manifestLoader,
                     toolsVersionLoader: self.toolsVersionLoader,
@@ -116,6 +121,8 @@ public class BasePackageContainer: PackageContainer {
 
     public let identifier: Identifier
 
+    let config: SwiftPMConfig
+
     /// The manifest loader.
     let manifestLoader: ManifestLoaderProtocol
 
@@ -147,11 +154,13 @@ public class BasePackageContainer: PackageContainer {
     
     fileprivate init(
         _ identifier: Identifier,
+        config: SwiftPMConfig,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion
     ) {
         self.identifier = identifier
+        self.config = config
         self.manifestLoader = manifestLoader
         self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
@@ -195,7 +204,7 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
     }
     
     public override func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {
-        return try loadManifest().dependencyConstraints()
+        return try loadManifest().dependencyConstraints(config: config)
     }
     
     public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
@@ -206,6 +215,7 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
 
     public init(
         _ identifier: Identifier,
+        config: SwiftPMConfig,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion,
@@ -215,6 +225,7 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
         self.fs = fs
         super.init(
             identifier,
+            config: config,
             manifestLoader: manifestLoader,
             toolsVersionLoader: toolsVersionLoader,
             currentToolsVersion: currentToolsVersion
@@ -279,6 +290,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     init(
         identifier: PackageReference,
+        config: SwiftPMConfig,
         repository: Repository,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
@@ -304,6 +316,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         self.reversedVersions = [Version](knownVersions.keys).sorted().reversed()
         super.init(
             identifier,
+            config: config,
             manifestLoader: manifestLoader,
             toolsVersionLoader: toolsVersionLoader,
             currentToolsVersion: currentToolsVersion
@@ -394,7 +407,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             manifestVersion: toolsVersion.manifestVersion,
             fileSystem: fs)
 
-        return (manifest, manifest.dependencyConstraints())
+        return (manifest, manifest.dependencyConstraints(config: config))
     }
 
     public override func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {

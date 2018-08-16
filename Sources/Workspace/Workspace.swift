@@ -161,15 +161,19 @@ public class Workspace {
             var requiredIdentities = transitiveClosure(inputIdentities) { identity in
                 guard let manifest = manifestsMap[identity.identity] else { return [] }
                 return manifest.dependencies.map({
-                    let identity = PackageReference.computeIdentity(packageURL: $0.url)
-                    return PackageReference(identity: identity, path: $0.url)
+                    let url = workspace.config.mirroredURL(forURL: $0.url)
+                    let identity = PackageReference.computeIdentity(packageURL: url)
+                    return PackageReference(identity: identity, path: url)
                 })
             }
             requiredIdentities.formUnion(inputIdentities)
 
-            let availableIdentities: Set<PackageReference> = Set(manifestsMap.map({ PackageReference(identity: $0.key, path: $0.value.url) }))
+            let availableIdentities: Set<PackageReference> = Set(manifestsMap.map({
+                let url = workspace.config.mirroredURL(forURL: $0.1.url)
+                return PackageReference(identity: $0.key, path: url)
+            }))
             // We should never have loaded a manifest we don't need.
-            assert(availableIdentities.isSubset(of: requiredIdentities))
+            assert(availableIdentities.isSubset(of: requiredIdentities), "\(availableIdentities) | \(requiredIdentities)")
             // These are the missing package identities.
             let missingIdentities = requiredIdentities.subtracting(availableIdentities)
 
@@ -199,7 +203,7 @@ public class Workspace {
 
                 case .checkout, .local: 
                     // For checkouts, add all the constraints in the manifest.
-                    allConstraints += externalManifest.dependencyConstraints()
+                    allConstraints += externalManifest.dependencyConstraints(config: workspace.config)
                 }
             }
             return allConstraints
@@ -235,6 +239,9 @@ public class Workspace {
 
     /// The path of the workspace data.
     public let dataPath: AbsolutePath
+
+    /// The swiftpm config.
+    fileprivate let config: SwiftPMConfig
 
     /// The current state of managed dependencies.
     public let managedDependencies: ManagedDependencies
@@ -297,6 +304,7 @@ public class Workspace {
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader(),
         delegate: WorkspaceDelegate? = nil,
+        config: SwiftPMConfig = SwiftPMConfig(),
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
         isResolverPrefetchingEnabled: Bool = false,
@@ -304,6 +312,7 @@ public class Workspace {
     ) {
         self.delegate = delegate
         self.dataPath = dataPath
+        self.config = config
         self.editablesPath = editablesPath
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
@@ -320,8 +329,10 @@ public class Workspace {
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
+            config: self.config,
             manifestLoader: manifestLoader,
-            toolsVersionLoader: toolsVersionLoader)
+            toolsVersionLoader: toolsVersionLoader
+        )
         self.fileSystem = fileSystem
 
         self.pinsStore = LoadableResult {
@@ -516,6 +527,9 @@ extension Workspace {
         // Create cache directories.
         createCacheDirectories(with: diagnostics)
 
+        // Load the config.
+        diagnostics.wrap { try config.load() }
+
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
 
@@ -584,6 +598,7 @@ extension Workspace {
         // Load the graph.
         return PackageGraphLoader().load(
             root: manifests.root,
+            config: config,
             externalManifests: externalManifests,
             diagnostics: diagnostics,
             fileSystem: fileSystem,
@@ -955,7 +970,7 @@ extension Workspace {
         // Compute the transitive closure of available dependencies.
         let allManifests = try! topologicalSort(inputManifests.map({ KeyedPair($0, key: $0.name) })) { node in
             return node.item.dependencies.compactMap({ dependency in
-                let url = dependency.url
+                let url = config.mirroredURL(forURL: dependency.url)
                 let manifest = loadedManifests[url] ?? loadManifest(forURL: url, diagnostics: diagnostics)
                 loadedManifests[url] = manifest
                 return manifest.flatMap({ KeyedPair($0, key: $0.name) })
@@ -1060,6 +1075,9 @@ extension Workspace {
         // Ensure the cache path exists and validate that edited dependencies.
         createCacheDirectories(with: diagnostics)
 
+        // Load the config.
+        diagnostics.wrap { try config.load() }
+
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
 
@@ -1087,7 +1105,7 @@ extension Workspace {
             let dependencies =
                 graphRoot.constraints +
                 // Include constraints from the manifests in the graph root.
-                graphRoot.manifests.flatMap({ $0.dependencyConstraints() }) +
+                graphRoot.manifests.flatMap({ $0.dependencyConstraints(config: config) }) +
                 currentManifests.dependencyConstraints() +
                 extraConstraints
 
@@ -1610,6 +1628,7 @@ extension Workspace {
 
         // Check out the given revision.
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+
         // Inform the delegate.
         delegate?.checkingOut(repository: package.repository.url, atReference: checkoutState.description, to: path)
 

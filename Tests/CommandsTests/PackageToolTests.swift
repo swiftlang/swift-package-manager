@@ -22,8 +22,9 @@ import Workspace
 @testable import class Workspace.PinsStore
 
 final class PackageToolTests: XCTestCase {
+    @discardableResult
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath)
+        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath).chomp()
     }
 
     func testUsage() throws {
@@ -527,6 +528,62 @@ final class PackageToolTests: XCTestCase {
                 swift package generate-xcodeproj --xcconfig-overrides /tmp/overrides.xcconfig
 
                 """)
+        }
+    }
+
+    func testMirrorConfig() {
+        mktmpdir { prefix in
+            let fs = localFileSystem
+            let packageRoot = prefix.appending(component: "Foo")
+            let configFile = packageRoot.appending(components: ".swiftpm", "config")
+
+            fs.createEmptyFiles(at: packageRoot, files:
+                "/Sources/Foo/Foo.swift",
+                "/Tests/FooTests/FooTests.swift",
+                "/Package.swift",
+                "anchor"
+            )
+
+            // Test writing.
+            try execute(["config", "set-mirror", "--package-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot)
+            try execute(["config", "set-mirror", "--package-url", "git@github.com:apple/swift-package-manager.git", "--mirror-url", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
+            XCTAssertTrue(fs.isFile(configFile))
+
+            // Test reading.
+            XCTAssertEqual(try execute(["config", "get-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot),
+                "https://mygithub.com/foo/bar")
+            XCTAssertEqual(try execute(["config", "get-mirror", "--package-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot),
+                "git@mygithub.com:foo/swift-package-manager.git")
+
+            func check(stderr: String, _ block: () throws -> ()) {
+                do {
+                    try block()
+                    XCTFail()
+                } catch SwiftPMProductError.executionFailure(_, _, let stderrOutput) {
+                    XCTAssertEqual(stderrOutput, stderr)
+                } catch {
+                    XCTFail("unexpected error: \(error)")
+                }
+            }
+
+            check(stderr: "not found\n") {
+                try execute(["config", "get-mirror", "--package-url", "foo"], packagePath: packageRoot)
+            }
+
+            // Test deletion.
+            try execute(["config", "unset-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot)
+            try execute(["config", "unset-mirror", "--mirror-url", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
+
+            check(stderr: "not found\n") {
+                try execute(["config", "get-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot)
+            }
+            check(stderr: "not found\n") {
+                try execute(["config", "get-mirror", "--package-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
+            }
+
+            check(stderr: "error: mirror not found\n") {
+                try execute(["config", "unset-mirror", "--package-url", "foo"], packagePath: packageRoot)
+            }
         }
     }
 }
