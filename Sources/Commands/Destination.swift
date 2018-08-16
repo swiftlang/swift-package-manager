@@ -160,7 +160,7 @@ public struct Destination {
   #endif
 }
 
-public extension Destination {
+extension Destination {
 
     /// Load a Destination description from a JSON representation from disk.
     public init(fromFile path: AbsolutePath, fileSystem: FileSystem = localFileSystem) throws {
