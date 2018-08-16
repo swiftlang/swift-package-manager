@@ -514,7 +514,7 @@ final class TestRunner {
             // FIXME: The environment will be constructed for every test when using the
             // parallel test runner. We should do some kind of caching.
             let env = try constructTestEnvironment(sanitizers: sanitizers, toolchain: toolchain)
-            let process = Process(arguments: try args(), environment: env, redirectOutput: true, verbose: false)
+            let process = Process(arguments: try args(), environment: env, outputRedirection: .collectInProcessResult, verbose: false)
             try process.launch()
             let result = try process.waitUntilExit()
             output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
@@ -535,7 +535,7 @@ final class TestRunner {
     func test() -> Bool {
         do {
             let env = try constructTestEnvironment(sanitizers: sanitizers, toolchain: toolchain)
-            let process = Process(arguments: try args(), environment: env, redirectOutput: false)
+            let process = Process(arguments: try args(), environment: env, outputRedirection: .noRedirection)
             try processSet.add(process)
             try process.launch()
             let result = try process.waitUntilExit()

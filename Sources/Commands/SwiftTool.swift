@@ -622,7 +622,7 @@ public class SwiftTool<Options: ToolOptions> {
         env["TMPDIR"] = tempDir.asString
 
         // Run llbuild and print output on standard streams.
-        let process = Process(arguments: args, environment: env, redirectOutput: shouldRedirectStdoutToStderr)
+        let process = Process(arguments: args, environment: env, outputRedirection: shouldRedirectStdoutToStderr ? .collectInProcessResult : .noRedirection)
         try process.launch()
         try processSet.add(process)
         let result = try process.waitUntilExit()
