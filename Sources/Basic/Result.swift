@@ -161,7 +161,11 @@ extension Result where ErrorType == StringError {
     }
 }
 
-extension Result: Equatable where Value: Equatable, ErrorType: Equatable {}
+extension Result: Equatable where Value: Equatable, ErrorType: Equatable {
+    public static func == (lhs: Result<Value, ErrorType>, rhs: Result<Value, ErrorType>) -> Bool {
+        return lhs == rhs
+    }
+}
 
 extension Result: Codable where Value: Codable, ErrorType: Codable {
     private enum CodingKeys: String, CodingKey {
