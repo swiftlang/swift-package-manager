@@ -33,7 +33,7 @@ enum PackageGraphError: Swift.Error {
     case cycleDetected((path: [Manifest], cycle: [Manifest]))
 
     /// The product dependency not found.
-    case productDependencyNotFound(name: String, package: String?)
+    case productDependencyNotFound(name: String, package: String?, fixit: String)
 
     /// The product dependency was found but the package name did not match.
     case productDependencyIncorrectPackage(name: String, package: String)
@@ -53,8 +53,8 @@ extension PackageGraphError: CustomStringConvertible {
                 (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0].name
 
-        case .productDependencyNotFound(let name, _):
-            return "product dependency '\(name)' not found"
+        case .productDependencyNotFound(let name, _, let fixit):
+            return "product dependency '\(name)' not found, did you mean: '\(fixit)' ?"
 
         case .productDependencyIncorrectPackage(let name, let package):
             return "product dependency '\(name)' in package '\(package)' not found"
@@ -312,7 +312,17 @@ private func createResolvedPackages(
             for productRef in targetBuilder.target.productDependencies {
                 // Find the product in this package's dependency products.
                 guard let product = productDependencyMap[productRef.name] else {
-                    let error = PackageGraphError.productDependencyNotFound(name: productRef.name, package: productRef.package)
+                    
+                    // Find and pick the minimun distance between the available products dependencies and provided the product name
+                    let distances = productDependencies.map { ($0.product.name, editDistance($0.product.name, productRef.name)) }
+                    let shorterEditDistance = distances.reduce((String(), Int.max)) {
+                        if $0.1 > $1.1 {
+                            return $1
+                        }
+                        return $0
+                    }
+                    
+                    let error = PackageGraphError.productDependencyNotFound(name: productRef.name, package: productRef.package, fixit: shorterEditDistance.0)
                     diagnostics.emit(error, location: diagnosticLocation())
                     continue
                 }
