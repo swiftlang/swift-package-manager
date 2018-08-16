@@ -9,6 +9,9 @@
 */
 
 /// Computes the number of edits needed to transform first string to second.
+///
+/// - Complexity: O(_n*m_), where *n* is the length of the first String and
+///   *m* is the length of the second one.
 public func editDistance(_ first: String, _ second: String) -> Int {
     let a = Array(first.utf16)
     let b = Array(second.utf16)
