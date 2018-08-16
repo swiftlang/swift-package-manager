@@ -159,44 +159,6 @@ extension ToolName {
     }
 }
 
-/// Represents the persistent build manifest token.
-final class BuildManifestRegenerationToken {
-
-    /// Path to the token file.
-    let tokenFile: AbsolutePath
-
-    /// The filesystem being used.
-    let fs: Basic.FileSystem = localFileSystem
-
-    init(tokenFile: AbsolutePath) {
-        self.tokenFile = tokenFile
-    }
-
-    /// Returns true if the token is valid.
-    ///
-    /// A valid token means we don't need to re-generate the build manifest.
-    func isValid() -> Bool {
-        guard fs.isFile(tokenFile) else {
-            return false
-        }
-        guard let contents = try? fs.readFileContents(tokenFile) else {
-            return false
-        }
-        switch contents {
-        case "1\n":
-            return false
-        default:
-            return true
-        }
-    }
-
-    /// Sets the state of the token.
-    func set(valid: Bool) {
-        // FIXME: Error handling
-        try? fs.writeFileContents(tokenFile, bytes: valid ? "0\n" : "1\n")
-    }
-}
-
 /// Handler for the main DiagnosticsEngine used by the SwiftTool class.
 private final class DiagnosticsEngineHandler {
 
@@ -677,16 +639,6 @@ public class SwiftTool<Options: ToolOptions> {
             throw ProcessResult.Error.nonZeroExit(result)
         }
     }
-
-    func buildManifestRegenerationToken() throws -> BuildManifestRegenerationToken {
-        return try _buildManifestRegenerationToken.dematerialize()
-    }
-    private lazy var _buildManifestRegenerationToken: Result<BuildManifestRegenerationToken, AnyError> = {
-        return Result(anyError: {
-            let buildParameters = try self.buildParameters()
-            return BuildManifestRegenerationToken(tokenFile: buildParameters.regenerateManifestToken)
-        })
-    }()
 
     /// Return the build parameters.
     func buildParameters() throws -> BuildParameters {
