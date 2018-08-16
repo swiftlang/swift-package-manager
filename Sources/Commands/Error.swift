@@ -125,7 +125,7 @@ private final class InteractiveWriter {
 
     /// Create an instance with the given stream.
     init(stream: OutputByteStream) {
-        self.term = (stream as? LocalFileOutputByteStream).flatMap(TerminalController.init(stream:))
+        self.term = TerminalController(stream: stream)
         self.stream = stream
     }
 

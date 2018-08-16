@@ -172,13 +172,15 @@ extension SPMLLBuild.Diagnostic: DiagnosticDataConvertible {
 private let newLineByte: UInt8 = 10
 public final class BuildDelegate: BuildSystemDelegate {
     private let diagnostics: DiagnosticsEngine
-    public var outputStream: OutputByteStream
+    public var outputStream: ThreadSafeOutputByteStream
     public var isVerbose: Bool = false
     public var onCommmandFailure: (() -> Void)?
 
     public init(diagnostics: DiagnosticsEngine, outputStream: OutputByteStream = stdoutStream) {
         self.diagnostics = diagnostics
-        self.outputStream = outputStream
+        // FIXME: Implement a class convenience initializer that does this once they are supported
+        // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
+        self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
     }
 
     public var fs: SPMLLBuild.FileSystem? {

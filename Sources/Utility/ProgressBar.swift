@@ -141,17 +141,13 @@ public final class ProgressBar: ProgressBarProtocol {
 
 /// Creates colored or simple progress bar based on the provided output stream.
 public func createProgressBar(forStream stream: OutputByteStream, header: String) -> ProgressBarProtocol {
-    guard let stdStream = stream as? LocalFileOutputByteStream else {
-        return SimpleProgressBar(stream: stream, header: header)
-    }
-
     // If we have a terminal, use animated progress bar.
-    if let term = TerminalController(stream: stdStream) {
+    if let term = TerminalController(stream: stream) {
         return ProgressBar(term: term, header: header)
     }
 
     // If the terminal is dumb, use single line progress bar.
-    if TerminalController.terminalType(stdStream) == .dumb {
+    if let fileStream = stream as? LocalFileOutputByteStream, TerminalController.terminalType(fileStream) == .dumb {
         return SingleLineProgressBar(stream: stream, header: header)
     }
 
