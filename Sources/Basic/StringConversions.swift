@@ -35,7 +35,7 @@ private func inShellWhitelist(_ codeUnit: UInt8) -> Bool {
     }
 }
 
-public extension String {
+extension String {
 
     /// Creates a shell escaped string. If the string does not need escaping, returns the original string.
     /// Otherwise escapes using single quotes. For example:
