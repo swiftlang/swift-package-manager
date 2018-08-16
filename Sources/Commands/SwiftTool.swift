@@ -417,6 +417,17 @@ public class SwiftTool<Options: ToolOptions> {
         return try getPackageRoot().appending(component: "Package.resolved")
     }
 
+    func configFilePath() throws -> AbsolutePath {
+        return try getPackageRoot().appending(components: ".swiftpm", "config")
+    }
+
+    func getSwiftPMConfig() throws -> SwiftPMConfig {
+        return try _swiftpmConfig.dematerialize()
+    }
+    private lazy var _swiftpmConfig: Result<SwiftPMConfig, AnyError> = {
+        return Result(anyError: { SwiftPMConfig(path: try configFilePath()) })
+    }()
+
     /// Holds the currently active workspace.
     ///
     /// It is not initialized in init() because for some of the commands like package init , usage etc,
@@ -439,6 +450,7 @@ public class SwiftTool<Options: ToolOptions> {
             manifestLoader: try getManifestLoader(),
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
+            config: try getSwiftPMConfig(),
             repositoryProvider: provider,
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate

@@ -30,6 +30,30 @@ struct FetchDeprecatedDiagnostic: DiagnosticData {
     )
 }
 
+struct RequiredArgumentDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: RequiredArgumentDiagnostic.self,
+        name: "org.swift.diags.required-argument",
+        defaultBehavior: .error,
+        description: {
+            $0 <<< "missing required argument" <<< { "\($0.argument)" }
+        }
+    )
+
+    let argument: String
+}
+
+struct RequiredSubcommandDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: RequiredSubcommandDiagnostic.self,
+        name: "org.swift.diags.required-subcommand",
+        defaultBehavior: .error,
+        description: {
+            $0 <<< "missing required subcommand; use --help to list available subcommands"
+        }
+    )
+}
+
 /// swift-package tool namespace
 public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
@@ -47,6 +71,51 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         switch options.mode {
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
+
+        case .config:
+            guard let configMode = options.configMode else {
+                diagnostics.emit(data: RequiredSubcommandDiagnostic())
+                return
+            }
+
+            let config = try getSwiftPMConfig()
+            try config.load()
+
+            switch configMode {
+            case .getMirror:
+                guard let packageURL = options.configOptions.packageURL else {
+                    diagnostics.emit(data: RequiredArgumentDiagnostic(argument: "--package-url"))
+                    return
+                }
+
+                if let mirror = config.getMirror(forURL: packageURL) {
+                    print(mirror)
+                } else {
+                    stderrStream <<< "not found\n"
+                    stderrStream.flush()
+                    executionStatus = .failure
+                }
+
+            case .unsetMirror:
+                guard let packageOrMirror = options.configOptions.packageURL ?? options.configOptions.mirrorURL else {
+                    diagnostics.emit(data: RequiredArgumentDiagnostic(argument: "--package-url or --mirror-url"))
+                    return
+                }
+
+                try config.unset(packageOrMirrorURL: packageOrMirror)
+
+            case .setMirror:
+                guard let packageURL = options.configOptions.packageURL else {
+                    diagnostics.emit(data: RequiredArgumentDiagnostic(argument: "--package-url"))
+                    return
+                }
+                guard let mirrorURL = options.configOptions.mirrorURL else {
+                    diagnostics.emit(data: RequiredArgumentDiagnostic(argument: "--mirror-url"))
+                    return
+                }
+
+                try config.set(mirrorURL: mirrorURL, forPackageURL: packageURL)
+            }
 
         case .initPackage:
             // FIXME: Error handling.
@@ -347,6 +416,58 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 usage: "Set tools version of package to the current tools version in use"),
             to: { if $1 { $0.toolsVersionMode = .setCurrent } })
 
+        // SwiftPM config subcommand.
+        let configParser = parser.add(
+            subparser: PackageMode.config.rawValue,
+            overview: "Manipulate configuration of the package")
+        binder.bind(parser: configParser,
+            to: { $0.configMode = PackageToolOptions.ConfigMode(rawValue: $1)! })
+
+        let setMirrorParser = configParser.add(
+            subparser: PackageToolOptions.ConfigMode.setMirror.rawValue,
+            overview: "Set a mirror for a dependency")
+
+        binder.bind(
+            setMirrorParser.add(
+                option: "--package-url", kind: String.self,
+                usage: "The package dependency url"),
+            setMirrorParser.add(
+                option: "--mirror-url", kind: String.self,
+                usage: "The mirror url"),
+            to: {
+                $0.configOptions.packageURL = $1
+                $0.configOptions.mirrorURL = $2
+            }
+        )
+
+        let unsetMirrorParser = configParser.add(
+            subparser: PackageToolOptions.ConfigMode.unsetMirror.rawValue,
+            overview: "Remove an existing mirror")
+        binder.bind(
+            unsetMirrorParser.add(
+                option: "--package-url", kind: String.self,
+                usage: "The package dependency url"),
+            unsetMirrorParser.add(
+                option: "--mirror-url", kind: String.self,
+                usage: "The mirror url"),
+            to: {
+                $0.configOptions.packageURL = $1
+                $0.configOptions.mirrorURL = $2
+            }
+        )
+
+        let getMirrorParser = configParser.add(
+            subparser: PackageToolOptions.ConfigMode.getMirror.rawValue,
+            overview: "Print mirror configuration for the given package dependency")
+        binder.bind(
+            option: getMirrorParser.add(
+                option: "--package-url", kind: String.self, usage: "The package dependency url"),
+            to: {
+                $0.configOptions.packageURL = $1
+            }
+        )
+
+        // Xcode project generation.
         let generateXcodeParser = parser.add(
             subparser: PackageMode.generateXcodeproj.rawValue,
             overview: "Generates an Xcode project")
@@ -482,10 +603,24 @@ public class PackageToolOptions: ToolOptions {
         case setCurrent
     }
     var toolsVersionMode: ToolsVersionMode = .display
+
+    enum ConfigMode: String {
+        case setMirror = "set-mirror"
+        case unsetMirror = "unset-mirror"
+        case getMirror = "get-mirror"
+    }
+    var configMode: ConfigMode?
+
+    struct ConfigOptions {
+        var packageURL: String?
+        var mirrorURL: String?
+    }
+    var configOptions = ConfigOptions()
 }
 
 public enum PackageMode: String, StringEnumArgument {
     case clean
+    case config
     case describe
     case dumpPackage = "dump-package"
     case edit
@@ -545,6 +680,12 @@ extension PackageToolOptions.CompletionToolMode: StringEnumArgument {
             (listDependencies.rawValue, "list all dependencies' names"),
             (listExecutables.rawValue, "list all executables' names"),
         ])
+    }
+}
+
+extension PackageToolOptions.ConfigMode: StringEnumArgument {
+    static var completion: ShellCompletion {
+        return .none
     }
 }
 
