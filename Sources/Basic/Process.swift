@@ -118,6 +118,15 @@ public final class Process: ObjectIdentifierProtocol {
         case collectInProcessResult
         /// Stream stdout and stderr via the corresponding closures
         case stream(stdout: OutputClosure, stderr: OutputClosure)
+        
+        public var redirectsOutput: Bool {
+            switch self {
+            case .noRedirection:
+                return false
+            default:
+                return true
+            }
+        }
     }
 
     /// Typealias for process id type.
@@ -313,10 +322,7 @@ public final class Process: ObjectIdentifierProtocol {
 
         var outputPipe: [Int32] = [0, 0]
         var stderrPipe: [Int32] = [0, 0]
-        if case OutputRedirection.noRedirection = outputRedirection {
-            posix_spawn_file_actions_adddup2(&fileActions, 1, 1)
-            posix_spawn_file_actions_adddup2(&fileActions, 2, 2)
-        } else {
+        if outputRedirection.redirectsOutput {
             // Open the pipes.
             try open(pipe: &outputPipe)
             try open(pipe: &stderrPipe)
@@ -330,6 +336,9 @@ public final class Process: ObjectIdentifierProtocol {
                 posix_spawn_file_actions_addclose(&fileActions, pipe[0])
                 posix_spawn_file_actions_addclose(&fileActions, pipe[1])
             }
+        } else {
+            posix_spawn_file_actions_adddup2(&fileActions, 1, 1)
+            posix_spawn_file_actions_adddup2(&fileActions, 2, 2)
         }
 
         let argv = CStringArray(arguments)
@@ -340,7 +349,7 @@ public final class Process: ObjectIdentifierProtocol {
             throw SystemError.posix_spawn(rv, arguments)
         }
 
-        if case OutputRedirection.noRedirection = outputRedirection {
+        if outputRedirection.redirectsOutput {
             let stdoutClosure: OutputClosure?
             let stderrClosure: OutputClosure?
             if case let OutputRedirection.stream(stdout, stderr) = outputRedirection {
