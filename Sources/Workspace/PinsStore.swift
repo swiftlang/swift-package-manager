@@ -127,17 +127,10 @@ public final class PinsStore {
 
     /// Unpin all of the currently pinnned dependencies.
     ///
-    /// This method does not automatically write to the state file.
+    /// This method does not automatically write to state file.
     public func unpinAll() {
         // Reset the pins map.
         pinsMap = [:]
-    }
-
-    /// Unpin the given package.
-    ///
-    /// This method does not automatically write to the state file.
-    public func unpin(_ package: PackageReference) {
-        pinsMap[package.identity] = nil
     }
 
     /// Creates constraints based on the pins in the store.

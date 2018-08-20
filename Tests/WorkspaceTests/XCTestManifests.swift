@@ -49,7 +49,6 @@ extension WorkspaceTests {
         ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory),
         ("testDependencyManifestLoading", testDependencyManifestLoading),
         ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
-        ("testDependencySwitchWithSameIdentity", testDependencySwitchWithSameIdentity),
         ("testEditDependency", testEditDependency),
         ("testGraphData", testGraphData),
         ("testGraphRootDependencies", testGraphRootDependencies),
