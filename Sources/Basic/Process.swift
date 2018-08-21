@@ -113,18 +113,27 @@ public final class Process: ObjectIdentifierProtocol {
     
     public enum OutputRedirection {
         /// Do not redirect the output
-        case noRedirection
+        case none
         /// Collect stdout and stderr output and provide it back via ProcessResult object
-        case collectInProcessResult
+        case collect
         /// Stream stdout and stderr via the corresponding closures
         case stream(stdout: OutputClosure, stderr: OutputClosure)
         
         public var redirectsOutput: Bool {
             switch self {
-            case .noRedirection:
+            case .none:
                 return false
             default:
                 return true
+            }
+        }
+        
+        public var outputClosures: (stdoutClosure: OutputClosure, stderrClosure: OutputClosure)? {
+            switch self {
+            case .stream(let stdoutClosure, let stderrClosure):
+                return (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
+            default:
+                return nil
             }
         }
     }
@@ -201,14 +210,14 @@ public final class Process: ObjectIdentifierProtocol {
     ///   - arguments: The arguments for the subprocess.
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
-    ///   - outputRedirection: How process redirects its output. Default value is .collectInProcessResult.
+    ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
     ///     continue running even if the parent is killed or interrupted. Default value is true.
     public init(
         arguments: [String],
         environment: [String: String] = env,
-        outputRedirection: OutputRedirection = .collectInProcessResult,
+        outputRedirection: OutputRedirection = .collect,
         verbose: Bool = Process.verbose,
         startNewProcessGroup: Bool = true
     ) {
@@ -326,11 +335,9 @@ public final class Process: ObjectIdentifierProtocol {
             // Open the pipes.
             try open(pipe: &outputPipe)
             try open(pipe: &stderrPipe)
-            
             // Open the write end of the pipe as stdout and stderr, if desired.
             posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], 1)
             posix_spawn_file_actions_adddup2(&fileActions, stderrPipe[1], 2)
-            
             // Close the other ends of the pipe.
             for pipe in [outputPipe, stderrPipe] {
                 posix_spawn_file_actions_addclose(&fileActions, pipe[0])
@@ -350,22 +357,14 @@ public final class Process: ObjectIdentifierProtocol {
         }
 
         if outputRedirection.redirectsOutput {
-            let stdoutClosure: OutputClosure?
-            let stderrClosure: OutputClosure?
-            if case let OutputRedirection.stream(stdout, stderr) = outputRedirection {
-                stdoutClosure = stdout
-                stderrClosure = stderr
-            } else {
-                stdoutClosure = nil
-                stderrClosure = nil
-            }
+            let outputClosures = outputRedirection.outputClosures
             
             // Close the write end of the output pipe.
             try close(fd: &outputPipe[1])
 
             // Create a thread and start reading the output on it.
             var thread = Thread { [weak self] in
-                if let readResult = self?.readOutput(onFD: outputPipe[0], outputClosure: stdoutClosure) {
+                if let readResult = self?.readOutput(onFD: outputPipe[0], outputClosure: outputClosures?.stdoutClosure) {
                     self?.stdout.result = readResult
                 }
             }
@@ -377,7 +376,7 @@ public final class Process: ObjectIdentifierProtocol {
 
             // Create a thread and start reading the stderr output on it.
             thread = Thread { [weak self] in
-                if let readResult = self?.readOutput(onFD: stderrPipe[0], outputClosure: stderrClosure) {
+                if let readResult = self?.readOutput(onFD: stderrPipe[0], outputClosure: outputClosures?.stderrClosure) {
                     self?.stderr.result = readResult
                 }
             }
@@ -479,7 +478,7 @@ extension Process {
     /// - Returns: The process result.
     @discardableResult
     static public func popen(arguments: [String], environment: [String: String] = env) throws -> ProcessResult {
-        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collectInProcessResult)
+        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
         try process.launch()
         return try process.waitUntilExit()
     }
@@ -498,7 +497,7 @@ extension Process {
     /// - Returns: The process output (stdout + stderr).
     @discardableResult
     static public func checkNonZeroExit(arguments: [String], environment: [String: String] = env) throws -> String {
-        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collectInProcessResult)
+        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
         try process.launch()
         let result = try process.waitUntilExit()
         // Throw if there was a non zero termination.
@@ -513,7 +512,7 @@ extension Process {
         return try checkNonZeroExit(arguments: args, environment: environment)
     }
 
-    public convenience init(args: String..., environment: [String: String] = env, outputRedirection: OutputRedirection = .collectInProcessResult) {
+    public convenience init(args: String..., environment: [String: String] = env, outputRedirection: OutputRedirection = .collect) {
         self.init(arguments: args, environment: environment, outputRedirection: outputRedirection)
     }
 }

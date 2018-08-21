@@ -13,7 +13,7 @@ import Basic
 extension Process {
     @discardableResult
     static public func checkNonZeroExit(arguments: [String], environment: [String: String] = env, diagnostics: DiagnosticsEngine) throws -> String {
-        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collectInProcessResult)
+        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
         try process.launch()
         let result = try process.waitUntilExit()
         // Throw if there was a non zero termination.
