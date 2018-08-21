@@ -1,5 +1,41 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
+
+Swift 4.2
+---------
+
+* [SE-209](https://github.com/apple/swift-evolution/blob/master/proposals/0209-package-manager-swift-lang-version-update.md)
+
+The `swiftLanguageVersions` property no long takes its Swift language versions via
+a freeform Integer array; instead it should be passed as a new `SwiftVersion` enum array.
+
+* [SE-208](https://github.com/apple/swift-evolution/blob/master/proposals/0208-package-manager-system-library-targets.md)
+
+The `Package` manifest now accepts a new type of target, `systemLibrary`. This
+deprecates "system-module packages" which are now to be included in the packages that
+require system-installed dependencies.
+
+* [SE-201](https://github.com/apple/swift-evolution/blob/master/proposals/0201-package-manager-local-dependencies.md)
+
+Packages can now specify a dependency as `package(path: String)` to point to a
+path on the local filesystem which hosts a package. This will enable interconnected
+projects to be edited in parallel.
+
+* The `generate-xcodeproj` has a new `--watch` option to automatically regenerate the
+Xcode project if changes are detected. This uses the
+[`watchman`](https://facebook.github.io/watchman/docs/install.html) tool to detect
+filesystem changes.
+
+* Scheme generation has been improved:
+  * One scheme containing all regular and test targets of the root package.
+  * One scheme per executable target containing the test targets whose dependencies
+    intersect with the dependencies of the exectuable target.
+
+
+Swift 4.1
+---------
+
+
 Swift 4.0
 ---------
 
