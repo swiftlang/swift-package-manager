@@ -164,6 +164,9 @@ public final class Process: ObjectIdentifierProtocol {
     /// Queue to protect reading/writing on map of validated executables.
     private static let executablesQueue = DispatchQueue(
         label: "org.swift.swiftpm.process.findExecutable")
+    
+    /// Indicates if a new progress group is created for the child process.
+    private let startNewProcessGroup: Bool
 
     /// Cache of validated executables.
     ///
@@ -180,16 +183,20 @@ public final class Process: ObjectIdentifierProtocol {
     ///   - redirectOutput: Redirect and store stdout/stderr output (of subprocess) in the process result, instead of
     ///     printing on the standard streams. Default value is true.
     ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
+    ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
+    ///     continue running even if the parent is killed or interrupted. Default value is true.
     public init(
         arguments: [String],
         environment: [String: String] = env,
         redirectOutput: Bool = true,
-        verbose: Bool = Process.verbose
+        verbose: Bool = Process.verbose,
+        startNewProcessGroup: Bool = true
     ) {
         self.arguments = arguments
         self.environment = environment
         self.redirectOutput = redirectOutput
         self.verbose = verbose
+        self.startNewProcessGroup = startNewProcessGroup
     }
 
     /// Returns the path of the the given program if found in the search paths.
@@ -268,12 +275,13 @@ public final class Process: ObjectIdentifierProtocol {
         posix_spawnattr_setsigdefault(&attributes, &mostSignals)
       #endif
 
-        // Establish a separate process group.
-        posix_spawnattr_setpgroup(&attributes, 0)
-
         // Set the attribute flags.
         var flags = POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF
-        flags |= POSIX_SPAWN_SETPGROUP
+        if startNewProcessGroup {
+            // Establish a separate process group.
+            flags |= POSIX_SPAWN_SETPGROUP
+            posix_spawnattr_setpgroup(&attributes, 0)
+        }
 
         posix_spawnattr_setflags(&attributes, Int16(flags))
 
