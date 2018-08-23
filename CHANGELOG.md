@@ -38,10 +38,6 @@ Swift 4.2
   Packages which mix versions of the form `vX.X.X` with `Y.Y.Y` will now be parsed and
   ordered numerically.
 
-* [SR-4793](https://bugs.swift.org/browse/SR-4793)
-  Local `Package` declarations can no longer specify an absolute path, and must instead
-  be relative definitions.
-
 * [#1489](https://github.com/apple/swift-package-manager/pull/1489)
   A simpler progress bar is now generated for "dumb" terminals.
 
