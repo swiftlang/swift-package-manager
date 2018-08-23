@@ -14,7 +14,7 @@
 
 ---
 
-The PackageDescription 4.2 contains one breaking and two additive changes.
+The PackageDescription 4.2 contains one breaking and two additive changes to [PackageDescription API Version 4](PackageDescriptionV4.md).
 
 ## Swift Language Version
 
