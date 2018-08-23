@@ -22,41 +22,39 @@ Swift 4.2
   path on the local filesystem which hosts a package. This will enable interconnected
   projects to be edited in parallel.
 
-* The `generate-xcodeproj` has a new `--watch` option to automatically regenerate the
-  Xcode project if changes are detected. This uses the
-  [`watchman`](https://facebook.github.io/watchman/docs/install.html) tool to detect
-  filesystem changes.
+* [#1604](https://github.com/apple/swift-package-manager/pull/1604)
+
+  The `generate-xcodeproj` has a new `--watch` option to automatically regenerate the Xcode project
+  if changes are detected. This uses the
+  [`watchman`](https://facebook.github.io/watchman/docs/install.html) tool to detect filesystem
+  changes.
 
 * Scheme generation has been improved:
   * One scheme containing all regular and test targets of the root package.
   * One scheme per executable target containing the test targets whose dependencies
     intersect with the dependencies of the exectuable target.
 
-* Packages which mix versions of the form `vX.X.X` with `Y.Y.Y` will now be parsed and
+* [SR-6978](https://bugs.swift.org/browse/SR-6978)
+  Packages which mix versions of the form `vX.X.X` with `Y.Y.Y` will now be parsed and
   ordered numerically.
 
-* Local `Package` declarations can no longer specify an absolute path, and must instead
+* [SR-4793](https://bugs.swift.org/browse/SR-4793)
+  Local `Package` declarations can no longer specify an absolute path, and must instead
   be relative definitions.
 
-* `swift test` now has rudimentary support for exporting xUnit-formatted xml output.
-
-* The package manager now supports `ppc64le`, `arm`, `arm64`, and `aarch64` machines.
-
-* A simpler progress bar is now generated for "dumb" terminals
+* [#1489](https://github.com/apple/swift-package-manager/pull/1489)
+  A simpler progress bar is now generated for "dumb" terminals.
 
 Swift 4.1
 ---------
 
-* Support has been added to automatically generate the `LinuxMain` files for testing on
-  Linux systems. On a macOS system, run `swift test --generate-linuxmain`
+* [#1485](https://github.com/apple/swift-package-manager/pull/1485)
+  Support has been added to automatically generate the `LinuxMain` files for testing on
+  Linux systems. On a macOS system, run `swift test --generate-linuxmain`.
 
-* Experimental support for `llbuild` manifest caching may be enabled with
-  `--enable-build-manifest-caching`
-
-* Generating an Xcode project now sets the default configuration to `Release`.
-
-* `Package` manifests that include multiple products with the same name will now throw an
-  error
+* [SR-5918](https://bugs.swift.org/browse/SR-5918)
+  `Package` manifests that include multiple products with the same name will now throw an
+  error.
 
 
 Swift 4.0
