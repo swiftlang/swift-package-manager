@@ -16,6 +16,7 @@ extension DependencyResolverTests {
         ("testPrereleaseResolve", testPrereleaseResolve),
         ("testResolve", testResolve),
         ("testResolveSubtree", testResolveSubtree),
+        ("testRevisionConstraint2", testRevisionConstraint2),
         ("testRevisionConstraint", testRevisionConstraint),
         ("testUnversionedConstraint", testUnversionedConstraint),
         ("testVersionAssignment", testVersionAssignment),
