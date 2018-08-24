@@ -48,6 +48,7 @@ extension WorkspaceTests {
         ("testCleanAndReset", testCleanAndReset),
         ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory),
         ("testDependencyManifestLoading", testDependencyManifestLoading),
+        ("testDependencyManifestsOrder", testDependencyManifestsOrder),
         ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
         ("testEditDependency", testEditDependency),
         ("testGraphData", testGraphData),
