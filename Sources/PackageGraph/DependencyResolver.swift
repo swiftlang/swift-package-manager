@@ -534,7 +534,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     //
     // FIXME: Does it really make sense to key on the identifier here. Should we
     // require referential equality of containers and use that to simplify?
-    fileprivate var assignments: [Identifier: (container: Container, binding: BoundVersion)]
+    fileprivate var assignments: OrderedDictionary<Identifier, (container: Container, binding: BoundVersion)>
 
     /// Create an empty assignment.
     init() {
@@ -681,7 +681,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     /// Check if the assignment is valid and complete.
     func checkIfValidAndComplete() -> Bool {
         // Validity should hold trivially, because it is an invariant of the collection.
-        for assignment in assignments.values {
+        for (_, assignment) in assignments {
             if !isValid(binding: assignment.binding, for: assignment.container) {
                 return false
             }
@@ -709,9 +709,9 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     typealias Iterator = AnyIterator<(Container, BoundVersion)>
 
     func makeIterator() -> Iterator {
-        var it = assignments.values.makeIterator()
+        var it = assignments.makeIterator()
         return AnyIterator {
-            if let next = it.next() {
+            if let (_, next) = it.next() {
                 return (next.container, next.binding)
             } else {
                 return nil

@@ -484,6 +484,45 @@ class DependencyResolverTests: XCTestCase {
         }
     }
 
+    func testRevisionConstraint2() throws {
+        // Test that requiring revision constraint for a dependency that is
+        // required via version transitively resolves correctly.
+
+        let develop = "develop"
+
+        let provider = MockPackagesProvider(containers: [
+            MockPackageContainer(name: "A", dependencies: [
+                develop: [
+                    (container: "B", requirement: .versionSet(v1Range)),
+                ],
+            ]),
+
+            MockPackageContainer(name: "B", dependencies: [
+                "1.1.0": [],
+                develop: [],
+            ]),
+
+            MockPackageContainer(name: "C", dependencies: [
+                develop: [
+                    (container: "A", requirement: .revision(develop)),
+                    (container: "B", requirement: .revision(develop)),
+                ],
+            ]),
+        ])
+
+        do {
+            let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+            let result = try resolver.resolve(constraints: [
+                MockPackageConstraint(container: "C", requirement: .revision(develop)),
+            ])
+            XCTAssertEqual(result, [
+                "A": .revision(develop),
+                "B": .revision(develop),
+                "C": .revision(develop),
+            ])
+        }
+    }
+
     func testUnversionedConstraint() throws {
         let provider = MockPackagesProvider(containers: [
             MockPackageContainer(name: "A", dependenciesByVersion: [v1: [], v1_1: []]),
