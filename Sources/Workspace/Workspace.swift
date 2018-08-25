@@ -900,7 +900,7 @@ extension Workspace {
         var loadedManifests = [String: Manifest]()
 
         // Compute the transitive closure of available dependencies.
-        let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.name) })) { node in
+        let allManifests = try! topologicalSort(inputManifests.map({ KeyedPair($0, key: $0.name) })) { node in
             return node.item.package.dependencies.compactMap({ dependency in
                 let ref = dependency.createPackageRef()
                 let manifest = loadedManifests[ref.identity] ?? loadManifest(for: ref, diagnostics: diagnostics)
@@ -909,10 +909,9 @@ extension Workspace {
             })
         }
 
-        // It is possible that some root dependency is also present as a regular dependency, so we
-        // form a unique set of all dependency manifests.
-        let allManifests = Set(rootDependencyManifests.map({ KeyedPair($0, key: $0.name) }) + dependencies).map({ $0.item })
-        let deps: [(Manifest, ManagedDependency)] = allManifests.map({
+        let allDependencyManifests = allManifests.map({ $0.item }).filter({ !root.manifests.contains($0) })
+
+        let deps: [(Manifest, ManagedDependency)] = allDependencyManifests.map({
             // FIXME: We should use package name directly once this radar is fixed:
             // <rdar://problem/33693433> Ensure that identity and package name
             // are the same once we have an API to specify identity in the
