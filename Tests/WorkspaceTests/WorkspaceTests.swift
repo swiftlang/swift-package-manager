@@ -991,6 +991,72 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testDependencyManifestsOrder() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root1",
+                    targets: [
+                        TestTarget(name: "Root1", dependencies: ["Foo", "Bar", "Baz", "Bam"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                .genericPackage1(named: "Bar"),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz", dependencies: ["Bam"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                .genericPackage1(named: "Bam"),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root1"]) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        workspace.loadDependencyManifests(roots: ["Root1"]) { (manifests, diagnostics) in
+			// Ensure that the order of the manifests is stable.
+			XCTAssertEqual(manifests.allManifests().map({$0.name}), ["Foo", "Baz", "Bam", "Bar"])
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
     func testBranchAndRevision() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
