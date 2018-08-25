@@ -398,9 +398,9 @@ public class SwiftTool<Options: ToolOptions> {
         let packageRoot = findPackageRoot()
 
         self.packageRoot = packageRoot
-        self.buildPath = getEnvBuildPath() ??
+        self.buildPath = getEnvBuildPath(workingDir: cwd) ??
             customBuildPath ??
-            (packageRoot ?? localFileSystem.currentWorkingDirectory!).appending(component: ".build")
+            (packageRoot ?? cwd).appending(component: ".build")
         
         if options.chdir != nil {
             diagnostics.emit(data: ChdirDeprecatedDiagnostic())
@@ -762,11 +762,12 @@ private func findPackageRoot() -> AbsolutePath? {
     return root
 }
 
-private func getEnvBuildPath() -> AbsolutePath? {
+/// Returns the build path from the environment, if present.
+private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
     // Don't rely on build path from env for SwiftPM's own tests.
     guard POSIX.getenv("IS_SWIFTPM_TEST") == nil else { return nil }
     guard let env = POSIX.getenv("SWIFTPM_BUILD_DIR") else { return nil }
-    return AbsolutePath(env, relativeTo: localFileSystem.currentWorkingDirectory!)
+    return AbsolutePath(env, relativeTo: workingDir)
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.
