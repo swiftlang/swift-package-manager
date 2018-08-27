@@ -123,7 +123,7 @@ public final class Process: ObjectIdentifierProtocol {
             switch self {
             case .none:
                 return false
-            default:
+            case .collect, .stream:
                 return true
             }
         }
@@ -132,7 +132,7 @@ public final class Process: ObjectIdentifierProtocol {
             switch self {
             case .stream(let stdoutClosure, let stderrClosure):
                 return (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
-            default:
+            case .collect, .none:
                 return nil
             }
         }

@@ -161,18 +161,7 @@ extension Result where ErrorType == StringError {
     }
 }
 
-extension Result: Equatable where Value: Equatable, ErrorType: Equatable {
-    public static func == (lhs: Result<Value, ErrorType>, rhs: Result<Value, ErrorType>) -> Bool {
-        switch (lhs, rhs) {
-        case let (.success(lValue), .success(rValue)):
-            return lValue == rValue
-        case let (.failure(lError), .failure(rError)):
-            return lError == rError
-        default:
-            return false
-        }
-    }
-}
+extension Result: Equatable where Value: Equatable, ErrorType: Equatable {}
 
 extension Result: Codable where Value: Codable, ErrorType: Codable {
     private enum CodingKeys: String, CodingKey {
