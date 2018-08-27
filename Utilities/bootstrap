@@ -928,6 +928,9 @@ def main():
                         help="Extra actions to perform. Can be any number of "
                              "the following: [clean, all, test, install]",
                         nargs="*", default=["all"])
+    parser.add_argument("--show-bin-path", action='store_true',
+                        help="output the path to which the swiftpm binaries "
+                             "are built")
     parser.add_argument("--swiftc", dest="swiftc_path",
                         help="path to the swift compiler [%(default)s]",
                         metavar="PATH")
@@ -1064,6 +1067,13 @@ def main():
         args.llbuild_build_dir = os.path.join(target_path, conf, "llbuild")
         should_build_llbuild = True
 
+    libdir = os.path.join(target_path, "lib")
+    bindir = os.path.join(target_path, conf)
+    
+    if args.show_bin_path:
+        print(bindir)
+        sys.exit(0)
+
     checkTool(["rsync", "--version"])
     
     # If the action is "clean", just remove the bootstrap and build directories.
@@ -1112,9 +1122,6 @@ def main():
         processed_runtimes[version] = process_runtime_libraries(
                 build, args, lib_path)
 
-    
-    libdir = os.path.join(target_path, "lib")
-    bindir = os.path.join(target_path, conf)
     mkdir_p(bindir)
     bootstrapped_product = os.path.join(bindir, "swift-build-stage1")
 
