@@ -815,6 +815,9 @@ def main():
                         help="Extra actions to perform. Can be any number of "
                              "the following: [clean, all, test, install]",
                         nargs="*", default=["all"])
+    parser.add_argument("--show-bin-path", action='store_true',
+                        help="output the path to which the swiftpm binaries "
+                             "are built")
     parser.add_argument("--swiftc", dest="swiftc_path",
                         help="path to the swift compiler [%(default)s]",
                         metavar="PATH")
@@ -915,6 +918,13 @@ def main():
     sandbox_path = os.path.join(build_path, ".bootstrap")
     target_path = os.path.join(build_path, build_target)
 
+    libdir = os.path.join(target_path, "lib")
+    bindir = os.path.join(target_path, conf)
+
+    if args.show_bin_path:
+        print(bindir)
+        sys.exit(0)
+
     # Confirm rsync is available.
     try:
         subprocess.check_output(['rsync', '--version'], stderr=subprocess.STDOUT)
@@ -963,9 +973,6 @@ def main():
         processed_runtimes[version] = process_runtime_libraries(
                 build, args, lib_path)
 
-    
-    libdir = os.path.join(target_path, "lib")
-    bindir = os.path.join(target_path, conf)
     mkdir_p(bindir)
     bootstrapped_product = os.path.join(bindir, "swift-build-stage1")
 
