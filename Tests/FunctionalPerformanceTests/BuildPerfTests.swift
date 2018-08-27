@@ -13,6 +13,7 @@ import Commands
 import TestSupport
 import Basic
 import Utility
+import Workspace
 
 class BuildPerfTests: XCTestCasePerf {
 

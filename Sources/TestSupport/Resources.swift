@@ -13,6 +13,7 @@ import Build
 import Foundation
 import Commands
 import PackageLoading
+import Workspace
 
 #if os(macOS)
 private func bundleRoot() -> AbsolutePath {

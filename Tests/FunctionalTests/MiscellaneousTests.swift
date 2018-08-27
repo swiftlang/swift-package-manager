@@ -11,11 +11,11 @@
 import XCTest
 import TestSupport
 import Basic
-import struct Commands.Destination
 import PackageModel
 import Utility
 import SPMLibc
 import class Foundation.ProcessInfo
+import Workspace
 
 typealias ProcessID = Basic.Process.ProcessID
 

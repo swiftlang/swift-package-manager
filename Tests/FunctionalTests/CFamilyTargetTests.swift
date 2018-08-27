@@ -15,6 +15,7 @@ import Basic
 import PackageModel
 import SourceControl
 import Utility
+import Workspace
 
 typealias Process = Basic.Process
 

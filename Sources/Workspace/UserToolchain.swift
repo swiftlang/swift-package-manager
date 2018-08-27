@@ -61,19 +61,19 @@ public final class UserToolchain: Toolchain {
     /// Path to the xctest utility.
     ///
     /// This is only present on macOS.
-    let xctest: AbsolutePath?
+    public let xctest: AbsolutePath?
 
     /// Path to llbuild.
-    let llbuild: AbsolutePath
+    public let llbuild: AbsolutePath
 
     /// The compilation destination object.
-    let destination: Destination
+    public let destination: Destination
 
     /// Search paths from the PATH environment variable.
     let envSearchPaths: [AbsolutePath]
 
     /// Returns the runtime library for the given sanitizer.
-    func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
+    public func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
         // FIXME: This is only for SwiftPM development time support. It is OK
         // for now but we shouldn't need to resolve the symlink.  We need to lay
         // down symlinks to runtimes in our fake toolchain as part of the
@@ -85,7 +85,7 @@ public final class UserToolchain: Toolchain {
 
         // Ensure that the runtime is present.
         guard localFileSystem.exists(runtime) else {
-            throw Error.invalidToolchain(problem: "Missing runtime for \(sanitizer) sanitizer")
+            throw InvalidToolchainDiagnostic("Missing runtime for \(sanitizer) sanitizer")
         }
 
         return runtime
@@ -96,7 +96,7 @@ public final class UserToolchain: Toolchain {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path = path else { return }
             guard localFileSystem.isExecutableFile(path) else {
-                throw Error.invalidToolchain(problem: "could not find the `swiftc` at expected path \(path.asString)")
+                throw InvalidToolchainDiagnostic("could not find the `swiftc` at expected path \(path.asString)")
             }
         }
 
@@ -117,7 +117,7 @@ public final class UserToolchain: Toolchain {
         } else if let SWIFT_EXEC = SWIFT_EXEC {
             resolvedBinDirCompiler = SWIFT_EXEC
         } else {
-            throw Error.invalidToolchain(problem: "could not find the `swiftc` at expected path \(binDirCompiler.asString)")
+            throw InvalidToolchainDiagnostic("could not find the `swiftc` at expected path \(binDirCompiler.asString)")
         }
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
@@ -144,14 +144,14 @@ public final class UserToolchain: Toolchain {
             // No value in env, so search for `clang`.
             let foundPath = try Process.checkNonZeroExit(arguments: whichClangArgs).chomp()
             guard !foundPath.isEmpty else {
-                throw Error.invalidToolchain(problem: "could not find `clang`")
+                throw InvalidToolchainDiagnostic("could not find `clang`")
             }
             clangCompiler = AbsolutePath(foundPath)
         }
 
         // Check that it's valid in the file system.
         guard localFileSystem.isExecutableFile(clangCompiler) else {
-            throw Error.invalidToolchain(problem: "could not find `clang` at expected path \(clangCompiler.asString)")
+            throw InvalidToolchainDiagnostic("could not find `clang` at expected path \(clangCompiler.asString)")
         }
         _clangCompiler = clangCompiler
         return clangCompiler
@@ -175,7 +175,7 @@ public final class UserToolchain: Toolchain {
         // Look for llbuild in bin dir.
         llbuild = binDir.appending(component: "swift-build-tool")
         guard localFileSystem.exists(llbuild) else {
-            throw Error.invalidToolchain(problem: "could not find `llbuild` at expected path \(llbuild.asString)")
+            throw InvalidToolchainDiagnostic("could not find `llbuild` at expected path \(llbuild.asString)")
         }
 
 
