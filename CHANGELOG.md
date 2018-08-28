@@ -6,7 +6,7 @@ Swift 4.2
 
 * [SE-209](https://github.com/apple/swift-evolution/blob/master/proposals/0209-package-manager-swift-lang-version-update.md)
 
-  The `swiftLanguageVersions` property no long takes its Swift language versions via
+  The `swiftLanguageVersions` property no longer takes its Swift language versions via
   a freeform Integer array; instead it should be passed as a new `SwiftVersion` enum
   array.
 
