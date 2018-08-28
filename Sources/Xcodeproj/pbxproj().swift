@@ -397,7 +397,7 @@ func xcodeProject(
             productType = .framework
         case .test:
             productType = .unitTest
-        case .systemModule:
+        case .systemModule, .packageExt:
             fatalError()
         }
 

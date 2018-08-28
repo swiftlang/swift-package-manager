@@ -25,6 +25,8 @@ extension ProductType: Codable {
             try container.encodeNil(forKey: .executable)
         case .test:
             try container.encodeNil(forKey: .test)
+        case .packageExt:
+            try container.encodeNil(forKey: .test)
         }
     }
 

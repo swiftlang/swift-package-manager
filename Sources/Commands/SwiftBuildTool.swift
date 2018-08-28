@@ -12,6 +12,8 @@ import Build
 import Utility
 import Basic
 import PackageGraph
+import SPMLibc
+import PackageExtension
 
 //FIXME: Can we move this functionality into the argument parser?
 /// Diagnostic error when a command is run with several arguments that are mutually exclusive.
@@ -52,10 +54,47 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
           #endif
 
             guard let subset = options.buildSubset(diagnostics: diagnostics) else { return }
+
+            let params = try buildParameters()
+            let graph = try loadPackageGraph()
+
+          do {
+//            print("================= ext planning ================")
+            let extPlan = try BuildPlan(
+                buildParameters: params,
+                graph: graph,
+                diagnostics: diagnostics,
+                buildPackageExtMode: true
+            )
+
+            try build(plan: extPlan, subset: subset)
+
+            for extensionProduct in extPlan.buildProducts {
+                _ = dlopen(extensionProduct.binary.asString, RTLD_LAZY)
+                let extType = _typeByName(extensionProduct.product.name + "." + extensionProduct.product.name) as! PackageExtension.Type
+                extType.initialize(packageManager: SwiftPackageManager.default)
+            }
+          } catch {
+//            print("no extensions")
+          }
+
+//          print("================= planning ================")
+          let plan = try BuildPlan(
+            buildParameters: params,
+            graph: graph,
+            diagnostics: diagnostics,
+            buildPackageExtMode: false
+          )
+
+          try build(plan: plan, subset: subset)
+
+
+           // let plan = try BuildPlan(buildParameters: buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
+           // try build(plan: plan, subset: subset)
           
            // Create the build plan and build.
-           let plan = try BuildPlan(buildParameters: buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
-           try build(plan: plan, subset: subset)
+           // let plan = try BuildPlan(buildParameters: buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
+           // try build(plan: plan, subset: subset)
 
         case .binPath:
             try print(buildParameters().buildPath.asString)

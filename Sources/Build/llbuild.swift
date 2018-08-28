@@ -12,6 +12,34 @@ import Basic
 import Utility
 import PackageModel
 import PackageGraph
+import PackageExtension
+
+struct BuildTargetBuildContext: TargetBuildContext {
+    let targetName: String
+    let inputs: [String]
+    let buildDirectory: String
+    let targetBuildDirectory: String
+}
+
+class LLBuildTaskGeneration: TaskGenerationDelegate {
+    func createCommand(inputs: [String], outputs: [String], commandLine: [String], description: String) {
+        let tool = ShellTool(
+            description: description,
+            inputs: inputs,
+            outputs: outputs,
+            args: commandLine,
+            allowMissingInputs: false
+        )
+        tools.append(tool)
+    }
+
+    func declareSwiftSource(_ path: String) {
+        swiftSources.append(path)
+    }
+
+    var tools: [ShellTool] = []
+    var swiftSources: [String] = []
+}
 
 /// llbuild manifest file generator for a build plan.
 public struct LLBuildManifestGenerator {
@@ -58,8 +86,15 @@ public struct LLBuildManifestGenerator {
         /// Other targets.
         private var otherTargets: [Target] = []
 
+        let buildPackageExtMode: Bool
+
+        init(buildPackageExtMode: Bool) {
+            self.buildPackageExtMode = buildPackageExtMode
+        }
+
         /// Append a command.
         mutating func append(_ target: Target, buildByDefault: Bool, isTest: Bool) {
+
             // Create a phony command with a virtual output node that represents the target.
             let virtualNodeName = "<\(target.name)>"
             let phonyTool = PhonyTool(inputs: target.outputs.values, outputs: [virtualNodeName])
@@ -71,7 +106,8 @@ public struct LLBuildManifestGenerator {
             newTarget.cmds.insert(phonyCommand)
             otherTargets.append(newTarget)
 
-            if buildByDefault {
+            // Jugad to always build extensions.
+            if buildPackageExtMode || buildByDefault {
                 if !isTest {
                     main.outputs += newTarget.outputs
                     main.cmds += newTarget.cmds
@@ -88,7 +124,8 @@ public struct LLBuildManifestGenerator {
 
     /// Generate manifest at the given path.
     public func generateManifest(at path: AbsolutePath) throws {
-        var targets = Targets()
+
+        var targets = Targets(buildPackageExtMode: plan.buildPackageExtMode)
 
         // Create commands for all target description in the plan.
         for (target, description) in plan.targetMap {
@@ -148,11 +185,20 @@ public struct LLBuildManifestGenerator {
                 outputs: [buildProduct.binary.asString])
         } else {
             let inputs = buildProduct.objects + buildProduct.dylibs.map({ $0.binary })
+
+            let ds = plan.computeDependencies(of: buildProduct.product).staticTargets
+            var extraObjects: [String] = []
+            for d in ds {
+                if let tar = plan.targetMap[d]?.swift {
+                    extraObjects += tar.additionalObjects.map({ $0.asString })
+                }
+            }
+
             tool = ShellTool(
                 description: "Linking \(buildProduct.binary.prettyPath())",
-                inputs: inputs.map({ $0.asString }),
+                inputs: inputs.map({ $0.asString }) + extraObjects,
                 outputs: [buildProduct.binary.asString],
-                args: buildProduct.linkArguments(),
+                args: buildProduct.linkArguments() + extraObjects,
                 allowMissingInputs: false
             )
         }
@@ -179,7 +225,8 @@ public struct LLBuildManifestGenerator {
             case .clang(let target)?:
                 inputs += target.objects.map({ $0.asString })
             case nil:
-                fatalError("unexpected: target \(target) not in target map \(plan.targetMap)")
+                break
+                //fatalError("unexpected: target \(target) not in target map \(plan.targetMap)")
             }
         }
 
@@ -192,7 +239,9 @@ public struct LLBuildManifestGenerator {
                 switch product.type {
                 case .executable, .library(.dynamic):
                     // Establish a dependency on binary of the product.
-                    inputs += [plan.productMap[product]!.binary.asString]
+                    if let p = plan.productMap[product] {
+                        inputs += [p.binary.asString]
+                    }
 
                 // For automatic and static libraries, add their targets as static input.
                 case .library(.automatic), .library(.static):
@@ -201,16 +250,89 @@ public struct LLBuildManifestGenerator {
                     }
                 case .test:
                     break
+                case .packageExt:
+                    break
+                }
+            }
+        }
+
+        // Add dependency to custom build rules.
+        let customBuildRules = OrderedSet(target.target.sources.codegenPaths.map({ $0.buildRule }))
+        var extinputs = SortedArray<String>()
+        if !customBuildRules.isEmpty {
+            // Find the target for this build rule.
+            let packageExtTargets = plan.graph.allTargets.filter({ $0.type == .packageExt })
+            for t in packageExtTargets {
+                for d in t.dependencies {
+                    switch d {
+                    case .target(let target):
+
+                        if let p = plan.buildProducts.filter({ $0.product.targets == [target] }).first {
+                            extinputs += [p.binary.asString]
+                        }
+
+                        // FIXME: unhandled target dependencies.
+
+                    case .product(let product):
+                        if let p = plan.productMap[product] {
+                            extinputs += [p.binary.asString]
+                        }
+                    }
                 }
             }
         }
 
         let buildConfig = plan.buildParameters.configuration.dirname
+        let commandName = target.target.getCommandName(config: buildConfig)
+
+        // Custom commands.
+        var customCommands: [Command] = []
+        do {
+            for buildRuleName in customBuildRules {
+                let buildRuleType = SwiftPackageManager.default.buildRules[buildRuleName]!
+                let buildRule = buildRuleType.init()
+
+                let inputFiles = target.target.sources.codegenPaths.filter({ $0.buildRule == buildRuleName }).map({ $0.path })
+                let inputs = inputFiles.map({ target.target.sources.root.appending($0) }).map({ $0.asString })
+
+                let buildContext = BuildTargetBuildContext(
+                    targetName: target.target.name,
+                    inputs: inputs,
+                    buildDirectory: plan.buildParameters.buildPath.asString,
+                    targetBuildDirectory: target.tempsPath.asString
+                )
+
+                let delegate = LLBuildTaskGeneration()
+                try! buildRule.constructTasks(target: buildContext, delegate: delegate)
+
+                target.additionalSources += delegate.swiftSources.map({ AbsolutePath($0) })
+
+                for (idx, tool) in delegate.tools.enumerated() {
+                    let buildRuleCommandName = "<custom-\(buildRuleName)-\(commandName)-\(idx)>"
+
+                    var tool = tool
+                    tool.inputs += extinputs.values
+                    tool.outputs += [buildRuleCommandName]
+
+                    customCommands.append(Command(name: buildRuleCommandName, tool: tool))
+                }
+            }
+        }
+
+        inputs.insert(contentsOf: target.additionalSources.map({ $0.asString }))
+
         var buildTarget = Target(name: target.target.getLLBuildTargetName(config: buildConfig))
         // The target only cares about the module output.
         buildTarget.outputs.insert(target.moduleOutputPath.asString)
+
         let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
-        buildTarget.cmds.insert(Command(name: target.target.getCommandName(config: buildConfig), tool: tool))
+        buildTarget.cmds.insert(Command(name: commandName, tool: tool))
+
+        for command in customCommands {
+            buildTarget.cmds.insert(command)
+            buildTarget.outputs.insert(command.name)
+        }
+
         return buildTarget
     }
 
@@ -277,6 +399,8 @@ extension ResolvedProduct {
             fatalError()
         case .executable:
             return "\(name)-\(config).exe"
+        case .packageExt:
+            return "\(name)-\(config).ext"
         }
     }
 

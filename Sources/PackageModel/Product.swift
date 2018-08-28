@@ -34,6 +34,8 @@ public enum ProductType: CustomStringConvertible, Equatable {
 
     /// A test product.
     case test
+
+    case packageExt
     
     public var description: String {
         switch self {
@@ -50,6 +52,8 @@ public enum ProductType: CustomStringConvertible, Equatable {
             case .static:
                 return "static"
             }
+        case .packageExt:
+            return "packageExt"
         }
     }
 }

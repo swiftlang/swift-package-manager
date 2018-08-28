@@ -35,6 +35,10 @@ public final class UserToolchain: Toolchain {
     /// The manifest resource provider.
     public let manifestResources: ManifestResourceProvider
 
+    public var libDir: AbsolutePath? { 
+        return manifestResources.libDir
+    }
+
     /// Path of the `swiftc` compiler.
     public let swiftCompiler: AbsolutePath
 

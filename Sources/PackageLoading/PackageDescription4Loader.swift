@@ -73,6 +73,9 @@ extension PackageModel.ProductType {
 
             self = .library(libraryType)
 
+        case "package_ext":
+            self = .packageExt
+
         default:
             fatalError("unexpected product type: \(json)")
         }
@@ -149,17 +152,33 @@ extension TargetDescription {
             .getArray("dependencies")
             .map(TargetDescription.Dependency.init(v4:))
 
+        let sources: [Source]?
+        if try json.getJSON("sources") == .null {
+            sources = nil
+        } else {
+            sources = try json
+                .getArray("sources")
+                .map(TargetDescription.Source.init(v4:))
+        }
+
         self.init(
             name: try json.get("name"),
             dependencies: dependencies,
             path: json.get("path"),
             exclude: try json.get("exclude"),
-            sources: try? json.get("sources"),
+            sources: sources,
+            customBuildRules: try json.get("customBuildRules"),
             publicHeadersPath: json.get("publicHeadersPath"),
             type: try .init(v4: json.get("type")),
             pkgConfig: json.get("pkgConfig"),
             providers: providers
         )
+    }
+}
+
+extension TargetDescription.Source {
+    fileprivate init(v4 json: JSON) throws {
+        self.init(path: try json.get("path"), buildRule: try? json.get("buildRule"))
     }
 }
 
@@ -172,6 +191,8 @@ extension TargetDescription.TargetType {
             self = .test
         case "system":
             self = .system
+        case "packageExt":
+            self = .packageExt
         default:
             fatalError()
         }

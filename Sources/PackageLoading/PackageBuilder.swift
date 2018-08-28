@@ -613,7 +613,8 @@ public final class PackageBuilder {
 
         // If there are sources defined in the target use that.
         if let definedSources = manifestTarget?.sources {
-            for definedSource in definedSources {
+            let sourcesToAutoDetect = definedSources.filter({ $0.buildRule == nil }).map({ $0.path })
+            for definedSource in sourcesToAutoDetect {
                 let definedSourcePath = potentialModule.path.appending(RelativePath(definedSource))
                 if fileSystem.isDirectory(definedSourcePath) {
                     // If this is a directory, add it to the list of paths to walk.
@@ -666,10 +667,41 @@ public final class PackageBuilder {
             let swiftSources = Array(swiftSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: swiftSources)
             // No C sources, so we expect to have Swift sources, and we create a Swift target.
+
+            if potentialModule.type == .packageExt {
+                return SwiftTarget(
+                    name: potentialModule.name,
+                    type: .packageExt,
+                    sources: Sources(paths: swiftSources, root: potentialModule.path),
+                    dependencies: moduleDependencies,
+                    productDependencies: productDeps,
+                    swiftVersion: try swiftVersion())
+            }
+
+            var codegens: [Sources.CodeGen] = []
+            if let codegenSources = manifestTarget?.sources?.filter({ $0.buildRule != nil }) {
+                for src in codegenSources {
+
+                    if src.path.hasPrefix("*.") {
+                        let dafiles = try walk(potentialModule.path, fileSystem: fileSystem, recursively: false)
+                        let candidates = dafiles.filter({ $0.extension == String(src.path.dropFirst(2)) })
+
+                        for c in candidates {
+                            codegens.append((c.relative(to: potentialModule.path), src.buildRule!))
+                        }
+                    } else {
+                        codegens.append((RelativePath(src.path), src.buildRule!))
+                        let file = potentialModule.path.appending(RelativePath(src.path))
+                        precondition(fileSystem.isFile(file))
+                    }
+                }
+            }
+
             return SwiftTarget(
                 name: potentialModule.name,
                 isTest: potentialModule.isTest,
-                sources: Sources(paths: swiftSources, root: potentialModule.path),
+                sources: Sources(paths: swiftSources, root: potentialModule.path, codegenPaths: codegens),
+                customBuildRules: manifestTarget?.customBuildRules ?? [],
                 dependencies: moduleDependencies,
                 productDependencies: productDeps,
                 swiftVersion: try swiftVersion())
@@ -865,7 +897,7 @@ public final class PackageBuilder {
             // for them.
             let executableProductTargets = manifest.products.flatMap({ product -> [String] in
                 switch product.type {
-                case .library, .test:
+                case .library, .test, .packageExt:
                     return []
                 case .executable:
                     return product.targets
@@ -900,7 +932,7 @@ public final class PackageBuilder {
 
             // Do some validation for executable products.
             switch product.type {
-            case .library, .test:
+            case .library, .test, .packageExt:
                 break
             case .executable:
                 let executableTargets = targets.filter({ $0.type == .executable })

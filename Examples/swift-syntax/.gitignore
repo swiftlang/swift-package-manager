@@ -1,0 +1,10 @@
+# Ignore Swift Package Manager build artifacts directory.
+.build/
+# Ignore generated Xcode projects
+*.xcodeproj
+
+# We always build swiftSyntax of master dependencies. Ignore any fixed 
+# dependency versions.
+Package.resolved
+
+.DS_Store

@@ -205,7 +205,19 @@ public final class BuildDelegate: BuildSystemDelegate {
 
     public func commandStarted(_ command: SPMLLBuild.Command) {
         guard command.shouldShowStatus else { return }
-        outputStream <<< ((isVerbose ? command.verboseDescription : command.description) + "\n")
+        let s = BufferedOutputByteStream()
+        if command.name.contains("custom") {
+            var color = "\u{001B}[36m"
+            if command.name.contains("MyCodeGenRule") {
+                color = "\u{001B}[31m"
+            } else if command.name.contains("SwiftLintBuildRule") {
+                color = "\u{001B}[30;1m"
+            }
+            s <<< color <<< command.description <<< "\u{001B}[0m" <<< "\n"
+        } else {
+            s <<< ((isVerbose ? command.verboseDescription : command.description) + "\n")
+        }
+        outputStream <<< s.bytes
         outputStream.flush()
     }
 

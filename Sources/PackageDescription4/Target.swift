@@ -11,11 +11,37 @@
 /// The description for an individual target.
 public final class Target {
 
+    public struct Source: ExpressibleByStringLiteral {
+        let path: String
+        let buildRule: String?
+
+        public init(stringLiteral path: String) {
+            self.init(path: path)
+        }
+
+        init(path: String, buildRule: String? = nil) {
+            self.path = path
+            self.buildRule = buildRule
+        }
+
+        public static func path(_ path: String) -> Source {
+            return Source(path: path)
+        }
+
+        public static func build(
+            _ path: String,
+            withBuildRule buildRule: String
+        ) -> Source {
+            return Source(path: path, buildRule: buildRule)
+        }
+    }
+
     /// The type of this target.
     public enum TargetType: String {
         case regular
         case test
         case system
+        case packageExt
     }
 
     /// Represents a target's dependency on another entity.
@@ -48,7 +74,7 @@ public final class Target {
     /// will be searched recursively for valid source files.
     ///
     /// Paths specified are relative to the target path.
-    public var sources: [String]?
+    public var sources: [Source]?
 
     /// List of paths to be excluded from source inference.
     ///
@@ -80,13 +106,16 @@ public final class Target {
     /// Providers array for the System library target.
     public let providers: [SystemPackageProvider]?
 
+    public let customBuildRules: [String]
+
     /// Construct a target.
     init(
         name: String,
         dependencies: [Dependency],
         path: String?,
         exclude: [String],
-        sources: [String]?,
+        sources: [Source]?,
+        customBuildRules: [String] = [],
         publicHeadersPath: String?,
         type: TargetType,
         pkgConfig: String? = nil,
@@ -97,6 +126,7 @@ public final class Target {
         self.path = path
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
+        self.customBuildRules = customBuildRules
         self.exclude = exclude
         self.type = type
         self.pkgConfig = pkgConfig
@@ -106,6 +136,9 @@ public final class Target {
         case .regular, .test:
             precondition(pkgConfig == nil && providers == nil)
         case .system: break
+        case .packageExt:
+            // FIXME: Add preconditions for package extension
+            break
         }
     }
 
@@ -114,7 +147,8 @@ public final class Target {
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
-        sources: [String]? = nil,
+        sources: [Source]? = nil,
+        customBuildRules: [String] = [],
         publicHeadersPath: String? = nil
     ) -> Target {
         return Target(
@@ -123,6 +157,7 @@ public final class Target {
             path: path,
             exclude: exclude,
             sources: sources,
+            customBuildRules: customBuildRules,
             publicHeadersPath: publicHeadersPath,
             type: .regular)
     }
@@ -132,7 +167,7 @@ public final class Target {
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
-        sources: [String]? = nil
+        sources: [Source]? = nil
     ) -> Target {
         return Target(
             name: name,
@@ -163,6 +198,22 @@ public final class Target {
             providers: providers)
     }
   #endif
+
+    public static func packageExtension(
+        name: String,
+        dependencies: [Dependency] = []
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: nil,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .packageExt,
+            pkgConfig: nil,
+            providers: [])
+    }
 }
 
 extension Target.Dependency {
