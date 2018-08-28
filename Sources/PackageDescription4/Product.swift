@@ -75,7 +75,7 @@ public class Product {
         }
     }
 
-    /// Create a libary product.
+    /// Create a library product.
     public static func library(
         name: String,
         type: Library.LibraryType? = nil,
