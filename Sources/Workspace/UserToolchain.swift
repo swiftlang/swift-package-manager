@@ -157,7 +157,7 @@ public final class UserToolchain: Toolchain {
         return clangCompiler
     }
 
-    public init(destination: Destination) throws {
+    public init(destination: Destination, environment: [String:String] = Process.env) throws {
         self.destination = destination
 
         // Get the search paths from PATH.
@@ -183,7 +183,7 @@ public final class UserToolchain: Toolchain {
       #if os(macOS)
         // FIXME: We should have some general utility to find tools.
         let xctestFindArgs = ["xcrun", "--sdk", "macosx", "--find", "xctest"]
-        self.xctest = try AbsolutePath(validating: Process.checkNonZeroExit(arguments: xctestFindArgs).chomp())
+        self.xctest = try AbsolutePath(validating: Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment).chomp())
       #else
         self.xctest = nil
       #endif

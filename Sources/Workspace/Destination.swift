@@ -84,7 +84,8 @@ public struct Destination {
     /// The destination describing the host OS.
     public static func hostDestination(
         _ binDir: AbsolutePath? = nil,
-        originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory
+        originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory,
+        environment: [String:String] = Process.env
     ) throws -> Destination {
         // Select the correct binDir.
         let binDir = binDir ?? Destination.hostBinDir(
@@ -98,7 +99,7 @@ public struct Destination {
         } else {
             // No value in env, so search for it.
             let sdkPathStr = try Process.checkNonZeroExit(
-                args: "xcrun", "--sdk", "macosx", "--show-sdk-path").chomp()
+                arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-path"], environment: environment).chomp()
             guard !sdkPathStr.isEmpty else {
                 throw DestinationError.invalidInstallation("default SDK not found")
             }
@@ -107,7 +108,7 @@ public struct Destination {
 
         // Compute common arguments for clang and swift.
         // This is currently just frameworks path.
-        let commonArgs = Destination.sdkPlatformFrameworkPath().map({ ["-F", $0.asString] }) ?? []
+        let commonArgs = Destination.sdkPlatformFrameworkPath(environment: environment).map({ ["-F", $0.asString] }) ?? []
 
         return Destination(
             target: hostTargetTriple,
@@ -132,12 +133,12 @@ public struct Destination {
     }
 
     /// Returns macosx sdk platform framework path.
-    public static func sdkPlatformFrameworkPath() -> AbsolutePath? {
+    public static func sdkPlatformFrameworkPath(environment: [String:String] = Process.env) -> AbsolutePath? {
         if let path = _sdkPlatformFrameworkPath {
             return path
         }
         let platformPath = try? Process.checkNonZeroExit(
-            args: "xcrun", "--sdk", "macosx", "--show-sdk-platform-path").chomp()
+            arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"], environment: environment).chomp()
 
         if let platformPath = platformPath, !platformPath.isEmpty {
            _sdkPlatformFrameworkPath = AbsolutePath(platformPath).appending(
