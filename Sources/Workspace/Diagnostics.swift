@@ -134,6 +134,21 @@ public enum ResolverDiagnostics {
     }
 }
 
+public struct InvalidToolchainDiagnostic: DiagnosticData, Error {
+    public static let id = DiagnosticID(
+        type: InvalidToolchainDiagnostic.self,
+        name: "org.swift.diags.invalid-toolchain",
+        description: {
+            $0 <<< "toolchain is invalid:" <<< { $0.error }
+        }
+    )
+
+    public let error: String
+    public init(_ error: String) {
+        self.error = error
+    }
+}
+
 public enum WorkspaceDiagnostics {
 
     //MARK: - Errors

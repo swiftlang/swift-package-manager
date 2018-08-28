@@ -13,6 +13,7 @@ import XCTest
 import TestSupport
 import Basic
 import Commands
+import Workspace
 
 struct BuildResult {
     let output: String

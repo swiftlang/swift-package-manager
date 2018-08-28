@@ -14,6 +14,7 @@ import Basic
 import Commands
 import TestSupport
 import SourceControl
+import Workspace
 
 class DependencyResolutionTests: XCTestCase {
     func testInternalSimple() {

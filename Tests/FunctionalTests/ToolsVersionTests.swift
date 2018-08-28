@@ -16,6 +16,7 @@ import TestSupport
 import Commands
 import PackageModel
 import SourceControl
+import Workspace
 
 class ToolsVersionTests: XCTestCase {
 

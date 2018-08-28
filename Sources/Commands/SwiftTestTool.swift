@@ -14,6 +14,7 @@ import Basic
 import Build
 import Utility
 import PackageGraph
+import Workspace
 
 import func POSIX.exit
 
