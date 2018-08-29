@@ -129,6 +129,7 @@ public final class ProgressBar: ProgressBarProtocol {
 
     public func complete(success: Bool) {
         term.endLine()
+        term.endLine()
     }
 }
 
