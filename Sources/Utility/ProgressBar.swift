@@ -122,7 +122,13 @@ public final class ProgressBar: ProgressBarProtocol {
         term.endLine()
 
         term.clearLine()
-        term.write(text)
+        if text.utf8.count > term.width {
+            let prefix = "…"
+            term.write(prefix)
+            term.write(String(text.suffix(term.width - prefix.utf8.count)))
+        } else {
+            term.write(text)
+        }
 
         term.moveCursor(up: 1)
     }
