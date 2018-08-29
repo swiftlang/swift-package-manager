@@ -129,6 +129,9 @@ public final class UserToolchain: Toolchain {
         return lookupExecutablePath(filename: getenv(variable), searchPaths: searchPaths)
     }
 
+    /// Environment to use when looking up tools.
+    private let processEnvironment: [String: String]
+
     public func getClangCompiler() throws -> AbsolutePath {
 
         if let clangCompiler = _clangCompiler {
@@ -142,7 +145,7 @@ public final class UserToolchain: Toolchain {
             clangCompiler = value
         } else {
             // No value in env, so search for `clang`.
-            let foundPath = try Process.checkNonZeroExit(arguments: whichClangArgs).chomp()
+            let foundPath = try Process.checkNonZeroExit(arguments: whichClangArgs, environment: processEnvironment).chomp()
             guard !foundPath.isEmpty else {
                 throw InvalidToolchainDiagnostic("could not find `clang`")
             }
@@ -157,8 +160,9 @@ public final class UserToolchain: Toolchain {
         return clangCompiler
     }
 
-    public init(destination: Destination, environment: [String:String] = Process.env) throws {
+    public init(destination: Destination, environment: [String: String] = Process.env) throws {
         self.destination = destination
+        self.processEnvironment = environment
 
         // Get the search paths from PATH.
         let searchPaths = getEnvSearchPaths(
