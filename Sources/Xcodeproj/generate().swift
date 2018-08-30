@@ -34,6 +34,9 @@ public struct XcodeprojOptions {
     /// Run watchman to auto-generate the project file on changes.
     public var enableAutogeneration: Bool
 
+    /// Whether to add extra files to the generated project.
+    public var addExtraFiles: Bool
+
     /// Reference to manifest loader, if present.
     public var manifestLoader: ManifestLoader?
 
@@ -42,13 +45,15 @@ public struct XcodeprojOptions {
         xcconfigOverrides: AbsolutePath? = nil,
         isCodeCoverageEnabled: Bool? = nil,
         useLegacySchemeGenerator: Bool? = nil,
-        enableAutogeneration: Bool? = nil
+        enableAutogeneration: Bool? = nil,
+        addExtraFiles: Bool? = nil
     ) {
         self.flags = flags
         self.xcconfigOverrides = xcconfigOverrides
         self.isCodeCoverageEnabled = isCodeCoverageEnabled ?? false
         self.useLegacySchemeGenerator = useLegacySchemeGenerator ?? false
         self.enableAutogeneration = enableAutogeneration ?? false
+        self.addExtraFiles = addExtraFiles ?? true
     }
 }
 
@@ -83,14 +88,20 @@ public func generate(
     try makeDirectories(xcodeprojPath)
     try makeDirectories(schemesDir)
 
-    // Find the paths of any extra directories that should be added as folder
-    // references in the project.
-    let extraDirs = try findDirectoryReferences(path: srcroot)
-
+    let extraDirs: [AbsolutePath]
     var extraFiles = [AbsolutePath]()
-    if try repositoryProvider.checkoutExists(at: srcroot) {
-        let workingCheckout = try repositoryProvider.openCheckout(at: srcroot)
-        extraFiles = try getExtraFilesFor(package: graph.rootPackages[0], in: workingCheckout)
+
+    if options.addExtraFiles {
+        // Find the paths of any extra directories that should be added as folder
+        // references in the project.
+        extraDirs = try findDirectoryReferences(path: srcroot)
+
+        if try repositoryProvider.checkoutExists(at: srcroot) {
+            let workingCheckout = try repositoryProvider.openCheckout(at: srcroot)
+            extraFiles = try getExtraFilesFor(package: graph.rootPackages[0], in: workingCheckout)
+        }
+    } else {
+        extraDirs = []
     }
 
     /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
@@ -265,6 +276,7 @@ func findNonSourceFiles(path: AbsolutePath, recursively: Bool = false) throws ->
     return filesFromPath.filter({
         if !isFile($0) { return false }
         if $0.basename.hasPrefix(".") { return false }
+        if $0.basename == "Package.resolved" { return false }
         if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions.contains(`extension`) {
             return false
         }

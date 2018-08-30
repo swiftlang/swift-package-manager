@@ -319,17 +319,6 @@ func xcodeProject(
     // Create a `Tests` group for the source targets in the root package.
     createSourceGroup(named: "Tests", for: testModules, in: project.mainGroup)
 
-    // Add "blue folders" for any other directories at the top level (note that
-    // they are not guaranteed to be direct children of the root directory).
-    for extraDir in extraDirs {
-        project.mainGroup.addFileReference(path: extraDir.relative(to: sourceRootDir).asString, pathBase: .projectDir)
-    }
-
-    for extraFile in extraFiles {
-        let groupOfFile = srcPathsToGroups[extraFile.parentDirectory]
-        groupOfFile?.addFileReference(path: extraFile.basename)
-    }
-
     // Determine the set of targets to generate in the project by excluding
     // any system targets.
     let targets = graph.reachableTargets.filter({ $0.type != .systemModule })
@@ -371,6 +360,17 @@ func xcodeProject(
     // Add a `Products` group, to which we'll add references to the outputs of
     // the various targets; these references will be added to the link phases.
     let productsGroup = project.mainGroup.addGroup(path: "", pathBase: .buildDir, name: "Products")
+
+    // Add "blue folders" for any other directories at the top level (note that
+    // they are not guaranteed to be direct children of the root directory).
+    for extraDir in extraDirs {
+        project.mainGroup.addFileReference(path: extraDir.relative(to: sourceRootDir).asString, pathBase: .projectDir)
+    }
+
+    for extraFile in extraFiles {
+        let groupOfFile = srcPathsToGroups[extraFile.parentDirectory]
+        groupOfFile?.addFileReference(path: extraFile.basename)
+    }
 
     // Set the newly created `Products` group as the official products group of
     // the project.
