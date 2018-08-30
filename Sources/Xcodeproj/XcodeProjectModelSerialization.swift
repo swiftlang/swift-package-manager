@@ -47,7 +47,8 @@ extension Xcode.Project: PropertyListSerializable {
         dict["isa"] = .string("PBXProject")
         // Since the project file is generated, we opt out of upgrade-checking.
         // FIXME: Shoule we really?  Why would we not want to get upgraded?
-        dict["attributes"] = .dictionary(["LastUpgradeCheck": .string("9999")])
+        dict["attributes"] = .dictionary(["LastUpgradeCheck": .string("9999"),
+                                          "LastSwiftMigration": .string("9999")])
         dict["compatibilityVersion"] = .string("Xcode 3.2")
         dict["developmentRegion"] = .string("English")
         // Build settings are a bit tricky; in Xcode, each is stored in a named
