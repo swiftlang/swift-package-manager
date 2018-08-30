@@ -231,6 +231,9 @@ class GenerateXcodeprojTests: XCTestCase {
             let project = try Xcodeproj.generate(projectName: projectName, xcodeprojPath: outpath, graph: graph, options: XcodeprojOptions(), diagnostics: diagnostics)
 
             XCTAssertTrue(project.mainGroup.subitems.contains { $0.path == "a.txt" })
+
+            let projectWithoutExtraFiles = try Xcodeproj.generate(projectName: projectName, xcodeprojPath: outpath, graph: graph, options: XcodeprojOptions(addExtraFiles: false), diagnostics: diagnostics)
+            XCTAssertFalse(projectWithoutExtraFiles.mainGroup.subitems.contains { $0.path == "a.txt" })
         }
     }
 

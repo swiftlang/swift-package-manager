@@ -373,9 +373,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             generateXcodeParser.add(
                 option: "--watch", kind: Bool.self,
                 usage: "Watch for changes to the Package manifest to regenerate the Xcode project"),
+            generateXcodeParser.add(
+                option: "--skip-extra-files", kind: Bool.self,
+                usage: "Do not add file references for extra files to the generated Xcode project"),
             to: {
                 $0.xcodeprojOptions.useLegacySchemeGenerator = $1 ?? false
                 $0.xcodeprojOptions.enableAutogeneration = $2 ?? false
+                $0.xcodeprojOptions.addExtraFiles = !($3 ?? false)
             })
 
         let completionToolParser = parser.add(
