@@ -165,11 +165,27 @@ extension Manifest {
 /// The description of an individual target.
 public struct TargetDescription: Equatable, Codable {
 
+    public struct Source: Codable, Equatable, ExpressibleByStringLiteral {
+
+        public let path: String
+        public let buildRule: String?
+
+        public init(path: String, buildRule: String? = nil) {
+            self.path = path
+            self.buildRule = buildRule
+        }
+
+        public init(stringLiteral path: String) {
+            self.init(path: path)
+        }
+    }
+
     /// The target type.
     public enum TargetType: String, Equatable, Codable {
         case regular
         case test
         case system
+        case packageExt
     }
 
     /// Represents a target's dependency on another entity.
@@ -194,7 +210,7 @@ public struct TargetDescription: Equatable, Codable {
     public let path: String?
 
     /// The custom sources of the target.
-    public let sources: [String]?
+    public let sources: [Source]?
 
     /// The exclude patterns.
     public let exclude: [String]
@@ -220,12 +236,15 @@ public struct TargetDescription: Equatable, Codable {
     /// The providers of a system library target.
     public let providers: [SystemPackageProviderDescription]?
 
+    public let customBuildRules: [String]
+
     public init(
         name: String,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
-        sources: [String]? = nil,
+        sources: [Source]? = nil,
+        customBuildRules: [String] = [],
         publicHeadersPath: String? = nil,
         type: TargetType = .regular,
         pkgConfig: String? = nil,
@@ -234,7 +253,7 @@ public struct TargetDescription: Equatable, Codable {
         switch type {
         case .regular, .test:
             precondition(pkgConfig == nil && providers == nil)
-        case .system: break
+        case .system, .packageExt: break
         }
 
         self.name = name
@@ -242,6 +261,7 @@ public struct TargetDescription: Equatable, Codable {
         self.path = path
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
+        self.customBuildRules = customBuildRules
         self.exclude = exclude
         self.type = type
         self.pkgConfig = pkgConfig

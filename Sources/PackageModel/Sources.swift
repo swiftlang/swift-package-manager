@@ -16,14 +16,18 @@ public struct Sources {
     public let relativePaths: [RelativePath]
     public let root: AbsolutePath
 
+    public typealias CodeGen = (path: RelativePath, buildRule: String)
+    public let codegenPaths: [CodeGen]
+
     public var paths: [AbsolutePath] {
         return relativePaths.map({ root.appending($0) })
     }
 
-    public init(paths: [AbsolutePath], root: AbsolutePath) {
+    public init(paths: [AbsolutePath], root: AbsolutePath, codegenPaths: [CodeGen] = []) {
         let relativePaths = paths.map({ $0.relative(to: root) })
         self.relativePaths = relativePaths.sorted(by: { $0.asString < $1.asString })
         self.root = root
+        self.codegenPaths = codegenPaths
     }
 
     /// Returns true if the sources contain C++ files.

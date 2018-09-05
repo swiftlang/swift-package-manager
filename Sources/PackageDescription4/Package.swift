@@ -255,6 +255,16 @@ extension Package {
     }
 }
 
+extension Target.Source {
+    func toJSON() -> JSON {
+        let dict: [String: JSON] = [
+            "path": .string(path),
+            "buildRule": buildRule.map(JSON.string) ?? .null,
+        ]
+        return .dictionary(dict)
+    }
+}
+
 extension Target {
     func toJSON() -> JSON {
         var dict: [String: JSON] = [
@@ -264,7 +274,8 @@ extension Target {
             "dependencies": .array(dependencies.map({ $0.toJSON() })),
             "path": path.map(JSON.string) ?? JSON.null,
             "exclude": .array(exclude.map(JSON.string)),
-            "sources": sources.map({ JSON.array($0.map(JSON.string)) }) ?? JSON.null,
+            "sources": sources.map({ .array($0.map({ $0.toJSON() })) }) ?? JSON.null,
+            "customBuildRules": .array(customBuildRules.map(JSON.string)),
         ]
         if let pkgConfig = self.pkgConfig {
             dict["pkgConfig"] = .string(pkgConfig)

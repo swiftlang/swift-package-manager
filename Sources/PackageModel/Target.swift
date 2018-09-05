@@ -17,6 +17,7 @@ public class Target: ObjectIdentifierProtocol {
         case library
         case systemModule = "system-target"
         case test
+        case packageExt
     }
 
     /// The name of the target.
@@ -43,16 +44,20 @@ public class Target: ObjectIdentifierProtocol {
     /// The sources for the target.
     public let sources: Sources
 
+    public let customBuildRules: [String]
+
     fileprivate init(
         name: String,
         type: Kind,
         sources: Sources,
+        customBuildRules: [String] = [],
         dependencies: [Target],
         productDependencies: [(name: String, package: String?)] = []
     ) {
         self.name = name
         self.type = type
         self.sources = sources
+        self.customBuildRules = customBuildRules
         self.dependencies = dependencies
         self.productDependencies = productDependencies
         self.c99name = self.name.mangledToC99ExtendedIdentifier()
@@ -90,11 +95,30 @@ public class SwiftTarget: Target {
         name: String,
         isTest: Bool = false,
         sources: Sources,
+        customBuildRules: [String] = [],
         dependencies: [Target] = [],
         productDependencies: [(name: String, package: String?)] = [],
         swiftVersion: SwiftLanguageVersion
     ) {
         let type: Kind = isTest ? .test : sources.computeTargetType()
+        self.swiftVersion = swiftVersion
+        super.init(
+            name: name,
+            type: type,
+            sources: sources,
+            customBuildRules: customBuildRules,
+            dependencies: dependencies,
+            productDependencies: productDependencies)
+    }
+
+    public init(
+        name: String,
+        type: Kind,
+        sources: Sources,
+        dependencies: [Target] = [],
+        productDependencies: [(name: String, package: String?)] = [],
+        swiftVersion: SwiftLanguageVersion
+    ) {
         self.swiftVersion = swiftVersion
         super.init(
             name: name,

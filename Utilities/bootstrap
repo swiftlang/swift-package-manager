@@ -248,6 +248,8 @@ class Target(object):
         print("    objects: %s" % json.dumps(swift_objects), file=output)
 
         import_paths = [module_dir, include_dir]
+        if hasattr(args, 'package_ext_path'):
+            import_paths.append(args.package_ext_path)
 
         # To import C target, add import path to where modulemap is located.
         for dependency in self.dependencies:
@@ -586,6 +588,9 @@ class llbuild(object):
                 # Add llbuild link flags.
                 link_command.extend(llbuild_link_args(self.args))
 
+            if hasattr(self.args, 'package_ext_path'):
+                link_command.append("-L%s" % self.args.package_ext_path)
+
             # Write out the link command.
             if target.is_library:
                 description = "Link %s" % target.name
@@ -644,6 +649,53 @@ def build_runtimes(targets, sandbox_path, args):
         build.run()
         built_runtimes[version] = build
     return built_runtimes
+
+def build_package_extension(sandbox_path, args):
+    note("building package extension")
+
+    lib_path = os.path.join(sandbox_path, "runtimes", "package_ext")
+
+    target = Target("PackageExtension", swiftflags=["-module-link-name", "PackageExtension"])
+    build = llbuild(lib_path, [target], args)
+    build.create_manifest()
+    build.run()
+
+    input_lib_path = os.path.join(build.lib_dir, "PackageExtension.a")
+
+    if platform.system() == 'Darwin':
+        runtime_lib_path = os.path.join(build.module_dir, "libPackageExtension.dylib")
+        cmd = [args.swiftc_path, "-Xlinker", "-dylib", "-o",
+               runtime_lib_path,
+               "-Xlinker", "-all_load",
+               input_lib_path,
+               "-target", "x86_64-apple-macosx10.10"]
+    else:
+        runtime_lib_path = os.path.join(build.module_dir, "libPackageExtension.so")
+        cmd = [args.swiftc_path, "-emit-library", "-o", runtime_lib_path,
+               "-Xlinker", "--whole-archive",
+               "-Xlinker", input_lib_path,
+               "-Xlinker", "--no-whole-archive", "-lswiftGlibc"]
+
+        # We need to pass one swift file here to bypass the "no input files"
+        # error.
+        tf = tempfile.NamedTemporaryFile(suffix=".swift")
+        cmds = subprocess.check_output(
+            cmd + [tf.name, "-###"],
+            universal_newlines=True).strip().split("\n")
+
+        # Get the link command 'swiftc' used.
+        link_cmd = shlex.split(cmds[-1])
+
+        # Unqoute any quoted characters.
+        link_cmd = [arg.replace("\\", "") for arg in link_cmd]
+
+        # Drop any .o files
+        cmd = [arg for arg in link_cmd
+               if arg.endswith(("swift_begin.o", "swift_end.o")) or
+               (not arg.endswith((".o", ".autolink")))]
+    subprocess.check_call(cmd)
+    return build.module_dir
+
 
 def process_runtime_libraries(build, args, lib_path):
     module_input_path = os.path.join(
@@ -861,6 +913,8 @@ def write_self_hosting_script(path, args):
     if args.llbuild_link_framework:
         swiftpm_flags.extend(["-Xswiftc", "-F%s" % args.llbuild_build_dir])
     swiftpm_flags.extend(llbuild_link_args(args))
+
+    swiftpm_flags.extend(["-Xswiftc", "-I%s" % args.package_ext_path, "-Xlinker", "-L%s" % args.package_ext_path])
 
     # Construct the string from the build flags.
     swiftpm_flags_str = ' '.join(('"%s"' % flag) for flag in swiftpm_flags)
@@ -1104,6 +1158,8 @@ def main():
     args.sbt_path = os.path.abspath(
         args.sbt_path or get_swift_build_tool_path())
 
+    args.package_ext_path = build_package_extension(sandbox_path, args)
+
     # Run the stage1 build.
     note("building stage1")
     stage1 = llbuild(sandbox_path, targets, args)
@@ -1137,6 +1193,7 @@ def main():
             # TODO remove, here to prevent revlock incremental CI build failures
             shutil.rmtree(libdir)
         symlink_force(os.path.join(sandbox_path, "lib"), target_path)
+        symlink_force(args.package_ext_path, os.path.join(sandbox_path, "lib", "swift", "pm", "ext"))
 
         # To simulate usr/lib directory.
         usrdir = os.path.join(target_path, "usr")
@@ -1229,6 +1286,8 @@ def main():
 
     # Add llbuild link flags.
     build_flags.extend(llbuild_link_args(args))
+
+    build_flags.extend(["-Xswiftc", "-I%s" % args.package_ext_path, "-Xlinker", "-L%s" % args.package_ext_path])
     
     # Enable testing in release mode because SwiftPM's tests uses @testable imports.
     #
@@ -1336,6 +1395,18 @@ def main():
                 if result != 0:
                     error("swiftdoc install failed with exit status %d" % (result,))
 
+            # Install PackageExtension runtime.
+            package_ext_install_path = os.path.join(lib_install_path, "ext")
+            pkg_ext_lib_path = os.path.join(args.package_ext_path, "libPackageExtension.dylib")
+            installBinary(pkg_ext_lib_path, package_ext_install_path , args.swiftc_path)
+
+            for item in ["PackageExtension.swiftdoc", "PackageExtension.swiftmodule"]:
+                p = os.path.join(args.package_ext_path, item)
+                cmd = ["install", "-m", "0644", p, package_ext_install_path]
+                note("installing %s: %s" % (os.path.basename(p), ' '.join(cmd)))
+                result = subprocess.call(cmd)
+                if result != 0:
+                    error("swift install failed with exit status %d" % (result,))
     
     # Copy the libSwiftPM library to a directory, if we've been asked to do so.
     if args.libswiftpm_library_dir:
@@ -1451,8 +1522,8 @@ def main():
             # Add required build settings for llbuild.
             swift_include_paths = " ".join(llbuild_import_paths(args))
             lib_path = llbuild_lib_path(args)
-            print("SWIFT_INCLUDE_PATHS = %s" % (swift_include_paths), file=f)
-            print("LIBRARY_SEARCH_PATHS = %s" % (lib_path), file=f)
+            print("SWIFT_INCLUDE_PATHS = %s %s" % (swift_include_paths, args.package_ext_path), file=f)
+            print("LIBRARY_SEARCH_PATHS = %s %s" % (lib_path, args.package_ext_path), file=f)
             print("LD_RUNPATH_SEARCH_PATHS = %s" % (lib_path), file=f)
         cmd += ["--xcconfig-overrides", xcconfig_path]
             

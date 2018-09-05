@@ -22,6 +22,24 @@ public class Product {
         fatalError("Should be implemented by subclasses")
     }
 
+    final class PackageExtension: Product {
+        /// The names of the targets in this product.
+        public let targets: [String]
+
+        init(name: String, targets: [String]) {
+            self.targets = targets
+            super.init(name: name)
+        }
+
+        override func toJSON() -> JSON {
+            return .dictionary([
+                "name": .string(name),
+                "product_type": .string("package_ext"),
+                "targets": .array(targets.map(JSON.string)),
+            ])
+        }
+    }
+
     /// Represents an executable product.
     public final class Executable: Product {
 
@@ -90,5 +108,11 @@ public class Product {
         targets: [String]
     ) -> Product {
         return Executable(name: name, targets: targets)
+    }
+
+    public static func packageExtension(
+        name: String
+    ) -> Product {
+        return PackageExtension(name: name, targets: [name])
     }
 }

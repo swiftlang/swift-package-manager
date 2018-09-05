@@ -135,6 +135,15 @@ public enum TargetBuildDescription {
             return target.objects
         }
     }
+
+    var swift: SwiftTargetBuildDescription? {
+        switch self {
+        case .swift(let target):
+            return target
+        case .clang:
+            return nil
+        }
+    }
 }
 
 /// Target description for a Clang target i.e. C language family target.
@@ -285,6 +294,8 @@ public final class ClangTargetBuildDescription {
     }
 }
 
+// let foo = "/swiftpm/swiftpm/.build/.bootstrap/runtimes/package_ext/modules"
+
 /// Target description for a Swift target.
 public final class SwiftTargetBuildDescription {
 
@@ -302,6 +313,14 @@ public final class SwiftTargetBuildDescription {
     /// The objects in this target.
     var objects: [AbsolutePath] {
         return target.sources.relativePaths.map({ tempsPath.appending(RelativePath($0.asString + ".o")) })
+    }
+
+    var additionalSources: [AbsolutePath] = []
+
+    var additionalObjects: [AbsolutePath] {
+        return additionalSources.map({
+            tempsPath.appending(RelativePath($0.basename + ".o"))
+        })
     }
 
     /// The path to the swiftmodule file after compilation.
@@ -352,6 +371,10 @@ public final class SwiftTargetBuildDescription {
         args += moduleCacheArgs
         args += buildParameters.sanitizers.compileSwiftFlags()
 
+        if target.type == .packageExt {
+            args += ["-I" + buildParameters.toolchain.libDir!.appending(component: "ext").asString]
+        }
+
         // Add arguments to colorize output if stdout is tty
         if buildParameters.isTTY {
             args += ["-Xfrontend", "-color-diagnostics"]
@@ -393,7 +416,7 @@ public final class SwiftTargetBuildDescription {
 }
 
 /// The build description for a product.
-public final class ProductBuildDescription {
+public final class ProductBuildDescription: CustomStringConvertible {
 
     /// The reference to the product.
     public let product: ResolvedProduct
@@ -419,6 +442,8 @@ public final class ProductBuildDescription {
             }
         case .library(.static):
             return RelativePath("lib\(name).a")
+        case .packageExt:
+            return RelativePath("lib\(name).\(self.buildParameters.toolchain.dynamicLibraryExtension)")
         case .library(.dynamic):
             return RelativePath("lib\(name).\(self.buildParameters.toolchain.dynamicLibraryExtension)")
         case .library(.automatic):
@@ -504,6 +529,9 @@ public final class ProductBuildDescription {
             } else {
                 args += ["-emit-executable"]
             }
+        case .packageExt:
+            args += ["-L" + buildParameters.toolchain.libDir!.appending(component: "ext").asString]
+            args += ["-emit-library"]
         case .library(.dynamic):
             args += ["-emit-library"]
         case .executable:
@@ -540,6 +568,10 @@ public final class ProductBuildDescription {
 
         try fs.createDirectory(linkFileListPath.parentDirectory, recursive: true)
         try fs.writeFileContents(linkFileListPath, bytes: stream.bytes)
+    }
+
+    public var description: String {
+        return outname.asString
     }
 }
 
@@ -591,13 +623,17 @@ public class BuildPlan {
     /// Diagnostics Engine to emit diagnostics
     let diagnostics: DiagnosticsEngine
 
+    let buildPackageExtMode: Bool
+
     /// Create a build plan with build parameters and a package graph.
     public init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
         diagnostics: DiagnosticsEngine,
+        buildPackageExtMode: Bool = false,
         fileSystem: FileSystem = localFileSystem
     ) throws {
+        self.buildPackageExtMode = buildPackageExtMode
         self.buildParameters = buildParameters
         self.graph = graph
         self.diagnostics = diagnostics
@@ -606,6 +642,11 @@ public class BuildPlan {
         // Create build target description for each target which we need to plan.
         var targetMap = [ResolvedTarget: TargetBuildDescription]()
         for target in graph.allTargets {
+
+            if (buildPackageExtMode ? 1 : 0) ^ ((target.type == .packageExt) ? 1 : 0) == 1 {
+                continue
+            }
+
              switch target.underlyingTarget {
              case is SwiftTarget:
                  targetMap[target] = .swift(SwiftTargetBuildDescription(target: target, buildParameters: buildParameters))
@@ -645,12 +686,18 @@ public class BuildPlan {
         // Create product description for each product we have in the package graph except
         // for automatic libraries because they don't produce any output.
         for product in graph.allProducts where product.type != .library(.automatic) {
+
+            if (buildPackageExtMode ? 1 : 0) ^ ((product.type == .packageExt) ? 1 : 0) == 1 {
+                continue
+            }
+
             productMap[product] = ProductBuildDescription(
                 product: product, buildParameters: buildParameters)
         }
 
         self.productMap = productMap
         self.targetMap = targetMap
+
         // Finally plan these targets.
         try plan()
     }
@@ -699,7 +746,16 @@ public class BuildPlan {
         }
 
         buildProduct.dylibs = dependencies.dylibs.map({ productMap[$0]! })
-        buildProduct.objects += dependencies.staticTargets.flatMap({ targetMap[$0]!.objects })
+        buildProduct.objects += dependencies.staticTargets.flatMap({ target -> [AbsolutePath] in
+            var objects: [AbsolutePath] = []
+            if buildPackageExtMode {
+                objects = targetMap[target]?.objects ?? []
+            } else {
+                objects = targetMap[target]!.objects
+            }
+            return objects
+
+        })
 
         // Write the link filelist file.
         //
@@ -709,7 +765,7 @@ public class BuildPlan {
     }
 
     /// Computes the dependencies of a product.
-    private func computeDependencies(
+    func computeDependencies(
         of product: ResolvedProduct
     ) -> (
         dylibs: [ResolvedProduct],
@@ -729,7 +785,7 @@ public class BuildPlan {
             // need to statically link it.
             case .product(let product):
                 switch product.type {
-                case .library(.automatic), .library(.static):
+                case .library(.automatic), .library(.static), .packageExt:
                     return product.targets.map(ResolvedTarget.Dependency.target)
                 case .library(.dynamic), .test, .executable:
                     return []
@@ -753,7 +809,7 @@ public class BuildPlan {
                         staticTargets.append(target)
                     }
                 // Library targets should always be included.
-                case .library:
+                case .library, .packageExt:
                     staticTargets.append(target)
                 // Add system target targets to system targets array.
                 case .systemModule:
@@ -797,6 +853,9 @@ public class BuildPlan {
 
     /// Plan a Swift target.
     private func plan(swiftTarget: SwiftTargetBuildDescription) throws {
+        guard swiftTarget.target.type != .packageExt else {
+            return
+        }
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
         for dependency in swiftTarget.target.recursiveDependencies {

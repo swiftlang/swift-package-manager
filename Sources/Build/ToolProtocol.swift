@@ -40,8 +40,8 @@ struct PhonyTool: ToolProtocol {
 
 struct ShellTool: ToolProtocol {
     let description: String
-    let inputs: [String]
-    let outputs: [String]
+    var inputs: [String]
+    var outputs: [String]
     let args: [String]
     let allowMissingInputs: Bool
 
@@ -100,9 +100,14 @@ struct SwiftCompilerTool: ToolProtocol {
     /// Inputs to the tool.
     let inputs: [String]
 
+    var allObjects: [String] {
+        return target.objects.map({ $0.asString }) + target.additionalObjects.map({ $0.asString })
+    }
+
+
     /// Outputs produced by the tool.
     var outputs: [String] {
-        return target.objects.map({ $0.asString }) + [target.moduleOutputPath.asString]
+        return allObjects + [target.moduleOutputPath.asString]
     }
 
     /// The underlying Swift build target.
@@ -132,11 +137,11 @@ struct SwiftCompilerTool: ToolProtocol {
         stream <<< "    temps-path: "
             <<< Format.asJSON(target.tempsPath.asString) <<< "\n"
         stream <<< "    objects: "
-            <<< Format.asJSON(target.objects.map({ $0.asString })) <<< "\n"
+            <<< Format.asJSON(allObjects) <<< "\n"
         stream <<< "    other-args: "
             <<< Format.asJSON(target.compileArguments()) <<< "\n"
         stream <<< "    sources: "
-            <<< Format.asJSON(target.target.sources.paths.map({ $0.asString })) <<< "\n"
+            <<< Format.asJSON((target.target.sources.paths + target.additionalSources).map({ $0.asString })) <<< "\n"
         stream <<< "    is-library: "
             <<< Format.asJSON(target.target.type == .library || target.target.type == .test) <<< "\n"
         stream <<< "    enable-whole-module-optimization: "

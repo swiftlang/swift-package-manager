@@ -29,4 +29,10 @@ public protocol Toolchain {
 
     /// The dynamic library extension, for e.g. dylib, so.
     var dynamicLibraryExtension: String { get }
+
+    var libDir: AbsolutePath? { get }
+}
+
+public extension Toolchain {
+    var libDir: AbsolutePath? { return nil }
 }

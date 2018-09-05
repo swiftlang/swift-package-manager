@@ -66,7 +66,7 @@ public enum PackageBuilderDiagnostics {
                     switch self.product.type {
                     case .library(.automatic):
                         return ""
-                    case .executable, .test: fallthrough
+                    case .executable, .test, .packageExt: fallthrough
                     case .library(.dynamic), .library(.static):
                          return "(\(self.product.type))"
                     }

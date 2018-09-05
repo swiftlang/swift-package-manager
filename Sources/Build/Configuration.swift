@@ -18,3 +18,24 @@ public enum Configuration: String {
         }
     }
 }
+
+// Ext stuff
+// FIXME: Find a place to put this.
+
+import PackageExtension
+
+public class SwiftPackageManager: PackageManager {
+    public static let `default` = SwiftPackageManager()
+
+    public private(set) var buildRules: [String: BuildRule.Type]
+
+    private init() {
+        buildRules = [:]
+    }
+
+    public func registerBuildRule(name: String, implementation: BuildRule.Type) {
+        buildRules[name] = implementation
+    }
+}
+
+// Ext stuff
