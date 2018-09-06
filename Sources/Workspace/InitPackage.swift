@@ -31,7 +31,7 @@ public final class InitPackage {
     /// A block that will be called to report progress during package creation
     public var progressReporter: ((String) -> Void)?
 
-    /// Where to crerate the new package
+    /// Where to create the new package
     let destinationPath: AbsolutePath
 
     /// The type of package to create.
