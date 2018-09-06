@@ -430,7 +430,7 @@ public final class Process: ObjectIdentifierProtocol {
     /// Note: This will signal all processes in the process group.
     public func signal(_ signal: Int32) {
         assert(launched, "The process is not yet launched.")
-        _ = SPMLibc.kill(-processID, signal)
+        _ = SPMLibc.kill(startNewProcessGroup ? -processID : processID, signal)
     }
 }
 
