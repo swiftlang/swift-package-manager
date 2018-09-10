@@ -176,7 +176,7 @@ public final class Process: ObjectIdentifierProtocol {
         }
     }
 
-    /// How process redirect its output.
+    /// How process redirects its output.
     public let outputRedirection: OutputRedirection
 
     /// The result of the process execution. Available after process is terminated.
