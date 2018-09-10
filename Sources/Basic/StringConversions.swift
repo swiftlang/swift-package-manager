@@ -112,3 +112,10 @@ public extension Array where Element == String {
         return result
     }
 }
+
+extension Substring {
+    /// Creates and returns the String object.
+    public var str: String {
+        return String(self)
+    }
+}
