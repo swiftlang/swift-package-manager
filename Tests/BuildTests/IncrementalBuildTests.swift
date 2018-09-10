@@ -40,7 +40,7 @@ final class IncrementalBuildTests: XCTestCase {
     func testIncrementalSingleModuleCLibraryInSources() {
         fixture(name: "CFamilyTargets/CLibrarySources") { prefix in
             // Build it once and capture the log (this will be a full build).
-            let fullLog = try executeSwiftBuild(prefix, printIfError: true)
+            let fullLog = try executeSwiftBuild(prefix)
             
             // Check various things that we expect to see in the full build log.
             // FIXME:  This is specific to the format of the log output, which
@@ -61,7 +61,7 @@ final class IncrementalBuildTests: XCTestCase {
             let llbuildContents1 = try localFileSystem.readFileContents(llbuildManifest)
             
             // Now build again.  This should be an incremental build.
-            let log2 = try executeSwiftBuild(prefix, printIfError: true)
+            let log2 = try executeSwiftBuild(prefix)
             XCTAssertTrue(log2.contains("Compile CLibrarySources Foo.c"))
 
             // Read the second llbuild manifest.
@@ -69,7 +69,7 @@ final class IncrementalBuildTests: XCTestCase {
             
             // Now build again without changing anything.  This should be a null
             // build.
-            let log3 = try executeSwiftBuild(prefix, printIfError: true)
+            let log3 = try executeSwiftBuild(prefix)
             XCTAssertFalse(log3.contains("Compile CLibrarySources Foo.c"))
 
             // Read the third llbuild manifest.

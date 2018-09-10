@@ -202,9 +202,9 @@ class MiscellaneousTestCase: XCTestCase {
       #if false
         // Make sure that swiftpm doesn't rebuild second time if the modulemap is being generated.
         fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
-            var output = try executeSwiftBuild(prefix, printIfError: true)
+            var output = try executeSwiftBuild(prefix)
             XCTAssertFalse(output.isEmpty, output)
-            output = try executeSwiftBuild(prefix, printIfError: true)
+            output = try executeSwiftBuild(prefix)
             XCTAssertTrue(output.isEmpty, output)
         }
       #endif
@@ -216,14 +216,14 @@ class MiscellaneousTestCase: XCTestCase {
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
           // First try normal serial testing.
           do {
-            _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix, printIfError: false)
+            _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
           } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
             XCTAssertTrue(stderr.contains("Executed 2 tests"))
           }
 
           do {
             // Run tests in parallel.
-            _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix, printIfError: false)
+            _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix)
           } catch SwiftPMProductError.executionFailure(_, let output, _) {
             XCTAssert(output.contains("testExample1"))
             XCTAssert(output.contains("testExample2"))
@@ -237,7 +237,7 @@ class MiscellaneousTestCase: XCTestCase {
             // Run tests in parallel with verbose output.
             _ = try SwiftPMProduct.SwiftTest.execute(
                 ["--parallel", "--verbose", "--xunit-output", xUnitOutput.asString],
-                packagePath: prefix, printIfError: false)
+                packagePath: prefix)
           } catch SwiftPMProductError.executionFailure(_, let output, _) {
             XCTAssert(output.contains("testExample1"))
             XCTAssert(output.contains("testExample2"))
@@ -257,7 +257,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testSwiftTestFilter() throws {
         #if os(macOS)
             fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-                let output = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1"], packagePath: prefix, printIfError: true)
+                let output = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1"], packagePath: prefix)
                 XCTAssert(output.contains("testExample1"))
             }
         #endif
@@ -266,7 +266,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testOverridingSwiftcArguments() throws {
       #if os(macOS)
         fixture(name: "Miscellaneous/OverrideSwiftcArgs") { prefix in
-            try executeSwiftBuild(prefix, printIfError: true, Xswiftc: ["-target", "x86_64-apple-macosx10.20"])
+            try executeSwiftBuild(prefix, Xswiftc: ["-target", "x86_64-apple-macosx10.20"])
         }
       #endif
     }

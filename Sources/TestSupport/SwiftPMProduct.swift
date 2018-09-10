@@ -72,15 +72,13 @@ public enum SwiftPMProduct {
     ///         - args: The arguments to pass.
     ///         - env: Additional environment variables to pass. The values here are merged with default env.
     ///         - packagePath: Adds argument `--package-path <path>` if not nil.
-    ///         - printIfError: Print the output on non-zero exit.
     ///
     /// - Returns: The output of the process.
     @discardableResult
     public func execute(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        env: [String: String]? = nil,
-        printIfError: Bool = false
+        env: [String: String]? = nil
     ) throws -> String {
 
         let result = try executeProcess(

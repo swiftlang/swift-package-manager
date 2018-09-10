@@ -15,7 +15,7 @@ import Commands
 
 final class TestToolTests: XCTestCase {
     private func execute(_ args: [String]) throws -> String {
-        return try SwiftPMProduct.SwiftTest.execute(args, printIfError: true)
+        return try SwiftPMProduct.SwiftTest.execute(args)
     }
     
     func testUsage() throws {

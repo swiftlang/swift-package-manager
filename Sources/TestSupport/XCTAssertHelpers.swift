@@ -34,7 +34,6 @@ public func XCTAssertBuilds(
             _ = try executeSwiftBuild(
                 path,
                 configuration: conf,
-                printIfError: true,
                 Xcc: Xcc,
                 Xld: Xld,
                 Xswiftc: Xswiftc,
@@ -57,7 +56,7 @@ public func XCTAssertSwiftTest(
     env: [String: String]? = nil
 ) {
     do {
-        _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: path, env: env, printIfError: true)
+        _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: path, env: env)
     } catch {
         XCTFail("""
             `swift test' failed:
