@@ -17,7 +17,7 @@ import POSIX
 
 final class RunToolTests: XCTestCase {
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftRun.execute(args, packagePath: packagePath, printIfError: true)
+        return try SwiftPMProduct.SwiftRun.execute(args, packagePath: packagePath)
     }
 
     func testUsage() throws {

@@ -23,7 +23,7 @@ import Workspace
 
 final class PackageToolTests: XCTestCase {
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, printIfError: true)
+        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath)
     }
 
     func testUsage() throws {
@@ -198,12 +198,12 @@ final class PackageToolTests: XCTestCase {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
             func build() throws -> String {
-                return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath, printIfError: true)
+                return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
             }
 
             // Put bar and baz in edit mode.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "bar", "--branch", "bugfix"], packagePath: fooPath, printIfError: true)
-            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "bar", "--branch", "bugfix"], packagePath: fooPath)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
             let exec = [fooPath.appending(components: ".build", Destination.host.target, "debug", "foo").asString]
@@ -247,11 +247,11 @@ final class PackageToolTests: XCTestCase {
             try editsRepo.push(remote: "origin", branch: "bugfix")
 
             // We should be able to unedit now.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], packagePath: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], packagePath: fooPath)
 
             // Test editing with a path i.e. ToT development.
             let bazTot = prefix.appending(component: "tot")
-            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], packagePath: fooPath, printIfError: true)
+            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], packagePath: fooPath)
             XCTAssertTrue(exists(bazTot))
             XCTAssertTrue(isSymlink(bazEditsPath))
 
@@ -262,12 +262,12 @@ final class PackageToolTests: XCTestCase {
             try localFileSystem.writeFileContents(bazTotPackageFile, bytes: stream.bytes)
 
             // Unediting baz will remove the symlink but not the checked out package.
-            try SwiftPMProduct.SwiftPackage.execute(["unedit", "baz"], packagePath: fooPath, printIfError: true)
+            try SwiftPMProduct.SwiftPackage.execute(["unedit", "baz"], packagePath: fooPath)
             XCTAssertTrue(exists(bazTot))
             XCTAssertFalse(isSymlink(bazEditsPath))
 
             // Check that on re-editing with path, we don't make a new clone.
-            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], packagePath: fooPath, printIfError: true)
+            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], packagePath: fooPath)
             XCTAssertTrue(isSymlink(bazEditsPath))
             XCTAssertEqual(try localFileSystem.readFileContents(bazTotPackageFile), stream.bytes)
         }
@@ -323,7 +323,7 @@ final class PackageToolTests: XCTestCase {
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath, printIfError: printError)
+                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath)
             }
 
             try execute("update")
@@ -365,7 +365,7 @@ final class PackageToolTests: XCTestCase {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
             func build() throws -> String {
-                let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath, printIfError: true)
+                let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
                 return buildOutput
             }
             let exec = [fooPath.appending(components: ".build", Destination.host.target, "debug", "foo").asString]
@@ -400,8 +400,8 @@ final class PackageToolTests: XCTestCase {
             }
 
             @discardableResult
-            func execute(_ args: String..., printError: Bool = true) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath, printIfError: printError)
+            func execute(_ args: String...) throws -> String {
+                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath)
             }
             
             // Try to pin bar.
@@ -439,7 +439,7 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("edit", "bar", "--branch", "bugfix")
                 do {
-                    try execute("resolve", "bar", printError: false)
+                    try execute("resolve", "bar")
                     XCTFail("This should have been an error")
                 } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                     XCTAssertEqual(stderr, "error: dependency 'bar' already in edit mode\n")

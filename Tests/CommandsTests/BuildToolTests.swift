@@ -23,12 +23,12 @@ struct BuildResult {
 final class BuildToolTests: XCTestCase {
     @discardableResult
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, printIfError: true)
+        return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath)
     }
 
     func build(_ args: [String], packagePath: AbsolutePath? = nil) throws -> BuildResult {
         let output = try execute(args, packagePath: packagePath)
-        defer { try! SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: packagePath, printIfError: false) }
+        defer { try! SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: packagePath) }
         let binPathOutput = try execute(["--show-bin-path"], packagePath: packagePath)
         let binPath = AbsolutePath(binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
         let binContents = try localFileSystem.getDirectoryContents(binPath)
@@ -80,7 +80,7 @@ final class BuildToolTests: XCTestCase {
 
             do {
                 let output = try execute(["--product", "lib1"], packagePath: fullPath)
-                try SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: fullPath, printIfError: true)
+                try SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: fullPath)
                 XCTAssertTrue(output.contains("'--product' cannot be used with the automatic product 'lib1'. Building the default target instead"), output)
             }
 
