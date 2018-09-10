@@ -41,11 +41,11 @@ public struct ProcessResult: CustomStringConvertible {
     public let exitStatus: ExitStatus
 
     /// The output bytes of the process. Available only if the process was
-    /// asked to redirect its output.
+    /// asked to redirect its output and no stdout output closure was set.
     public let output: Result<[Int8], AnyError>
 
     /// The output bytes of the process. Available only if the process was
-    /// asked to redirect its output.
+    /// asked to redirect its output and no stderr output closure was set.
     public let stderrOutput: Result<[Int8], AnyError>
 
     /// Create an instance using the process exit code and output result.
@@ -110,9 +110,39 @@ public final class Process: ObjectIdentifierProtocol {
         /// The program requested to be executed cannot be found on the existing search paths, or is not executable.
         case missingExecutableProgram(program: String)
     }
+    
+    public enum OutputRedirection {
+        /// Do not redirect the output
+        case none
+        /// Collect stdout and stderr output and provide it back via ProcessResult object
+        case collect
+        /// Stream stdout and stderr via the corresponding closures
+        case stream(stdout: OutputClosure, stderr: OutputClosure)
+        
+        public var redirectsOutput: Bool {
+            switch self {
+            case .none:
+                return false
+            case .collect, .stream:
+                return true
+            }
+        }
+        
+        public var outputClosures: (stdoutClosure: OutputClosure, stderrClosure: OutputClosure)? {
+            switch self {
+            case .stream(let stdoutClosure, let stderrClosure):
+                return (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
+            case .collect, .none:
+                return nil
+            }
+        }
+    }
 
     /// Typealias for process id type.
     public typealias ProcessID = pid_t
+    
+    /// Typealias for stdout/stderr output closure.
+    public typealias OutputClosure = ([Int8]) -> Void
 
     /// Global default setting for verbose.
     public static var verbose = false
@@ -146,8 +176,8 @@ public final class Process: ObjectIdentifierProtocol {
         }
     }
 
-    /// If process was asked to redirect its output.
-    public let redirectOutput: Bool
+    /// How process redirects its output.
+    public let outputRedirection: OutputRedirection
 
     /// The result of the process execution. Available after process is terminated.
     private var _result: ProcessResult?
@@ -180,21 +210,20 @@ public final class Process: ObjectIdentifierProtocol {
     ///   - arguments: The arguments for the subprocess.
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
-    ///   - redirectOutput: Redirect and store stdout/stderr output (of subprocess) in the process result, instead of
-    ///     printing on the standard streams. Default value is true.
+    ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
     ///     continue running even if the parent is killed or interrupted. Default value is true.
     public init(
         arguments: [String],
         environment: [String: String] = env,
-        redirectOutput: Bool = true,
+        outputRedirection: OutputRedirection = .collect,
         verbose: Bool = Process.verbose,
         startNewProcessGroup: Bool = true
     ) {
         self.arguments = arguments
         self.environment = environment
-        self.redirectOutput = redirectOutput
+        self.outputRedirection = outputRedirection
         self.verbose = verbose
         self.startNewProcessGroup = startNewProcessGroup
     }
@@ -302,15 +331,13 @@ public final class Process: ObjectIdentifierProtocol {
 
         var outputPipe: [Int32] = [0, 0]
         var stderrPipe: [Int32] = [0, 0]
-        if redirectOutput {
+        if outputRedirection.redirectsOutput {
             // Open the pipes.
             try open(pipe: &outputPipe)
             try open(pipe: &stderrPipe)
-
             // Open the write end of the pipe as stdout and stderr, if desired.
             posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], 1)
             posix_spawn_file_actions_adddup2(&fileActions, stderrPipe[1], 2)
-
             // Close the other ends of the pipe.
             for pipe in [outputPipe, stderrPipe] {
                 posix_spawn_file_actions_addclose(&fileActions, pipe[0])
@@ -329,13 +356,15 @@ public final class Process: ObjectIdentifierProtocol {
             throw SystemError.posix_spawn(rv, arguments)
         }
 
-        if redirectOutput {
+        if outputRedirection.redirectsOutput {
+            let outputClosures = outputRedirection.outputClosures
+            
             // Close the write end of the output pipe.
             try close(fd: &outputPipe[1])
 
             // Create a thread and start reading the output on it.
             var thread = Thread { [weak self] in
-                if let readResult = self?.readOutput(onFD: outputPipe[0]) {
+                if let readResult = self?.readOutput(onFD: outputPipe[0], outputClosure: outputClosures?.stdoutClosure) {
                     self?.stdout.result = readResult
                 }
             }
@@ -347,7 +376,7 @@ public final class Process: ObjectIdentifierProtocol {
 
             // Create a thread and start reading the stderr output on it.
             thread = Thread { [weak self] in
-                if let readResult = self?.readOutput(onFD: stderrPipe[0]) {
+                if let readResult = self?.readOutput(onFD: stderrPipe[0], outputClosure: outputClosures?.stderrClosure) {
                     self?.stderr.result = readResult
                 }
             }
@@ -396,7 +425,7 @@ public final class Process: ObjectIdentifierProtocol {
     /// Reads the given fd and returns its result.
     ///
     /// Closes the fd before returning.
-    private func readOutput(onFD fd: Int32) -> Result<[Int8], AnyError> {
+    private func readOutput(onFD fd: Int32, outputClosure: OutputClosure?) -> Result<[Int8], AnyError> {
         // Read all of the data from the output pipe.
         let N = 4096
         var buf = [Int8](repeating: 0, count: N + 1)
@@ -416,7 +445,12 @@ public final class Process: ObjectIdentifierProtocol {
             case 0:
                 break loop
             default:
-                out += buf[0..<n]
+                let data = buf[0..<n]
+                if let outputClosure = outputClosure {
+                    outputClosure(Array(data))
+                } else {
+                    out += data
+                }
             }
         }
         // Close the read end of the output pipe.
@@ -444,7 +478,7 @@ extension Process {
     /// - Returns: The process result.
     @discardableResult
     static public func popen(arguments: [String], environment: [String: String] = env) throws -> ProcessResult {
-        let process = Process(arguments: arguments, environment: environment, redirectOutput: true)
+        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
         try process.launch()
         return try process.waitUntilExit()
     }
@@ -463,7 +497,7 @@ extension Process {
     /// - Returns: The process output (stdout + stderr).
     @discardableResult
     static public func checkNonZeroExit(arguments: [String], environment: [String: String] = env) throws -> String {
-        let process = Process(arguments: arguments, environment: environment, redirectOutput: true)
+        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
         try process.launch()
         let result = try process.waitUntilExit()
         // Throw if there was a non zero termination.
@@ -478,8 +512,8 @@ extension Process {
         return try checkNonZeroExit(arguments: args, environment: environment)
     }
 
-    public convenience init(args: String..., environment: [String: String] = env, redirectOutput: Bool = true) {
-        self.init(arguments: args, environment: environment, redirectOutput: redirectOutput)
+    public convenience init(args: String..., environment: [String: String] = env, outputRedirection: OutputRedirection = .collect) {
+        self.init(arguments: args, environment: environment, outputRedirection: outputRedirection)
     }
 }
 
