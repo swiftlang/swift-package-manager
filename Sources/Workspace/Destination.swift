@@ -72,7 +72,7 @@ public struct Destination {
         // FIXME: We may want to allow overriding this using an env variable but that
         // doesn't seem urgent or extremely useful as of now.
         return AbsolutePath(#file).parentDirectory
-            .parentDirectory.parentDirectory.appending(components: ".build", hostTargetTriple, "debug")
+            .parentDirectory.parentDirectory.appending(components: ".build", hostTargetTriple.tripleString, "debug")
       #else
         guard let cwd = originalWorkingDirectory else {
             return try! AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory
@@ -91,12 +91,13 @@ public struct Destination {
         let binDir = binDir ?? Destination.hostBinDir(
             originalWorkingDirectory: originalWorkingDirectory)
 
-      #if os(macOS)
-        // Get the SDK.
         let sdkPath: AbsolutePath
+
+        // Get the SDK.
         if let value = lookupExecutablePath(filename: getenv("SYSROOT")) {
             sdkPath = value
         } else {
+            #if os(macOS)
             // No value in env, so search for it.
             let sdkPathStr = try Process.checkNonZeroExit(
                 arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-path"], environment: environment).spm_chomp()
@@ -104,32 +105,25 @@ public struct Destination {
                 throw DestinationError.invalidInstallation("default SDK not found")
             }
             sdkPath = AbsolutePath(sdkPathStr)
+            #else
+            sdkPath = .root
+            #endif
         }
 
         // Compute common arguments for clang and swift.
-        // This is currently just frameworks path.
-        let commonArgs = Destination.sdkPlatformFrameworkPath(environment: environment).map({ ["-F", $0.asString] }) ?? []
+        // This is currently just frameworks path on Apple platforms.
+        let commonArgs = hostTargetTriple.isDarwin ? (Destination.sdkPlatformFrameworkPath(environment: environment).map({ ["-F", $0.asString] }) ?? []) : []
+        let ccArgs = hostTargetTriple.isLinux ? ["-fPIC"] : []
 
         return Destination(
-            target: hostTargetTriple,
+            target: hostTargetTriple.tripleString,
             sdk: sdkPath,
             binDir: binDir,
-            dynamicLibraryExtension: "dylib",
-            extraCCFlags: commonArgs,
+            dynamicLibraryExtension: hostTargetTriple.dynamicLibraryExtension,
+            extraCCFlags: commonArgs + ccArgs,
             extraSwiftCFlags: commonArgs,
-            extraCPPFlags: ["-lc++"]
+            extraCPPFlags: hostTargetTriple.defaultCxxRuntimeLibrary.flatMap { ["-l\($0)"] } ?? []
         )
-      #else
-        return Destination(
-            target: hostTargetTriple,
-            sdk: .root,
-            binDir: binDir,
-            dynamicLibraryExtension: "so",
-            extraCCFlags: ["-fPIC"],
-            extraSwiftCFlags: [],
-            extraCPPFlags: ["-lstdc++"]
-        )
-      #endif
     }
 
     /// Returns macosx sdk platform framework path.
@@ -150,15 +144,35 @@ public struct Destination {
     private static var _sdkPlatformFrameworkPath: AbsolutePath? = nil
 
     /// Target triple for the host system.
-    private static let hostTargetTriple = Triple.hostTriple.tripleString
+    private static let hostTargetTriple = Triple.hostTriple
+}
 
-  #if os(macOS)
-    /// Returns the host's dynamic library extension.
-    public static let hostDynamicLibraryExtension = "dylib"
-  #else
-    /// Returns the host's dynamic library extension.
-    public static let hostDynamicLibraryExtension = "so"
-  #endif
+extension Triple {
+    public var dynamicLibraryExtension: String {
+        switch os {
+        case .Darwin, .iOS, .macOS, .tvOS, .watchOS:
+            return "dylib"
+        case .FreeBSD, .Linux, .Haiku, .PS4:
+            return "so"
+        case .Windows:
+            return "dll"
+        case .unknown:
+            fatalError("dynamicLibraryExtension not implemented for \(os)")
+        }
+    }
+
+    public var defaultCxxRuntimeLibrary: String? {
+        switch os {
+        case .Darwin, .iOS, .macOS, .tvOS, .watchOS, .FreeBSD, .PS4:
+            return "c++" // LLVM libc++
+        case .Linux, .Haiku:
+            return "stdc++" // GNU libstdc++
+        case .Windows:
+            return nil // Built-in with MSVC
+        case .unknown:
+            fatalError("defaultCxxRuntimeLibrary not implemented for \(os)")
+        }
+    }
 }
 
 extension Destination {

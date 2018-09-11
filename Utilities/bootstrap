@@ -118,6 +118,20 @@ def get_current_sha(project_root):
         return None
 
 g_num_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
+
+g_default_target = None
+if platform.system() == 'Darwin':
+    g_default_target = "x86_64-apple-macosx"
+elif platform.system() == 'Linux':
+    if platform.machine().startswith("armv"):
+        g_default_target = '%s-unknown-linux-gnueabi' % (platform.machine())
+    elif platform.machine() == 'i486' or platform.machine() == 'i586' or platform.machine() == 'i686':
+        g_default_target = 'i386-unknown-linux-gnu'
+    elif platform.machine() == 'ppc64le':
+        g_default_target = 'powerpc64le-unknown-linux-gnu'
+    else:
+        g_default_target = "%s-unknown-linux-gnu" % (platform.machine())
+
 g_default_sysroot = None
 if platform.system() == 'Darwin':
     g_platform_path = subprocess.check_output(
@@ -919,6 +933,9 @@ def main():
                         help="path to the 'swift-build-tool' tool "
                              "[%(default)s]",
                         metavar="PATH")
+    parser.add_argument("--target",
+                        help="target triple to build for; defaults to an appropriate value based on your host [%(default)s]",
+                        default=g_default_target)
     parser.add_argument("--sysroot",
                         help="compiler sysroot to pass to Swift [%(default)s]",
                         default=g_default_sysroot, metavar="PATH")
@@ -1004,25 +1021,10 @@ def main():
             raise SystemExit("unknown build action: %r" % (action,))
 
     # Compute the build paths.
-    if platform.system() == 'Darwin':
-        build_target = "x86_64-apple-macosx"
-    elif platform.system() == 'Linux':              
-        if platform.machine() == 'x86_64':
-            build_target = "x86_64-unknown-linux"
-        elif platform.machine() == "i686":
-            build_target = "i686-unknown-linux"
-        elif platform.machine() == 's390x':
-            build_target = "s390x-unknown-linux"
-        elif platform.machine() == 'ppc64le':
-            build_target = 'powerpc64le-unknown-linux'
-        elif platform.machine().startswith("armv7"):
-            build_target = 'armv7-unknown-linux-gnueabihf'
-        elif platform.machine() == 'aarch64':
-            build_target = 'aarch64-unknown-linux'
-        else:
-            raise SystemExit("ERROR: unsupported machine:",platform.machine())
+    if not args.target:
+        raise SystemExit("ERROR: no target detected and --target not specified")
     else:
-        raise SystemExit("ERROR: unsupported system:",platform.system())
+        build_target = args.target
 
     build_path = os.path.join(g_project_root, args.build_path)
     sandbox_path = os.path.join(build_path, ".bootstrap")

@@ -22,7 +22,7 @@ typealias ProcessID = Basic.Process.ProcessID
 class MiscellaneousTestCase: XCTestCase {
 
     private var dynamicLibraryExtension: String {
-        return Destination.hostDynamicLibraryExtension
+        return Destination.host.dynamicLibraryExtension
     }
 
     func testPrintsSelectedDependencyVersion() {

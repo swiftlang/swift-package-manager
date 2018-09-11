@@ -201,11 +201,11 @@ public struct BuildParameters {
     fileprivate func targetTripleArgs(for target: ResolvedTarget) -> [String] {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
-        if triple.isDarwin() {
+        if triple.isDarwin {
             guard let macOSSupportedPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
                 fatalError("the target \(target) doesn't support building for macOS")
             }
-            args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
+            args += [triple.withOSVersion(try! Triple.Version(macOSSupportedPlatform.version.versionString)).tripleString]
         } else {
             args += [triple.tripleString]
         }
@@ -214,7 +214,7 @@ public struct BuildParameters {
 
     /// The current platform we're building for.
     var currentPlatform: PackageModel.Platform {
-        if self.triple.isDarwin() {
+        if self.triple.isDarwin {
             return .macOS
         } else {
             return .linux
@@ -313,7 +313,7 @@ public final class ClangTargetBuildDescription {
     public func basicArguments() -> [String] {
         var args = [String]()
         // Only enable ARC on macOS.
-        if buildParameters.triple.isDarwin() {
+        if buildParameters.triple.isDarwin {
             args += ["-fobjc-arc"]
         }
         args += buildParameters.targetTripleArgs(for: target)
@@ -328,17 +328,17 @@ public final class ClangTargetBuildDescription {
         // index store for Apple's clang or if explicitly asked to. 
         if Process.env.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
             args += buildParameters.indexStoreArguments
-        } else if buildParameters.triple.isDarwin(), (try? buildParameters.toolchain._isClangCompilerVendorApple()) == true {
+        } else if buildParameters.triple.isDarwin, (try? buildParameters.toolchain._isClangCompilerVendorApple()) == true {
             args += buildParameters.indexStoreArguments
         }
 
-        if !buildParameters.triple.isWindows() {
+        if !buildParameters.triple.isWindows {
             // Using modules currently conflicts with the Windows SDKs.
             args += ["-fmodules", "-fmodule-name=" + target.c99name]
         }
         args += ["-I", clangTarget.includeDir.asString]
         args += additionalFlags
-        if !buildParameters.triple.isWindows() {
+        if !buildParameters.triple.isWindows {
             args += moduleCacheArgs
         }
         args += buildParameters.sanitizers.compileCFlags()
@@ -388,7 +388,7 @@ public final class ClangTargetBuildDescription {
     private var optimizationArguments: [String] {
         switch buildParameters.configuration {
         case .debug:
-            if buildParameters.triple.isWindows() {
+            if buildParameters.triple.isWindows {
                 return ["-g", "-gcodeview", "-O0"]
             } else {
                 return ["-g", "-O0"]
@@ -608,7 +608,7 @@ public final class ProductBuildDescription {
 
         switch product.type {
         case .executable:
-            if buildParameters.triple.isWindows() {
+            if buildParameters.triple.isWindows {
                 return RelativePath("\(name).exe")
             } else {
                 return RelativePath(name)
@@ -621,8 +621,10 @@ public final class ProductBuildDescription {
             fatalError()
         case .test:
             let base = "\(name).xctest"
-            if buildParameters.triple.isDarwin() {
+            if buildParameters.triple.os == .macOS {
                 return RelativePath("\(base)/Contents/MacOS/\(name)")
+            } else if buildParameters.triple.isDarwin {
+                return RelativePath("\(base)/\(name)")
             } else {
                 return RelativePath(base)
             }
@@ -679,7 +681,7 @@ public final class ProductBuildDescription {
         args += additionalFlags
 
         if buildParameters.configuration == .debug {
-            if buildParameters.triple.isWindows() {
+            if buildParameters.triple.isWindows {
                 args += ["-Xlinker","-debug"]
             } else {
                 args += ["-g"]
@@ -703,7 +705,7 @@ public final class ProductBuildDescription {
             return []
         case .test:
             // Test products are bundle on macOS, executable on linux.
-            if buildParameters.triple.isDarwin() {
+            if buildParameters.triple.isDarwin {
                 args += ["-Xlinker", "-bundle"]
             } else {
                 args += ["-emit-executable"]
@@ -723,7 +725,7 @@ public final class ProductBuildDescription {
         
         // On linux, set rpath such that dynamic libraries are looked up
         // adjacent to the product. This happens by default on macOS.
-        if buildParameters.triple.isLinux() {
+        if buildParameters.triple.isLinux {
             args += ["-Xlinker", "-rpath=$ORIGIN"]
         }
         args += ["@" + linkFileListPath.asString]
@@ -858,7 +860,7 @@ public class BuildPlan {
             throw Error.noBuildableTarget
         }
 
-        if buildParameters.triple.isLinux() {
+        if buildParameters.triple.isLinux {
             // FIXME: Create a target for LinuxMain file on linux.
             // This will go away once it is possible to auto detect tests.
             let testProducts = graph.allProducts.filter({ $0.type == .test })
@@ -1002,7 +1004,7 @@ public class BuildPlan {
             }
         }
 
-        if buildParameters.triple.isLinux() {
+        if buildParameters.triple.isLinux {
             if product.type == .test {
                 product.linuxMainTarget.map({ staticTargets.append($0) })
             }

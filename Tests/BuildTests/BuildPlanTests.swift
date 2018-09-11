@@ -271,11 +271,14 @@ final class BuildPlanTests: XCTestCase {
         let ext = try result.target(for: "extlib").clangTarget()
         var args: [String] = []
 
+        var osVersion: Triple.Version?
+
       #if os(macOS)
-        args += ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10"]
-      #else
-        args += ["-target", "x86_64-unknown-linux"]
+        args += ["-fobjc-arc"]
+        osVersion = Triple.Version(major: 10, minor: 10)
       #endif
+
+        args += ["-target", Triple.hostTriple.withOSVersion(osVersion).tripleString]
 
         args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=extlib",
@@ -288,10 +291,11 @@ final class BuildPlanTests: XCTestCase {
         args = []
 
       #if os(macOS)
-        args += ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10"]
-      #else
-        args += ["-target", "x86_64-unknown-linux"]
+        args += ["-fobjc-arc"]
+        osVersion = Triple.Version(major: 10, minor: 10)
       #endif
+
+        args += ["-target", Triple.hostTriple.withOSVersion(osVersion).tripleString]
 
         args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=exe",
@@ -410,11 +414,14 @@ final class BuildPlanTests: XCTestCase {
         let lib = try result.target(for: "lib").clangTarget()
         var args: [String] = []
 
+        var osVersion: Triple.Version?
+
       #if os(macOS)
-        args += ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10"]
-      #else
-        args += ["-target", "x86_64-unknown-linux"]
+        args += ["-fobjc-arc"]
+        osVersion = Triple.Version(major: 10, minor: 10)
       #endif
+
+        args += ["-target", Triple.hostTriple.withOSVersion(osVersion).tripleString]
 
         args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include",
@@ -828,20 +835,25 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
 
+        var osVersion: Triple.Version?
+    #if os(macOS)
+        osVersion = Triple.Version(major: 10, minor: 10)
+    #endif
+
         let exe = try result.target(for: "exe").clangTarget()
     #if os(macOS)
-        XCTAssertEqual(exe.basicArguments(), ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe.basicArguments(), ["-fobjc-arc", "-target", Triple.hostTriple.withOSVersion(osVersion).tripleString, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #else
-        XCTAssertEqual(exe.basicArguments(), ["-target", "x86_64-unknown-linux", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe.basicArguments(), ["-target", Triple.hostTriple.withOSVersion(osVersion).tripleString, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #endif
         XCTAssertEqual(exe.objects, [AbsolutePath("/path/to/build/debug/exe.build/main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
 
         let lib = try result.target(for: "lib").clangTarget()
     #if os(macOS)
-        XCTAssertEqual(lib.basicArguments(), ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(lib.basicArguments(), ["-fobjc-arc", "-target", Triple.hostTriple.withOSVersion(osVersion).tripleString, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #else
-        XCTAssertEqual(lib.basicArguments(), ["-target", "x86_64-unknown-linux", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(lib.basicArguments(), ["-target", Triple.hostTriple.withOSVersion(osVersion).tripleString, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #endif
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.cpp.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
@@ -1035,7 +1047,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(diagnostics)
         
-        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(destinationTriple: .windows), graph: graph, diagnostics: diagnostics, fileSystem: fs))
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(destinationTriple: Triple.create(arch: .x86_64, os: .Windows)), graph: graph, diagnostics: diagnostics, fileSystem: fs))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
         
@@ -1146,19 +1158,19 @@ final class BuildPlanTests: XCTestCase {
             graph: graph, diagnostics: diagnostics,
             fileSystem: fileSystem))
 
+        var osVersion: Triple.Version?
+
         let aTarget = try result.target(for: "ATarget").swiftTarget().compileArguments()
       #if os(macOS)
-        XCTAssertMatch(aTarget, ["-target", "x86_64-apple-macosx10.13", .anySequence])
-      #else
-        XCTAssertMatch(aTarget, ["-target", "x86_64-unknown-linux", .anySequence])
+        osVersion = Triple.Version(major: 10, minor: 13)
       #endif
+        XCTAssertMatch(aTarget, ["-target", .equal(Triple.hostTriple.withOSVersion(osVersion).tripleString), .anySequence])
 
         let bTarget = try result.target(for: "BTarget").swiftTarget().compileArguments()
       #if os(macOS)
-        XCTAssertMatch(bTarget, ["-target", "x86_64-apple-macosx10.12", .anySequence])
-      #else
-        XCTAssertMatch(bTarget, ["-target", "x86_64-unknown-linux", .anySequence])
+        osVersion = Triple.Version(major: 10, minor: 12)
       #endif
+        XCTAssertMatch(bTarget, ["-target", .equal(Triple.hostTriple.withOSVersion(osVersion).tripleString), .anySequence])
     }
 
     func testBuildSettings() throws {
@@ -1257,7 +1269,7 @@ final class BuildPlanTests: XCTestCase {
         }
 
         do {
-            let result = try createResult(for: .x86_64Linux)
+            let result = try createResult(for: Triple.create(arch: .x86_64, os: .Linux))
 
             let dep = try result.target(for: "t1").swiftTarget().compileArguments()
             XCTAssertMatch(dep, [.anySequence, "-DDEP", .end])
@@ -1276,7 +1288,7 @@ final class BuildPlanTests: XCTestCase {
         }
 
         do {
-            let result = try createResult(for: .macOS)
+            let result = try createResult(for: Triple.create(arch: .x86_64, os: .macOS))
 
             let cbar = try result.target(for: "cbar").clangTarget().basicArguments()
             XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I/A/Sources/cbar/Sources/headers", "-I/A/Sources/cbar/Sources/cppheaders", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
