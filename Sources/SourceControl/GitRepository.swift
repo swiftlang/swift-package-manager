@@ -683,8 +683,8 @@ private class GitFileSystemView: FileSystem {
         throw FileSystemError.unsupported
     }
 
-    func removeFileTree(_ path: AbsolutePath) {
-        fatalError("unsupported")
+    func removeFileTree(_ path: AbsolutePath) throws {
+        throw FileSystemError.unsupported
     }
 
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
