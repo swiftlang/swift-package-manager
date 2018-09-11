@@ -217,7 +217,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // Load the manifest from JSON.
         let json = try JSON(string: jsonString)
-        let manifestBuilder = try ManifestBuilder(v4: json, baseURL: baseURL)
+        let manifestBuilder = try ManifestBuilder(
+            v4: json,
+            baseURL: baseURL,
+            fileSystem: fileSystem ?? localFileSystem
+        )
 
         // Throw if we encountered any runtime errors.
         guard manifestBuilder.errors.isEmpty else {

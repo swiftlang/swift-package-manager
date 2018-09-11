@@ -13,7 +13,7 @@ import Utility
 import PackageModel
 
 extension ManifestBuilder {
-    init(v4 json: JSON, baseURL: String) throws {
+    init(v4 json: JSON, baseURL: String, fileSystem: FileSystem) throws {
         let package = try json.getJSON("package")
         self.name = try package.get("name")
         self.pkgConfig = package.get("pkgConfig")
@@ -24,7 +24,7 @@ extension ManifestBuilder {
         self.targets = try package.getArray("targets").map(TargetDescription.init(v4:))
         self.dependencies = try package
              .getArray("dependencies")
-             .map({ try PackageDependencyDescription(v4: $0, baseURL: baseURL) })
+             .map({ try PackageDependencyDescription(v4: $0, baseURL: baseURL, fileSystem: fileSystem) })
 
         self.cxxLanguageStandard = package.get("cxxLanguageStandard")
         self.cLanguageStandard = package.get("cLanguageStandard")
@@ -118,20 +118,29 @@ extension PackageDependencyDescription.Requirement {
 }
 
 extension PackageDependencyDescription {
-    fileprivate init(v4 json: JSON, baseURL: String) throws {
+    fileprivate init(v4 json: JSON, baseURL: String, fileSystem: FileSystem) throws {
         let isBaseURLRemote = URL.scheme(baseURL) != nil
+
         func fixURL(_ url: String) -> String {
             // If base URL is remote (http/ssh), we can't do any "fixing".
             if isBaseURLRemote {
                 return url
             }
+
+            // If the dependency URL starts with '~/', try to expand it.
+            if url.hasPrefix("~/") {
+                return fileSystem.homeDirectory.appending(RelativePath(url.dropFirst(2).str)).asString
+            }
+
             // If the dependency URL is not remote, try to "fix" it.
             if URL.scheme(url) == nil {
                 // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
                 return AbsolutePath(url, relativeTo: AbsolutePath(baseURL)).asString
             }
+
             return url
         }
+
         try self.init(
             url: fixURL(json.get("url")),
             requirement: .init(v4: json.get("requirement"))
