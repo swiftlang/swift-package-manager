@@ -671,6 +671,10 @@ private class GitFileSystemView: FileSystem {
 
     // MARK: Unsupported methods.
 
+    public var homeDirectory: AbsolutePath {
+        fatalError("unsupported")
+    }
+
     func createDirectory(_ path: AbsolutePath) throws {
         throw FileSystemError.unsupported
     }

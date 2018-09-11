@@ -146,6 +146,9 @@ public protocol FileSystem: class {
     /// This follows the POSIX `getcwd(3)` semantics.
     var currentWorkingDirectory: AbsolutePath? { get }
 
+    /// Get the home directory of current user
+    var homeDirectory: AbsolutePath { get }
+
     /// Create the given directory.
     func createDirectory(_ path: AbsolutePath) throws
 
@@ -268,6 +271,18 @@ private class LocalFileSystem: FileSystem {
     var currentWorkingDirectory: AbsolutePath? {
         let cwdStr = FileManager.default.currentDirectoryPath
         return try? AbsolutePath(validating: cwdStr)
+    }
+
+    var homeDirectory: AbsolutePath {
+      #if os(macOS)
+        if #available(OSX 10.12, *) {
+            return AbsolutePath(FileManager.default.homeDirectoryForCurrentUser.path)
+        } else {
+            fatalError("Unsupported OS")
+        }
+      #else
+        return AbsolutePath(FileManager.default.homeDirectoryForCurrentUser.path)
+      #endif
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
@@ -633,6 +648,11 @@ public class InMemoryFileSystem: FileSystem {
         return AbsolutePath("/")
     }
 
+    public var homeDirectory: AbsolutePath {
+        // FIXME: Maybe we should allow setting this when creating the fs.
+        return AbsolutePath("/home/user")
+    }
+
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let node = try getNode(path) else {
             throw FileSystemError.noEntry
@@ -817,6 +837,10 @@ public class RerootedFileSystemView: FileSystem {
     /// Virtualized current working directory.
     public var currentWorkingDirectory: AbsolutePath? {
         return AbsolutePath("/")
+    }
+
+    public var homeDirectory: AbsolutePath {
+        fatalError("homeDirectory on RerootedFileSystemView is not supported.")
     }
 
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {

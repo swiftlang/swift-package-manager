@@ -179,6 +179,10 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                    .package(url: "/foo7", .branch("master")),
                    .package(url: "/foo8", .upToNextMinor(from: "1.3.4")),
                    .package(url: "/foo9", .upToNextMajor(from: "1.3.4")),
+                   .package(path: "~/path/to/foo10"),
+                   .package(path: "~foo11"),
+                   .package(path: "~/path/to/~/foo12"),
+                   .package(path: "~"),
                ]
             )
             """
@@ -198,6 +202,19 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             XCTAssertEqual(deps["/foo7"], PackageDependencyDescription(url: "/foo7", requirement: .branch("master")))
             XCTAssertEqual(deps["/foo8"], PackageDependencyDescription(url: "/foo8", requirement: .upToNextMinor(from: "1.3.4")))
             XCTAssertEqual(deps["/foo9"], PackageDependencyDescription(url: "/foo9", requirement: .upToNextMajor(from: "1.3.4")))
+
+            let homeDir = "/home/user"
+            XCTAssertEqual(deps["\(homeDir)/path/to/foo10"]?.url, "\(homeDir)/path/to/foo10")
+            XCTAssertEqual(deps["\(homeDir)/path/to/foo10"]?.requirement, .localPackage)
+
+            XCTAssertEqual(deps["/~foo11"]?.url, "/~foo11")
+            XCTAssertEqual(deps["/~foo11"]?.requirement, .localPackage)
+
+            XCTAssertEqual(deps["\(homeDir)/path/to/~/foo12"]?.url, "\(homeDir)/path/to/~/foo12")
+            XCTAssertEqual(deps["\(homeDir)/path/to/~/foo12"]?.requirement, .localPackage)
+
+            XCTAssertEqual(deps["/~"]?.url, "/~")
+            XCTAssertEqual(deps["/~"]?.requirement, .localPackage)
         }
     }
 
