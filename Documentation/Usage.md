@@ -1,27 +1,27 @@
 # Usage
 
-## Table of Contents
+## Table of contents
 
 * [Overview](README.md)
 * [**Usage**](Usage.md)
-  * [Create a Package](#create-a-package)
+  * [Create a package](#create-a-package)
     * [Create a library package](#create-a-library-package)
     * [Create an executable package](#create-an-executable-package)
-  * [Define Dependencies](#define-dependencies)
+  * [Define dependencies](#define-dependencies)
   * [Publish a package](#publish-a-package)
-  * [Require System Libraries](#require-system-libraries)
+  * [Import system libraries](#import-system-libraries)
   * [Packaging legacy code](#packaging-legacy-code)
   * [Handling version-specific logic](#handling-version-specific-logic)
-  * [Editable Packages](#editable-packages)
-  * [Top of Tree Development](#top-of-tree-development)
+  * [Editable packages](#editable-packages)
+  * [Top of tree development](#top-of-tree-development)
   * [Resolved versions (Package.resolved file)](#resolved-versions-packageresolved-file)
-  * [Swift Tools Version](#swift-tools-version)
+  * [Swift tools version](#swift-tools-version)
   * [Testing](#testing)
   * [Running](#running)
-  * [Build Configurations](#build-configurations)
+  * [Build configurations](#build-configurations)
     * [Debug](#debug)
     * [Release](#release)
-  * [Depending on Apple Modules](#depending-on-apple-modules)
+  * [Depending on Apple modules](#depending-on-apple-modules)
   * [C language targets](#c-language-targets)
   * [Shell completion scripts](#shell-completion-scripts)
 * [PackageDescription API Version 3](PackageDescriptionV3.md)
@@ -31,7 +31,7 @@
 
 ---
 
-## Create a Package
+## Create a package
 
 Simply put: a package is a git repository with semantically versioned tags,
 that contains Swift sources and a `Package.swift` manifest file at its root.
@@ -69,7 +69,7 @@ can be turned into a executable target if there is a `main.swift` present in
 its sources. Complete reference for layout is
 [here](PackageDescriptionV4.md#target-format-reference).
 
-## Define Dependencies
+## Define dependencies
 
 To depend on a package, define the dependency and the version in manifest of
 your package, and add a product from that package as a dependency. For e.g. if
@@ -115,204 +115,254 @@ url.
 Example of a published package:
 https://github.com/apple/example-package-fisheryates
 
-## Require System Libraries
+## Import system libraries
 
-You can link against system libraries using the package manager. To do so, there
-needs to be a special package for each system library that contains a modulemap
-for that library. Such a wrapper package does not contain any code of its own.
+As of Swift 4.2, the package manager is capable of importing C libraries from the system without requiring a special wrapper package. We’ll import [Cairo](cairographics.org), a popular 2D vector graphics library, as an example. This guide assumes you already know how to include and link a system library in a C or C++ project.
 
-Let's see an example of using [libgit2](https://libgit2.github.com) from an
-executable.
+For our example, we’ll create a new package called `example`:
 
-First, create a directory called `example`, and initialize it as a package that
-builds an executable:
+```bash 
+$ mkdir example 
+$ cd example 
+$ swift package init --type executable
+```
 
-    $ mkdir example
-    $ cd example
-    example$ swift package init --type executable
+The `example` folder should look something like this:
 
-Edit the `Sources/main.swift` so it consists of this code:
+```
+.
+├── Package.swift
+├── README.md
+└── Sources
+    └── example
+        └── main.swift
+```
+
+Create a module in the `Sources/` directory called `cairo/`, and create two files, `cairo.h` and `module.modulemap`:
+
+```bash
+cd Sources 
+mkdir cairo 
+cd cairo 
+touch cairo.h 
+touch module.modulemap
+```
+
+```
+.
+├── Package.swift
+├── README.md
+└── Sources
+    ├── cairo
+    │   ├── cairo.h
+    │   └── module.modulemap
+    └── example
+        └── main.swift
+```
+
+The `module.modulemap` file tells Swift how to import and link the system library. Add the following lines to it:
+
+```
+module cairo {
+    umbrella header "cairo.h"
+    link "cairo"
+}
+```
+
+The `module cairo` declaration specifies the name of the module as Swift sees it. In this example, we will be able to import the library from Swift code with `import cairo`.
+The `umbrella header "cairo.h"` line specifies the path to a C header file to include, in this case, the `cairo.h` file we created.
+The `link "cairo"` line specifies the linker flag used to link the system library, roughly equivalent to `-lcairo` in C.
+
+In the `cairo.h` file, add the following line:
+
+```c
+#include <cairo.h>
+```
+
+This file functions just like a normal C header, where the `<>` brackets tell `clang` to look for the `cairo.h` header installed by your system in the usual locations. While it’s possible to reference the Cairo header directly in the `module.modulemap` file, including it through a local shim prevents you from having to specify an exact path to it. Many popular C libraries also allow (and even require) you to perform some customization at the inclusion site, so the local header file gives you a place to do this.
+
+Next, we have to tell the package manager about the system library module. Go into your `Package.swift` and add a `systemLibrary` target. Don’t forget to specify it as a dependency of your Swift `example` module:
 
 ```swift
-import Clibgit
+let package = Package(
+    name: "example",
+    targets: [
+        .systemLibrary(name: "cairo", pkgConfig: "cairo"),
+        .target(name: "example", dependencies: ["cairo"])
+    ]
+)
+```
 
-let options = git_repository_init_options()
+The `pkgConfig:` parameter specifies the name of the system package that the package manager will ask the system `pkg-config` tool about. Without this information, `clang` may not know where to look for the installed Cairo headers. You can see what `pkg-config` will tell the package manager by running the tool directly in the terminal:
+
+```bash
+$ pkg-config --cflags cairo
+```
+```
+-I/usr/include/cairo -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include 
+-I/usr/include/pixman-1 -I/usr/include/freetype2 -I/usr/include/libpng16 
+-I/usr/include/freetype2 -I/usr/include/libpng16
+```
+
+Unlike Swift targets, the `name:` parameter in a system library target is only used by the package manager; the name of the module as seen by Swift is entirely determined by the `module cairo` declaration in the `module.modulemap` file. You are free to use a different name for the module within the package description:
+
+```swift
+let package = Package(
+    name: "example",
+    targets: [
+        // by default the package manager assumes the module lives in a folder of the 
+        // same name underneath the `Sources/` directory
+        .systemLibrary(name: "Foo", path: "Sources/cairo", pkgConfig: "cairo"),
+        .target(name: "example", dependencies: ["Foo"])
+    ]
+)
+```
+
+In our `main.swift` we can import and use the system module like any other module:
+
+```swift
+import cairo
+
+let surface:OpaquePointer = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 120, 120)
+print(surface)
+```
+
+Projects that depend on system libraries can of course, only be built if the system libraries are installed. We can specify package names in the `providers:` parameter of the target, which should cause the package manager display a helpful hint if the user does not have a required library installed on their system. (Note: this does not seem to be working in current versions of the package manager.)
+
+```swift
+let package = Package(
+    name: "example",
+    targets: [
+        .systemLibrary(name: "cairo", pkgConfig: "cairo", providers: [.apt(["libcairo2-dev"])]),
+        .target(name: "example", dependencies: ["cairo"])
+    ]
+)
+```
+
+Older versions of Swift required system libraries to exist in separate, individual wrapper packages. Such packages contain no code of their own. Although this method is deprecated, you may still often see packages importing system libraries using this method. Here’s an example using [libgit2](https://libgit2.github.com).
+
+Add these lines of code to your `main.swift` in your `example` package:
+
+```swift
+import git2
+
+let options:git_repository_init_options = .init()
 print(options)
 ```
 
-To `import Clibgit`, the package manager requires that the libgit2 library has
+To `import` `git2`, the package manager requires that the `libgit2-dev` library has
 been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.).  The
-following files from the libgit2 system-package are of interest:
+following files from the `libgit2` system package are of interest:
 
-    /usr/local/lib/libgit2.dylib      # .so on Linux
-    /usr/local/include/git2.h
+```
+/usr/lib/x86_64-linux-gnu/libgit2.so
+/usr/include/git2.h
+```
 
-Swift packages that provide module maps for system libraries are handled
+> Note that the system library may be located elsewhere on your system, such as `/usr/local/` rather than `/usr/`.
+
+Legacy Swift system library module map packages are handled
 differently from regular Swift packages.
 
-Note that the system library may be located elsewhere on your system, such as
-`/usr/` rather than `/usr/local/`.
+Leave the `example` directory and create a new directory called `Clibgit`. Initialize it as a package that builds a system module:
 
-Create a directory called `Clibgit` next to the `example` directory and
-initialize it as a package that builds a system module:
+```bash
+$ cd ..
+$ mkdir git2
+$ cd git2
+$ swift package init --type system-module
+```
 
-    example$ cd ..
-    $ mkdir Clibgit
-    $ cd Clibgit
-    Clibgit$ swift package init --type system-module
+```
+.
+├── example
+│   ├── Package.swift
+│   ├── README.md
+│   └── Sources
+│       ├── cairo
+│       │   ├── cairo.h
+│       │   └── module.modulemap
+│       └── example
+│           └── main.swift
+└── git2
+    ├── module.modulemap
+    ├── Package.swift
+    └── README.md
+```
 
-This creates `Package.swift` and `module.modulemap` files in the directory.
-Edit `Package.swift` and add `pkgConfig` parameter:
+> Warning: the package manager may insert an extraneous comma into the `Package.swift` manifest, causing package builds to fail. Delete this comma to fix this error.
 
-```swift
-import PackageDescription
-
-let package = Package(
-    name: "Clibgit",
-    pkgConfig: "libgit2"
+```
+Fetching ../git2
+../git2 @ 1.0.0: error: manifest parse error(s):
+/tmp/TemporaryFile.ca2vxD.swift:12:1: error: unexpected ',' separator
 )
 ```
 
-The `pkgConfig` parameter helps SwiftPM in figuring out the include and library
-search paths for the system library.  Note: If you don't want to use the `pkgConfig`
-parameter you can pass the path of a directory containing the library using the
-`-L` flag in commandline when building your app:
-
-    example$ swift build -Xlinker -L/usr/local/lib/
-
-Edit `module.modulemap` so it consists of the following:
-
-    module Clibgit [system] {
-      header "/usr/local/include/git2.h"
-      link "git2"
-      export *
-    }
-
-> The convention we hope the community will adopt is to prefix such modules
-> with `C` and to camelcase the modules as per Swift module name conventions.
-> Then the community is free to name another module simply `libgit` which
-> contains more “Swifty” function wrappers around the raw C interface.
-
-Packages are Git repositories, tagged with semantic versions, containing a
-`Package.swift` file at their root.  Initializing the package created a
-`Package.swift` file, but to make it a usable package we need to initialize a
-Git repository with at least one version tag:
-
-    Clibgit$ git init
-    Clibgit$ git add .
-    Clibgit$ git commit -m "Initial Commit"
-    Clibgit$ git tag 1.0.0
-
-Now to use the Clibgit package we must declare our dependency in our example
-app’s `Package.swift`:
+Like a `systemLibrary` target, such a `Package.swift` takes a `pkgConfig` parameter:
 
 ```swift
 import PackageDescription
 
+let package = Package(name: "git2", pkgConfig: "libgit2")
+```
+
+If you don't want to use the `pkgConfig` parameter you can pass the path of a directory containing the library explicitly using the `-Xlinker` and `-L` flags:
+
+```bash
+$ swift build -Xlinker -L/usr/lib/x86_64-linux-gnu/
+```
+
+If it does not already, edit `module.modulemap` so it consists of the following:
+
+```
+module git2 [system] {
+    header "/usr/include/git2.h"
+    link "git2"
+    export *
+}
+```
+
+Creating a system library package this way requires a git repository tagged with semantic versions:
+
+```bash
+$ git init
+$ git add .
+$ git commit -m "initial commit"
+$ git tag 1.0.0
+```
+
+The `git2` package then needs to be declared as a dependency of our `example` package:
+
+```swift
 let package = Package(
     name: "example",
-    dependencies: [
-        .package(url: "../Clibgit", from: "1.0.0")
+    dependencies: [.package(url: "../git2", from: "1.0.0")],
+    targets: [
+        .systemLibrary(name: "cairo", pkgConfig: "cairo", providers: [.apt(["libcairo2-dev"])]),
+        .target(name: "example", dependencies: ["cairo"])
     ]
 )
 ```
 
-Here we used a relative URL to speed up initial development. If you push your
-module map package to a public repository you must change the above URL
-reference so that it is a full, qualified git URL.
+Type `swift build` in our example app directory to create an executable:
 
-Now if we type `swift build` in our example app directory we will create an
-executable:
-
-    example$ swift build
-    …
-    example$ .build/debug/example
-    git_repository_init_options(version: 0, flags: 0, mode: 0, workdir_path: nil, description: nil, template_path: nil, initial_head: nil, origin_url: nil)
-    example$
-
-
-Let’s see another example of using [IJG’s JPEG library](http://www.ijg.org)
-from an executable which has some caveats.
-
-Create a directory called `example`, and initialize it as a package that builds
-an executable:
-
-    $ mkdir example
-    $ cd example
-    example$ swift package init --type executable
-
-Edit the `Sources/main.swift` so it consists of this code:
-
-```swift
-import CJPEG
-
-let jpegData = jpeg_common_struct()
-print(jpegData)
+```bash
+$ swift build 
+```
+```
+'git2' .build/checkouts/git2-bbb5c2d4: warning: system packages are deprecated; use system library targets instead
+Compile Swift Module 'example' (1 sources)
+Linking ./.build/x86_64-unknown-linux/debug/example
+```
+```bash 
+$ .build/debug/example
+```
+```
+git_repository_init_options(version: 0, flags: 0, mode: 0, workdir_path: nil, description: nil, template_path: nil, initial_head: nil, origin_url: nil)
 ```
 
-Install JPEG library using a system packager e.g `$ brew install jpeg`
-
-Create a directory called `CJPEG` next to the `example` directory and
-initialize it as a package that builds a system module:
-
-    example$ cd ..
-    $ mkdir CJPEG
-    $ cd CJPEG
-    CJPEG$ swift package init --type system-module
-
-This creates `Package.swift` and `module.modulemap` files in the directory.
-Edit `module.modulemap` so it consists of the following:
-
-    module CJPEG [system] {
-        header "shim.h"
-        header "/usr/local/include/jpeglib.h"
-        link "jpeg"
-        export *
-    }
-
-Create a `shim.h` file in the same directory and add `#include <stdio.h>` in
-it.
-
-    $ echo '#include <stdio.h>' > shim.h 
-
-This is because `jpeglib.h` is not a correct module. You can also add `#include
-<stdio.h>` to the top of jpeglib.h and avoid creating `shim.h` file.
-
-Create a Git repository and tag it:
-
-    CJPEG$ git init
-    CJPEG$ git add .
-    CJPEG$ git commit -m "Initial Commit"
-    CJPEG$ git tag 1.0.0
-
-Now to use the CJPEG package we must declare our dependency in our example
-app’s `Package.swift`:
-
-```swift
-import PackageDescription
-
-let package = Package(
-    name: "example",
-    dependencies: [
-        .package(url: "../CJPEG", from: "1.0.0")
-    ]
-)
-```
-
-Now if we type `swift build` in our example app directory we will create an
-executable:
-
-    example$ swift build -Xlinker -L/usr/local/lib/
-    …
-    example$ .build/debug/example
-    jpeg_common_struct(err: nil, mem: nil, progress: nil, client_data: nil, is_decompressor: 0, global_state: 0)
-    example$
-
-We have to specify path where the libjpeg is present using `-Xlinker` because
-there is no pkg-config file for it. We plan to provide solution to avoid passing
-the flag in commandline.
-
-### Packages That Provide Multiple Libraries
+### Packages that provide multiple libraries
 
 Some system packages provide multiple libraries (`.so` and `.dylib` files). In
 such cases you should add all the libraries to that Swift modulemap package’s
@@ -345,7 +395,7 @@ happen. If these link errors occur to consumers of a package that consumes your
 package the link errors can be especially difficult to debug.
 
 
-### Cross-platform Module Maps
+### Cross-platform module maps
 
 Module maps must contain absolute paths, thus they are not cross-platform. We
 intend to provide a solution for this in the package manager. Long term we hope
@@ -358,7 +408,7 @@ now adapt the paths, but as said, we plan to support basic relocations like
 these.
 
 
-### Module Map Versioning
+### Module map versioning
 
 Version the module maps semantically. The meaning of semantic version is less
 clear here, so use your best judgement. Do not follow the version of the system
@@ -369,7 +419,7 @@ python3 is called python3, as there is not a single package for python and
 python is designed to be installed side-by-side. Were you to make a module map
 for python3 you should name it `CPython3`.
 
-### System Libraries With Optional Dependencies
+### System libraries with optional dependencies
 
 At this time you will need to make another module map package to represent
 system packages that are built with optional dependencies.
@@ -467,7 +517,7 @@ necessary to support existing clients. In particular, packages *should not*
 adopt this syntax for tagging versions supporting the _latest GM_ Swift
 version.
 
-## Editable Packages
+## Editable packages
 
 Swift package manager supports editing dependencies, when your work requires
 making a change to one of your dependencies (for example, to fix a bug, or add
@@ -517,7 +567,7 @@ unedit, you can use the `--force` option:
     $ swift package unedit Foo --force
 
 
-## Top of Tree Development
+## Top of tree development
 
 This feature allows overriding a dependency with a local checkout on the
 filesystem. This checkout is completely unmanaged by the package manager and
@@ -584,7 +634,7 @@ Most SwiftPM commands will implicitly invoke the swift package resolve
 functionality before running, and will cancel with an error if dependencies
 cannot be resolved.
 
-## Swift Tools Version
+## Swift tools version
 
 The tools version declares the minimum version of the Swift tools required to
 use the package, determines what version of the PackageDescription API should
@@ -599,7 +649,7 @@ If no version of a dependency (which otherwise meets the version requirements
 from the package dependency graph) supports the version of the Swift tools in
 use, a dependency resolution error will result.
 
-### Swift Tools Version Specification
+### Swift tools version specification
 
 The Swift tools version is specified by a special comment in the first line of
 the Package.swift manifest. To specify a tools version, a Package.swift file
@@ -616,13 +666,13 @@ it, and anything else after it until the end of the first line, will be ignored
 by this version of the package manager, but is reserved for the use of future
 versions of the package manager. 
 
-Some Examples:
+Some examples:
 
     // swift-tools-version:3.1
     // swift-tools-version:3.0.2
     // swift-tools-version:4.0
 
-### Tools Version Commands
+### Tools version commands
 
 The following Swift tools version commands are supported:
 
@@ -650,7 +700,7 @@ package. The executable's name is optional when running without arguments and wh
 is only one executable product. For more information on the run tool, run
 `swift run --help`.
 
-## Build Configurations
+## Build configurations
 
 SwiftPM allows two build configurations: Debug (default) and Release.
 
@@ -684,7 +734,7 @@ A C language target is build with following flags in release mode:
 
 * `-O2`: Compile with optimizations.
 
-## Depending on Apple Modules
+## Depending on Apple modules
 
 At this time there is no explicit support for depending on UIKit, AppKit, etc,
 though importing these modules should work if they are present in the proper
