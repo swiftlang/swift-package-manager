@@ -34,11 +34,10 @@ class OutputByteStreamTests: XCTestCase {
     func testStreamOperator() {
         let stream = BufferedOutputByteStream()
 
-        let streamable: TextOutputStreamable = Character("!")
-        stream <<< "Hello" <<< Character(",") <<< Character(" ") <<< [UInt8]("wor".utf8) <<< [UInt8]("world".utf8)[3..<5] <<< streamable
+        stream <<< "Hello" <<< Character(",") <<< Character(" ") <<< [UInt8]("wor".utf8) <<< [UInt8]("world".utf8)[3..<5]
         
-        XCTAssertEqual(stream.position, "Hello, world!".utf8.count)
-        XCTAssertEqual(stream.bytes, "Hello, world!")
+        XCTAssertEqual(stream.position, "Hello, world".utf8.count)
+        XCTAssertEqual(stream.bytes, "Hello, world")
     }
     
     func testBufferCorrectness() {
@@ -176,17 +175,18 @@ class OutputByteStreamTests: XCTestCase {
         var threads = [Thread]()
 
         let stream = BufferedOutputByteStream()
+        let threadSafeStream = ThreadSafeOutputByteStream(stream)
 
         let t1 = Thread {
             for _ in 0..<1000 {
-                stream <<< "Hello"
+                threadSafeStream <<< "Hello"
             }
         }
         threads.append(t1)
 
         let t2 = Thread {
             for _ in 0..<1000 {
-                stream.write("Hello")
+                threadSafeStream.write("Hello")
             }
         }
         threads.append(t2)

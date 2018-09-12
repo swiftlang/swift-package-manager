@@ -56,7 +56,7 @@ public final class TerminalController {
     }
 
     /// Pointer to output stream to operate on.
-    private var stream: LocalFileOutputByteStream
+    private var stream: OutputByteStream
 
     /// Width of the terminal.
     public let width: Int
@@ -71,11 +71,14 @@ public final class TerminalController {
     private let boldString = "\u{001B}[1m"
 
     /// Constructs the instance if the stream is a tty.
-    public init?(stream: LocalFileOutputByteStream) {
-        // Make sure this file stream is tty.
-        guard TerminalController.isTTY(stream) else {
+    public init?(stream: OutputByteStream) {
+        let realStream = (stream as? ThreadSafeOutputByteStream)?.stream ?? stream
+
+        // Make sure it is a file stream and it is tty.
+        guard let fileStream = realStream as? LocalFileOutputByteStream, TerminalController.isTTY(fileStream) else {
             return nil
         }
+
         width = TerminalController.terminalWidth() ?? 80 // Assume default if we are not able to determine.
         self.stream = stream
     }

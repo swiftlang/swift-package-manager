@@ -80,7 +80,7 @@ public struct BuildParameters {
 
     /// Checks if stdout stream is tty.
     fileprivate let isTTY: Bool = {
-        guard let stream = stdoutStream as? LocalFileOutputByteStream else {
+        guard let stream = stdoutStream.stream as? LocalFileOutputByteStream else {
             return false
         }
         return TerminalController.isTTY(stream)

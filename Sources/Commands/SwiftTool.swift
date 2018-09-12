@@ -82,10 +82,12 @@ struct TargetNotFoundDiagnostic: DiagnosticData {
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     /// The stream to use for reporting progress.
-    private let stdoutStream: OutputByteStream
+    private let stdoutStream: ThreadSafeOutputByteStream
 
     init(_ stdoutStream: OutputByteStream) {
-        self.stdoutStream = stdoutStream
+        // FIXME: Implement a class convenience initializer that does this once they are supported
+        // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
+        self.stdoutStream = stdoutStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(stdoutStream)
     }
 
     func packageGraphWillLoad(
