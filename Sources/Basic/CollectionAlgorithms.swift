@@ -33,19 +33,11 @@ extension Sequence where Iterator.Element: Hashable {
 
     /// Finds duplicates in given sequence of Hashables.
     /// - Returns: duplicated elements in the invoking sequence.
-    public func findDuplicates() -> [Iterator.Element] {
-        var unique = Set<Iterator.Element>()
-        var duplicate = Array<Iterator.Element>()
-
-        for element in self {
-            guard !unique.contains(element) else {
-                duplicate.append(element)
-                continue
-            }
-            unique.insert(element)
+    func findDuplicates() -> [Iterator.Element] {
+        var s: Set<Iterator.Element> = []
+        return compactMap {
+            s.insert($0).inserted ? nil : $0
         }
-
-        return duplicate
     }
 }
 
