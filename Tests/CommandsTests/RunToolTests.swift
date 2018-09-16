@@ -77,7 +77,7 @@ final class RunToolTests: XCTestCase {
         fixture(name: "Miscellaneous/UnreachableTargets") { path in
             let output = try execute(["bexec"], packagePath: path.appending(component: "A"))
             let outputLines = output.split(separator: "\n")
-            XCTAssertEqual(outputLines.first, "BTarget2")
+            XCTAssertMatch(String(outputLines[0]), .contains("BTarget2"))
         }
     }
 

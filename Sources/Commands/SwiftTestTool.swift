@@ -666,7 +666,7 @@ final class ParallelTestRunner {
     private let finishedTests = SynchronizedQueue<TestResult?>()
 
     /// Instance of a terminal progress animation.
-    private let progressBar: ProgressAnimationProtocol
+    private let progressAnimation: ProgressAnimationProtocol
 
     /// Number of tests that will be executed.
     private var numTests = 0
@@ -707,7 +707,13 @@ final class ParallelTestRunner {
         self.xUnitOutput = xUnitOutput
         self.numJobs = numJobs
         self.diagnostics = diagnostics
-        progressBar = PercentProgressAnimation(stream: stdoutStream, header: "Testing:")
+
+        if Process.env["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
+            progressAnimation = PercentProgressAnimation(stream: stdoutStream, header: "Testing:")
+        } else {
+            progressAnimation = NinjaProgressAnimation(stream: stdoutStream)
+        }
+
         self.options = options
         self.buildParameters = buildParameters
         
@@ -724,7 +730,7 @@ final class ParallelTestRunner {
     /// Updates the progress bar status.
     private func updateProgress(for test: UnitTest) {
         numCurrentTest += 1
-        progressBar.update(step: numCurrentTest, total: numTests, text: test.specifier)
+        progressAnimation.update(step: numCurrentTest, total: numTests, text: "Testing \(test.specifier)")
     }
 
     private func enqueueTests(_ tests: [UnitTest]) throws {
@@ -798,7 +804,7 @@ final class ParallelTestRunner {
         workers.forEach { $0.join() }
 
         // Report the completion.
-        progressBar.complete(success: processedTests.contains(where: { !$0.success }))
+        progressAnimation.complete(success: processedTests.contains(where: { !$0.success }))
         
         // Print test results.
         for test in processedTests {

@@ -11,6 +11,7 @@
 import Basic
 import Utility
 import SPMLLBuild
+import Dispatch
 
 /// Diagnostic error when a llbuild command encounters an error.
 struct LLBuildCommandErrorDiagnostic: DiagnosticData {
@@ -171,16 +172,51 @@ extension SPMLLBuild.Diagnostic: DiagnosticDataConvertible {
 
 private let newLineByte: UInt8 = 10
 public final class BuildDelegate: BuildSystemDelegate {
+    // Track counts of commands based on their CommandStatusKind
+    private struct CommandCounter {
+        var scanningCount = 0
+        var upToDateCount = 0
+        var completedCount = 0
+        var startedCount = 0
+
+        var estimatedMaximum: Int {
+            return completedCount + scanningCount - upToDateCount
+        }
+
+        mutating func update(withStatusChange kind: CommandStatusKind) {
+            switch kind {
+            case .isScanning:
+                scanningCount += 1
+            case .isUpToDate:
+                scanningCount -= 1
+                upToDateCount += 1
+                completedCount += 1
+            case .isComplete:
+                scanningCount -= 1
+                completedCount += 1
+            }
+        }
+    }
+
     private let diagnostics: DiagnosticsEngine
     public var outputStream: ThreadSafeOutputByteStream
+    public var progressAnimation: ProgressAnimationProtocol
     public var isVerbose: Bool = false
     public var onCommmandFailure: (() -> Void)?
+    private var commandCounter = CommandCounter()
+    private var lastProgressDescription: String = ""
+    private let queue = DispatchQueue(label: "org.swift.swiftpm.build-delegate")
 
-    public init(diagnostics: DiagnosticsEngine, outputStream: OutputByteStream = stdoutStream) {
+    public init(
+        diagnostics: DiagnosticsEngine,
+        outputStream: OutputByteStream,
+        progressAnimation: ProgressAnimationProtocol
+    ) {
         self.diagnostics = diagnostics
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
+        self.progressAnimation = progressAnimation
     }
 
     public var fs: SPMLLBuild.FileSystem? {
@@ -200,15 +236,31 @@ public final class BuildDelegate: BuildSystemDelegate {
     }
 
     public func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
+        queue.sync {
+            commandCounter.update(withStatusChange: kind)
+        }
     }
 
     public func commandPreparing(_ command: SPMLLBuild.Command) {
     }
 
     public func commandStarted(_ command: SPMLLBuild.Command) {
-        guard command.shouldShowStatus else { return }
-        outputStream <<< ((isVerbose ? command.verboseDescription : command.description) + "\n")
-        outputStream.flush()
+        queue.sync {
+            commandCounter.startedCount += 1
+
+            let description: String
+            if command.shouldShowStatus {
+                description = isVerbose ? command.verboseDescription : command.description
+            } else {
+                description = lastProgressDescription
+            }
+
+            lastProgressDescription = description
+            progressAnimation.update(
+                step: commandCounter.startedCount,
+                total: commandCounter.estimatedMaximum,
+                text: description)
+        }
     }
 
     public func shouldCommandStart(_ command: SPMLLBuild.Command) -> Bool {
@@ -250,6 +302,7 @@ public final class BuildDelegate: BuildSystemDelegate {
     }
 
     public func commandProcessHadOutput(_ command: SPMLLBuild.Command, process: ProcessHandle, data: [UInt8]) {
+        progressAnimation.clear()
         outputStream <<< (data + [newLineByte])
         outputStream.flush()
     }

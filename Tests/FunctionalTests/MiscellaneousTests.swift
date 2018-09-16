@@ -229,7 +229,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssert(output.contains("testExample2"))
             XCTAssert(!output.contains("'ParallelTestsTests' passed"))
             XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
-            XCTAssert(output.contains("100%"))
+            XCTAssert(output.contains("[3/3]"))
           }
 
           let xUnitOutput = prefix.appending(component: "result.xml")
@@ -243,7 +243,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssert(output.contains("testExample2"))
             XCTAssert(output.contains("'ParallelTestsTests' passed"))
             XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
-            XCTAssert(output.contains("100%"))
+            XCTAssert(output.contains("[3/3]"))
           }
 
           // Check the xUnit output.
