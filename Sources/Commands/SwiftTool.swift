@@ -658,7 +658,8 @@ public class SwiftTool<Options: ToolOptions> {
                 destinationTriple: triple,
                 flags: options.buildFlags,
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
-                sanitizers: options.sanitizers
+                sanitizers: options.sanitizers,
+                enableCodeCoverage: options.shouldEnableCodeCoverage
             )
         })
     }()

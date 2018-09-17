@@ -78,6 +78,9 @@ public struct BuildParameters {
     /// If should enable llbuild manifest caching.
     public let shouldEnableManifestCaching: Bool
 
+    /// Whether to enable code coverage.
+    public let enableCodeCoverage: Bool
+
     /// Checks if stdout stream is tty.
     fileprivate let isTTY: Bool = {
         guard let stream = stdoutStream.stream as? LocalFileOutputByteStream else {
@@ -103,7 +106,8 @@ public struct BuildParameters {
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
-        sanitizers: EnabledSanitizers = EnabledSanitizers()
+        sanitizers: EnabledSanitizers = EnabledSanitizers(),
+        enableCodeCoverage: Bool = false
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
@@ -114,6 +118,7 @@ public struct BuildParameters {
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         self.shouldEnableManifestCaching = shouldEnableManifestCaching
         self.sanitizers = sanitizers
+        self.enableCodeCoverage = enableCodeCoverage
     }
 }
 
@@ -352,6 +357,11 @@ public final class SwiftTargetBuildDescription {
         args += moduleCacheArgs
         args += buildParameters.sanitizers.compileSwiftFlags()
 
+        // Add arguments needed for code coverage if it is enabled.
+        if buildParameters.enableCodeCoverage {
+            args += ["-profile-coverage-mapping", "-profile-generate"]
+        }
+
         // Add arguments to colorize output if stdout is tty
         if buildParameters.isTTY {
             args += ["-Xfrontend", "-color-diagnostics"]
@@ -490,6 +500,11 @@ public final class ProductBuildDescription {
         args += ["-o", binary.asString]
         args += ["-module-name", product.name]
         args += dylibs.map({ "-l" + $0.product.name })
+
+        // Add arguements needed for code coverage if it is enabled.
+        if buildParameters.enableCodeCoverage {
+            args += ["-profile-coverage-mapping", "-profile-generate"]
+        }
 
         switch product.type {
         case .library(.automatic):
