@@ -217,9 +217,10 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                     path: testPath,
                     xctestArg: nil,
                     processSet: processSet,
-                    sanitizers: options.sanitizers,
                     toolchain: toolchain,
-                    diagnostics: diagnostics
+                    diagnostics: diagnostics,
+                    options: self.options,
+                    buildParameters: try self.buildParameters()
                 )
                 ranSuccessfully = runner.test()
 
@@ -244,9 +245,10 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                         path: testPath,
                         xctestArg: test.specifier,
                         processSet: processSet,
-                        sanitizers: options.sanitizers,
                         toolchain: toolchain,
-                        diagnostics: diagnostics
+                        diagnostics: diagnostics,
+                        options: self.options,
+                        buildParameters: try self.buildParameters()
                     )
                     ranSuccessfully = runner.test() && ranSuccessfully
                 }
@@ -273,11 +275,12 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             let runner = ParallelTestRunner(
                 testPath: testPath,
                 processSet: processSet,
-                sanitizers: options.sanitizers,
                 toolchain: toolchain,
                 xUnitOutput: options.xUnitOutput,
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                diagnostics: diagnostics
+                diagnostics: diagnostics,
+                options: self.options,
+                buildParameters: try self.buildParameters()
             )
             try runner.run(tests)
 
@@ -348,6 +351,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 usage: "Run test cases matching regular expression, Format: <test-target>.<test-case> or " +
                     "<test-target>.<test-case>/<test>"),
             to: { $0.testCaseSpecifier = .regex($1) })
+
+        binder.bind(
+            option: parser.add(option: "--enable-code-coverage", kind: Bool.self,
+                usage: "Test with code coverage enabled"),
+            to: { $0.shouldEnableCodeCoverage = $1 })
     }
 
     /// Locates XCTestHelper tool inside the libexec directory and bin directory.
@@ -387,7 +395,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
       #if os(macOS)
         let tempFile = try TemporaryFile()
         let args = [SwiftTestTool.xctestHelperPath().asString, path.asString, tempFile.path.asString]
-        var env = try constructTestEnvironment(sanitizers: options.sanitizers, toolchain: try getToolchain())
+        var env = try constructTestEnvironment(toolchain: try getToolchain(), options: self.options, buildParameters: self.buildParameters())
         // Add the sdk platform path if we have it. If this is not present, we
         // might always end up failing.
         if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPath() {
@@ -454,14 +462,15 @@ final class TestRunner {
 
     private let processSet: ProcessSet
 
-    /// Sanitizers that are enabled.
-    private let sanitizers: EnabledSanitizers
-
     // The toolchain to use.
     private let toolchain: UserToolchain
     
     /// Diagnostics Engine to emit diagnostics.
     let diagnostics: DiagnosticsEngine
+
+    private let options: ToolOptions
+
+    private let buildParameters: BuildParameters
 
     /// Creates an instance of TestRunner.
     ///
@@ -471,16 +480,18 @@ final class TestRunner {
     init(path: AbsolutePath,
          xctestArg: String? = nil,
          processSet: ProcessSet,
-         sanitizers: EnabledSanitizers,
          toolchain: UserToolchain,
-         diagnostics: DiagnosticsEngine
+         diagnostics: DiagnosticsEngine,
+         options: ToolOptions,
+         buildParameters: BuildParameters
     ) {
         self.path = path
         self.xctestArg = xctestArg
         self.processSet = processSet
-        self.sanitizers = sanitizers
         self.toolchain = toolchain
         self.diagnostics = diagnostics
+        self.options = options
+        self.buildParameters = buildParameters
     }
 
     /// Constructs arguments to execute XCTest.
@@ -514,7 +525,7 @@ final class TestRunner {
         do {
             // FIXME: The environment will be constructed for every test when using the
             // parallel test runner. We should do some kind of caching.
-            let env = try constructTestEnvironment(sanitizers: sanitizers, toolchain: toolchain)
+            let env = try constructTestEnvironment(toolchain: toolchain, options: self.options, buildParameters: self.buildParameters)
             let process = Process(arguments: try args(), environment: env, outputRedirection: .collect, verbose: false)
             try process.launch()
             let result = try process.waitUntilExit()
@@ -535,7 +546,7 @@ final class TestRunner {
     /// Executes and returns execution status. Prints test output on standard streams.
     func test() -> Bool {
         do {
-            let env = try constructTestEnvironment(sanitizers: sanitizers, toolchain: toolchain)
+            let env = try constructTestEnvironment(toolchain: toolchain, options: self.options, buildParameters: self.buildParameters)
             let process = Process(arguments: try args(), environment: env, outputRedirection: .none)
             try processSet.add(process)
             try process.launch()
@@ -591,10 +602,12 @@ final class ParallelTestRunner {
 
     let processSet: ProcessSet
 
-    let sanitizers: EnabledSanitizers
     let toolchain: UserToolchain
     let xUnitOutput: AbsolutePath?
     
+    let options: ToolOptions
+    let buildParameters: BuildParameters
+
     /// Number of tests to execute in parallel.
     let numJobs: Int
     
@@ -604,20 +617,22 @@ final class ParallelTestRunner {
     init(
         testPath: AbsolutePath,
         processSet: ProcessSet,
-        sanitizers: EnabledSanitizers,
         toolchain: UserToolchain,
         xUnitOutput: AbsolutePath? = nil,
         numJobs: Int,
-        diagnostics: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine,
+        options: ToolOptions,
+        buildParameters: BuildParameters
     ) {
         self.testPath = testPath
         self.processSet = processSet
-        self.sanitizers = sanitizers
         self.toolchain = toolchain
         self.xUnitOutput = xUnitOutput
         self.numJobs = numJobs
         self.diagnostics = diagnostics
         progressBar = createProgressBar(forStream: stdoutStream, header: "Testing:")
+        self.options = options
+        self.buildParameters = buildParameters
         
         assert(numJobs > 0, "num jobs should be > 0")
     }
@@ -666,9 +681,10 @@ final class ParallelTestRunner {
                         path: self.testPath,
                         xctestArg: test.specifier,
                         processSet: self.processSet,
-                        sanitizers: self.sanitizers,
                         toolchain: self.toolchain,
-                        diagnostics: self.diagnostics
+                        diagnostics: self.diagnostics,
+                        options: self.options,
+                        buildParameters: self.buildParameters
                     )
                     let (success, output) = testRunner.test()
                     if !success {
@@ -837,22 +853,35 @@ extension SwiftTestTool: ToolName {
 
 /// Creates the environment needed to test related tools.
 fileprivate func constructTestEnvironment(
-    sanitizers: EnabledSanitizers,
-    toolchain: UserToolchain
+    toolchain: UserToolchain,
+    options: ToolOptions,
+    buildParameters: BuildParameters
 ) throws -> [String: String] {
-    // This only makes sense for macOS.
-  #if !os(macOS)
-    return Process.env
-  #else
-    // Fast path when no sanitizers are enabled.
-    guard !sanitizers.isEmpty else {
-        return Process.env
-    }
-
     var env = Process.env
 
+    // Add the code coverage related variables.
+    if options.shouldEnableCodeCoverage {
+        // Defines the path at which the profraw files will be written on test execution. 
+        //
+        // `%m` will create a pool of profraw files and append the data from
+        // each execution in one of the files. This doesn't matter for serial
+        // execution but is required when the tests are running in parallel as
+        // SwiftPM repeatedly invokes the test binary with the test case name as
+        // the filter.
+        let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "default%m.profraw")
+        env["LLVM_PROFILE_FILE"] = codecovProfile.asString
+    }
+
+  #if !os(macOS)
+    return env
+  #else
+    // Fast path when no sanitizers are enabled.
+    if options.sanitizers.isEmpty {
+        return env
+    }
+
     // Get the runtime libraries.
-    var runtimes = try sanitizers.sanitizers.map({ sanitizer in
+    var runtimes = try options.sanitizers.sanitizers.map({ sanitizer in
         return try toolchain.runtimeLibrary(for: sanitizer).asString
     })
 

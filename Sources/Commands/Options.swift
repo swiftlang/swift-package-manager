@@ -58,5 +58,8 @@ public class ToolOptions {
     /// Which compile-time sanitizers should be enabled.
     public var sanitizers = EnabledSanitizers()
 
+    /// Whether to enable code coverage.
+    public var shouldEnableCodeCoverage = false
+
     public required init() {}
 }

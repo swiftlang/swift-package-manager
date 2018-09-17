@@ -360,6 +360,17 @@ class MiscellaneousTestCase: XCTestCase {
       #endif
     }
 
+    func testCodeCoverageCompile() throws {
+      #if os(macOS)
+        fixture(name: "Miscellaneous/CodeCoverage") { prefix in
+            _ = try SwiftPMProduct.SwiftTest.executeProcess(["--enable-code-coverage"], packagePath: prefix)
+            let codeCov = prefix.appending(components: ".build", "debug", "codecov")
+            let codeCovContents = try localFileSystem.getDirectoryContents(codeCov)
+            XCTAssertTrue(codeCovContents.contains(where: { $0.contains("profraw") }), "\(codeCovContents)")
+        }
+      #endif
+    }
+
     func testReportingErrorFromGitCommand() throws {
         fixture(name: "Miscellaneous/MissingDependency") { prefix in
             // This fixture has a setup that is intentionally missing a local
