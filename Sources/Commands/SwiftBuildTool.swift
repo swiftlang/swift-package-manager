@@ -56,6 +56,13 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             // Create the build plan and build.
             let plan = try BuildPlan(buildParameters: buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
             try build(plan: plan, subset: subset)
+
+            if options.shouldLaunchInterpreter {
+                // Invoke the toolchain's swift REPL, linking the build artifacts.
+                let swiftInterpreterPath = try getToolchain().swiftInterpreter
+                let searchPath = plan.buildParameters.buildPath.asString
+                try run(swiftInterpreterPath, arguments: ["-I", searchPath, "-L", searchPath])
+            }
         case .binPath:
             try print(buildParameters().buildPath.asString)
 
@@ -84,6 +91,11 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             option: parser.add(option: "--show-bin-path", kind: Bool.self,
                usage: "Print the binary output path"),
             to: { $0.shouldPrintBinPath = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--repl", kind: Bool.self,
+                usage: "Launch a Swift REPL that includes library targets"),
+            to: { $0.shouldLaunchInterpreter = $1 })
     }
 
     private func checkClangVersion() {
@@ -143,6 +155,9 @@ public class BuildToolOptions: ToolOptions {
 
     /// If the binary output path should be printed.
     var shouldPrintBinPath = false
+
+    /// If the REPL should be launched.
+    var shouldLaunchInterpreter = false
 
     /// Specific target to build.
     var target: String?
