@@ -642,6 +642,18 @@ public class SwiftTool<Options: ToolOptions> {
         }
     }
 
+    /// Executes the executable at the specified path, relative to originalWorkingDirectory.
+    func run(_ excutablePath: AbsolutePath, arguments: [String]) throws {
+        // Make sure we are running from the original working directory.
+        let cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
+        if cwd == nil || originalWorkingDirectory != cwd {
+            try POSIX.chdir(originalWorkingDirectory.asString)
+        }
+
+        let pathRelativeToWorkingDirectory = excutablePath.relative(to: originalWorkingDirectory)
+        try exec(path: excutablePath.asString, args: [pathRelativeToWorkingDirectory.asString] + arguments)
+    }
+
     /// Return the build parameters.
     func buildParameters() throws -> BuildParameters {
         return try _buildParameters.dematerialize()
