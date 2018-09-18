@@ -45,18 +45,17 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
     override func runImpl() throws {
         switch try options.mode() {
         case .build:
-          #if os(Linux)
+            #if os(Linux)
             // Emit warning if clang is older than version 3.6 on Linux.
             // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
             checkClangVersion()
-          #endif
+            #endif
 
             guard let subset = options.buildSubset(diagnostics: diagnostics) else { return }
-          
-           // Create the build plan and build.
-           let plan = try BuildPlan(buildParameters: buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
-           try build(plan: plan, subset: subset)
 
+            // Create the build plan and build.
+            let plan = try BuildPlan(buildParameters: buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
+            try build(plan: plan, subset: subset)
         case .binPath:
             try print(buildParameters().buildPath.asString)
 
