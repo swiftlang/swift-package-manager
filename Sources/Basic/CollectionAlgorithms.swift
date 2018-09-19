@@ -35,8 +35,8 @@ extension Sequence where Iterator.Element: Hashable {
     /// - Returns: duplicated elements in the invoking sequence.
     func findDuplicates() -> [Iterator.Element] {
         var s: Set<Iterator.Element> = []
-        return compactMap {
-            s.insert($0).inserted ? nil : $0
+        return filter {
+            !s.insert($0).inserted
         }
     }
 }
