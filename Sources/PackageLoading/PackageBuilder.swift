@@ -591,8 +591,18 @@ public final class PackageBuilder {
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget?.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
-        let publicHeadersPath = potentialModule.path.appending(RelativePath(publicHeaderComponent))
-        guard publicHeadersPath.contains(potentialModule.path) else {
+        let publicHeaderPath = potentialModule.path.appending(RelativePath(publicHeaderComponent))
+        let includeDirectory: AbsolutePath
+        let umbrellaHeader: RelativePath?
+        if publicHeaderPath.suffix == ".h", isFile(publicHeaderPath) {
+            includeDirectory = publicHeaderPath.parentDirectory
+            umbrellaHeader   = RelativePath(publicHeaderPath.basename)
+        } else {
+            includeDirectory = publicHeaderPath
+            umbrellaHeader   = nil
+        }
+
+        guard includeDirectory.contains(potentialModule.path) else {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
 
@@ -634,7 +644,7 @@ public final class PackageBuilder {
         for pathToWalk in pathsToWalk {
             let contents = try walk(pathToWalk, fileSystem: fileSystem, recursing: { path in
                 // Exclude the public header directory.
-                if path == publicHeadersPath { return false }
+                if path == includeDirectory { return false }
 
                 // Exclude if it in the excluded paths of the target.
                 if targetExcludedPaths.contains(path) { return false }
@@ -685,7 +695,8 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
-                includeDir: publicHeadersPath,
+                includeDir: includeDirectory,
+                umbrellaHeader: umbrellaHeader,
                 isTest: potentialModule.isTest,
                 sources: sources,
                 dependencies: moduleDependencies,

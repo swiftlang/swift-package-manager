@@ -91,6 +91,17 @@ public struct ModuleMapGenerator {
             return
         }
 
+        if let umbrella = target.umbrellaHeader {
+            let src = target.includeDir.appending(umbrella)
+            let dstDir = wd.appending(component: ClangTarget.defaultPublicHeadersComponent)
+            try fileSystem.createDirectory(dstDir, recursive: true)
+
+            let dst = dstDir.appending(umbrella)
+            try fileSystem.writeFileContents(dst, bytes: fileSystem.readFileContents(src))
+            target.includeDir = dstDir
+            target.umbrellaHeader = nil
+        }
+
         let includeDir = target.includeDir
         // Warn and return if no include directory.
         guard fileSystem.isDirectory(includeDir) else {

@@ -142,8 +142,10 @@ public class ClangTarget: Target {
     /// The default public include directory component.
     public static let defaultPublicHeadersComponent = "include"
 
-    /// The path to include directory.
-    public let includeDir: AbsolutePath
+    /// The path to the directory containing the target's public header/s.
+    public var includeDir: AbsolutePath
+
+    public var umbrellaHeader: RelativePath?
 
     /// True if this is a C++ target.
     public let isCXX: Bool
@@ -159,6 +161,7 @@ public class ClangTarget: Target {
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
         includeDir: AbsolutePath,
+        umbrellaHeader: RelativePath? = nil,
         isTest: Bool = false,
         sources: Sources,
         dependencies: [Target] = [],
@@ -170,6 +173,7 @@ public class ClangTarget: Target {
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
         self.includeDir = includeDir
+        self.umbrellaHeader = umbrellaHeader
         super.init(
             name: name,
             type: type,
