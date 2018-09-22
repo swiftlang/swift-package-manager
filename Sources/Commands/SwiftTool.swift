@@ -501,13 +501,15 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Fetch and load the complete package graph.
     @discardableResult
-    func loadPackageGraph() throws -> PackageGraph {
+    func loadPackageGraph(
+        modifyRootManifest: (Manifest) -> Manifest = { $0 }
+    ) throws -> PackageGraph {
         do {
             let workspace = try getActiveWorkspace()
 
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph(
-                root: getWorkspaceRoot(), diagnostics: diagnostics)
+                root: getWorkspaceRoot(), diagnostics: diagnostics, modifyRootManifest: modifyRootManifest)
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.

@@ -84,7 +84,8 @@ public protocol ManifestLoaderProtocol {
         version: Version?,
         manifestVersion: ManifestVersion,
         fileSystem: FileSystem?,
-        diagnostics: DiagnosticsEngine?
+        diagnostics: DiagnosticsEngine?,
+        modifyManifest: (Manifest) -> (Manifest)
     ) throws -> Manifest
 }
 
@@ -102,7 +103,8 @@ extension ManifestLoaderProtocol {
         version: Version? = nil,
         manifestVersion: ManifestVersion,
         fileSystem: FileSystem? = nil,
-        diagnostics: DiagnosticsEngine? = nil
+        diagnostics: DiagnosticsEngine? = nil,
+        modifyManifest: (Manifest) -> (Manifest) = { $0 }
     ) throws -> Manifest {
         return try load(
             packagePath: path,
@@ -110,7 +112,8 @@ extension ManifestLoaderProtocol {
             version: version,
             manifestVersion: manifestVersion,
             fileSystem: fileSystem,
-            diagnostics: diagnostics
+            diagnostics: diagnostics,
+            modifyManifest: modifyManifest
         )
     }
 }
@@ -168,7 +171,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         version: Version?,
         manifestVersion: ManifestVersion,
         fileSystem: FileSystem? = nil,
-        diagnostics: DiagnosticsEngine? = nil
+        diagnostics: DiagnosticsEngine? = nil,
+        modifyManifest: (Manifest) -> (Manifest) = { $0 }
     ) throws -> Manifest {
         return try loadFile(
             path: Manifest.path(atPackagePath: path, fileSystem: fileSystem ?? localFileSystem),
@@ -176,7 +180,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             version: version,
             manifestVersion: manifestVersion,
             fileSystem: fileSystem,
-            diagnostics: diagnostics
+            diagnostics: diagnostics,
+            modifyManifest: modifyManifest
         )
     }
 
@@ -193,7 +198,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         version: Version?,
         manifestVersion: ManifestVersion,
         fileSystem: FileSystem? = nil,
-        diagnostics: DiagnosticsEngine? = nil
+        diagnostics: DiagnosticsEngine? = nil,
+        modifyManifest: (Manifest) -> (Manifest) = { $0 }
     ) throws -> Manifest {
 
         // Inform the delegate.
@@ -228,7 +234,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             throw ManifestParseError.runtimeManifestErrors(manifestBuilder.errors)
         }
 
-        let manifest = Manifest(
+        let manifest = modifyManifest(Manifest(
             name: manifestBuilder.name,
             path: inputPath,
             url: baseURL,
@@ -242,7 +248,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             dependencies: manifestBuilder.dependencies,
             products: manifestBuilder.products,
             targets: manifestBuilder.targets
-        )
+        ))
 
         try validate(manifest)
 

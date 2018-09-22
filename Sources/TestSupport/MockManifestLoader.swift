@@ -57,11 +57,12 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         version: Version?,
         manifestVersion: ManifestVersion,
         fileSystem: FileSystem?,
-        diagnostics: DiagnosticsEngine?
+        diagnostics: DiagnosticsEngine?,
+        modifyManifest: (Manifest) -> Manifest = { $0 }
     ) throws -> PackageModel.Manifest {
         let key = Key(url: PackageReference.computeIdentity(packageURL: baseURL), version: version)
         if let result = manifests[key] {
-            return result
+            return modifyManifest(result)
         }
         throw MockManifestLoaderError.unknownRequest("\(key)")
     }
