@@ -223,3 +223,25 @@ let package = Package(
     ],
     swiftLanguageVersions: [4]
 )
+
+// Add package dependency on llbuild when not bootstrapping.
+//
+// When bootstrapping SwiftPM, we can't use llbuild as a package dependency it
+// will provided by whatever build system (SwiftCI, bootstrap script) is driving
+// the build process. So, we only add these dependencies if SwiftPM is being
+// built directly using SwiftPM. It is a bit unfortunate that we've add the
+// package dependency like this but there is no other good way of expressing
+// this right now.
+
+#if os(Linux)
+import Glibc
+#else
+import Darwin.C
+#endif
+
+if getenv("SWIFTPM_BOOTSTRAP") == nil {
+    package.dependencies += [
+        .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
+    ]
+    package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += ["llbuildSwift"]
+}

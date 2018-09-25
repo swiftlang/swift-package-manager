@@ -1,0 +1,2 @@
+OTHER_LDFLAGS = -lncurses -lsqlite3
+OTHER_CFLAGS = -DSWIFT_PACKAGE

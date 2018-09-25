@@ -329,6 +329,23 @@ public class Workspace {
         }
         self.managedDependencies = ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
     }
+
+    /// A convenience method for creating a workspace for the given root
+    /// package path.
+    ///
+    /// The root package path is used to compute the build directory and other
+    /// default paths.
+    public static func create(
+        forRootPackage packagePath: AbsolutePath,
+        manifestLoader: ManifestLoaderProtocol
+    ) -> Workspace {
+        return Workspace(
+            dataPath: packagePath.appending(component: ".build"),
+            editablesPath: packagePath.appending(component: "Packages"),
+            pinsFile: packagePath.appending(component: "Package.resolved"),
+            manifestLoader: manifestLoader
+        )
+    }
 }
 
 // MARK: - Public API
@@ -572,6 +589,17 @@ extension Workspace {
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
             createREPLProduct: createREPLProduct
+        )
+    }
+
+    @discardableResult
+    public func loadPackageGraph(
+        root: AbsolutePath,
+        diagnostics: DiagnosticsEngine
+    ) -> PackageGraph {
+        return self.loadPackageGraph(
+            root: PackageGraphRootInput(packages: [root]),
+            diagnostics: diagnostics
         )
     }
 
