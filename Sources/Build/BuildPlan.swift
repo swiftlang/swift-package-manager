@@ -45,6 +45,16 @@ public struct BuildParameters {
         return dataPath.appending(component: configuration.dirname)
     }
 
+    /// The path to the code coverage directory.
+    public var codeCovPath: AbsolutePath {
+        return buildPath.appending(component: "codecov")
+    }
+
+    /// The path to the code coverage profdata file.
+    public var codeCovDataFile: AbsolutePath {
+        return codeCovPath.appending(component: "default.profdata")
+    }
+
     /// The toolchain.
     public let toolchain: Toolchain
 
