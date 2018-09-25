@@ -207,8 +207,8 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
 
     /// The current state of managed dependencies.
     ///
-    /// Key -> package identity.
-    private var dependencyMap: [String: ManagedDependency]
+    /// Key -> package URL.
+    var dependencyMap: [String: ManagedDependency]
 
     /// Path to the state file.
     let statePath: AbsolutePath
@@ -242,28 +242,29 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
         }
     }
 
-    public subscript(forIdentity identity: String) -> ManagedDependency? {
+    public subscript(forURL url: String) -> ManagedDependency? {
         get {
-            assert(identity == identity.lowercased())
-            return dependencyMap[identity]
+            return dependencyMap[url]
         }
         set {
-            assert(identity == identity.lowercased())
-            dependencyMap[identity] = newValue
+            dependencyMap[url] = newValue
         }
     }
 
     /// Returns the dependency given a name or identity.
     func dependency(forNameOrIdentity nameOrIdentity: String) throws -> ManagedDependency {
-        if let dependency = self[forIdentity: nameOrIdentity.lowercased()] {
-            return dependency
-        }
         for value in values {
             if value.packageRef.name == nameOrIdentity {
+                return value
+            } else if value.packageRef.identity == nameOrIdentity.lowercased() {
                 return value
             }
         }
         throw Error.dependencyNotFound(name: nameOrIdentity)
+    }
+
+    func dependency(forIdentity identity: String) -> ManagedDependency? {
+        return values.first(where: { $0.packageRef.identity == identity })
     }
 
     func reset() throws {
@@ -281,7 +282,7 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
 
     public func restore(from json: JSON) throws {
         self.dependencyMap = try Dictionary(items:
-            json.get("dependencies").map({ ($0.packageRef.identity, $0) })
+            json.get("dependencies").map({ ($0.packageRef.path, $0) })
         )
     }
 

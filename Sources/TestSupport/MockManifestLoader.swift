@@ -35,13 +35,8 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         public let version: Version?
 
         public init(url: String, version: Version? = nil) {
-            self.url = PackageReference.computeIdentity(packageURL: url)
+            self.url = url
             self.version = version
-        }
-
-        //FIXME: Remove in 4.2
-        public var hashValue: Int {
-            return url.hashValue ^ (version?.hashValue ?? 0)
         }
     }
 
@@ -59,7 +54,7 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         fileSystem: FileSystem?,
         diagnostics: DiagnosticsEngine?
     ) throws -> PackageModel.Manifest {
-        let key = Key(url: PackageReference.computeIdentity(packageURL: baseURL), version: version)
+        let key = Key(url: baseURL, version: version)
         if let result = manifests[key] {
             return result
         }
