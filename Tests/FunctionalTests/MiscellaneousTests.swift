@@ -365,8 +365,10 @@ class MiscellaneousTestCase: XCTestCase {
         fixture(name: "Miscellaneous/CodeCoverage") { prefix in
             _ = try SwiftPMProduct.SwiftTest.executeProcess(["--enable-code-coverage"], packagePath: prefix)
             let codeCov = prefix.appending(components: ".build", "debug", "codecov")
+
             let codeCovContents = try localFileSystem.getDirectoryContents(codeCov)
-            XCTAssertTrue(codeCovContents.contains(where: { $0.contains("profraw") }), "\(codeCovContents)")
+            XCTAssertTrue(codeCovContents.contains(where: { $0.contains("profraw") }), "No profraw file")
+            XCTAssertTrue(codeCovContents.contains("default.profdata"), "No profdata file")
         }
       #endif
     }

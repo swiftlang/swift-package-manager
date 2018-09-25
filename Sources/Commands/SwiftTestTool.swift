@@ -186,7 +186,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         case .listTests:
             let graph = try loadPackageGraph()
-            let testPath = try buildTestsIfNeeded(options, graph: graph)
+            let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: graph, diagnostics: diagnostics)
+            let testPath = try buildTestsIfNeeded(buildPlan)
             let testSuites = try getTestSuites(path: testPath)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
@@ -200,16 +201,25 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             diagnostics.emit(data: LinuxTestDiscoveryDiagnostic())
           #endif
             let graph = try loadPackageGraph()
-            let testPath = try buildTestsIfNeeded(options, graph: graph)
+            let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: graph, diagnostics: diagnostics)
+            let testPath = try buildTestsIfNeeded(buildPlan)
             let testSuites = try getTestSuites(path: testPath)
             let generator = LinuxMainGenerator(graph: graph, testSuites: testSuites)
             try generator.generate()
 
         case .runSerial:
-            let graph = try loadPackageGraph()
             let toolchain = try getToolchain()
-            let testPath = try buildTestsIfNeeded(options, graph: graph)
+            let graph = try loadPackageGraph()
+            let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: graph, diagnostics: diagnostics)
+            let testPath = try buildTestsIfNeeded(buildPlan)
             var ranSuccessfully = true
+            let buildParameters = try self.buildParameters()
+
+            // Clean out the code coverage directory that may contain stale
+            // profraw files from a previous run of the code coverage tool.
+            if options.shouldEnableCodeCoverage {
+                try localFileSystem.removeFileTree(buildParameters.codeCovPath)
+            }
 
             switch options.testCaseSpecifier {
             case .none:
@@ -220,7 +230,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                     toolchain: toolchain,
                     diagnostics: diagnostics,
                     options: self.options,
-                    buildParameters: try self.buildParameters()
+                    buildParameters: buildParameters
                 )
                 ranSuccessfully = runner.test()
 
@@ -258,17 +268,29 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 executionStatus = .failure
             }
 
+            if options.shouldEnableCodeCoverage {
+                try processCodeCoverage(buildPlan)
+            }
+
         case .runParallel:
-            let graph = try loadPackageGraph()
             let toolchain = try getToolchain()
-            let testPath = try buildTestsIfNeeded(options, graph: graph)
+            let graph = try loadPackageGraph()
+            let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: graph, diagnostics: diagnostics)
+            let testPath = try buildTestsIfNeeded(buildPlan)
             let testSuites = try getTestSuites(path: testPath)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
+            let buildParameters = try self.buildParameters()
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
                 diagnostics.emit(data: NoMatchingTestsWarning())
                 return
+            }
+
+            // Clean out the code coverage directory that may contain stale
+            // profraw files from a previous run of the code coverage tool.
+            if options.shouldEnableCodeCoverage {
+                try localFileSystem.removeFileTree(buildParameters.codeCovPath)
             }
 
             // Run the tests using the parallel runner.
@@ -280,21 +302,77 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
                 diagnostics: diagnostics,
                 options: self.options,
-                buildParameters: try self.buildParameters()
+                buildParameters: buildParameters
             )
             try runner.run(tests)
 
             if !runner.ranSuccessfully {
                 executionStatus = .failure
             }
+
+            if options.shouldEnableCodeCoverage {
+                try processCodeCoverage(buildPlan)
+            }
         }
+    }
+
+    /// Processes the code coverage data and emits a json.
+    private func processCodeCoverage(_ buildPlan: BuildPlan) throws {
+        // Merge all the profraw files to produce a single profdata file.
+        try mergeCodeCovRawDataFiles()
+
+        // Get the test product.
+        guard let testProduct = buildPlan.buildProducts.first(where: { $0.product.type == .test }) else {
+            throw TestError.testsExecutableNotFound
+        }
+
+        // Export the codecov data as JSON.
+        try exportCodeCovAsJSON(filename: buildPlan.graph.rootPackages[0].name, testBinary: testProduct.binary)
+    }
+
+    /// Merges all profraw profiles in codecoverage directory into default.profdata file.
+    private func mergeCodeCovRawDataFiles() throws {
+        // Get the llvm-prof tool.
+        let llvmProf = try getToolchain().getLLVMProf()
+
+        // Get the profraw files.
+        let buildParameters = try self.buildParameters()
+        let codeCovFiles = try localFileSystem.getDirectoryContents(buildParameters.codeCovPath)
+
+        // Construct arguments for invoking the llvm-prof tool.
+        var args = [llvmProf.asString, "merge", "-sparse"]
+        for file in codeCovFiles {
+            let filePath = buildParameters.codeCovPath.appending(component: file)
+            if filePath.extension == "profraw" {
+                args.append(filePath.asString)
+            }
+        }
+        args += ["-o",  buildParameters.codeCovDataFile.asString]
+
+        try Process.checkNonZeroExit(arguments: args)
+    }
+
+    /// Exports profdata as a JSON file.
+    private func exportCodeCovAsJSON(filename: String, testBinary: AbsolutePath) throws {
+        // Export using the llvm-cov tool.
+        let llvmCov = try getToolchain().getLLVMCov()
+        let buildParameters = try self.buildParameters()
+        let args = [
+            llvmCov.asString, "export",
+            "-instr-profile=" + buildParameters.codeCovDataFile.asString,
+            testBinary.asString
+        ]
+        let result = try Process.popen(arguments: args)
+
+        // Write to a file.
+        let jsonPath = buildParameters.codeCovPath.appending(component:  filename + ".json")
+        try localFileSystem.writeFileContents(jsonPath, bytes: ByteString(result.output.dematerialize()))
     }
 
     /// Builds the "test" target if enabled in options.
     ///
     /// - Returns: The path to the test binary.
-    private func buildTestsIfNeeded(_ options: TestToolOptions, graph: PackageGraph) throws -> AbsolutePath {
-        let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: graph, diagnostics: diagnostics)
+    private func buildTestsIfNeeded(_ buildPlan: BuildPlan) throws -> AbsolutePath {
         if options.shouldBuildTests {
             try build(plan: buildPlan, subset: .allIncludingTests)
         }

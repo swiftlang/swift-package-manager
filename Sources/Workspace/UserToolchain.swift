@@ -17,9 +17,9 @@ import protocol Build.Toolchain
 import Utility
 
 #if os(macOS)
-    private let whichClangArgs = ["xcrun", "--find", "clang"]
+private let whichArgs: [String] = ["xcrun", "--find"]
 #else
-    private let whichClangArgs = ["which", "clang"]
+private let whichArgs = ["which"]
 #endif
 
 /// Concrete object for manifest resource provider.
@@ -45,11 +45,13 @@ public final class UserToolchain: Toolchain {
     /// The manifest resource provider.
     public let manifestResources: ManifestResourceProvider
 
+    /// Cache for storing paths of tools after first lookup.
+    ///
+    /// Key -> name of the tool.
+    private var toolsPathCache: [String: AbsolutePath]
+
     /// Path of the `swiftc` compiler.
     public let swiftCompiler: AbsolutePath
-
-    /// Storage for clang compiler path.
-    private var _clangCompiler: AbsolutePath?
 
     public let extraCCFlags: [String]
 
@@ -142,35 +144,60 @@ public final class UserToolchain: Toolchain {
     /// Environment to use when looking up tools.
     private let processEnvironment: [String: String]
 
-    public func getClangCompiler() throws -> AbsolutePath {
-
-        if let clangCompiler = _clangCompiler {
-            return clangCompiler
+    private func lookup(tool toolName: String) throws -> AbsolutePath {
+        // Check the cache.
+        if let toolPath = toolsPathCache[toolName] {
+            return toolPath
         }
 
-        let clangCompiler: AbsolutePath
-
-        // Find the Clang compiler, looking first in the environment.
-        if let value = UserToolchain.lookup(variable: "CC", searchPaths: envSearchPaths) {
-            clangCompiler = value
-        } else {
-            // No value in env, so search for `clang`.
-            let foundPath = try Process.checkNonZeroExit(arguments: whichClangArgs, environment: processEnvironment).spm_chomp()
-            guard !foundPath.isEmpty else {
-                throw InvalidToolchainDiagnostic("could not find `clang`")
-            }
-            clangCompiler = AbsolutePath(foundPath)
+        // Otherwise, lookup the tool on the system.
+        let arguments = whichArgs + [toolName]
+        let foundPath = try Process.checkNonZeroExit(arguments: arguments, environment: processEnvironment).spm_chomp()
+        guard !foundPath.isEmpty else {
+            throw InvalidToolchainDiagnostic("could not find \(toolName)")
         }
+
+        let toolPath = AbsolutePath(foundPath)
 
         // Check that it's valid in the file system.
-        guard localFileSystem.isExecutableFile(clangCompiler) else {
-            throw InvalidToolchainDiagnostic("could not find `clang` at expected path \(clangCompiler.asString)")
+        guard localFileSystem.isExecutableFile(toolPath) else {
+            throw InvalidToolchainDiagnostic("could not find \(toolName) at expected path \(toolPath.asString)")
         }
-        _clangCompiler = clangCompiler
-        return clangCompiler
+        toolsPathCache[toolName] = toolPath
+        return toolPath
+    }
+
+    /// Returns the path to llvm-cov tool.
+    public func getClangCompiler() throws -> AbsolutePath {
+        let clangToolName = "clang"
+        let toolPath: AbsolutePath
+
+        // Check in the environment variable first.
+        if let value = UserToolchain.lookup(variable: "CC", searchPaths: envSearchPaths) {
+            toolPath = value
+            guard localFileSystem.isExecutableFile(toolPath) else {
+                throw InvalidToolchainDiagnostic("could not find clang at expected path \(toolPath.asString)")
+            }
+            toolsPathCache[clangToolName] = toolPath
+            return toolPath
+        }
+
+        // Otherwise, just do a regular lookup.
+        return try lookup(tool: clangToolName)
+    }
+
+    /// Returns the path to llvm-cov tool.
+    public func getLLVMCov() throws -> AbsolutePath {
+        return try lookup(tool: "llvm-cov")
+    }
+
+    /// Returns the path to llvm-prof tool.
+    public func getLLVMProf() throws -> AbsolutePath {
+        return try lookup(tool: "llvm-profdata")
     }
 
     public init(destination: Destination, environment: [String: String] = Process.env) throws {
+        self.toolsPathCache = [:]
         self.destination = destination
         self.processEnvironment = environment
 
