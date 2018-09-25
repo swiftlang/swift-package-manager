@@ -50,6 +50,7 @@ extension WorkspaceTests {
         ("testDependencyManifestLoading", testDependencyManifestLoading),
         ("testDependencyManifestsOrder", testDependencyManifestsOrder),
         ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
+        ("testDependencySwitchWithSameIdentity", testDependencySwitchWithSameIdentity),
         ("testEditDependency", testEditDependency),
         ("testGraphData", testGraphData),
         ("testGraphRootDependencies", testGraphRootDependencies),

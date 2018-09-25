@@ -20,8 +20,6 @@ import Utility
 
 import TestSupport
 
-
-
 final class WorkspaceTests: XCTestCase {
 
     func testBasics() throws {
@@ -598,11 +596,11 @@ final class WorkspaceTests: XCTestCase {
 
         // Fill ManagedDependencies (all different than pins).
         let managedDependencies = workspace.managedDependencies
-        managedDependencies[forIdentity: aRef.identity] = ManagedDependency(
+        managedDependencies[forURL: aRef.path] = ManagedDependency(
             packageRef: aRef, subpath: RelativePath("A"), checkoutState: v1_1)
-        managedDependencies[forIdentity: bRef.identity] = ManagedDependency(
+        managedDependencies[forURL: bRef.path] = ManagedDependency(
             packageRef: bRef, subpath: RelativePath("B"), checkoutState: v1_5)
-        managedDependencies[forIdentity: bRef.identity] = managedDependencies[forIdentity: bRef.identity]?.editedDependency(
+        managedDependencies[forURL: bRef.path] = managedDependencies[forURL: bRef.path]?.editedDependency(
             subpath: RelativePath("B"), unmanagedPath: nil)
 
         // We should need to resolve if input is not satisfiable.
@@ -642,11 +640,11 @@ final class WorkspaceTests: XCTestCase {
 
         // We shouldn't need to resolve if everything is fine.
         do {
-            managedDependencies[forIdentity: aRef.identity] = ManagedDependency(
+            managedDependencies[forURL: aRef.path] = ManagedDependency(
                 packageRef: aRef, subpath: RelativePath("A"), checkoutState: v1)
-            managedDependencies[forIdentity: bRef.identity] = ManagedDependency(
+            managedDependencies[forURL: bRef.path] = ManagedDependency(
                 packageRef: bRef, subpath: RelativePath("B"), checkoutState: v1_5)
-            managedDependencies[forIdentity: cRef.identity] = ManagedDependency(
+            managedDependencies[forURL: cRef.path] = ManagedDependency(
                 packageRef: cRef, subpath: RelativePath("C"), checkoutState: v2)
 
             let result = workspace.isResolutionRequired(root: root, dependencies: [
@@ -1690,7 +1688,7 @@ final class WorkspaceTests: XCTestCase {
         // Check that changing the requirement to 1.5.0 triggers re-resolution.
         //
         // FIXME: Find a cleaner way to change a dependency requirement.
-        let fooKey = MockManifestLoader.Key(url: "Foo")
+        let fooKey = MockManifestLoader.Key(url: "/tmp/ws/roots/Foo")
         let manifest = workspace.manifestLoader.manifests[fooKey]!
         workspace.manifestLoader.manifests[fooKey] = Manifest(
             name: manifest.name,
@@ -2240,6 +2238,84 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo2", at: .local)
         }
     }
+
+	func testDependencySwitchWithSameIdentity() throws {
+         let sandbox = AbsolutePath("/tmp/ws/")
+         let fs = InMemoryFileSystem()
+
+         let workspace = try TestWorkspace(
+             sandbox: sandbox,
+             fs: fs,
+             roots: [
+                 TestPackage(
+                     name: "Root",
+                     targets: [
+                         TestTarget(name: "Root", dependencies: []),
+                     ],
+                     products: [],
+                     dependencies: []
+                 ),
+             ],
+             packages: [
+                 TestPackage(
+                     name: "Foo",
+                     targets: [
+                         TestTarget(name: "Foo"),
+                     ],
+                     products: [
+                         TestProduct(name: "Foo", targets: ["Foo"]),
+                     ],
+                     versions: [nil]
+                 ),
+                 TestPackage(
+                     name: "Foo",
+                     path: "Nested/Foo",
+                     targets: [
+                         TestTarget(name: "Foo"),
+                     ],
+                     products: [
+                         TestProduct(name: "Foo", targets: ["Foo"]),
+                     ],
+                     versions: [nil]
+                 ),
+             ]
+         )
+
+         // Test that switching between two same local packages placed at
+         // different locations works correctly.
+
+         var deps: [TestWorkspace.PackageDependency] = [
+             .init(name: "Foo", requirement: .localPackage),
+         ]
+         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+             PackageGraphTester(graph) { result in
+                 result.check(roots: "Root")
+                 result.check(packages: "Foo", "Root")
+             }
+             XCTAssertNoDiagnostics(diagnostics)
+         }
+         workspace.checkManagedDependencies() { result in
+             result.check(dependency: "foo", at: .local)
+         }
+         do {
+             let ws = workspace.createWorkspace()
+             XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Foo"])
+         }
+
+         deps = [
+             .init(name: "Nested/Foo", requirement: .localPackage),
+         ]
+         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+             XCTAssertNoDiagnostics(diagnostics)
+         }
+         workspace.checkManagedDependencies() { result in
+             result.check(dependency: "foo", at: .local)
+         }
+         do {
+             let ws = workspace.createWorkspace()
+             XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
+         }
+     }
 
     func testResolvedFileUpdate() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
