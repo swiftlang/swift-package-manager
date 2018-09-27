@@ -142,25 +142,32 @@ public class Workspace {
         }
 
         /// Computes the identities which are declared in the manifests but aren't present in dependencies.
-        func missingPackageIdentities() -> Set<String> {
-            return computePackageIdentities().missing
+        func missingPackageURLs() -> Set<PackageReference> {
+            return computePackageURLs().missing
         }
 
-        func computePackageIdentities() -> (required: Set<String>, missing: Set<String>) {
+        func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
             let manifestsMap = Dictionary(items:
                 root.manifests.map({ ($0.name.lowercased(), $0) }) +
                 dependencies.map({ (PackageReference.computeIdentity(packageURL: $0.manifest.url), $0.manifest) }))
 
-            let inputIdentities = root.manifests.map({ $0.name.lowercased() }) +
-                root.dependencies.map({ PackageReference.computeIdentity(packageURL: $0.url) })
+            let inputIdentities = root.manifests.map({
+                PackageReference(identity: $0.name.lowercased(), path: $0.url)
+            }) + root.dependencies.map({
+                let identity = PackageReference.computeIdentity(packageURL: $0.url)
+                return PackageReference(identity: identity, path: $0.url)
+            })
 
             var requiredIdentities = transitiveClosure(inputIdentities) { identity in
-                guard let manifest = manifestsMap[identity] else { return [] }
-                return manifest.dependencies.map({ PackageReference.computeIdentity(packageURL: $0.url) })
+                guard let manifest = manifestsMap[identity.identity] else { return [] }
+                return manifest.dependencies.map({
+                    let identity = PackageReference.computeIdentity(packageURL: $0.url)
+                    return PackageReference(identity: identity, path: $0.url)
+                })
             }
             requiredIdentities.formUnion(inputIdentities)
 
-            let availableIdentities = Set<String>(manifestsMap.keys)
+            let availableIdentities: Set<PackageReference> = Set(manifestsMap.map({ PackageReference(identity: $0.key, path: $0.value.url) }))
             // We should never have loaded a manifest we don't need.
             assert(availableIdentities.isSubset(of: requiredIdentities))
             // These are the missing package identities.
@@ -828,10 +835,10 @@ extension Workspace {
 
         let currentManifests = loadDependencyManifests(
             root: graphRoot, diagnostics: diagnostics)
-        let requiredIdentities = currentManifests.computePackageIdentities().required
+        let requiredURLs = currentManifests.computePackageURLs().required
 
         for dependency in managedDependencies.values  {
-            if requiredIdentities.contains(dependency.packageRef.identity) {
+            if requiredURLs.contains(where: { $0.path == dependency.packageRef.path }) {
                 pinsStore.pin(dependency)
             }
         }
@@ -933,6 +940,7 @@ extension Workspace {
             let identity = PackageReference.computeIdentity(packageURL: $0.url)
             return ($0, managedDependencies[forIdentity: identity]!) 
         })
+
         return DependencyManifests(root: root, dependencies: deps, workspace: self)
     }
 
@@ -1041,14 +1049,14 @@ extension Workspace {
         }
 
         // Compute the missing package identities.
-        let missingPackageIdentities = currentManifests.missingPackageIdentities()
+        let missingPackageURLs = currentManifests.missingPackageURLs()
 
         // The pins to use in case we need to run the resolution.
         var validPins = pinsStore.createConstraints()
 
         // Compute if we need to run the resolver. We always run the resolver if
         // there are extra constraints.
-        if missingPackageIdentities.isEmpty {
+        if missingPackageURLs.isEmpty {
             // Use root constraints, dependency manifest constraints and extra
             // constraints to compute if a new resolution is required.
             let dependencies =
@@ -1210,7 +1218,7 @@ extension Workspace {
         }
 
 		let pins = pinsStore.pinsMap.keys
-        let requiredIdentities = dependencyManifests.computePackageIdentities().required
+        let requiredURLs = dependencyManifests.computePackageURLs().required
 
         for dependency in managedDependencies.values {
             switch dependency.state {
@@ -1220,7 +1228,7 @@ extension Workspace {
 
             let identity = dependency.packageRef.identity
 
-            if requiredIdentities.contains(identity) {
+            if requiredURLs.contains(where: { $0.path == dependency.packageRef.path }) {
                 // If required identity contains this dependency, it should be in the pins store.
                 if pins.contains(identity) {
                     continue
