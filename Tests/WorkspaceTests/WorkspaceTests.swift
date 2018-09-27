@@ -958,7 +958,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Check that we can compute missing dependencies.
         workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { (manifests, diagnostics) in
-            XCTAssertEqual(manifests.missingPackageIdentities().map{$0}.sorted(), ["bar", "foo"])
+            XCTAssertEqual(manifests.missingPackageURLs().map{$0.path}.sorted(), ["/tmp/ws/pkgs/Bar", "/tmp/ws/pkgs/Foo"])
             XCTAssertNoDiagnostics(diagnostics)
         }
 
@@ -972,7 +972,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Check that we compute the correct missing dependencies.
         workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { (manifests, diagnostics) in
-            XCTAssertEqual(manifests.missingPackageIdentities().map{$0}.sorted(), ["bar"])
+            XCTAssertEqual(manifests.missingPackageURLs().map{$0.path}.sorted(), ["/tmp/ws/pkgs/Bar"])
             XCTAssertNoDiagnostics(diagnostics)
         }
 
@@ -986,7 +986,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Check that we compute the correct missing dependencies.
         workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { (manifests, diagnostics) in
-            XCTAssertEqual(manifests.missingPackageIdentities().map{$0}.sorted(), [])
+            XCTAssertEqual(manifests.missingPackageURLs().map{$0.path}.sorted(), [])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
