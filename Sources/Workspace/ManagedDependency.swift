@@ -208,7 +208,7 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
     /// The current state of managed dependencies.
     ///
     /// Key -> package URL.
-    var dependencyMap: [String: ManagedDependency]
+    private var dependencyMap: [String: ManagedDependency]
 
     /// Path to the state file.
     let statePath: AbsolutePath
