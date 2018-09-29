@@ -1,8 +1,9 @@
 import Dispatch
+import Foundation
 
 import Basic
 import POSIX
-import libc
+import SPMLibc
 import Utility
 
 /// Execute the file lock test.
@@ -32,7 +33,7 @@ class HandlerTest {
     init(_ file: AbsolutePath) throws {
         interruptHandler = try InterruptHandler {
             print("Hello from handler!")
-            libc.exit(0)
+            SPMLibc.exit(0)
         }
         try localFileSystem.writeFileContents(file, bytes: ByteString())
     }
@@ -107,7 +108,7 @@ do {
 
     var options = Options()
     let result = try parser.parse(Array(CommandLine.arguments.dropFirst()))
-    binder.fill(result, into: &options)
+    try binder.fill(parseResult: result, into: &options)
 
     switch options.mode {
     case .fileLockTest:

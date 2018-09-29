@@ -45,8 +45,4 @@ class DeltaAlgorithmTests: XCTestCase {
             XCTAssertEqual(result, Set(0..<4))
         }
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

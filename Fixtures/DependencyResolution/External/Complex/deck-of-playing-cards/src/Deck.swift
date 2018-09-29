@@ -11,7 +11,7 @@
 import FisherYates
 import PlayingCard
 
-public struct Deck {
+public struct Deck: Equatable {
     fileprivate var cards: [PlayingCard]
 
     public static func standard52CardDeck() -> Deck {
@@ -49,12 +49,4 @@ extension Deck : ExpressibleByArrayLiteral {
     public init(arrayLiteral elements: PlayingCard...) {
         self.init(elements)
     }
-}
-
-// MARK: - Equatable
-
-extension Deck : Equatable {}
-
-public func ==(lhs: Deck, rhs: Deck) -> Bool {
-    return lhs.cards == rhs.cards
 }

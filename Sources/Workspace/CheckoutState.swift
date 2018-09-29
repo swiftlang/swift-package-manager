@@ -16,7 +16,7 @@ import Utility
 /// A checkout state represents the current state of a repository.
 ///
 /// A state will always has a revision. It can also have a branch or a version but not both.
-public struct CheckoutState: Equatable {
+public struct CheckoutState: Equatable, CustomStringConvertible {
 
     /// The revision of the checkout.
     public let revision: Revision
@@ -50,12 +50,6 @@ public struct CheckoutState: Equatable {
 
     public var description: String {
         return version?.description ?? branch ?? revision.identifier
-    }
-
-    public static func == (lhs: CheckoutState, rhs: CheckoutState) -> Bool {
-        return lhs.revision == rhs.revision &&
-               lhs.version == rhs.version &&
-               lhs.branch == rhs.branch
     }
 }
 

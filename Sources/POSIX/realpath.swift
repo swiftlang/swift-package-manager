@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import var libc.errno
-import func libc.free
-import func libc.realpath
+import var SPMLibc.errno
+import func SPMLibc.free
+import func SPMLibc.realpath
 
 /**
  Resolves all symbolic links, extra "/" characters, and references to /./

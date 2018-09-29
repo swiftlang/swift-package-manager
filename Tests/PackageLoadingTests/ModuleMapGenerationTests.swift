@@ -134,19 +134,11 @@ class ModuleMapGeneration: XCTestCase {
         checkExpected("target 'Foo' failed modulemap generation; umbrella header defined at '/include/Foo.h', but " +
             "directories exist: /include/Bar; consider removing them")
     }
-
-    static var allTests = [
-        ("testModuleNameDirAndHeaderInInclude", testModuleNameDirAndHeaderInInclude),
-        ("testModuleNameHeaderInInclude", testModuleNameHeaderInInclude),
-        ("testOtherCases", testOtherCases),
-        ("testUnsupportedLayouts", testUnsupportedLayouts),
-        ("testWarnings", testWarnings),
-    ]
 }
 
 func ModuleMapTester(_ name: String, includeDir: String = "include", in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
     let includeDir = AbsolutePath.root.appending(component: includeDir)
-    let target = ClangTarget(name: name, isCXX: false, languageStandard: nil, includeDir: includeDir, isTest: false, sources: Sources(paths: [], root: .root))
+    let target = ClangTarget(name: name, cLanguageStandard: nil, cxxLanguageStandard: nil, includeDir: includeDir, isTest: false, sources: Sources(paths: [], root: .root))
     let warningStream = BufferedOutputByteStream()
     var generator = ModuleMapGenerator(for: target, fileSystem: fileSystem, warningStream: warningStream)
     var diagnostics = Set<String>()
@@ -184,7 +176,7 @@ final class ModuleMapResult {
         if diagnostics.contains(str) {
             diagnostics.remove(str)
         } else {
-            XCTFail("no error: \(str) or is already checked", file: file, line: line)
+            XCTFail("no error: \"\(str)\" or is already checked", file: file, line: line)
         }
     }
 

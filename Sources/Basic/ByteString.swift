@@ -21,7 +21,7 @@
 /// strings or and by eliminating wasted space in growable arrays). For
 /// construction of byte arrays, clients should use the `OutputByteStream` class
 /// and then convert to a `ByteString` when complete.
-public struct ByteString: ExpressibleByArrayLiteral {
+public struct ByteString: ExpressibleByArrayLiteral, Hashable {
     /// The buffer contents.
     fileprivate var _bytes: [UInt8]
 
@@ -90,21 +90,17 @@ extension ByteString: CustomStringConvertible {
     }
 }
 
-/// Hashable conformance for a ByteString.
-extension ByteString: Hashable {
+#if !swift(>=4.2)
+extension ByteString {
     public var hashValue: Int {
-        // FIXME: Use a better hash function.
         var result = contents.count
         for byte in contents {
             result = result &* 31 &+ Int(byte)
         }
         return result
     }
-    
-    public static func == (lhs: ByteString, rhs: ByteString) -> Bool {
-        return lhs.contents == rhs.contents
-    }
 }
+#endif
 
 /// ByteStreamable conformance for a ByteString.
 extension ByteString: ByteStreamable {

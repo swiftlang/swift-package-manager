@@ -47,7 +47,8 @@ extension Xcode.Project: PropertyListSerializable {
         dict["isa"] = .string("PBXProject")
         // Since the project file is generated, we opt out of upgrade-checking.
         // FIXME: Shoule we really?  Why would we not want to get upgraded?
-        dict["attributes"] = .dictionary(["LastUpgradeCheck": .string("9999")])
+        dict["attributes"] = .dictionary(["LastUpgradeCheck": .string("9999"),
+                                          "LastSwiftMigration": .string("9999")])
         dict["compatibilityVersion"] = .string("Xcode 3.2")
         dict["developmentRegion"] = .string("English")
         // Build settings are a bit tricky; in Xcode, each is stored in a named
@@ -286,6 +287,12 @@ extension Xcode.BuildFile: PropertyListSerializable {
         if let fileRef = fileRef {
             dict["fileRef"] = .identifier(serializer.id(of: fileRef))
         }
+
+        let settingsDict = settings.asPropertyList()
+        if !settingsDict.isEmpty {
+            dict["settings"] = settingsDict
+        }
+
         return dict
     }
 }
@@ -354,13 +361,16 @@ extension Xcode.BuildSettingsTable: PropertyListSerializable {
         // FIXME: What is this, and why are we setting it?
         dict["defaultConfigurationIsVisible"] = .string("0")
         // FIXME: Should we allow this to be set in the model?
-        dict["defaultConfigurationName"] = .string("Debug")
+        dict["defaultConfigurationName"] = .string("Release")
         return dict
     }
 }
 
-extension Xcode.BuildSettingsTable.BuildSettings {
+protocol PropertyListDictionaryConvertible {
+    func asPropertyList() -> PropertyList
+}
 
+extension PropertyListDictionaryConvertible {
     /// Returns a property list representation of the build settings, in which
     /// every struct field is represented as a dictionary entry.  Fields of
     /// type `String` are represented as `PropertyList.string` values; fields
@@ -409,6 +419,9 @@ extension Xcode.BuildSettingsTable.BuildSettings {
         return .dictionary(dict)
     }
 }
+
+extension Xcode.BuildFile.Settings: PropertyListDictionaryConvertible {}
+extension Xcode.BuildSettingsTable.BuildSettings: PropertyListDictionaryConvertible {}
 
 /// Private helper function that combines a base property list and an overlay
 /// property list, respecting the semantics of `$(inherited)` as we go.
@@ -566,79 +579,13 @@ extension PropertyListSerializable {
     }
 }
 
-/// A very simple representation of a property list.  Note that the `identifier`
-/// enum is not strictly necessary, but useful to semantically distinguish the
-/// strings that represents object identifiers from those that are just data.
-public enum PropertyList {
-    case identifier(String)
-    case string(String)
-    case array([PropertyList])
-    case dictionary([String: PropertyList])
-}
-
-/// Private struct to generate indentation strings.
-fileprivate struct Indentation: CustomStringConvertible {
-    var level: Int = 0
-    mutating func increase() {
-        level += 1
-        precondition(level > 0, "indentation level overflow")
-    }
-    mutating func decrease() {
-        precondition(level > 0, "indentation level underflow")
-        level -= 1
-    }
-    var description: String {
-        return String(repeating: "   ", count: level)
-    }
-}
-
-/// Private function to generate OPENSTEP-style plist representation.
-fileprivate func generatePlistRepresentation(plist: PropertyList, indentation: Indentation) -> String {
-    // Do the appropriate thing for each type of plist node.
-    switch plist {
-
-      case .identifier(let ident):
-        // FIXME: we should assert that the identifier doesn't need quoting
-        return ident
-
-      case .string(let string):
-        return "\"" + Plist.escape(string: string) + "\""
-
-      case .array(let array):
-        var indent = indentation
-        var str = "(\n"
-        indent.increase()
-        for item in array {
-            str += "\(indent)\(generatePlistRepresentation(plist: item, indentation: indent)),\n"
+extension PropertyList {
+    var isEmpty: Bool {
+        switch self {
+        case let .identifier(string): return string.isEmpty
+        case let .string(string): return string.isEmpty
+        case let .array(array): return array.isEmpty
+        case let .dictionary(dictionary): return dictionary.isEmpty
         }
-        indent.decrease()
-        str += "\(indent))"
-        return str
-
-      case .dictionary(let dict):
-        var indent = indentation
-        let dict = dict.sorted(by: {
-            // Make `isa` sort first (just for readability purposes).
-            switch ($0.key, $1.key) {
-              case ("isa", "isa"): return false
-              case ("isa", _): return true
-              case (_, "isa"): return false
-              default: return $0.key < $1.key
-            }
-        })
-        var str = "{\n"
-        indent.increase()
-        for item in dict {
-            str += "\(indent)\(item.key) = \(generatePlistRepresentation(plist: item.value, indentation: indent));\n"
-        }
-        indent.decrease()
-        str += "\(indent)}"
-        return str
-    }
-}
-
-extension PropertyList: CustomStringConvertible {
-    public var description: String {
-        return generatePlistRepresentation(plist: self, indentation: Indentation())
     }
 }

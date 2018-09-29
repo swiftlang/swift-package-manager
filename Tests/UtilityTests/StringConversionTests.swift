@@ -52,10 +52,5 @@ class StringConversionTests: XCTestCase {
         var str3 = "-"
         str3.mangleToC99ExtendedIdentifier()
         XCTAssertEqual(str3, "_")
-}
-
-    static var allTests = [
-        ("testManglingToBundleIdentifier", testManglingToBundleIdentifier),
-        ("testManglingToC99ExtendedIdentifier", testManglingToC99ExtendedIdentifier),
-    ]
+    }
 }

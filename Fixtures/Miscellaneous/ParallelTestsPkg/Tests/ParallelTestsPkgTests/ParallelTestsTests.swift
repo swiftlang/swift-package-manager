@@ -10,11 +10,4 @@ class ParallelTestsTests: XCTestCase {
     func testExample2() {
         XCTAssertEqual(ParallelTests().bool, false)
     }
-
-    static var allTests : [(String, (ParallelTestsTests) -> () throws -> Void)] {
-        return [
-            ("testExample1", testExample1),
-            ("testExample2", testExample2),
-        ]
-    }
 }

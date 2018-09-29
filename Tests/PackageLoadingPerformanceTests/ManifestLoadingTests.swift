@@ -15,7 +15,7 @@ import TestSupport
 import PackageLoading
 
 class ManifestLoadingPerfTests: XCTestCasePerf {
-    let manifestLoader = ManifestLoader(resources: Resources.default)
+    let manifestLoader = ManifestLoader(resources: Resources.default, isManifestCachingEnabled: false)
 
     func write(_ bytes: ByteString, body: (AbsolutePath) -> ()) {
         mktmpdir { path in
@@ -34,7 +34,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
         write(trivialManifest) { path in
             measure {
                 for _ in 0..<N {
-                    let manifest = try! self.manifestLoader.load(package: path, baseURL: "/", manifestVersion: .three)
+                    let manifest = try! self.manifestLoader.load(package: path, baseURL: "/", manifestVersion: .v4)
                     XCTAssertEqual(manifest.name, "Trivial")
                 }
             }
@@ -47,11 +47,12 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
             import PackageDescription
             let package = Package(
                 name: "Foo",
-                targets: [
-                    Target(name: "sys", dependencies: ["libc"]),
-                    Target(name: "dep", dependencies: ["sys", "libc"])],
                 dependencies: [
-                    .Package(url: "https://example.com/example", majorVersion: 1)
+                    .package(url: "https://example.com/example", from: "1.0.0")
+                ],
+                targets: [
+                    .target(name: "sys", dependencies: ["libc"]),
+                    .target(name: "dep", dependencies: ["sys", "libc"])
                 ]
             )
             """)
@@ -59,7 +60,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
         write(manifest) { path in
             measure {
                 for _ in 0..<N {
-                    let manifest = try! self.manifestLoader.load(package: path, baseURL: "/", manifestVersion: .three)
+                    let manifest = try! self.manifestLoader.load(package: path, baseURL: "/", manifestVersion: .v4)
                     XCTAssertEqual(manifest.name, "Foo")
                 }
             }

@@ -32,18 +32,19 @@ public func pbxproj(
         xcodeprojPath: AbsolutePath,
         graph: PackageGraph,
         extraDirs: [AbsolutePath],
+        extraFiles: [AbsolutePath],
         options: XcodeprojOptions,
+        diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem
-    ) throws -> String {
-    let project = try xcodeProject(
+    ) throws -> Xcode.Project {
+    return try xcodeProject(
         xcodeprojPath: xcodeprojPath,
         graph: graph,
         extraDirs: extraDirs,
+        extraFiles: extraFiles,
         options: options,
-        fileSystem: fileSystem)
-    // Serialize the project model we created to a plist, and return
-    // its string description.
-    return "// !$*UTF8*$!\n" + project.generatePlist().description
+        fileSystem: fileSystem,
+        diagnostics: diagnostics)
 }
 
 /// A set of c99 target names that are invalid for Xcode Framework targets.
@@ -56,10 +57,12 @@ func xcodeProject(
     xcodeprojPath: AbsolutePath,
     graph: PackageGraph,
     extraDirs: [AbsolutePath],
+    extraFiles: [AbsolutePath],
     options: XcodeprojOptions,
     fileSystem: FileSystem,
+    diagnostics: DiagnosticsEngine,
     warningStream: OutputByteStream = stdoutStream
-    ) throws -> Xcode.Project {
+) throws -> Xcode.Project {
 
     // Create the project.
     let project = Xcode.Project()
@@ -71,8 +74,14 @@ func xcodeProject(
             productType: .framework, name: "\(package.name)PackageDescription")
         let compilePhase = pdTarget.addSourcesBuildPhase()
         compilePhase.addBuildFile(fileRef: manifestFileRef)
-        pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS += package.manifest.interpreterFlags
-        pdTarget.buildSettings.common.SWIFT_VERSION = "\(package.manifest.manifestVersion.rawValue).0"
+
+        var interpreterFlags = options.manifestLoader?.interpreterFlags(for: package.manifest.manifestVersion) ?? []
+        if !interpreterFlags.isEmpty {
+            // Patch the interpreter flags to use Xcode supported toolchain macro instead of the resolved path.
+            interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/" + String(package.manifest.manifestVersion.rawValue)
+        }
+        pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS += interpreterFlags
+        pdTarget.buildSettings.common.SWIFT_VERSION = package.manifest.manifestVersion.swiftLanguageVersion.xcodeBuildSettingValue
         pdTarget.buildSettings.common.LD = "/usr/bin/true"
     }
 
@@ -141,7 +150,7 @@ func xcodeProject(
     projectSettings.common.COMBINE_HIDPI_IMAGES = "YES"
 
     // Defined for regular `swift build` instantiations, so also should be defined here.
-    projectSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS = "SWIFT_PACKAGE"
+    projectSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["SWIFT_PACKAGE"]
 
     // Opt out of headermaps.  The semantics of the build should be explicitly
     // defined by the project structure, so that we don't get any additional
@@ -156,8 +165,10 @@ func xcodeProject(
     projectSettings.debug.DEBUG_INFORMATION_FORMAT = "dwarf"
     projectSettings.debug.ENABLE_NS_ASSERTIONS = "YES"
     projectSettings.debug.GCC_OPTIMIZATION_LEVEL = "0"
+    projectSettings.debug.GCC_PREPROCESSOR_DEFINITIONS = ["DEBUG=1", "$(inherited)"]
     projectSettings.debug.ONLY_ACTIVE_ARCH = "YES"
     projectSettings.debug.SWIFT_OPTIMIZATION_LEVEL = "-Onone"
+    projectSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["SWIFT_PACKAGE", "DEBUG"]
 
     // Add some release-specific settings.
     projectSettings.release.COPY_PHASE_STRIP = "YES"
@@ -216,7 +227,7 @@ func xcodeProject(
             packagesByProduct[product] = package
         }
     }
-    
+
     // To avoid creating multiple groups for the same path, we keep a mapping
     // of the paths we've seen and the corresponding groups we've created.
     var srcPathsToGroups: [AbsolutePath: Xcode.Group] = [:]
@@ -296,7 +307,11 @@ func xcodeProject(
         return sourcesGroup ?? srcPathsToGroups[targets[0].sources.root]
     }
 
-    let (rootModules, testModules) = graph.rootPackages[0].targets.split{ $0.type != .test }
+    let (rootModules, testModules) = { () -> ([ResolvedTarget], [ResolvedTarget]) in
+        var targets = graph.rootPackages[0].targets
+        let secondPartitionIndex = targets.partition(by: { $0.type == .test })
+        return (Array(targets[..<secondPartitionIndex]), Array(targets[secondPartitionIndex...]))
+    }()
 
     // Create a `Sources` group for the source targets in the root package.
     createSourceGroup(named: "Sources", for: rootModules, in: project.mainGroup)
@@ -304,15 +319,9 @@ func xcodeProject(
     // Create a `Tests` group for the source targets in the root package.
     createSourceGroup(named: "Tests", for: testModules, in: project.mainGroup)
 
-    // Add "blue folders" for any other directories at the top level (note that
-    // they are not guaranteed to be direct children of the root directory).
-    for extraDir in extraDirs {
-        project.mainGroup.addFileReference(path: extraDir.relative(to: sourceRootDir).asString, pathBase: .projectDir)
-    }
-
     // Determine the set of targets to generate in the project by excluding
     // any system targets.
-    let targets = graph.targets.filter({ $0.type != .systemModule })
+    let targets = graph.reachableTargets.filter({ $0.type != .systemModule })
 
     // If we have any external packages, we also add a `Dependencies` group at
     // the top level, along with a sources subgroup for each package.
@@ -351,6 +360,17 @@ func xcodeProject(
     // Add a `Products` group, to which we'll add references to the outputs of
     // the various targets; these references will be added to the link phases.
     let productsGroup = project.mainGroup.addGroup(path: "", pathBase: .buildDir, name: "Products")
+
+    // Add "blue folders" for any other directories at the top level (note that
+    // they are not guaranteed to be direct children of the root directory).
+    for extraDir in extraDirs {
+        project.mainGroup.addFileReference(path: extraDir.relative(to: sourceRootDir).asString, pathBase: .projectDir)
+    }
+
+    for extraFile in extraFiles {
+        let groupOfFile = srcPathsToGroups[extraFile.parentDirectory]
+        groupOfFile?.addFileReference(path: extraFile.basename)
+    }
 
     // Set the newly created `Products` group as the official products group of
     // the project.
@@ -412,6 +432,7 @@ func xcodeProject(
         targetSettings.common.INFOPLIST_FILE = infoPlistFilePath.relative(to: sourceRootDir).asString
 
         if target.type == .test {
+            targetSettings.common.CLANG_ENABLE_MODULES = "YES"
             targetSettings.common.EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES"
             targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["$(inherited)", "@loader_path/../Frameworks", "@loader_path/Frameworks"]
         } else {
@@ -435,12 +456,18 @@ func xcodeProject(
             }
         }
 
+        // Make sure that build settings for C flags, Swift flags, and linker
+        // flags include any inherited value at the beginning.  This is useful
+        // even if nothing ends up being added, since it's a cue to anyone who
+        // edits the setting that the inherited value should be preserved.
+        targetSettings.common.OTHER_CFLAGS = ["$(inherited)"]
         targetSettings.common.OTHER_LDFLAGS = ["$(inherited)"]
         targetSettings.common.OTHER_SWIFT_FLAGS = ["$(inherited)"]
+        targetSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS = ["$(inherited)"]
 
         // Set the correct SWIFT_VERSION for the Swift targets.
         if case let swiftTarget as SwiftTarget = target.underlyingTarget {
-            targetSettings.common.SWIFT_VERSION = "\(swiftTarget.swiftVersion).0"
+            targetSettings.common.SWIFT_VERSION = swiftTarget.swiftVersion.xcodeBuildSettingValue
         }
 
         // Add header search paths for any C target on which we depend.
@@ -455,9 +482,9 @@ func xcodeProject(
             // FIXME: We don't need SRCROOT macro below but there is an issue with sourcekit.
             // See: <rdar://problem/21912068> SourceKit cannot handle relative include paths (working directory)
             switch depModule.underlyingTarget {
-              case let cTarget as CTarget:
-                hdrInclPaths.append("$(SRCROOT)/" + cTarget.path.relative(to: sourceRootDir).asString)
-                if let pkgArgs = pkgConfigArgs(for: cTarget) {
+              case let systemTarget as SystemLibraryTarget:
+                hdrInclPaths.append("$(SRCROOT)/" + systemTarget.path.relative(to: sourceRootDir).asString)
+                if let pkgArgs = pkgConfigArgs(for: systemTarget, diagnostics: diagnostics) {
                     targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
                     targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
                     targetSettings.common.OTHER_CFLAGS += pkgArgs.cFlags
@@ -508,6 +535,12 @@ func xcodeProject(
             compilePhase.addBuildFile(fileRef: srcFileRef)
         }
 
+        // Set C/C++ language standard.
+        if case let clangTarget as ClangTarget = target.underlyingTarget {
+            targetSettings.common.GCC_C_LANGUAGE_STANDARD = clangTarget.cLanguageStandard
+            targetSettings.common.CLANG_CXX_LANGUAGE_STANDARD = clangTarget.cxxLanguageStandard
+        }
+
         // Add the `include` group for a libary C language target.
         if case let clangTarget as ClangTarget = target.underlyingTarget,
             clangTarget.type == .library,
@@ -521,18 +554,29 @@ func xcodeProject(
             }
 
             // Disable defines target for clang target because our clang targets are not proper framework targets.
-            // Also see: <rdar://problem/29825757> 
+            // Also see: <rdar://problem/29825757>
             targetSettings.common.DEFINES_MODULE = "NO"
+
             // Generate a modulemap for clangTarget (if not provided by user) and
             // add to the build settings.
-            let moduleMapPath: AbsolutePath
+            var moduleMapPath: AbsolutePath?
 
             // If the modulemap is generated (as opposed to user provided).
-            let isGenerated: Bool
+            var isGenerated = false
+
             // If user provided the modulemap no need to generate.
             if fileSystem.isFile(clangTarget.moduleMapPath) {
                 moduleMapPath = clangTarget.moduleMapPath
-                isGenerated = false
+            } else if includeGroup.subitems.contains(where: { $0.path == clangTarget.c99name + ".h" }) {
+                // If an umbrella header exists, enable Xcode's builtin module's feature rather than generating
+                // a custom module map. This increases the compatibility of generated Xcode projects.
+                let headerPhase = xcodeTarget.addHeadersBuildPhase()
+                for case let header as Xcode.FileReference in includeGroup.subitems {
+                    let buildFile = headerPhase.addBuildFile(fileRef: header)
+                    buildFile.settings.ATTRIBUTES = ["Public"]
+                }
+                targetSettings.common.CLANG_ENABLE_MODULES = "YES"
+                targetSettings.common.DEFINES_MODULE = "YES"
             } else {
                 // Generate and drop the modulemap inside Xcodeproj folder.
                 let path = xcodeprojPath.appending(components: "GeneratedModuleMap", clangTarget.c99name)
@@ -541,9 +585,12 @@ func xcodeProject(
                 moduleMapPath = path.appending(component: moduleMapFilename)
                 isGenerated = true
             }
-            includeGroup.addFileReference(path: moduleMapPath.asString, name: moduleMapPath.basename)
-            // Save this modulemap path mapped to target so we can later wire it up for its dependees.
-            modulesToModuleMap[target] = (moduleMapPath, isGenerated)
+
+            if let moduleMapPath = moduleMapPath {
+                includeGroup.addFileReference(path: moduleMapPath.asString, name: moduleMapPath.basename)
+                // Save this modulemap path mapped to target so we can later wire it up for its dependees.
+                modulesToModuleMap[target] = (moduleMapPath, isGenerated)
+            }
         }
     }
 
@@ -599,7 +646,7 @@ func xcodeProject(
     // Create an aggregate target for every product for which there isn't already
     // a target with the same name.
     let targetNames: Set<String> = Set(modulesToTargets.values.map({ $0.name }))
-    for product in graph.products {
+    for product in graph.reachableProducts {
         // Go on to next product if we already have a target with the same name.
         if targetNames.contains(product.name) { continue }
         // Otherwise, create an aggreate target.
@@ -662,18 +709,31 @@ private extension ResolvedTarget {
 
         case is ClangTarget:
             guard let suffix = source.suffix else {
-                fatalError("Source \(source) doesn't have an extension in ClangModule \(name)")
+                fatalError("Source \(source) doesn't have an extension in C family target \(name)")
             }
             // Suffix includes `.` so drop it.
             assert(suffix.hasPrefix("."))
             let fileExtension = String(suffix.dropFirst())
             guard let ext = SupportedLanguageExtension(rawValue: fileExtension) else {
-                fatalError("Unknown source extension \(source) in ClangModule \(name)")
+                fatalError("Unknown source extension \(source) in C family target \(name)")
             }
             return ext.xcodeFileType
 
         default:
             fatalError("unexpected target type")
         }
+    }
+}
+
+private extension SwiftLanguageVersion {
+    /// Returns the build setting value for the given Swift language version.
+    var xcodeBuildSettingValue: String {
+        // Swift version setting are represented differently in Xcode:
+        // 3 -> 3.0, 4 -> 4.0, 4.2 -> 4.2
+        var swiftVersion = "\(rawValue)"
+        if !rawValue.contains(".") {
+            swiftVersion += ".0"
+        }
+        return swiftVersion
     }
 }

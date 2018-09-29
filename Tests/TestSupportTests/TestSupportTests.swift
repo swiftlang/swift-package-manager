@@ -35,8 +35,4 @@ class TestSupportTests: XCTestCase {
         XCTAssertMatch(["a", "b", "c"], ["a", .anySequence, "c"])
         XCTAssertMatch(["a", "b", "b", "c"], ["a", .anySequence, "c"])
     }
-
-    static var allTests = [
-        ("testAssertMatchStringLists", testAssertMatchStringLists),
-    ]
 }

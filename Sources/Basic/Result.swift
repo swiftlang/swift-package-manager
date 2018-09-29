@@ -101,6 +101,18 @@ public struct AnyError: Swift.Error, CustomStringConvertible {
     }
 }
 
+/// Represents a string error.
+public struct StringError: Equatable, Codable, CustomStringConvertible, Error {
+
+    /// The description of the error.
+    public let description: String
+
+    /// Create an instance of StringError.
+    public init(_ description: String) {
+        self.description = description
+    }
+}
+
 // AnyError specific helpers.
 extension Result where ErrorType == AnyError {
     /// Initialise with something that throws AnyError.
@@ -130,6 +142,58 @@ extension Result where ErrorType == AnyError {
             }
         case .failure(let error):
             return Result<U, AnyError>(error)
+        }
+    }
+}
+
+extension Result where ErrorType == StringError {
+    /// Create an instance of Result<Value, StringError>.
+    ///
+    /// Errors will be encoded as StringError using their description.
+    public init(string body: () throws -> Value) {
+        do {
+            self = .success(try body())
+        } catch let error as StringError {
+            self = .failure(error)
+        } catch {
+            self = .failure(StringError(String(describing: error)))
+        }
+    }
+}
+
+extension Result: Equatable where Value: Equatable, ErrorType: Equatable {}
+
+extension Result: Codable where Value: Codable, ErrorType: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case success, failure
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .success(let value):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .success)
+            try unkeyedContainer.encode(value)
+        case .failure(let error):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .failure)
+            try unkeyedContainer.encode(error)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .success:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let value = try unkeyedValues.decode(Value.self)
+            self = .success(value)
+        case .failure:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let error = try unkeyedValues.decode(ErrorType.self)
+            self = .failure(error)
         }
     }
 }

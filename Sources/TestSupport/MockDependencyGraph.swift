@@ -11,7 +11,6 @@
 import XCTest
 
 import Basic
-import PackageDescription
 import PackageLoading
 import PackageModel
 import PackageGraph
@@ -141,26 +140,25 @@ public struct MockManifestGraph {
 
         // Create the root manifest.
         rootManifest = Manifest(
+            name: "Root",
             path: path.appending(component: Manifest.filename),
             url: path.asString,
-            package: .v3(PackageDescription.Package(
-                name: "Root",
-                dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: rootDeps))),
-            version: nil
+            version: nil,
+            manifestVersion: .v4,
+            dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: rootDeps)
         )
 
         // Create the manifests from mock packages.
         var manifests = Dictionary(items: packages.map({ package -> (MockManifestLoader.Key, Manifest) in
             let url = repos[package.name]!.url
             let manifest = Manifest(
+                name: package.name,
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
-                package: .v3(PackageDescription.Package(
-                    name: package.name,
-                    dependencies: MockManifestGraph.createDependencies(
-                        repos: repos,
-                        dependencies: package.dependencies))),
-                version: package.version)
+                version: package.version,
+                manifestVersion: .v4,
+                dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: package.dependencies)
+            )
             return (MockManifestLoader.Key(url: url, version: package.version), manifest)
         }))
         // Add the root manifest.
@@ -175,22 +173,11 @@ public struct MockManifestGraph {
     private static func createDependencies(
         repos: [String: RepositorySpecifier],
         dependencies: [MockDependency]
-    ) -> [PackageDescription.Package.Dependency] {
+    ) -> [PackageDependencyDescription] {
         return dependencies.map({ dependency in
-            let version = dependency.version
-            let range: Range<PackageDescription.Version> = Version(version.lowerBound) ..< Version(version.upperBound)
-            return .Package(url: repos[dependency.name]?.url ?? "//\(dependency.name)", versions: range)
+            return PackageDependencyDescription(
+                url: repos[dependency.name]?.url ?? "//\(dependency.name)",
+                requirement: .range(dependency.version.lowerBound ..< dependency.version.upperBound))
         })
-    }
-}
-
-fileprivate extension PackageDescription.Version {
-    init(_ version: Utility.Version) {
-        self.init(
-            version.major,
-            version.minor,
-            version.patch,
-            prereleaseIdentifiers: version.prereleaseIdentifiers,
-            buildMetadataIdentifier: version.buildMetadataIdentifiers.joined(separator: "."))
     }
 }

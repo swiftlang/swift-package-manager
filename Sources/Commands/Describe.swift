@@ -37,7 +37,7 @@ extension Package: JSONSerializable {
             Path: \(path.asString)
             Modules:\n
             """
-        for target in targets {
+        for target in targets.sorted(by: { $0.name > $1.name }) {
             target.describe(on: stream, indent: 4)
             stream <<< "\n"
         }
@@ -47,7 +47,7 @@ extension Package: JSONSerializable {
         return .dictionary([
             "name": .string(name),
             "path": .string(path.asString),
-            "targets": .array(targets.map({ $0.toJSON() })),
+            "targets": .array(targets.sorted(by: { $0.name > $1.name }).map({ $0.toJSON() })),
         ])
     }
 }

@@ -12,6 +12,7 @@ import XCTest
 
 import Basic
 import Utility
+import PackageModel
 import PackageGraph
 import TestSupport
 import SourceControl
@@ -97,7 +98,7 @@ final class PinsStoreTests: XCTestCase {
     }
 
     func testLoadingSchema1() throws {
-        var fs = InMemoryFileSystem()
+        let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
 
         try fs.writeFileContents(pinsFile) {
@@ -134,8 +135,25 @@ final class PinsStoreTests: XCTestCase {
         XCTAssertEqual(store.pinsMap.keys.map{$0}.sorted(), ["clang_c", "commandant"])
     }
 
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testLoadingSchema1", testLoadingSchema1),
-    ]
+    func testEmptyPins() throws {
+        let fs = InMemoryFileSystem()
+        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+
+        try store.saveState()
+        XCTAssertFalse(fs.exists(pinsFile))
+
+        let fooRef = PackageReference(identity: "foo", path: "/foo")
+        let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
+        store.pin(packageRef: fooRef, state: CheckoutState(revision: revision, version: v1))
+
+        XCTAssert(!fs.exists(pinsFile))
+
+        try store.saveState()
+        XCTAssert(fs.exists(pinsFile))
+
+        store.unpinAll()
+        try store.saveState()
+        XCTAssertFalse(fs.exists(pinsFile))
+    }
 }

@@ -86,6 +86,9 @@ class XcodeProjectModelSerializationTests: XCTestCase {
         let otherSwiftFlagValues = ["$(inherited)", "-DXcode"]
         buildSettings.OTHER_SWIFT_FLAGS = otherSwiftFlagValues
 
+        let activeCompilationConditionsValues = ["$(inherited)", "DEBUG"]
+        buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS = activeCompilationConditionsValues
+
         // Serialize it to a property list.
         let plist = buildSettings.asPropertyList()
         
@@ -97,9 +100,10 @@ class XcodeProjectModelSerializationTests: XCTestCase {
         
         guard
             let productNamePlist = buildSettingsDict["PRODUCT_NAME"],
-            let otherSwiftFlagsPlist = buildSettingsDict["OTHER_SWIFT_FLAGS"]
+            let otherSwiftFlagsPlist = buildSettingsDict["OTHER_SWIFT_FLAGS"],
+            let activeCompilationConditionsPlist = buildSettingsDict["SWIFT_ACTIVE_COMPILATION_CONDITIONS"]
         else {
-            XCTFail("build settings plist must contain PRODUCT_NAME and OTHER_SWIFT_FLAGS")
+            XCTFail("build settings plist must contain PRODUCT_NAME and OTHER_SWIFT_FLAGS and SWIFT_ACTIVE_COMPILATION_CONDITIONS")
             return
         }
         
@@ -113,8 +117,8 @@ class XcodeProjectModelSerializationTests: XCTestCase {
             XCTFail("otherSwiftFlags plist must be an array")
             return
         }
-        
-        let otherSwiftFlags = otherSwiftFlagsPlists.flatMap { flagPlist -> String? in
+
+        let otherSwiftFlags = otherSwiftFlagsPlists.compactMap { flagPlist -> String? in
             guard case let .string(flag) = flagPlist else {
                 XCTFail("otherSwiftFlag plist must be string")
                 return nil
@@ -122,10 +126,56 @@ class XcodeProjectModelSerializationTests: XCTestCase {
             return flag
         }
         XCTAssertEqual(otherSwiftFlags, otherSwiftFlagValues)
+
+        guard case let .array(activeCompilationConditionsPlists) = activeCompilationConditionsPlist else {
+            XCTFail("activeCompilationConditionsPlist plist must be an array")
+            return
+        }
+
+        let activeCompilationConditions = activeCompilationConditionsPlists.compactMap { flagPlist -> String? in
+            guard case let .string(flag) = flagPlist else {
+                XCTFail("activeCompilationConditions plist must be a string")
+                return nil
+            }
+            return flag
+        }
+        XCTAssertEqual(activeCompilationConditions, activeCompilationConditionsValues)
     }
-    
-    static var allTests = [
-        ("testBasicProjectSerialization", testBasicProjectSerialization),
-        ("testBuildSettingsSerialization", testBuildSettingsSerialization),
-    ]
+
+    func testBuildFileSettingsSerialization() {
+
+        // Create build file settings.
+        var buildFileSettings = Xcode.BuildFile.Settings()
+
+        let attributeValues = ["Public"]
+        buildFileSettings.ATTRIBUTES = attributeValues
+
+        // Serialize it to a property list.
+        let plist = buildFileSettings.asPropertyList()
+
+        // Assert things about plist
+        guard case let .dictionary(buildFileSettingsDict) = plist else {
+            XCTFail("build file settings plist must be a dictionary")
+            return
+        }
+
+        guard let attributesPlist = buildFileSettingsDict["ATTRIBUTES"] else {
+            XCTFail("build file settings plist must contain ATTRIBUTES")
+            return
+        }
+
+        guard case let .array(attributePlists) = attributesPlist else {
+            XCTFail("attributes plist must be an array")
+            return
+        }
+
+        let attributes = attributePlists.compactMap { attributePlist -> String? in
+            guard case let .string(attribute) = attributePlist else {
+                XCTFail("attribute plist must be a string")
+                return nil
+            }
+            return attribute
+        }
+        XCTAssertEqual(attributes, attributeValues)
+    }
 }

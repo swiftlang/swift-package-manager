@@ -18,10 +18,10 @@ import Utility
 ///
 /// Each dependency will have a checkout containing the sources at a
 /// particular revision, and may have an associated version.
-public final class ManagedDependency: JSONMappable, JSONSerializable {
+public final class ManagedDependency: JSONMappable, JSONSerializable, CustomStringConvertible {
 
     /// Represents the state of the managed dependency.
-    public enum State: Equatable {
+    public enum State: Equatable, CustomStringConvertible {
 
         /// The dependency is a managed checkout.
         case checkout(CheckoutState)
@@ -33,10 +33,24 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
         /// for top of the tree style development.
         case edited(AbsolutePath?)
 
+        // The dependency is a local package.
+        case local
+
         /// Returns true if state is checkout.
         var isCheckout: Bool {
             if case .checkout = self { return true }
             return false
+        }
+
+        public var description: String {
+            switch self {
+            case .checkout(let checkout):
+                return "\(checkout)"
+            case .edited:
+                return "edited"
+            case .local:
+                return "local"
+            }
         }
     }
 
@@ -65,6 +79,31 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
         self.state = .checkout(checkoutState)
         self.basedOn = nil
         self.subpath = subpath
+    }
+
+    /// Create a dependency present locally on the filesystem.
+    static func local(
+        packageRef: PackageReference
+    ) -> ManagedDependency {
+        return ManagedDependency(
+            packageRef: packageRef,
+            state: .local,
+            // FIXME: This is just a fake entry, we should fix it.
+            subpath: RelativePath(packageRef.identity),
+            basedOn: nil
+        )
+    }
+
+    private init(
+        packageRef: PackageReference,
+        state: State,
+        subpath: RelativePath,
+        basedOn: ManagedDependency?
+    ) {
+        self.packageRef = packageRef
+        self.subpath = subpath
+        self.basedOn = basedOn
+        self.state = state
     }
 
     private init(
@@ -104,23 +143,13 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
             "state": state,
         ])
     }
+
+    public var description: String {
+        return "<ManagedDependency: \(packageRef.name ?? packageRef.identity) \(state)>"
+    }
 }
 
 extension ManagedDependency.State: JSONMappable, JSONSerializable {
-
-    public static func == (lhs: ManagedDependency.State, rhs: ManagedDependency.State) -> Bool {
-        switch (lhs, rhs) {
-        case (.checkout(let lhs), .checkout(let rhs)):
-            return lhs == rhs
-        case (.checkout, _):
-            return false
-        case (.edited(let lhs), .edited(let rhs)):
-            return lhs == rhs
-        case (.edited, _):
-            return false
-        }
-    }
-
     public func toJSON() -> JSON {
         switch self {
         case .checkout(let checkoutState):
@@ -133,6 +162,10 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
                 "name": "edited",
                 "path": path.toJSON(),
             ])
+        case .local:
+            return .init([
+                "name": "local",
+            ])
         }
     }
 
@@ -143,7 +176,9 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
             self = try .checkout(json.get("checkoutState"))
         case "edited":
             let path: String? = json.get("path")
-            self = .edited(path.map(AbsolutePath.init))
+            self = .edited(path.map({AbsolutePath($0)}))
+        case "local":
+            self = .local
         default:
             throw JSON.MapError.custom(key: nil, message: "Invalid state \(name)")
         }
@@ -172,7 +207,7 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
 
     /// The current state of managed dependencies.
     ///
-    /// Key -> package identity.
+    /// Key -> package URL.
     private var dependencyMap: [String: ManagedDependency]
 
     /// Path to the state file.
@@ -207,23 +242,29 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
         }
     }
 
-    public subscript(forIdentity identity: String) -> ManagedDependency? {
+    public subscript(forURL url: String) -> ManagedDependency? {
         get {
-            assert(identity == identity.lowercased())
-            return dependencyMap[identity]
+            return dependencyMap[url]
         }
         set {
-            assert(identity == identity.lowercased())
-            dependencyMap[identity] = newValue
+            dependencyMap[url] = newValue
         }
     }
 
-    /// Returns the dependency given a name.
-    func dependency(forIdentity identity: String) throws -> ManagedDependency {
-        guard let dependency = self[forIdentity: identity] else {
-            throw Error.dependencyNotFound(name: identity)
+    /// Returns the dependency given a name or identity.
+    func dependency(forNameOrIdentity nameOrIdentity: String) throws -> ManagedDependency {
+        for value in values {
+            if value.packageRef.name == nameOrIdentity {
+                return value
+            } else if value.packageRef.identity == nameOrIdentity.lowercased() {
+                return value
+            }
         }
-        return dependency 
+        throw Error.dependencyNotFound(name: nameOrIdentity)
+    }
+
+    func dependency(forIdentity identity: String) -> ManagedDependency? {
+        return values.first(where: { $0.packageRef.identity == identity })
     }
 
     func reset() throws {
@@ -241,7 +282,7 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
 
     public func restore(from json: JSON) throws {
         self.dependencyMap = try Dictionary(items:
-            json.get("dependencies").map({ ($0.packageRef.identity, $0) })
+            json.get("dependencies").map({ ($0.packageRef.path, $0) })
         )
     }
 

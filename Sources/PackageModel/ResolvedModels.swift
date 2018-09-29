@@ -14,13 +14,27 @@ import Basic
 public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProtocol {
 
     /// Represents dependency of a resolved target.
-    public enum Dependency {
+    public enum Dependency: Hashable {
 
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
         case target(ResolvedTarget)
 
         /// The target depends on this product.
         case product(ResolvedProduct)
+
+        public var target: ResolvedTarget? {
+            switch self {
+            case .target(let target): return target
+            case .product: return nil
+            }
+        }
+
+        public var product: ResolvedProduct? {
+            switch self {
+            case .target: return nil
+            case .product(let product): return product
+            }
+        }
     }
 
     /// The underlying target represented in this resolved target.
@@ -37,7 +51,7 @@ public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProt
     /// The transitive closure of the target dependencies. This will also include the
     /// targets which needs to be dynamically linked.
     public lazy var recursiveDependencies: [ResolvedTarget] = {
-        return try! topologicalSort(self.dependencies, successors: { $0.dependencies }).flatMap({
+        return try! topologicalSort(self.dependencies, successors: { $0.dependencies }).compactMap({
             guard case .target(let target) = $0 else { return nil }
             return target
         })
@@ -163,7 +177,7 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
     }
 }
 
-extension ResolvedTarget.Dependency: Hashable, CustomStringConvertible {
+extension ResolvedTarget.Dependency: CustomStringConvertible {
 
     /// Returns the dependencies of the underlying dependency.
     public var dependencies: [ResolvedTarget.Dependency] {
@@ -175,27 +189,7 @@ extension ResolvedTarget.Dependency: Hashable, CustomStringConvertible {
         }
     }
 
-    // MARK: - Hashable, CustomStringConvertible conformance
-
-    public var hashValue: Int {
-        switch self {
-            case .product(let p): return p.hashValue
-            case .target(let t): return t.hashValue
-        }
-    }
-
-    public static func == (lhs: ResolvedTarget.Dependency, rhs: ResolvedTarget.Dependency) -> Bool {
-        switch (lhs, rhs) {
-        case (.product(let l), .product(let r)):
-            return l == r
-        case (.product, _):
-            return false
-        case (.target(let l), .target(let r)):
-            return l == r
-        case (.target, _):
-            return false
-        }
-    }
+    // MARK: - CustomStringConvertible conformance
 
     public var description: String {
         var str = "<ResolvedTarget.Dependency: "

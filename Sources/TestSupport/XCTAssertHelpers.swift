@@ -34,7 +34,6 @@ public func XCTAssertBuilds(
             _ = try executeSwiftBuild(
                 path,
                 configuration: conf,
-                printIfError: true,
                 Xcc: Xcc,
                 Xld: Xld,
                 Xswiftc: Xswiftc,
@@ -57,7 +56,7 @@ public func XCTAssertSwiftTest(
     env: [String: String]? = nil
 ) {
     do {
-        _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: path, env: env, printIfError: true)
+        _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: path, env: env)
     } catch {
         XCTFail("""
             `swift test' failed:
@@ -128,6 +127,22 @@ public func XCTAssertThrows<T: Swift.Error>(
     }
 }
 
+public func XCTAssertThrows<T: Swift.Error, Ignore>(
+    _ expression: @autoclosure () throws -> Ignore,
+    file: StaticString = #file,
+    line: UInt = #line,
+    _ errorHandler: (T) -> Bool
+) {
+    do {
+        let result = try expression()
+        XCTFail("body completed successfully: \(result)", file: file, line: line)
+    } catch let error as T {
+        XCTAssertTrue(errorHandler(error), "Error handler returned false")
+    } catch {
+        XCTFail("unexpected error thrown", file: file, line: line)
+    }
+}
+
 public func XCTNonNil<T>( 
    _ optional: T?,
    file: StaticString = #file,
@@ -145,7 +160,8 @@ public func XCTNonNil<T>(
 }
 
 public func XCTAssertNoDiagnostics(_ engine: DiagnosticsEngine, file: StaticString = #file, line: UInt = #line) {
-    if engine.diagnostics.isEmpty { return }
-    let diagnostics = engine.diagnostics.map({ "- " + $0.localizedDescription }).joined(separator: "\n")
-    XCTFail("Found unexpected diagnostics: \n\(diagnostics)", file: file, line: line)
+    let diagnostics = engine.diagnostics.filter({ $0.behavior != .note })
+    if diagnostics.isEmpty { return }
+    let diags = engine.diagnostics.map({ "- " + $0.localizedDescription }).joined(separator: "\n")
+    XCTFail("Found unexpected diagnostics: \n\(diags)", file: file, line: line)
 }

@@ -60,49 +60,11 @@ class PathShimTests : XCTestCase {
         try! makeDirectories(dirPath)
     }
     
-    func testRecursiveDirectoryRemoval() {
-        // For the tests we'll need a temporary directory.
-        let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
-        // FIXME: it would be better to not need to resolve symbolic links, but we end up relying on /tmp -> /private/tmp.
-        let tmpDirPath = resolveSymlinks(tmpDir.path)
-
-        // Create a couple of directories.  The first one shouldn't end up getting removed, the second one will.
-        let keepDirPath = tmpDirPath.appending(components: "abc1")
-        try! makeDirectories(keepDirPath)
-        let tossDirPath = tmpDirPath.appending(components: "abc2", "def", "ghi", "mno", "pqr")
-        try! makeDirectories(tossDirPath)
-        
-        // Create a symbolic link in a directory to be removed; it points to a directory to not remove.
-        let slnkPath = tossDirPath.appending(components: "slnk")
-        try! createSymlink(slnkPath, pointingAt: keepDirPath, relative: true)
-        
-        // Make sure the symbolic link got set up correctly.
-        XCTAssertTrue(isSymlink(slnkPath))
-        XCTAssertEqual(resolveSymlinks(slnkPath), keepDirPath)
-        XCTAssertTrue(isDirectory(resolveSymlinks(slnkPath)))
-        
-        // Now remove the directory hierarchy that contains the symlink.
-        try! removeFileTree(tossDirPath)
-        
-        // Make sure it got removed, along with the symlink, but that the target of the symlink remains.
-        XCTAssertFalse(exists(tossDirPath))
-        XCTAssertFalse(isDirectory(tossDirPath))
-        XCTAssertTrue(exists(keepDirPath))
-        XCTAssertTrue(isDirectory(keepDirPath))
-    }
-    
     func testCurrentWorkingDirectory() {
         // Test against what POSIX returns, at least for now.
-        let cwd = currentWorkingDirectory;
+        let cwd = localFileSystem.currentWorkingDirectory!
         XCTAssertEqual(cwd, AbsolutePath(getcwd()))
     }
-    
-    static var allTests = [
-        ("testResolvingSymlinks",            testResolvingSymlinks),
-        ("testRescursiveDirectoryCreation",  testRescursiveDirectoryCreation),
-        ("testRecursiveDirectoryRemoval",    testRecursiveDirectoryRemoval),
-        ("testCurrentWorkingDirectory",      testCurrentWorkingDirectory)
-    ]
 }
 
 class WalkTests : XCTestCase {
@@ -173,76 +135,4 @@ class WalkTests : XCTestCase {
 
         XCTAssertEqual(results, [tmpDirPath.appending(components: "symlink", "bar"), tmpDirPath.appending(components: "symlink", "baz")])
     }
-
-    static var allTests = [
-        ("testNonRecursive",                          testNonRecursive),
-        ("testRecursive",                             testRecursive),
-        ("testSymlinksNotWalked",                     testSymlinksNotWalked),
-        ("testWalkingADirectorySymlinkResolvesOnce",  testWalkingADirectorySymlinkResolvesOnce),
-    ]
 }
-
-class FileAccessTests : XCTestCase {
-    
-    private func loadInputFile(_ name: String) throws -> FileHandle {
-        let input = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", name)
-        return try fopen(input, mode: .read)
-    }
-    
-    func testOpenFile() {
-        do {
-            let file = try loadInputFile("empty_file")
-            XCTAssertEqual(try file.readFileContents(), "")
-        } catch {
-            XCTFail("The file should be opened without problem")
-        }
-    }
-    
-    func testOpenFileFail() {
-        do {
-            let file = try loadInputFile("file_not_existing")
-            let _ = try file.readFileContents()
-            XCTFail("The file should not be opened since it is not existing")
-        } catch {
-            
-        }
-    }
-    
-    func testReadRegularTextFile() {
-        do {
-            let file = try loadInputFile("regular_text_file")
-            var generator = try file.readFileContents().components(separatedBy: "\n").makeIterator()
-            XCTAssertEqual(generator.next(), "Hello world")
-            XCTAssertEqual(generator.next(), "It is a regular text file.")
-            XCTAssertEqual(generator.next(), "")
-            XCTAssertNil(generator.next())
-        } catch {
-            XCTFail("The file should be opened without problem")
-        }
-    }
-    
-    func testReadRegularTextFileWithSeparator() {
-        do {
-            let file = try loadInputFile("regular_text_file")
-            var generator = try file.readFileContents().components(separatedBy: " ").makeIterator()
-            XCTAssertEqual(generator.next(), "Hello")
-            XCTAssertEqual(generator.next(), "world\nIt")
-            XCTAssertEqual(generator.next(), "is")
-            XCTAssertEqual(generator.next(), "a")
-            XCTAssertEqual(generator.next(), "regular")
-            XCTAssertEqual(generator.next(), "text")
-            XCTAssertEqual(generator.next(), "file.\n")
-            XCTAssertNil(generator.next())
-        } catch {
-            XCTFail("The file should be opened without problem")
-        }
-    }
-    
-    static var allTests = [
-        ("testOpenFile",                          testOpenFile),
-        ("testOpenFileFail",                      testOpenFileFail),
-        ("testReadRegularTextFile",               testReadRegularTextFile),
-        ("testReadRegularTextFileWithSeparator",  testReadRegularTextFileWithSeparator),
-    ]
-}
-

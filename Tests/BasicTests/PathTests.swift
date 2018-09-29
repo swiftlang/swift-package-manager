@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import Foundation
 
 import Basic
 import POSIX
@@ -272,29 +273,75 @@ class PathTests: XCTestCase {
         XCTAssertFalse(AbsolutePath("/foo/bar").contains(AbsolutePath("/bar")))
     }
     
+    func testAbsolutePathValidation() {
+        XCTAssertNoThrow(try AbsolutePath(validating: "/a/b/c/d"))
+
+        XCTAssertThrowsError(try AbsolutePath(validating: "~/a/b/d")) { error in
+            XCTAssertEqual("\(error)", "invalid absolute path '~/a/b/d'; absolute path must begin with '/'")
+        }
+
+        XCTAssertThrowsError(try AbsolutePath(validating: "a/b/d")) { error in
+            XCTAssertEqual("\(error)", "invalid absolute path 'a/b/d'")
+        }
+    }
+
+    func testRelativePathValidation() {
+        XCTAssertNoThrow(try RelativePath(validating: "a/b/c/d"))
+
+        XCTAssertThrowsError(try RelativePath(validating: "/a/b/d")) { error in
+            XCTAssertEqual("\(error)", "invalid relative path '/a/b/d'; relative path should not begin with '/' or '~'")
+        }
+
+        XCTAssertThrowsError(try RelativePath(validating: "~/a/b/d")) { error in
+            XCTAssertEqual("\(error)", "invalid relative path '~/a/b/d'; relative path should not begin with '/' or '~'")
+        }
+    }
+
+    func testCodable() throws {
+        struct Foo: Codable, Equatable {
+            var path: AbsolutePath
+        }
+
+        struct Bar: Codable, Equatable {
+            var path: RelativePath
+        }
+
+        do {
+            let foo = Foo(path: AbsolutePath("/path/to/foo"))
+            let data = try JSONEncoder().encode(foo)
+            let decodedFoo = try JSONDecoder().decode(Foo.self, from: data)
+            XCTAssertEqual(foo, decodedFoo)
+        }
+
+        do {
+            let foo = Foo(path: AbsolutePath("/path/to/../to/foo"))
+            let data = try JSONEncoder().encode(foo)
+            let decodedFoo = try JSONDecoder().decode(Foo.self, from: data)
+            XCTAssertEqual(foo, decodedFoo)
+            XCTAssertEqual(foo.path.asString, "/path/to/foo")
+            XCTAssertEqual(decodedFoo.path.asString, "/path/to/foo")
+        }
+
+        do {
+            let bar = Bar(path: RelativePath("path/to/bar"))
+            let data = try JSONEncoder().encode(bar)
+            let decodedBar = try JSONDecoder().decode(Bar.self, from: data)
+            XCTAssertEqual(bar, decodedBar)
+        }
+
+        do {
+            let bar = Bar(path: RelativePath("path/to/../to/bar"))
+            let data = try JSONEncoder().encode(bar)
+            let decodedBar = try JSONDecoder().decode(Bar.self, from: data)
+            XCTAssertEqual(bar, decodedBar)
+            XCTAssertEqual(bar.path.asString, "path/to/bar")
+            XCTAssertEqual(decodedBar.path.asString, "path/to/bar")
+        }
+    }
+
     // FIXME: We also need tests for join() operations.
     
     // FIXME: We also need tests for dirname, basename, suffix, etc.
     
     // FIXME: We also need test for stat() operations.
-        
-    static var allTests = [
-        ("testBasics",                        testBasics),
-        ("testContains",                      testContains),
-        ("testStringInitialization",          testStringInitialization),
-        ("testStringLiteralInitialization",   testStringLiteralInitialization),
-        ("testRepeatedPathSeparators",        testRepeatedPathSeparators),
-        ("testTrailingPathSeparators",        testTrailingPathSeparators),
-        ("testDotPathComponents",             testDotPathComponents),
-        ("testDotDotPathComponents",          testDotDotPathComponents),
-        ("testCombinationsAndEdgeCases",      testCombinationsAndEdgeCases),
-        ("testDirectoryNameExtraction",       testDirectoryNameExtraction),
-        ("testBaseNameExtraction",            testBaseNameExtraction),
-        ("testSuffixExtraction",              testSuffixExtraction),
-        ("testParentDirectory",               testParentDirectory),
-        ("testConcatenation",                 testConcatenation),
-        ("testPathComponents",                testPathComponents),
-        ("testRelativePathFromAbsolutePaths", testRelativePathFromAbsolutePaths),
-        ("testComparison",                    testComparison),
-    ]
 }

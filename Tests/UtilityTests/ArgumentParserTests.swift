@@ -82,6 +82,9 @@ class ArgumentParserTests: XCTestCase {
         XCTAssertEqual(args.get(inputFiles) ?? [], ["input1", "input2"])
         XCTAssertEqual(args.get(outputFiles) ?? [], ["output1", "output2"])
         XCTAssertEqual(args.get(remaining) ?? [], ["--foo", "-Xld", "bar"])
+        XCTAssertEqual(try args.get("--verbose") as Int?, 2)
+        XCTAssertEqual(try args.get("input files") as [String]? ?? [], ["input1", "input2"])
+        XCTAssertEqual(try args.get("invalid") as Int?, nil)
 
         let stream = BufferedOutputByteStream()
         parser.printUsage(on: stream)
@@ -137,12 +140,64 @@ class ArgumentParserTests: XCTestCase {
         }
 
         do {
+            let results = try parser.parse(["foo", "--verbosity", "2"])
+            _ = try results.get("--verbosity") as String?
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.invalidValue(let value, let error) {
+            XCTAssertEqual(value, "--verbosity")
+            XCTAssertEqual(error, ArgumentConversionError.typeMismatch(value: "2", expectedType: String.self))
+        }
+
+        do {
             _ = try parser.parse(["foo", "--foo=hello"])
             XCTFail("unexpected success")
         } catch ArgumentParserError.invalidValue(let option, let error) {
             XCTAssertEqual(option, "--foo")
             XCTAssertEqual(error, ArgumentConversionError.unknown(value: "hello"))
         }
+    }
+
+    func testBinderThrows() throws {
+        let parser = ArgumentParser(usage: "sample", overview: "sample")
+
+        enum Error: Swift.Error {
+        case testException
+        }
+
+        func fillOptions(_ options: inout Options, _ argument: String) throws {
+            guard argument == "nothrow" else {
+                throw Error.testException
+            }
+            options.foo = argument
+        }
+
+        let binder = ArgumentBinder<Options>()
+        binder.bind(
+            option: parser.add(option: "--foo", kind: String.self),
+            to: fillOptions)
+
+        // Not throwing.
+        do {
+            let result = try parser.parse(["--foo", "nothrow"])
+            var options = Options()
+            try binder.fill(parseResult: result, into: &options)
+            XCTAssertEqual(options.foo, "nothrow")
+        } catch {
+            XCTFail("unexpected exception: \(error)")
+        }
+
+        // Actually throwing.
+        do {
+            let result = try parser.parse(["--foo", "throw at will"])
+            var options = Options()
+            try binder.fill(parseResult: result, into: &options)
+            XCTFail("unexpected success")
+        } catch Error.testException {
+            // Expected.
+        } catch {
+            XCTFail("unexpected exception: \(error)")
+        }
+
     }
 
     func testOptions() throws {
@@ -181,7 +236,7 @@ class ArgumentParserTests: XCTestCase {
         let result = try parser.parse(["MyPkg", "foo", "3", "-b", "bugfix", "--verbose", "-Xld", "foo", "-Xld", "bar", "-xlinker", "a", "-xswiftc", "b"])
 
         var options = Options()
-        binder.fill(result, into: &options)
+        try binder.fill(parseResult: result, into: &options)
 
         XCTAssertEqual(options.branch, "bugfix")
         XCTAssertEqual(options.package, "MyPkg")
@@ -196,6 +251,9 @@ class ArgumentParserTests: XCTestCase {
     func testSubparser() throws {
         let parser = ArgumentParser(commandName: "SomeBinary", usage: "sample parser", overview: "Sample overview")
         let foo = parser.add(option: "--foo", kind: String.self, usage: "The foo option")
+        let bar = parser.add(option: "--bar", shortName: "-b", kind: String.self, usage: "The bar option")
+
+        let parentArg = parser.add(option: "--parent", kind: String.self, usage: "The parent option")
 
         let parserA = parser.add(subparser: "a", overview: "A!")
         let branchOption = parserA.add(option: "--branch", kind: String.self, usage: "The branch to use")
@@ -203,18 +261,22 @@ class ArgumentParserTests: XCTestCase {
         let parserB = parser.add(subparser: "b", overview: "B!")
         let noFlyOption = parserB.add(option: "--no-fly", kind: Bool.self, usage: "Should you fly?")
 
-        var args = try parser.parse(["--foo", "foo", "a", "--branch", "bugfix"])
+        var args = try parser.parse(["--foo", "foo", "--bar", "bar", "a", "--branch", "bugfix"])
         XCTAssertEqual(args.get(foo), "foo")
+        XCTAssertEqual(args.get(bar), "bar")
         XCTAssertEqual(args.get(branchOption), "bugfix")
         XCTAssertEqual(args.get(noFlyOption), nil)
         XCTAssertEqual(args.subparser(parser), "a")
 
-        args = try parser.parse(["--foo", "foo", "b", "--no-fly"])
+        args = try parser.parse(["--parent", "p", "--bar", "bar", "--foo", "foo", "b", "--no-fly"])
 
         XCTAssertEqual(args.get(foo), "foo")
+        XCTAssertEqual(args.get(bar), "bar")
         XCTAssertEqual(args.get(branchOption), nil)
         XCTAssertEqual(args.get(noFlyOption), true)
         XCTAssertEqual(args.subparser(parser), "b")
+        XCTAssertEqual(args.get(parentArg), "p")
+        XCTAssertEqual(try args.get("--parent") as String?, "p")
 
         do {
             args = try parser.parse(["c"])
@@ -246,9 +308,11 @@ class ArgumentParserTests: XCTestCase {
 
         XCTAssert(usage.contains("OVERVIEW: Sample overview"))
         XCTAssert(usage.contains("USAGE: SomeBinary sample parser"))
-        XCTAssert(usage.contains("  --foo   The foo option"))
+        XCTAssert(usage.contains("  --bar, -b   The bar option"))
+        XCTAssert(usage.contains("  --foo       The foo option"))
+        XCTAssert(usage.contains("  --parent    The parent option"))
         XCTAssert(usage.contains("SUBCOMMANDS:"))
-        XCTAssert(usage.contains("  b       B!"))
+        XCTAssert(usage.contains("  b           B!"))
         XCTAssert(usage.contains("--help"))
 
         stream = BufferedOutputByteStream()
@@ -342,7 +406,7 @@ class ArgumentParserTests: XCTestCase {
         let result = try parser.parse(["--branch", "ok", "fetch"])
 
         var options = Options()
-        binder.fill(result, into: &options)
+        try binder.fill(parseResult: result, into: &options)
 
         XCTAssertEqual(options.branch, "ok")
         XCTAssertEqual(options.mode, .fetch)
@@ -382,7 +446,7 @@ class ArgumentParserTests: XCTestCase {
         do {
             let result = try parser.parse(["Foo", "--revision", "bugfix"])
             var options = Options()
-            binder.fill(result, into: &options)
+            try binder.fill(parseResult: result, into: &options)
             XCTAssertEqual(options.package, "Foo")
             XCTAssertEqual(options.revision, "bugfix")
         }
@@ -390,7 +454,7 @@ class ArgumentParserTests: XCTestCase {
         do {
             let result = try parser.parse(["--revision", "bugfix"])
             var options = Options()
-            binder.fill(result, into: &options)
+            try binder.fill(parseResult: result, into: &options)
             XCTAssertEqual(options.package, nil)
             XCTAssertEqual(options.revision, "bugfix")
         }
@@ -400,21 +464,21 @@ class ArgumentParserTests: XCTestCase {
         // Test that relative path is resolved.
         do {
             let actual = try! SwiftPMProduct.TestSupportExecutable.execute(["pathArgumentTest", "some/path"]).chomp()
-            let expected = currentWorkingDirectory.appending(RelativePath("some/path")).asString
+            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("some/path")).asString
             XCTAssertEqual(actual, expected)
         }
 
         // Test that relative path starting with ./ is resolved.
         do {
             let actual = try! SwiftPMProduct.TestSupportExecutable.execute(["pathArgumentTest", "./some/path"]).chomp()
-            let expected = currentWorkingDirectory.appending(RelativePath("./some/path")).asString
+            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("./some/path")).asString
             XCTAssertEqual(actual, expected)
         }
 
         // Test that relative path starting with ../ is resolved.
         do {
             let actual = try! SwiftPMProduct.TestSupportExecutable.execute(["pathArgumentTest", "../other/path"]).chomp()
-            let expected = currentWorkingDirectory.appending(RelativePath("../other/path")).asString
+            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("../other/path")).asString
             XCTAssertEqual(actual, expected)
         }
 
@@ -429,7 +493,7 @@ class ArgumentParserTests: XCTestCase {
         let parser = ArgumentParser(commandName:"SomeBinary", usage: "sample parser", overview: "Sample overview")
 
         _ = parser.add(positional: "package name of the year", kind: String.self, optional: true, usage: "The name of the package")
-        _ = parser.add(option: "--revision", kind: String.self, usage: "The revision")
+        _ = parser.add(option: "--revision", kind: String.self, usage: "The revision[Experimental]")
 
         var output = BufferedOutputByteStream()
         parser.generateCompletionScript(for: .bash, on: output)
@@ -473,7 +537,7 @@ class ArgumentParserTests: XCTestCase {
             _SomeBinary() {
                 arguments=(
                     ":The name of the package: "
-                    "--revision[The revision]:The revision: "
+                    "--revision[The revision\\[Experimental\\]]:The revision[Experimental]: "
                 )
                 _arguments $arguments && return
             }
@@ -659,20 +723,4 @@ class ArgumentParserTests: XCTestCase {
         args = try parser.parse(["0"])
         XCTAssertEqual(args.get(positional), 0)
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testErrors", testErrors),
-        ("testOptions", testOptions),
-        ("testSubparser", testSubparser),
-        ("testSubsubparser", testSubsubparser),
-        ("testSubparserBinder", testSubparserBinder),
-        ("testOptionalPositionalArg", testOptionalPositionalArg),
-        ("testPathArgument", testPathArgument),
-        ("testShellCompletionGeneration", testShellCompletionGeneration),
-        ("testUpToNextOptionStrategy", testUpToNextOptionStrategy),
-        ("testRemainingStrategy", testRemainingStrategy),
-        ("testBoolParsing", testBoolParsing),
-        ("testIntParsing", testIntParsing)
-    ]
 }

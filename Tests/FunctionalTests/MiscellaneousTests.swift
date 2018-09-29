@@ -11,11 +11,11 @@
 import XCTest
 import TestSupport
 import Basic
-import struct Commands.Destination
 import PackageModel
 import Utility
-import libc
+import SPMLibc
 import class Foundation.ProcessInfo
+import Workspace
 
 typealias ProcessID = Basic.Process.ProcessID
 
@@ -34,15 +34,6 @@ class MiscellaneousTestCase: XCTestCase {
             let output = try executeSwiftBuild(prefix.appending(component: "Bar"))
             XCTAssertTrue(output.contains("Resolving"))
             XCTAssertTrue(output.contains("at 1.2.3"))
-        }
-    }
-
-    func testPackageWithNoSources() throws {
-        // Tests that a package with no source files doesn't error.
-        fixture(name: "Miscellaneous/Empty") { prefix in
-            let output = try executeSwiftBuild(prefix, configuration: .Debug)
-            let expected = "warning: target 'Empty' in package 'Empty' contains no valid source files"
-            XCTAssert(output.contains(expected), "unexpected output: \(output)")
         }
     }
 
@@ -207,27 +198,58 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testSecondBuildIsNullInModulemapGen() throws {
+        // This has been failing on the Swift CI sometimes, need to investigate.
+      #if false
         // Make sure that swiftpm doesn't rebuild second time if the modulemap is being generated.
-        fixture(name: "ClangModules/SwiftCMixed") { prefix in
-            var output = try executeSwiftBuild(prefix, printIfError: true)
-            XCTAssertFalse(output.isEmpty)
-            output = try executeSwiftBuild(prefix, printIfError: true)
-            XCTAssertTrue(output.isEmpty)
+        fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
+            var output = try executeSwiftBuild(prefix)
+            XCTAssertFalse(output.isEmpty, output)
+            output = try executeSwiftBuild(prefix)
+            XCTAssertTrue(output.isEmpty, output)
         }
+      #endif
     }
 
     func testSwiftTestParallel() throws {
         // Running swift-test fixtures on linux is not yet possible.
       #if os(macOS)
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-            // First try normal serial testing.
-            var output = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix, printIfError: true)
-            XCTAssert(output.contains("Executed 2 tests"))
+          // First try normal serial testing.
+          do {
+            _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
+          } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+            XCTAssertTrue(stderr.contains("Executed 2 tests"))
+          }
+
+          do {
             // Run tests in parallel.
-            output = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix, printIfError: true)
-            XCTAssert(output.contains("testExample2"))
+            _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix)
+          } catch SwiftPMProductError.executionFailure(_, let output, _) {
             XCTAssert(output.contains("testExample1"))
+            XCTAssert(output.contains("testExample2"))
+            XCTAssert(!output.contains("'ParallelTestsTests' passed"))
+            XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
             XCTAssert(output.contains("100%"))
+          }
+
+          let xUnitOutput = prefix.appending(component: "result.xml")
+          do {
+            // Run tests in parallel with verbose output.
+            _ = try SwiftPMProduct.SwiftTest.execute(
+                ["--parallel", "--verbose", "--xunit-output", xUnitOutput.asString],
+                packagePath: prefix)
+          } catch SwiftPMProductError.executionFailure(_, let output, _) {
+            XCTAssert(output.contains("testExample1"))
+            XCTAssert(output.contains("testExample2"))
+            XCTAssert(output.contains("'ParallelTestsTests' passed"))
+            XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
+            XCTAssert(output.contains("100%"))
+          }
+
+          // Check the xUnit output.
+          XCTAssertTrue(localFileSystem.exists(xUnitOutput))
+          let contents = try localFileSystem.readFileContents(xUnitOutput).asString!
+          XCTAssertTrue(contents.contains("tests=\"3\" failures=\"1\""))
         }
       #endif
     }
@@ -235,21 +257,21 @@ class MiscellaneousTestCase: XCTestCase {
     func testSwiftTestFilter() throws {
         #if os(macOS)
             fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-                let output = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1"], packagePath: prefix, printIfError: true)
+                let output = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1"], packagePath: prefix)
                 XCTAssert(output.contains("testExample1"))
             }
         #endif
     }
 
     func testOverridingSwiftcArguments() throws {
-#if os(macOS)
+      #if os(macOS)
         fixture(name: "Miscellaneous/OverrideSwiftcArgs") { prefix in
-            try executeSwiftBuild(prefix, printIfError: true, Xswiftc: ["-target", "x86_64-apple-macosx10.20"])
+            try executeSwiftBuild(prefix, Xswiftc: ["-target", "x86_64-apple-macosx10.20"])
         }
-#endif
+      #endif
     }
 
-    func testPkgConfigClangModules() throws {
+    func testPkgConfigCFamilyTargets() throws {
         fixture(name: "Miscellaneous/PkgConfig") { prefix in
             let systemModule = prefix.appending(component: "SystemModule")
             // Create a shared library.
@@ -338,6 +360,17 @@ class MiscellaneousTestCase: XCTestCase {
       #endif
     }
 
+    func testCodeCoverageCompile() throws {
+      #if os(macOS)
+        fixture(name: "Miscellaneous/CodeCoverage") { prefix in
+            _ = try SwiftPMProduct.SwiftTest.executeProcess(["--enable-code-coverage"], packagePath: prefix)
+            let codeCov = prefix.appending(components: ".build", "debug", "codecov")
+            let codeCovContents = try localFileSystem.getDirectoryContents(codeCov)
+            XCTAssertTrue(codeCovContents.contains(where: { $0.contains("profraw") }), "\(codeCovContents)")
+        }
+      #endif
+    }
+
     func testReportingErrorFromGitCommand() throws {
         fixture(name: "Miscellaneous/MissingDependency") { prefix in
             // This fixture has a setup that is intentionally missing a local
@@ -345,10 +378,9 @@ class MiscellaneousTestCase: XCTestCase {
 
             // Launch swift-build.
             let app = prefix.appending(component: "Bar")
-            let process = Process(args: SwiftPMProduct.SwiftBuild.path.asString, "--package-path", app.asString)
-            try process.launch()
 
-            let result = try process.waitUntilExit()
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
+
             // We should exited with a failure from the attempt to "git clone"
             // something that doesn't exist.
             XCTAssert(result.exitStatus != .terminated(code: 0))
@@ -357,24 +389,61 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    static var allTests = [
-        ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
-        ("testPackageWithNoSources", testPackageWithNoSources),
-        ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
-        ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
-        ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
-        ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
-        ("testPackageManagerDefineAndXArgs", testPackageManagerDefineAndXArgs),
-        ("testInternalDependencyEdges", testInternalDependencyEdges),
-        ("testExternalDependencyEdges1", testExternalDependencyEdges1),
-        ("testExternalDependencyEdges2", testExternalDependencyEdges2),
-        ("testSpaces", testSpaces),
-        ("testSecondBuildIsNullInModulemapGen", testSecondBuildIsNullInModulemapGen),
-        ("testSwiftTestParallel", testSwiftTestParallel),
-        ("testSwiftTestFilter", testSwiftTestFilter),
-        ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
-        ("testPkgConfigClangModules", testPkgConfigClangModules),
-        ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),
-        ("testReportingErrorFromGitCommand", testReportingErrorFromGitCommand),
-    ]
+    func testSwiftTestLinuxMainGeneration() throws {
+      #if os(macOS)
+        fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+            let fs = localFileSystem
+            try SwiftPMProduct.SwiftTest.execute(["--generate-linuxmain"], packagePath: prefix)
+
+            // Check linux main.
+            let linuxMain = prefix.appending(components: "Tests", "LinuxMain.swift")
+            XCTAssertEqual(try fs.readFileContents(linuxMain), """
+                import XCTest
+
+                import ParallelTestsPkgTests
+
+                var tests = [XCTestCaseEntry]()
+                tests += ParallelTestsPkgTests.__allTests()
+
+                XCTMain(tests)
+
+                """)
+
+            // Check test manifest.
+            let testManifest = prefix.appending(components: "Tests", "ParallelTestsPkgTests", "XCTestManifests.swift")
+            XCTAssertEqual(try fs.readFileContents(testManifest), """
+                #if !os(macOS)
+                import XCTest
+
+                extension ParallelTestsFailureTests {
+                    // DO NOT MODIFY: This is autogenerated, use: 
+                    //   `swift test --generate-linuxmain`
+                    // to regenerate.
+                    static let __allTests__ParallelTestsFailureTests = [
+                        ("testSureFailure", testSureFailure),
+                    ]
+                }
+                
+                extension ParallelTestsTests {
+                    // DO NOT MODIFY: This is autogenerated, use: 
+                    //   `swift test --generate-linuxmain`
+                    // to regenerate.
+                    static let __allTests__ParallelTestsTests = [
+                        ("testExample1", testExample1),
+                        ("testExample2", testExample2),
+                    ]
+                }
+                
+                public func __allTests() -> [XCTestCaseEntry] {
+                    return [
+                        testCase(ParallelTestsFailureTests.__allTests__ParallelTestsFailureTests),
+                        testCase(ParallelTestsTests.__allTests__ParallelTestsTests),
+                    ]
+                }
+                #endif
+
+                """)
+        }
+      #endif
+    }
 }

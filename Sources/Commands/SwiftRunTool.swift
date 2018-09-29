@@ -68,6 +68,9 @@ public class RunToolOptions: ToolOptions {
     
     /// If the executable product should be built before running.
     var shouldBuild = true
+
+    /// If the test should be built.
+    var shouldBuildTests = false
     
     /// The executable product to run.
     var executable: String?
@@ -89,7 +92,8 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             toolName: "run",
             usage: "[options] [executable [arguments ...]]",
             overview: "Build and run an executable product",
-            args: args
+            args: args,
+            seeAlso: type(of: self).otherToolNames()
         )
     }
 
@@ -101,9 +105,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
             if let executable = options.executable, isValidSwiftFilePath(executable) {
-                print(diagnostic: Diagnostic(
-                    location: UnknownLocation.location,
-                    data: RunFileDeprecatedDiagnostic()))
+                diagnostics.emit(data: RunFileDeprecatedDiagnostic())
                 // Redirect execution to the toolchain's swift executable.
                 let swiftInterpreterPath = try getToolchain().swiftInterpreter
                 // Prepend the script to interpret to the arguments.
@@ -111,11 +113,23 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
                 try run(swiftInterpreterPath, arguments: arguments)
                 return
             }
-                    
-            let plan = try buildPlan()
-            let product = try findProduct(in: plan)
 
-            if options.shouldBuild {
+            // Redirect stdout to stderr because swift-run clients usually want
+            // to ignore swiftpm's output and only care about the tool's output.
+            self.redirectStdoutToStderr()
+                    
+            let plan = try BuildPlan(buildParameters: self.buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
+            let product = try findProduct(in: plan.graph)
+
+            if options.shouldBuildTests && !options.shouldBuild {
+                diagnostics.emit(data: MutuallyExclusiveArgumentsDiagnostic(arguments:
+                    [buildTestsOptionName, skipBuildOptionName]))
+                return
+            }
+
+            if options.shouldBuildTests {
+                try build(plan: plan, subset: .allIncludingTests)
+            } else if options.shouldBuild {
                 try build(plan: plan, subset: .product(product.name))
             }
 
@@ -125,35 +139,39 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
     }
 
     /// Returns the path to the correct executable based on options.
-    private func findProduct(in plan: BuildPlan) throws -> ResolvedProduct {
-        let executableProducts = plan.graph.products.filter({ $0.type == .executable })
-
-        // Error out if the product contains no executable.        
-        guard executableProducts.count > 0 else {
-            throw RunError.noExecutableFound
-        }
-
+    private func findProduct(in graph: PackageGraph) throws -> ResolvedProduct {
         if let executable = options.executable {
-            // If the exectuable is explicitly specified, verify that it exists.
-            guard let executableProduct = executableProducts.first(where: { $0.name == executable }) else {
+            // If the exectuable is explicitly specified, search through all products.
+            guard let executableProduct = graph.allProducts.first(where: {
+                $0.type == .executable && $0.name == executable
+            }) else {
                 throw RunError.executableNotFound(executable)
             }
             
             return executableProduct
         } else {
+            // If the executable is implicit, search through root products.
+            let rootExecutables = graph.rootPackages.flatMap({ $0.products }).filter({ $0.type == .executable })
+
+            // Error out if the package contains no executables.
+            guard rootExecutables.count > 0 else {
+                throw RunError.noExecutableFound
+            }
+
             // Only implicitly deduce the executable if it is the only one.
-            guard executableProducts.count == 1 else {
-                throw RunError.multipleExecutables(executableProducts.map({ $0.name }))
+            guard rootExecutables.count == 1 else {
+                throw RunError.multipleExecutables(rootExecutables.map({ $0.name }))
             }
             
-            return executableProducts[0]
+            return rootExecutables[0]
         }
     }
     
     /// Executes the executable at the specified path.
     private func run(_ excutablePath: AbsolutePath, arguments: [String]) throws {
         // Make sure we are running from the original working directory.
-        if originalWorkingDirectory != currentWorkingDirectory {
+        let cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
+        if cwd == nil || originalWorkingDirectory != cwd {
             try POSIX.chdir(originalWorkingDirectory.asString)
         }
 
@@ -165,16 +183,28 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
     private func isValidSwiftFilePath(_ path: String) -> Bool {
         guard path.hasSuffix(".swift") else { return false }
         //FIXME: Return false when the path is not a valid path string.
-        let absolutePath = path.first == "/" ?
-            AbsolutePath(path) : AbsolutePath(currentWorkingDirectory, path)
+        let absolutePath: AbsolutePath
+        if path.first == "/" {
+            absolutePath = AbsolutePath(path)
+        } else {
+            guard let cwd = localFileSystem.currentWorkingDirectory else {
+                return false
+            }
+            absolutePath = AbsolutePath(cwd, path)
+        }
         return localFileSystem.isFile(absolutePath)
     }
 
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<RunToolOptions>) {
         binder.bind(
-            option: parser.add(option: "--skip-build", kind: Bool.self,
+            option: parser.add(option: skipBuildOptionName, kind: Bool.self,
                 usage: "Skip building the executable product"),
             to: { $0.shouldBuild = !$1 })
+
+        binder.bind(
+            option: parser.add(option: buildTestsOptionName, kind: Bool.self,
+                               usage: "Build both source and test targets"),
+            to: { $0.shouldBuildTests = $1 })
         
         binder.bindArray(
             positional: parser.add(
@@ -187,3 +217,11 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
     }
 }
 
+fileprivate let buildTestsOptionName = "--build-tests"
+fileprivate let skipBuildOptionName = "--skip-build"
+
+extension SwiftRunTool: ToolName {
+    static var toolName: String {
+        return "swift run"
+    }
+}

@@ -9,6 +9,7 @@
   * [Target Format Reference](#target-format-reference)
   * [Package Manifest File Format Reference](#package-manifest-file-format-reference)
   * [Version](#version)
+* [PackageDescription API Version 4.2](PackageDescriptionV4_2.md)
 * [Resources](Resources.md)
 
 ---
@@ -19,8 +20,8 @@ All targets should be declared in the `Package.swift` manifest file.  Unless the
 relative path of the target is declared, the Package Manager will look for
 a directory matching the name of the target in these places:
 
-Regular targets: package root, Sources, Source, src, srcs.  
-Test targets: Tests, package root, Sources, Source, src, srcs.
+Regular targets: Sources, Source, src, srcs.  
+Test targets: Tests, Sources, Source, src, srcs.
 
 ## Package Manifest File Format Reference
 
@@ -242,7 +243,7 @@ The above manifest declares two target, `Foo` and `Bar`. `Bar` is a test target
 which depends on `Foo`. The Package Manager will automatically search for the
 targets inside package in the [predefined search paths](#target-format-reference).
 
-A target dependency can either be another target in the same package or a target
+A target dependency can either be another target in the same package or a product
 in one of its package dependencies. All target dependencies, internal or
 external, must be explicitly declared.
 

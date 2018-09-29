@@ -11,18 +11,24 @@
 /// The description for an individual target.
 public final class Target {
 
+    /// The type of this target.
+    public enum TargetType: String {
+        case regular
+        case test
+        case system
+    }
+
     /// Represents a target's dependency on another entity.
     public enum Dependency {
-
-        /// A dependency on a target in the same package.
+      #if PACKAGE_DESCRIPTION_4
         case targetItem(name: String)
-
-        /// A dependency on a product from a package dependency.
         case productItem(name: String, package: String?)
-
-        // A by-name dependency that resolves to either a target or a product,
-        // as above, after the package graph has been loaded.
         case byNameItem(name: String)
+      #else
+        case _targetItem(name: String)
+        case _productItem(name: String, package: String?)
+        case _byNameItem(name: String)
+      #endif
     }
 
     /// The name of the target.
@@ -51,7 +57,9 @@ public final class Target {
     public var exclude: [String]
 
     /// If this is a test target.
-    public var isTest: Bool
+    public var isTest: Bool {
+        return type == .test
+    }
 
     /// Dependencies on other entities inside or outside the package.
     public var dependencies: [Dependency]
@@ -61,6 +69,17 @@ public final class Target {
     /// If a value is not provided, the directory will be set to "include".
     public var publicHeadersPath: String?
 
+    /// The type of target.
+    public let type: TargetType
+
+    /// `pkgconfig` name to use for system library target. If present, swiftpm will try to
+    /// search for <name>.pc file to get the additional flags needed for the
+    /// system target.
+    public let pkgConfig: String?
+
+    /// Providers array for the System library target.
+    public let providers: [SystemPackageProvider]?
+
     /// Construct a target.
     init(
         name: String,
@@ -69,7 +88,9 @@ public final class Target {
         exclude: [String],
         sources: [String]?,
         publicHeadersPath: String?,
-        isTest: Bool
+        type: TargetType,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProvider]? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
@@ -77,7 +98,15 @@ public final class Target {
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
         self.exclude = exclude
-        self.isTest = isTest
+        self.type = type
+        self.pkgConfig = pkgConfig
+        self.providers = providers
+
+        switch type {
+        case .regular, .test:
+            precondition(pkgConfig == nil && providers == nil)
+        case .system: break
+        }
     }
 
     public static func target(
@@ -95,7 +124,7 @@ public final class Target {
             exclude: exclude,
             sources: sources,
             publicHeadersPath: publicHeadersPath,
-            isTest: false)
+            type: .regular)
     }
 
     public static func testTarget(
@@ -112,68 +141,68 @@ public final class Target {
             exclude: exclude,
             sources: sources,
             publicHeadersPath: nil,
-            isTest: true)
+            type: .test)
     }
+
+  #if !PACKAGE_DESCRIPTION_4
+    public static func systemLibrary(
+        name: String,
+        path: String? = nil,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProvider]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: [],
+            path: path,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .system,
+            pkgConfig: pkgConfig,
+            providers: providers)
+    }
+  #endif
 }
 
 extension Target.Dependency {
+    /// A dependency on a target in the same package.
     public static func target(name: String) -> Target.Dependency {
+      #if PACKAGE_DESCRIPTION_4
         return .targetItem(name: name)
+      #else
+        return ._targetItem(name: name)
+      #endif
     }
 
+    /// A dependency on a product from a package dependency.
     public static func product(name: String, package: String? = nil) -> Target.Dependency {
+      #if PACKAGE_DESCRIPTION_4
         return .productItem(name: name, package: package)
+      #else
+        return ._productItem(name: name, package: package)
+      #endif
     }
 
+    // A by-name dependency that resolves to either a target or a product,
+    // as above, after the package graph has been loaded.
     public static func byName(name: String) -> Target.Dependency {
+      #if PACKAGE_DESCRIPTION_4
         return .byNameItem(name: name)
-    }
-}
-
-// MARK: Equatable
-
-extension Target: Equatable {
-    public static func == (lhs: Target, rhs: Target) -> Bool {
-        return lhs.name == rhs.name &&
-               lhs.dependencies == rhs.dependencies
-    }
-}
-
-extension Target.Dependency: Equatable {
-    public static func == (
-        lhs: Target.Dependency,
-        rhs: Target.Dependency
-    ) -> Bool {
-        switch (lhs, rhs) {
-        case (.targetItem(let a), .targetItem(let b)):
-            return a == b
-        case (.targetItem, _):
-            return false
-        case (.productItem(let an, let ap), .productItem(let bn, let bp)):
-            return an == bn && ap == bp
-        case (.productItem, _):
-            return false
-        case (.byNameItem(let a), .byNameItem(let b)):
-            return a == b
-        case (.byNameItem, _):
-            return false
-        }
+      #else
+        return ._byNameItem(name: name)
+      #endif
     }
 }
 
 // MARK: ExpressibleByStringLiteral
 
 extension Target.Dependency: ExpressibleByStringLiteral {
-
     public init(stringLiteral value: String) {
+      #if PACKAGE_DESCRIPTION_4
         self = .byNameItem(name: value)
-    }
-
-    public init(unicodeScalarLiteral value: String) {
-        self.init(stringLiteral: value)
-    }
-
-    public init(extendedGraphemeClusterLiteral value: String) {
-        self.init(stringLiteral: value)
+      #else
+        self = ._byNameItem(name: value)
+      #endif
     }
 }

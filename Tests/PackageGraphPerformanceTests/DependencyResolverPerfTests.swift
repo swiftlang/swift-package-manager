@@ -11,6 +11,7 @@
 import XCTest
 
 import Basic
+import PackageModel
 import PackageGraph
 import PackageLoading
 import SourceControl
@@ -55,7 +56,7 @@ class DependencyResolverPerfTests: XCTestCasePerf {
 
     func testPrefilterPerf() {
         mktmpdir { path in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let dep = path.appending(components: "dep")
 
             // Create dependency.
@@ -95,7 +96,7 @@ class DependencyResolverPerfTests: XCTestCasePerf {
             )
 
             let containerProvider = RepositoryPackageContainerProvider(
-                repositoryManager: repositoryManager, manifestLoader: ManifestLoader(resources: Resources.default))
+                repositoryManager: repositoryManager, manifestLoader: ManifestLoader(resources: Resources.default, isManifestCachingEnabled: false, cacheDir: path))
 
             let resolver = DependencyResolver(containerProvider, GitRepositoryResolutionHelper.DummyResolverDelegate())
             let container = PackageReference(identity: "dep", path: dep.asString)
@@ -314,7 +315,7 @@ struct GitRepositoryResolutionHelper {
     }
 
     var constraints: [RepositoryPackageConstraint] { 
-        return manifestGraph.rootManifest.package.dependencyConstraints()
+        return manifestGraph.rootManifest.dependencyConstraints()
     }
 
     func resolve(prefetchingEnabled: Bool = false) -> [(container: PackageReference, binding: BoundVersion)] {

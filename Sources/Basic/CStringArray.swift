@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import libc
+import SPMLibc
 
 /// `CStringArray` represents a C null-terminated array of pointers to C strings.
 ///

@@ -204,13 +204,4 @@ class XcodeProjectModelTests: XCTestCase {
         settings.common.HEADER_SEARCH_PATHS += ["/tmp/path"]
         XCTAssertEqual(settings.common.HEADER_SEARCH_PATHS!, ["$(inherited)", "/tmp/path"])
     }
-    
-    static var allTests = [
-        ("testBasicProjectCreation", testBasicProjectCreation),
-        ("testTargetCreation",       testTargetCreation),
-        ("testBuildPhases",          testBuildPhases),
-        ("testProductReferences",    testProductReferences),
-        ("testTargetDependencies",   testTargetDependencies),
-        ("testBuildSettings",        testBuildSettings),
-    ]
 }

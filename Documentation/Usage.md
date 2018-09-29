@@ -14,9 +14,8 @@
   * [Handling version-specific logic](#handling-version-specific-logic)
   * [Editable Packages](#editable-packages)
   * [Top of Tree Development](#top-of-tree-development)
-  * [Package Pinning](#package-pinning)
+  * [Resolved versions (Package.resolved file)](#resolved-versions-packageresolved-file)
   * [Swift Tools Version](#swift-tools-version)
-  * [Prefetching Dependencies](#prefetching-dependencies)
   * [Testing](#testing)
   * [Running](#running)
   * [Build Configurations](#build-configurations)
@@ -27,6 +26,7 @@
   * [Shell completion scripts](#shell-completion-scripts)
 * [PackageDescription API Version 3](PackageDescriptionV3.md)
 * [PackageDescription API Version 4](PackageDescriptionV4.md)
+* [PackageDescription API Version 4.2](PackageDescriptionV4_2.md)
 * [Resources](Resources.md)
 
 ---
@@ -71,10 +71,10 @@ its sources. Complete reference for layout is
 
 ## Define Dependencies
 
-All you need to do to depend on a package is define the dependency and the
-version, in manifest of your package.  For e.g. if you want to use
-https://github.com/apple/example-package-playingcard as a dependency, add the
-github URL in dependencies of your `Package.swift`:
+To depend on a package, define the dependency and the version in manifest of
+your package, and add a product from that package as a dependency. For e.g. if
+you want to use https://github.com/apple/example-package-playingcard as
+a dependency, add the GitHub URL in dependencies of your `Package.swift`:
 
 ```swift
 import PackageDescription
@@ -82,18 +82,26 @@ import PackageDescription
 let package = Package(
     name: "MyPackage",
     dependencies: [
-        .Package(url: "https://github.com/apple/example-package-playingcard.git", majorVersion: 3),
+        .package(url: "https://github.com/apple/example-package-playingcard.git", from: "3.0.4"),
+    ],
+    targets: [
+        .target(
+            name: "MyPackage",
+            dependencies: ["PlayingCard"]
+        ),
+        .testTarget(
+            name: "MyPackageTests",
+            dependencies: ["MyPackage"]
+        ),
     ]
 )
 ```
 
-Now you should be able to `import PlayingCard` anywhere in your package and use
-the public APIs.
+Now you should be able to `import PlayingCard` in the `MyPackage` target.
 
 ## Publish a package
 
-To publish a package, you just have to initialize a git repository and create a
-semantic version tag:
+To publish a package, create and push a semantic version tag:
 
     $ git init
     $ git add .
@@ -109,10 +117,9 @@ https://github.com/apple/example-package-fisheryates
 
 ## Require System Libraries
 
-You can link against system libraries using the package manager. To do so,
-there needs to be a special package for each system library that contains a
-module map for that library. Such a wrapper package does not contain any code
-of its own.
+You can link against system libraries using the package manager. To do so, there
+needs to be a special package for each system library that contains a modulemap
+for that library. Such a wrapper package does not contain any code of its own.
 
 Let's see an example of using [libgit2](https://libgit2.github.com) from an
 executable.
@@ -205,7 +212,7 @@ import PackageDescription
 let package = Package(
     name: "example",
     dependencies: [
-        .Package(url: "../Clibgit", majorVersion: 1)
+        .package(url: "../Clibgit", from: "1.0.0")
     ]
 )
 ```
@@ -287,7 +294,7 @@ import PackageDescription
 let package = Package(
     name: "example",
     dependencies: [
-        .Package(url: "../CJPEG", majorVersion: 1)
+        .package(url: "../CJPEG", from: "1.0.0")
     ]
 )
 ```
@@ -302,8 +309,8 @@ executable:
     example$
 
 We have to specify path where the libjpeg is present using `-Xlinker` because
-there is no pkg-config file for it. We plan to provide solution to avoid
-passing the flag in commandline.
+there is no pkg-config file for it. We plan to provide solution to avoid passing
+the flag in commandline.
 
 ### Packages That Provide Multiple Libraries
 
@@ -346,8 +353,8 @@ that system libraries and system packagers will provide module maps and thus
 this component of the package manager will become redundant.
 
 *Notably* the above steps will not work if you installed JPEG and JasPer with
-[Homebrew](http://brew.sh) since the files will be installed to `/usr/local`
-for now adapt the paths, but as said, we plan to support basic relocations like
+[Homebrew](http://brew.sh) since the files will be installed to `/usr/local` for
+now adapt the paths, but as said, we plan to support basic relocations like
 these.
 
 
@@ -374,8 +381,8 @@ uses libarchive with xz you must make a `CArchive+CXz` package that depends on
 
 ## Packaging legacy code
 
-You may be working with code that builds both as a package and not. For
-example, you may be packaging a project that also builds with Xcode.
+You may be working with code that builds both as a package and not. For example,
+you may be packaging a project that also builds with Xcode.
 
 In these cases, you can use the build configuration `SWIFT_PACKAGE` to
 conditionally compile code for Swift packages.
@@ -388,27 +395,27 @@ import Foundation
 
 ## Handling version-specific logic
 
-The package manager is designed to support packages which work with a variety
-of Swift project versions, including both the language and the package manager
+The package manager is designed to support packages which work with a variety of
+Swift project versions, including both the language and the package manager
 version.
 
 In most cases, if you want to support multiple Swift versions in a package you
 should do so by using the language-specific version checks available in the
-source code itself. However, in some circumstances this may become
-unmanageable; in particular, when the package manifest itself cannot be written
-to be Swift version agnostic (for example, because it optionally adopts new
-package manager features not present in older versions).
+source code itself. However, in some circumstances this may become unmanageable;
+in particular, when the package manifest itself cannot be written to be Swift
+version agnostic (for example, because it optionally adopts new package manager
+features not present in older versions).
 
 The package manager has support for a mechanism to allow Swift version-specific
-customizations for the both package manifest and the package versions which
-will be considered.
+customizations for the both package manifest and the package versions which will
+be considered.
 
 ### Version-specific tag selection
 
 The tags which define the versions of the package available for clients to use
 can _optionally_ be suffixed with a marker in the form of `@swift-3`. When the
-package manager is determining the available tags for a repository, _if_ a
-version-specific marker is available which matches the current tool version,
+package manager is determining the available tags for a repository, _if_
+a version-specific marker is available which matches the current tool version,
 then it will *only* consider the versions which have the version-specific
 marker. Conversely, version-specific tags will be ignored by any non-matching
 tool version.
@@ -489,10 +496,8 @@ put the dependency Foo in `Packages/` directory.
 This is similar to previous version except that the Package Manager will leave
 the dependency at a detached HEAD on the specified revision.
 
-Note: It is necessary to provide either a branch or revision option. The
-rationale here is that checking out the currently resolved version would leave
-the repository on a detached HEAD, which is confusing. Explicit options makes
-the action predictable for user.
+Note: If branch or revision option is not provided, the Package Manager will
+checkout the currently resolved version on a detached HEAD.
 
 Once a package is in an editable state, you can navigate to the directory
 `Packages/Foo` to make changes, build and then push the changes or open a pull
@@ -543,116 +548,41 @@ Use unedit command to stop using the local checkout:
     # Example:
     $ swift package unedit Bar
 
-## Package Pinning
+## Resolved versions (Package.resolved file)
 
-Swift package manager has package pinning feature, also called _dependency
-locking_ in some dependency managers. Pinning refers to the practice of
-controlling exactly which specific version of a dependency is selected by the
-dependency resolution algorithm, independent from the semantic versioning
-specification. Thus, it is a way of instructing the package manager to select a
-particular version from among all of the versions of a package which could be
-chosen while honoring the dependency constraints. 
+The package manager records the result of dependency resolution in
+a `Package.resolved` file in the top-level package, and when this file is
+already present in the top-level package it is used when performing dependency
+resolution, rather than the package manager finding the latest eligible version
+of each package. Running `swift package update` updates all dependencies to the
+latest eligible versions and update the `Package.resolved` file accordingly.
 
-The package manager uses a file named `Package.pins`("pins file") to record the
-pinning information. The exact file format is unspecified/implementation
-defined, however, in practice it is a JSON data file. This file may be checked
-into SCM by the user, so that its effects apply to all users of the package.
-However, it may also be maintained only locally (e.g., placed in the
-`.gitignore` file). We intend to leave it to package authors to decide which
-use case is best for their project. We will recommend that it not be checked in
-by library authors, at least for released versions, since pins are not
-inherited and thus this information may be confusing.
+Resolved versions will always be recorded by the package manager. Some users may
+choose to add the Package.resolved file to their package's .gitignore file. When
+this file is checked in, it allows a team to coordinate on what versions of the
+dependencies they should use. If this file is gitignored, each user will
+separately choose when to get new versions based on when they run the swift
+package update command, and new users will start with the latest eligible
+version of each dependency. Either way, for a package which is a dependency of
+other packages (e.g. a library package), that package's `Package.resolved` file
+will not have any effect on its client packages.
 
-In the presence of a top-level `Package.pins` file, the package manager will
-respect the pinned dependencies recorded in the file whenever it needs to do
-dependency resolution (e.g., on the initial checkout or when updating).
-In the absence of a top-level `Package.pins` file, the package manager will
-operate based purely on the requirements specified in the package manifest, but
-will then automatically record the choices it makes into a `Package.pins` file
-as part of the _automatic pinning_ feature. 
+The `swift package resolve` command resolves the dependencies, taking into
+account the current version restrictions in the `Package.swift` manifest and
+`Package.resolved` resolved versions file, and issuing an error if the graph
+cannot be resolved. For packages which have previously resolved versions
+recorded in the `Package.resolved` file, the resolve command will resolve to
+those versions as long as they are still eligible. If the resolved versions file
+changes (e.g.  because a teammate pushed a new version of the file) the next
+resolve command will update packages to match that file. After a successful
+resolve command, the checked out versions of all dependencies and the versions
+recorded in the resolved versions file will match. In most cases the resolve
+command will perform no changes unless the `Package.swift manifest or
+`Package.resolved` file have changed.
 
-### Automatic Pinning
-
-The package manager has automatic pinning enabled by default (this is
-equivalent to `swift package pin --enable-autopin`). The package manager will
-automatically record all package dependencies in the pins file. Package project
-owners can choose to disable this if they wish to have more fine grained
-control over their pinning behavior, for e.g. pin only certain dependencies.
-
-The automatic pinning behavior works as follows:
-
-* When enabled, the package manager will write all dependency versions into the
-  pin file after any operation which changes the set of active working
-  dependencies (for example, if a new dependency is added).
-
-* A package author can still change the individual pinned versions using the
-  package pin commands (explained below), these will simply update the pinned
-  state.
-
-* Some commands do not make sense when automatic pinning is enabled; for
-  example, it is not possible to `unpin` and attempts to do so will produce an
-  error.
-
-Since package pin information is *not* inherited across dependencies, our
-recommendation is that packages which are primarily intended to be consumed by
-other developers either disable automatic pinning or put the `Package.pins`
-file into `.gitignore`, so that users are not confused why they get different
-versions of dependencies that are those being used by the library authors while
-they develop.
-
-### Pinning Commands (Manual Pinning)
-
-1. Pinning:
-
-        $ swift package pin ( --all | <package-name> [--version <version>] ) [--message <message>]
-        
-    The `package-name` refers to the name of the package as specified in its
-    manifest.
-        
-    This command pins one or all dependencies. The command which pins a single
-    version can optionally take a specific version to pin to, if unspecified
-    (or with `--all`) the behavior is to pin to the current package version in
-    use. Examples:
-        
-   * `$ swift package pin --all` - pins all the dependencies. 
-   * `$ swift package pin Foo` - pins Foo at current resolved version.  
-   * `$ swift package pin Foo --version 1.2.3` - pins `Foo` at 1.2.3. The specified version should be valid and resolvable.  
-        
-   The `--message` option is an optional argument to document the reason for
-   pinning a dependency. This could be helpful for user to later remember why a
-   dependency was pinned. Example:
-        
-        $ swift package pin Foo --message "The patch updates for Foo are really unstable and need screening."
-
-2. Toggle automatic pinning:
-
-        $ swift package pin ( [--enable-autopin] | [--disable-autopin] )
-
-    These will enable or disable automatic pinning for the package (this state
-    is recorded in the `Package.pins` file).
-
-3. Unpinning:
-
-        $ swift package unpin [<package-name>]
-
-    This is the counterpart to the pin command, and unpins packages.
-
-    Note: It is an error to attempt to unpin when automatic pinning is enabled.
-
-4. Package update with pinning:
-
-        $ swift package update [--repin]
-
-    The default behavior is to update all unpinned packages to the latest
-    possible versions which can be resolved while respecting the existing pins.
-    
-    The `--repin` argument can be used to lift the version pinning
-    restrictions. In this case, the behavior is that all packages are updated,
-    and packages which were previously pinned are then repinned to the latest
-    resolved versions.
-    
-    When automatic pinning is enabled, package update act as if `--repin` was
-    specified.
+Most SwiftPM commands will implicitly invoke the swift package resolve
+functionality before running, and will cancel with an error if dependencies
+cannot be resolved.
 
 ## Swift Tools Version
 
@@ -708,15 +638,6 @@ The following Swift tools version commands are supported:
 
         $ swift package tools-version --set <value> 
 
-## Prefetching Dependencies
-
-You can pass `--enable-prefetching` option to `swift build`, `swift package`
-and `swift test` to enable prefetching of dependencies. That means the missing
-dependencies will be cloned in parallel. For e.g.:
-
-```sh
-$ swift build --enable-prefetching
-```
 ## Testing
 
 Use `swift test` tool to run tests of a Swift package. For more information on
@@ -809,6 +730,15 @@ Use the following commands to install the Bash completions to `~/.swift-package-
 swift package completion-tool generate-bash-script > ~/.swift-package-complete.bash
 echo -e "source ~/.swift-package-complete.bash\n" >> ~/.bash_profile
 source ~/.swift-package-complete.bash
+```
+
+Alternatively, add the following commands to your `~/.bash_profile` file to directly load completions:
+
+```bash
+# Source Swift completion
+if [ -n "`which swift`" ]; then
+	eval "`swift package completion-tool generate-bash-script`"
+fi
 ```
 
 ### ZSH

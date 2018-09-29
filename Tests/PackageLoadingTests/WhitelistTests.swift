@@ -14,7 +14,7 @@ import XCTest
 final class PkgConfigWhitelistTests: XCTestCase {
     func testSimpleFlags() {
         let cFlags = ["-I/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0"]
-        let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3"]
+        let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-w"]
         do {
             try whitelist(pcFile: "dummy", flags: (cFlags, libs))
         } catch {
@@ -24,13 +24,11 @@ final class PkgConfigWhitelistTests: XCTestCase {
 
     func testFlagsWithInvalidFlags() {
         let cFlags = ["-I/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello"]
-        let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "name"]
+        let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "name", "-werror"]
         do {
             try whitelist(pcFile: "dummy", flags: (cFlags, libs))
         } catch {
-            XCTAssertEqual("\(error)", """
-                nonWhitelistedFlags("Non whitelisted flags found: [\\"-L/hello\\", \\"-module-name\\", \\"name\\"] in pc file dummy")
-                """)
+            XCTAssertEqual("\(error)", "non whitelisted flag(s): -L/hello, -module-name, name, -werror")
         }
     }
 
@@ -40,9 +38,7 @@ final class PkgConfigWhitelistTests: XCTestCase {
         do {
             try whitelist(pcFile: "dummy", flags: (cFlags, libs))
         } catch {
-            XCTAssertEqual("\(error)", """
-                nonWhitelistedFlags("Non whitelisted flags found: [\\"-L/hello\\", \\"-module-name\\", \\"ok\\", \\"name\\"] in pc file dummy")
-                """)
+            XCTAssertEqual("\(error)", "non whitelisted flag(s): -L/hello, -module-name, ok, name")
         }
     }
 
@@ -54,11 +50,4 @@ final class PkgConfigWhitelistTests: XCTestCase {
         XCTAssertEqual(result.0, ["-I", "/usr/include/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello"])
         XCTAssertEqual(result.1, ["-L/usr/lib/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "-lcool", "ok", "name"])
     }
-
-    static var allTests = [
-        ("testSimpleFlags", testSimpleFlags),
-        ("testFlagsWithInvalidFlags", testFlagsWithInvalidFlags),
-        ("testFlagsWithValueInNextFlag", testFlagsWithValueInNextFlag),
-        ("testRemoveDefaultFlags", testRemoveDefaultFlags),
-    ]
 }

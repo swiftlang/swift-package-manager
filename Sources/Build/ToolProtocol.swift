@@ -43,6 +43,7 @@ struct ShellTool: ToolProtocol {
     let inputs: [String]
     let outputs: [String]
     let args: [String]
+    let allowMissingInputs: Bool
 
     func append(to stream: OutputByteStream) {
         stream <<< "    tool: shell\n"
@@ -56,6 +57,9 @@ struct ShellTool: ToolProtocol {
             stream <<< "    args: " <<< Format.asJSON(arg) <<< "\n"
         } else {
             stream <<< "    args: " <<< Format.asJSON(args) <<< "\n"
+        }
+        if allowMissingInputs {
+            stream <<< "    allow-missing-inputs: " <<< Format.asJSON(true) <<< "\n"
         }
     }
 }
@@ -102,11 +106,11 @@ struct SwiftCompilerTool: ToolProtocol {
     }
 
     /// The underlying Swift build target.
-    let target: SwiftTargetDescription
+    let target: SwiftTargetBuildDescription
 
     static let numThreads = ProcessInfo.processInfo.activeProcessorCount
 
-    init(target: SwiftTargetDescription, inputs: [String]) {
+    init(target: SwiftTargetBuildDescription, inputs: [String]) {
         self.target = target
         self.inputs = inputs
     }

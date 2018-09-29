@@ -247,12 +247,10 @@ extension JSON {
         }
     }
 
-    /// Load a JSON item from a byte string.
-    ///
-    //
-    public init(bytes: ByteString) throws {
+    /// Load a JSON item from a Data object.
+    public init(data: Data) throws {
         do {
-            let result = try JSONSerialization.jsonObject(with: Data(bytes: bytes.contents), options: [.allowFragments])
+            let result = try JSONSerialization.jsonObject(with: data, options: [.allowFragments])
 
             // Convert to a native representation.
             //
@@ -263,6 +261,11 @@ extension JSON {
         } catch {
             throw JSONDecodingError.malformed
         }
+    }
+
+    /// Load a JSON item from a byte string.
+    public init(bytes: ByteString) throws {
+        try self.init(data: Data(bytes: bytes.contents))
     }
 
     /// Convenience initalizer for UTF8 encoded strings.

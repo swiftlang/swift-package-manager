@@ -37,8 +37,4 @@ class PosixTests: XCTestCase {
             } catch SystemError.rename {}
         }
     }
-
-    static var allTests = [
-        ("testRename", testRename),
-    ]
 }

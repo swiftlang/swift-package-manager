@@ -6,22 +6,25 @@
 * [Usage](Usage.md)
 * [PackageDescription API Version 3](PackageDescriptionV3.md)
 * [PackageDescription API Version 4](PackageDescriptionV4.md)
+* [PackageDescription API Version 4.2](PackageDescriptionV4_2.md)
 * [**Resources**](Resources.md)
   * [Support](#support)
   * [Reporting a good SwiftPM Bug](#reporting-a-good-swiftpm-bug)
-  * [Community Proposal](#community-proposal)
 
 ---
 
 ## Support
 
-User-to-user support for Swift Package Manager is available on [swift-users mailing list](mailto:swift-users@swift.org).
+User-to-user support for Swift Package Manager is available on
+[swift-forums](https://forums.swift.org/c/development/SwiftPM).
 
 ---
 
 ## Reporting a good SwiftPM Bug
 
-Use the [Swift bug tracker](http://bugs.swift.org) to report bugs with Swift Package Manager. Sign up if you haven't already and click the "Create" button to start filing an issue.  
+Use the [Swift bug tracker](http://bugs.swift.org) to report bugs with Swift
+Package Manager. Sign up if you haven't already and click the "Create" button to
+start filing an issue.  
 
 Fill the following fields:
 * `Summary`: One line summary of the problem you're facing  
@@ -30,16 +33,14 @@ Fill the following fields:
 * `Component/s`: Package Manager  
 * `Attachment`: Attach relevant files like logs, project
 
-Please include a minimal example package which can reproduce the issue. The sample package can be attached with the report or you can include URL of the package hosted on places like GitHub.  
-Also, include the verbose logs by adding `--verbose` or `-v` after a subcommand. For e.g.:
+Please include a minimal example package which can reproduce the issue. The
+sample package can be attached with the report or you can include URL of the
+package hosted on places like GitHub.  
+Also, include the verbose logs by adding `--verbose` or `-v` after a subcommand.
+For e.g.:
 
     $ swift build --verbose
     $ swift package -v update
 
-If the bug is with a generated Xcode project, include how the project was generated and the Xcode build log.
-
----
-
-## Project History
-
-To learn the original intentions for Swift Package Manager, read the [Community Proposal](PackageManagerCommunityProposal.md).
+If the bug is with a generated Xcode project, include how the project was
+generated and the Xcode build log.

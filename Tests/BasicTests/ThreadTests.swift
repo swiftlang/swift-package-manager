@@ -69,10 +69,4 @@ class ThreadTests: XCTestCase {
 
         XCTAssertTrue(finished)
     }
-
-    static var allTests = [
-        ("testSingleThread", testSingleThread),
-        ("testMultipleThread", testMultipleThread),
-        ("testNotDeinitBeforeExecutingTask", testNotDeinitBeforeExecutingTask),
-    ]
 }

@@ -11,7 +11,7 @@
 import Basic
 
 /// A struct representing a semver version.
-public struct Version {
+public struct Version: Hashable {
 
     /// The major version.
     public let major: Int
@@ -45,19 +45,9 @@ public struct Version {
     }
 }
 
-extension Version: Hashable {
-
-    static public func == (lhs: Version, rhs: Version) -> Bool {
-        return lhs.major == rhs.major &&
-               lhs.minor == rhs.minor &&
-               lhs.patch == rhs.patch &&
-               lhs.prereleaseIdentifiers == rhs.prereleaseIdentifiers &&
-               lhs.buildMetadataIdentifiers == rhs.buildMetadataIdentifiers
-    }
-
+#if !swift(>=4.2)
+extension Version {
     public var hashValue: Int {
-        // FIXME: We need Swift hashing utilities; this is based on CityHash
-        // inspired code inside the Swift stdlib.
         let mul: UInt64 = 0x9ddfea08eb382d69
         var result: UInt64 = 0
         result = (result &* mul) ^ UInt64(bitPattern: Int64(major.hashValue))
@@ -68,6 +58,7 @@ extension Version: Hashable {
         return Int(truncatingIfNeeded: result)
     }
 }
+#endif
 
 extension Version: Comparable {
 
@@ -141,7 +132,7 @@ public extension Version {
         let requiredCharacters = string.prefix(upTo: requiredEndIndex)
         let requiredComponents = requiredCharacters
             .split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-            .map(String.init).flatMap({ Int($0) }).filter({ $0 >= 0 })
+            .map(String.init).compactMap({ Int($0) }).filter({ $0 >= 0 })
 
         guard requiredComponents.count == 3 else { return nil }
 
@@ -190,15 +181,39 @@ extension Version: JSONMappable, JSONSerializable {
         guard let version = Version(string: string) else {
             throw JSON.MapError.custom(key: nil, message: "Invalid version string \(string)")
         }
+        self.init(version)
+    }
+
+    public func toJSON() -> JSON {
+        return .string(description)
+    }
+
+    init(_ version: Version) {
         self.init(
             version.major, version.minor, version.patch,
             prereleaseIdentifiers: version.prereleaseIdentifiers,
             buildMetadataIdentifiers: version.buildMetadataIdentifiers
         )
     }
+}
 
-    public func toJSON() -> JSON {
-        return .string(description)
+extension Version: Codable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(description)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let string = try container.decode(String.self)
+
+        guard let version = Version(string: string) else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Invalid version string \(string)"))
+        }
+
+        self.init(version)
     }
 }
 

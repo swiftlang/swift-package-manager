@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import libc
+import SPMLibc
 
 extension dirent {
     /// Get the directory name.
@@ -23,4 +23,4 @@ extension dirent {
 }
 
 // Re-export the typealias, for portability.
-public typealias dirent = libc.dirent
+public typealias dirent = SPMLibc.dirent

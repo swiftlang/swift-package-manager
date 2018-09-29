@@ -20,7 +20,7 @@ class VersionSpecificTests: XCTestCase {
     /// Functional tests of end-to-end support for version specific dependency resolution.
     func testEndToEndResolution() throws {
         mktmpdir { path in
-            var fs = localFileSystem
+            let fs = localFileSystem
 
             // Create a repo for the dependency to test against.
             let depPath = path.appending(component: "Dep")
@@ -31,8 +31,17 @@ class VersionSpecificTests: XCTestCase {
             // Create the initial commit.
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
                 $0 <<< """
+                    // swift-tools-version:4.2
                     import PackageDescription
-                    let package = Package(name: "Dep")
+                    let package = Package(
+                        name: "Dep",
+                        products: [
+                            .library(name: "Dep", targets: ["Dep"]),
+                        ],
+                        targets: [
+                            .target(name: "Dep", path: "./")
+                        ]
+                    )
                     """
             }
             try repo.stage(file: "Package.swift")
@@ -57,8 +66,17 @@ class VersionSpecificTests: XCTestCase {
             let primaryPath = path.appending(component: "Primary")
             try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
                 $0 <<< """
+                    // swift-tools-version:4.2
                     import PackageDescription
-                    let package = Package(name: "Primary", dependencies: [.Package(url: "../Dep", majorVersion: 1)])
+                    let package = Package(
+                        name: "Primary",
+                        dependencies: [
+                            .package(url: "../Dep", from: "1.0.0"),
+                        ],
+                        targets: [
+                            .target(name: "Primary", dependencies: ["Dep"], path: "./")
+                        ]
+                    )
                     """
             }
             // This build should fail, because of the invalid package.
@@ -75,8 +93,17 @@ class VersionSpecificTests: XCTestCase {
             // Create a version-specific tag, which should work.
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
                 $0 <<< """
+                    // swift-tools-version:4.2
                     import PackageDescription
-                    let package = Package(name: \"Dep\")
+                    let package = Package(
+                        name: "Dep",
+                        products: [
+                            .library(name: "Dep", targets: ["Dep"]),
+                        ],
+                        targets: [
+                            .target(name: "Dep", path: "./")
+                        ]
+                    )
                     """
             }
             try repo.stage(file: "Package.swift")
@@ -88,8 +115,4 @@ class VersionSpecificTests: XCTestCase {
             XCTAssertBuilds(primaryPath)
         }
     }
-
-    static var allTests = [
-        ("testEndToEndResolution", testEndToEndResolution),
-    ]
 }

@@ -13,6 +13,18 @@ import PackageLoading
 import PackageModel
 import Utility
 
+struct UnusedDependencyDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: UnusedDependencyDiagnostic.self,
+        name: "org.swift.diags.unused-dependency",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "dependency" <<< { "'\($0.dependencyName)'" } <<< "is not used by any target"
+        })
+
+    public let dependencyName: String
+}
+
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no targets.
     case noModules(Package)
@@ -25,6 +37,9 @@ enum PackageGraphError: Swift.Error {
 
     /// The product dependency was found but the package name did not match.
     case productDependencyIncorrectPackage(name: String, package: String)
+
+    /// A product was found in multiple packages.
+    case duplicateProduct(product: String, packages: [String])
 }
 
 extension PackageGraphError: CustomStringConvertible {
@@ -43,6 +58,9 @@ extension PackageGraphError: CustomStringConvertible {
 
         case .productDependencyIncorrectPackage(let name, let package):
             return "product dependency '\(name)' in package '\(package)' not found"
+
+        case .duplicateProduct(let product, let packages):
+            return "multiple products named '\(product)' in: \(packages.joined(separator: ", "))"
         }
     }
 }
@@ -71,14 +89,14 @@ public struct PackageGraphLoader {
             externalManifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (Manifest) -> [Manifest] = { manifest in
-            manifest.package.dependencies.flatMap({ 
+            manifest.dependencies.compactMap({ 
                 manifestMap[PackageReference.computeIdentity(packageURL: $0.url)] 
             })
         }
 
         // Construct the root manifest and root dependencies set.
         let rootManifestSet = Set(root.manifests)
-        let rootDependencies = Set(root.dependencies.flatMap({
+        let rootDependencies = Set(root.dependencies.compactMap({
             manifestMap[PackageReference.computeIdentity(packageURL: $0.url)]
         }))
         let inputManifests = root.manifests + rootDependencies
@@ -89,7 +107,8 @@ public struct PackageGraphLoader {
         // Detect cycles in manifest dependencies.
         if let cycle = findCycle(inputManifests, successors: successors) {
             diagnostics.emit(PackageGraphError.cycleDetected(cycle))
-            allManifests = inputManifests
+            // Break the cycle so we can build a partial package graph.
+            allManifests = inputManifests.filter({ $0 != cycle.cycle[0] })
         } else {
             // Sort all manifests toplogically.
             allManifests = try! topologicalSort(inputManifests, successors: successors)
@@ -134,10 +153,50 @@ public struct PackageGraphLoader {
             diagnostics: diagnostics
         )
 
+        let rootPackages = resolvedPackages.filter({ rootManifestSet.contains($0.manifest) })
+
+        checkAllDependenciesAreUsed(rootPackages, diagnostics)
+
         return PackageGraph(
-            rootPackages: resolvedPackages.filter({ rootManifestSet.contains($0.manifest) }),
+            rootPackages: rootPackages,
             rootDependencies: resolvedPackages.filter({ rootDependencies.contains($0.manifest) })
         )
+    }
+}
+
+private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ diagnostics: DiagnosticsEngine) {
+    for package in rootPackages {
+        // List all dependency products dependended on by the package targets.
+        let productDependencies: Set<ResolvedProduct> = Set(package.targets.flatMap({ target in
+            return target.dependencies.compactMap({ targetDependency in
+                switch targetDependency {
+                case .product(let product):
+                    return product
+                case .target:
+                    return nil
+                }
+            })
+        }))
+
+        for dependency in package.dependencies {
+            // We continue if the dependency contains executable products to make sure we don't
+            // warn on a valid use-case for a lone dependency: swift run dependency executables.
+            guard !dependency.products.contains(where: { $0.type == .executable }) else {
+                continue
+            }
+            // Skip this check if this dependency is a system module because system module packages
+            // have no products.
+            //
+            // FIXME: Do/should we print a warning if a dependency has no products?
+            if dependency.products.isEmpty && dependency.targets.filter({ $0.type == .systemModule }).count == 1 {
+                continue
+            }
+            
+            let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
+            if !dependencyIsUsed {
+                diagnostics.emit(data: UnusedDependencyDiagnostic(dependencyName: dependency.name))
+            }
+        }
     }
 }
 
@@ -151,7 +210,7 @@ private func createResolvedPackages(
 ) -> [ResolvedPackage] {
 
     // Create package builder objects from the input manifests.
-    let packageBuilders: [ResolvedPackageBuilder] = allManifests.flatMap({
+    let packageBuilders: [ResolvedPackageBuilder] = allManifests.compactMap({
         guard let package = manifestToPackage[$0] else {
             return nil
         }
@@ -170,7 +229,7 @@ private func createResolvedPackages(
         let package = packageBuilder.package
 
         // Establish the manifest-declared package dependencies.
-        packageBuilder.dependencies = package.manifest.package.dependencies.flatMap({
+        packageBuilder.dependencies = package.manifest.dependencies.compactMap({
             packageMap[PackageReference.computeIdentity(packageURL: $0.url)]
         })
 
@@ -190,8 +249,33 @@ private func createResolvedPackages(
         })
     }
 
+    // Find duplicate products in the package graph.
+    let duplicateProducts = packageBuilders
+        .flatMap({ $0.products })
+        .map({ $0.product })
+        .findDuplicateElements(by: \.name)
+        .map({ $0[0].name })
+
+    // Emit diagnostics for duplicate products.
+    for productName in duplicateProducts {
+        let packages = packageBuilders
+            .filter({ $0.products.contains(where: { $0.product.name == productName }) })
+            .map({ $0.package.name })
+            .sorted()
+
+        diagnostics.emit(PackageGraphError.duplicateProduct(product: productName, packages: packages))
+    }
+
+    // Remove the duplicate products from the builders.
+    for packageBuilder in packageBuilders {
+        packageBuilder.products = packageBuilder.products.filter({ !duplicateProducts.contains($0.product.name) })
+    }
+
     // The set of all target names.
     var allTargetNames = Set<String>()
+    
+    // Track if multiple targets are found with the same name.
+    var foundDuplicateTarget = false
 
     // Do another pass and establish product dependencies of each target.
     for packageBuilder in packageBuilders {
@@ -200,10 +284,15 @@ private func createResolvedPackages(
         // The diagnostics location for this package.
         let diagnosticLocation = { PackageLocation.Local(name: package.name, packagePath: package.path) }
 
-        // Get all the system module dependencies in this package.
-        let systemModulesDeps = packageBuilder.dependencies
+        // Get all implicit system library dependencies in this package.
+        let implicitSystemTargetDeps = packageBuilder.dependencies
             .flatMap({ $0.targets })
-            .filter({ $0.target.type == .systemModule })
+            .filter({
+                if case let systemLibrary as SystemLibraryTarget = $0.target {
+                    return systemLibrary.isImplicit
+                }
+                return false
+            })
 
         // Get all the products from dependencies of this package.
         let productDependencies = packageBuilder.dependencies
@@ -213,44 +302,48 @@ private func createResolvedPackages(
 
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {
-            // If a target with similar name was encountered before, we emit a diagnostic.
-            let targetName = targetBuilder.target.name
-            if allTargetNames.contains(targetName) {
-                diagnostics.emit(ModuleError.duplicateModule(targetName), location: diagnosticLocation())
-            }
-            allTargetNames.insert(targetName)
+            // Record if we see a duplicate target.
+            foundDuplicateTarget = foundDuplicateTarget || !allTargetNames.insert(targetBuilder.target.name).inserted
 
             // Directly add all the system module dependencies.
-            targetBuilder.dependencies += systemModulesDeps
+            targetBuilder.dependencies += implicitSystemTargetDeps
 
-            // Establish product dependencies based on the type of manifest.
-            switch package.manifest.package {
-            case .v3:
-                targetBuilder.productDeps = productDependencies
+            // Establish product dependencies.
+            for productRef in targetBuilder.target.productDependencies {
+                // Find the product in this package's dependency products.
+                guard let product = productDependencyMap[productRef.name] else {
+                    let error = PackageGraphError.productDependencyNotFound(name: productRef.name, package: productRef.package)
+                    diagnostics.emit(error, location: diagnosticLocation())
+                    continue
+                }
 
-            case .v4:
-                for productRef in targetBuilder.target.productDependencies {
-                    // Find the product in this package's dependency products.
-                    guard let product = productDependencyMap[productRef.name] else {
-                        let error = PackageGraphError.productDependencyNotFound(name: productRef.name, package: productRef.package)
+                // If package name is mentioned, ensure it is valid.
+                if let packageName = productRef.package {
+                    // Find the declared package and check that it contains
+                    // the product we found above.
+                    guard let dependencyPackage = packageMap[packageName.lowercased()], dependencyPackage.products.contains(product) else {
+                        let error = PackageGraphError.productDependencyIncorrectPackage(
+                            name: productRef.name, package: packageName)
                         diagnostics.emit(error, location: diagnosticLocation())
                         continue
                     }
-
-                    // If package name is mentioned, ensure it is valid.
-                    if let packageName = productRef.package {
-                        // Find the declared package and check that it contains
-                        // the product we found above.
-                        guard let dependencyPackage = packageMap[packageName.lowercased()], dependencyPackage.products.contains(product) else {
-                            let error = PackageGraphError.productDependencyIncorrectPackage(
-                                name: productRef.name, package: packageName)
-                            diagnostics.emit(error, location: diagnosticLocation())
-                            continue
-                        }
-                    }
-
-                    targetBuilder.productDeps.append(product)
                 }
+
+                targetBuilder.productDeps.append(product)
+            }
+        }
+    }
+    
+    // If a target with similar name was encountered before, we emit a diagnostic.
+    if foundDuplicateTarget {
+        for targetName in allTargetNames.sorted() {
+            // Find the packages this target is present in.
+            let packageNames = packageBuilders
+                .filter({ $0.targets.contains(where: { $0.target.name == targetName }) })
+                .map({ $0.package.name })
+                .sorted()
+            if packageNames.count > 1 {
+                diagnostics.emit(ModuleError.duplicateModule(targetName, packageNames))
             }
         }
     }

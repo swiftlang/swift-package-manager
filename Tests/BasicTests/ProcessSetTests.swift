@@ -10,7 +10,7 @@
 
 import XCTest
 import Basic
-import libc
+import SPMLibc
 import Utility
 import TestSupport
 
@@ -73,9 +73,4 @@ class ProcessSetTests: XCTestCase {
 
         t.join()
     }
-
-    static var allTests = [
-        ("testSigInt", testSigInt),
-        ("testSigKillEscalation", testSigKillEscalation),
-    ]
 }

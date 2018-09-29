@@ -252,6 +252,8 @@ extension ArgumentParser {
         let description = removeDefaultRegex
             .replace(in: argument.usage ?? "", with: "")
             .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "[", with: "\\[")
+            .replacingOccurrences(of: "]", with: "\\]")
         stream <<< "[\(description)]"
 
         generateZshCompletion(argument, on: stream)

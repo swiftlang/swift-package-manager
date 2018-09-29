@@ -13,7 +13,12 @@
 public struct OrderedSet<E: Hashable>: Equatable, Collection {
     public typealias Element = E
     public typealias Index = Int
+
+  #if swift(>=4.1.50)
+    public typealias Indices = Range<Int>
+  #else
     public typealias Indices = CountableRange<Int>
+  #endif
 
     private var array: [Element]
     private var set: Set<Element>

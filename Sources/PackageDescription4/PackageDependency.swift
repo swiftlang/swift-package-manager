@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-extension Package.Dependency: Equatable {
+extension Package.Dependency {
 
     // Add a dependency starting from a minimum version, going upto the next
     // major version.
@@ -24,6 +24,7 @@ extension Package.Dependency: Equatable {
         url: String,
         _ requirement: Package.Dependency.Requirement
     ) -> Package.Dependency {
+        precondition(!requirement.isLocalPackage, "Use `.package(path:)` API to declare a local package dependency")
         return .init(url: url, requirement: requirement)
     }
 
@@ -32,7 +33,11 @@ extension Package.Dependency: Equatable {
         url: String,
         _ range: Range<Version>
     ) -> Package.Dependency {
+      #if PACKAGE_DESCRIPTION_4
         return .init(url: url, requirement: .rangeItem(range))
+      #else
+        return .init(url: url, requirement: ._rangeItem(range))
+      #endif
     }
 
     // Add a dependency given a closed range requirement.
@@ -49,9 +54,14 @@ extension Package.Dependency: Equatable {
         return .package(url: url, range.lowerBound..<upperBound)
     }
 
-    public static func == (lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
-        return lhs.url == rhs.url && lhs.requirement == rhs.requirement
+  #if !PACKAGE_DESCRIPTION_4
+    /// Add a dependency to a local package on the filesystem.
+    public static func package(
+        path: String
+    ) -> Package.Dependency {
+        return .init(url: path, requirement: ._localPackageItem)
     }
+  #endif
 
     func toJSON() -> JSON {
         return .dictionary([

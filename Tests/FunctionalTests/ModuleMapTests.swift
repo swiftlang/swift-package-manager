@@ -13,6 +13,7 @@ import Commands
 import TestSupport
 import Basic
 import Utility
+import Workspace
 
 class ModuleMapsTestCase: XCTestCase {
 
@@ -66,9 +67,4 @@ class ModuleMapsTestCase: XCTestCase {
             try verify("release")
         }
     }
-
-    static var allTests = [
-        ("testDirectDependency", testDirectDependency),
-        ("testTransitiveDependency", testTransitiveDependency),
-    ]
 }

@@ -40,11 +40,25 @@ extension InMemoryFileSystem {
     /// Create a new file system with an empty file at each provided path.
     public convenience init(emptyFiles files: [String]) {
         self.init()
+        self.createEmptyFiles(at: .root, files: files)
+    }
+}
 
-        for path in files {
-            let path = AbsolutePath(path)
-            try! createDirectory(path.parentDirectory, recursive: true)
-            try! writeFileContents(path, bytes: "")
+extension FileSystem {
+    public func createEmptyFiles(at root: AbsolutePath, files: String...) {
+        self.createEmptyFiles(at: root, files: files)
+    }
+
+    public func createEmptyFiles(at root: AbsolutePath, files: [String]) {
+        do {
+            try createDirectory(root, recursive: true)
+            for path in files {
+                let path = root.appending(RelativePath(path.dropFirst().str))
+                try createDirectory(path.parentDirectory, recursive: true)
+                try writeFileContents(path, bytes: "")
+            }
+        } catch {
+            fatalError("Failed to create empty files: \(error)")
         }
     }
 }

@@ -71,7 +71,8 @@ public enum MockLoadingError: Error {
     case unknownModule
 }
 
-public final class MockPackageContainer: PackageContainer {
+public class MockPackageContainer: PackageContainer {
+
     public typealias Identifier = String
 
     public typealias Dependency = (container: Identifier, requirement: MockPackageConstraint.Requirement)
@@ -110,6 +111,10 @@ public final class MockPackageContainer: PackageContainer {
         return unversionedDeps
     }
 
+    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> String {
+        return name
+    }
+
     public convenience init(
         name: Identifier,
         dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]
@@ -128,9 +133,15 @@ public final class MockPackageContainer: PackageContainer {
         dependencies: [String: [Dependency]] = [:]
     ) {
         self.name = name
-        let versions = dependencies.keys.flatMap(Version.init(string:))
+        let versions = dependencies.keys.compactMap(Version.init(string:))
         self._versions = versions.sorted().reversed()
         self.dependencies = dependencies
+    }
+}
+
+public class MockPackageContainer2: MockPackageContainer {
+    public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> String {
+        return name + "-name"
     }
 }
 
@@ -197,7 +208,7 @@ extension DependencyResolver where P == MockPackagesProvider, D == MockResolverD
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> [(container: String, version: Version)] {
-        return try resolve(constraints: constraints).flatMap({
+        return try resolve(constraints: constraints).compactMap({
             guard case .version(let version) = $0.binding else {
                 XCTFail("Unexpected non version binding \($0.binding)", file: file, line: line)
                 return nil

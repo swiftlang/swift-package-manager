@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import libc
+import SPMLibc
 import POSIX
 
 /// Replace the current process image with a new process image.
@@ -34,15 +34,18 @@ public func exec(path: String, args: [String]) throws {
 /// - Returns: List of search paths.
 public func getEnvSearchPaths(
     pathString: String?,
-    currentWorkingDirectory cwd: AbsolutePath
+    currentWorkingDirectory: AbsolutePath?
 ) -> [AbsolutePath] {
     // Compute search paths from PATH variable.
-    return (pathString ?? "").split(separator: ":").map(String.init).map({ pathString in
+    return (pathString ?? "").split(separator: ":").map(String.init).compactMap({ pathString in
         // If this is an absolute path, we're done.
         if pathString.first == "/" {
             return AbsolutePath(pathString)
         }
         // Otherwise convert it into absolute path relative to the working directory.
+        guard let cwd = currentWorkingDirectory else {
+            return nil
+        }
         return AbsolutePath(pathString, relativeTo: cwd)
     })
 }
@@ -57,20 +60,32 @@ public func getEnvSearchPaths(
 ///
 /// - Parameters:
 ///   - filename: The name of the file to find.
-///   - cwd: The current working directory to look in.
+///   - currentWorkingDirectory: The current working directory to look in.
 ///   - searchPaths: The additional search paths to look in if not found in cwd.
 /// - Returns: Valid path to executable if present, otherwise nil.
 public func lookupExecutablePath(
     filename value: String?,
-    currentWorkingDirectory cwd: AbsolutePath = currentWorkingDirectory,
+    currentWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory,
     searchPaths: [AbsolutePath] = []
 ) -> AbsolutePath? {
+
     // We should have a value to continue.
     guard let value = value, !value.isEmpty else {
         return nil
     }
-    // We have a value, but it could be an absolute or a relative path.
-    let path = AbsolutePath(value, relativeTo: cwd)
+
+    let path: AbsolutePath
+    if let cwd = currentWorkingDirectory {
+        // We have a value, but it could be an absolute or a relative path.
+        path = AbsolutePath(value, relativeTo: cwd)
+    } else if let absPath = try? AbsolutePath(validating: value) {
+        // Current directory not being available is not a problem
+        // for the absolute-specified paths.
+        path = absPath
+    } else {
+        return nil
+    }
+
     if localFileSystem.isExecutableFile(path) {
         return path
     }
@@ -88,10 +103,21 @@ public func lookupExecutablePath(
     return nil
 }
 
-// <rdar://problem/28497980> error: binary operator '==' cannot be applied to two '[[String]]' operands
-public func ==<E: Equatable>(a: [[E]], b: [[E]]) -> Bool {
-    if a.count != b.count {
-        return false
+extension Range: Codable where Bound: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case lowerBound, upperBound
     }
-    return !zip(a, b).contains { $0 != $1 }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(lowerBound, forKey: .lowerBound)
+        try container.encode(upperBound, forKey: .upperBound)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let lowerBound = try container.decode(Bound.self, forKey: .lowerBound)
+        let upperBound = try container.decode(Bound.self, forKey: .upperBound)
+        self.init(uncheckedBounds: (lowerBound, upperBound))
+    }
 }

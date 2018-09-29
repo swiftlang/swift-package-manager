@@ -90,12 +90,11 @@ public final class SHA256 {
         // Finally, compute the result.
         var result = [UInt8](repeating: 0, count: digestLength / 8)
         for (idx, element) in hash.enumerated() {
-            let hash = element.bigEndian
             let pos = idx * 4
-            result[pos + 0] = UInt8(hash & 0xff)
-            result[pos + 1] = UInt8((hash >> 8) & 0xff)
-            result[pos + 2] = UInt8((hash >> 16) & 0xff)
-            result[pos + 3] = UInt8((hash >> 24) & 0xff)
+            result[pos + 0] = UInt8((element >> 24) & 0xff)
+            result[pos + 1] = UInt8((element >> 16) & 0xff)
+            result[pos + 2] = UInt8((element >> 8) & 0xff)
+            result[pos + 3] = UInt8(element & 0xff)
         }
 
         self.result = result
@@ -174,7 +173,7 @@ public final class SHA256 {
         //
         // inputBitLength + 1 + bitsToAppend ≡ 448 mod 512
         let mod = inputBitLength % 512
-        let bitsToAppend = mod == 448 ? 512 : 448 - mod - 1
+        let bitsToAppend = mod < 448 ? 448 - 1 - mod : 512 + 448 - mod - 1
 
         // We already appended first 7 bits with 0x80 above.
         input += [UInt8](repeating: 0, count: (bitsToAppend - 7) / 8)
@@ -190,9 +189,9 @@ public final class SHA256 {
 // MARK:- Helpers
 
 private extension UInt64 {
-    /// Converts the 64 bit integer into array of 4-byte integers.
+    /// Converts the 64 bit integer into an array of single byte integers.
     func toByteArray() -> [UInt8] {
-        var value = self
+        var value = self.littleEndian
         return withUnsafeBytes(of: &value, Array.init)
     }
 }

@@ -21,12 +21,13 @@ class InitTests: XCTestCase {
     
     func testInitPackageEmpty() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
+            let name = path.basename
             try fs.createDirectory(path)
             
             // Create the package
-            let initPackage = try InitPackage(destinationPath: path, packageType: InitPackage.PackageType.empty)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.empty)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -46,12 +47,13 @@ class InitTests: XCTestCase {
     
     func testInitPackageExecutable() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
+            let name = path.basename
             try fs.createDirectory(path)
 
             // Create the package
-            let initPackage = try InitPackage(destinationPath: path, packageType: InitPackage.PackageType.executable)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.executable)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -75,7 +77,9 @@ class InitTests: XCTestCase {
             XCTAssertTrue(readmeContents.hasPrefix("# Foo\n"))
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
+            XCTAssertEqual(
+                try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
+                ["FooTests", "LinuxMain.swift"])
             
             // Try building it
             XCTAssertBuilds(path)
@@ -87,12 +91,13 @@ class InitTests: XCTestCase {
 
     func testInitPackageLibrary() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
+            let name = path.basename
             try fs.createDirectory(path)
 
             // Create the package
-            let initPackage = try InitPackage(destinationPath: path, packageType: InitPackage.PackageType.library)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.library)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -127,12 +132,13 @@ class InitTests: XCTestCase {
     
     func testInitPackageSystemModule() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
+            let name = path.basename
             try fs.createDirectory(path)
             
             // Create the package
-            let initPackage = try InitPackage(destinationPath: path, packageType: InitPackage.PackageType.systemModule)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.systemModule)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -157,11 +163,12 @@ class InitTests: XCTestCase {
         
         // Create a directory with non c99name.
         let packageRoot = tempDir.path.appending(component: "some-package")
+        let packageName = packageRoot.basename
         try localFileSystem.createDirectory(packageRoot)
         XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
         
         // Create the package
-        let initPackage = try InitPackage(destinationPath: packageRoot, packageType: InitPackage.PackageType.library)
+        let initPackage = try InitPackage(name: packageName, destinationPath: packageRoot, packageType: InitPackage.PackageType.library)
         initPackage.progressReporter = { message in
         }
         try initPackage.writePackageStructure()
@@ -171,12 +178,23 @@ class InitTests: XCTestCase {
         XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.host.target, "debug", "some_package.swiftmodule"))
     }
     
-    static var allTests = [
-        ("testInitPackageEmpty", testInitPackageEmpty),
-        ("testInitPackageExecutable", testInitPackageExecutable),
-        ("testInitPackageLibrary", testInitPackageLibrary),
-        ("testInitPackageSystemModule", testInitPackageSystemModule),
-        ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
-    ]
-
+    func testNonC99NameExecutablePackage() throws {
+        let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
+        XCTAssertTrue(localFileSystem.isDirectory(tempDir.path))
+        
+        let packageRoot = tempDir.path.appending(component: "Foo")
+        try localFileSystem.createDirectory(packageRoot)
+        XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
+        
+        // Create package with non c99name.
+        let initPackage = try InitPackage(name: "package-name", destinationPath: packageRoot, packageType: InitPackage.PackageType.executable)
+        try initPackage.writePackageStructure()
+        
+        #if os(macOS)
+          XCTAssertSwiftTest(packageRoot)
+        #else
+          XCTAssertBuilds(packageRoot)
+        #endif
+        
+    }
 }

@@ -16,12 +16,13 @@ import TestSupport
 import Commands
 import PackageModel
 import SourceControl
+import Workspace
 
 class ToolsVersionTests: XCTestCase {
 
     func testToolsVersion() throws {
         mktmpdir { path in
-            var fs = localFileSystem
+            let fs = localFileSystem
 
             // Create a repo for the dependency to test against.
             let depPath = path.appending(component: "Dep")
@@ -31,9 +32,17 @@ class ToolsVersionTests: XCTestCase {
 
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
                 $0 <<< """
-                    // swift-tools-version:3.1
+                    // swift-tools-version:4.2
                     import PackageDescription
-                    let package = Package(name: "Dep")
+                    let package = Package(
+                        name: "Dep",
+                        products: [
+                            .library(name: "Dep", targets: ["Dep"]),
+                        ],
+                        targets: [
+                            .target(name: "Dep", path: "./")
+                        ]
+                    )
                     """
             }
             try fs.writeFileContents(depPath.appending(component: "foo.swift")) {
@@ -78,7 +87,7 @@ class ToolsVersionTests: XCTestCase {
                     """
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set-current"], packagePath: primaryPath).chomp()
+                ["tools-version", "--set", "4.0"], packagePath: primaryPath).chomp()
 
             // Build the primary package.
             _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
@@ -94,7 +103,7 @@ class ToolsVersionTests: XCTestCase {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
                 XCTFail()
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssert(stderr.contains("equires a minimum Swift tools version of 10000.1.0 (currently 4.0.0)"))
+                XCTAssert(stderr.contains("equires a minimum Swift tools version of 10000.1.0 (currently \(ToolsVersion.currentToolsVersion)"), stderr)
             }
 
             // Write the manifest with incompatible sources.
@@ -109,7 +118,7 @@ class ToolsVersionTests: XCTestCase {
                     """
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set-current"], packagePath: primaryPath).chomp()
+                ["tools-version", "--set", "4.0"], packagePath: primaryPath).chomp()
 
             do {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
@@ -117,7 +126,7 @@ class ToolsVersionTests: XCTestCase {
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTAssertTrue(
                     stderr.contains("package 'Primary' not compatible with current tools version (") &&
-                    stderr.contains("); it supports: 1000\n"))
+                    stderr.contains("); it supports: 1000\n"), stderr)
             }
 
              try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
@@ -131,12 +140,8 @@ class ToolsVersionTests: XCTestCase {
                     """
              }
              _ = try SwiftPMProduct.SwiftPackage.execute(
-                 ["tools-version", "--set-current"], packagePath: primaryPath).chomp()
+                 ["tools-version", "--set", "4.0"], packagePath: primaryPath).chomp()
              _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
         }
     }
-
-    static var allTests = [
-        ("testToolsVersion", testToolsVersion),
-    ]
 }

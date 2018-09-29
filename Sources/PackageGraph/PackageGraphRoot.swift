@@ -12,7 +12,6 @@ import Basic
 import Utility
 
 import PackageModel
-import PackageDescription4
 import SourceControl
 
 /// Represents the input to the package graph root.
@@ -37,9 +36,10 @@ public struct PackageGraphRootInput {
 public struct PackageGraphRoot {
 
     /// Represents a top level package dependencies.
+    // FIXME: We can kill this now.
     public struct PackageDependency {
 
-        public typealias Requirement = PackageDescription4.Package.Dependency.Requirement
+        public typealias Requirement = PackageModel.PackageDependencyDescription.Requirement
 
         // Location of this dependency.
         //
@@ -58,7 +58,8 @@ public struct PackageGraphRoot {
         public func createPackageRef() -> PackageReference {
             return PackageReference(
                 identity: PackageReference.computeIdentity(packageURL: url),
-                path: url
+                path: url,
+                isLocal: (requirement == .localPackage)
             )
         }
 
@@ -112,27 +113,29 @@ public struct PackageGraphRoot {
     }
 }
 
-extension PackageDescription4.Package.Dependency.Requirement {
+extension PackageDependencyDescription.Requirement {
 
     /// Returns the constraint requirement representation.
     public func toConstraintRequirement() -> RepositoryPackageConstraint.Requirement {
         switch self {
-        case .rangeItem(let range):
-            return .versionSet(.range(range.asUtilityVersion))
+        case .range(let range):
+            return .versionSet(.range(range))
 
-        case .revisionItem(let identifier):
-            assert(identifier.count == 40)
+        case .revision(let identifier):
             assert(Git.checkRefFormat(ref: identifier))
 
             return .revision(identifier)
 
-        case .branchItem(let identifier):
+        case .branch(let identifier):
             assert(Git.checkRefFormat(ref: identifier))
 
             return .revision(identifier)
 
-        case .exactItem(let version):
-            return .versionSet(.exact(Version(pdVersion: version)))
+        case .exact(let version):
+            return .versionSet(.exact(version))
+
+        case .localPackage:
+            return .unversioned
         }
     }
 }

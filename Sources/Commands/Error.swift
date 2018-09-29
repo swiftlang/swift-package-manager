@@ -22,9 +22,6 @@ enum Error: Swift.Error {
 
     /// The root manifest was not found.
     case rootManifestFileNotFound
-
-    /// There were fatal diagnostics during the operation.
-    case hasFatalDiagnostics
 }
 
 extension Error: CustomStringConvertible {
@@ -34,8 +31,6 @@ extension Error: CustomStringConvertible {
             return problem
         case .rootManifestFileNotFound:
             return "root manifest not found"
-        case .hasFatalDiagnostics:
-            return ""
         }
     }
 }
@@ -56,19 +51,12 @@ public func handle(error: Any) {
 private func _handle(_ error: Any) {
 
     switch error {
-    case Error.hasFatalDiagnostics:
+    case Diagnostics.fatalError:
         break
 
     case ArgumentParserError.expectedArguments(let parser, _):
         print(error: error)
         parser.printUsage(on: stderrStream)
-
-    case Package.Error.noManifest(let url, let version):
-        var string = "\(url) has no manifest"
-        if let version = version {
-            string += " for version \(version)"
-        }
-        print(error: string)
 
     default:
         print(error: error)
@@ -82,8 +70,20 @@ func print(error: Any) {
     writer.write("\n")
 }
 
-func print(diagnostic: Diagnostic) {
-    let writer = InteractiveWriter.stderr
+func print(diagnostic: Diagnostic, stdoutStream: OutputByteStream) {
+
+    let writer: InteractiveWriter
+
+    if diagnostic.behavior == .note {
+        writer = InteractiveWriter(stream: stdoutStream)
+    } else {
+        writer = InteractiveWriter.stderr
+    }
+
+    if !(diagnostic.location is UnknownLocation) {
+        writer.write(diagnostic.location.localizedDescription)
+        writer.write(": ")
+    }
 
     switch diagnostic.behavior {
     case .error:
@@ -91,7 +91,7 @@ func print(diagnostic: Diagnostic) {
     case .warning:
         writer.write("warning: ", inColor: .yellow, bold: true)
     case .note:
-        writer.write("note: ", inColor: .white, bold: true)
+        break
     case .ignored:
         return
     }
@@ -114,6 +114,9 @@ private final class InteractiveWriter {
     /// The standard error writer.
     static let stderr = InteractiveWriter(stream: stderrStream)
 
+    /// The standard output writer.
+    static let stdout = InteractiveWriter(stream: stdoutStream)
+
     /// The terminal controller, if present.
     let term: TerminalController?
 
@@ -122,7 +125,7 @@ private final class InteractiveWriter {
 
     /// Create an instance with the given stream.
     init(stream: OutputByteStream) {
-        self.term = (stream as? LocalFileOutputByteStream).flatMap(TerminalController.init(stream:))
+        self.term = TerminalController(stream: stream)
         self.stream = stream
     }
 

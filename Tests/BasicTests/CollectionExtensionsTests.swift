@@ -17,8 +17,4 @@ class CollectionExtensionsTests: XCTestCase {
         XCTAssertEqual([42].only, 42)
         XCTAssertEqual([42, 24].only, nil)
     }
-
-    static var allTests = [
-        ("testOnly", testOnly),
-    ]
 }

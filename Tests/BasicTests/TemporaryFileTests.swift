@@ -31,18 +31,47 @@ class TemporaryFileTests: XCTestCase {
             stream <<< "foo"
             stream <<< "bar"
             stream <<< "baz"
-            try fputs(stream.bytes.contents, file.fileHandle)
+            try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
 
             // Go to the beginning of the file.
             file.fileHandle.seek(toFileOffset: 0)
             // Read the contents.
-            let contents = try? file.fileHandle.readFileContents()
+            let contents = try localFileSystem.readFileContents(file.path)
             XCTAssertEqual(contents, "foobarbaz")
 
             filePath = file.path
         }
         // File should be deleted now.
         XCTAssertFalse(isFile(filePath))
+    }
+    
+    func testNoCleanupTemporaryFile() throws {
+        let filePath: AbsolutePath
+        do {
+            let file = try TemporaryFile(deleteOnClose: false)
+            
+            // Check if file is created.
+            XCTAssertTrue(isFile(file.path))
+            
+            // Try writing some data to the file.
+            let stream = BufferedOutputByteStream()
+            stream <<< "foo"
+            stream <<< "bar"
+            stream <<< "baz"
+            try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
+            
+            // Go to the beginning of the file.
+            file.fileHandle.seek(toFileOffset: 0)
+            // Read the contents.
+            let contents = try localFileSystem.readFileContents(file.path)
+            XCTAssertEqual(contents, "foobarbaz")
+            
+            filePath = file.path
+        }
+        // File should not be deleted.
+        XCTAssertTrue(isFile(filePath))
+        // Delete the file now
+        try localFileSystem.removeFileTree(filePath)
     }
 
     func testCanCreateUniqueTempFiles() throws {
@@ -129,12 +158,4 @@ class TemporaryFileTests: XCTestCase {
         let endFD = try Int(TemporaryFile().fileHandle.fileDescriptor)
         XCTAssertEqual(initialFD, endFD)
     }
-    
-    static var allTests = [
-        ("testBasicReadWrite", testBasicReadWrite),
-        ("testCanCreateUniqueTempFiles", testCanCreateUniqueTempFiles),
-        ("testBasicTemporaryDirectory", testBasicTemporaryDirectory),
-        ("testCanCreateUniqueTempDirectories", testCanCreateUniqueTempDirectories),
-        ("testLeaks", testLeaks),
-    ]
 }

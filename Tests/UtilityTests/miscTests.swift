@@ -43,9 +43,4 @@ class miscTests: XCTestCase {
             XCTAssertTrue(Version(string: v) == nil)
         }
     }
-
-    static var allTests = [
-        ("testClangVersionOutput", testClangVersionOutput),
-        ("testVersion", testVersion),
-    ]
 }

@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func libc.isatty
+import func SPMLibc.isatty
 
 public func isatty(_ fildes: Int32) -> Bool {
-    return libc.isatty(fildes) != 0
+    return SPMLibc.isatty(fildes) != 0
 }

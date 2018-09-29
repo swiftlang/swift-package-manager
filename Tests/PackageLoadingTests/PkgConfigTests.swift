@@ -16,8 +16,8 @@ import PackageLoading
 import Utility
 import TestSupport
 
-extension CTarget {
-    convenience init(pkgConfig: String, providers: [SystemPackageProvider] = []) {
+extension SystemLibraryTarget {
+    convenience init(pkgConfig: String, providers: [SystemPackageProviderDescription] = []) {
         self.init(
             name: "Foo",
             path: AbsolutePath("/fake"),
@@ -29,31 +29,32 @@ extension CTarget {
 class PkgConfigTests: XCTestCase {
 
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
+    let diagnostics = DiagnosticsEngine()
     
     func testBasics() throws {
         // No pkgConfig name.
         do {
-            let result = pkgConfigArgs(for: CTarget(pkgConfig: ""))
+            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: ""), diagnostics: diagnostics)
             XCTAssertNil(result)
         }
 
         // No pc file.
         do {
-            let target = CTarget(
+            let target = SystemLibraryTarget(
                 pkgConfig: "Foo",
                 providers: [
                     .brew(["libFoo"]),
                     .apt(["libFoo-dev"]),
                 ]
             )
-            let result = pkgConfigArgs(for: target)!
+            let result = pkgConfigArgs(for: target, diagnostics: diagnostics)!
             XCTAssertEqual(result.pkgConfigName, "Foo")
             XCTAssertEqual(result.cFlags, [])
             XCTAssertEqual(result.libs, [])
             switch result.provider {
-            case .brewItem(let names)?:
+            case .brew(let names)?:
                 XCTAssertEqual(names, ["libFoo"])
-            case .aptItem(let names)?:
+            case .apt(let names)?:
                 XCTAssertEqual(names, ["libFoo-dev"])
             case nil:
                 XCTFail("Expected a provider here")
@@ -68,7 +69,7 @@ class PkgConfigTests: XCTestCase {
 
         // Pc file.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.asString]) {
-            let result = pkgConfigArgs(for: CTarget(pkgConfig: "Foo"))!
+            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"), diagnostics: diagnostics)!
             XCTAssertEqual(result.pkgConfigName, "Foo")
             XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-I" + inputsDir.asString])
             XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
@@ -79,7 +80,7 @@ class PkgConfigTests: XCTestCase {
 
         // Pc file with non whitelisted flags.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.asString]) {
-            let result = pkgConfigArgs(for: CTarget(pkgConfig: "Bar"))!
+            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), diagnostics: diagnostics)!
             XCTAssertEqual(result.pkgConfigName, "Bar")
             XCTAssertEqual(result.cFlags, [])
             XCTAssertEqual(result.libs, [])
@@ -87,7 +88,7 @@ class PkgConfigTests: XCTestCase {
             XCTAssertFalse(result.couldNotFindConfigFile)
             switch result.error {
             case PkgConfigError.nonWhitelistedFlags(let desc)?:
-                XCTAssertEqual(desc, "Non whitelisted flags found: [\"-DBlackListed\"] in pc file Bar")
+                XCTAssertEqual(desc, "-DBlackListed")
             default:
                 XCTFail("unexpected error \(result.error.debugDescription)")
             }
@@ -97,15 +98,10 @@ class PkgConfigTests: XCTestCase {
     func testDependencies() throws {
         // Use additionalSearchPaths instead of pkgConfigArgs to test handling
         // of search paths when loading dependencies.
-        let result = try PkgConfig(name: "Dependent", additionalSearchPaths: [inputsDir])
+        let result = try PkgConfig(name: "Dependent", additionalSearchPaths: [inputsDir], diagnostics: diagnostics)
 
         XCTAssertEqual(result.name, "Dependent")
         XCTAssertEqual(result.cFlags, ["-I/path/to/dependent/include", "-I/path/to/dependency/include"])
         XCTAssertEqual(result.libs, ["-L/path/to/dependent/lib", "-L/path/to/dependency/lib"])
     }
-    
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testDependencies", testDependencies),
-    ]
 }

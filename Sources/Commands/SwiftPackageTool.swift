@@ -17,6 +17,7 @@ import SourceControl
 import Utility
 import Xcodeproj
 import Workspace
+import Foundation
 
 struct FetchDeprecatedDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
@@ -37,16 +38,23 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             toolName: "package",
             usage: "[options] subcommand",
             overview: "Perform operations on Swift packages",
-            args: args
+            args: args,
+            seeAlso: type(of: self).otherToolNames()
         )
     }
+    
     override func runImpl() throws {
         switch options.mode {
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
 
         case .initPackage:
-            let initPackage = try InitPackage(destinationPath: currentWorkingDirectory, packageType: options.initMode)
+            // FIXME: Error handling.
+            let cwd = localFileSystem.currentWorkingDirectory!
+            
+            let packageName = options.packageName ?? cwd.basename
+            let initPackage = try InitPackage(
+                name: packageName, destinationPath: cwd, packageType: options.initMode)
             initPackage.progressReporter = { message in
                 print(message)
             }
@@ -161,22 +169,64 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 dstdir = try getPackageRoot()
                 projectName = graph.rootPackages[0].name
             }
-            let outpath = try Xcodeproj.generate(
-                outputDir: dstdir,
-                projectName: projectName,
-                graph: graph,
-                options: options.xcodeprojOptions)
+            let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
 
-            print("generated:", outpath.prettyPath)
+            var genOptions = options.xcodeprojOptions
+            genOptions.manifestLoader = try getManifestLoader()
+
+            try Xcodeproj.generate(
+                projectName: projectName,
+                xcodeprojPath: xcodeprojPath,
+                graph: graph,
+                options: genOptions,
+                diagnostics: diagnostics
+            )
+
+            print("generated:", xcodeprojPath.prettyPath(cwd: originalWorkingDirectory))
+
+            // Run the file watcher if requested.
+            if options.xcodeprojOptions.enableAutogeneration {
+                try WatchmanHelper(
+                    diagnostics: diagnostics,
+                    watchmanScriptsDir: buildPath.appending(component: "watchman"),
+                    packageRoot: packageRoot!
+                ).runXcodeprojWatcher(options.xcodeprojOptions)
+            }
 
         case .describe:
-            let graph = try loadPackageGraph()
-            describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
+            let workspace = try getActiveWorkspace()
+            let root = try getWorkspaceRoot()
+            let manifest = workspace.loadRootManifests(
+                packages: root.packages, diagnostics: diagnostics)[0]
+
+            let builder = PackageBuilder(
+                manifest: manifest,
+                path: try getPackageRoot(),
+                diagnostics: diagnostics,
+                isRootPackage: true
+            )
+            let package = try builder.construct()
+            describe(package, in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
-            let graph = try loadPackageGraph()
-            let manifest = graph.rootPackages[0].manifest
-            print(try manifest.jsonString())
+            let workspace = try getActiveWorkspace()
+            let root = try getWorkspaceRoot()
+            let manifest = workspace.loadRootManifests(
+                packages: root.packages, diagnostics: diagnostics)[0]
+
+            let encoder = JSONEncoder()
+            encoder.userInfo[Manifest.dumpPackageKey] = true
+          #if os(macOS)
+            if #available(OSX 10.13, *) {
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            }
+          #else
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+          #endif
+
+            let jsonData = try encoder.encode(manifest)
+            let jsonString = String(data: jsonData, encoding: .utf8)!
+            print(jsonString)
 
         case .completionTool:
             switch options.completionToolMode {
@@ -250,6 +300,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 option: "--type", kind: InitPackage.PackageType.self,
                 usage: "empty|library|executable|system-module"),
             to: { $0.initMode = $1 })
+        
+        binder.bind(
+            option: initPackageParser.add(
+                option: "--name", kind: String.self,
+                usage: "Provide custom package name"),
+            to: { $0.packageName = $1 })
 
         let uneditParser = parser.add(
             subparser: PackageMode.unedit.rawValue,
@@ -305,11 +361,25 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 option: "--output", kind: PathArgument.self,
                 usage: "Path where the Xcode project should be generated"),
             to: {
-                $0.xcodeprojOptions = XcodeprojOptions(
-                    flags: $0.buildFlags,
-                    xcconfigOverrides: $1?.path,
-                    isCodeCoverageEnabled: $2)
+                $0.xcodeprojOptions.flags = $0.buildFlags
+                $0.xcodeprojOptions.xcconfigOverrides = $1?.path
+                if let val = $2 { $0.xcodeprojOptions.isCodeCoverageEnabled = val }
                 $0.outputPath = $3?.path
+            })
+        binder.bind(
+            generateXcodeParser.add(
+                option: "--legacy-scheme-generator", kind: Bool.self,
+                usage: "Use the legacy scheme generator"),
+            generateXcodeParser.add(
+                option: "--watch", kind: Bool.self,
+                usage: "Watch for changes to the Package manifest to regenerate the Xcode project"),
+            generateXcodeParser.add(
+                option: "--skip-extra-files", kind: Bool.self,
+                usage: "Do not add file references for extra files to the generated Xcode project"),
+            to: {
+                $0.xcodeprojOptions.useLegacySchemeGenerator = $1 ?? false
+                $0.xcodeprojOptions.enableAutogeneration = $2 ?? false
+                $0.xcodeprojOptions.addExtraFiles = !($3 ?? false)
             })
 
         let completionToolParser = parser.add(
@@ -318,7 +388,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             positional: completionToolParser.add(
                 positional: "mode",
-                kind: PackageToolOptions.CompletionToolMode.self),
+                kind: PackageToolOptions.CompletionToolMode.self,
+                usage: PackageToolOptions.CompletionToolMode.usageText()),
             to: { $0.completionToolMode = $1 })
 
         let resolveParser = parser.add(
@@ -366,6 +437,8 @@ public class PackageToolOptions: ToolOptions {
     var describeMode: DescribeMode = .text
 
     var initMode: InitPackage.PackageType = .library
+    
+    var packageName: String?
 
     var inputPath: AbsolutePath?
     var showDepsMode: ShowDependenciesMode = .text
@@ -383,11 +456,15 @@ public class PackageToolOptions: ToolOptions {
     var outputPath: AbsolutePath?
     var xcodeprojOptions = XcodeprojOptions()
 
-    enum CompletionToolMode: String {
+    enum CompletionToolMode: String, CaseIterable {
         case generateBashScript = "generate-bash-script"
         case generateZshScript = "generate-zsh-script"
         case listDependencies = "list-dependencies"
         case listExecutables = "list-executables"
+
+        static func usageText() -> String {
+            return self.allCases.map({ $0.rawValue }).joined(separator: " | ")
+        }
     }
     var completionToolMode: CompletionToolMode?
 
@@ -468,5 +545,11 @@ extension PackageToolOptions.CompletionToolMode: StringEnumArgument {
             (listDependencies.rawValue, "list all dependencies' names"),
             (listExecutables.rawValue, "list all executables' names"),
         ])
+    }
+}
+
+extension SwiftPackageTool: ToolName {
+    static var toolName: String {
+        return "swift package"
     }
 }

@@ -12,7 +12,6 @@ import XCTest
 
 import Basic
 import PackageGraph
-import PackageDescription
 import PackageModel
 import TestSupport
 
@@ -28,20 +27,30 @@ class PackageGraphPerfTests: XCTestCasePerf {
         for pkg in 1...N {
             let name = "Foo\(pkg)"
             let url = "/" + name
+
+            let dependencies: [PackageDependencyDescription]
+            let targets: [TargetDescription]
             // Create package.
-            let package: PackageDescription.Package
             if pkg == N {
-                package = Package(name: name)
+                dependencies = []
+                targets = [TargetDescription(name: name, path: ".")]
             } else {
                 let depUrl = "/Foo\(pkg + 1)"
-                package = Package(name: name, dependencies: [.Package(url: depUrl, majorVersion: 1)])
+                dependencies = [PackageDependencyDescription(url: depUrl, requirement: .upToNextMajor(from: "1.0.0"))]
+                targets = [TargetDescription(name: name, dependencies: [.byName(name: "Foo\(pkg + 1)")], path: ".")]
             }
             // Create manifest.
             let manifest = Manifest(
+                name: name,
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
-                package: .v3(package),
-                version: "1.0.0"
+                version: "1.0.0",
+                manifestVersion: .v4,
+                dependencies: dependencies,
+                products: [
+                    ProductDescription(name: name, targets: [name])
+                ],
+                targets: targets
             )
             if pkg == 1 {
                 rootManifests = [manifest]
@@ -58,7 +67,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 diagnostics: diagnostics,
                 fileSystem: fs)
             XCTAssertEqual(g.packages.count, N)
-            XCTAssertFalse(diagnostics.hasErrors)
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 }

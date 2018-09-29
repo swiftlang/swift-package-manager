@@ -12,7 +12,8 @@ import XCTest
 import Foundation
 
 import Basic
-import Commands
+@testable import Commands
+import Xcodeproj
 import PackageModel
 import SourceControl
 import TestSupport
@@ -22,11 +23,15 @@ import Workspace
 
 final class PackageToolTests: XCTestCase {
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, printIfError: true)
+        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath)
     }
 
     func testUsage() throws {
         XCTAssert(try execute(["--help"]).contains("USAGE: swift package"))
+    }
+
+    func testSeeAlso() throws {
+        XCTAssert(try execute(["--help"]).contains("SEE ALSO: swift build, swift run, swift test"))
     }
 
     func testVersion() throws {
@@ -44,24 +49,12 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
-    func testFetch() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
-
-            // Check that `fetch` works.
-            let output = try execute(["fetch"], packagePath: packageRoot)
-            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
-            XCTAssert(output.contains("deprecated"), output)
-        }
-    }
-
     func testUpdate() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
 
             // Perform an initial fetch.
-            _ = try execute(["fetch"], packagePath: packageRoot)
+            _ = try execute(["resolve"], packagePath: packageRoot)
             var path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
 
@@ -77,8 +70,9 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testDescribe() throws {
-        fixture(name: "ClangModules/SwiftCMixed") { prefix in
-            let output = try execute(["describe", "--type=json"], packagePath: prefix)
+        fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
+            let output = try result.utf8Output()
             let json = try JSON(bytes: ByteString(encodingAsUTF8: output))
 
             XCTAssertEqual(json["name"]?.string, "SwiftCMixed")
@@ -108,8 +102,6 @@ final class PackageToolTests: XCTestCase {
     func testDumpPackage() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let packageRoot = prefix.appending(component: "app")
-            // Fetch first so stdout doesn't contain any fetch progress related output.
-            _ = try execute(["fetch"], packagePath: packageRoot)
             let dumpOutput = try execute(["dump-package"], packagePath: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
@@ -121,27 +113,26 @@ final class PackageToolTests: XCTestCase {
     func testShowDependencies() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let packageRoot = prefix.appending(component: "app")
-            let textOutput = try execute(["show-dependencies", "--format=text"], packagePath: packageRoot)
+            let textOutput = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies", "--format=text"], packagePath: packageRoot).utf8Output()
             XCTAssert(textOutput.contains("FisherYates@1.2.3"))
 
-            // FIXME: We have to fetch first otherwise the fetching output is mingled with the JSON data.
-            let jsonOutput = try execute(["show-dependencies", "--format=json"], packagePath: packageRoot)
-            print("output = \(jsonOutput)")
+            let jsonOutput = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies", "--format=json"], packagePath: packageRoot).utf8Output()
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
             guard case let .string(name)? = contents["name"] else { XCTFail("unexpected result"); return }
             XCTAssertEqual(name, "Dealer")
             guard case let .string(path)? = contents["path"] else { XCTFail("unexpected result"); return }
             XCTAssertEqual(resolveSymlinks(AbsolutePath(path)), resolveSymlinks(packageRoot))
-        }
+        } 
     }
 
     func testInitEmpty() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
-            _ = try execute(["-C", path.asString, "init", "--type", "empty"])
+            _ = try execute(["init", "--type", "empty"], packagePath: path)
+            
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
@@ -150,10 +141,10 @@ final class PackageToolTests: XCTestCase {
 
     func testInitExecutable() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
-            _ = try execute(["-C", path.asString, "init", "--type", "executable"])
+            _ = try execute(["init", "--type", "executable"], packagePath: path)
 
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).asString!
@@ -162,16 +153,19 @@ final class PackageToolTests: XCTestCase {
 
             XCTAssertTrue(fs.exists(manifest))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
+            XCTAssertEqual(
+                try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
+                ["FooTests", "LinuxMain.swift"])
         }
     }
 
     func testInitLibrary() throws {
         mktmpdir { tmpPath in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
-            _ = try execute(["-C", path.asString, "init"])
+            _ = try execute(["init"], packagePath: path)
+            
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
             XCTAssertEqual(
@@ -179,17 +173,37 @@ final class PackageToolTests: XCTestCase {
                 ["FooTests", "LinuxMain.swift"])
         }
     }
-
+    
+    func testInitCustomNameExecutable() throws {
+        mktmpdir { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending(component: "Foo")
+            try fs.createDirectory(path)
+            _ = try execute(["init", "--name", "CustomName", "--type", "executable"], packagePath: path)
+            
+            let manifest = path.appending(component: "Package.swift")
+            let contents = try localFileSystem.readFileContents(manifest).asString!
+            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
+            XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version)\n"))
+            
+            XCTAssertTrue(fs.exists(manifest))
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "CustomName")), ["main.swift"])
+            XCTAssertEqual(
+                try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
+                ["CustomNameTests", "LinuxMain.swift"])
+        }
+    }
+    
     func testPackageEditAndUnedit() {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
             func build() throws -> String {
-                return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath, printIfError: true)
+                return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
             }
 
             // Put bar and baz in edit mode.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "bar", "--branch", "bugfix"], packagePath: fooPath, printIfError: true)
-            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "bar", "--branch", "bugfix"], packagePath: fooPath)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
             let exec = [fooPath.appending(components: ".build", Destination.host.target, "debug", "foo").asString]
@@ -201,7 +215,7 @@ final class PackageToolTests: XCTestCase {
             let bazEditsPath = fooPath.appending(components: "Packages", "baz")
             XCTAssert(isDirectory(bazEditsPath))
             // Removing baz externally should just emit an warning and not a build failure.
-            try removeFileTree(bazEditsPath)
+            try localFileSystem.removeFileTree(bazEditsPath)
 
             // Do a modification in bar and build.
             try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 88888\n")
@@ -233,11 +247,11 @@ final class PackageToolTests: XCTestCase {
             try editsRepo.push(remote: "origin", branch: "bugfix")
 
             // We should be able to unedit now.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], packagePath: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], packagePath: fooPath)
 
             // Test editing with a path i.e. ToT development.
             let bazTot = prefix.appending(component: "tot")
-            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], packagePath: fooPath, printIfError: true)
+            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], packagePath: fooPath)
             XCTAssertTrue(exists(bazTot))
             XCTAssertTrue(isSymlink(bazEditsPath))
 
@@ -248,12 +262,12 @@ final class PackageToolTests: XCTestCase {
             try localFileSystem.writeFileContents(bazTotPackageFile, bytes: stream.bytes)
 
             // Unediting baz will remove the symlink but not the checked out package.
-            try SwiftPMProduct.SwiftPackage.execute(["unedit", "baz"], packagePath: fooPath, printIfError: true)
+            try SwiftPMProduct.SwiftPackage.execute(["unedit", "baz"], packagePath: fooPath)
             XCTAssertTrue(exists(bazTot))
             XCTAssertFalse(isSymlink(bazEditsPath))
 
             // Check that on re-editing with path, we don't make a new clone.
-            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], packagePath: fooPath, printIfError: true)
+            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], packagePath: fooPath)
             XCTAssertTrue(isSymlink(bazEditsPath))
             XCTAssertEqual(try localFileSystem.readFileContents(bazTotPackageFile), stream.bytes)
         }
@@ -309,7 +323,7 @@ final class PackageToolTests: XCTestCase {
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath, printIfError: printError)
+                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath)
             }
 
             try execute("update")
@@ -351,7 +365,7 @@ final class PackageToolTests: XCTestCase {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
             func build() throws -> String {
-                let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath, printIfError: true)
+                let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
                 return buildOutput
             }
             let exec = [fooPath.appending(components: ".build", Destination.host.target, "debug", "foo").asString]
@@ -386,8 +400,8 @@ final class PackageToolTests: XCTestCase {
             }
 
             @discardableResult
-            func execute(_ args: String..., printError: Bool = true) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath, printIfError: printError)
+            func execute(_ args: String...) throws -> String {
+                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath)
             }
             
             // Try to pin bar.
@@ -425,7 +439,7 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("edit", "bar", "--branch", "bugfix")
                 do {
-                    try execute("resolve", "bar", printError: false)
+                    try execute("resolve", "bar")
                     XCTFail("This should have been an error")
                 } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                     XCTAssertEqual(stderr, "error: dependency 'bar' already in edit mode\n")
@@ -437,7 +451,7 @@ final class PackageToolTests: XCTestCase {
 
     func testSymlinkedDependency() {
         mktmpdir { path in
-            var fs = localFileSystem
+            let fs = localFileSystem
             let root = path.appending(components: "root")
             let dep = path.appending(components: "dep")
             let depSym = path.appending(components: "depSym")
@@ -485,23 +499,34 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
-    static var allTests = [
-        ("testDescribe", testDescribe),
-        ("testUsage", testUsage),
-        ("testVersion", testVersion),
-        ("testFetch", testFetch),
-        ("testResolve", testResolve),
-        ("testUpdate", testUpdate),
-        ("testDumpPackage", testDumpPackage),
-        ("testShowDependencies", testShowDependencies),
-        ("testInitEmpty", testInitEmpty),
-        ("testInitExecutable", testInitExecutable),
-        ("testInitLibrary", testInitLibrary),
-        ("testPackageClean", testPackageClean),
-        ("testPackageEditAndUnedit", testPackageEditAndUnedit),
-        ("testPackageReset", testPackageReset),
-        ("testPinning", testPinning),
-        ("testPinningBranchAndRevision", testPinningBranchAndRevision),
-        ("testSymlinkedDependency", testSymlinkedDependency),
-    ]
+    func testWatchmanXcodeprojgen() {
+        mktmpdir { path in
+            let fs = localFileSystem
+            let diagnostics = DiagnosticsEngine()
+
+            let scriptsDir = path.appending(component: "scripts")
+            let packageRoot = path.appending(component: "root")
+
+            let helper = WatchmanHelper(
+                diagnostics: diagnostics,
+                watchmanScriptsDir: scriptsDir,
+                packageRoot: packageRoot)
+
+            let script = try helper.createXcodegenScript(
+                XcodeprojOptions(xcconfigOverrides: .init("/tmp/overrides.xcconfig")))
+
+            XCTAssertEqual(try fs.readFileContents(script), """
+                #!/usr/bin/env bash
+
+
+                # Autogenerated by SwiftPM. Do not edit!
+
+
+                set -eu
+
+                swift package generate-xcodeproj --xcconfig-overrides /tmp/overrides.xcconfig
+
+                """)
+        }
+    }
 }

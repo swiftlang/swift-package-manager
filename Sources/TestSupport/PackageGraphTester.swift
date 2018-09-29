@@ -34,8 +34,7 @@ public final class PackageGraphResult {
 
     public func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
-            graph.packages
-                .flatMap{ $0.targets }
+            graph.allTargets
                 .filter{ $0.type != .test }
                 .map{ $0.name }
                 .sorted(), targets.sorted(), file: file, line: line)
@@ -43,20 +42,14 @@ public final class PackageGraphResult {
 
     public func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
-            graph.packages
-                .flatMap{ $0.targets }
+            graph.allTargets
                 .filter{ $0.type == .test }
                 .map{ $0.name }
                 .sorted(), testModules.sorted(), file: file, line: line)
     }
 
     public func find(target: String) -> ResolvedTarget? {
-        for pkg in graph.packages {
-            if let target = pkg.targets.first(where: { $0.name == target }) {
-                return target
-            }
-        }
-        return nil
+        return graph.allTargets.first(where: { $0.name == target })
     }
 
     public func check(dependencies: String..., target name: String, file: StaticString = #file, line: UInt = #line) {

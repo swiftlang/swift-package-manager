@@ -12,8 +12,6 @@ import func XCTest.XCTFail
 import class Foundation.NSDate
 
 import Basic
-import PackageDescription
-import PackageDescription4
 import PackageGraph
 import PackageModel
 import POSIX
@@ -145,7 +143,6 @@ private var globalSymbolInMainBinary = 0
 public func executeSwiftBuild(
     _ packagePath: AbsolutePath,
     configuration: Configuration = .Debug,
-    printIfError: Bool = false,
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
@@ -162,7 +159,7 @@ public func executeSwiftBuild(
     args += Xld.flatMap({ ["-Xlinker", $0] })
     args += Xswiftc.flatMap({ ["-Xswiftc", $0] })
 
-    return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env, printIfError: printIfError)
+    return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env)
 }
 
 /// Test helper utility for executing a block with a temporary directory.
@@ -200,55 +197,33 @@ public func systemQuietly(_ args: String...) throws {
     try systemQuietly(args)
 }
 
-/// Loads a mock package graph based on package packageMap dictionary provided where key is path to a package.
-public func loadMockPackageGraph(
-    _ packageMap: [String: PackageDescription.Package],
-    root: String,
+public func loadPackageGraph(
+    roots: [String],
+    fs: FileSystem,
     diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
-    in fs: FileSystem
+    manifests: [Manifest]
 ) -> PackageGraph {
-    var externalManifests = [Manifest]()
-    var rootManifest: Manifest!
-    for (url, package) in packageMap {
-        let manifest = Manifest(
-            path: AbsolutePath(url).appending(component: Manifest.filename),
-            url: url,
-            package: .v3(package),
-            version: "1.0.0"
-        )
-        if url == root {
-            rootManifest = manifest
-        } else {
-            externalManifests.append(manifest)
-        }
-    }
-    let root = PackageGraphRoot(input: PackageGraphRootInput(packages: [AbsolutePath(root)]), manifests: [rootManifest])
-    return PackageGraphLoader().load(root: root, externalManifests: externalManifests, diagnostics: diagnostics, fileSystem: fs)
+    let input = PackageGraphRootInput(packages: roots.map({ AbsolutePath($0) }))
+    let rootManifests = manifests.filter({ roots.contains($0.path.parentDirectory.asString) })
+    let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests)
+    let externalManifests = manifests.filter({ !roots.contains($0.path.parentDirectory.asString) })
+
+    return PackageGraphLoader().load(
+        root: graphRoot,
+        externalManifests: externalManifests,
+        diagnostics: diagnostics,
+        fileSystem: fs)
 }
 
-public func loadMockPackageGraph4(
-    _ packageMap: [String: PackageDescription4.Package],
+public func loadPackageGraph(
     root: String,
+    fs: FileSystem,
     diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
-    in fs: FileSystem
+    manifests: [Manifest]
 ) -> PackageGraph {
-    var externalManifests = [Manifest]()
-    var rootManifest: Manifest!
-    for (url, package) in packageMap {
-        let manifest = Manifest(
-            path: AbsolutePath(url).appending(component: Manifest.filename),
-            url: url,
-            package: .v4(package),
-            version: "1.0.0"
-        )
-        if url == root {
-            rootManifest = manifest
-        } else {
-            externalManifests.append(manifest)
-        }
-    }
-    let root = PackageGraphRoot(input: PackageGraphRootInput(packages: [AbsolutePath(root)]), manifests: [rootManifest])
-    return PackageGraphLoader().load(root: root, externalManifests: externalManifests, diagnostics: diagnostics, fileSystem: fs)
+    return loadPackageGraph(
+        roots: [root], fs: fs,
+        diagnostics: diagnostics, manifests: manifests)
 }
 
 /// Temporary override environment variables

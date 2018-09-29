@@ -13,6 +13,7 @@ import Utility
 import PackageModel
 import PackageLoading
 import PackageGraph
+import Foundation
 
 public struct ManifestParseDiagnostic: DiagnosticData {
     public static let id = DiagnosticID(
@@ -29,23 +30,45 @@ public struct ManifestParseDiagnostic: DiagnosticData {
     }
 }
 
+public struct ManifestDuplicateDeclDiagnostic: DiagnosticData {
+    public static let id = DiagnosticID(
+        type: ManifestParseDiagnostic.self,
+        name: "org.swift.diags.manifest-dup-dep-decl",
+        description: {
+            $0 <<< .substitution({
+                let `self` = $0 as! ManifestDuplicateDeclDiagnostic
+                let stream = BufferedOutputByteStream()
+
+                stream <<< "manifest parse error(s): duplicate dependency declaration\n"
+                let indent = Format.asRepeating(string: " ", count: 4)
+
+                for duplicateDecls in self.duplicates {
+                    for duplicate in duplicateDecls {
+                        stream <<< indent <<< duplicate.url <<< " @ " <<< "\(duplicate.requirement)" <<< "\n"
+                    }
+                    stream <<< "\n"
+                }
+
+                return stream.bytes.asString!
+            }, preference: .default)
+        }
+    )
+
+    public let duplicates: [[PackageDependencyDescription]]
+    public init(_ duplicates: [[PackageDependencyDescription]]) {
+        self.duplicates = duplicates
+    }
+}
+
 extension ManifestParseError: DiagnosticDataConvertible {
     public var diagnosticData: DiagnosticData {
         switch self {
-        case let .emptyManifestFile(url, version):
-            let stream = BufferedOutputByteStream()
-            stream <<< "The manifest file at " <<< url <<< " "
-            if let version = version {
-                stream <<< "(" <<< version <<< ") "
-            }
-            stream <<< "is empty"
-            return ManifestParseDiagnostic([stream.bytes.asString!])
-        case .invalidEncoding:
-            return ManifestParseDiagnostic(["The manifest has invalid encoding"])
         case .invalidManifestFormat(let error):
             return ManifestParseDiagnostic([error])
         case .runtimeManifestErrors(let errors):
             return ManifestParseDiagnostic(errors)
+        case .duplicateDependencyDecl(let duplicates):
+            return ManifestDuplicateDeclDiagnostic(duplicates)
         }
     }
 }
@@ -111,6 +134,21 @@ public enum ResolverDiagnostics {
     }
 }
 
+public struct InvalidToolchainDiagnostic: DiagnosticData, Error {
+    public static let id = DiagnosticID(
+        type: InvalidToolchainDiagnostic.self,
+        name: "org.swift.diags.invalid-toolchain",
+        description: {
+            $0 <<< "toolchain is invalid:" <<< { $0.error }
+        }
+    )
+
+    public let error: String
+    public init(_ error: String) {
+        self.error = error
+    }
+}
+
 public enum WorkspaceDiagnostics {
 
     //MARK: - Errors
@@ -143,6 +181,18 @@ public enum WorkspaceDiagnostics {
         public let repositoryPath: AbsolutePath
     }
     
+    public struct LocalDependencyEdited: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: LocalDependencyEdited.self,
+            name: "org.swift.diags.workspace.local-dependency-edited",
+            description: {
+                $0 <<< "local dependency" <<< { "'\($0.dependencyName)'" } <<< "can't be edited"
+            })
+
+        /// The name of the dependency being edited.
+        public let dependencyName: String
+    }
+
     /// The diagnostic triggered when the edit operation fails because the dependency
     /// is already in edit mode.
     public struct DependencyAlreadyInEditMode: DiagnosticData, Swift.Error {
@@ -178,7 +228,7 @@ public enum WorkspaceDiagnostics {
             type: BranchAlreadyExists.self,
             name: "org.swift.diags.workspace.branch-already-exists",
             description: {
-                $0 <<< "branch" <<< { "'\($0.branch)''" } <<< "already exists"
+                $0 <<< "branch" <<< { "'\($0.branch)'" } <<< "already exists"
             })
         
         /// The branch to create.
@@ -312,5 +362,36 @@ public enum WorkspaceDiagnostics {
 
         /// The branch name
         public let branchName: String
+    }
+
+    public struct ResolverDurationNote: DiagnosticData {
+        public static let id = DiagnosticID(
+            type: ResolverDurationNote.self,
+            name: "\(ResolverDurationNote.self)",
+            defaultBehavior: .note,
+            description: {
+                $0 <<< "Completed resolution in" <<< { String(format: "%.2f", $0.duration) + "s" }
+            }
+        )
+
+        public let duration: Double
+
+        public init(_ duration: Double) {
+            self.duration = duration
+        }
+    }
+
+    public struct PD3DeprecatedDiagnostic: DiagnosticData {
+        public static let id = DiagnosticID(
+            type: PD3DeprecatedDiagnostic.self,
+            name: "org.swift.diags.workspace.\(PD3DeprecatedDiagnostic.self)",
+            defaultBehavior: .warning,
+            description: {
+                $0 <<< "PackageDescription API v3 is deprecated and will be removed in the future;"
+                $0 <<< "used by package(s):" <<< { $0.manifests.joined(separator: ", ") }
+            }
+        )
+
+        let manifests: [String]
     }
 }

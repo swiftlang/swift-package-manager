@@ -40,11 +40,26 @@ public class ToolOptions {
     /// Disables sandboxing when executing subprocesses.
     public var shouldDisableSandbox = false
 
+    /// Disables manifest caching.
+    public var shouldDisableManifestCaching = false
+
     /// Path to the compilation destination describing JSON file.
     public var customCompileDestination: AbsolutePath?
 
     /// If should link the Swift stdlib statically.
     public var shouldLinkStaticSwiftStdlib = false
+    
+    /// If should enable building with llbuild library.
+    public var shouldEnableLLBuildLibrary = true
+
+    /// Skip updating dependencies from their remote during a resolution.
+    public var skipDependencyUpdate = false
+
+    /// Which compile-time sanitizers should be enabled.
+    public var sanitizers = EnabledSanitizers()
+
+    /// Whether to enable code coverage.
+    public var shouldEnableCodeCoverage = false
 
     public required init() {}
 }

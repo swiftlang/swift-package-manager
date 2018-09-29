@@ -9,41 +9,9 @@
 */
 
 import XCTest
+import TestSupport
+import SPMLibc
 @testable import Basic
-import libc
-
-final class PseudoTerminal {
-    let master: Int32
-    let slave: Int32
-    var outStream: LocalFileOutputByteStream
-
-    init?(){
-        var master: Int32 = 0
-        var slave: Int32 = 0
-        if openpty(&master, &slave, nil, nil, nil) != 0 {
-            return nil
-        }
-        guard let outStream = try? LocalFileOutputByteStream(filePointer: fdopen(slave, "w"), closeOnDeinit: false) else {
-            return nil
-        }
-        self.outStream = outStream
-        self.master = master
-        self.slave = slave
-    }
-
-    func readMaster(maxChars n: Int = 1000) -> String? {
-        var buf: [CChar] = [CChar](repeating: 0, count: n)
-        if read(master, &buf, n) <= 0 {
-            return nil
-        }
-        return String(cString: buf)
-    }
-
-    func close() {
-        _ = libc.close(slave)
-        _ = libc.close(master)
-    }
-}
 
 final class TerminalControllerTests: XCTestCase {
     func testBasic() {
@@ -76,8 +44,4 @@ final class TerminalControllerTests: XCTestCase {
         XCTAssertEqual(wrapped, "\u{001B}[32mgreen\u{001B}[0m")
         pty.close()
     }
-
-    static var allTests = [
-        ("testBasic", testBasic),
-    ]
 }

@@ -12,7 +12,8 @@ import XCTest
 
 import Basic
 import TestSupport
-import libc
+import SPMLibc
+import POSIX
 
 class FileSystemTests: XCTestCase {
 
@@ -29,9 +30,11 @@ class FileSystemTests: XCTestCase {
         let file = try! TemporaryFile()
         XCTAssertTrue(fs.exists(file.path))
         XCTAssertTrue(fs.isFile(file.path))
+        XCTAssertEqual(try fs.getFileInfo(file.path).kind, .file)
         XCTAssertFalse(fs.isDirectory(file.path))
         XCTAssertFalse(fs.isFile(AbsolutePath("/does-not-exist")))
         XCTAssertFalse(fs.isSymlink(AbsolutePath("/does-not-exist")))
+        XCTAssertThrowsError(try fs.getFileInfo(AbsolutePath("/does-not-exist")))
 
         // isSymlink()
         let tempDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
@@ -39,6 +42,8 @@ class FileSystemTests: XCTestCase {
         try! createSymlink(sym, pointingAt: file.path)
         XCTAssertTrue(fs.isSymlink(sym))
         XCTAssertTrue(fs.isFile(sym))
+        XCTAssertEqual(try fs.getFileInfo(sym).kind, .file)
+        XCTAssertEqual(try fs.getFileInfo(sym, followSymlink: false).kind, .symlink)
         XCTAssertFalse(fs.isDirectory(sym))
 
         // isExecutableFile
@@ -71,8 +76,39 @@ class FileSystemTests: XCTestCase {
         XCTAssertTrue(thisDirectoryContents.contains(where: { $0 == AbsolutePath(#file).basename }))
     }
 
+    func testLocalExistsSymlink() throws {
+        mktmpdir { path in
+            let fs = Basic.localFileSystem
+
+            let source = path.appending(component: "source")
+            let target = path.appending(component: "target")
+            try fs.writeFileContents(target, bytes: "source")
+
+            // Source and target exist.
+
+            try createSymlink(source, pointingAt: target)
+            XCTAssertEqual(fs.exists(source), true)
+            XCTAssertEqual(fs.exists(source, followSymlink: true), true)
+            XCTAssertEqual(fs.exists(source, followSymlink: false), true)
+
+            // Source only exists.
+
+            try fs.removeFileTree(target)
+            XCTAssertEqual(fs.exists(source), false)
+            XCTAssertEqual(fs.exists(source, followSymlink: true), false)
+            XCTAssertEqual(fs.exists(source, followSymlink: false), true)
+            
+            // None exist.
+
+            try fs.removeFileTree(source)
+            XCTAssertEqual(fs.exists(source), false)
+            XCTAssertEqual(fs.exists(source, followSymlink: true), false)
+            XCTAssertEqual(fs.exists(source, followSymlink: false), false)
+        }
+    }
+
     func testLocalCreateDirectory() throws {
-        var fs = Basic.localFileSystem
+        let fs = Basic.localFileSystem
         
         let tmpDir = try TemporaryDirectory(prefix: #function, removeTreeOnDeinit: true)
         do {
@@ -93,7 +129,7 @@ class FileSystemTests: XCTestCase {
     }
 
     func testLocalReadWriteFile() throws {
-        var fs = Basic.localFileSystem
+        let fs = Basic.localFileSystem
         
         let tmpDir = try TemporaryDirectory(prefix: #function, removeTreeOnDeinit: true)
         // Check read/write of a simple file.
@@ -103,7 +139,23 @@ class FileSystemTests: XCTestCase {
         XCTAssertTrue(fs.isFile(filePath))
         let data = try! fs.readFileContents(filePath)
         XCTAssertEqual(data, ByteString(testData))
+        
+        // Atomic writes
+        let inMemoryFilePath = AbsolutePath("/file.text")
+        XCTAssertNoThrow(try Basic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: true))
+        XCTAssertNoThrow(try Basic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: false))
+        // Local file system does support atomic writes, so it doesn't throw.
+        let byteString = ByteString(testData)
+        let filePath1 = tmpDir.path.appending(components: "test-data-1.txt")
+        XCTAssertNoThrow(try fs.writeFileContents(filePath1, bytes: byteString, atomically: false))
+        let read1 = try fs.readFileContents(filePath1)
+        XCTAssertEqual(read1, byteString)
 
+        let filePath2 = tmpDir.path.appending(components: "test-data-2.txt")
+        XCTAssertNoThrow(try fs.writeFileContents(filePath2, bytes: byteString, atomically: true))
+        let read2 = try fs.readFileContents(filePath2)
+        XCTAssertEqual(read2, byteString)
+                
         // Check overwrite of a file.
         try! fs.writeFileContents(filePath, bytes: "Hello, new world!")
         XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
@@ -148,7 +200,7 @@ class FileSystemTests: XCTestCase {
 
     func testRemoveFileTree() throws {
         mktmpdir { path in
-            try removeFileTreeTester(fs: &localFileSystem, basePath: path)
+            try removeFileTreeTester(fs: localFileSystem, basePath: path)
         }
     }
 
@@ -299,8 +351,8 @@ class FileSystemTests: XCTestCase {
     }
 
     func testInMemRemoveFileTree() throws {
-        var fs = InMemoryFileSystem() as FileSystem
-        try removeFileTreeTester(fs: &fs, basePath: .root)
+        let fs = InMemoryFileSystem() as FileSystem
+        try removeFileTreeTester(fs: fs, basePath: .root)
     }
 
 
@@ -308,12 +360,12 @@ class FileSystemTests: XCTestCase {
 
     func testRootedFileSystem() throws {
         // Create the test file system.
-        var baseFileSystem = InMemoryFileSystem() as FileSystem
+        let baseFileSystem = InMemoryFileSystem() as FileSystem
         try baseFileSystem.createDirectory(AbsolutePath("/base/rootIsHere/subdir"), recursive: true)
         try baseFileSystem.writeFileContents(AbsolutePath("/base/rootIsHere/subdir/file"), bytes: "Hello, world!")
 
         // Create the rooted file system.
-        var rerootedFileSystem = RerootedFileSystemView(&baseFileSystem, rootedAt: AbsolutePath("/base/rootIsHere"))
+        let rerootedFileSystem = RerootedFileSystemView(baseFileSystem, rootedAt: AbsolutePath("/base/rootIsHere"))
 
         // Check that it has the appropriate view.
         XCTAssert(rerootedFileSystem.exists(AbsolutePath("/subdir")))
@@ -330,7 +382,7 @@ class FileSystemTests: XCTestCase {
     func testSetAttribute() throws {
       #if os(macOS)
         mktmpdir { path in
-            var fs = Basic.localFileSystem
+            let fs = Basic.localFileSystem
 
             let dir = path.appending(component: "dir")
             let foo = dir.appending(component: "foo")
@@ -373,20 +425,6 @@ class FileSystemTests: XCTestCase {
         }
       #endif
     }
-    
-    static var allTests = [
-        ("testLocalBasics", testLocalBasics),
-        ("testLocalCreateDirectory", testLocalCreateDirectory),
-        ("testLocalReadWriteFile", testLocalReadWriteFile),
-        ("testInMemoryBasics", testInMemoryBasics),
-        ("testInMemoryCreateDirectory", testInMemoryCreateDirectory),
-        ("testInMemoryFsCopy", testInMemoryFsCopy),
-        ("testInMemoryReadWriteFile", testInMemoryReadWriteFile),
-        ("testRootedFileSystem", testRootedFileSystem),
-        ("testRemoveFileTree", testRemoveFileTree),
-        ("testSetAttribute", testSetAttribute),
-        ("testInMemRemoveFileTree", testInMemRemoveFileTree),
-    ]
 }
 
 /// Helper method to test file tree removal method on the given file system.
@@ -394,7 +432,7 @@ class FileSystemTests: XCTestCase {
 /// - Parameters:
 ///   - fs: The filesystem to test on.
 ///   - basePath: The path at which the temporary file strucutre should be created.
-private func removeFileTreeTester(fs: inout FileSystem, basePath path: AbsolutePath, file: StaticString = #file, line: UInt = #line) throws {
+private func removeFileTreeTester(fs: FileSystem, basePath path: AbsolutePath, file: StaticString = #file, line: UInt = #line) throws {
     // Test removing folders.
     let folders = path.appending(components: "foo", "bar", "baz")
     try fs.createDirectory(folders, recursive: true)

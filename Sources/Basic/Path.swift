@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -28,7 +28,7 @@
 /// normalization, because it is normally the responsibility of the shell and
 /// not the program being invoked (e.g. when invoking `cd ~`, it is the shell
 /// that evaluates the tilde; the `cd` command receives an absolute path).
-public struct AbsolutePath {
+public struct AbsolutePath: Hashable {
     /// Check if the given name is a valid individual path component.
     ///
     /// This only checks with regard to the semantics enforced by `AbsolutePath`
@@ -96,6 +96,18 @@ public struct AbsolutePath {
     /// Convenience initializer that appends a string to a relative path.
     public init(_ absPath: AbsolutePath, _ relStr: String) {
         self.init(absPath, RelativePath(relStr))
+    }
+
+    /// Convenience initializer that verifies that the path is absolute.
+    public init(validating path: String) throws {
+        switch path.first {
+        case "/":
+            self.init(path)
+        case "~":
+            throw PathValidationError.startsWithTilde(path)
+        default:
+            throw PathValidationError.invalidAbsolutePath(path)
+        }
     }
 
     /// Directory component.  An absolute path always has a non-empty directory
@@ -226,7 +238,7 @@ public struct AbsolutePath {
 /// This string manipulation may change the meaning of a path if any of the
 /// path components are symbolic links on disk.  However, the file system is
 /// never accessed in any way when initializing a RelativePath.
-public struct RelativePath {
+public struct RelativePath: Hashable {
     /// Private implementation details, shared with the AbsolutePath struct.
     fileprivate let _impl: PathImpl
 
@@ -238,6 +250,16 @@ public struct RelativePath {
     public init(_ string: String) {
         // Normalize the relative string and store it as our PathImpl.
         _impl = PathImpl(string: normalize(relative: string))
+    }
+
+    /// Convenience initializer that verifies that the path is relative.
+    public init(validating path: String) throws {
+        switch path.first {
+        case "/", "~":
+            throw PathValidationError.invalidRelativePath(path)
+        default:
+            self.init(path)
+        }
     }
 
     /// Directory component.  For a relative path without any path separators,
@@ -287,60 +309,47 @@ public struct RelativePath {
     }
 }
 
-// Make absolute paths Hashable.
-extension AbsolutePath : Hashable {
-    public var hashValue: Int {
-        return self.asString.hashValue
+extension AbsolutePath: Codable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(asString)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        try self.init(container.decode(String.self))
     }
 }
 
-// Make absolute paths Equatable.
-extension AbsolutePath : Equatable {
-    public static func == (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-        return lhs.asString == rhs.asString
+extension RelativePath: Codable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(asString)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        try self.init(container.decode(String.self))
     }
 }
 
 // Make absolute paths Comparable.
-extension AbsolutePath : Comparable {
+extension AbsolutePath: Comparable {
     public static func < (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
         return lhs.asString < rhs.asString
-    }
-    public static func <= (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-        return lhs.asString <= rhs.asString
-    }
-    public static func >= (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-        return lhs.asString >= rhs.asString
-    }
-    public static func > (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-        return lhs.asString > rhs.asString
     }
 }
 
 /// Make absolute paths CustomStringConvertible.
-extension AbsolutePath : CustomStringConvertible {
+extension AbsolutePath: CustomStringConvertible {
     public var description: String {
         // FIXME: We should really be escaping backslashes and quotes here.
         return "<AbsolutePath:\"\(asString)\">"
     }
 }
 
-// Make relative paths Hashable.
-extension RelativePath : Hashable {
-    public var hashValue: Int {
-        return self.asString.hashValue
-    }
-}
-
-// Make relative paths Equatable.
-extension RelativePath : Equatable {
-    public static func == (lhs: RelativePath, rhs: RelativePath) -> Bool {
-        return lhs.asString == rhs.asString
-    }
-}
-
 /// Make relative paths CustomStringConvertible.
-extension RelativePath : CustomStringConvertible {
+extension RelativePath: CustomStringConvertible {
     public var description: String {
         // FIXME: We should really be escaping backslashes and quotes here.
         return "<RelativePath:\"\(asString)\">"
@@ -354,7 +363,7 @@ extension RelativePath : CustomStringConvertible {
 /// different.
 // FIXME: This is internal due to this bug: https://bugs.swift.org/browse/SR-3009
 // but otherwise should be private.
-struct PathImpl {
+struct PathImpl: Hashable {
     /// Normalized string of the (absolute or relative) path.  Never empty.
     fileprivate let string: String
 
@@ -433,6 +442,26 @@ struct PathImpl {
     }
 }
 
+/// Describes the way in which a path is invalid.
+public enum PathValidationError: Error {
+    case startsWithTilde(String)
+    case invalidAbsolutePath(String)
+    case invalidRelativePath(String)
+}
+
+extension PathValidationError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .startsWithTilde(let path):
+            return "invalid absolute path '\(path)'; absolute path must begin with '/'"
+        case .invalidAbsolutePath(let path):
+            return "invalid absolute path '\(path)'"
+        case .invalidRelativePath(let path):
+            return "invalid relative path '\(path)'; relative path should not begin with '/' or '~'"
+        }
+    }
+}
+
 extension AbsolutePath {
     /// Returns a relative path that, when concatenated to `base`, yields the
     /// callee path itself.  If `base` is not an ancestor of the callee, the
@@ -485,6 +514,7 @@ extension AbsolutePath {
     public func contains(_ other: AbsolutePath) -> Bool {
         return self.components.starts(with: other.components)
     }
+
 }
 
 // FIXME: We should consider whether to merge the two `normalize()` functions.

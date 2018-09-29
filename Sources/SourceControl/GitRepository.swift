@@ -92,6 +92,13 @@ public class GitRepositoryProvider: RepositoryProvider {
         }
     }
 
+    public func checkoutExists(at path: AbsolutePath) throws -> Bool {
+        precondition(exists(path))
+
+        let result = try Process.popen(args: Git.tool, "-C", path.asString, "rev-parse", "--is-bare-repository")
+        return try result.exitStatus == .terminated(code: 0) && result.utf8Output().chomp() == "false"
+    }
+
     public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
         return GitRepository(path: path)
     }
@@ -100,6 +107,9 @@ public class GitRepositoryProvider: RepositoryProvider {
 enum GitInterfaceError: Swift.Error {
     /// This indicates a problem communicating with the `git` tool.
     case malformedResponse(String)
+
+    /// This indicates that a fatal error was encountered
+    case fatalError
 }
 
 /// A basic `git` repository. This class is thread safe.
@@ -114,7 +124,7 @@ enum GitInterfaceError: Swift.Error {
 // class.
 public class GitRepository: Repository, WorkingCheckout {
     /// A hash object.
-    struct Hash: Equatable, Hashable {
+    struct Hash: Hashable {
         // FIXME: We should optimize this representation.
         let bytes: ByteString
 
@@ -142,10 +152,6 @@ public class GitRepository: Repository, WorkingCheckout {
                 }
             }
             self.bytes = ByteString(bytes)
-        }
-
-        public var hashValue: Int {
-            return bytes.hashValue
         }
     }
 
@@ -298,22 +304,15 @@ public class GitRepository: Repository, WorkingCheckout {
         }
     }
 
-    public func hasUncommitedChanges() -> Bool {
+    public func hasUncommittedChanges() -> Bool {
         // Only a work tree can have changes.
         guard isWorkingRepo else { return false }
         return queue.sync {
-            // Detect if there is a staged or unstaged diff.
-            // This won't detect new untracked files, but it is
-            // just a safety measure for now.
-            let args = [Git.tool, "-C", path.asString, "diff", "--no-ext-diff", "--quiet", "--exit-code"]
-            var nonZeroExit = false
-
-            for args in [args, args + ["--cached"]] {
-                let result = try? Process.popen(arguments: args)
-                nonZeroExit = nonZeroExit || result?.exitStatus != .terminated(code: 0)
+            // Check nothing has been changed
+            guard let result = try? Process.checkNonZeroExit(args: Git.tool, "-C", path.asString, "status", "-s") else {
+                return false
             }
-
-            return nonZeroExit
+            return !result.chomp().isEmpty
         }
     }
 
@@ -382,6 +381,48 @@ public class GitRepository: Repository, WorkingCheckout {
             try Process.checkNonZeroExit(
                 args: Git.tool, "-C", path.asString, "checkout", "-b", newBranch)
             return
+        }
+    }
+
+    /// Returns true if there is an alternative object store in the repository and it is valid.
+    public func isAlternateObjectStoreValid() -> Bool {
+        let objectStoreFile = path.appending(components: ".git", "objects", "info", "alternates")
+        guard let bytes = try? localFileSystem.readFileContents(objectStoreFile) else {
+            return false
+        }
+        let split = bytes.contents.split(separator: UInt8(ascii: "\n"), maxSplits: 1, omittingEmptySubsequences: false)
+        guard let firstLine = ByteString(split[0]).asString else {
+            return false
+        }
+        return localFileSystem.isDirectory(AbsolutePath(firstLine))
+    }
+
+    /// Returns true if the file at `path` is ignored by `git`
+    public func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
+        return try queue.sync {
+            let stringPaths = paths.map({ $0.asString })
+
+            let pathsFile = try TemporaryFile()
+            try localFileSystem.writeFileContents(pathsFile.path) {
+                for path in paths {
+                    $0 <<< path.asString <<< "\0"
+                }
+            }
+
+            let args = [Git.tool, "-C", self.path.asString.shellEscaped(), "check-ignore", "-z", "--stdin", "<", pathsFile.path.asString.shellEscaped()]
+            let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
+            let result = try Process.popen(arguments: argsWithSh)
+            let output = try result.output.dematerialize()
+
+            let outputs: [String] = output.split(separator: 0).map(Array.init).map({ (bytes: [Int8]) -> String in
+                return String(cString: bytes + [0])
+            })
+
+            guard result.exitStatus == .terminated(code: 0) || result.exitStatus == .terminated(code: 1) else {
+                throw GitInterfaceError.fatalError
+            }
+
+            return stringPaths.map(outputs.contains)
         }
     }
 
@@ -481,15 +522,6 @@ public class GitRepository: Repository, WorkingCheckout {
         }
     }
 }
-
-func == (_ lhs: GitRepository.Commit, _ rhs: GitRepository.Commit) -> Bool {
-    return lhs.hash == rhs.hash && lhs.tree == rhs.tree
-}
-
-func == (_ lhs: GitRepository.Hash, _ rhs: GitRepository.Hash) -> Bool {
-    return lhs.bytes == rhs.bytes
-}
-
 /// A `git` file system view.
 ///
 /// The current implementation is based on lazily caching data with no eviction
@@ -561,7 +593,7 @@ private class GitFileSystemView: FileSystem {
         return tree
     }
 
-    func exists(_ path: AbsolutePath) -> Bool {
+    func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
         do {
             return try getEntry(path) != nil
         } catch {
@@ -609,6 +641,10 @@ private class GitFileSystemView: FileSystem {
         return false
     }
 
+    public var currentWorkingDirectory: AbsolutePath? {
+        return AbsolutePath("/")
+    }
+
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let entry = try getEntry(path) else {
             throw FileSystemError.noEntry
@@ -635,6 +671,10 @@ private class GitFileSystemView: FileSystem {
 
     // MARK: Unsupported methods.
 
+    public var homeDirectory: AbsolutePath {
+        fatalError("unsupported")
+    }
+
     func createDirectory(_ path: AbsolutePath) throws {
         throw FileSystemError.unsupported
     }
@@ -647,8 +687,8 @@ private class GitFileSystemView: FileSystem {
         throw FileSystemError.unsupported
     }
 
-    func removeFileTree(_ path: AbsolutePath) {
-        fatalError("unsupported")
+    func removeFileTree(_ path: AbsolutePath) throws {
+        throw FileSystemError.unsupported
     }
 
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {

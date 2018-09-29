@@ -8,11 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-// Import the custom version string (generated via the bootstrap script), if
-// available.
-#if HasCustomVersionString
-import VersionInfo
-#endif
+import clibc
 
 /// A Swift version number.
 ///
@@ -48,10 +44,10 @@ public struct SwiftVersion {
 
     /// The complete product version display string (including the name).
     public var completeDisplayString: String {
-        var vendorPrefix = ""
-#if HasCustomVersionString
-        vendorPrefix += String(cString: VersionInfo.VendorNameString()) + " "
-#endif
+        var vendorPrefix = String(cString: SPM_VendorNameString())
+        if !vendorPrefix.isEmpty {
+            vendorPrefix += " "
+        }
         return vendorPrefix + "Swift Package Manager - Swift " + displayString
     }
 
@@ -69,11 +65,8 @@ public struct SwiftVersion {
 }
 
 private func getBuildIdentifier() -> String? {
-#if HasCustomVersionString
-    return String(cString: VersionInfo.BuildIdentifierString())
-#else
-    return nil
-#endif
+    let buildIdentifier = String(cString: SPM_BuildIdentifierString())
+    return buildIdentifier.isEmpty ? nil : buildIdentifier
 }
 
 /// Version support for the package manager.
@@ -81,8 +74,8 @@ public struct Versioning {
 
     /// The current version of the package manager.
     public static let currentVersion = SwiftVersion(
-        version: (4, 0, 0),
-        isDevelopment: true,
+        version: (4, 2, 0),
+        isDevelopment: false,
         buildIdentifier: getBuildIdentifier())
 
     /// The list of version specific "keys" to search when attempting to load

@@ -14,7 +14,7 @@ import PackageModel
 /// Create an initial template package.
 public final class InitPackage {
     /// The tool version to be used for new packages.
-    public static let newPackageToolsVersion = ToolsVersion(version: "4.0.0")
+    public static let newPackageToolsVersion = ToolsVersion(version: "4.2.0")
     
     /// Represents a package type for the purposes of initialization.
     public enum PackageType: String, CustomStringConvertible {
@@ -31,7 +31,7 @@ public final class InitPackage {
     /// A block that will be called to report progress during package creation
     public var progressReporter: ((String) -> Void)?
 
-    /// Where to crerate the new package
+    /// Where to create the new package
     let destinationPath: AbsolutePath
 
     /// The type of package to create.
@@ -48,14 +48,12 @@ public final class InitPackage {
         return moduleName
     }
 
-    /// Create an instance that can create a package of the given packageType at the given destinationPath
-    public init(destinationPath: AbsolutePath, packageType: PackageType) throws {
+    /// Create an instance that can create a package with given arguments.
+    public init(name: String, destinationPath: AbsolutePath, packageType: PackageType) throws {
         self.packageType = packageType
         self.destinationPath = destinationPath
-        let dirname = destinationPath.basename
-        assert(!dirname.isEmpty)  // a base name is never empty
-        self.pkgname = dirname
-        self.moduleName = dirname.mangledToC99ExtendedIdentifier()
+        self.pkgname = name
+        self.moduleName = name.mangledToC99ExtendedIdentifier()
     }
 
     /// Actually creates the new package at the destinationPath
@@ -114,7 +112,7 @@ public final class InitPackage {
 
                 """
 
-            if packageType == .library {
+            if packageType == .library || packageType == .executable {
                 stream <<< """
                         targets: [
                             // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -125,18 +123,6 @@ public final class InitPackage {
                             .testTarget(
                                 name: "\(pkgname)Tests",
                                 dependencies: ["\(pkgname)"]),
-                        ]
-
-                    """
-            }
-            if packageType == .executable {
-                stream <<< """
-                        targets: [
-                            // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-                            // Targets can depend on other targets in this package, and on products in packages which this package depends on.
-                            .target(
-                                name: "\(pkgname)",
-                                dependencies: []),
                         ]
 
                     """
@@ -260,8 +246,9 @@ public final class InitPackage {
         progressReporter?("Creating \(tests.relative(to: destinationPath).asString)/")
         try makeDirectories(tests)
 
-        // Only libraries are testable for now.
-        if packageType == .library {
+        switch packageType {
+        case .systemModule, .empty: break
+        case .library, .executable:
             try writeLinuxMain(testsPath: tests)
             try writeTestFileStubs(testsPath: tests)
         }
@@ -271,11 +258,89 @@ public final class InitPackage {
         try writePackageFile(testsPath.appending(component: "LinuxMain.swift")) { stream in
             stream <<< """
                 import XCTest
-                @testable import \(moduleName)Tests
 
-                XCTMain([
-                    testCase(\(typeName)Tests.allTests),
-                ])
+                import \(moduleName)Tests
+
+                var tests = [XCTestCaseEntry]()
+                tests += \(moduleName)Tests.allTests()
+                XCTMain(tests)
+                """
+        }
+    }
+
+    private func writeLibraryTestsFile(_ path: AbsolutePath) throws {
+        try writePackageFile(path) { stream in
+            stream <<< """
+                import XCTest
+                @testable import \(moduleName)
+
+                final class \(moduleName)Tests: XCTestCase {
+                    func testExample() {
+                        // This is an example of a functional test case.
+                        // Use XCTAssert and related functions to verify your tests produce the correct
+                        // results.
+                        XCTAssertEqual(\(typeName)().text, "Hello, World!")
+                    }
+                
+                    static var allTests = [
+                        ("testExample", testExample),
+                    ]
+                }
+
+                """
+        }
+    }
+
+    private func writeExecutableTestsFile(_ path: AbsolutePath) throws {
+        try writePackageFile(path) { stream in
+            stream <<< """
+                import XCTest
+                import class Foundation.Bundle
+
+                final class \(moduleName)Tests: XCTestCase {
+                    func testExample() throws {
+                        // This is an example of a functional test case.
+                        // Use XCTAssert and related functions to verify your tests produce the correct
+                        // results.
+
+                        // Some of the APIs that we use below are available in macOS 10.13 and above.
+                        guard #available(macOS 10.13, *) else {
+                            return
+                        }
+
+                        let fooBinary = productsDirectory.appendingPathComponent("\(pkgname)")
+
+                        let process = Process()
+                        process.executableURL = fooBinary
+
+                        let pipe = Pipe()
+                        process.standardOutput = pipe
+
+                        try process.run()
+                        process.waitUntilExit()
+
+                        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                        let output = String(data: data, encoding: .utf8)
+
+                        XCTAssertEqual(output, "Hello, world!\\n")
+                    }
+
+                    /// Returns path to the built products directory.
+                    var productsDirectory: URL {
+                      #if os(macOS)
+                        for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
+                            return bundle.bundleURL.deletingLastPathComponent()
+                        }
+                        fatalError("couldn't find the products directory")
+                      #else
+                        return Bundle.main.bundleURL
+                      #endif
+                    }
+                
+                    static var allTests = [
+                        ("testExample", testExample),
+                    ]
+                }
 
                 """
         }
@@ -286,25 +351,26 @@ public final class InitPackage {
         progressReporter?("Creating \(testModule.relative(to: destinationPath).asString)/")
         try makeDirectories(testModule)
 
-        try writePackageFile(testModule.appending(RelativePath("\(moduleName)Tests.swift"))) { stream in
+        let testClassFile = testModule.appending(RelativePath("\(moduleName)Tests.swift"))
+        switch packageType {
+        case .systemModule, .empty: break
+        case .library:
+            try writeLibraryTestsFile(testClassFile)
+        case .executable:
+            try writeExecutableTestsFile(testClassFile)
+        }
+
+        try writePackageFile(testModule.appending(component: "XCTestManifests.swift")) { stream in
             stream <<< """
                 import XCTest
-                @testable import \(moduleName)
-                
-                class \(moduleName)Tests: XCTestCase {
-                    func testExample() {
-                        // This is an example of a functional test case.
-                        // Use XCTAssert and related functions to verify your tests produce the correct
-                        // results.
-                        XCTAssertEqual(\(typeName)().text, "Hello, World!")
-                    }
-                
-                
-                    static var allTests = [
-                        ("testExample", testExample),
+
+                #if !os(macOS)
+                public func allTests() -> [XCTestCaseEntry] {
+                    return [
+                        testCase(\(moduleName)Tests.allTests),
                     ]
                 }
-
+                #endif
                 """
         }
     }

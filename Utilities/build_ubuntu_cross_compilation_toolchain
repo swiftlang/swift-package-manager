@@ -3,18 +3,26 @@
 set -eu
 
 export PATH="/bin:/usr/bin"
+VERSION=${VERSION:-4.1-RELEASE}
+if [[ -z "${VERSION##*RELEASE*}" ]]; then
+  branch=swift-${VERSION%%RELEASE}release
+elif [[ -z "${VERSION##DEVELOPMENT-SNAPSHOT*}" ]]; then
+  branch=development
+else
+  branch=swift-${VERSION%%DEV*}branch
+fi
 
 function usage() {
     echo >&2 "Usage: $0 SWIFT-FOR-MACOS.pkg SWIFT-FOR-LINUX.tar.gz"
     echo >&2
-    echo >&2 "Example: $0 /tmp/ ~/Downloads/swift-3.1-RELEASE-osx.pkg ~/Downloads/swift-3.1-RELEASE-ubuntu16.04.tar.gz"
+    echo >&2 "Example: $0 /tmp/ ~/Downloads/swift-${VERSION}-osx.pkg ~/Downloads/swift-${VERSION}-ubuntu16.04.tar.gz"
     echo >&2
     echo >&2 "Complete example:"
     echo >&2 "  # Download the Swift binaries for Ubuntu and macOS"
-    echo >&2 "  curl -o ~/Downloads/swift-3.1-RELEASE-ubuntu16.04.tar.gz https://swift.org/builds/swift-3.1-release/ubuntu1604/swift-3.1-RELEASE/swift-3.1-RELEASE-ubuntu16.04.tar.gz"
-    echo >&2 "  curl -o ~/Downloads/swift-3.1-RELEASE-osx.pkg https://swift.org/builds/swift-3.1-release/xcode/swift-3.1-RELEASE/swift-3.1-RELEASE-osx.pkg"
+    echo >&2 "  curl -o ~/Downloads/swift-${VERSION}-ubuntu16.04.tar.gz https://swift.org/builds/${branch}/ubuntu1604/swift-${VERSION}/swift-${VERSION}-ubuntu16.04.tar.gz"
+    echo >&2 "  curl -o ~/Downloads/swift-${VERSION}-osx.pkg https://swift.org/builds/${branch}/xcode/swift-${VERSION}/swift-${VERSION}-osx.pkg"
     echo >&2 "  # Compile the SDK and toolchain from that"
-    echo >&2 "  $0 /tmp/ ~/Downloads/swift-3.1-RELEASE-osx.pkg ~/Downloads/swift-3.1-RELEASE-ubuntu16.04.tar.gz"
+    echo >&2 "  $0 /tmp/ ~/Downloads/swift-${VERSION}-osx.pkg ~/Downloads/swift-${VERSION}-ubuntu16.04.tar.gz"
     echo >&2 "  # Create a test application"
     echo >&2 "  mkdir my-test-app"
     echo >&2 "  cd my-test-app"
@@ -60,7 +68,7 @@ function fix_glibc_modulemap() {
     rm -rf "$inc_dir"
     mkdir "$inc_dir"
     cat "$tmp" | while IFS='' read line; do
-        if [[ "$line" =~ ^(\ *header\ )\"\/\/\/usr\/include\/(x86_64-linux-gnu\/)?([^\"]+)\" ]]; then
+        if [[ "$line" =~ ^(\ *header\ )\"\/+usr\/include\/(x86_64-linux-gnu\/)?([^\"]+)\" ]]; then
             local orig_inc
             local rel_repl_inc
             local repl_inc
@@ -95,7 +103,7 @@ blocks_h_url="https://raw.githubusercontent.com/apple/swift-corelibs-libdispatch
 xc_tc_name="swift.xctoolchain"
 linux_sdk_name="ubuntu-xenial.sdk"
 cross_tc_basename="cross-toolchain"
-binutils_pkg_url="https://ftp.gnu.org/gnu/binutils/binutils-2.27.tar.gz"
+clang_package_url="http://releases.llvm.org/6.0.0/clang+llvm-6.0.0-x86_64-apple-darwin.tar.xz"
 ubuntu_mirror="http://gb.archive.ubuntu.com/ubuntu"
 packages_file="$ubuntu_mirror/dists/xenial/main/binary-amd64/Packages.gz"
 pkg_names=( libc6-dev linux-libc-dev libicu55 libgcc-5-dev libicu-dev libc6 libgcc1 libstdc++-5-dev libstdc++6 )
@@ -183,19 +191,13 @@ rm -rf "$tmp"
 cd $cross_tc_basename
 mkdir -p "$xc_tc_name/usr/bin"
 
-binutils_pkg="$(download_with_cache "$binutils_pkg_url" binutils.tar.gz)"
+clang_txz="$(download_with_cache "$clang_package_url" clang.tar.xz)"
 tmp=$(mktemp -d "$dest/tmp_pkgs_XXXXXX")
 (
 cd "$tmp"
-tar -xf "$binutils_pkg"
-cd binutils-*
-./configure --enable-gold
-make
-cd gold
-./configure --enable-gold
-make -j
+tar --strip-components=1 -zxf "$clang_txz"
 )
-cp "$tmp"/binutils-*/gold/ld-new "$xc_tc_name/usr/bin/ld.gold"
+cp "$tmp/bin/lld" "$xc_tc_name/usr/bin/ld.lld"
 rm -rf "$tmp"
 
 # fix absolute symlinks
@@ -236,13 +238,13 @@ cat > "$cross_tc_basename/ubuntu-xenial-destination.json" <<EOF
     "version": 1,
     "sdk": "$(pwd)/$cross_tc_basename/$linux_sdk_name",
     "toolchain-bin-dir": "$(pwd)/$cross_tc_basename/$xc_tc_name/usr/bin",
-    "target": "linux-unknown-x86_64",
+    "target": "x86_64-unknown-linux",
     "dynamic-library-extension": "so",
     "extra-cc-flags": [
         "-fPIC"
     ],
     "extra-swiftc-flags": [
-        "-use-ld=gold", "-tools-directory", "$(pwd)/$cross_tc_basename/$xc_tc_name/usr/bin"
+        "-use-ld=lld", "-tools-directory", "$(pwd)/$cross_tc_basename/$xc_tc_name/usr/bin"
     ],
     "extra-cpp-flags": [
         "-lstdc++"

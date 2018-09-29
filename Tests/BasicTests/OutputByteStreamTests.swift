@@ -14,17 +14,17 @@ import Basic
 
 class OutputByteStreamTests: XCTestCase {
     func testBasics() {
-        let stream = BufferedOutputByteStream()
+        var stream = BufferedOutputByteStream()
         
-        stream.write("Hello")
-        stream.write(Character(","))
-        stream.write(Character(" "))
-        stream.write([UInt8]("wor".utf8))
-        stream.write([UInt8]("world".utf8)[3..<5])
+        "Hel".write(to: stream)
+        "Hello".dropFirst(3).write(to: stream)
+        Character(",").write(to: stream)
+        Character(" ").write(to: stream)
+        [UInt8]("wor".utf8).write(to: stream)
+        [UInt8]("world".utf8)[3..<5].write(to: stream)
         
         let streamable: TextOutputStreamable = Character("!")
-        stream.write(streamable)
-
+        streamable.write(to: &stream)
         
         XCTAssertEqual(stream.position, "Hello, world!".utf8.count)
         stream.flush()
@@ -34,15 +34,10 @@ class OutputByteStreamTests: XCTestCase {
     func testStreamOperator() {
         let stream = BufferedOutputByteStream()
 
-        let streamable: TextOutputStreamable = Character("!")
-        stream <<< "Hello" <<< Character(",") <<< Character(" ") <<< [UInt8]("wor".utf8) <<< [UInt8]("world".utf8)[3..<5] <<< streamable
+        stream <<< "Hello" <<< Character(",") <<< Character(" ") <<< [UInt8]("wor".utf8) <<< [UInt8]("world".utf8)[3..<5]
         
-        XCTAssertEqual(stream.position, "Hello, world!".utf8.count)
-        XCTAssertEqual(stream.bytes, "Hello, world!")
-
-        let stream2 = BufferedOutputByteStream()
-        stream2 <<< (0..<5)
-        XCTAssertEqual(stream2.bytes, [0, 1, 2, 3, 4])
+        XCTAssertEqual(stream.position, "Hello, world".utf8.count)
+        XCTAssertEqual(stream.bytes, "Hello, world")
     }
     
     func testBufferCorrectness() {
@@ -180,17 +175,18 @@ class OutputByteStreamTests: XCTestCase {
         var threads = [Thread]()
 
         let stream = BufferedOutputByteStream()
+        let threadSafeStream = ThreadSafeOutputByteStream(stream)
 
         let t1 = Thread {
             for _ in 0..<1000 {
-                stream <<< "Hello"
+                threadSafeStream <<< "Hello"
             }
         }
         threads.append(t1)
 
         let t2 = Thread {
             for _ in 0..<1000 {
-                stream.write("Hello")
+                threadSafeStream.write("Hello")
             }
         }
         threads.append(t2)
@@ -200,14 +196,4 @@ class OutputByteStreamTests: XCTestCase {
 
         XCTAssertEqual(stream.bytes.count, 5 * 2000)
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testBufferCorrectness", testBufferCorrectness),
-        ("testStreamOperator", testStreamOperator),
-        ("testJSONEncoding", testJSONEncoding),
-        ("testFormattedOutput", testFormattedOutput),
-        ("testLocalFileStream", testLocalFileStream),
-        ("testThreadSafeStream", testThreadSafeStream),
-    ]
 }

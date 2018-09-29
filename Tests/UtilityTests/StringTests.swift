@@ -54,15 +54,6 @@ class StringTests: XCTestCase {
         eq("::bar".split(around: "::"), ("", "bar"))
         eq("foo::bar".split(around: "::"), ("foo", "bar"))
     }
-
-    static var allTests = [
-        ("testTrailingChomp", testTrailingChomp),
-        ("testEmptyChomp", testEmptyChomp),
-        ("testSeparatorChomp", testSeparatorChomp),
-        ("testChuzzle", testChuzzle),
-        ("testSplitAround", testSplitAround)
-    ]
-    
 }
 
 class URLTests: XCTestCase {
@@ -75,8 +66,4 @@ class URLTests: XCTestCase {
         XCTAssertNil(Utility.URL.scheme("github.com/foo/bar"))
         XCTAssertNil(Utility.URL.scheme("user:/github.com/foo/bar"))
     }
-
-    static var allTests = [
-        ("testSchema", testSchema),
-    ]
 }

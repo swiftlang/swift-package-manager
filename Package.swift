@@ -15,17 +15,21 @@ import PackageDescription
 let package = Package(
     name: "SwiftPM",
     products: [
+        // The `libSwiftPM` set of interfaces to programatically work with Swift
+        // packages.
+        //
+        // NOTE: This API is *unstable* and may change at any time.
         .library(
             name: "SwiftPM",
             type: .dynamic,
             targets: [
                 "clibc",
-                "libc",
+                "SPMLibc",
                 "POSIX",
                 "Basic",
                 "Utility",
                 "SourceControl",
-                "PackageDescription",
+                "SPMLLBuild",
                 "PackageDescription4",
                 "PackageModel",
                 "PackageLoading",
@@ -37,11 +41,15 @@ let package = Package(
         ),
 
         // Collection of general purpose utilities.
+        //
+        // NOTE: This product consists of *unsupported*, *unstable* API. These
+        // APIs are implementation details of the package manager. Depend on it
+        // at your own risk.
         .library(
             name: "Utility",
             targets: [
                 "clibc",
-                "libc",
+                "SPMLibc",
                 "POSIX",
                 "Basic",
                 "Utility",
@@ -51,10 +59,6 @@ let package = Package(
     targets: [
         // The `PackageDescription` targets are special, they define the API which
         // is available to the `Package.swift` manifest files.
-        .target(
-            /** Package Definition API version 3 */
-            name: "PackageDescription",
-            dependencies: []),
         .target(
             /** Package Definition API version 4 */
             name: "PackageDescription4",
@@ -68,16 +72,16 @@ let package = Package(
             dependencies: []),
         .target(
             /** Cross-platform access to bare `libc` functionality. */
-            name: "libc",
+            name: "SPMLibc",
             dependencies: ["clibc"]),
         .target(
             /** “Swifty” POSIX functions from libc */
             name: "POSIX",
-            dependencies: ["libc"]),
+            dependencies: ["SPMLibc"]),
         .target(
             /** Basic support library */
             name: "Basic",
-            dependencies: ["libc", "POSIX"]),
+            dependencies: ["SPMLibc", "POSIX"]),
         .target(
             /** Abstractions for common operations, should migrate to Basic */
             name: "Utility",
@@ -86,17 +90,21 @@ let package = Package(
             /** Source control operations */
             name: "SourceControl",
             dependencies: ["Basic", "Utility"]),
+        .target(
+            /** Shim for llbuild library */
+            name: "SPMLLBuild",
+            dependencies: ["Basic", "Utility"]),
 
         // MARK: Project Model
         
         .target(
             /** Primitive Package model objects */
             name: "PackageModel",
-            dependencies: ["Basic", "PackageDescription", "PackageDescription4", "Utility"]),
+            dependencies: ["Basic", "Utility"]),
         .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
-            dependencies: ["Basic", "PackageDescription", "PackageDescription4", "PackageModel", "Utility"]),
+            dependencies: ["Basic", "PackageModel", "Utility", "SPMLLBuild"]),
 
         // MARK: Package Dependency Resolution
         
@@ -179,9 +187,6 @@ let package = Package(
         .testTarget(
             name: "FunctionalPerformanceTests",
             dependencies: ["swift-build", "swift-package", "swift-test", "swift-build", "swift-package", "TestSupport"]),
-        .testTarget(
-            name: "PackageDescriptionTests",
-            dependencies: ["PackageDescription"]),
         .testTarget(
             name: "PackageDescription4Tests",
             dependencies: ["PackageDescription4"]),

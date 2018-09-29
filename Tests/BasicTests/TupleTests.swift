@@ -21,8 +21,4 @@ class TupleTests: XCTestCase {
         XCTAssertTrue([("A", 1)] == [("A", 1)])
         XCTAssertFalse([("A", 1)] == [("A", 2)])
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

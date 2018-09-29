@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import libc
+import SPMLibc
 
 public func exit(_ status: Int32) -> Never {
-    libc.exit(status)
+    SPMLibc.exit(status)
 }

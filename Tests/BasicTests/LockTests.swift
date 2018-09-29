@@ -47,9 +47,4 @@ class LockTests: XCTestCase {
 
         XCTAssertEqual(try localFileSystem.readFileContents(sharedResource.path).asString, String((N * (N + 1) / 2 )))
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-        ("testFileLock", testFileLock),
-    ]
 }

@@ -13,7 +13,44 @@ import Basic
 /// A protocol to operate on terminal based progress bars.
 public protocol ProgressBarProtocol {
     func update(percent: Int, text: String)
-    func complete()
+    func complete(success: Bool)
+}
+
+/// A single line progress bar.
+public final class SingleLineProgressBar: ProgressBarProtocol {
+    private let header: String
+    private var isClear: Bool
+    private var stream: OutputByteStream
+    private var displayed: Set<Int> = []
+
+    init(stream: OutputByteStream, header: String) {
+        self.stream = stream
+        self.header = header
+        self.isClear = true
+    }
+
+    public func update(percent: Int, text: String) {
+        if isClear {
+            stream <<< header
+            stream <<< "\n"
+            stream.flush()
+            isClear = false
+        }
+
+        let displayPercentage = Int(Double(percent / 10).rounded(.down)) * 10
+        if percent != 100, !displayed.contains(displayPercentage) {
+            stream <<< String(displayPercentage) <<< ".. "
+            displayed.insert(displayPercentage)
+        }
+        stream.flush()
+    }
+
+    public func complete(success: Bool) {
+        if success {
+            stream <<< "OK"
+            stream.flush()
+        }
+    }
 }
 
 /// Simple ProgressBar which shows the update text in new lines.
@@ -41,7 +78,7 @@ public final class SimpleProgressBar: ProgressBarProtocol {
         stream.flush()
     }
 
-    public func complete() {
+    public func complete(success: Bool) {
     }
 }
 
@@ -85,20 +122,35 @@ public final class ProgressBar: ProgressBarProtocol {
         term.endLine()
 
         term.clearLine()
-        term.write(text)
+        if text.utf8.count > term.width {
+            let prefix = "…"
+            term.write(prefix)
+            term.write(String(text.suffix(term.width - prefix.utf8.count)))
+        } else {
+            term.write(text)
+        }
 
         term.moveCursor(up: 1)
     }
 
-    public func complete() {
+    public func complete(success: Bool) {
+        term.endLine()
         term.endLine()
     }
 }
 
 /// Creates colored or simple progress bar based on the provided output stream.
 public func createProgressBar(forStream stream: OutputByteStream, header: String) -> ProgressBarProtocol {
-    if let stdStream = stream as? LocalFileOutputByteStream, let term = TerminalController(stream: stdStream) {
+    // If we have a terminal, use animated progress bar.
+    if let term = TerminalController(stream: stream) {
         return ProgressBar(term: term, header: header)
     }
+
+    // If the terminal is dumb, use single line progress bar.
+    if let fileStream = stream as? LocalFileOutputByteStream, TerminalController.terminalType(fileStream) == .dumb {
+        return SingleLineProgressBar(stream: stream, header: header)
+    }
+
+    // Use simple progress bar by default.
     return SimpleProgressBar(stream: stream, header: header)
 }

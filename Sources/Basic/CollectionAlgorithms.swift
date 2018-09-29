@@ -29,22 +29,36 @@ extension BidirectionalCollection where Iterator.Element : Comparable {
     }
 }
 
-public extension Sequence where Iterator.Element: Hashable {
+extension Sequence where Iterator.Element: Hashable {
 
     /// Finds duplicates in given sequence of Hashables.
     /// - Returns: duplicated elements in the invoking sequence.
     public func findDuplicates() -> [Iterator.Element] {
-        var unique = Set<Iterator.Element>()
-        var duplicate = Array<Iterator.Element>()
-
-        for element in self {
-            guard !unique.contains(element) else {
-                duplicate.append(element)
-                continue
-            }
-            unique.insert(element)
+        var unique: Set<Iterator.Element> = []
+        return filter {
+            !unique.insert($0).inserted
         }
+    }
+}
 
-        return duplicate
+extension Collection where Element: Hashable {
+
+    /// Finds duplicates in given collection of Hashables.
+    public func findDuplicateElements() -> [[Element]] {
+        var table: [Element: [Element]] = [:]
+        for element in self {
+            table[element, default: []].append(element)
+        }
+        return table.values.filter({ $0.count > 1 })
+    }
+}
+
+extension Sequence {
+    public func findDuplicateElements<Key: Hashable>(
+        by keyPath: KeyPath<Self.Element, Key>
+    ) -> [[Element]] {
+        return Dictionary(grouping: self, by: { $0[keyPath: keyPath] })
+            .values
+            .filter({ $0.count > 1 })
     }
 }

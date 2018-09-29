@@ -69,8 +69,4 @@ class ToolsVersionTests: XCTestCase {
             }
         }
     }
-
-    static var allTests = [
-        ("testBasics", testBasics),
-    ]
 }

@@ -12,7 +12,7 @@ import class Foundation.ProcessInfo
 
 import enum POSIX.SystemError
 import func POSIX.getenv
-import libc
+import SPMLibc
 import Dispatch
 
 /// Process result data which is available after process termination.
@@ -26,7 +26,7 @@ public struct ProcessResult: CustomStringConvertible {
         case nonZeroExit(ProcessResult)
     }
 
-    public enum ExitStatus {
+    public enum ExitStatus: Equatable {
         /// The process was terminated normally with a exit code.
         case terminated(code: Int32)
 
@@ -41,11 +41,11 @@ public struct ProcessResult: CustomStringConvertible {
     public let exitStatus: ExitStatus
 
     /// The output bytes of the process. Available only if the process was
-    /// asked to redirect its output.
+    /// asked to redirect its output and no stdout output closure was set.
     public let output: Result<[Int8], AnyError>
 
     /// The output bytes of the process. Available only if the process was
-    /// asked to redirect its output.
+    /// asked to redirect its output and no stderr output closure was set.
     public let stderrOutput: Result<[Int8], AnyError>
 
     /// Create an instance using the process exit code and output result.
@@ -110,9 +110,39 @@ public final class Process: ObjectIdentifierProtocol {
         /// The program requested to be executed cannot be found on the existing search paths, or is not executable.
         case missingExecutableProgram(program: String)
     }
+    
+    public enum OutputRedirection {
+        /// Do not redirect the output
+        case none
+        /// Collect stdout and stderr output and provide it back via ProcessResult object
+        case collect
+        /// Stream stdout and stderr via the corresponding closures
+        case stream(stdout: OutputClosure, stderr: OutputClosure)
+        
+        public var redirectsOutput: Bool {
+            switch self {
+            case .none:
+                return false
+            case .collect, .stream:
+                return true
+            }
+        }
+        
+        public var outputClosures: (stdoutClosure: OutputClosure, stderrClosure: OutputClosure)? {
+            switch self {
+            case .stream(let stdoutClosure, let stderrClosure):
+                return (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
+            case .collect, .none:
+                return nil
+            }
+        }
+    }
 
     /// Typealias for process id type.
     public typealias ProcessID = pid_t
+    
+    /// Typealias for stdout/stderr output closure.
+    public typealias OutputClosure = ([Int8]) -> Void
 
     /// Global default setting for verbose.
     public static var verbose = false
@@ -146,8 +176,8 @@ public final class Process: ObjectIdentifierProtocol {
         }
     }
 
-    /// If process was asked to redirect its output.
-    public let redirectOutput: Bool
+    /// How process redirects its output.
+    public let outputRedirection: OutputRedirection
 
     /// The result of the process execution. Available after process is terminated.
     private var _result: ProcessResult?
@@ -164,12 +194,15 @@ public final class Process: ObjectIdentifierProtocol {
     /// Queue to protect reading/writing on map of validated executables.
     private static let executablesQueue = DispatchQueue(
         label: "org.swift.swiftpm.process.findExecutable")
+    
+    /// Indicates if a new progress group is created for the child process.
+    private let startNewProcessGroup: Bool
 
     /// Cache of validated executables.
     ///
     /// Key: Executable name or path.
-    /// Value: If key was found in the search paths and is executable.
-    static private var validatedExecutablesMap = [String: Bool]()
+    /// Value: Path to the executable, if found.
+    static private var validatedExecutablesMap = [String: AbsolutePath?]()
 
     /// Create a new process instance.
     ///
@@ -177,25 +210,28 @@ public final class Process: ObjectIdentifierProtocol {
     ///   - arguments: The arguments for the subprocess.
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
-    ///   - redirectOutput: Redirect and store stdout/stderr output (of subprocess) in the process result, instead of
-    ///     printing on the standard streams. Default value is true.
+    ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
+    ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
+    ///     continue running even if the parent is killed or interrupted. Default value is true.
     public init(
         arguments: [String],
         environment: [String: String] = env,
-        redirectOutput: Bool = true,
-        verbose: Bool = Process.verbose
+        outputRedirection: OutputRedirection = .collect,
+        verbose: Bool = Process.verbose,
+        startNewProcessGroup: Bool = true
     ) {
         self.arguments = arguments
         self.environment = environment
-        self.redirectOutput = redirectOutput
+        self.outputRedirection = outputRedirection
         self.verbose = verbose
+        self.startNewProcessGroup = startNewProcessGroup
     }
 
-    /// Returns true if the given program is present and executable in search path.
+    /// Returns the path of the the given program if found in the search paths.
     ///
     /// The program can be executable name, relative path or absolute path.
-    func findExecutable(_ program: String) -> Bool {
+    public static func findExecutable(_ program: String) -> AbsolutePath? {
         return Process.executablesQueue.sync {
             // Check if we already have a value for the program.
             if let value = Process.validatedExecutablesMap[program] {
@@ -204,11 +240,11 @@ public final class Process: ObjectIdentifierProtocol {
             // FIXME: This can be cached.
             let envSearchPaths = getEnvSearchPaths(
                 pathString: getenv("PATH"),
-                currentWorkingDirectory: currentWorkingDirectory
+                currentWorkingDirectory: localFileSystem.currentWorkingDirectory
             )
-            // Lookup the executable.
+            // Lookup and cache the executable path.
             let value = lookupExecutablePath(
-                filename: program, searchPaths: envSearchPaths) != nil
+                filename: program, searchPaths: envSearchPaths)
             Process.validatedExecutablesMap[program] = value
             return value
         }
@@ -229,7 +265,7 @@ public final class Process: ObjectIdentifierProtocol {
         }
 
         // Look for executable.
-        guard findExecutable(arguments[0]) else {
+        guard Process.findExecutable(arguments[0]) != nil else {
             throw Process.Error.missingExecutableProgram(program: arguments[0])
         }
 
@@ -240,6 +276,7 @@ public final class Process: ObjectIdentifierProtocol {
         var attributes = posix_spawnattr_t()
       #endif
         posix_spawnattr_init(&attributes)
+        defer { posix_spawnattr_destroy(&attributes) }
 
         // Unmask all signals.
         var noSignals = sigset_t()
@@ -258,7 +295,7 @@ public final class Process: ObjectIdentifierProtocol {
         // modify, so we have to take care about the set we use.
         var mostSignals = sigset_t()
         sigemptyset(&mostSignals)
-        for i in 1 ..< SIGUNUSED {
+        for i in 1 ..< SIGSYS {
             if i == SIGKILL || i == SIGSTOP {
                 continue
             }
@@ -267,12 +304,13 @@ public final class Process: ObjectIdentifierProtocol {
         posix_spawnattr_setsigdefault(&attributes, &mostSignals)
       #endif
 
-        // Establish a separate process group.
-        posix_spawnattr_setpgroup(&attributes, 0)
-
         // Set the attribute flags.
         var flags = POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF
-        flags |= POSIX_SPAWN_SETPGROUP
+        if startNewProcessGroup {
+            // Establish a separate process group.
+            flags |= POSIX_SPAWN_SETPGROUP
+            posix_spawnattr_setpgroup(&attributes, 0)
+        }
 
         posix_spawnattr_setflags(&attributes, Int16(flags))
 
@@ -283,6 +321,7 @@ public final class Process: ObjectIdentifierProtocol {
         var fileActions = posix_spawn_file_actions_t()
       #endif
         posix_spawn_file_actions_init(&fileActions)
+        defer { posix_spawn_file_actions_destroy(&fileActions) }
 
         // Workaround for https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=89e435f3559c53084498e9baad22172b64429362
         let devNull = strdup("/dev/null")
@@ -292,15 +331,13 @@ public final class Process: ObjectIdentifierProtocol {
 
         var outputPipe: [Int32] = [0, 0]
         var stderrPipe: [Int32] = [0, 0]
-        if redirectOutput {
+        if outputRedirection.redirectsOutput {
             // Open the pipes.
             try open(pipe: &outputPipe)
             try open(pipe: &stderrPipe)
-
             // Open the write end of the pipe as stdout and stderr, if desired.
             posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], 1)
             posix_spawn_file_actions_adddup2(&fileActions, stderrPipe[1], 2)
-
             // Close the other ends of the pipe.
             for pipe in [outputPipe, stderrPipe] {
                 posix_spawn_file_actions_addclose(&fileActions, pipe[0])
@@ -319,16 +356,17 @@ public final class Process: ObjectIdentifierProtocol {
             throw SystemError.posix_spawn(rv, arguments)
         }
 
-        posix_spawn_file_actions_destroy(&fileActions)
-        posix_spawnattr_destroy(&attributes)
-
-        if redirectOutput {
+        if outputRedirection.redirectsOutput {
+            let outputClosures = outputRedirection.outputClosures
+            
             // Close the write end of the output pipe.
             try close(fd: &outputPipe[1])
 
             // Create a thread and start reading the output on it.
-            var thread = Thread {
-                self.stdout.result = self.readOutput(onFD: outputPipe[0])
+            var thread = Thread { [weak self] in
+                if let readResult = self?.readOutput(onFD: outputPipe[0], outputClosure: outputClosures?.stdoutClosure) {
+                    self?.stdout.result = readResult
+                }
             }
             thread.start()
             self.stdout.thread = thread
@@ -337,8 +375,10 @@ public final class Process: ObjectIdentifierProtocol {
             try close(fd: &stderrPipe[1])
 
             // Create a thread and start reading the stderr output on it.
-            thread = Thread {
-                self.stderr.result = self.readOutput(onFD: stderrPipe[0])
+            thread = Thread { [weak self] in
+                if let readResult = self?.readOutput(onFD: stderrPipe[0], outputClosure: outputClosures?.stderrClosure) {
+                    self?.stderr.result = readResult
+                }
             }
             thread.start()
             self.stderr.thread = thread
@@ -385,7 +425,7 @@ public final class Process: ObjectIdentifierProtocol {
     /// Reads the given fd and returns its result.
     ///
     /// Closes the fd before returning.
-    private func readOutput(onFD fd: Int32) -> Result<[Int8], AnyError> {
+    private func readOutput(onFD fd: Int32, outputClosure: OutputClosure?) -> Result<[Int8], AnyError> {
         // Read all of the data from the output pipe.
         let N = 4096
         var buf = [Int8](repeating: 0, count: N + 1)
@@ -405,7 +445,12 @@ public final class Process: ObjectIdentifierProtocol {
             case 0:
                 break loop
             default:
-                out += buf[0..<n]
+                let data = buf[0..<n]
+                if let outputClosure = outputClosure {
+                    outputClosure(Array(data))
+                } else {
+                    out += data
+                }
             }
         }
         // Close the read end of the output pipe.
@@ -419,7 +464,7 @@ public final class Process: ObjectIdentifierProtocol {
     /// Note: This will signal all processes in the process group.
     public func signal(_ signal: Int32) {
         assert(launched, "The process is not yet launched.")
-        _ = libc.kill(-processID, signal)
+        _ = SPMLibc.kill(startNewProcessGroup ? -processID : processID, signal)
     }
 }
 
@@ -433,7 +478,7 @@ extension Process {
     /// - Returns: The process result.
     @discardableResult
     static public func popen(arguments: [String], environment: [String: String] = env) throws -> ProcessResult {
-        let process = Process(arguments: arguments, environment: environment, redirectOutput: true)
+        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
         try process.launch()
         return try process.waitUntilExit()
     }
@@ -452,7 +497,7 @@ extension Process {
     /// - Returns: The process output (stdout + stderr).
     @discardableResult
     static public func checkNonZeroExit(arguments: [String], environment: [String: String] = env) throws -> String {
-        let process = Process(arguments: arguments, environment: environment, redirectOutput: true)
+        let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
         try process.launch()
         let result = try process.waitUntilExit()
         // Throw if there was a non zero termination.
@@ -467,8 +512,8 @@ extension Process {
         return try checkNonZeroExit(arguments: args, environment: environment)
     }
 
-    public convenience init(args: String..., environment: [String: String] = env, redirectOutput: Bool = true) {
-        self.init(arguments: args, environment: environment, redirectOutput: redirectOutput)
+    public convenience init(args: String..., environment: [String: String] = env, outputRedirection: OutputRedirection = .collect) {
+        self.init(arguments: args, environment: environment, outputRedirection: outputRedirection)
     }
 }
 
@@ -500,24 +545,9 @@ private func WTERMSIG(_ status: Int32) -> Int32 {
     return status & 0x7f
 }
 
-extension ProcessResult.ExitStatus: Equatable {
-    public static func == (lhs: ProcessResult.ExitStatus, rhs: ProcessResult.ExitStatus) -> Bool {
-        switch (lhs, rhs) {
-        case (.terminated(let l), .terminated(let r)):
-            return l == r
-        case (.terminated(_), _):
-            return false
-        case (.signalled(let l), .signalled(let r)):
-            return l == r
-        case (.signalled(_), _):
-            return false
-        }
-    }
-}
-
 /// Open the given pipe.
 private func open(pipe: inout [Int32]) throws {
-    let rv = libc.pipe(&pipe)
+    let rv = SPMLibc.pipe(&pipe)
     guard rv == 0 else {
         throw SystemError.pipe(rv)
     }
@@ -525,7 +555,7 @@ private func open(pipe: inout [Int32]) throws {
 
 /// Close the given fd.
 private func close(fd: inout Int32) throws {
-    let rv = libc.close(fd)
+    let rv = SPMLibc.close(fd)
     guard rv == 0 else {
         throw SystemError.close(rv)
     }
@@ -554,6 +584,7 @@ extension ProcessResult.Error: CustomStringConvertible {
             case .signalled(let signal):
                 stream <<< "signalled(\(signal)): "
             }
+ 
             // Strip sandbox information from arguments to keep things pretty.
             var args = result.arguments
             // This seems a little fragile.
@@ -561,6 +592,17 @@ extension ProcessResult.Error: CustomStringConvertible {
                 args = args.suffix(from: 3).map({$0})
             }
             stream <<< args.map({ $0.shellEscaped() }).joined(separator: " ")
+
+            // Include the output, if present.
+            if let output = try? result.utf8Output() + result.utf8stderrOutput() {
+                // We indent the output to keep it visually separated from everything else.
+                let indentation = "    "
+                stream <<< " output:\n" <<< indentation <<< output.replacingOccurrences(of: "\n", with: "\n" + indentation)
+                if !output.hasSuffix("\n") {
+                    stream <<< "\n"
+                }
+            }
+            
             return stream.bytes.asString!
         }
     }
