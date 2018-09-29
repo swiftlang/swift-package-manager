@@ -146,6 +146,14 @@ public final class PinsStore {
 extension PinsStore: SimplePersistanceProtocol {
 
     public func saveState() throws {
+        if pinsMap.isEmpty {
+            // Remove the pins file if there are zero pins to save.
+            //
+            // This can happen if all dependencies are path-based or edited
+            // dependencies.
+            return try fileSystem.removeFileTree(pinsFile)
+        }
+
         try self.persistence.saveState(self)
     }
 

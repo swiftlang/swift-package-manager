@@ -21,6 +21,7 @@ extension PinsStoreTests {
     // to regenerate.
     static let __allTests__PinsStoreTests = [
         ("testBasics", testBasics),
+        ("testEmptyPins", testEmptyPins),
         ("testLoadingSchema1", testLoadingSchema1),
     ]
 }

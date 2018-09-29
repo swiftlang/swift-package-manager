@@ -134,4 +134,26 @@ final class PinsStoreTests: XCTestCase {
         let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
         XCTAssertEqual(store.pinsMap.keys.map{$0}.sorted(), ["clang_c", "commandant"])
     }
+
+    func testEmptyPins() throws {
+        let fs = InMemoryFileSystem()
+        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+
+        try store.saveState()
+        XCTAssertFalse(fs.exists(pinsFile))
+
+        let fooRef = PackageReference(identity: "foo", path: "/foo")
+        let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
+        store.pin(packageRef: fooRef, state: CheckoutState(revision: revision, version: v1))
+
+        XCTAssert(!fs.exists(pinsFile))
+
+        try store.saveState()
+        XCTAssert(fs.exists(pinsFile))
+
+        store.unpinAll()
+        try store.saveState()
+        XCTAssertFalse(fs.exists(pinsFile))
+    }
 }
