@@ -62,7 +62,9 @@ public class RunToolOptions: ToolOptions {
         if shouldPrintVersion {
             return .version
         }
-
+        if shouldLaunchREPL {
+            return .repl
+        }
         return .run
     }
     
@@ -71,6 +73,9 @@ public class RunToolOptions: ToolOptions {
 
     /// If the test should be built.
     var shouldBuildTests = false
+
+    /// If should launch the Swift REPL.
+    var shouldLaunchREPL = false
     
     /// The executable product to run.
     var executable: String?
@@ -81,6 +86,7 @@ public class RunToolOptions: ToolOptions {
 
 public enum RunMode {
     case version
+    case repl
     case run
 }
 
@@ -101,6 +107,18 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
         switch options.mode {
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
+
+        case .repl:
+            let packageGraph = try loadPackageGraph(createREPLProduct: options.shouldLaunchREPL)
+            let plan = try BuildPlan(buildParameters: buildParameters(), graph: packageGraph, diagnostics: diagnostics)
+
+            // Build the package.
+            try build(plan: plan, subset: .allExcludingTests)
+
+            // Execute the REPL.
+            let arguments = plan.createREPLArguments()
+            print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
+            try run(getToolchain().swiftInterpreter, arguments: arguments)
 
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
@@ -214,6 +232,11 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
                 $0.executable = $1.first!
                 $0.arguments = Array($1.dropFirst())
             })
+
+        binder.bind(
+            option: parser.add(option: "--repl", kind: Bool.self,
+                usage: "Launch Swift REPL for the package"),
+            to: { $0.shouldLaunchREPL = $1 })
     }
 }
 

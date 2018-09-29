@@ -414,6 +414,56 @@ final class BuildPlanTests: XCTestCase {
       #endif
     }
 
+    func testREPLArguments() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/swiftlib/lib.swift",
+            "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/include/lib.h",
+            "/Dep/Sources/Dep/dep.swift",
+            "/Dep/Sources/CDep/cdep.c",
+            "/Dep/Sources/CDep/include/head.h",
+            "/Dep/Sources/CDep/include/module.modulemap"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    dependencies: [
+                        PackageDependencyDescription(url: "/Dep", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["swiftlib"]),
+                        TargetDescription(name: "swiftlib", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: ["Dep"]),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "Dep",
+                    path: "/Dep",
+                    url: "/Dep",
+                    products: [
+                        ProductDescription(name: "Dep", targets: ["Dep"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Dep", dependencies: ["CDep"]),
+                        TargetDescription(name: "CDep", dependencies: []),
+                    ]),
+            ],
+            createREPLProduct: true
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let plan = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs)
+        XCTAssertEqual(plan.createREPLArguments().sorted(), ["-I/Dep/Sources/CDep/include", "-I/path/to/build/debug", "-I/path/to/build/debug/lib.build", "-L/path/to/build/debug", "-lPkg__REPL"])
+
+        let replProduct = plan.graph.allProducts.first(where: { $0.name.contains("REPL") })
+        XCTAssertEqual(replProduct?.name, "Pkg__REPL")
+    }
+
     func testTestModule() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/Foo/foo.swift",

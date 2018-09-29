@@ -76,7 +76,8 @@ public struct PackageGraphLoader {
         externalManifests: [Manifest],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
-        shouldCreateMultipleTestProducts: Bool = false
+        shouldCreateMultipleTestProducts: Bool = false,
+        createREPLProduct: Bool = false
     ) -> PackageGraph {
 
         // Create a map of the manifests, keyed by their identity.
@@ -131,7 +132,8 @@ public struct PackageGraphLoader {
                 fileSystem: fileSystem,
                 diagnostics: diagnostics,
                 isRootPackage: isRootPackage,
-                shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts
+                shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+                createREPLProduct: isRootPackage ? createREPLProduct : false
             )
 
             diagnostics.wrap(with: PackageLocation.Local(name: manifest.name, packagePath: packagePath), {

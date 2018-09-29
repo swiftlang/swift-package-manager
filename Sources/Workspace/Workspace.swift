@@ -556,6 +556,7 @@ extension Workspace {
     public func loadPackageGraph(
         root: PackageGraphRootInput,
         createMultipleTestProducts: Bool = false,
+        createREPLProduct: Bool = false,
         diagnostics: DiagnosticsEngine
     ) -> PackageGraph {
 
@@ -569,7 +570,8 @@ extension Workspace {
             externalManifests: externalManifests,
             diagnostics: diagnostics,
             fileSystem: fileSystem,
-            shouldCreateMultipleTestProducts: createMultipleTestProducts
+            shouldCreateMultipleTestProducts: createMultipleTestProducts,
+            createREPLProduct: createREPLProduct
         )
     }
 

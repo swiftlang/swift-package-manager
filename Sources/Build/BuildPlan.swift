@@ -837,6 +837,40 @@ public class BuildPlan {
         }
     }
 
+    /// Creates arguments required to launch the Swift REPL that will allow
+    /// importing the modules in the package graph.
+    public func createREPLArguments() -> [String] {
+        let buildPath = buildParameters.buildPath.asString
+        var arguments = ["-I" + buildPath, "-L" + buildPath]
+
+        // Link the special REPL product that contains all of the library targets.
+        let replProductName = graph.rootPackages[0].manifest.name + Product.replProductSuffix
+        arguments.append("-l" + replProductName)
+
+        // The graph should have the REPL product.
+        assert(graph.allProducts.first(where: { $0.name == replProductName }) != nil)
+
+        // Add the search path to the directory containing the modulemap file.
+        for target in targets {
+            switch target {
+                case .swift: break
+            case .clang(let targetDescription):
+                if let includeDir = targetDescription.moduleMap?.parentDirectory {
+                    arguments += ["-I" + includeDir.asString]
+                }
+            }
+        }
+
+        // Add search paths from the system library targets.
+        for target in graph.reachableTargets {
+            if let systemLib = target.underlyingTarget as? SystemLibraryTarget {
+                arguments += self.pkgConfig(for: systemLib).cFlags
+            }
+        }
+
+        return arguments
+    }
+
     /// Get pkgConfig arguments for a system library target.
     private func pkgConfig(for target: SystemLibraryTarget) -> (cFlags: [String], libs: [String]) {
         // If we already have these flags, we're done.

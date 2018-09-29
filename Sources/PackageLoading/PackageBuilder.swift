@@ -195,6 +195,9 @@ public final class PackageBuilder {
     /// If set to true, one test product will be created for each test target.
     private let shouldCreateMultipleTestProducts: Bool
 
+    /// Create the special REPL product for this package.
+    private let createREPLProduct: Bool
+
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
@@ -211,7 +214,8 @@ public final class PackageBuilder {
         fileSystem: FileSystem = localFileSystem,
         diagnostics: DiagnosticsEngine,
         isRootPackage: Bool,
-        shouldCreateMultipleTestProducts: Bool = false
+        shouldCreateMultipleTestProducts: Bool = false,
+        createREPLProduct: Bool = false
     ) {
         self.isRootPackage = isRootPackage
         self.manifest = manifest
@@ -219,6 +223,7 @@ public final class PackageBuilder {
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
+        self.createREPLProduct = createREPLProduct
     }
 
     /// Build a new package following the conventions.
@@ -914,6 +919,16 @@ public final class PackageBuilder {
             }
 
             append(Product(name: product.name, type: product.type, targets: targets))
+        }
+
+        // Create a special REPL product that contains all the library targets.
+        if createREPLProduct {
+            let replProduct = Product(
+                name: manifest.name + Product.replProductSuffix,
+                type: .library(.dynamic),
+                targets: targets.filter({ $0.type == .library })
+            )
+            append(replProduct)
         }
 
         return products.map({ $0.item })

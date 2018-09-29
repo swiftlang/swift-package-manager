@@ -201,7 +201,8 @@ public func loadPackageGraph(
     roots: [String],
     fs: FileSystem,
     diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
-    manifests: [Manifest]
+    manifests: [Manifest],
+    createREPLProduct: Bool = false
 ) -> PackageGraph {
     let input = PackageGraphRootInput(packages: roots.map({ AbsolutePath($0) }))
     let rootManifests = manifests.filter({ roots.contains($0.path.parentDirectory.asString) })
@@ -212,18 +213,23 @@ public func loadPackageGraph(
         root: graphRoot,
         externalManifests: externalManifests,
         diagnostics: diagnostics,
-        fileSystem: fs)
+        fileSystem: fs,
+        createREPLProduct: createREPLProduct
+    )
 }
 
 public func loadPackageGraph(
     root: String,
     fs: FileSystem,
     diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
-    manifests: [Manifest]
+    manifests: [Manifest],
+    createREPLProduct: Bool = false
 ) -> PackageGraph {
     return loadPackageGraph(
         roots: [root], fs: fs,
-        diagnostics: diagnostics, manifests: manifests)
+        diagnostics: diagnostics, manifests: manifests,
+        createREPLProduct: createREPLProduct
+    )
 }
 
 /// Temporary override environment variables

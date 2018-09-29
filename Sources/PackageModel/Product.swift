@@ -71,6 +71,9 @@ public class Product {
     /// The path to linux main file.
     public let linuxMain: AbsolutePath?
 
+    /// The suffix for REPL product name.
+    public static let replProductSuffix: String = "__REPL"
+
     public init(name: String, type: ProductType, targets: [Target], linuxMain: AbsolutePath? = nil) {
         precondition(!targets.isEmpty)
         if type == .executable {
