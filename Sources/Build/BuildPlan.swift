@@ -389,13 +389,13 @@ public final class ProductBuildDescription {
         args += ["-o", binary.asString]
         args += ["-module-name", product.name]
         
-        func dylibsIn(product: ProductBuildDescription) -> [ProductBuildDescription] {
-            return product.dylibs.reduce([product], {$0 + dylibsIn(product: $1)})
+        func dylibsIn(products: [ProductBuildDescription]) -> [ProductBuildDescription] {
+            return products.reduce(products, { $0 + dylibsIn(products: $1.dylibs) })
         }
         
         // Go through the nested dynamic libraries and add them
         // FIXME: Use a better algorithm, because if there is a cyclic dependency an error will occur
-        args += dylibs.reduce([], {$0 + dylibsIn(product: $1)}).map({ "-l" + $0.product.name })
+        args += dylibsIn(products: dylibs).map({ "-l" + $0.product.name })
         
         switch product.type {
         case .library(.automatic):
