@@ -12,6 +12,7 @@ import Build
 import Utility
 import Basic
 import PackageGraph
+import PackageModel
 
 //FIXME: Can we move this functionality into the argument parser?
 /// Diagnostic error when a command is run with several arguments that are mutually exclusive.
@@ -45,18 +46,31 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
     override func runImpl() throws {
         switch try options.mode() {
         case .build:
-          #if os(Linux)
+            #if os(Linux)
             // Emit warning if clang is older than version 3.6 on Linux.
             // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
             checkClangVersion()
-          #endif
+            #endif
 
             guard let subset = options.buildSubset(diagnostics: diagnostics) else { return }
-          
-           // Create the build plan and build.
-           let plan = try BuildPlan(buildParameters: buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
-           try build(plan: plan, subset: subset)
 
+            // Create the build plan and build.
+            let graph: PackageGraph
+            if options.shouldLaunchInterpreter {
+                graph = try loadPackageGraph(modifyRootManifest: addReplLibrary)
+            } else {
+                graph = try loadPackageGraph()
+            }
+
+            let plan = try BuildPlan(buildParameters: buildParameters(), graph: graph, diagnostics: diagnostics)
+            try build(plan: plan, subset: subset)
+
+            if options.shouldLaunchInterpreter {
+                // Invoke the toolchain's swift REPL, linking the build artifacts.
+                let swiftInterpreterPath = try getToolchain().swiftInterpreter
+                let searchPath = plan.buildParameters.buildPath.asString
+                try run(swiftInterpreterPath, arguments: ["-I", searchPath, "-L", searchPath, "-l\(SwiftBuildTool.replLibName)"])
+            }
         case .binPath:
             try print(buildParameters().buildPath.asString)
 
@@ -85,6 +99,11 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             option: parser.add(option: "--show-bin-path", kind: Bool.self,
                usage: "Print the binary output path"),
             to: { $0.shouldPrintBinPath = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--repl", kind: Bool.self,
+                usage: "Launch a Swift REPL that includes library targets"),
+            to: { $0.shouldLaunchInterpreter = $1 })
     }
 
     private func checkClangVersion() {
@@ -99,6 +118,30 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
         if clang.major <= 3 && clang.minor < 6 {
             print("warning: minimum recommended clang is version 3.6, otherwise you may encounter linker errors.")
         }
+    }
+
+    private static let replLibName = "__SwiftReplLibrary"
+
+    private func addReplLibrary(to manifest: Manifest) -> Manifest {
+        let replProduct = ProductDescription(
+            name: SwiftBuildTool.replLibName,
+            type: .library(.dynamic),
+            targets: manifest.targets.map { $0.name })
+
+        return Manifest(
+            name: manifest.name,
+            path: manifest.path,
+            url: manifest.url,
+            version: manifest.version,
+            manifestVersion: manifest.manifestVersion,
+            pkgConfig: manifest.pkgConfig,
+            providers: manifest.providers,
+            cLanguageStandard: manifest.cLanguageStandard,
+            cxxLanguageStandard: manifest.cxxLanguageStandard,
+            swiftLanguageVersions: manifest.swiftLanguageVersions,
+            dependencies: manifest.dependencies,
+            products: manifest.products + [replProduct],
+            targets: manifest.targets)
     }
 }
 
@@ -144,6 +187,9 @@ public class BuildToolOptions: ToolOptions {
 
     /// If the binary output path should be printed.
     var shouldPrintBinPath = false
+
+    /// If the REPL should be launched.
+    var shouldLaunchInterpreter = false
 
     /// Specific target to build.
     var target: String?

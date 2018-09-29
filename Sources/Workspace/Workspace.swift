@@ -556,11 +556,12 @@ extension Workspace {
     public func loadPackageGraph(
         root: PackageGraphRootInput,
         createMultipleTestProducts: Bool = false,
-        diagnostics: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine,
+        modifyRootManifest: (Manifest) -> Manifest = { $0 }
     ) -> PackageGraph {
 
         // Perform dependency resolution, if required.
-        let manifests = self._resolve(root: root, diagnostics: diagnostics)
+        let manifests = self._resolve(root: root, diagnostics: diagnostics, modifyRootManifest: modifyRootManifest)
         let externalManifests = manifests.allManifests()
 
         // Load the graph.
@@ -626,10 +627,11 @@ extension Workspace {
     /// Loads and returns manifests at the given paths.
     public func loadRootManifests(
         packages: [AbsolutePath],
-        diagnostics: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine,
+        modify: (Manifest) -> Manifest = { $0 }
     ) -> [Manifest] {
         return packages.compactMap({ package -> Manifest? in
-			loadManifest(packagePath: package, url: package.asString, diagnostics: diagnostics)
+            loadManifest(packagePath: package, url: package.asString, diagnostics: diagnostics, modify: modify)
         })
     }
 }
@@ -974,7 +976,8 @@ extension Workspace {
         packagePath: AbsolutePath,
         url: String,
         version: Version? = nil,
-        diagnostics: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine,
+        modify: (Manifest) -> Manifest = { $0 }
     ) -> Manifest? {
         return diagnostics.wrap(with: PackageLocation.Local(packagePath: packagePath), {
             // Load the tools version for the package.
@@ -1004,7 +1007,8 @@ extension Workspace {
                 baseURL: url,
                 version: version,
                 manifestVersion: toolsVersion.manifestVersion,
-                diagnostics: diagnostics
+                diagnostics: diagnostics,
+                modifyManifest: modify
             )
         })
     }
@@ -1024,14 +1028,15 @@ extension Workspace {
     fileprivate func _resolve(
         root: PackageGraphRootInput,
         extraConstraints: [RepositoryPackageConstraint] = [],
-        diagnostics: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine,
+        modifyRootManifest: (Manifest) -> Manifest = { $0 }
     ) -> DependencyManifests {
 
         // Ensure the cache path exists and validate that edited dependencies.
         createCacheDirectories(with: diagnostics)
 
         // Load the root manifests and currently checked out manifests.
-        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics, modify: modifyRootManifest)
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
