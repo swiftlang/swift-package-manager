@@ -30,7 +30,6 @@ let package = Package(
                 "Utility",
                 "SourceControl",
                 "SPMLLBuild",
-                "PackageDescription4",
                 "PackageModel",
                 "PackageLoading",
                 "PackageGraph",
