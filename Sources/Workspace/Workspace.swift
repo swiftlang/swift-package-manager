@@ -231,7 +231,7 @@ public class Workspace {
     }
 
     /// The delegate interface.
-    public let delegate: WorkspaceDelegate
+    public let delegate: WorkspaceDelegate?
 
     /// The path of the workspace data.
     public let dataPath: AbsolutePath
@@ -296,7 +296,7 @@ public class Workspace {
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader(),
-        delegate: WorkspaceDelegate,
+        delegate: WorkspaceDelegate? = nil,
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
         isResolverPrefetchingEnabled: Bool = false,
@@ -315,7 +315,7 @@ public class Workspace {
         self.repositoryManager = RepositoryManager(
             path: repositoriesPath,
             provider: repositoryProvider,
-            delegate: WorkspaceRepositoryManagerDelegate(workspaceDelegate: delegate),
+            delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
             fileSystem: fileSystem)
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.containerProvider = RepositoryPackageContainerProvider(
@@ -608,7 +608,7 @@ extension Workspace {
             diagnostics: diagnostics)
 
         // Report the updated managed dependencies.
-        delegate.managedDependenciesDidUpdate(managedDependencies.values)
+        delegate?.managedDependenciesDidUpdate(managedDependencies.values)
 
         // Create the dependency map by associating each resolved package with its corresponding managed dependency.
         let managedDependenciesByIdentity = Dictionary(items: managedDependencies.values.map({ ($0.packageRef.identity, $0) }))
@@ -1075,7 +1075,7 @@ extension Workspace {
         }
 
         // Inform delegate that we will resolve dependencies now.
-        delegate.willResolveDependencies()
+        delegate?.willResolveDependencies()
 
         // Create the constraints.
         var constraints = [RepositoryPackageConstraint]()
@@ -1505,7 +1505,7 @@ extension Workspace {
         
         // Inform the delegate if nothing was updated.
         if packageStateChanges.filter({ $0.1 == .unchanged }).count == packageStateChanges.count {
-            delegate.dependenciesUpToDate()
+            delegate?.dependenciesUpToDate()
         }
     }
 
@@ -1556,7 +1556,7 @@ extension Workspace {
         try fileSystem.removeFileTree(path)
 
         // Inform the delegate that we're starting cloning.
-        delegate.cloning(repository: handle.repository.url)
+        delegate?.cloning(repository: handle.repository.url)
         try handle.cloneCheckout(to: path, editable: false)
 
         return path
@@ -1583,7 +1583,7 @@ extension Workspace {
         // Check out the given revision.
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
         // Inform the delegate.
-        delegate.checkingOut(repository: package.repository.url, atReference: checkoutState.description, to: path)
+        delegate?.checkingOut(repository: package.repository.url, atReference: checkoutState.description, to: path)
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
@@ -1650,7 +1650,7 @@ extension Workspace {
         }
         
         // Inform the delegate.
-        delegate.removing(repository: dependency.packageRef.repository.url)
+        delegate?.removing(repository: dependency.packageRef.repository.url)
         
         // Compute the dependency which we need to remove.
         let dependencyToRemove: ManagedDependency
