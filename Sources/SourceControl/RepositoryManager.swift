@@ -130,7 +130,7 @@ public class RepositoryManager {
     public let provider: RepositoryProvider
 
     /// The delegate interface.
-    private let delegate: RepositoryManagerDelegate
+    private let delegate: RepositoryManagerDelegate?
 
     /// The map of registered repositories.
     //
@@ -174,7 +174,7 @@ public class RepositoryManager {
     public init(
         path: AbsolutePath,
         provider: RepositoryProvider,
-        delegate: RepositoryManagerDelegate,
+        delegate: RepositoryManagerDelegate? = nil,
         fileSystem: FileSystem = localFileSystem
     ) {
         self.path = path
@@ -240,13 +240,13 @@ public class RepositoryManager {
                         }
 
                         self.callbacksQueue.async {
-                            self.delegate.handleWillUpdate(handle: handle)
+                            self.delegate?.handleWillUpdate(handle: handle)
                         }
 
                         try repo.fetch()
 
                         self.callbacksQueue.async {
-                            self.delegate.handleDidUpdate(handle: handle)
+                            self.delegate?.handleDidUpdate(handle: handle)
                         }
 
                         return handle
@@ -261,7 +261,7 @@ public class RepositoryManager {
 
                     // Inform delegate.
                     self.callbacksQueue.async {
-                        self.delegate.fetchingWillBegin(handle: handle)
+                        self.delegate?.fetchingWillBegin(handle: handle)
                     }
 
                     // Fetch the repo.
@@ -280,7 +280,7 @@ public class RepositoryManager {
 
                     // Inform delegate.
                     self.callbacksQueue.async {
-                        self.delegate.fetchingDidFinish(handle: handle, error: fetchError)
+                        self.delegate?.fetchingDidFinish(handle: handle, error: fetchError)
                     }
 
                     // Save the manager state.
