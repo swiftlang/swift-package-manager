@@ -272,7 +272,10 @@ class Target(object):
             import_paths.append(args.xctest_path)
 
         # Add llbuild import paths.
-        import_paths.extend(llbuild_import_paths(args))
+        llbuild_import_paths_value = llbuild_import_paths(args)
+        if llbuild_import_paths_value:
+            import_paths.extend(llbuild_import_paths(args))
+
         if args.llbuild_link_framework:
             other_args.extend(["-F", args.llbuild_build_dir])
 
@@ -830,6 +833,9 @@ def llbuild_import_paths(args):
     if args.llbuild_link_framework:
         return []
 
+    if not args.llbuild_build_dir:
+        return None
+
     import_paths = []
     import_paths.append(os.path.join(args.llbuild_build_dir, "products/llbuildSwift"))
     import_paths.append(os.path.join(args.llbuild_source_dir, "products/libllbuild/include"))
@@ -919,7 +925,7 @@ def build_llbuild(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        usage="%(prog)s [options] [clean|all|test|install]",
+        usage="%(prog)s [options] [clean|all|test|install|build-runtimes]",
         description="This script will build a bootstrapped copy of the Swift "
                     "Package Manager, and optionally perform extra actions "
                     "like installing the result (with 'install') to a "
@@ -993,19 +999,6 @@ def main():
     if not args.swiftc_path:
         args.swiftc_path = get_swiftc_path()
 
-    # We either support linking the llbuild framework or dynamic library.
-    #
-    # llbuild-build-dir is expected to be path llbuild's CMake build
-    # directory when linking the dylib. Otherwise, it should contain
-    # llbuild.framework and we don't require the llbuild source directory.
-    if args.llbuild_link_framework:
-        if args.llbuild_source_dir:
-            error("--llbuild-link-framework can't be used with --llbuild-source-dir")
-        if not args.llbuild_build_dir:
-            error("--llbuild-link-framework requires --llbuild-build-dir")
-    elif not args.llbuild_source_dir:
-        args.llbuild_source_dir = get_llbuild_source_path()
-
     # Absolutize input paths.
     if args.build_path:
         args.build_path = os.path.abspath(args.build_path)
@@ -1019,8 +1012,6 @@ def main():
         args.xctest_path = os.path.abspath(args.xctest_path)
     if args.llbuild_source_dir:
         args.llbuild_source_dir = os.path.abspath(args.llbuild_source_dir)
-    if args.llbuild_build_dir:
-        args.llbuild_build_dir = os.path.abspath(args.llbuild_build_dir)
         
     build_actions = set(args.build_actions)
 
@@ -1032,7 +1023,7 @@ def main():
             
     # Validate the build actions.
     for action in build_actions:
-        if action not in ("clean", "all", "test", "install"):
+        if action not in ("clean", "all", "test", "install", "build-runtimes"):
             raise SystemExit("unknown build action: %r" % (action,))
 
     # Compute the build paths.
@@ -1058,23 +1049,12 @@ def main():
     sandbox_path = os.path.join(build_path, ".bootstrap")
     target_path = os.path.join(build_path, build_target)
 
-    # Compute the build path for llbuild if it wasn't provided.
-    #
-    # We will also try to build llbuild if we're computing the build
-    # path ourselves.
-    should_build_llbuild = False
-    if not args.llbuild_build_dir:
-        args.llbuild_build_dir = os.path.join(target_path, conf, "llbuild")
-        should_build_llbuild = True
-
     libdir = os.path.join(target_path, "lib")
     bindir = os.path.join(target_path, conf)
     
     if args.show_bin_path:
         print(bindir)
         sys.exit(0)
-
-    checkTool(["rsync", "--version"])
     
     # If the action is "clean", just remove the bootstrap and build directories.
     if "clean" in build_actions:
@@ -1096,19 +1076,9 @@ def main():
     # Create the sandbox.
     mkdir_p(sandbox_path)
 
-    # Build llbuild if needed.
-    if should_build_llbuild:
-        build_llbuild(args)
-
     # Determine the swift-build-tool to use.
     args.sbt_path = os.path.abspath(
         args.sbt_path or get_swift_build_tool_path())
-
-    # Run the stage1 build.
-    note("building stage1")
-    stage1 = llbuild(sandbox_path, targets, args)
-    stage1.create_manifest()
-    stage1.run()
 
     # Build runtime libraries.
     built_runtimes = build_runtimes(targets, sandbox_path, args)
@@ -1121,6 +1091,35 @@ def main():
         # Stage the stage1 runtime library.
         processed_runtimes[version] = process_runtime_libraries(
                 build, args, lib_path)
+
+    if "build-runtimes" in build_actions:
+        return
+
+    # We either support linking the llbuild framework or dynamic library.
+    #
+    # llbuild-build-dir is expected to be path llbuild's CMake build
+    # directory when linking the dylib. Otherwise, it should contain
+    # llbuild.framework and we don't require the llbuild source directory.
+    if args.llbuild_link_framework:
+        if args.llbuild_source_dir:
+            error("--llbuild-link-framework can't be used with --llbuild-source-dir")
+        if not args.llbuild_build_dir:
+            error("--llbuild-link-framework requires --llbuild-build-dir")
+    elif not args.llbuild_source_dir:
+        args.llbuild_source_dir = get_llbuild_source_path()
+    if args.llbuild_build_dir:
+        args.llbuild_build_dir = os.path.abspath(args.llbuild_build_dir)
+
+    # Build llbuild if needed.
+    if not args.llbuild_build_dir:
+        args.llbuild_build_dir = os.path.join(target_path, conf, "llbuild")
+        build_llbuild(args)
+
+    # Run the stage1 build.
+    note("building stage1")
+    stage1 = llbuild(sandbox_path, targets, args)
+    stage1.create_manifest()
+    stage1.run()
 
     mkdir_p(bindir)
     bootstrapped_product = os.path.join(bindir, "swift-build-stage1")
