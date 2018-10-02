@@ -248,91 +248,136 @@ class ArgumentParserTests: XCTestCase {
         XCTAssertEqual(options.bar, 3)
     }
 
-    func testSubparser() throws {
-        let parser = ArgumentParser(commandName: "SomeBinary", usage: "sample parser", overview: "Sample overview")
-        let foo = parser.add(option: "--foo", kind: String.self, usage: "The foo option")
-        let bar = parser.add(option: "--bar", shortName: "-b", kind: String.self, usage: "The bar option")
+    private func parserWithTwoSubParsers() -> ArgumentParser {
 
-        let parentArg = parser.add(option: "--parent", kind: String.self, usage: "The parent option")
+        let parser = ArgumentParser(commandName: "SomeBinary", usage: "sample parser", overview: "Sample overview")
+        parser.add(option: "--foo", kind: String.self, usage: "The foo option")
+        parser.add(option: "--bar", shortName: "-b", kind: String.self, usage: "The bar option")
+
+        parser.add(option: "--parent", kind: String.self, usage: "The parent option")
 
         let parserA = parser.add(subparser: "a", overview: "A!")
-        let branchOption = parserA.add(option: "--branch", kind: String.self, usage: "The branch to use")
+        parserA.add(option: "--branch", kind: String.self, usage: "The branch to use")
 
         let parserB = parser.add(subparser: "b", overview: "B!")
-        let noFlyOption = parserB.add(option: "--no-fly", kind: Bool.self, usage: "Should you fly?")
+        parserB.add(option: "--no-fly", kind: Bool.self, usage: "Should you fly?")
 
-        var args = try parser.parse(["--foo", "foo", "--bar", "bar", "a", "--branch", "bugfix"])
-        XCTAssertEqual(args.get(foo), "foo")
-        XCTAssertEqual(args.get(bar), "bar")
-        XCTAssertEqual(args.get(branchOption), "bugfix")
-        XCTAssertEqual(args.get(noFlyOption), nil)
+        return parser
+    }
+
+    func testSubparserA() throws {
+
+        let parser = parserWithTwoSubParsers()
+        let args = try parser.parse(["--foo", "foo", "--bar", "bar", "a", "--branch", "bugfix"])
+
+        XCTAssertEqual(try args.get("--foo"), "foo")
+        XCTAssertEqual(try args.get("--bar"), "bar")
+        XCTAssertEqual(try args.get("--branch"), "bugfix")
+        XCTAssertNil(try args.get("--no-fly"))
         XCTAssertEqual(args.subparser(parser), "a")
+    }
 
-        args = try parser.parse(["--parent", "p", "--bar", "bar", "--foo", "foo", "b", "--no-fly"])
+    func testSubparserB() throws {
 
-        XCTAssertEqual(args.get(foo), "foo")
-        XCTAssertEqual(args.get(bar), "bar")
-        XCTAssertEqual(args.get(branchOption), nil)
-        XCTAssertEqual(args.get(noFlyOption), true)
+        let parser = parserWithTwoSubParsers()
+        let args = try parser.parse(["--parent", "p", "--bar", "bar", "--foo", "foo", "b", "--no-fly"])
+
+        XCTAssertEqual(try args.get("--foo"), "foo")
+        XCTAssertEqual(try args.get("--bar"), "bar")
+        XCTAssertNil(try args.get("--branch"))
+        XCTAssertEqual(try args.get("--no-fly"), true)
         XCTAssertEqual(args.subparser(parser), "b")
-        XCTAssertEqual(args.get(parentArg), "p")
-        XCTAssertEqual(try args.get("--parent") as String?, "p")
+        XCTAssertEqual(try args.get("--parent"), "p")
+    }
 
+    func testSubparserUnexpectedSubcommandThrows() throws {
+
+        let parser = parserWithTwoSubParsers()
         do {
-            args = try parser.parse(["c"])
+            _ = try parser.parse(["c"])
         } catch ArgumentParserError.expectedArguments(_, let args) {
             XCTAssertEqual(args.sorted(), ["a", "b"])
         }
+    }
 
+    func testSubparserWithOtherParserArgument1Throws() throws {
+
+        let parser = parserWithTwoSubParsers()
         do {
-            args = try parser.parse(["--foo", "foo", "b", "--no-fly", "--branch", "bugfix"])
+            _ = try parser.parse(["--foo", "foo", "b", "--no-fly", "--branch", "bugfix"])
         } catch ArgumentParserError.unknownOption(let arg) {
             XCTAssertEqual(arg, "--branch")
         }
+    }
 
+    func testSubparserWithOtherParserArgument2Throws() throws {
+
+        let parser = parserWithTwoSubParsers()
         do {
-            args = try parser.parse(["--foo", "foo", "a", "--branch", "bugfix", "--no-fly"])
+            _ = try parser.parse(["--foo", "foo", "a", "--branch", "bugfix", "--no-fly"])
         } catch ArgumentParserError.unknownOption(let arg) {
             XCTAssertEqual(arg, "--no-fly")
         }
+    }
 
+    func testSubparserWithMainParserArgumentThrows() throws {
+
+        let parser = parserWithTwoSubParsers()
         do {
-            args = try parser.parse(["a", "--branch", "bugfix", "--foo"])
+            _ = try parser.parse(["a", "--branch", "bugfix", "--foo"])
         } catch ArgumentParserError.unknownOption(let arg) {
             XCTAssertEqual(arg, "--foo")
         }
+    }
 
-        var stream = BufferedOutputByteStream()
+    private func assert(parser: ArgumentParser, usageContainsLines containLines: [String] = [], doesNotContainLines notContainLines: [String] = [], line: UInt = #line) {
+
+        let stream = BufferedOutputByteStream()
         parser.printUsage(on: stream)
-        var usage = stream.bytes.asString!
+        let usage = stream.bytes.asString!
 
-        XCTAssert(usage.contains("OVERVIEW: Sample overview"))
-        XCTAssert(usage.contains("USAGE: SomeBinary sample parser"))
-        XCTAssert(usage.contains("  --bar, -b   The bar option"))
-        XCTAssert(usage.contains("  --foo       The foo option"))
-        XCTAssert(usage.contains("  --parent    The parent option"))
-        XCTAssert(usage.contains("SUBCOMMANDS:"))
-        XCTAssert(usage.contains("  b           B!"))
-        XCTAssert(usage.contains("--help"))
+        for usageLine in containLines {
+            XCTAssertTrue(usage.contains(usageLine), "Expecting '\(usageLine)' in usage output.", line: line)
+        }
+        for usageLine in notContainLines {
+            XCTAssertFalse(usage.contains(usageLine), "Found '\(usageLine)' in usage output. Wasn't expecting it.", line: line)
+        }
+    }
 
-        stream = BufferedOutputByteStream()
-        parserA.printUsage(on: stream)
-        usage = stream.bytes.asString!
+    func testSubparserMainParserUsage() throws {
+        assert(parser: parserWithTwoSubParsers(), usageContainsLines: [
+            "OVERVIEW: Sample overview",
+            "USAGE: SomeBinary sample parser",
+            "  --bar, -b   The bar option",
+            "  --foo       The foo option",
+            "  --parent    The parent option",
+            "SUBCOMMANDS:",
+            "  b           B!",
+            "--help",
+            ])
+    }
 
-        XCTAssert(usage.contains("OVERVIEW: A!"))
-        XCTAssert(!usage.contains("USAGE:"))
-        XCTAssert(usage.contains("OPTIONS:"))
-        XCTAssert(usage.contains("  --branch   The branch to use"))
-        XCTAssertFalse(usage.contains("--help"))
+    func testSubparserAUsage() throws {
+        assert(parser: parserWithTwoSubParsers().subparsers["a"]!,
+               usageContainsLines: [
+                "OVERVIEW: A!",
+                "USAGE: xctest a", // doesn't print main parser name as we are directly accessing the sub parser.
+                "OPTIONS:",
+                "  --branch   The branch to use",
+                ],
+               doesNotContainLines: [
+                "--help",
+                ])
+    }
 
-        stream = BufferedOutputByteStream()
-        parserB.printUsage(on: stream)
-        usage = stream.bytes.asString!
-
-        XCTAssert(usage.contains("OVERVIEW: B!"))
-        XCTAssert(!usage.contains("USAGE:"))
-        XCTAssert(usage.contains("OPTIONS:"))
-        XCTAssert(usage.contains("  --no-fly"))
+    func testSubparserBUsage() throws {
+        assert(parser: parserWithTwoSubParsers().subparsers["b"]!,
+               usageContainsLines: [
+        "OVERVIEW: B!",
+        "USAGE: xctest b", // doesn't print main parser name as we are directly accessing the sub parser.
+        "OPTIONS:",
+        "  --no-fly",
+        ])
     }
 
     func testSubsubparser() throws {

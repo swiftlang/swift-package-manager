@@ -613,6 +613,9 @@ public final class ArgumentParser {
     // If provided, will be substituted instead of arg0 in usage text.
     let commandName: String?
 
+    // If this is a sub parser, will be the subcommand name.
+    let subCommandName: String?
+
     /// Usage string of this parser.
     let usage: String
 
@@ -641,22 +644,24 @@ public final class ArgumentParser {
     public init(commandName: String? = nil, usage: String, overview: String, seeAlso: String? = nil) {
         self.isSubparser = false
         self.commandName = commandName
+        self.subCommandName = nil
         self.usage = usage
         self.overview = overview
         self.seeAlso = seeAlso
     }
 
     /// Create a subparser with its help text.
-    private init(subparser overview: String) {
+    private init(subCommandName: String? = nil, subparser overview: String, usage: String?) {
         self.isSubparser = true
         self.commandName = nil
-        self.usage = ""
+        self.subCommandName = subCommandName
+        self.usage = usage ?? ""
         self.overview = overview
         self.seeAlso = nil
     }
 
     /// Adds an option to the parser.
-    public func add<T: ArgumentKind>(
+    @discardableResult public func add<T: ArgumentKind>(
         option: String,
         shortName: String? = nil,
         kind: T.Type,
@@ -671,7 +676,7 @@ public final class ArgumentParser {
     }
 
     /// Adds an array argument type.
-    public func add<T: ArgumentKind>(
+    @discardableResult public func add<T: ArgumentKind>(
         option: String,
         shortName: String? = nil,
         kind: [T].Type,
@@ -689,7 +694,7 @@ public final class ArgumentParser {
     /// Adds an argument to the parser.
     ///
     /// Note: Only one positional argument is allowed if optional setting is enabled.
-    public func add<T: ArgumentKind>(
+    @discardableResult public func add<T: ArgumentKind>(
         positional: String,
         kind: T.Type,
         optional: Bool = false,
@@ -711,7 +716,7 @@ public final class ArgumentParser {
     /// Adds an argument to the parser.
     ///
     /// Note: Only one multiple-value positional argument is allowed.
-    public func add<T: ArgumentKind>(
+    @discardableResult public func add<T: ArgumentKind>(
         positional: String,
         kind: [T].Type,
         optional: Bool = false,
@@ -733,9 +738,9 @@ public final class ArgumentParser {
 
     /// Add a parser with a subcommand name and its corresponding overview.
     @discardableResult
-    public func add(subparser command: String, overview: String) -> ArgumentParser {
+    public func add(subparser command: String, overview: String, usage: String? = nil) -> ArgumentParser {
         precondition(positionalArguments.isEmpty, "Subparsers are not supported with positional arguments")
-        let parser = ArgumentParser(subparser: overview)
+        let parser = ArgumentParser(subCommandName: command, subparser: overview, usage: usage)
         subparsers[command] = parser
         return parser
     }
@@ -887,13 +892,15 @@ public final class ArgumentParser {
 
         stream <<< "OVERVIEW: " <<< overview
 
-        // We only print command usage for top level parsers.
-        if !isSubparser {
-            stream <<< "\n\n"
-            // Get the binary name from command line arguments.
-            let defaultCommandName = CommandLine.arguments[0].components(separatedBy: "/").last!
-            stream <<< "USAGE: " <<< (commandName ?? defaultCommandName) <<< " " <<< usage
+        // Print the usage syntax.
+        stream <<< "\n\n"
+        // Get the binary name from command line arguments.
+        let defaultCommandName = CommandLine.arguments[0].components(separatedBy: "/").last!
+        stream <<< "USAGE: " <<< (commandName ?? defaultCommandName)
+        if let subCommandName = subCommandName {
+            stream <<< " " <<< subCommandName
         }
+        stream <<< " " <<< usage
 
         if optionArguments.count > 0 {
             stream <<< "\n\n"
