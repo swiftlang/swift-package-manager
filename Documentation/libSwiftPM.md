@@ -6,7 +6,7 @@ SwiftPM has a library based architecture and the top-level library product is
 called `libSwiftPM`. Other packages can add SwiftPM as a package dependency and
 create powerful custom build tools on top of `libSwiftPM`.
 
-The SwiftPM repository contains an [example](https://github.com/apple/swift-package-manager/tree/master/Example/package-info) that demonstrates the use of
+The SwiftPM repository contains an [example](https://github.com/apple/swift-package-manager/tree/master/Examples/package-info) that demonstrates the use of
 `libSwiftPM` in a Swift package. Use the following commands to run the example
 package:
 
