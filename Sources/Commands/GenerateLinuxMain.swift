@@ -48,7 +48,7 @@ final class LinuxMainGenerator {
         // Generate manifest file for each test module we got from XCTest discovery.
         for module in modules.lazy.sorted(by: { $0.name < $1.name }) {
             guard let target = graph.reachableTargets.first(where: { $0.c99name == module.name }) else {
-                print("warning: did not file target '\(module.name)'")
+                print("warning: did not find target '\(module.name)'")
                 continue
             }
             assert(target.type == .test, "Unexpected target type \(target.type) for \(target)")
@@ -168,9 +168,8 @@ private final class ModulesBuilder {
         for testCase in cases {
             let (module, theKlass) = testCase.name.split(around: ".")
             guard let klass = theKlass else {
-                // This should only happen if there are no tests in the test case.
+                // Ignore the classes that have zero tests.
                 if testCase.tests.isEmpty {
-                    print("warning: \(testCase.name) does not contain any tests")
                     continue
                 }
                 fatalError("unreachable \(testCase.name)")
