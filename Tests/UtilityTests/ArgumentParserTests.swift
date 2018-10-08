@@ -11,7 +11,7 @@
 import XCTest
 import Basic
 import TestSupport
-import Utility
+@testable import Utility
 
 enum SampleEnum: String {
     case Foo
