@@ -277,6 +277,8 @@ protocol ArgumentProtocol: Hashable {
     /// The shell completions to offer as values for this argument.
     var completion: ShellCompletion { get }
 
+    var wasParsed: Bool { get }
+
     /// Parses and returns the argument values from the parser.
     ///
     // FIXME: Because `ArgumentKindTy`` can't conform to `ArgumentKind`, this
@@ -315,7 +317,7 @@ public final class OptionArgument<Kind>: ArgumentProtocol {
     let shortName: String?
 
     // Option arguments are always optional.
-    var isOptional: Bool { return true }
+    var isOptional: Bool = false
 
     let strategy: ArrayParsingStrategy
 
@@ -323,17 +325,21 @@ public final class OptionArgument<Kind>: ArgumentProtocol {
 
     let completion: ShellCompletion
 
-    init(name: String, shortName: String?, strategy: ArrayParsingStrategy, usage: String?, completion: ShellCompletion) {
+    private(set) var wasParsed: Bool = false
+
+    init(name: String, shortName: String?, strategy: ArrayParsingStrategy, optional: Bool, usage: String?, completion: ShellCompletion) {
         precondition(!isPositional(argument: name))
         self.name = name
         self.shortName = shortName
         self.strategy = strategy
         self.usage = usage
         self.completion = completion
+        self.isOptional = optional
     }
 
     func parse(_ kind: ArgumentKind.Type, with parser: inout ArgumentParserProtocol) throws -> [ArgumentKind] {
         do {
+            wasParsed = true
             return try _parse(kind, with: &parser)
         } catch let conversionError as ArgumentConversionError {
             throw ArgumentParserError.invalidValue(argument: name, error: conversionError)
@@ -378,6 +384,8 @@ public final class PositionalArgument<Kind>: ArgumentProtocol {
 
     let usage: String?
 
+    private(set) var wasParsed: Bool = false
+
     let completion: ShellCompletion
 
     init(name: String, strategy: ArrayParsingStrategy, optional: Bool, usage: String?, completion: ShellCompletion) {
@@ -391,6 +399,7 @@ public final class PositionalArgument<Kind>: ArgumentProtocol {
 
     func parse(_ kind: ArgumentKind.Type, with parser: inout ArgumentParserProtocol) throws -> [ArgumentKind] {
         do {
+            wasParsed = true
             return try _parse(kind, with: &parser)
         } catch let conversionError as ArgumentConversionError {
             throw ArgumentParserError.invalidValue(argument: name, error: conversionError)
@@ -431,6 +440,8 @@ final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
     let isOptional: Bool
 
     let usage: String?
+
+    let wasParsed: Bool = false
 
     let completion: ShellCompletion
 
@@ -661,11 +672,12 @@ public final class ArgumentParser {
         shortName: String? = nil,
         kind: T.Type,
         usage: String? = nil,
+        optional: Bool = true,
         completion: ShellCompletion? = nil
     ) -> OptionArgument<T> {
         assert(!optionArguments.contains(where: { $0.name == option }), "Can not define an option twice")
 
-        let argument = OptionArgument<T>(name: option, shortName: shortName, strategy: .oneByOne, usage: usage, completion: completion ?? T.completion)
+        let argument = OptionArgument<T>(name: option, shortName: shortName, strategy: .oneByOne, optional: optional, usage: usage, completion: completion ?? T.completion)
         optionArguments.append(AnyArgument(argument))
         return argument
     }
@@ -677,11 +689,12 @@ public final class ArgumentParser {
         kind: [T].Type,
         strategy: ArrayParsingStrategy = .upToNextOption,
         usage: String? = nil,
+        optional: Bool = true,
         completion: ShellCompletion? = nil
     ) -> OptionArgument<[T]> {
         assert(!optionArguments.contains(where: { $0.name == option }), "Can not define an option twice")
 
-        let argument = OptionArgument<[T]>(name: option, shortName: shortName, strategy: strategy, usage: usage, completion: completion ?? T.completion)
+        let argument = OptionArgument<[T]>(name: option, shortName: shortName, strategy: strategy, optional: optional, usage: usage, completion: completion ?? T.completion)
         optionArguments.append(AnyArgument(argument))
         return argument
     }
@@ -841,11 +854,19 @@ public final class ArgumentParser {
             // Restore the argument iterator state.
             argumentsIterator = (parserProtocol as! Parser).argumentsIterator
         }
+
         // Report if there are any non-optional positional arguments left which were not present in the arguments.
         let leftOverArguments = Array(positionalArgumentIterator)
         if leftOverArguments.contains(where: { !$0.isOptional }) {
             throw ArgumentParserError.expectedArguments(self, leftOverArguments.map({ $0.name }))
         }
+
+        // Check for required arguments.
+        let requiredArguments = optionArguments.filter { !$0.isOptional && !$0.wasParsed }
+        if !requiredArguments.isEmpty {
+            throw ArgumentParserError.expectedArguments(self, requiredArguments.map { $0.name })
+        }
+
         return result
     }
 
