@@ -2460,6 +2460,134 @@ final class WorkspaceTests: XCTestCase {
             result.check(notPresent: "Bar")
         }
     }
+
+	func testTransitiveDependencySwitchWithSameIdentity() throws {
+         let sandbox = AbsolutePath("/tmp/ws/")
+         let fs = InMemoryFileSystem()
+
+         let workspace = try TestWorkspace(
+             sandbox: sandbox,
+             fs: fs,
+             roots: [
+                 TestPackage(
+                     name: "Root",
+                     targets: [
+                         TestTarget(name: "Root", dependencies: ["Bar"]),
+                     ],
+                     products: [],
+                     dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                     ]
+                 ),
+             ],
+             packages: [
+                 TestPackage(
+                     name: "Bar",
+                     targets: [
+                         TestTarget(name: "Bar", dependencies: ["Foo"]),
+                     ],
+                     products: [
+                         TestProduct(name: "Bar", targets: ["Bar"]),
+                     ],
+                     dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                     ],
+                     versions: ["1.0.0"]
+                 ),
+                 TestPackage(
+                     name: "Bar",
+                     targets: [
+                         TestTarget(name: "Bar", dependencies: ["Foo"]),
+                     ],
+                     products: [
+                         TestProduct(name: "Bar", targets: ["Bar"]),
+                     ],
+                     dependencies: [
+                        TestDependency(name: "Nested/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                     ],
+                     versions: ["1.1.0"]
+                 ),
+                 TestPackage(
+                     name: "Foo",
+                     targets: [
+                         TestTarget(name: "Foo"),
+                     ],
+                     products: [
+                         TestProduct(name: "Foo", targets: ["Foo"]),
+                     ],
+                     versions: ["1.0.0"]
+                 ),
+                 TestPackage(
+                     name: "Foo",
+                     path: "Nested/Foo",
+                     targets: [
+                         TestTarget(name: "Foo"),
+                     ],
+                     products: [
+                         TestProduct(name: "Foo", targets: ["Foo"]),
+                     ],
+                     versions: ["1.0.0"]
+                 ),
+             ]
+         )
+
+         // In this test, we get into a state where add an entry in the resolved
+         // file for a transitive dependency whose URL is later changed to
+         // something else, while keeping the same package identity.
+         //
+         // This is normally detected during pins validation before the
+         // dependency resolution process even begins but if we're starting with
+         // a clean slate, we don't even know about the correct urls of the
+         // transitive dependencies. We will end up fetching the wrong
+         // dependency as we prefetch the pins. If we get into this case, it
+         // should kick off another dependency resolution operation which will
+         // have enough information to remove the invalid pins of transitive
+         // dependencies.
+
+         var deps: [TestWorkspace.PackageDependency] = [
+             .init(name: "Bar", requirement: .exact("1.0.0")),
+         ]
+         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+             PackageGraphTester(graph) { result in
+                 result.check(roots: "Root")
+                 result.check(packages: "Bar", "Foo", "Root")
+             }
+             XCTAssertNoDiagnostics(diagnostics)
+         }
+         workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+         }
+
+         do {
+             let ws = workspace.createWorkspace()
+             XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Foo"])
+         }
+
+         workspace.checkReset { diagnostics in 
+            XCTAssertNoDiagnostics(diagnostics)
+         }
+
+         deps = [
+             .init(name: "Bar", requirement: .exact("1.1.0")),
+         ]
+         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+             PackageGraphTester(graph) { result in
+                 result.check(roots: "Root")
+                 result.check(packages: "Bar", "Foo", "Root")
+             }
+             XCTAssertNoDiagnostics(diagnostics)
+         }
+         workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+         }
+
+         do {
+             let ws = workspace.createWorkspace()
+             XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
+         }
+     }
 }
 
 extension PackageGraph {
