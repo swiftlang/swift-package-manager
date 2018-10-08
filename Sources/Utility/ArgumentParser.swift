@@ -441,7 +441,8 @@ final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
 
     let usage: String?
 
-    let wasParsed: Bool = false
+    private let wasParsedClosure: () -> Bool
+    var wasParsed: Bool { return wasParsedClosure() }
 
     let completion: ShellCompletion
 
@@ -463,6 +464,7 @@ final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
         self.usage = argument.usage
         self.completion = argument.completion
         self.parseClosure = argument.parse(_:with:)
+        self.wasParsedClosure = { argument.wasParsed }
         isArray = false
     }
 
@@ -476,6 +478,7 @@ final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
         self.usage = argument.usage
         self.completion = argument.completion
         self.parseClosure = argument.parse(_:with:)
+        self.wasParsedClosure = { argument.wasParsed }
         isArray = true
     }
 
