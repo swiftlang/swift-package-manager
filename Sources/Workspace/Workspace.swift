@@ -1069,7 +1069,8 @@ extension Workspace {
     fileprivate func _resolve(
         root: PackageGraphRootInput,
         extraConstraints: [RepositoryPackageConstraint] = [],
-        diagnostics: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine,
+        retryOnPackagePathMismatch: Bool = true
     ) -> DependencyManifests {
 
         // Ensure the cache path exists and validate that edited dependencies.
@@ -1167,6 +1168,36 @@ extension Workspace {
 
         // Update the pinsStore.
         let updatedDependencyManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+
+        // If we still have required URLs, we probably cloned a wrong URL for
+        // some package dependency.
+        //
+        // This would usually happen when we're resolving from scratch and the
+        // resolved file has an outdated entry for a transitive dependency whose
+        // URL was changed. For e.g., the resolved file could refer to a dependency 
+        // through a ssh url but its new reference is now changed to http.
+        if !updatedDependencyManifests.computePackageURLs().missing.isEmpty {
+            // Retry resolution which will most likely resolve correctly now since
+            // we have the manifest files of all the dependencies.
+            if retryOnPackagePathMismatch {
+                // We still have something that is required. Retry!
+                return self._resolve(
+                    root: root,
+                    extraConstraints: extraConstraints,
+                    diagnostics: diagnostics,
+                    retryOnPackagePathMismatch: false
+                )
+            } else {
+                // If we weren't able to resolve properly even after a retry, it
+                // could mean that the dependency at fault has a different
+                // version of the manifest file which contains dependencies that
+                // have also changed their package references.
+                // FIXME: Emit diagnostic here.
+                diagnostics.emit(data: WorkspaceDiagnostics.OutdatedResolvedFile())
+                return updatedDependencyManifests
+            }
+        }
+
         self.pinAll(dependencyManifests: updatedDependencyManifests, pinsStore: pinsStore, diagnostics: diagnostics)
 
         return updatedDependencyManifests
@@ -1273,7 +1304,7 @@ extension Workspace {
 
             if requiredURLs.contains(where: { $0.path == dependency.packageRef.path }) {
                 // If required identity contains this dependency, it should be in the pins store.
-                if pins.contains(identity) {
+                if let pin = pinsStore.pinsMap[identity], pin.packageRef.path == dependency.packageRef.path {
                     continue
                 }
             } else if !pins.contains(identity) {

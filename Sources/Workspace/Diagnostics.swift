@@ -394,4 +394,16 @@ public enum WorkspaceDiagnostics {
 
         let manifests: [String]
     }
+
+    public struct OutdatedResolvedFile: DiagnosticData {
+        public static let id = DiagnosticID(
+            type: OutdatedResolvedFile.self,
+            name: "org.swift.diags.workspace.\(OutdatedResolvedFile.self)",
+            defaultBehavior: .error,
+            description: {
+                $0 <<< "the Package.resolved file is most likely severely out-of-date and is preventing correct resolution;"
+                $0 <<< "delete the resolved file and try again"
+            }
+        )
+    }
 }
