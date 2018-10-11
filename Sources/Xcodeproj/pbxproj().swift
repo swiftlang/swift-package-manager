@@ -279,7 +279,7 @@ func xcodeProject(
     func createSourceGroup(named groupName: String, for targets: [ResolvedTarget], in parentGroup: Xcode.Group) -> Xcode.Group? {
         // Look for the special case of a single target in a flat layout.
         let needsSourcesGroup: Bool
-        if let target = targets.only {
+        if let target = targets.spm_only {
             // FIXME: This is somewhat flaky; packages should have a notion of
             // what kind of layout they have.  But at least this is just a
             // heuristic and won't affect the functioning of the Xcode project.
@@ -446,7 +446,7 @@ func xcodeProject(
                 targetSettings.common.ENABLE_TESTABILITY = "YES"
                 targetSettings.common.PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)"
                 targetSettings.common.PRODUCT_MODULE_NAME = "$(TARGET_NAME:c99extidentifier)"
-                targetSettings.common.PRODUCT_BUNDLE_IDENTIFIER = target.c99name.mangledToBundleIdentifier()
+                targetSettings.common.PRODUCT_BUNDLE_IDENTIFIER = target.c99name.spm_mangledToBundleIdentifier()
                 targetSettings.common.SKIP_INSTALL = "YES"
             } else {
                 targetSettings.common.SWIFT_FORCE_STATIC_LINK_STDLIB = "NO"

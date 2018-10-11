@@ -529,7 +529,7 @@ final class TestRunner {
             let process = Process(arguments: try args(), environment: env, outputRedirection: .collect, verbose: false)
             try process.launch()
             let result = try process.waitUntilExit()
-            output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
+            output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle() ?? ""
             switch result.exitStatus {
             case .terminated(code: 0):
                 success = true

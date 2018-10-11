@@ -53,7 +53,7 @@ extension FileSystem {
         do {
             try createDirectory(root, recursive: true)
             for path in files {
-                let path = root.appending(RelativePath(path.dropFirst().str))
+                let path = root.appending(RelativePath(String(path.dropFirst())))
                 try createDirectory(path.parentDirectory, recursive: true)
                 try writeFileContents(path, bytes: "")
             }

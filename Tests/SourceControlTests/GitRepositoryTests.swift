@@ -56,7 +56,7 @@ class GitRepositoryTests: XCTestCase {
             // FIXME: It would be nice if we had a deterministic hash here...
             XCTAssertEqual(revision.identifier, 
                 try Process.popen(
-                    args: Git.tool, "-C", testRepoPath.asString, "rev-parse", "--verify", "1.2.3").utf8Output().chomp())
+                    args: Git.tool, "-C", testRepoPath.asString, "rev-parse", "--verify", "1.2.3").utf8Output().spm_chomp())
             if let revision = try? repository.resolveRevision(tag: "<invalid>") {
                 XCTFail("unexpected resolution of invalid tag to \(revision)")
             }
@@ -65,7 +65,7 @@ class GitRepositoryTests: XCTestCase {
 
             XCTAssertEqual(master.identifier,
                 try Process.checkNonZeroExit(
-                    args: Git.tool, "-C", testRepoPath.asString, "rev-parse", "--verify", "master").chomp())
+                    args: Git.tool, "-C", testRepoPath.asString, "rev-parse", "--verify", "master").spm_chomp())
 
             // Check that git hashes resolve to themselves.
             let masterIdentifier = try repository.resolveRevision(identifier: master.identifier)

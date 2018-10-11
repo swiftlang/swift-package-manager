@@ -53,7 +53,7 @@ struct ShellTool: ToolProtocol {
 
         // If one argument is specified we assume pre-escaped and have llbuild
         // execute it passed through to the shell.
-        if let arg = self.args.only {
+        if let arg = self.args.spm_only {
             stream <<< "    args: " <<< Format.asJSON(arg) <<< "\n"
         } else {
             stream <<< "    args: " <<< Format.asJSON(args) <<< "\n"

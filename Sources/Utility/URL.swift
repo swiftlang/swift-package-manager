@@ -18,7 +18,7 @@ public struct URL {
     public static func scheme(_ url: String) -> String? {
 
         func prefixOfSplitBy(_ delimiter: String) -> String? {
-            let (head, tail) = url.split(around: delimiter)
+            let (head, tail) = url.spm_split(around: delimiter)
             if tail == nil {
                 //not found
                 return nil

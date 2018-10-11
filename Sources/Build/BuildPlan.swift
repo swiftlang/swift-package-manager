@@ -498,7 +498,7 @@ public final class ProductBuildDescription {
         }
         args += ["-L", buildParameters.buildPath.asString]
         args += ["-o", binary.asString]
-        args += ["-module-name", product.name.mangledToC99ExtendedIdentifier()]
+        args += ["-module-name", product.name.spm_mangledToC99ExtendedIdentifier()]
         args += dylibs.map({ "-l" + $0.product.name })
 
         // Add arguements needed for code coverage if it is enabled.
@@ -550,7 +550,7 @@ public final class ProductBuildDescription {
         let stream = BufferedOutputByteStream()
 
         for object in objects {
-            stream <<< object.asString.shellEscaped() <<< "\n"
+            stream <<< object.asString.spm_shellEscaped() <<< "\n"
         }
 
         try fs.createDirectory(linkFileListPath.parentDirectory, recursive: true)

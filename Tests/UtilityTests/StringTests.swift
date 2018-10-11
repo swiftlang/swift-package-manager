@@ -12,34 +12,34 @@
 import XCTest
 
 class StringTests: XCTestCase {
-    func testTrailingChomp() {
-        XCTAssertEqual("abc\n".chomp(), "abc")
-        XCTAssertEqual("abc\r\n".chomp(), "abc")
-        XCTAssertEqual("abc\r\n\r\n".chomp(), "abc")
-        XCTAssertEqual("abc\r\n\r\r\n".chomp(), "abc\r\n\r")
-        XCTAssertEqual("abc\n \n".chomp(), "abc\n ")
+    func testTrailing() {
+        XCTAssertEqual("abc\n".spm_chomp(), "abc")
+        XCTAssertEqual("abc\r\n".spm_chomp(), "abc")
+        XCTAssertEqual("abc\r\n\r\n".spm_chomp(), "abc")
+        XCTAssertEqual("abc\r\n\r\r\n".spm_chomp(), "abc\r\n\r")
+        XCTAssertEqual("abc\n \n".spm_chomp(), "abc\n ")
     }
     
-    func testSeparatorChomp() {
-        XCTAssertEqual("abc".chomp(separator: "c"), "ab")
-        XCTAssertEqual("abc\n".chomp(separator: "c"), "abc\n")
-        XCTAssertEqual("abc\n c".chomp(separator: "c"), "abc\n ")
+    func testSeparator() {
+        XCTAssertEqual("abc".spm_chomp(separator: "c"), "ab")
+        XCTAssertEqual("abc\n".spm_chomp(separator: "c"), "abc\n")
+        XCTAssertEqual("abc\n c".spm_chomp(separator: "c"), "abc\n ")
     }
 
-    func testEmptyChomp() {
-        XCTAssertEqual("".chomp(), "")
-        XCTAssertEqual(" ".chomp(), " ")
-        XCTAssertEqual("\n\n".chomp(), "")
+    func testEmpty() {
+        XCTAssertEqual("".spm_chomp(), "")
+        XCTAssertEqual(" ".spm_chomp(), " ")
+        XCTAssertEqual("\n\n".spm_chomp(), "")
     }
 
     func testChuzzle() {
-        XCTAssertNil("".chuzzle())
-        XCTAssertNil(" ".chuzzle())
-        XCTAssertNil(" \t ".chuzzle())
-        XCTAssertNil(" \t\n".chuzzle())
-        XCTAssertNil(" \t\r\n".chuzzle())
-        XCTAssertEqual(" a\t\r\n".chuzzle(), "a")
-        XCTAssertEqual("b".chuzzle(), "b")
+        XCTAssertNil("".spm_chuzzle())
+        XCTAssertNil(" ".spm_chuzzle())
+        XCTAssertNil(" \t ".spm_chuzzle())
+        XCTAssertNil(" \t\n".spm_chuzzle())
+        XCTAssertNil(" \t\r\n".spm_chuzzle())
+        XCTAssertEqual(" a\t\r\n".spm_chuzzle(), "a")
+        XCTAssertEqual("b".spm_chuzzle(), "b")
     }
     
     func testSplitAround() {
@@ -48,11 +48,11 @@ class StringTests: XCTestCase {
             XCTAssertEqual(lhs.1, rhs.1, file: file, line: line)
         }
         
-        eq("".split(around: "::"), ("", nil))
-        eq("foo".split(around: "::"), ("foo", nil))
-        eq("foo::".split(around: "::"), ("foo", ""))
-        eq("::bar".split(around: "::"), ("", "bar"))
-        eq("foo::bar".split(around: "::"), ("foo", "bar"))
+        eq("".spm_split(around: "::"), ("", nil))
+        eq("foo".spm_split(around: "::"), ("foo", nil))
+        eq("foo::".spm_split(around: "::"), ("foo", ""))
+        eq("::bar".spm_split(around: "::"), ("", "bar"))
+        eq("foo::bar".spm_split(around: "::"), ("foo", "bar"))
     }
 }
 

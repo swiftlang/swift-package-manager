@@ -225,7 +225,7 @@ private func createResolvedPackages(
     })
 
     // Create a map of package builders keyed by the package identity.
-    let packageMap: [String: ResolvedPackageBuilder] = packageBuilders.createDictionary({
+    let packageMap: [String: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary({
         // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
         let identity = rootManifestSet.contains($0.package.manifest) ? $0.package.name.lowercased() : PackageReference.computeIdentity(packageURL: $0.package.manifest.url)
         return (identity, $0)
@@ -246,7 +246,7 @@ private func createResolvedPackages(
         packageBuilder.targets = targetBuilders
 
         // Establish dependencies between the targets. A target can only depend on another target present in the same package.
-        let targetMap = targetBuilders.createDictionary({ ($0.target, $0) })
+        let targetMap = targetBuilders.spm_createDictionary({ ($0.target, $0) })
         for targetBuilder in targetBuilders {
             targetBuilder.dependencies += targetBuilder.target.dependencies.map({ targetMap[$0]! })
         }
@@ -261,7 +261,7 @@ private func createResolvedPackages(
     let duplicateProducts = packageBuilders
         .flatMap({ $0.products })
         .map({ $0.product })
-        .findDuplicateElements(by: \.name)
+        .spm_findDuplicateElements(by: \.name)
         .map({ $0[0].name })
 
     // Emit diagnostics for duplicate products.
@@ -306,7 +306,7 @@ private func createResolvedPackages(
         let productDependencies = packageBuilder.dependencies
             .flatMap({ $0.products })
             .filter({ $0.product.type != .test })
-        let productDependencyMap = productDependencies.createDictionary({ ($0.product.name, $0) })
+        let productDependencyMap = productDependencies.spm_createDictionary({ ($0.product.name, $0) })
 
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {

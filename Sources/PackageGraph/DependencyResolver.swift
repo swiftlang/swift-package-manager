@@ -1230,7 +1230,7 @@ public class DependencyResolver<
     /// The active set of managed containers.
     public var containers: [Identifier: Container] {
         return fetchCondition.whileLocked({
-            _fetchedContainers.flatMapValues({
+            _fetchedContainers.spm_flatMapValues({
                 try? $0.dematerialize()
             })
         })

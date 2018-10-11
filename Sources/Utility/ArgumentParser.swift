@@ -539,7 +539,7 @@ public final class ArgumentParser {
                 results[argument.name] = array
             } else {
                 // We expect only one value for non-array arguments.
-                guard let value = values.only else {
+                guard let value = values.spm_only else {
                     assertionFailure()
                     return
                 }
@@ -821,7 +821,7 @@ public final class ArgumentParser {
                     argumentsIterator: argumentsIterator,
                     currentArgument: argumentString)
             } else {
-                let (argumentString, value) = argumentString.split(around: "=")
+                let (argumentString, value) = argumentString.spm_split(around: "=")
                 // Get the corresponding option for the option argument.
                 guard let optionArgument = optionsMap[argumentString] else {
                     throw ArgumentParserError.unknownOption(argumentString)

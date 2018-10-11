@@ -10,14 +10,14 @@
 
 extension Collection {
     /// Returns the only element of the collection or nil.
-    public var only: Element? {
+    public var spm_only: Element? {
         return count == 1 ? self[startIndex] : nil
     }
 
     /// Prints the element of array to standard output stream.
     ///
     /// This method should be used for debugging only.
-    public func dump() {
+    public func spm_dump() {
         for element in self {
             print(element)
         }
