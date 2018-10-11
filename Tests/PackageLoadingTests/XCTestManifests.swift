@@ -20,6 +20,7 @@ extension PackageBuilderTests {
     // to regenerate.
     static let __allTests__PackageBuilderTests = [
         ("testBadExecutableProductDecl", testBadExecutableProductDecl),
+        ("testBadREPLPackage", testBadREPLPackage),
         ("testBrokenSymlink", testBrokenSymlink),
         ("testCInTests", testCInTests),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),

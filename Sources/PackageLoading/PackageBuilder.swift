@@ -923,12 +923,20 @@ public final class PackageBuilder {
 
         // Create a special REPL product that contains all the library targets.
         if createREPLProduct {
-            let replProduct = Product(
-                name: manifest.name + Product.replProductSuffix,
-                type: .library(.dynamic),
-                targets: targets.filter({ $0.type == .library })
-            )
-            append(replProduct)
+            let libraryTargets = targets.filter({ $0.type == .library })
+            if libraryTargets.isEmpty {
+                diagnostics.emit(
+                    data: PackageBuilderDiagnostics.ZeroLibraryProducts(),
+                    location: diagnosticLocation()
+                )
+            } else {
+                let replProduct = Product(
+                    name: manifest.name + Product.replProductSuffix,
+                    type: .library(.dynamic),
+                    targets: libraryTargets
+                )
+                append(replProduct)
+            }
         }
 
         return products.map({ $0.item })

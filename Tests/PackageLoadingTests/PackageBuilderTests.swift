@@ -1300,6 +1300,25 @@ class PackageBuilderTests: XCTestCase {
             result.checkDiagnostic("executable product \'foo\' should have exactly one executable target")
         }
     }
+
+    func testBadREPLPackage() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/exe/main.swift"
+        )
+
+        let manifest = Manifest.createV4Manifest(
+            name: "Pkg",
+            targets: [
+                TargetDescription(name: "exe"),
+            ]
+        )
+
+        PackageBuilderTester(manifest, createREPLProduct: true, in: fs) { result in
+            result.checkModule("exe") { _ in }
+            result.checkProduct("exe") { _ in }
+            result.checkDiagnostic("unable to synthesize a REPL product as there are no library targets in the package")
+        }
+    }
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}
@@ -1327,6 +1346,7 @@ final class PackageBuilderTester {
         _ manifest: Manifest,
         path: AbsolutePath = .root,
         shouldCreateMultipleTestProducts: Bool = false,
+        createREPLProduct: Bool = false,
         in fs: FileSystem,
         file: StaticString = #file,
         line: UInt = #line,
@@ -1337,7 +1357,7 @@ final class PackageBuilderTester {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
                 manifest: manifest, path: path, fileSystem: fs, diagnostics: diagnostics,
-                isRootPackage: true, shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts)
+                isRootPackage: true, shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts, createREPLProduct: createREPLProduct)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.targets)
