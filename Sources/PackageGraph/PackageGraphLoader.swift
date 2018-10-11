@@ -9,6 +9,7 @@
  */
 
 import Basic
+import SourceControl
 import PackageLoading
 import PackageModel
 import Utility
@@ -73,6 +74,7 @@ public struct PackageGraphLoader {
     /// Load the package graph for the given package path.
     public func load(
         root: PackageGraphRoot,
+        config: SwiftPMConfig = SwiftPMConfig(),
         externalManifests: [Manifest],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
@@ -90,8 +92,9 @@ public struct PackageGraphLoader {
             externalManifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (Manifest) -> [Manifest] = { manifest in
-            manifest.dependencies.compactMap({ 
-                manifestMap[PackageReference.computeIdentity(packageURL: $0.url)] 
+            manifest.dependencies.compactMap({
+                let url = config.mirroredURL(forURL: $0.url)
+                return manifestMap[PackageReference.computeIdentity(packageURL: url)]
             })
         }
 
@@ -150,6 +153,7 @@ public struct PackageGraphLoader {
         // Resolve dependencies and create resolved packages.
         let resolvedPackages = createResolvedPackages(
             allManifests: allManifests,
+            config: config,
             manifestToPackage: manifestToPackage,
             rootManifestSet: rootManifestSet,
             diagnostics: diagnostics
@@ -205,6 +209,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
 /// Create resolved packages from the loaded packages.
 private func createResolvedPackages(
     allManifests: [Manifest],
+    config: SwiftPMConfig,
     manifestToPackage: [Manifest: Package],
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifestSet: Set<Manifest>,
@@ -232,7 +237,8 @@ private func createResolvedPackages(
 
         // Establish the manifest-declared package dependencies.
         packageBuilder.dependencies = package.manifest.dependencies.compactMap({
-            packageMap[PackageReference.computeIdentity(packageURL: $0.url)]
+            let url = config.mirroredURL(forURL: $0.url)
+            return packageMap[PackageReference.computeIdentity(packageURL: url)]
         })
 
         // Create target builders for each target in the package.

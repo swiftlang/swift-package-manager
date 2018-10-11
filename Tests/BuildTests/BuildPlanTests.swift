@@ -615,7 +615,7 @@ final class BuildPlanTests: XCTestCase {
                     path: "/Bar",
                     url: "/Bar",
                     products: [
-                        ProductDescription(name: "Bar", type: .library(.dynamic), targets: ["Bar"]),
+                        ProductDescription(name: "Bar-Baz", type: .library(.dynamic), targets: ["Bar"]),
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: []),
@@ -628,7 +628,7 @@ final class BuildPlanTests: XCTestCase {
                         PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                        TargetDescription(name: "Foo", dependencies: ["Bar-Baz"]),
                     ]),
             ]
         )
@@ -639,35 +639,35 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
 
         let fooLinkArgs = try result.buildProduct(for: "Foo").linkArguments()
-        let barLinkArgs = try result.buildProduct(for: "Bar").linkArguments()
+        let barLinkArgs = try result.buildProduct(for: "Bar-Baz").linkArguments()
 
       #if os(macOS)
         XCTAssertEqual(fooLinkArgs, [
             "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
-            "-o", "/path/to/build/debug/Foo", "-module-name", "Foo", "-lBar", "-emit-executable",
+           "-o", "/path/to/build/debug/Foo", "-module-name", "Foo", "-lBar-Baz", "-emit-executable",
             "@/path/to/build/debug/Foo.product/Objects.LinkFileList",
         ])
 
         XCTAssertEqual(barLinkArgs, [
             "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o",
-            "/path/to/build/debug/libBar.dylib",
-            "-module-name", "Bar", "-emit-library",
-            "@/path/to/build/debug/Bar.product/Objects.LinkFileList",
+            "/path/to/build/debug/libBar-Baz.dylib",
+            "-module-name", "Bar_Baz", "-emit-library",
+            "@/path/to/build/debug/Bar-Baz.product/Objects.LinkFileList",
         ])
       #else
         XCTAssertEqual(fooLinkArgs, [
             "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
-            "-o", "/path/to/build/debug/Foo", "-module-name", "Foo", "-lBar", "-emit-executable",
+            "-o", "/path/to/build/debug/Foo", "-module-name", "Foo", "-lBar-Baz", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/Foo.product/Objects.LinkFileList",
         ])
 
         XCTAssertEqual(barLinkArgs, [
             "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o",
-            "/path/to/build/debug/libBar.so",
-            "-module-name", "Bar", "-emit-library",
+            "/path/to/build/debug/libBar-Baz.so",
+            "-module-name", "Bar_Baz", "-emit-library",
             "-Xlinker", "-rpath=$ORIGIN",
-            "@/path/to/build/debug/Bar.product/Objects.LinkFileList",
+            "@/path/to/build/debug/Bar-Baz.product/Objects.LinkFileList",
         ])
       #endif
 

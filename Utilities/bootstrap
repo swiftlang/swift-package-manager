@@ -888,6 +888,7 @@ fi
 __dir="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
 
 SPM_FLAGS=({options})
+export SWIFTPM_BOOTSTRAP=1
 
 exec ${{__dir}}/swift-$1 ${{SPM_FLAGS[@]}} "${{@:2}}" """.format(options=swiftpm_flags_str)
 
@@ -1237,7 +1238,9 @@ def main():
         build_flags.extend(["--configuration", "release"])
 
     env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
-                      "SWIFTPM_BUILD_DIR=" + build_path]
+        "SWIFTPM_BUILD_DIR=" + build_path,
+        "SWIFTPM_BOOTSTRAP=1",
+    ]
     if args.sysroot:
         env_cmd.append("SYSROOT=" + args.sysroot)
     cmd = env_cmd + [bootstrapped_product] + build_flags
@@ -1430,7 +1433,7 @@ def main():
     if args.generate_xcodeproj:
         # We will use the `swift-package` binary we just built to generate the
         # Xcode project.
-        cmd = [swift_package_path]
+        cmd = ["env", "SWIFTPM_BOOTSTRAP=1", swift_package_path]
         if args.enable_perf_tests:
             cmd.extend(["-Xswiftc", "-DENABLE_PERF_TESTS"])
         cmd.extend(["generate-xcodeproj"])

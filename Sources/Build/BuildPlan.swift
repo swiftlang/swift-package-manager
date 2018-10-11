@@ -498,7 +498,7 @@ public final class ProductBuildDescription {
         }
         args += ["-L", buildParameters.buildPath.asString]
         args += ["-o", binary.asString]
-        args += ["-module-name", product.name]
+        args += ["-module-name", product.name.mangledToC99ExtendedIdentifier()]
         args += dylibs.map({ "-l" + $0.product.name })
 
         // Add arguements needed for code coverage if it is enabled.

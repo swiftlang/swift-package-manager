@@ -161,15 +161,19 @@ public class Workspace {
             var requiredIdentities = transitiveClosure(inputIdentities) { identity in
                 guard let manifest = manifestsMap[identity.identity] else { return [] }
                 return manifest.dependencies.map({
-                    let identity = PackageReference.computeIdentity(packageURL: $0.url)
-                    return PackageReference(identity: identity, path: $0.url)
+                    let url = workspace.config.mirroredURL(forURL: $0.url)
+                    let identity = PackageReference.computeIdentity(packageURL: url)
+                    return PackageReference(identity: identity, path: url)
                 })
             }
             requiredIdentities.formUnion(inputIdentities)
 
-            let availableIdentities: Set<PackageReference> = Set(manifestsMap.map({ PackageReference(identity: $0.key, path: $0.value.url) }))
+            let availableIdentities: Set<PackageReference> = Set(manifestsMap.map({
+                let url = workspace.config.mirroredURL(forURL: $0.1.url)
+                return PackageReference(identity: $0.key, path: url)
+            }))
             // We should never have loaded a manifest we don't need.
-            assert(availableIdentities.isSubset(of: requiredIdentities))
+            assert(availableIdentities.isSubset(of: requiredIdentities), "\(availableIdentities) | \(requiredIdentities)")
             // These are the missing package identities.
             let missingIdentities = requiredIdentities.subtracting(availableIdentities)
 
@@ -199,7 +203,7 @@ public class Workspace {
 
                 case .checkout, .local: 
                     // For checkouts, add all the constraints in the manifest.
-                    allConstraints += externalManifest.dependencyConstraints()
+                    allConstraints += externalManifest.dependencyConstraints(config: workspace.config)
                 }
             }
             return allConstraints
@@ -231,10 +235,13 @@ public class Workspace {
     }
 
     /// The delegate interface.
-    public let delegate: WorkspaceDelegate
+    public let delegate: WorkspaceDelegate?
 
     /// The path of the workspace data.
     public let dataPath: AbsolutePath
+
+    /// The swiftpm config.
+    fileprivate let config: SwiftPMConfig
 
     /// The current state of managed dependencies.
     public let managedDependencies: ManagedDependencies
@@ -296,7 +303,8 @@ public class Workspace {
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader(),
-        delegate: WorkspaceDelegate,
+        delegate: WorkspaceDelegate? = nil,
+        config: SwiftPMConfig = SwiftPMConfig(),
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
         isResolverPrefetchingEnabled: Bool = false,
@@ -304,6 +312,7 @@ public class Workspace {
     ) {
         self.delegate = delegate
         self.dataPath = dataPath
+        self.config = config
         self.editablesPath = editablesPath
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
@@ -315,19 +324,38 @@ public class Workspace {
         self.repositoryManager = RepositoryManager(
             path: repositoriesPath,
             provider: repositoryProvider,
-            delegate: WorkspaceRepositoryManagerDelegate(workspaceDelegate: delegate),
+            delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
             fileSystem: fileSystem)
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
+            config: self.config,
             manifestLoader: manifestLoader,
-            toolsVersionLoader: toolsVersionLoader)
+            toolsVersionLoader: toolsVersionLoader
+        )
         self.fileSystem = fileSystem
 
         self.pinsStore = LoadableResult {
             try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem)
         }
         self.managedDependencies = ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
+    }
+
+    /// A convenience method for creating a workspace for the given root
+    /// package path.
+    ///
+    /// The root package path is used to compute the build directory and other
+    /// default paths.
+    public static func create(
+        forRootPackage packagePath: AbsolutePath,
+        manifestLoader: ManifestLoaderProtocol
+    ) -> Workspace {
+        return Workspace(
+            dataPath: packagePath.appending(component: ".build"),
+            editablesPath: packagePath.appending(component: "Packages"),
+            pinsFile: packagePath.appending(component: "Package.resolved"),
+            manifestLoader: manifestLoader
+        )
     }
 }
 
@@ -499,6 +527,9 @@ extension Workspace {
         // Create cache directories.
         createCacheDirectories(with: diagnostics)
 
+        // Load the config.
+        diagnostics.wrap { try config.load() }
+
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
 
@@ -567,11 +598,23 @@ extension Workspace {
         // Load the graph.
         return PackageGraphLoader().load(
             root: manifests.root,
+            config: config,
             externalManifests: externalManifests,
             diagnostics: diagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
             createREPLProduct: createREPLProduct
+        )
+    }
+
+    @discardableResult
+    public func loadPackageGraph(
+        root: AbsolutePath,
+        diagnostics: DiagnosticsEngine
+    ) -> PackageGraph {
+        return self.loadPackageGraph(
+            root: PackageGraphRootInput(packages: [root]),
+            diagnostics: diagnostics
         )
     }
 
@@ -608,7 +651,7 @@ extension Workspace {
             diagnostics: diagnostics)
 
         // Report the updated managed dependencies.
-        delegate.managedDependenciesDidUpdate(managedDependencies.values)
+        delegate?.managedDependenciesDidUpdate(managedDependencies.values)
 
         // Create the dependency map by associating each resolved package with its corresponding managed dependency.
         let managedDependenciesByIdentity = Dictionary(items: managedDependencies.values.map({ ($0.packageRef.identity, $0) }))
@@ -927,7 +970,7 @@ extension Workspace {
         // Compute the transitive closure of available dependencies.
         let allManifests = try! topologicalSort(inputManifests.map({ KeyedPair($0, key: $0.name) })) { node in
             return node.item.dependencies.compactMap({ dependency in
-                let url = dependency.url
+                let url = config.mirroredURL(forURL: dependency.url)
                 let manifest = loadedManifests[url] ?? loadManifest(forURL: url, diagnostics: diagnostics)
                 loadedManifests[url] = manifest
                 return manifest.flatMap({ KeyedPair($0, key: $0.name) })
@@ -1032,6 +1075,9 @@ extension Workspace {
         // Ensure the cache path exists and validate that edited dependencies.
         createCacheDirectories(with: diagnostics)
 
+        // Load the config.
+        diagnostics.wrap { try config.load() }
+
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
 
@@ -1059,7 +1105,7 @@ extension Workspace {
             let dependencies =
                 graphRoot.constraints +
                 // Include constraints from the manifests in the graph root.
-                graphRoot.manifests.flatMap({ $0.dependencyConstraints() }) +
+                graphRoot.manifests.flatMap({ $0.dependencyConstraints(config: config) }) +
                 currentManifests.dependencyConstraints() +
                 extraConstraints
 
@@ -1075,7 +1121,7 @@ extension Workspace {
         }
 
         // Inform delegate that we will resolve dependencies now.
-        delegate.willResolveDependencies()
+        delegate?.willResolveDependencies()
 
         // Create the constraints.
         var constraints = [RepositoryPackageConstraint]()
@@ -1505,7 +1551,7 @@ extension Workspace {
         
         // Inform the delegate if nothing was updated.
         if packageStateChanges.filter({ $0.1 == .unchanged }).count == packageStateChanges.count {
-            delegate.dependenciesUpToDate()
+            delegate?.dependenciesUpToDate()
         }
     }
 
@@ -1556,7 +1602,7 @@ extension Workspace {
         try fileSystem.removeFileTree(path)
 
         // Inform the delegate that we're starting cloning.
-        delegate.cloning(repository: handle.repository.url)
+        delegate?.cloning(repository: handle.repository.url)
         try handle.cloneCheckout(to: path, editable: false)
 
         return path
@@ -1582,8 +1628,9 @@ extension Workspace {
 
         // Check out the given revision.
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+
         // Inform the delegate.
-        delegate.checkingOut(repository: package.repository.url, atReference: checkoutState.description, to: path)
+        delegate?.checkingOut(repository: package.repository.url, atReference: checkoutState.description, to: path)
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
@@ -1650,7 +1697,7 @@ extension Workspace {
         }
         
         // Inform the delegate.
-        delegate.removing(repository: dependency.packageRef.repository.url)
+        delegate?.removing(repository: dependency.packageRef.repository.url)
         
         // Compute the dependency which we need to remove.
         let dependencyToRemove: ManagedDependency

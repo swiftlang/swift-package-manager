@@ -23,6 +23,7 @@ public final class TestWorkspace {
     let fs: FileSystem
     let roots: [TestPackage]
     let packages: [TestPackage]
+    public let config: SwiftPMConfig
     public var manifestLoader: MockManifestLoader
     public var repoProvider: InMemoryGitRepositoryProvider
     public let delegate = TestWorkspaceDelegate()
@@ -40,6 +41,7 @@ public final class TestWorkspace {
         precondition(Set(roots.map({$0.name})).count == roots.count, "Root packages should be unique")
         self.sandbox = sandbox
         self.fs = fs
+        self.config = SwiftPMConfig(path: sandbox.appending(component: "swiftpm"), fs: fs)
         self.roots = roots
         self.packages = packages
 
@@ -133,6 +135,7 @@ public final class TestWorkspace {
             currentToolsVersion: toolsVersion,
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
+            config: config,
             fileSystem: fs,
             repositoryProvider: repoProvider,
             skipUpdate: skipUpdate

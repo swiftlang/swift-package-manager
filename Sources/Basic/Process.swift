@@ -48,24 +48,39 @@ public struct ProcessResult: CustomStringConvertible {
     /// asked to redirect its output and no stderr output closure was set.
     public let stderrOutput: Result<[Int8], AnyError>
 
-    /// Create an instance using the process exit code and output result.
-    fileprivate init(
+    /// Create an instance using a POSIX process exit status code and output result.
+    ///
+    /// See `waitpid(2)` for information on the exit status code.
+    public init(
         arguments: [String],
-        exitStatus: Int32,
+        exitStatusCode: Int32,
+        output: Result<[Int8], AnyError>,
+        stderrOutput: Result<[Int8], AnyError>
+    ) {
+        let exitStatus: ExitStatus
+        if WIFSIGNALED(exitStatusCode) {
+            exitStatus = .signalled(signal: WTERMSIG(exitStatusCode))
+        } else {
+            precondition(WIFEXITED(exitStatusCode), "unexpected exit status \(exitStatusCode)")
+            exitStatus = .terminated(code: WEXITSTATUS(exitStatusCode))
+        }
+        self.init(arguments: arguments, exitStatus: exitStatus, output: output,
+            stderrOutput: stderrOutput)
+    }
+
+    /// Create an instance using an exit status and output result.
+    public init(
+        arguments: [String],
+        exitStatus: ExitStatus,
         output: Result<[Int8], AnyError>,
         stderrOutput: Result<[Int8], AnyError>
     ) {
         self.arguments = arguments
         self.output = output
         self.stderrOutput = stderrOutput
-        if WIFSIGNALED(exitStatus) {
-            self.exitStatus = .signalled(signal: WTERMSIG(exitStatus))
-        } else {
-            precondition(WIFEXITED(exitStatus), "unexpected exit status \(exitStatus)")
-            self.exitStatus = .terminated(code: WEXITSTATUS(exitStatus))
-        }
+        self.exitStatus = exitStatus
     }
-
+    
     /// Converts stdout output bytes to string, assuming they're UTF8.
     ///
     /// - Throws: Error while reading the process output or if output is not a valid UTF8 sequence.
@@ -401,10 +416,10 @@ public final class Process: ObjectIdentifierProtocol {
             stderr.thread?.join()
 
             // Wait until process finishes execution.
-            var exitStatus: Int32 = 0
-            var result = waitpid(processID, &exitStatus, 0)
+            var exitStatusCode: Int32 = 0
+            var result = waitpid(processID, &exitStatusCode, 0)
             while result == -1 && errno == EINTR {
-                result = waitpid(processID, &exitStatus, 0)
+                result = waitpid(processID, &exitStatusCode, 0)
             }
             if result == -1 {
                 throw SystemError.waitpid(errno)
@@ -413,7 +428,7 @@ public final class Process: ObjectIdentifierProtocol {
             // Construct the result.
             let executionResult = ProcessResult(
                 arguments: arguments,
-                exitStatus: exitStatus,
+                exitStatusCode: exitStatusCode,
                 output: stdout.result,
                 stderrOutput: stderr.result
             )
