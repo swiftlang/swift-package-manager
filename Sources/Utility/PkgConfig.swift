@@ -67,7 +67,7 @@ struct PCFileFinder {
         if PCFileFinder.pkgConfigPaths == nil {
             do {
                 let searchPaths = try Process.checkNonZeroExit(
-                args: "pkg-config", "--variable", "pc_path", "pkg-config").chomp()
+                args: "pkg-config", "--variable", "pc_path", "pkg-config").spm_chomp()
                 PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
             } catch {
                 diagnostics.emit(data: PkgConfigExecutionDiagnostic())
@@ -209,16 +209,16 @@ struct PkgConfigParser {
             // Remove commented or any trailing comment from the line.
             let uncommentedLine = removeComment(line: line)
             // Ignore any empty or whitespace line.
-            guard let line = uncommentedLine.chuzzle() else { continue }
+            guard let line = uncommentedLine.spm_chuzzle() else { continue }
 
             if line.contains(":") {
                 // Found a key-value pair.
                 try parseKeyValue(line: line)
             } else if line.contains("=") {
                 // Found a variable.
-                let (name, maybeValue) = line.split(around: "=")
-                let value = maybeValue?.chuzzle() ?? ""
-                variables[name.chuzzle() ?? ""] = try resolveVariables(value)
+                let (name, maybeValue) = line.spm_split(around: "=")
+                let value = maybeValue?.spm_chuzzle() ?? ""
+                variables[name.spm_chuzzle() ?? ""] = try resolveVariables(value)
             } else {
                 // Unexpected thing in the pc file, abort.
                 throw PkgConfigError.parsingError("Unexpected line: \(line) in \(pcFile.asString)")
@@ -228,8 +228,8 @@ struct PkgConfigParser {
 
     private mutating func parseKeyValue(line: String) throws {
         precondition(line.contains(":"))
-        let (key, maybeValue) = line.split(around: ":")
-        let value = try resolveVariables(maybeValue?.chuzzle() ?? "")
+        let (key, maybeValue) = line.spm_split(around: ":")
+        let value = try resolveVariables(maybeValue?.spm_chuzzle() ?? "")
         switch key {
         case "Requires":
             dependencies = try parseDependencies(value)

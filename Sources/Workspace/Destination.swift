@@ -99,7 +99,7 @@ public struct Destination {
         } else {
             // No value in env, so search for it.
             let sdkPathStr = try Process.checkNonZeroExit(
-                arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-path"], environment: environment).chomp()
+                arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-path"], environment: environment).spm_chomp()
             guard !sdkPathStr.isEmpty else {
                 throw DestinationError.invalidInstallation("default SDK not found")
             }
@@ -138,7 +138,7 @@ public struct Destination {
             return path
         }
         let platformPath = try? Process.checkNonZeroExit(
-            arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"], environment: environment).chomp()
+            arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"], environment: environment).spm_chomp()
 
         if let platformPath = platformPath, !platformPath.isEmpty {
            _sdkPlatformFrameworkPath = AbsolutePath(platformPath).appending(

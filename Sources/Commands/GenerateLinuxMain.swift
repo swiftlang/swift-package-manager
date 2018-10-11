@@ -166,7 +166,7 @@ private final class ModulesBuilder {
 
     func add(_ cases: [TestSuite.TestCase]) {
         for testCase in cases {
-            let (module, theKlass) = testCase.name.split(around: ".")
+            let (module, theKlass) = testCase.name.spm_split(around: ".")
             guard let klass = theKlass else {
                 // Ignore the classes that have zero tests.
                 if testCase.tests.isEmpty {

@@ -27,7 +27,7 @@ extension Dictionary {
 
     /// Returns a new dictionary containing the keys of this dictionary with the
     /// values transformed by the given closure, if transformed is not nil.
-    public func flatMapValues<T>(_ transform: (Value) throws -> T?) rethrows -> [Key: T] {
+    public func spm_flatMapValues<T>(_ transform: (Value) throws -> T?) rethrows -> [Key: T] {
         var transformed: [Key: T] = [:]
         for (key, value) in self {
             if let value = try transform(value) {
@@ -40,7 +40,7 @@ extension Dictionary {
 
 extension Array {
     /// Create a dictionary with given sequence of elements.
-    public func createDictionary<Key: Hashable, Value>(
+    public func spm_createDictionary<Key: Hashable, Value>(
         _ uniqueKeysWithValues: (Element) -> (Key, Value)
     ) -> [Key: Value] {
         return Dictionary(uniqueKeysWithValues: self.map(uniqueKeysWithValues))

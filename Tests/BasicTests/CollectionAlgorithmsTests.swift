@@ -15,16 +15,16 @@ import Basic
 class CollectionAlgorithmsTests: XCTestCase {
     func testRIndex() {
         let str = "hello"
-        XCTAssertEqual(str.rindex(of: "h"), str.startIndex)
-        XCTAssertEqual(str.rindex(of: "h", from: str.index(after: str.startIndex)), nil)
-        XCTAssertEqual(str.rindex(of: "o"), str.index(of: "o"))
-        XCTAssertEqual(str.rindex(of: "l"), str.index(after: str.index(where: { $0 == "l" })!))
-        XCTAssertEqual(str.rindex(of: "x"), nil)
+        XCTAssertEqual(str.spm_rindex(of: "h"), str.startIndex)
+        XCTAssertEqual(str.spm_rindex(of: "h", from: str.index(after: str.startIndex)), nil)
+        XCTAssertEqual(str.spm_rindex(of: "o"), str.index(of: "o"))
+        XCTAssertEqual(str.spm_rindex(of: "l"), str.index(after: str.index(where: { $0 == "l" })!))
+        XCTAssertEqual(str.spm_rindex(of: "x"), nil)
     }
 
     func testFindDuplicates() {
-        XCTAssertEqual([1, 2, 3, 2, 1].findDuplicates(), [2, 1])
-        XCTAssertEqual(["foo", "bar"].findDuplicates(), [])
-        XCTAssertEqual(["foo", "Foo"].findDuplicates(), [])
+        XCTAssertEqual([1, 2, 3, 2, 1].spm_findDuplicates(), [2, 1])
+        XCTAssertEqual(["foo", "bar"].spm_findDuplicates(), [])
+        XCTAssertEqual(["foo", "Foo"].spm_findDuplicates(), [])
     }
 }
