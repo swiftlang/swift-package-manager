@@ -881,7 +881,7 @@ private func checkResolution(_ resolver: MockDependencyResolver, constraints: [M
 
     // Check the solution against our oracle.
     if let solution = solution {
-        guard let onlySolution = maximalSolutions.only else {
+        guard let onlySolution = maximalSolutions.spm_only else {
             return XCTFail("solver unexpectedly found: \(solution) when there are no viable solutions")
         }
         if solution != onlySolution {

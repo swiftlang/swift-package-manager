@@ -20,11 +20,11 @@ class DictionaryExtensionTests: XCTestCase {
         XCTAssertEqual(Dictionary(items: [(1, 1), (1, nil)]), [:])
         XCTAssertEqual(Dictionary(items: [(1, 1), (2, nil), (3, 4)]), [1: 1, 3: 4])
 
-        XCTAssertEqual(["foo": "1", "bar": "2", "baz": "f"].flatMapValues({ Int($0) }), ["foo": 1, "bar": 2])
+        XCTAssertEqual(["foo": "1", "bar": "2", "baz": "f"].spm_flatMapValues({ Int($0) }), ["foo": 1, "bar": 2])
     }
 
     func testCreateDictionary() {
-        XCTAssertEqual([("foo", 1), ("bar", 2)].createDictionary({ $0 }), ["foo": 1, "bar": 2])
-        XCTAssertEqual(["foo", "bar"].createDictionary({ ($0[$0.startIndex], $0) }), ["f": "foo", "b": "bar"])
+        XCTAssertEqual([("foo", 1), ("bar", 2)].spm_createDictionary({ $0 }), ["foo": 1, "bar": 2])
+        XCTAssertEqual(["foo", "bar"].spm_createDictionary({ ($0[$0.startIndex], $0) }), ["f": "foo", "b": "bar"])
     }
 }

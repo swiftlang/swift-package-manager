@@ -155,7 +155,7 @@ public final class UserToolchain: Toolchain {
             clangCompiler = value
         } else {
             // No value in env, so search for `clang`.
-            let foundPath = try Process.checkNonZeroExit(arguments: whichClangArgs, environment: processEnvironment).chomp()
+            let foundPath = try Process.checkNonZeroExit(arguments: whichClangArgs, environment: processEnvironment).spm_chomp()
             guard !foundPath.isEmpty else {
                 throw InvalidToolchainDiagnostic("could not find `clang`")
             }
@@ -197,7 +197,7 @@ public final class UserToolchain: Toolchain {
       #if os(macOS)
         // FIXME: We should have some general utility to find tools.
         let xctestFindArgs = ["xcrun", "--sdk", "macosx", "--find", "xctest"]
-        self.xctest = try AbsolutePath(validating: Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment).chomp())
+        self.xctest = try AbsolutePath(validating: Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment).spm_chomp())
       #else
         self.xctest = nil
       #endif

@@ -13,8 +13,8 @@ import Basic
 
 class CollectionExtensionsTests: XCTestCase {
     func testOnly() {
-        XCTAssertEqual([String]().only, nil)
-        XCTAssertEqual([42].only, 42)
-        XCTAssertEqual([42, 24].only, nil)
+        XCTAssertEqual([String]().spm_only, nil)
+        XCTAssertEqual([42].spm_only, 42)
+        XCTAssertEqual([42, 24].spm_only, nil)
     }
 }

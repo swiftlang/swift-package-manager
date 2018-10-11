@@ -13,7 +13,7 @@
 extension String {
 
     /// Returns a form of the string that is a valid bundle identifier
-    public func mangledToBundleIdentifier() -> String {
+    public func spm_mangledToBundleIdentifier() -> String {
         let mangledUnichars: [UInt16] = self.utf16.map({
             switch $0 {
             case
@@ -40,7 +40,7 @@ extension String {
     /// replacing any invalid characters in an unspecified but consistent way).
     /// The output string is guaranteed to be non-empty as long as the input
     /// string is non-empty.
-    public func mangledToC99ExtendedIdentifier() -> String {
+    public func spm_mangledToC99ExtendedIdentifier() -> String {
         // Map invalid C99-invalid Unicode scalars to a replacement character.
         let replacementUnichar: UnicodeScalar = "_"
         var mangledUnichars: [UnicodeScalar] = self.unicodeScalars.map({
@@ -250,7 +250,7 @@ extension String {
 
     /// Mangles the contents to a valid C99 Extended Identifier.  This method
     /// is the mutating version of `mangledToC99ExtendedIdentifier()`.
-    public mutating func mangleToC99ExtendedIdentifier() {
-        self = mangledToC99ExtendedIdentifier()
+    public mutating func spm_mangleToC99ExtendedIdentifier() {
+        self = spm_mangledToC99ExtendedIdentifier()
     }
 }

@@ -87,17 +87,17 @@ class ToolsVersionTests: XCTestCase {
                     """
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set", "4.0"], packagePath: primaryPath).chomp()
+                ["tools-version", "--set", "4.0"], packagePath: primaryPath).spm_chomp()
 
             // Build the primary package.
             _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
             let exe = primaryPath.appending(components: ".build", Destination.host.target, "debug", "Primary").asString
             // v1 should get selected because v1.0.1 depends on a (way) higher set of tools.
-            XCTAssertEqual(try Process.checkNonZeroExit(args: exe).chomp(), "foo@1.0")
+            XCTAssertEqual(try Process.checkNonZeroExit(args: exe).spm_chomp(), "foo@1.0")
 
             // Set the tools version to something high.
             _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set", "10000.1"], packagePath: primaryPath).chomp()
+                ["tools-version", "--set", "10000.1"], packagePath: primaryPath).spm_chomp()
 
             do {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
@@ -118,7 +118,7 @@ class ToolsVersionTests: XCTestCase {
                     """
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set", "4.0"], packagePath: primaryPath).chomp()
+                ["tools-version", "--set", "4.0"], packagePath: primaryPath).spm_chomp()
 
             do {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
@@ -140,7 +140,7 @@ class ToolsVersionTests: XCTestCase {
                     """
              }
              _ = try SwiftPMProduct.SwiftPackage.execute(
-                 ["tools-version", "--set", "4.0"], packagePath: primaryPath).chomp()
+                 ["tools-version", "--set", "4.0"], packagePath: primaryPath).spm_chomp()
              _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
         }
     }

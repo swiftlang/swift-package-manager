@@ -56,7 +56,7 @@ final class ProgressBarTests: XCTestCase {
         // Make sure to read the complete output before checking it.
         thread.join()
         pty.closeMaster()
-        XCTAssertTrue(output.chuzzle()?.hasPrefix("\u{1B}[36m\u{1B}[1mTestHeader\u{1B}[0m") ?? false)
+        XCTAssertTrue(output.spm_chuzzle()?.hasPrefix("\u{1B}[36m\u{1B}[1mTestHeader\u{1B}[0m") ?? false)
     }
 
     private func runProgressBar(_ bar: ProgressBarProtocol) {

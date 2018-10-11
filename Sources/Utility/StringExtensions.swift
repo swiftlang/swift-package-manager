@@ -14,7 +14,7 @@ extension String {
      all trailing \n (UNIX) or all trailing \r\n (Windows) (it will
      not remove mixed occurrences of both separators.
     */
-    public func chomp(separator: String? = nil) -> String {
+    public func spm_chomp(separator: String? = nil) -> String {
         func scrub(_ separator: String) -> String {
             var E = endIndex
             while String(self[startIndex..<E]).hasSuffix(separator) && E > startIndex {
@@ -43,7 +43,7 @@ extension String {
      
          return userInput.chuzzle() ?? "default value"
     */
-    public func chuzzle() -> String? {
+    public func spm_chuzzle() -> String? {
         var cc = self
 
         loop: while true {
@@ -73,8 +73,8 @@ extension String {
 
     /// Splits string around a delimiter string into up to two substrings
     /// If delimiter is not found, the second returned substring is nil
-    public func split(around delimiter: String) -> (String, String?) {
-        let comps = self.split(around: Array(delimiter))
+    public func spm_split(around delimiter: String) -> (String, String?) {
+        let comps = self.spm_split(around: Array(delimiter))
         let head = String(comps.0)
         if let tail = comps.1 {
             return (head, String(tail))

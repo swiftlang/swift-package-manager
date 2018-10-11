@@ -82,7 +82,7 @@ final class WatchmanHelper {
         var args = [String]()
         args += ["--settle", "2"]
         args += ["-p", "Package.swift", "Package.resolved"]
-        args += ["--run", scriptPath.asString.shellEscaped()]
+        args += ["--run", scriptPath.asString.spm_shellEscaped()]
 
         // Find and execute watchman.
         let watchmanMakeToolPath = try self.watchmanMakeToolPath()

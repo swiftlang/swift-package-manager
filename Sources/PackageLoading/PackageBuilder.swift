@@ -341,7 +341,7 @@ public final class PackageBuilder {
 
         // Ensure no dupicate target definitions are found.
         let duplicateTargetNames: [String] = manifest.targets.map({ $0.name
-        }).findDuplicates()
+        }).spm_findDuplicates()
         
         if !duplicateTargetNames.isEmpty {
             throw Target.Error.duplicateTargets(duplicateTargetNames)

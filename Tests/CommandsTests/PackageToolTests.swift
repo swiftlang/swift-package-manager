@@ -24,7 +24,7 @@ import Workspace
 final class PackageToolTests: XCTestCase {
     @discardableResult
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath).chomp()
+        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath).spm_chomp()
     }
 
     func testUsage() throws {
@@ -373,14 +373,14 @@ final class PackageToolTests: XCTestCase {
 
             // Build and sanity check.
             _ = try build()
-            XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec).chomp(), "\(5)")
+            XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec).spm_chomp(), "\(5)")
 
             // Get path to bar checkout.
             let barPath = try SwiftPMProduct.packagePath(for: "bar", packageRoot: fooPath)
 
             // Checks the content of checked out bar.swift.
             func checkBar(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
-                let contents = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift")).asString?.chomp()
+                let contents = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift")).asString?.spm_chomp()
                 XCTAssert(contents?.hasSuffix("\(value)") ?? false, file: file, line: line)
             }
 

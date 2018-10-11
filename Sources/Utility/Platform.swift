@@ -22,7 +22,7 @@ public enum Platform {
     // Lazily return current platform.
     public static var currentPlatform = Platform.findCurrentPlatform()
     private static func findCurrentPlatform() -> Platform? {
-        guard let uname = try? Process.checkNonZeroExit(args: "uname").chomp().lowercased() else { return nil }
+        guard let uname = try? Process.checkNonZeroExit(args: "uname").spm_chomp().lowercased() else { return nil }
         switch uname {
         case "darwin":
             return .darwin

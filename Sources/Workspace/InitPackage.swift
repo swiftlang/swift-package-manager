@@ -53,7 +53,7 @@ public final class InitPackage {
         self.packageType = packageType
         self.destinationPath = destinationPath
         self.pkgname = name
-        self.moduleName = name.mangledToC99ExtendedIdentifier()
+        self.moduleName = name.spm_mangledToC99ExtendedIdentifier()
     }
 
     /// Actually creates the new package at the destinationPath

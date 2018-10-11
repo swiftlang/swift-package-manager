@@ -129,7 +129,7 @@ extension PackageDependencyDescription {
 
             // If the dependency URL starts with '~/', try to expand it.
             if url.hasPrefix("~/") {
-                return fileSystem.homeDirectory.appending(RelativePath(url.dropFirst(2).str)).asString
+                return fileSystem.homeDirectory.appending(RelativePath(String(url.dropFirst(2)))).asString
             }
 
             // If the dependency URL is not remote, try to "fix" it.
