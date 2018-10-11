@@ -126,6 +126,16 @@ public enum PackageBuilderDiagnostics {
         let product: String
     }
 
+    struct ZeroLibraryProducts: DiagnosticData {
+        static let id = DiagnosticID(
+            type: ZeroLibraryProducts.self,
+            name: "org.swift.diags.pkg-builder.\(ZeroLibraryProducts.self)",
+            description: {
+                $0 <<< "unable to synthesize a REPL product as there are no library targets in the package"
+            }
+        )
+    }
+
     struct BorkenSymlinkDiagnostic: DiagnosticData {
         static let id = DiagnosticID(
             type: BorkenSymlinkDiagnostic.self,
