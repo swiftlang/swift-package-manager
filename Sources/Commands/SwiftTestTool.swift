@@ -54,11 +54,11 @@ struct NoMatchingTestsWarning: DiagnosticData {
     )
 }
 
-/// Diagnostic error when a command is run without its requeried command.
-struct RequiredArgumentDiagnostic: DiagnosticData {
+/// Diagnostic error when a command is run without its dependent command.
+struct DependentArgumentDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
-        type: RequiredArgumentDiagnostic.self,
-        name: "org.swift.diags.required-argument",
+        type: DependentArgumentDiagnostic.self,
+        name: "org.swift.diags.dependent-argument",
         defaultBehavior: .error,
         description: {
             $0 <<< { "\($0.dependentArgument)" } <<< "must be used with" <<< { "\($0.requiredArgument)" }
@@ -423,7 +423,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             // The --num-worker option should be called with --parallel.
             guard options.mode == .runParallel else {
                 diagnostics.emit(
-                    data: RequiredArgumentDiagnostic(requiredArgument: "--parallel", dependentArgument: "--num-workers"))
+                    data: DependentArgumentDiagnostic(requiredArgument: "--parallel", dependentArgument: "--num-workers"))
                 throw Diagnostics.fatalError
             }
             

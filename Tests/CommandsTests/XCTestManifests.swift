@@ -26,6 +26,7 @@ extension PackageToolTests {
         ("testInitEmpty", testInitEmpty),
         ("testInitExecutable", testInitExecutable),
         ("testInitLibrary", testInitLibrary),
+        ("testMirrorConfig", testMirrorConfig),
         ("testPackageClean", testPackageClean),
         ("testPackageEditAndUnedit", testPackageEditAndUnedit),
         ("testPackageReset", testPackageReset),

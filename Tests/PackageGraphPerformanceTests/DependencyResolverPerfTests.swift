@@ -96,7 +96,8 @@ class DependencyResolverPerfTests: XCTestCasePerf {
             )
 
             let containerProvider = RepositoryPackageContainerProvider(
-                repositoryManager: repositoryManager, manifestLoader: ManifestLoader(resources: Resources.default, isManifestCachingEnabled: false, cacheDir: path))
+                repositoryManager: repositoryManager,
+                manifestLoader: ManifestLoader(resources: Resources.default, isManifestCachingEnabled: false, cacheDir: path))
 
             let resolver = DependencyResolver(containerProvider, GitRepositoryResolutionHelper.DummyResolverDelegate())
             let container = PackageReference(identity: "dep", path: dep.asString)
@@ -315,14 +316,17 @@ struct GitRepositoryResolutionHelper {
     }
 
     var constraints: [RepositoryPackageConstraint] { 
-        return manifestGraph.rootManifest.dependencyConstraints()
+        return manifestGraph.rootManifest.dependencyConstraints(config: SwiftPMConfig())
     }
 
     func resolve(prefetchingEnabled: Bool = false) -> [(container: PackageReference, binding: BoundVersion)] {
         let repositoriesPath = path.appending(component: "repositories")
         _ = try? systemQuietly(["rm", "-r", repositoriesPath.asString])
         let repositoryManager = RepositoryManager(path: repositoriesPath, provider: GitRepositoryProvider(), delegate: DummyRepositoryManagerDelegate())
-        let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager, manifestLoader: manifestGraph.manifestLoader)
+        let containerProvider = RepositoryPackageContainerProvider(
+            repositoryManager: repositoryManager,
+            manifestLoader: manifestGraph.manifestLoader
+        )
         let resolver = DependencyResolver(containerProvider, DummyResolverDelegate(), isPrefetchingEnabled: prefetchingEnabled)
         let result = try! resolver.resolve(constraints: constraints)
         return result

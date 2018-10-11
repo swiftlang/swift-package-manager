@@ -197,6 +197,10 @@ private func fromBytes<T: Decodable>(_ bytes: [UInt8]) throws -> T {
 }
 
 private func toBytes<T: Encodable>(_ value: T) throws -> [UInt8] {
-    let encoded = try JSONEncoder().encode(value)
+    let encoder = JSONEncoder()
+      if #available(OSX 10.13, *) {
+          encoder.outputFormatting = [.sortedKeys]
+      }
+    let encoded = try encoder.encode(value)
     return [UInt8](encoded)
 }

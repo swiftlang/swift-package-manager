@@ -19,6 +19,7 @@ We’ve designed the system to make it really easy to share packages on services
 * [PackageDescription API Version 3](PackageDescriptionV3.md)
 * [PackageDescription API Version 4](PackageDescriptionV4.md)
 * [PackageDescription API Version 4.2](PackageDescriptionV4_2.md)
+* [libSwiftPM](libSwiftPM.md)
 * [Resources](Resources.md)
 
 ---
