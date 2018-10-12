@@ -251,7 +251,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Validate the provided manifest.
     private func validate(_ manifest: Manifest) throws {
-        let duplicateDecls = manifest.dependencies.map({ KeyedPair($0, key: PackageReference.computeIdentity(packageURL: $0.url)) }).findDuplicateElements()
+        let duplicateDecls = manifest.dependencies.map({ KeyedPair($0, key: PackageReference.computeIdentity(packageURL: $0.url)) }).spm_findDuplicateElements()
         if !duplicateDecls.isEmpty {
             throw ManifestParseError.duplicateDependencyDecl(duplicateDecls.map({ $0.map({ $0.item }) }))
         }
@@ -330,7 +330,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // Run the command.
         let result = try Process.popen(arguments: cmd)
-        let output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle()
+        let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle()
 
         // Throw an error if there was a non-zero exit or emit the output
         // produced by the process. A process output will usually mean there
@@ -358,7 +358,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
       #if os(macOS)
         let foundPath = try? Process.checkNonZeroExit(
             args: "xcrun", "--sdk", "macosx", "--show-sdk-path")
-        guard let sdkRoot = foundPath?.chomp(), !sdkRoot.isEmpty else {
+        guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil
         }
         _sdkRoot = AbsolutePath(sdkRoot)

@@ -16,25 +16,25 @@ class StringConversionTests: XCTestCase {
     func testShellEscaped() {
 
         var str = "hello-_123"
-        XCTAssertEqual("hello-_123", str.shellEscaped())
+        XCTAssertEqual("hello-_123", str.spm_shellEscaped())
 
         str = "hello world"
-        XCTAssertEqual("'hello world'", str.shellEscaped())
+        XCTAssertEqual("'hello world'", str.spm_shellEscaped())
 
         str = "hello 'world"
-        str.shellEscape()
+        str.spm_shellEscape()
         XCTAssertEqual("'hello '\\''world'", str)
 
         str = "hello world swift"
-        XCTAssertEqual("'hello world swift'", str.shellEscaped())
+        XCTAssertEqual("'hello world swift'", str.spm_shellEscaped())
 
         str = "hello?world"
-        XCTAssertEqual("'hello?world'", str.shellEscaped())
+        XCTAssertEqual("'hello?world'", str.spm_shellEscaped())
 
         str = "hello\nworld"
-        XCTAssertEqual("'hello\nworld'", str.shellEscaped())
+        XCTAssertEqual("'hello\nworld'", str.spm_shellEscaped())
 
         str = "hello\nA\"B C>D*[$;()^><"
-        XCTAssertEqual("'hello\nA\"B C>D*[$;()^><'", str.shellEscaped())
+        XCTAssertEqual("'hello\nA\"B C>D*[$;()^><'", str.spm_shellEscaped())
     }
 }

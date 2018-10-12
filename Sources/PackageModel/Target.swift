@@ -55,7 +55,7 @@ public class Target: ObjectIdentifierProtocol {
         self.sources = sources
         self.dependencies = dependencies
         self.productDependencies = productDependencies
-        self.c99name = self.name.mangledToC99ExtendedIdentifier()
+        self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
     }
 }
 

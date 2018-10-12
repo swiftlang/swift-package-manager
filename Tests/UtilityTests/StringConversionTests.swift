@@ -14,43 +14,43 @@ import Utility
 class StringConversionTests: XCTestCase {
 
     func testManglingToBundleIdentifier() {
-        XCTAssertEqual("foo".mangledToBundleIdentifier(), "foo")
-        XCTAssertEqual("1foo__ò".mangledToBundleIdentifier(), "1foo---")
-        XCTAssertEqual("com.example.🐴🔄".mangledToBundleIdentifier(), "com.example.----")
-        XCTAssertEqual("٠٠٠".mangledToBundleIdentifier(), "---")
+        XCTAssertEqual("foo".spm_mangledToBundleIdentifier(), "foo")
+        XCTAssertEqual("1foo__ò".spm_mangledToBundleIdentifier(), "1foo---")
+        XCTAssertEqual("com.example.🐴🔄".spm_mangledToBundleIdentifier(), "com.example.----")
+        XCTAssertEqual("٠٠٠".spm_mangledToBundleIdentifier(), "---")
     }
 
     func testManglingToC99ExtendedIdentifier() {
         
         // Simple cases.
-        XCTAssertEqual("foo".mangledToC99ExtendedIdentifier(), "foo")
+        XCTAssertEqual("foo".spm_mangledToC99ExtendedIdentifier(), "foo")
         
         // Edge cases.
-        XCTAssertEqual("".mangledToC99ExtendedIdentifier(), "")
-        XCTAssertEqual("_".mangledToC99ExtendedIdentifier(), "_")
-        XCTAssertEqual("\n".mangledToC99ExtendedIdentifier(), "_")
+        XCTAssertEqual("".spm_mangledToC99ExtendedIdentifier(), "")
+        XCTAssertEqual("_".spm_mangledToC99ExtendedIdentifier(), "_")
+        XCTAssertEqual("\n".spm_mangledToC99ExtendedIdentifier(), "_")
         
         // Invalid non-leading characters.
-        XCTAssertEqual("_-".mangledToC99ExtendedIdentifier(), "__")
-        XCTAssertEqual("foo-bar".mangledToC99ExtendedIdentifier(), "foo_bar")
+        XCTAssertEqual("_-".spm_mangledToC99ExtendedIdentifier(), "__")
+        XCTAssertEqual("foo-bar".spm_mangledToC99ExtendedIdentifier(), "foo_bar")
         
         // Invalid leading characters.
-        XCTAssertEqual("1".mangledToC99ExtendedIdentifier(), "_")
-        XCTAssertEqual("1foo".mangledToC99ExtendedIdentifier(), "_foo")
-        XCTAssertEqual("٠٠٠".mangledToC99ExtendedIdentifier(), "_٠٠")
-        XCTAssertEqual("12 3".mangledToC99ExtendedIdentifier(), "_2_3")
+        XCTAssertEqual("1".spm_mangledToC99ExtendedIdentifier(), "_")
+        XCTAssertEqual("1foo".spm_mangledToC99ExtendedIdentifier(), "_foo")
+        XCTAssertEqual("٠٠٠".spm_mangledToC99ExtendedIdentifier(), "_٠٠")
+        XCTAssertEqual("12 3".spm_mangledToC99ExtendedIdentifier(), "_2_3")
         
         // FIXME: There are lots more interesting test cases to add here.
         var str1 = ""
-        str1.mangleToC99ExtendedIdentifier()
+        str1.spm_mangleToC99ExtendedIdentifier()
         XCTAssertEqual(str1, "")
 
         var str2 = "_"
-        str2.mangleToC99ExtendedIdentifier()
+        str2.spm_mangleToC99ExtendedIdentifier()
         XCTAssertEqual(str2, "_")
 
         var str3 = "-"
-        str3.mangleToC99ExtendedIdentifier()
+        str3.spm_mangleToC99ExtendedIdentifier()
         XCTAssertEqual(str3, "_")
     }
 }

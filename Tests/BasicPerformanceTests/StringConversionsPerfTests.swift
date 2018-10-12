@@ -20,7 +20,7 @@ class StringConversionsPerfTests: XCTestCasePerf {
             let N = 100
             var length = 0
             for _ in 0..<N {
-                let shell = string.shellEscaped()
+                let shell = string.spm_shellEscaped()
                 length = length &+ shell.utf8.count
             }
 

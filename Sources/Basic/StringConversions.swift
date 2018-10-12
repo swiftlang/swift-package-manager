@@ -42,7 +42,7 @@ extension String {
     /// hello -> hello, hello$world -> 'hello$world', input A -> 'input A'
     ///
     /// - Returns: Shell escaped string.
-    public func shellEscaped() -> String {
+    public func spm_shellEscaped() -> String {
 
         // If all the characters in the string are in whitelist then no need to escape.
         guard let pos = utf8.index(where: { !inShellWhitelist($0) }) else {
@@ -71,8 +71,8 @@ extension String {
     }
 
     /// Shell escapes the current string. This method is mutating version of shellEscaped().
-    public mutating func shellEscape() {
-        self = shellEscaped()
+    public mutating func spm_shellEscape() {
+        self = spm_shellEscaped()
     }
 }
 
@@ -88,7 +88,7 @@ public enum LocalizedJoinType: String {
 //FIXME: Migrate to DiagnosticFragmentBuilder
 public extension Array where Element == String {
     /// Returns a localized list of terms representing a conjunction or disjunction.
-    func localizedJoin(type: LocalizedJoinType) -> String {
+    func spm_localizedJoin(type: LocalizedJoinType) -> String {
         var result = ""
         
         for (i, item) in enumerated() {
@@ -110,12 +110,5 @@ public extension Array where Element == String {
         }
 
         return result
-    }
-}
-
-extension Substring {
-    /// Creates and returns the String object.
-    public var str: String {
-        return String(self)
     }
 }

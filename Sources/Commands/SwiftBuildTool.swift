@@ -21,7 +21,7 @@ struct MutuallyExclusiveArgumentsDiagnostic: DiagnosticData {
         name: "org.swift.diags.mutually-exclusive-arguments",
         defaultBehavior: .error,
         description: {
-            $0 <<< { $0.arguments.map({ "'\($0)'" }).localizedJoin(type: .conjunction) }
+            $0 <<< { $0.arguments.map({ "'\($0)'" }).spm_localizedJoin(type: .conjunction) }
             $0 <<< "are mutually exclusive"
         }
     )
@@ -89,9 +89,9 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
 
     private func checkClangVersion() {
         // We only care about this on Ubuntu 14.04
-        guard let uname = try? Process.checkNonZeroExit(args: "lsb_release", "-r").chomp(),
+        guard let uname = try? Process.checkNonZeroExit(args: "lsb_release", "-r").spm_chomp(),
               uname.hasSuffix("14.04"),
-              let clangVersionOutput = try? Process.checkNonZeroExit(args: "clang", "--version").chomp(),
+              let clangVersionOutput = try? Process.checkNonZeroExit(args: "clang", "--version").spm_chomp(),
               let clang = getClangVersion(versionOutput: clangVersionOutput) else {
             return
         }
