@@ -995,6 +995,8 @@ def main():
                         help="Add the given rpath to libswiftpm during installation")
     parser.add_argument("--libswiftpm-skip-c-headers", action="store_true",
                         help="Skip installing C headers in libSwiftPM install directory")
+    parser.add_argument("--stdlib-rpath", dest="stdlib_rpath",
+                        help="The rpath of swift standard libraries relative to the executables")
     args = parser.parse_args()
 
     if not args.swiftc_path:
@@ -1167,10 +1169,13 @@ def main():
     
     # We need to embed an RPATH so swift-{build,test} can find the core
     # libraries.
-    if platform.system() == 'Linux':
-        embed_rpath = "$ORIGIN/../lib/swift/linux"
+    if args.stdlib_rpath:
+        embed_rpath = args.stdlib_rpath
     else:
-        embed_rpath = "@executable_path/../lib/swift/macosx"
+        if platform.system() == 'Linux':
+            embed_rpath = "$ORIGIN/../lib/swift/linux"
+        else:
+            embed_rpath = "@executable_path/../lib/swift/macosx"
     build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
     if args.verbose:
         build_flags.append("-v")
