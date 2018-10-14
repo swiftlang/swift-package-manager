@@ -393,6 +393,31 @@ import Foundation
 #endif
 ```
 
+## Using Mirrored packages
+
+To add mirror for a given package:
+```sh
+$ swift package config set-mirror --package-url https://github.com/apple/swift-nio.git --mirror-url ../LocalDeps/nio
+```
+
+The above example expects both package-url and mirror-url to be git repository. It then uses source from `../LocalDeps/nio` instead of original package source. `mirror-url` can be any valid (local or remote) git repository. Mirrors can ensure availability even if original source is moved/unavailable or deleted. One can use mirror to locate forks, local dependency.
+
+To view mirror for a given package:
+```sh
+$ swift package config get-mirror --package-url https://github.com/apple/swift-nio.git
+// ../LocalDeps/nio
+```
+
+To remove mirror:
+```sh
+$ swift package config unset-mirror --package-url https://github.com/apple/swift-nio.git
+```
+OR 
+```sh
+$ swift package config unset-mirror --mirror-url ../LocalDeps/nio
+```
+
+
 ## Handling version-specific logic
 
 The package manager is designed to support packages which work with a variety of
