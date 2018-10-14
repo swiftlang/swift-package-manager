@@ -79,7 +79,9 @@ public final class TerminalController {
             return nil
         }
 
-        width = TerminalController.terminalWidth() ?? 80 // Assume default if we are not able to determine.
+        // Assume default if we are not able to determine.
+        let terminalWidth = TerminalController.terminalWidth() ?? 80
+        width = terminalWidth == 0 ? 80 : terminalWidth
         self.stream = stream
     }
 
