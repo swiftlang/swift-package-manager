@@ -414,9 +414,7 @@ public class GitRepository: Repository, WorkingCheckout {
             let result = try Process.popen(arguments: argsWithSh)
             let output = try result.output.dematerialize()
 
-            let outputs: [String] = output.split(separator: 0).map(Array.init).map({ (bytes: [Int8]) -> String in
-                return String(cString: bytes + [0])
-            })
+            let outputs: [String] = output.split(separator: 0).map({ String(decoding: $0, as: Unicode.UTF8.self) })
 
             guard result.exitStatus == .terminated(code: 0) || result.exitStatus == .terminated(code: 1) else {
                 throw GitInterfaceError.fatalError
