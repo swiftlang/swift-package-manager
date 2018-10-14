@@ -32,6 +32,7 @@ public struct Triple {
 
     public enum Arch: String {
         case x86_64
+        case i686
         case ppc64le
         case s390x
         case aarch64
@@ -113,7 +114,8 @@ public struct Triple {
     }
 
     public static let macOS = try! Triple("x86_64-apple-macosx10.10")
-    public static let x86Linux = try! Triple("x86_64-unknown-linux")
+    public static let x86_64Linux = try! Triple("x86_64-unknown-linux")
+    public static let i686Linux = try! Triple("i686-unknown-linux")
     public static let ppc64leLinux = try! Triple("powerpc64le-unknown-linux")
     public static let s390xLinux = try! Triple("s390x-unknown-linux")
     public static let arm64Linux = try! Triple("aarch64-unknown-linux")
@@ -127,7 +129,9 @@ public struct Triple {
     public static let hostTriple: Triple = .windows
   #elseif os(Linux)
     #if arch(x86_64)
-      public static let hostTriple: Triple = .x86Linux
+      public static let hostTriple: Triple = .x86_64Linux
+    #elseif arch(i386)
+      public static let hostTriple: Triple = .i686Linux
     #elseif arch(powerpc64le)
       public static let hostTriple: Triple = .ppc64leLinux
     #elseif arch(s390x)

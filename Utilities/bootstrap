@@ -1041,6 +1041,8 @@ def main():
     elif platform.system() == 'Linux':              
         if platform.machine() == 'x86_64':
             build_target = "x86_64-unknown-linux"
+        elif platform.machine() == "i686":
+            build_target = "i686-unknown-linux"
         elif platform.machine() == 's390x':
             build_target = "s390x-unknown-linux"
         elif platform.machine() == 'ppc64le':
