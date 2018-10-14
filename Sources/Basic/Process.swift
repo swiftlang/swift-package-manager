@@ -42,11 +42,11 @@ public struct ProcessResult: CustomStringConvertible {
 
     /// The output bytes of the process. Available only if the process was
     /// asked to redirect its output and no stdout output closure was set.
-    public let output: Result<[Int8], AnyError>
+    public let output: Result<[UInt8], AnyError>
 
     /// The output bytes of the process. Available only if the process was
     /// asked to redirect its output and no stderr output closure was set.
-    public let stderrOutput: Result<[Int8], AnyError>
+    public let stderrOutput: Result<[UInt8], AnyError>
 
     /// Create an instance using a POSIX process exit status code and output result.
     ///
@@ -54,8 +54,8 @@ public struct ProcessResult: CustomStringConvertible {
     public init(
         arguments: [String],
         exitStatusCode: Int32,
-        output: Result<[Int8], AnyError>,
-        stderrOutput: Result<[Int8], AnyError>
+        output: Result<[UInt8], AnyError>,
+        stderrOutput: Result<[UInt8], AnyError>
     ) {
         let exitStatus: ExitStatus
         if WIFSIGNALED(exitStatusCode) {
@@ -72,8 +72,8 @@ public struct ProcessResult: CustomStringConvertible {
     public init(
         arguments: [String],
         exitStatus: ExitStatus,
-        output: Result<[Int8], AnyError>,
-        stderrOutput: Result<[Int8], AnyError>
+        output: Result<[UInt8], AnyError>,
+        stderrOutput: Result<[UInt8], AnyError>
     ) {
         self.arguments = arguments
         self.output = output
@@ -82,28 +82,13 @@ public struct ProcessResult: CustomStringConvertible {
     }
     
     /// Converts stdout output bytes to string, assuming they're UTF8.
-    ///
-    /// - Throws: Error while reading the process output or if output is not a valid UTF8 sequence.
     public func utf8Output() throws -> String {
-        return try utf8Result(output)
+        return String(decoding: try output.dematerialize(), as: Unicode.UTF8.self)
     }
 
     /// Converts stderr output bytes to string, assuming they're UTF8.
-    ///
-    /// - Throws: Error while reading the process output or if output is not a valid UTF8 sequence.
     public func utf8stderrOutput() throws -> String {
-        return try utf8Result(stderrOutput)
-    }
-
-    /// Returns UTF8 string from given result or throw.
-    private func utf8Result(_ result: Result<[Int8], AnyError>) throws -> String {
-        var bytes = try result.dematerialize()
-        // Null terminate it.
-        bytes.append(0)
-        if let output = String(validatingUTF8: bytes) {
-            return output
-        }
-        throw Error.illegalUTF8Sequence
+        return String(decoding: try stderrOutput.dematerialize(), as: Unicode.UTF8.self)
     }
 
     public var description: String {
@@ -157,7 +142,7 @@ public final class Process: ObjectIdentifierProtocol {
     public typealias ProcessID = pid_t
     
     /// Typealias for stdout/stderr output closure.
-    public typealias OutputClosure = ([Int8]) -> Void
+    public typealias OutputClosure = ([UInt8]) -> Void
 
     /// Global default setting for verbose.
     public static var verbose = false
@@ -198,10 +183,10 @@ public final class Process: ObjectIdentifierProtocol {
     private var _result: ProcessResult?
 
     /// If redirected, stdout result and reference to the thread reading the output.
-    private var stdout: (result: Result<[Int8], AnyError>, thread: Thread?) = (Result([]), nil)
+    private var stdout: (result: Result<[UInt8], AnyError>, thread: Thread?) = (Result([]), nil)
 
     /// If redirected, stderr result and reference to the thread reading the output.
-    private var stderr: (result: Result<[Int8], AnyError>, thread: Thread?) = (Result([]), nil)
+    private var stderr: (result: Result<[UInt8], AnyError>, thread: Thread?) = (Result([]), nil)
 
     /// Queue to protect concurrent reads.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.process")
@@ -440,12 +425,12 @@ public final class Process: ObjectIdentifierProtocol {
     /// Reads the given fd and returns its result.
     ///
     /// Closes the fd before returning.
-    private func readOutput(onFD fd: Int32, outputClosure: OutputClosure?) -> Result<[Int8], AnyError> {
+    private func readOutput(onFD fd: Int32, outputClosure: OutputClosure?) -> Result<[UInt8], AnyError> {
         // Read all of the data from the output pipe.
         let N = 4096
-        var buf = [Int8](repeating: 0, count: N + 1)
+        var buf = [UInt8](repeating: 0, count: N + 1)
 
-        var out = [Int8]()
+        var out = [UInt8]()
         var error: Swift.Error? = nil
         loop: while true {
             let n = read(fd, &buf, N)
