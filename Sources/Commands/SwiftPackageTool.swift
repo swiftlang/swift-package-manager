@@ -120,11 +120,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .initPackage:
             // FIXME: Error handling.
-            let cwd = options.packagePath ?? options.chdir ?? localFileSystem.currentWorkingDirectory!
+            guard let packagePath = packagePath else {
+                diagnostics.emit(data: WorkingDirNotFoundDiagnostic())
+                return
+            }
             
-            let packageName = options.packageName ?? cwd.basename
-            let initPackage = try InitPackage(
-                name: packageName, destinationPath: cwd, packageType: options.initMode)
+            let packageName = options.packageName ?? packagePath.basename
+            let initPackage = try InitPackage(name: packageName, destinationPath: packagePath, packageType: options.initMode)
             initPackage.progressReporter = { message in
                 print(message)
             }

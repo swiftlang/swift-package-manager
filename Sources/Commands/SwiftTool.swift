@@ -186,6 +186,9 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Path to the root package directory, nil if manifest is not found.
     let packageRoot: AbsolutePath?
+    
+    /// Resolved Path to the package
+    let packagePath: AbsolutePath?
 
     /// Helper function to get package root or throw error if it is not found.
     func getPackageRoot() throws -> AbsolutePath {
@@ -366,8 +369,11 @@ public class SwiftTool<Options: ToolOptions> {
             try binder.fill(parseResult: result, into: &options)
 
             self.options = options
-            packageRoot = findPackageRoot(for: options.packagePath ?? options.chdir ?? packagePath)
-            buildPath = getEnvBuildPath(for: options.packagePath ?? options.chdir ?? packagePath)
+            
+            // Resolve the Package Path
+            self.packagePath = options.packagePath ?? options.chdir ?? packagePath
+            packageRoot = findPackageRoot(for: self.packagePath)
+            buildPath = getEnvBuildPath(for: self.packagePath)
 
             let processSet = ProcessSet()
             interruptHandler = try InterruptHandler {
