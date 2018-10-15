@@ -393,19 +393,36 @@ import Foundation
 #endif
 ```
 
-## Using Mirrored packages
+## Dependency Mirroring
+
+A dependency mirror refers to an alternate source location which exactly replicates the contents of the original source. Mirrors can ensure availability even if original source is moved/unavailable or deleted. Mirror information is stored in a local file at `.swiftpm/config` in JSON format, however there are commands which allow you to add/delete without having to edit the file manually.
+
+Lets see a example how mirroring can be used. 
+
+You specify the package as usual in the `Package.swift` file.
+```swift
+let package = Package(
+    name: "<PkgName>",
+    //..
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-nio.git", from: "1.0.0"),
+    ],
+    //...
+)
+
+```
 
 To add mirror for a given package:
 ```sh
-$ swift package config set-mirror --package-url https://github.com/apple/swift-nio.git --mirror-url ../LocalDeps/nio
+$ swift package config set-mirror --package-url https://github.com/apple/swift-nio.git --mirror-url https://github.com/<username>/swift-nio.git
 ```
 
-The above example expects both package-url and mirror-url to be git repository. It then uses source from `../LocalDeps/nio` instead of original package source. `mirror-url` can be any valid (local or remote) git repository. Mirrors can ensure availability even if original source is moved/unavailable or deleted. One can use mirror to locate forks, local dependency.
+ Swift package manager now uses source from `https://github.com/<username>/swift-nio.git` instead of original package source. `mirror-url` can be any valid git (local/remote) repository.
 
 To view mirror for a given package:
 ```sh
 $ swift package config get-mirror --package-url https://github.com/apple/swift-nio.git
-// ../LocalDeps/nio
+// https://github.com/<username>/swift-nio.git
 ```
 
 To remove mirror:
@@ -414,9 +431,10 @@ $ swift package config unset-mirror --package-url https://github.com/apple/swift
 ```
 OR 
 ```sh
-$ swift package config unset-mirror --mirror-url ../LocalDeps/nio
+$ swift package config unset-mirror --mirror-url https://github.com/<username>/swift-nio.git
 ```
 
+To remove all mirror information, delete`.swiftpm/config` file manually.
 
 ## Handling version-specific logic
 
