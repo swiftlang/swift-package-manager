@@ -254,13 +254,15 @@ public final class TestWorkspace {
     public func checkPackageGraph(
         roots: [String] = [],
         dependencies: [PackageGraphRootInput.PackageDependency] = [],
+        forceResolvedVersions: Bool = false,
         _ result: (PackageGraph, DiagnosticsEngine) -> ()
     ) {
         let diagnostics = DiagnosticsEngine()
         let workspace = createWorkspace()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies)
-        let graph = workspace.loadPackageGraph(root: rootInput, diagnostics: diagnostics)
+        let graph = workspace.loadPackageGraph(
+            root: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics)
         result(graph, diagnostics)
     }
 
@@ -379,8 +381,10 @@ public final class TestWorkspace {
                 switch state {
                 case .version(let version):
                     XCTAssertEqual(pin.state.version, version, file: file, line: line)
-                case .revision, .branch:
-                    XCTFail("Unimplemented", file: file, line: line)
+                case .revision(let revision):
+                    XCTAssertEqual(pin.state.revision.identifier, revision, file: file, line: line)
+                case .branch(let branch):
+                    XCTAssertEqual(pin.state.branch, branch, file: file, line: line)
                 }
             case .edited, .local:
                 XCTFail("Unimplemented", file: file, line: line)

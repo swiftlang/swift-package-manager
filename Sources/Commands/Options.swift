@@ -61,5 +61,8 @@ public class ToolOptions {
     /// Whether to enable code coverage.
     public var shouldEnableCodeCoverage = false
 
+    /// Use Package.resolved file for resolving dependencies.
+    public var forceResolvedVersions = false
+
     public required init() {}
 }
