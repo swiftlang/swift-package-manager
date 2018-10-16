@@ -395,7 +395,7 @@ import Foundation
 
 ## Dependency Mirroring
 
-A dependency mirror refers to an alternate source location which exactly replicates the contents of the original source. Mirrors can ensure availability even if original source is moved/unavailable or deleted. Mirror information is stored in a local file at `.swiftpm/config` in JSON format, however there are commands which allow you to add/delete without having to edit the file manually.
+A dependency mirror refers to an alternate source location which exactly replicates the contents of the original source. Mirrors can ensure availability even if original source is moved/unavailable or deleted. Mirror information is stored in a local file at `<PackageRoot>/.swiftpm/config` in JSON format, however there are commands which allow you to add/delete without having to edit the file manually.
 
 Lets see a example how mirroring can be used. 
 
@@ -434,7 +434,7 @@ OR
 $ swift package config unset-mirror --mirror-url https://github.com/<username>/swift-nio.git
 ```
 
-To remove all mirror information, delete`.swiftpm/config` file manually.
+To remove all mirror information, delete `<PackageRoot>.swiftpm/config` file manually.
 
 ## Handling version-specific logic
 
