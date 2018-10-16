@@ -588,11 +588,17 @@ extension Workspace {
         root: PackageGraphRootInput,
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
+        forceResolvedVersions: Bool = false,
         diagnostics: DiagnosticsEngine
     ) -> PackageGraph {
 
         // Perform dependency resolution, if required.
-        let manifests = self._resolve(root: root, diagnostics: diagnostics)
+        let manifests: DependencyManifests
+        if forceResolvedVersions {
+            manifests = self._resolveToResolvedVersion(root: root, diagnostics: diagnostics)
+        } else {
+            manifests = self._resolve(root: root, diagnostics: diagnostics)
+        }
         let externalManifests = manifests.allManifests()
 
         // Load the graph.
@@ -1058,6 +1064,73 @@ extension Workspace {
 // MARK: - Dependency Management
 
 extension Workspace {
+
+    /// Resolves the dependencies according to the entries present in the Package.resolved file.
+    ///
+    /// This method bypasses the dependency resolution and resolves dependencies
+    /// according to the information in the resolved file.
+    public func resolveToResolvedVersion(
+        root: PackageGraphRootInput,
+        diagnostics: DiagnosticsEngine
+    ) {
+        _resolveToResolvedVersion(root: root, diagnostics: diagnostics)
+    }
+
+    /// Resolves the dependencies according to the entries present in the Package.resolved file.
+    ///
+    /// This method bypasses the dependency resolution and resolves dependencies
+    /// according to the information in the resolved file.
+    @discardableResult
+    fileprivate func _resolveToResolvedVersion(
+        root: PackageGraphRootInput,
+        diagnostics: DiagnosticsEngine
+    ) -> DependencyManifests {
+        createCacheDirectories(with: diagnostics)
+
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
+        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
+
+        // Load the pins store or abort now.
+        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }), !diagnostics.hasErrors else {
+            return loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        }
+
+        // Request all the containers to fetch them in parallel.
+        //
+        // We just request the packages here, repository manager will
+        // automatically manage the parallelism.
+        let pins = pinsStore.pins.map({ $0 })
+        DispatchQueue.concurrentPerform(iterations: pins.count) { idx in
+            _ = try? await {
+                containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, completion: $0) 
+            }
+        }
+
+        // Compute the pins that we need to actually clone.
+        //
+        // We require cloning if there is no checkout or if the checkout doesn't
+        // match with the pin.
+        let requiredPins = pins.filter({ pin in
+            guard let dependency = managedDependencies[forURL: pin.packageRef.path] else {
+                return true
+            }
+            switch dependency.state {
+            case .checkout(let checkoutState):
+                return pin.state != checkoutState
+            case .edited, .local:
+                return true
+            }
+        })
+
+        // Clone the required pins.
+        for pin in requiredPins {
+            diagnostics.wrap {
+                _ = try self.clone(package: pin.packageRef, at: pin.state)
+            }
+        }
+
+        return loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+    }
 
     /// Implementation of resolve(root:diagnostics:).
     ///

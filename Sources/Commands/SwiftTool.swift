@@ -351,6 +351,11 @@ public class SwiftTool<Options: ToolOptions> {
                 usage: "Enable building with the llbuild library"),
             to: { $0.shouldEnableLLBuildLibrary = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--force-resolved-versions", kind: Bool.self,
+                usage: "Force resolve to versions recorded in the Package.resolved file"),
+            to: { $0.forceResolvedVersions = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -502,7 +507,13 @@ public class SwiftTool<Options: ToolOptions> {
     /// Resolve the dependencies.
     func resolve() throws {
         let workspace = try getActiveWorkspace()
-        workspace.resolve(root: try getWorkspaceRoot(), diagnostics: diagnostics)
+        let root = try getWorkspaceRoot()
+
+        if options.forceResolvedVersions {
+            workspace.resolveToResolvedVersion(root: root, diagnostics: diagnostics)
+        } else {
+            workspace.resolve(root: root, diagnostics: diagnostics)
+        }
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
@@ -523,6 +534,7 @@ public class SwiftTool<Options: ToolOptions> {
             let graph = try workspace.loadPackageGraph(
                 root: getWorkspaceRoot(),
                 createREPLProduct: createREPLProduct,
+                forceResolvedVersions: options.forceResolvedVersions,
                 diagnostics: diagnostics
             )
 

@@ -2588,6 +2588,108 @@ final class WorkspaceTests: XCTestCase {
              XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
          }
      }
+
+    func testForceResolveToResolvedVersions() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.2.0", "1.3.2"]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "develop"]
+                ),
+            ]
+        )
+
+        // Load the initial graph.
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Bar", requirement: .revision("develop")),
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
+            result.check(dependency: "bar", at: .checkout(.branch("develop")))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
+            result.check(dependency: "bar", at: .checkout(.branch("develop")))
+        }
+
+        // Change pin of foo to something else.
+        do {
+            let ws = workspace.createWorkspace()
+            let pinsStore = try ws.pinsStore.load()
+            let fooPin = pinsStore.pins.first(where: { $0.packageRef.identity == "foo" })!
+
+            let fooRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: fooPin.packageRef.path)]!
+            let revision = try fooRepo.resolveRevision(tag: "1.0.0")
+            let newState = CheckoutState(revision: revision, version: "1.0.0")
+
+            pinsStore.pin(packageRef: fooPin.packageRef, state: newState )
+            try pinsStore.saveState()
+        }
+
+        // Check force resolve. This should still produce bar @ develop even
+        // though that requirement is gone.
+        workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.branch("develop")))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.branch("develop")))
+        }
+
+        // A normal resolution.
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+    }
 }
 
 extension PackageGraph {
