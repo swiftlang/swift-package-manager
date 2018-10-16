@@ -361,9 +361,7 @@ extension RelativePath: CustomStringConvertible {
 /// AbsolutePath and RelativePath struct, but PathImpl helps mitigate it.  From
 /// a type safety perspective, absolute paths and relative paths are genuinely
 /// different.
-// FIXME: This is internal due to this bug: https://bugs.swift.org/browse/SR-3009
-// but otherwise should be private.
-struct PathImpl: Hashable {
+private struct PathImpl: Hashable {
     /// Normalized string of the (absolute or relative) path.  Never empty.
     fileprivate let string: String
 
