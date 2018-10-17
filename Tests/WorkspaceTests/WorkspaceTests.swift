@@ -119,8 +119,7 @@ final class WorkspaceTests: XCTestCase {
                 """
             }
 
-            let manifestLoader = ManifestLoader(
-                resources: Resources.default, isManifestCachingEnabled: false)
+            let manifestLoader = ManifestLoader(manifestResources: Resources.default)
 
             let sandbox = path.appending(component: "ws")
             let ws = Workspace(

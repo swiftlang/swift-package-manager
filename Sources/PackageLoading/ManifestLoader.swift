@@ -131,20 +131,20 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     let resources: ManifestResourceProvider
     let isManifestSandboxEnabled: Bool
-    let isManifestCachingEnabled: Bool
-    let cacheDir: AbsolutePath
+    var isManifestCachingEnabled: Bool {
+        return cacheDir != nil
+    }
+    let cacheDir: AbsolutePath!
     let delegate: ManifestLoaderDelegate?
 
     public init(
-        resources: ManifestResourceProvider,
+        manifestResources: ManifestResourceProvider,
         isManifestSandboxEnabled: Bool = true,
-        isManifestCachingEnabled: Bool = true,
-        cacheDir: AbsolutePath = determineTempDirectory(),
+        cacheDir: AbsolutePath? = nil,
         delegate: ManifestLoaderDelegate? = nil
     ) {
-        self.resources = resources
+        self.resources = manifestResources
         self.isManifestSandboxEnabled = isManifestSandboxEnabled
-        self.isManifestCachingEnabled = isManifestCachingEnabled
         self.delegate = delegate
         self.cacheDir = cacheDir
     }
@@ -155,10 +155,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         isManifestSandboxEnabled: Bool = true
     ) {
         self.init(
-            resources: resources,
-            isManifestSandboxEnabled: isManifestSandboxEnabled,
-            isManifestCachingEnabled: false,
-            cacheDir: determineTempDirectory()
+            manifestResources: resources,
+            isManifestSandboxEnabled: isManifestSandboxEnabled
        )
     }
 

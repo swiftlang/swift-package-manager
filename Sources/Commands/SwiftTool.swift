@@ -620,7 +620,7 @@ public class SwiftTool<Options: ToolOptions> {
     func runLLBuildAsExecutable(manifest: AbsolutePath, llbuildTarget: String) throws {
         // Create a temporary directory for the build process.
         let tempDirName = "org.swift.swiftpm.\(NSUserName())"
-        let tempDir = Basic.determineTempDirectory().appending(component: tempDirName)
+        let tempDir = try determineTempDirectory().appending(component: tempDirName)
         try localFileSystem.createDirectory(tempDir, recursive: true)
 
         // Run the swift-build-tool with the generated manifest.
@@ -717,10 +717,9 @@ public class SwiftTool<Options: ToolOptions> {
         return Result(anyError: {
             try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
-                resources: self._hostToolchain.dematerialize().manifestResources,
+                manifestResources: self._hostToolchain.dematerialize().manifestResources,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
-                isManifestCachingEnabled: !self.options.shouldDisableManifestCaching,
-                cacheDir: self.buildPath
+                cacheDir: self.options.shouldDisableManifestCaching ? nil : self.buildPath
             )
         })
     }()

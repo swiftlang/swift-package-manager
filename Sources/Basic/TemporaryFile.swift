@@ -16,9 +16,13 @@ import class Foundation.FileManager
 public enum TempFileError: Swift.Error {
     /// Could not create a unique temporary filename.
     case couldNotCreateUniqueName
+
     /// Some error thrown defined by posix's open().
     // FIXME: This should be factored out into a open error enum.
     case other(Int32)
+
+    /// Couldn't find a temporary directory.
+    case couldNotFindTmpDir
 }
 
 private extension TempFileError {
@@ -39,11 +43,12 @@ private extension TempFileError {
 ///     - dir: If present this will be the temporary directory.
 ///
 /// - Returns: Path to directory in which temporary file should be created.
-public func determineTempDirectory(_ dir: AbsolutePath? = nil) -> AbsolutePath {
+public func determineTempDirectory(_ dir: AbsolutePath? = nil) throws -> AbsolutePath {
     // FIXME: Add other platform specific locations.
     let tmpDir = dir ?? cachedTempDirectory
-    // FIXME: This is a runtime condition, so it should throw and not crash.
-    precondition(localFileSystem.isDirectory(tmpDir))
+    guard localFileSystem.isDirectory(tmpDir) else {
+        throw TempFileError.couldNotFindTmpDir
+    }
     return tmpDir
 }
 
@@ -95,7 +100,7 @@ public final class TemporaryFile {
         self.prefix = prefix
         self.deleteOnClose = deleteOnClose
         // Determine in which directory to create the temporary file.
-        self.dir = determineTempDirectory(dir)
+        self.dir = try determineTempDirectory(dir)
         // Construct path to the temporary file.
         let path = self.dir.appending(RelativePath(prefix + ".XXXXXX" + suffix))
 
@@ -193,7 +198,7 @@ public final class TemporaryDirectory {
         self.shouldRemoveTreeOnDeinit = removeTreeOnDeinit
         self.prefix = prefix
         // Construct path to the temporary directory.
-        let path = determineTempDirectory(dir).appending(RelativePath(prefix + ".XXXXXX"))
+        let path = try determineTempDirectory(dir).appending(RelativePath(prefix + ".XXXXXX"))
 
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
