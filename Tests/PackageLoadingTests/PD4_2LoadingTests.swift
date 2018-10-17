@@ -18,7 +18,7 @@ import PackageLoading
 
 // FIXME: We should share the infra with other loading tests.
 class PackageDescription4_2LoadingTests: XCTestCase {
-    let manifestLoader = ManifestLoader(resources: Resources.default, isManifestCachingEnabled: false)
+    let manifestLoader = ManifestLoader(manifestResources: Resources.default)
 
     private func loadManifestThrowing(
         _ contents: ByteString,
@@ -378,8 +378,9 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             }
 
             let delegate = ManifestTestDelegate()
+
             let manifestLoader = ManifestLoader(
-                resources: Resources.default, cacheDir: path, delegate: delegate)
+                manifestResources: Resources.default, cacheDir: path, delegate: delegate)
 
             func check(loader: ManifestLoader, expectCached: Bool) {
                 delegate.clear()
@@ -422,7 +423,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             }
 
             let noCacheLoader = ManifestLoader(
-                resources: Resources.default, isManifestCachingEnabled: false, delegate: delegate)
+                manifestResources: Resources.default, delegate: delegate)
             for _ in 0..<2 {
                 check(loader: noCacheLoader, expectCached: false)
             }
