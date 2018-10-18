@@ -48,7 +48,6 @@ extension CollectionAlgorithmsTests {
     // to regenerate.
     static let __allTests__CollectionAlgorithmsTests = [
         ("testFindDuplicates", testFindDuplicates),
-        ("testRIndex", testRIndex),
     ]
 }
 
