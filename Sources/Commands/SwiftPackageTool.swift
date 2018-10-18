@@ -210,14 +210,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                     // FIXME: Probably lift this error defination to ToolsVersion.
                     throw ToolsVersionLoader.Error.malformed(specifier: value, file: pkg)
                 }
-                try writeToolsVersion(at: pkg, version: toolsVersion, fs: &localFileSystem)
+                try writeToolsVersion(at: pkg, version: toolsVersion, fs: localFileSystem)
 
             case .setCurrent:
                 // Write the tools version with current version but with patch set to zero.
                 // We do this to avoid adding unnecessary constraints to patch versions, if
                 // the package really needs it, they can do it using --set option.
                 try writeToolsVersion(
-                    at: pkg, version: ToolsVersion.currentToolsVersion.zeroedPatch, fs: &localFileSystem)
+                    at: pkg, version: ToolsVersion.currentToolsVersion.zeroedPatch, fs: localFileSystem)
             }
 
         case .generateXcodeproj:

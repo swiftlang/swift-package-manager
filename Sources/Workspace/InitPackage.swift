@@ -137,7 +137,7 @@ public final class InitPackage {
 
         // Write the current tools version.
         try writeToolsVersion(
-            at: manifest.parentDirectory, version: version, fs: &localFileSystem)
+            at: manifest.parentDirectory, version: version, fs: localFileSystem)
     }
 
     private func writeREADMEFile() throws {

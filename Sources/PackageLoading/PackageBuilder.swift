@@ -45,9 +45,6 @@ public enum ModuleError: Swift.Error {
     /// We found multiple LinuxMain.swift files.
     case multipleLinuxMainFound(package: String, linuxMainFiles: [AbsolutePath])
 
-    /// The package should support version 3 compiler but doesn't.
-    case mustSupportSwift3Compiler(package: String)
-
     /// The tools version in use is not compatible with target's sources.
     case incompatibleToolsVersions(package: String, required: [SwiftLanguageVersion], current: ToolsVersion)
 
@@ -82,8 +79,6 @@ extension ModuleError: CustomStringConvertible {
         case .multipleLinuxMainFound(let package, let linuxMainFiles):
             let files = linuxMainFiles.map({ $0.asString }).sorted().joined(separator: ", ")
             return "package '\(package)' has multiple linux main files: \(files)"
-        case .mustSupportSwift3Compiler(let package):
-            return "package '\(package)' must support Swift 3 because its minimum tools version is 3"
         case .incompatibleToolsVersions(let package, let required, let current):
             if required.isEmpty {
                 return "package '\(package)' supported Swift language versions is empty"

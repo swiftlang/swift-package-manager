@@ -1237,6 +1237,48 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testMinimumRequiredToolsVersionInDependencyResolution() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"],
+                    toolsVersion: .v3
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("/tmp/ws/pkgs/Foo @ 1.0.0..<2.0.0"), behavior: .error)
+                result.check(diagnostic: .contains("product dependency 'Foo' not found"), behavior: .error, location: "'Root' /tmp/ws/roots/Root")
+            }
+        }
+    }
+
     func testToolsVersionRootPackages() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()

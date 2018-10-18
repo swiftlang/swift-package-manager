@@ -78,6 +78,7 @@ public final class TestWorkspace {
             let sourcesDir = packagePath.appending(component: "Sources")
             let url = (isRoot ? packagePath : packagesDir.appending(RelativePath(package.path ?? package.name))).asString
             let specifier = RepositorySpecifier(url: url)
+            let manifestPath = packagePath.appending(component: Manifest.filename)
             
             // Create targets on disk.
             let repo = repoProvider.specifierMap[specifier] ?? InMemoryGitRepository(path: packagePath, fs: fs as! InMemoryFileSystem)
@@ -86,6 +87,10 @@ public final class TestWorkspace {
                 try repo.createDirectory(targetDir, recursive: true)
                 try repo.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
             }
+            if let toolsVersion = package.toolsVersion {
+                try repo.writeFileContents(manifestPath, bytes: "")
+                try writeToolsVersion(at: packagePath, version: toolsVersion, fs: repo)
+            }
             repo.commit()
 
             let versions: [String?] = isRoot ? [nil] : package.versions
@@ -93,7 +98,7 @@ public final class TestWorkspace {
                 let v = version.flatMap(Version.init(string:))
                 manifests[.init(url: url, version: v)] = Manifest(
                     name: package.name,
-                    path: packagePath.appending(component: Manifest.filename),
+                    path: manifestPath,
                     url: url,
                     version: v,
                     manifestVersion: .v4,
@@ -466,6 +471,8 @@ public struct TestPackage {
     public let products: [TestProduct]
     public let dependencies: [TestDependency]
     public let versions: [String?]
+    // FIXME: This should be per-version.
+    public let toolsVersion: ToolsVersion?
 
     public init(
         name: String,
@@ -473,7 +480,8 @@ public struct TestPackage {
         targets: [TestTarget],
         products: [TestProduct],
         dependencies: [TestDependency] = [],
-        versions: [String?] = []
+        versions: [String?] = [],
+        toolsVersion: ToolsVersion? = nil
     ) {
         self.name = name
         self.path = path
@@ -481,6 +489,7 @@ public struct TestPackage {
         self.products = products
         self.dependencies = dependencies
         self.versions = versions
+        self.toolsVersion = toolsVersion
     }
 
     public static func genericPackage1(named name: String) -> TestPackage {
