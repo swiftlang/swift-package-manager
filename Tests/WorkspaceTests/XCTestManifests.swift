@@ -64,6 +64,7 @@ extension WorkspaceTests {
         ("testLocalDependencyWithPackageUpdate", testLocalDependencyWithPackageUpdate),
         ("testLocalLocalSwitch", testLocalLocalSwitch),
         ("testLocalVersionSwitch", testLocalVersionSwitch),
+        ("testMinimumRequiredToolsVersionInDependencyResolution", testMinimumRequiredToolsVersionInDependencyResolution),
         ("testMissingEditCanRestoreOriginalCheckout", testMissingEditCanRestoreOriginalCheckout),
         ("testMultipleRootPackages", testMultipleRootPackages),
         ("testPackageMirror", testPackageMirror),

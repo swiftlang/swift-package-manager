@@ -18,7 +18,7 @@ import Utility
 /// - Parameters:
 ///   - path: The path of the package.
 ///   - version: The version to write.
-public func writeToolsVersion(at path: AbsolutePath, version: ToolsVersion, fs: inout FileSystem) throws {
+public func writeToolsVersion(at path: AbsolutePath, version: ToolsVersion, fs: FileSystem) throws {
     let file = path.appending(component: Manifest.filename)
     assert(fs.isFile(file), "Tools version file not present")
 

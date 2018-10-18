@@ -268,7 +268,15 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
             // Otherwise, compute and cache the result.
             let isValid = (try? self.toolsVersion(for: $0)).flatMap({ 
-                self.currentToolsVersion >= $0
+                guard $0 >= ToolsVersion.minimumRequired else {
+                    return false
+                }
+
+                guard self.currentToolsVersion >= $0 else {
+                    return false
+                }
+
+                return true
             }) ?? false
             self.validToolsVersionsCache[$0] = isValid
 

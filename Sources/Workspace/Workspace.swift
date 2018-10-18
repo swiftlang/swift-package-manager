@@ -1033,7 +1033,7 @@ extension Workspace {
                 at: packagePath, fileSystem: fileSystem)
 
             // Make sure the package has the right minimum tools version.
-            guard toolsVersion >= .v4 else {
+            guard toolsVersion >= ToolsVersion.minimumRequired else {
                 throw WorkspaceDiagnostics.IncompatibleToolsVersion(
                     rootPackagePath: packagePath,
                     requiredToolsVersion: .v4,

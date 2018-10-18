@@ -280,13 +280,17 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         repo.commit()
         try repo.tag(name: "1.0.0")
 
-        try repo.writeFileContents(filePath, bytes: "// swift-tools-version:3.1.0;hello\n")
+        try repo.writeFileContents(filePath, bytes: "// swift-tools-version:4.0")
         repo.commit()
         try repo.tag(name: "1.0.1")
 
-        try repo.writeFileContents(filePath, bytes: "// swift-tools-version:4.0.0\n")
+        try repo.writeFileContents(filePath, bytes: "// swift-tools-version:4.2.0;hello\n")
         repo.commit()
         try repo.tag(name: "1.0.2")
+
+        try repo.writeFileContents(filePath, bytes: "// swift-tools-version:4.2.0\n")
+        repo.commit()
+        try repo.tag(name: "1.0.3")
 
         let inMemRepoProvider = InMemoryGitRepositoryProvider()
         inMemRepoProvider.add(specifier: specifier, repository: repo)
@@ -307,21 +311,21 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         }
 
         do {
-            let provider = createProvider(ToolsVersion(version: "3.1.0"))
+            let provider = createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference(identity: "foo", path: specifier.url)
             let container = try await { provider.getContainer(for: ref, completion: $0) }
             let v = container.versions(filter: { _ in true }).map{$0}
-            XCTAssertEqual(v, ["1.0.1", "1.0.0"])
+            XCTAssertEqual(v, ["1.0.1"])
         }
 
         do {
-            let provider = createProvider(ToolsVersion(version: "4.0.0"))
+            let provider = createProvider(ToolsVersion(version: "4.2.0"))
             let ref = PackageReference(identity: "foo", path: specifier.url)
             let container = try await { provider.getContainer(for: ref, completion: $0) }
             XCTAssertEqual((container as! RepositoryPackageContainer).validToolsVersionsCache, [:])
             let v = container.versions(filter: { _ in true }).map{$0}
-            XCTAssertEqual((container as! RepositoryPackageContainer).validToolsVersionsCache, ["1.0.1": true, "1.0.0": true, "1.0.2": true])
-            XCTAssertEqual(v, ["1.0.2", "1.0.1", "1.0.0"])
+            XCTAssertEqual((container as! RepositoryPackageContainer).validToolsVersionsCache, ["1.0.1": true, "1.0.0": false, "1.0.3": true, "1.0.2": true])
+            XCTAssertEqual(v, ["1.0.3", "1.0.2", "1.0.1"])
         }
 
         do {

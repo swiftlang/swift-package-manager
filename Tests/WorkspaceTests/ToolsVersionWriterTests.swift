@@ -106,7 +106,7 @@ class ToolsVersionWriterTests: XCTestCase {
         _ result: (ByteString) -> Void
     ) {
         do {
-            var fs: FileSystem = InMemoryFileSystem()
+            let fs: FileSystem = InMemoryFileSystem()
 
             let file = AbsolutePath("/pkg/Package.swift")
 
@@ -114,7 +114,7 @@ class ToolsVersionWriterTests: XCTestCase {
             try fs.writeFileContents(file, bytes: stream.bytes)
 
             try writeToolsVersion(
-                at: file.parentDirectory, version: version, fs: &fs)
+                at: file.parentDirectory, version: version, fs: fs)
 
             result(try fs.readFileContents(file))
         } catch {

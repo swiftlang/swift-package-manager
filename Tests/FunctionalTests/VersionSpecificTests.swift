@@ -50,6 +50,10 @@ class VersionSpecificTests: XCTestCase {
 
             // Create the version to test against.
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
+                // FIXME: We end up filtering this manifest if it has an invalid
+                // tools version as they're assumed to be v3 manifests. Should we
+                // do something better?
+                $0 <<< "// swift-tools-version:4.2\n"
                 $0 <<< "NOT_A_VALID_PACKAGE"
             }
             try fs.writeFileContents(depPath.appending(component: "foo.swift")) {

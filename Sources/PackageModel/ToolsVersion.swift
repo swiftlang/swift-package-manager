@@ -25,6 +25,9 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
         "\(Versioning.currentVersion.minor)." +
         "\(Versioning.currentVersion.patch)")!
 
+    /// The minimum tools version that is required by the package manager.
+    public static let minimumRequired: ToolsVersion = .v4
+
     /// Regex pattern to parse tools version. The format is SemVer 2.0 with an
     /// addition that specifying the patch version is optional.
     static let toolsVersionRegex = try! NSRegularExpression(pattern: "^" +
