@@ -373,7 +373,7 @@ private struct PathImpl: Hashable {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         // Find the last path separator.
-        guard let idx = string.spm_rindex(of: "/") else {
+        guard let idx = string.lastIndex(of: "/") else {
             // No path separators, so the directory name is `.`.
             return "."
         }
@@ -397,7 +397,7 @@ private struct PathImpl: Hashable {
             return "/"
         }
         // Find the last path separator.
-        guard let idx = string.spm_rindex(of: "/") else {
+        guard let idx = string.lastIndex(of: "/") else {
             // No path separators, so the basename is the whole string.
             return string
         }
@@ -419,14 +419,14 @@ private struct PathImpl: Hashable {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         // Find the last path separator, if any.
-        let sIdx = string.spm_rindex(of: "/")
+        let sIdx = string.lastIndex(of: "/")
         // Find the start of the basename.
         let bIdx = (sIdx != nil) ? string.index(after: sIdx!) : string.startIndex
         // Find the last `.` (if any), starting from the second character of
         // the basename (a leading `.` does not make the whole path component
         // a suffix).
-        let fIdx = string.index(bIdx, offsetBy: 1, limitedBy: string.endIndex)
-        if let idx = string.spm_rindex(of: ".", from: fIdx) {
+        let fIdx = string.index(bIdx, offsetBy: 1, limitedBy: string.endIndex) ?? string.startIndex
+        if let idx = string[fIdx...].lastIndex(of: ".") {
             // Unless it's just a `.` at the end, we have found a suffix.
             if string.distance(from: idx, to: string.endIndex) > 1 {
                 let fromIndex = withDot ? idx : string.index(idx, offsetBy: 1)
