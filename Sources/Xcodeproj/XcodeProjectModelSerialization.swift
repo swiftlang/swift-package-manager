@@ -371,6 +371,8 @@ protocol PropertyListDictionaryConvertible {
 }
 
 extension PropertyListDictionaryConvertible {
+    // FIXME: Internal only for unit testing.
+    //
     /// Returns a property list representation of the build settings, in which
     /// every struct field is represented as a dictionary entry.  Fields of
     /// type `String` are represented as `PropertyList.string` values; fields
@@ -382,7 +384,6 @@ extension PropertyListDictionaryConvertible {
     /// applies to classes.  Creating a property list representation is totally
     /// independent of that serialization infrastructure (though it might well
     /// be invoked during of serialization of actual model objects).
-    // FIXME: Internal only for unit testing.
     func asPropertyList() -> PropertyList {
         // Borderline hacky, but the main thing is that adding or changing a
         // build setting does not require any changes to the property list

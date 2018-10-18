@@ -20,8 +20,9 @@ enum JSON {
 }
 
 extension JSON {
-    /// Converts the JSON to string representation.
     // FIXME: No escaping implemented for now.
+    //
+    /// Converts the JSON to string representation.
     func toString() -> String {
         switch self {
         case .null:

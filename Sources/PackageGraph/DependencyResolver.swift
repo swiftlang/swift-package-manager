@@ -226,6 +226,9 @@ public protocol PackageContainer {
     /// if the previous one did not satisfy all constraints.
     func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version>
 
+    // FIXME: We should perhaps define some particularly useful error codes
+    // here, so the resolver can handle errors more meaningfully.
+    //
     /// Fetch the declared dependencies for a particular version.
     ///
     /// This property is expected to be efficient to access, and cached by the
@@ -234,9 +237,6 @@ public protocol PackageContainer {
     /// - Precondition: `versions.contains(version)`
     /// - Throws: If the version could not be resolved; this will abort
     ///   dependency resolution completely.
-    //
-    // FIXME: We should perhaps define some particularly useful error codes
-    // here, so the resolver can handle errors more meaningfully.
     func getDependencies(at version: Version) throws -> [PackageContainerConstraint<Identifier>]
 
     /// Fetch the declared dependencies for a particular revision.
@@ -330,9 +330,9 @@ public protocol DependencyResolverDelegate {
     associatedtype Identifier: PackageContainerIdentifier
 }
 
-/// A bound version for a package within an assignment.
-//
 // FIXME: This should be nested, but cannot be currently.
+//
+/// A bound version for a package within an assignment.
 public enum BoundVersion: Equatable, CustomStringConvertible {
     /// The assignment should not include the package.
     ///
@@ -364,16 +364,16 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
     }
 }
 
+// FIXME: Maybe each package should just return this, instead of a list of
+// `PackageContainerConstraint`s. That won't work if we decide this should
+// eventually map based on the `Container` rather than the `Identifier`, though,
+// so they are separate for now.
+//
 /// A container for constraints for a set of packages.
 ///
 /// This data structure is only designed to represent satisfiable constraint
 /// sets, it cannot represent sets including containers which have an empty
 /// constraint.
-//
-// FIXME: Maybe each package should just return this, instead of a list of
-// `PackageContainerConstraint`s. That won't work if we decide this should
-// eventually map based on the `Container` rather than the `Identifier`, though,
-// so they are separate for now.
 public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Hashable {
     public typealias Container = C
     public typealias Identifier = Container.Identifier
@@ -513,6 +513,8 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
     }
 }
 
+// FIXME: Actually make efficient.
+//
 /// A container for version assignments for a set of packages, exposed as a
 /// sequence of `Container` to `BoundVersion` bindings.
 ///
@@ -524,16 +526,14 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
 /// The set itself is designed to only ever contain a consistent set of
 /// assignments, i.e. each assignment should satisfy the induced
 /// `constraints`, but this invariant is not explicitly enforced.
-//
-// FIXME: Actually make efficient.
 struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     typealias Container = C
     typealias Identifier = Container.Identifier
 
-    /// The assignment records.
-    //
     // FIXME: Does it really make sense to key on the identifier here. Should we
     // require referential equality of containers and use that to simplify?
+    //
+    /// The assignment records.
     fileprivate var assignments: OrderedDictionary<Identifier, (container: Container, binding: BoundVersion)>
 
     /// Create an empty assignment.
@@ -596,6 +596,8 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
         return result
     }
 
+    // FIXME: We need to cache this.
+    //
     /// The combined version constraints induced by the assignment.
     ///
     /// This consists of the merged constraints which need to be satisfied on
@@ -603,8 +605,6 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     ///
     /// The resulting constraint set is guaranteed to be non-empty for each
     /// mapping, assuming the invariants on the set are followed.
-    //
-    // FIXME: We need to cache this.
     var constraints: PackageContainerConstraintSet<Container> {
         // Collect all of the constraints.
         var result = PackageContainerConstraintSet<Container>()
@@ -643,9 +643,9 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
         return result
     }
 
-    /// Check if the given `binding` for `container` is valid within the assignment.
-    //
     // FIXME: This is currently very inefficient.
+    //
+    /// Check if the given `binding` for `container` is valid within the assignment.
     func isValid(binding: BoundVersion, for container: Container) -> Bool {
         switch binding {
         case .excluded:
@@ -820,8 +820,9 @@ public class DependencyResolver<
     /// Skip updating containers while fetching them.
     private let skipUpdate: Bool
 
-    /// Contains any error encountered during dependency resolution.
     // FIXME: @testable private
+    //
+    /// Contains any error encountered during dependency resolution.
     var error: Swift.Error?
 
     /// Key used to cache a resolved subtree.
@@ -969,6 +970,11 @@ public class DependencyResolver<
         return assignment
     }
 
+    // FIXME: This needs to a way to return information on the failure, or we
+    // will need to have it call the delegate directly.
+    //
+    // FIXME: @testable private
+    //
     /// Resolve an individual container dependency tree.
     ///
     /// This is the primary method in our bottom-up algorithm for resolving
@@ -983,11 +989,6 @@ public class DependencyResolver<
     ///   - constraints: The external constraints which must be honored by the solution.
     ///   - exclusions: The list of individually excluded package versions.
     /// - Returns: A sequence of feasible solutions, starting with the most preferable.
-    //
-    // FIXME: This needs to a way to return information on the failure, or we
-    // will need to have it call the delegate directly.
-    //
-    // FIXME: @testable private
     func resolveSubtree(
         _ container: Container,
         subjectTo allConstraints: ConstraintSet,

@@ -326,7 +326,7 @@ public final class PackageBuilder {
     }
 
     /// Returns path to all the items in a directory.
-    /// FIXME: This is generic functionality, and should move to FileSystem.
+    // FIXME: This is generic functionality, and should move to FileSystem.
     func directoryContents(_ path: AbsolutePath) throws -> [AbsolutePath] {
         return try fileSystem.getDirectoryContents(path).map({ path.appending(component: $0) })
     }

@@ -67,6 +67,11 @@ public func <<< <T>(
     return builder
 }
 
+// FIXME: One thing we should consider is whether we should make the diagnostic
+// a protocol and put these properties on the type, which is conceptually the
+// right modeling, but might be cumbersome of our desired features don't
+// perfectly align with what the language can express.
+//
 /// A unique identifier for a diagnostic.
 ///
 /// Diagnostic identifiers are intended to be a stable representation of a
@@ -76,12 +81,6 @@ public func <<< <T>(
 /// (e.g., a command line tool, an IDE, or a web UI) is expecting to receive
 /// diagnostics and be able to present additional UI affordances or workflows
 /// associated for specific kinds of diagnostics.
-///
-//
-// FIXME: One thing we should consider is whether we should make the diagnostic
-// a protocol and put these properties on the type, which is conceptually the
-// right modeling, but might be cumbersome of our desired features don't
-// perfectly align with what the language can express.
 public class DiagnosticID: ObjectIdentifierProtocol {
 
     /// A piece of a diagnostic description.

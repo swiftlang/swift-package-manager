@@ -251,11 +251,11 @@ public enum ArrayParsingStrategy {
 
 /// A protocol representing positional or options argument.
 protocol ArgumentProtocol: Hashable {
-    /// The argument kind of this argument for eg String, Bool etc.
-    ///
     // FIXME: This should be constrained to ArgumentKind but Array can't conform
     // to it: `extension of type 'Array' with constraints cannot have an
     // inheritance clause`.
+    //
+    /// The argument kind of this argument for eg String, Bool etc.
     associatedtype ArgumentKindTy
 
     /// Name of the argument which will be parsed by the parser.
@@ -277,12 +277,12 @@ protocol ArgumentProtocol: Hashable {
     /// The shell completions to offer as values for this argument.
     var completion: ShellCompletion { get }
 
-    /// Parses and returns the argument values from the parser.
-    ///
     // FIXME: Because `ArgumentKindTy`` can't conform to `ArgumentKind`, this
     // function has to be provided a kind (which will be different from
     // ArgumentKindTy for arrays). Once the generics feature exists we can
     // improve this API.
+    //
+    /// Parses and returns the argument values from the parser.
     func parse(_ kind: ArgumentKind.Type, with parser: inout ArgumentParserProtocol) throws -> [ArgumentKind]
 }
 
@@ -481,10 +481,10 @@ final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
     }
 }
 
+// FIXME: We probably don't need this protocol anymore and should convert this to a class.
+//
 /// Argument parser protocol passed in initializers of ArgumentKind to manipulate
 /// parser as needed by the argument.
-///
-// FIXME: We probably don't need this protocol anymore and should convert this to a class.
 public protocol ArgumentParserProtocol {
     /// The current argument being parsed.
     var currentArgument: String { get }

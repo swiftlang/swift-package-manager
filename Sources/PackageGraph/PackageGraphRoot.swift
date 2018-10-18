@@ -35,8 +35,9 @@ public struct PackageGraphRootInput {
 /// Represents the inputs to the package graph.
 public struct PackageGraphRoot {
 
-    /// Represents a top level package dependencies.
     // FIXME: We can kill this now.
+    //
+    /// Represents a top level package dependencies.
     public struct PackageDependency {
 
         public typealias Requirement = PackageModel.PackageDependencyDescription.Requirement

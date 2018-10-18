@@ -104,9 +104,10 @@ public func generate(
         extraDirs = []
     }
 
-    /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
     // FIXME: This could be more efficient by directly writing to a stream
     // instead of first creating a string.
+    //
+    /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
     let project = try pbxproj(xcodeprojPath: xcodeprojPath, graph: graph, extraDirs: extraDirs, extraFiles: extraFiles, options: options, diagnostics: diagnostics)
     try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
         // Serialize the project model we created to a plist, and return

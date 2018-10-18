@@ -47,10 +47,11 @@ public func pbxproj(
         diagnostics: diagnostics)
 }
 
+// FIXME: Handle case insensitive filesystems.
+//
 /// A set of c99 target names that are invalid for Xcode Framework targets.
 /// They will conflict with the required Framework directory structure,
 /// and cause a linker error (SR-3398).
-// FIXME: Handle case insensitive filesystems.
 fileprivate let invalidXcodeModuleNames = Set(["Modules", "Headers", "Versions"])
 
 func xcodeProject(
