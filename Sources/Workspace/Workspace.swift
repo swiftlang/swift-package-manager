@@ -19,6 +19,8 @@ import Utility
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: class {
 
+    // FIXME: This is defunct.
+    //
     /// The workspace is about to load the complete package graph.
     ///
     /// This delegate will only be called if we actually need to fetch and resolve dependencies. 
@@ -27,7 +29,6 @@ public protocol WorkspaceDelegate: class {
     ///   - currentGraph: The current package graph. This is most likely a partial package graph.
     ///   - dependencies: The current managed dependencies in the workspace.
     ///   - missingURLs: The top-level missing packages we need to fetch. This will never be empty.
-    // FIXME: This is defunct.
     func packageGraphWillLoad(currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>)
 
     /// The workspace has started fetching this repository.
@@ -1675,6 +1676,8 @@ extension Workspace {
         return path
     }
 
+    // FIXME: @testable internal
+    //
     /// Create a local clone of the given `repository` checked out to `version`.
     ///
     /// If an existing clone is present, the repository will be reset to the
@@ -1685,7 +1688,6 @@ extension Workspace {
     ///   - checkoutState: The state to check out.
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
-    // FIXME: @testable internal
     func clone(
         package: PackageReference,
         at checkoutState: CheckoutState

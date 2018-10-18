@@ -17,8 +17,9 @@ public enum TempFileError: Swift.Error {
     /// Could not create a unique temporary filename.
     case couldNotCreateUniqueName
 
-    /// Some error thrown defined by posix's open().
     // FIXME: This should be factored out into a open error enum.
+    //
+    /// Some error thrown defined by posix's open().
     case other(Int32)
 
     /// Couldn't find a temporary directory.
@@ -131,9 +132,9 @@ extension TemporaryFile: CustomStringConvertible {
     }
 }
 
-/// Contains the error which can be thrown while creating a directory using POSIX's mkdir.
-//
 // FIXME: This isn't right place to declare this, probably POSIX or merge with FileSystemError?
+//
+/// Contains the error which can be thrown while creating a directory using POSIX's mkdir.
 public enum MakeDirectoryError: Swift.Error {
     /// The given path already exists as a directory, file or symbolic link.
     case pathExists

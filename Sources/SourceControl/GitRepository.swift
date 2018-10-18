@@ -112,8 +112,6 @@ enum GitInterfaceError: Swift.Error {
     case fatalError
 }
 
-/// A basic `git` repository. This class is thread safe.
-//
 // FIXME: Currently, this class is serving two goals, it is the Repository
 // interface used by `RepositoryProvider`, but is also a class which can be
 // instantiated directly against non-RepositoryProvider controlled
@@ -122,6 +120,8 @@ enum GitInterfaceError: Swift.Error {
 // class. It is possible we should rename `Repository` to something more
 // abstract, and change the provider to just return an adaptor around this
 // class.
+//
+/// A basic `git` repository. This class is thread safe.
 public class GitRepository: Repository, WorkingCheckout {
     /// A hash object.
     struct Hash: Hashable {

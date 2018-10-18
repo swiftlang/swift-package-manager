@@ -52,16 +52,16 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The standard basename for the manifest.
     public static let basename = "Package"
 
-    /// The path of the manifest file.
-    //
     // FIXME: This doesn't belong here, we want the Manifest to be purely tied
     // to the repository state, it shouldn't matter where it is.
+    //
+    /// The path of the manifest file.
     public let path: AbsolutePath
 
-    /// The repository URL the manifest was loaded from.
-    //
     // FIXME: This doesn't belong here, we want the Manifest to be purely tied
     // to the repository state, it shouldn't matter where it is.
+    //
+    /// The repository URL the manifest was loaded from.
     public let url: String
 
     /// The version this package was loaded from, if known.
@@ -199,8 +199,9 @@ public struct TargetDescription: Equatable, Codable {
     /// The exclude patterns.
     public let exclude: [String]
 
-    /// Returns true if the target type is test.
     // FIXME: Kill this.
+    //
+    /// Returns true if the target type is test.
     public var isTest: Bool {
         return type == .test
     }

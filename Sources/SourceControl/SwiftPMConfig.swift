@@ -13,10 +13,10 @@ import Foundation
 import Basic
 import Utility
 
-/// Manages a package's configuration.
-///
 // FIXME: We may want to move this class to some other layer once we start
 // supporting more things than just mirrors.
+//
+/// Manages a package's configuration.
 public final class SwiftPMConfig {
 
     enum Error: Swift.Error, CustomStringConvertible {

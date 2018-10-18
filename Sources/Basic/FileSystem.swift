@@ -108,6 +108,8 @@ public enum FileMode {
     }
 }
 
+// FIXME: Design an asynchronous story?
+//
 /// Abstracted access to file system operations.
 ///
 /// This protocol is used to allow most of the codebase to interact with a
@@ -115,8 +117,6 @@ public enum FileMode {
 /// substitute a virtual file system or redirect file system operations.
 ///
 /// NOTE: All of these APIs are synchronous and can block.
-//
-// FIXME: Design an asynchronous story?
 public protocol FileSystem: class {
     /// Check whether the given path exists and is accessible.
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool
@@ -133,10 +133,10 @@ public protocol FileSystem: class {
     /// Check whether the given path is accessible and is a symbolic link.
     func isSymlink(_ path: AbsolutePath) -> Bool
 
-    /// Get the contents of the given directory, in an undefined order.
-    //
     // FIXME: Actual file system interfaces will allow more efficient access to
     // more data than just the name here.
+    //
+    /// Get the contents of the given directory, in an undefined order.
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String]
 
     /// Get the current working directory (similar to `getcwd(3)`), which can be
@@ -157,21 +157,21 @@ public protocol FileSystem: class {
     /// - recursive: If true, create missing parent directories if possible.
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws
 
+    // FIXME: This is obviously not a very efficient or flexible API.
+    //
     /// Get the contents of a file.
     ///
     /// - Returns: The file contents as bytes, or nil if missing.
-    //
-    // FIXME: This is obviously not a very efficient or flexible API.
     func readFileContents(_ path: AbsolutePath) throws -> ByteString
 
-    /// Write the contents of a file.
-    //
     // FIXME: This is obviously not a very efficient or flexible API.
+    //
+    /// Write the contents of a file.
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws
 
-    /// Write the contents of a file.
-    //
     // FIXME: This is obviously not a very efficient or flexible API.
+    //
+    /// Write the contents of a file.
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws
 
     /// Recursively deletes the file system entity at `path`.
@@ -511,9 +511,9 @@ private class LocalFileSystem: FileSystem {
     }
 }
 
-/// Concrete FileSystem implementation which simulates an empty disk.
-//
 // FIXME: This class does not yet support concurrent mutation safely.
+//
+/// Concrete FileSystem implementation which simulates an empty disk.
 public class InMemoryFileSystem: FileSystem {
     private class Node {
         /// The actual node data.

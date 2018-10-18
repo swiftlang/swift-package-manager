@@ -132,11 +132,11 @@ public class RepositoryManager {
     /// The delegate interface.
     private let delegate: RepositoryManagerDelegate?
 
-    /// The map of registered repositories.
-    //
     // FIXME: We should use a more sophisticated map here, which tracks the
     // full specifier but then is capable of efficiently determining if two
     // repositories map to the same location.
+    //
+    /// The map of registered repositories.
     fileprivate var repositories: [String: RepositoryHandle] = [:]
 
     /// The map of serialized repositories.

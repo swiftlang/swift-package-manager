@@ -205,13 +205,14 @@ public struct AbsolutePath: Hashable {
         return _impl.string
     }
 
+    // FIXME: We should investigate if it would be more efficient to instead
+    // return a path component iterator that does all its work lazily, moving
+    // from one path separator to the next on-demand.
+    //
     /// Returns an array of strings that make up the path components of the
     /// absolute path.  This is the same sequence of strings as the basenames
     /// of each successive path component, starting from the root.  Therefore
     /// the first path component of an absolute path is always `/`.
-    // FIXME: We should investigate if it would be more efficient to instead
-    // return a path component iterator that does all its work lazily, moving
-    // from one path separator to the next on-demand.
     public var components: [String] {
         // FIXME: This isn't particularly efficient; needs optimization, and
         // in fact, it might well be best to return a custom iterator so we
@@ -292,14 +293,15 @@ public struct RelativePath: Hashable {
         return _impl.string
     }
 
+    // FIXME: We should investigate if it would be more efficient to instead
+    // return a path component iterator that does all its work lazily, moving
+    // from one path separator to the next on-demand.
+    //
     /// Returns an array of strings that make up the path components of the
     /// relative path.  This is the same sequence of strings as the basenames
     /// of each successive path component.  Therefore the returned array of
     /// path components is never empty; even an empty path has a single path
     /// component: the `.` string.
-    // FIXME: We should investigate if it would be more efficient to instead
-    // return a path component iterator that does all its work lazily, moving
-    // from one path separator to the next on-demand.
     public var components: [String] {
         // FIXME: This isn't particularly efficient; needs optimization, and
         // in fact, it might well be best to return a custom iterator so we

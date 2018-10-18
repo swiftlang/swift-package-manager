@@ -17,8 +17,9 @@ import func POSIX.getenv
 
 public struct BuildParameters {
 
-    /// Path to the module cache directory to use for SwiftPM's own tests.
     // FIXME: Error handling.
+    //
+    /// Path to the module cache directory to use for SwiftPM's own tests.
     public static let swiftpmTestCache = resolveSymlinks(try! determineTempDirectory()).appending(component: "org.swift.swiftpm.tests-3")
 
     /// Returns the directory to be used for module cache.

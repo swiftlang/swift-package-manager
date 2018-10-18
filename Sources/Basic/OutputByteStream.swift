@@ -537,9 +537,10 @@ public struct Format {
 /// Inmemory implementation of OutputByteStream.
 public final class BufferedOutputByteStream: _OutputByteStreamBase {
 
-    /// Contents of the stream.
     // FIXME: For inmemory implementation we should be share this buffer with OutputByteStream.
     // One way to do this is by allowing OuputByteStream to install external buffers.
+    //
+    /// Contents of the stream.
     private var contents = [UInt8]()
 
     override public init() {

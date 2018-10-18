@@ -173,11 +173,11 @@ public struct PkgConfig {
     }
 }
 
+// FIXME: This is only internal so it can be unit tested.
+//
 /// Parser for the `pkg-config` `.pc` file format.
 ///
 /// See: https://www.freedesktop.org/wiki/Software/pkg-config/
-//
-// FIXME: This is only internal so it can be unit tested.
 struct PkgConfigParser {
     let pcFile: AbsolutePath
     private let fileSystem: FileSystem

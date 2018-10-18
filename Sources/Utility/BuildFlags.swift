@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-/// Build-tool independent flags.
-//
 // FIXME: This belongs somewhere else, but we don't have a layer specifically
 // for BuildSupport style logic yet.
+//
+/// Build-tool independent flags.
 public struct BuildFlags {
 
     /// Flags to pass to the C compiler.

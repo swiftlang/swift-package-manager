@@ -431,8 +431,8 @@ private func sandboxProfile() -> String {
     return stream.bytes.asString!
 }
 
-/// Represents a string error.
 // FIXME: We should probably just remove this and make all Manifest errors Codable.
+/// Represents a string error.
 struct StringError: Equatable, Codable, CustomStringConvertible, Error {
 
     /// The description of the error.
@@ -521,8 +521,8 @@ final class ManifestLoadRule: LLBuildRule {
     }
 }
 
-/// A rule to get file info of a file on disk.
 // FIXME: Find a proper place for this rule.
+/// A rule to get file info of a file on disk.
 final class FileInfoRule: LLBuildRule {
 
     struct RuleKey: LLBuildKey {
@@ -564,10 +564,10 @@ final class FileInfoRule: LLBuildRule {
     }
 }
 
+// FIXME: Find a proper place for this rule.
 /// A rule to compute the current version of the pacakge manager.
 ///
 /// This rule will always run.
-// FIXME: Find a proper place for this rule.
 final class SwiftPMVersionRule: LLBuildRule {
 
     struct RuleKey: LLBuildKey {
