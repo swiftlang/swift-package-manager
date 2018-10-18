@@ -296,10 +296,10 @@ private class LocalFileSystem: FileSystem {
 
         while true {
             var entryPtr: UnsafeMutablePointer<dirent>? = nil
-            if readdir_r(dir, &entry, &entryPtr) < 0 {
-                // FIXME: Are there ever situation where we would want to
-                // continue here?
-                throw FileSystemError(errno: errno)
+
+            let readdir_rErrno = readdir_r(dir, &entry, &entryPtr)
+            if  readdir_rErrno != 0 {
+                throw FileSystemError(errno: readdir_rErrno)
             }
 
             // If the entry pointer is null, we reached the end of the directory.
