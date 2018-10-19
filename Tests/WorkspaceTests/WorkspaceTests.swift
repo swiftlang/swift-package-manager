@@ -657,66 +657,6 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testGraphData() throws {
-        let sandbox = AbsolutePath("/tmp/ws/")
-        let fs = InMemoryFileSystem()
-
-        let workspace = try TestWorkspace(
-            sandbox: sandbox,
-            fs: fs,
-            roots: [
-            ],
-            packages: [
-                TestPackage(
-                    name: "A",
-                    targets: [
-                        TestTarget(name: "A"),
-                    ],
-                    products: [],
-                    versions: ["1.0.0", "1.5.1"]
-                ),
-                TestPackage(
-                    name: "B",
-                    targets: [
-                        TestTarget(name: "B"),
-                    ],
-                    products: [],
-                    versions: ["1.0.0"]
-                ),
-            ]
-        )
-
-        let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "A", requirement: .exact("1.0.0")),
-            .init(name: "B", requirement: .exact("1.0.0")),
-        ]
-        workspace.checkGraphData(deps: deps) { (graph, dependencyMap, diagnostics) in
-            PackageGraphTester(graph) { result in
-                result.check(packages: "A", "B")
-                result.check(targets: "A", "B")
-            }
-
-            // Check package association.
-            XCTAssertEqual(dependencyMap[graph.lookup("A")]?.packageRef.identity, "a")
-            XCTAssertEqual(dependencyMap[graph.lookup("B")]?.packageRef.identity, "b")
-            XCTAssertNoDiagnostics(diagnostics)
-        }
-        // Check delegates.
-        let currentDeps = workspace.createWorkspace().managedDependencies.values.map{$0.packageRef}
-        XCTAssertEqual(workspace.delegate.managedDependenciesData[0].map{$0.packageRef}, currentDeps)
-
-        // Load graph data again.
-        workspace.checkGraphData(deps: deps) { (graph, dependencyMap, diagnostics) in
-            // Check package association.
-            XCTAssertEqual(dependencyMap[graph.lookup("A")]?.packageRef.identity, "a")
-            XCTAssertEqual(dependencyMap[graph.lookup("B")]?.packageRef.identity, "b")
-            XCTAssertNoDiagnostics(diagnostics)
-        }
-        // Check delegates.
-        XCTAssertEqual(workspace.delegate.managedDependenciesData[1].map{$0.packageRef}, currentDeps)
-        XCTAssertEqual(workspace.delegate.managedDependenciesData.count, 2)
-    }
-
     func testLoadingRootManifests() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
