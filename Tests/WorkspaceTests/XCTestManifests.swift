@@ -54,7 +54,6 @@ extension WorkspaceTests {
         ("testDependencySwitchWithSameIdentity", testDependencySwitchWithSameIdentity),
         ("testEditDependency", testEditDependency),
         ("testForceResolveToResolvedVersions", testForceResolveToResolvedVersions),
-        ("testGraphData", testGraphData),
         ("testGraphRootDependencies", testGraphRootDependencies),
         ("testInterpreterFlags", testInterpreterFlags),
         ("testIsResolutionRequired", testIsResolutionRequired),

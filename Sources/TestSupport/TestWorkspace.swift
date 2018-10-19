@@ -271,20 +271,6 @@ public final class TestWorkspace {
         result(graph, diagnostics)
     }
 
-    public func checkGraphData(
-        roots: [String] = [],
-        deps: [TestWorkspace.PackageDependency],
-        _ result: (PackageGraph, [ResolvedPackage: ManagedDependency], DiagnosticsEngine) -> ()
-    ) {
-        let dependencies = deps.map({ $0.convert(packagesDir) })
-        let diagnostics = DiagnosticsEngine()
-        let workspace = createWorkspace()
-        let rootInput = PackageGraphRootInput(
-            packages: rootPaths(for: roots), dependencies: dependencies)
-        let graphData = workspace.loadGraphData(root: rootInput, diagnostics: diagnostics)
-        result(graphData.graph, graphData.dependencyMap, diagnostics)
-    }
-
     public enum State {
         public enum CheckoutState {
             case version(Utility.Version)
