@@ -178,3 +178,9 @@ want to use a debug compiler with SwiftPM.
 ```sh
 $ SWIFT_EXEC=/path/to/my/built/swiftc swift build
 ```
+
+## Overriding path to the runtime libraries
+
+SwiftPM computes the path of runtime libraries relative to where it is
+installed. This path can be overridden by setting the environment variable
+`SWIFTPM_PD_LIBS` to a directory containing the libraries.

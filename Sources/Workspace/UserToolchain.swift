@@ -212,9 +212,17 @@ public final class UserToolchain: Toolchain {
             "--sysroot", destination.sdk.asString
         ] + destination.extraCCFlags
 
+        // Compute the path of directory containing the PackageDescription libraries.
+        let pdLibDir: AbsolutePath 
+        if let pdLibDirEnvStr = getenv("SWIFTPM_PD_LIBS"), let pdLibDirEnv = try? AbsolutePath(validating: pdLibDirEnvStr) {
+            pdLibDir = pdLibDirEnv
+        } else {
+            pdLibDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+        }
+
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompilers.manifest,
-            libDir: binDir.parentDirectory.appending(components: "lib", "swift", "pm"),
+            libDir: pdLibDir,
             sdkRoot: self.destination.sdk
         )
     }
