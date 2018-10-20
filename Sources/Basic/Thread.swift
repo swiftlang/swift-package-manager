@@ -10,13 +10,13 @@
 
 import Foundation
 
-/// This class bridges the gap between OSX and Linux Foundation Threading API.
+/// This class bridges the gap between Darwin and Linux Foundation Threading API.
 /// It provides closure based execution and a join method to block the calling thread
 /// until the thread is finished executing.
 final public class Thread {
 
     /// The thread implementation which is Foundation.Thread on Linux and
-    /// a Thread subclass which provides closure support on OSX.
+    /// a Thread subclass which provides closure support on Darwin.
     private var thread: ThreadImpl!
 
     /// Condition variable to support blocking other threads using join when this thread has not finished executing.

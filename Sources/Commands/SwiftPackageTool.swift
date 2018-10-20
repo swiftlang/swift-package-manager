@@ -285,7 +285,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             let encoder = JSONEncoder()
             encoder.userInfo[Manifest.dumpPackageKey] = true
-            if #available(OSX 10.13, *) {
+            if #available(macOS 10.13, *) {
                 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             }
 

@@ -275,7 +275,7 @@ private class LocalFileSystem: FileSystem {
 
     var homeDirectory: AbsolutePath {
       #if os(macOS)
-        if #available(OSX 10.12, *) {
+        if #available(macOS 10.12, *) {
             return AbsolutePath(FileManager.default.homeDirectoryForCurrentUser.path)
         } else {
             fatalError("Unsupported OS")

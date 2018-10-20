@@ -381,11 +381,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     }
 
     /// Runs the corresponding tool to get tests JSON and create TestSuite array.
-    /// On OSX, we use the swiftpm-xctest-helper tool bundled with swiftpm.
+    /// On macOS, we use the swiftpm-xctest-helper tool bundled with swiftpm.
     /// On Linux, XCTest can dump the json using `--dump-tests-json` mode.
     ///
     /// - Parameters:
-    ///     - path: Path to the XCTest bundle(OSX) or executable(Linux).
+    ///     - path: Path to the XCTest bundle(macOS) or executable(Linux).
     ///
     /// - Throws: TestError, SystemError, Utility.Errror
     ///
