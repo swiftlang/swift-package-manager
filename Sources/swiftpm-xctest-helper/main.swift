@@ -12,7 +12,7 @@
 import XCTest
 import func Darwin.C.exit
 
-/// A helper tool to get list of tests from a XCTest Bundle on OSX.
+/// A helper tool to get list of tests from a XCTest Bundle on macOS.
 ///
 /// Usage: swiftpm-xctest-helper <bundle_path> <output_file_path>
 /// bundle_path: Path to the XCTest bundle
@@ -135,7 +135,7 @@ do {
 #else
 
 import func Glibc.exit
-print("Only OSX supported.")
+print("Only macOS supported.")
 exit(1)
 
 #endif
