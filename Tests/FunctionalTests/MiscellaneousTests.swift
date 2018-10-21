@@ -414,7 +414,7 @@ class MiscellaneousTestCase: XCTestCase {
             // Check test manifest.
             let testManifest = prefix.appending(components: "Tests", "ParallelTestsPkgTests", "XCTestManifests.swift")
             XCTAssertEqual(try fs.readFileContents(testManifest), """
-                #if !os(macOS)
+                #if !canImport(ObjectiveC)
                 import XCTest
 
                 extension ParallelTestsFailureTests {
