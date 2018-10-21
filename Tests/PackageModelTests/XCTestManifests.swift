@@ -1,4 +1,4 @@
-#if !os(macOS)
+#if !canImport(ObjectiveC)
 import XCTest
 
 extension PackageModelTests {
