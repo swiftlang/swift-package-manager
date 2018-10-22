@@ -38,19 +38,16 @@ public struct PkgConfigResult {
         }
     }
 
-    /// Create a successful result with given cflags and libs.
-    fileprivate init(pkgConfigName: String, cFlags: [String], libs: [String]) {
-        self.pkgConfigName = pkgConfigName
+    /// Create a result.
+    fileprivate init(
+        pkgConfigName: String,
+        cFlags: [String] = [],
+        libs: [String] = [],
+        error: Swift.Error? = nil,
+        provider: SystemPackageProviderDescription? = nil
+    ) {
         self.cFlags = cFlags
         self.libs = libs
-        self.error = nil
-        self.provider = nil
-    }
-
-    /// Create an error result.
-    fileprivate init(pkgConfigName: String, error: Swift.Error, provider: SystemPackageProviderDescription?) {
-        self.cFlags = []
-        self.libs = []
         self.error = error
         self.provider = provider
         self.pkgConfigName = pkgConfigName
@@ -61,9 +58,11 @@ public struct PkgConfigResult {
 public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: DiagnosticsEngine, fileSystem: FileSystem = localFileSystem) -> PkgConfigResult? {
     // If there is no pkg config name defined, we're done.
     guard let pkgConfigName = target.pkgConfig else { return nil }
+
     // Compute additional search paths for the provider, if any.
     let provider = target.providers?.first { $0.isAvailable }
     let additionalSearchPaths = provider?.pkgConfigSearchPath() ?? []
+
     // Get the pkg config flags.
     do {
         let pkgConfig = try PkgConfig(
@@ -71,11 +70,26 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: Diagnost
             additionalSearchPaths: additionalSearchPaths,
             diagnostics: diagnostics,
             fileSystem: fileSystem)
+
         // Run the whitelist checker.
-        try whitelist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
+        let filtered = whitelist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
+
         // Remove any default flags which compiler adds automatically.
-        let (cFlags, libs) = removeDefaultFlags(cFlags: pkgConfig.cFlags, libs: pkgConfig.libs)
-        return PkgConfigResult(pkgConfigName: pkgConfigName, cFlags: cFlags, libs: libs)
+        let (cFlags, libs) = removeDefaultFlags(cFlags: filtered.cFlags, libs: filtered.libs)
+
+        // Set the error if there are any unallowed flags.
+        var error: Swift.Error?
+        if !filtered.unallowed.isEmpty {
+            error = PkgConfigError.nonWhitelistedFlags(filtered.unallowed.joined(separator: ", "))
+        }
+
+        return PkgConfigResult(
+            pkgConfigName: pkgConfigName,
+            cFlags: cFlags,
+            libs: libs,
+            error: error,
+            provider: provider
+        )
     } catch {
         return PkgConfigResult(pkgConfigName: pkgConfigName, error: error, provider: provider)
     }
@@ -135,20 +149,24 @@ extension SystemPackageProviderDescription {
 /// compiler/linker. List of allowed flags:
 /// cFlags: -I, -F
 /// libs: -L, -l, -F, -framework, -w
-func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws {
-    // Returns an array of flags which doesn't match any filter.
-    func filter(flags: [String], filters: [String]) -> [String] {
-        var filtered = [String]()
+func whitelist(
+    pcFile: String,
+    flags: (cFlags: [String], libs: [String])
+) -> (cFlags: [String], libs: [String], unallowed: [String]) {
+    // Returns a tuple with the array of allowed flag and the array of unallowed flags.
+    func filter(flags: [String], filters: [String]) -> (allowed: [String], unallowed: [String]) {
+        var allowed = [String]()
+        var unallowed = [String]()
         var it = flags.makeIterator()
         while let flag = it.next() {
             guard let filter = filters.filter({ flag.hasPrefix($0) }).first else {
-                filtered += [flag]
+                unallowed += [flag]
                 continue
             }
 
           // Warning suppression flag has no arguments and is not suffixed.
           guard !flag.hasPrefix("-w") || flag == "-w" else {
-            filtered += [flag]
+            unallowed += [flag]
             continue
           }
 
@@ -158,14 +176,15 @@ func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws
                    fatalError("Expected associated value")
                 }
             }
+            allowed += [flag]
         }
-        return filtered
+        return (allowed, unallowed)
     }
-    let filtered = filter(flags: flags.cFlags, filters: ["-I", "-F"]) +
-      filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework", "-w"])
-    guard filtered.isEmpty else {
-        throw PkgConfigError.nonWhitelistedFlags(filtered.joined(separator: ", "))
-    }
+
+    let filteredCFlags = filter(flags: flags.cFlags, filters: ["-I", "-F"])
+    let filteredLibs = filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework", "-w"])
+
+    return (filteredCFlags.allowed, filteredLibs.allowed, filteredCFlags.unallowed + filteredLibs.unallowed)
 }
 
 /// Remove the default flags which are already added by the compiler.

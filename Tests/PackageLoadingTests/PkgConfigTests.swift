@@ -82,8 +82,8 @@ class PkgConfigTests: XCTestCase {
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.asString]) {
             let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), diagnostics: diagnostics)!
             XCTAssertEqual(result.pkgConfigName, "Bar")
-            XCTAssertEqual(result.cFlags, [])
-            XCTAssertEqual(result.libs, [])
+            XCTAssertEqual(result.cFlags, ["-I/path/to/inc"])
+            XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
             XCTAssertNil(result.provider)
             XCTAssertFalse(result.couldNotFindConfigFile)
             switch result.error {
