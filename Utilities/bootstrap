@@ -584,7 +584,7 @@ class llbuild(object):
                 if self.args.libdispatch_build_dir:
                     link_command.extend(['-L', self.args.libdispatch_build_dir,
                                          '-Xlinker', '-lBlocksRuntime'])
-                    link_command.extend(["-L", os.path.join(self.args.libdispatch_build_dir, "src", ".libs")])
+                    link_command.extend(["-L", os.path.join(self.args.libdispatch_build_dir, "src")])
 
                 # Add llbuild link flags.
                 link_command.extend(llbuild_link_args(self.args))
@@ -1156,7 +1156,9 @@ def main():
                 symlink_force(os.path.join(args.libdispatch_build_dir,
                                            'libBlocksRuntime.so'),
                               libswiftdir)
-                symlink_force(os.path.join(args.libdispatch_build_dir, "src", ".libs", "libdispatch.so"),
+                symlink_force(os.path.join(args.libdispatch_build_dir, "src", "libdispatch.so"),
+                    libswiftdir)
+                symlink_force(os.path.join(args.libdispatch_build_dir, "src", "libswiftDispatch.so"),
                     libswiftdir)
 
     make_fake_toolchain()
@@ -1207,7 +1209,7 @@ def main():
 
     if args.libdispatch_build_dir:
         build_flags.extend(["-Xlinker", "-L{}".format(
-            os.path.join(args.libdispatch_build_dir, "src", ".libs"))])
+            os.path.join(args.libdispatch_build_dir, "src"))])
         build_flags.extend(["-Xswiftc", "-I{}".format(
             os.path.join(args.libdispatch_build_dir, "src"))])
         build_flags.extend(["-Xswiftc", "-I{}".format(
