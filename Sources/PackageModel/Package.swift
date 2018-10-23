@@ -111,7 +111,7 @@ extension Package: CustomStringConvertible {
 
 extension Package: Hashable, Equatable {
     public var hashValue: Int { return ObjectIdentifier(self).hashValue }
-    
+
     public static func == (lhs: Package, rhs: Package) -> Bool {
         return ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }

@@ -18,7 +18,7 @@ public extension MutableCollection {
     mutating func shuffleInPlace() {
         let c = count
         guard c > 1 else { return }
-        
+
         for (firstUnshuffled, unshuffledCount) in zip(indices, stride(from: c, to: 1, by: -1)) {
 #if os(macOS) || os(iOS)
             let d = arc4random_uniform(numericCast(unshuffledCount))

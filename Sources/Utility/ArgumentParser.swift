@@ -244,7 +244,7 @@ public enum ArrayParsingStrategy {
                 try values.append(kind.init(argument: nextArgument))
             }
         }
-        
+
         return values
     }
 }
@@ -618,7 +618,7 @@ public final class ArgumentParser {
 
     /// Overview text of this parser.
     let overview: String
-    
+
     /// See more text of this parser.
     let seeAlso: String?
 
@@ -929,12 +929,12 @@ public final class ArgumentParser {
                 print(formatted: argument.name, usage: usage, on: stream)
             }
         }
-        
+
         if let seeAlso = seeAlso {
             stream <<< "\n\n"
             stream <<< "SEE ALSO: \(seeAlso)"
         }
-        
+
         stream <<< "\n"
         stream.flush()
     }

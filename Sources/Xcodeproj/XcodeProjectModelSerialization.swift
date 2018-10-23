@@ -566,7 +566,7 @@ fileprivate protocol PropertyListSerializable: class {
     ///
     /// This ID must be unique across the entire serialized graph.
     var objectID: String? { get }
-    
+
     /// Should create and return a property list dictionary of the object's
     /// attributes.  This function may also use the serializer's `serialize()`
     /// function to serialize other objects, and may use `id(of:)` to access

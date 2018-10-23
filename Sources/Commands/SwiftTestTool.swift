@@ -64,9 +64,9 @@ struct DependentArgumentDiagnostic: DiagnosticData {
             $0 <<< { "\($0.dependentArgument)" } <<< "must be used with" <<< { "\($0.requiredArgument)" }
         }
     )
-    
+
     let requiredArgument: String
-    
+
     let dependentArgument: String
 }
 
@@ -129,7 +129,7 @@ public class TestToolOptions: ToolOptions {
 
     /// Number of tests to execute in parallel
     var numberOfWorkers: Int?
-    
+
     /// List the tests and exit.
     var shouldListTests = false
 
@@ -176,10 +176,10 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     }
 
     override func runImpl() throws {
-        
+
         // Validate commands arguments
         try validateArguments()
-        
+
         switch options.mode {
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
@@ -410,7 +410,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             option: parser.add(option: "--parallel", kind: Bool.self,
                 usage: "Run the tests in parallel."),
             to: { $0.shouldRunInParallel = $1 })
-        
+
         binder.bind(
             option: parser.add(option: "--num-workers", kind: Int.self,
                                usage: "Number of tests to execute in parallel."),
@@ -489,22 +489,22 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data)
     }
-    
+
     /// Private function that validates the commands arguments
     ///
     /// - Throws: if a command argument is invalid
     private func validateArguments() throws {
-        
+
         // Validation for --num-workers.
         if let workers = options.numberOfWorkers {
-            
+
             // The --num-worker option should be called with --parallel.
             guard options.mode == .runParallel else {
                 diagnostics.emit(
                     data: DependentArgumentDiagnostic(requiredArgument: "--parallel", dependentArgument: "--num-workers"))
                 throw Diagnostics.fatalError
             }
-            
+
             guard workers > 0 else {
                 diagnostics.emit(data: InvalidNumWorkersValueDiagnostic())
                 throw Diagnostics.fatalError
@@ -542,7 +542,7 @@ final class TestRunner {
 
     // The toolchain to use.
     private let toolchain: UserToolchain
-    
+
     /// Diagnostics Engine to emit diagnostics.
     let diagnostics: DiagnosticsEngine
 
@@ -682,16 +682,16 @@ final class ParallelTestRunner {
 
     let toolchain: UserToolchain
     let xUnitOutput: AbsolutePath?
-    
+
     let options: ToolOptions
     let buildParameters: BuildParameters
 
     /// Number of tests to execute in parallel.
     let numJobs: Int
-    
+
     /// Diagnostics Engine to emit diagnostics.
     let diagnostics: DiagnosticsEngine
-    
+
     init(
         testPath: AbsolutePath,
         processSet: ProcessSet,
@@ -711,7 +711,7 @@ final class ParallelTestRunner {
         progressBar = createProgressBar(forStream: stdoutStream, header: "Testing:")
         self.options = options
         self.buildParameters = buildParameters
-        
+
         assert(numJobs > 0, "num jobs should be > 0")
     }
 
@@ -800,7 +800,7 @@ final class ParallelTestRunner {
 
         // Report the completion.
         progressBar.complete(success: processedTests.contains(where: { !$0.success }))
-        
+
         // Print test results.
         for test in processedTests {
             if !test.success || shouldOutputSuccess {
@@ -892,7 +892,7 @@ struct TestSuite {
                 })
                 return TestSuite.TestCase(name: name, tests: testMethods)
             })
-            
+
             return TestSuite(name: name, tests: testCases)
         })
     }
@@ -939,7 +939,7 @@ fileprivate func constructTestEnvironment(
 
     // Add the code coverage related variables.
     if options.shouldEnableCodeCoverage {
-        // Defines the path at which the profraw files will be written on test execution. 
+        // Defines the path at which the profraw files will be written on test execution.
         //
         // `%m` will create a pool of profraw files and append the data from
         // each execution in one of the files. This doesn't matter for serial
@@ -989,7 +989,7 @@ final class XUnitGenerator {
         let stream = BufferedOutputByteStream()
         stream <<< """
             <?xml version="1.0" encoding="UTF-8"?>
-            
+
             """
         stream <<< "<testsuites>\n"
 

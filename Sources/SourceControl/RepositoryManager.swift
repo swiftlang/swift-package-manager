@@ -140,7 +140,7 @@ public class RepositoryManager {
     fileprivate var repositories: [String: RepositoryHandle] = [:]
 
     /// The map of serialized repositories.
-    /// 
+    ///
     /// NOTE: This is to be used only for persistence support.
     fileprivate var serializedRepositories: [String: JSON] = [:]
 

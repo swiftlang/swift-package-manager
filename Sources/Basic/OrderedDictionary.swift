@@ -86,7 +86,7 @@ extension OrderedDictionary: ExpressibleByDictionaryLiteral {
         for element in elements {
             updateValue(element.1, forKey: element.0)
         }
-    } 
+    }
 }
 
 extension OrderedDictionary: CustomStringConvertible {

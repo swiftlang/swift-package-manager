@@ -114,7 +114,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     func repositoryDidUpdate(_ repository: String) {
     }
-    
+
     func dependenciesUpToDate() {
         stdoutStream <<< "Everything is already up-to-date"
         stdoutStream <<< "\n"
@@ -180,7 +180,7 @@ private final class DiagnosticsEngineHandler {
 public class SwiftTool<Options: ToolOptions> {
     /// The original working directory.
     let originalWorkingDirectory: AbsolutePath
-    
+
     /// The options of this tool.
     let options: Options
 
@@ -281,7 +281,7 @@ public class SwiftTool<Options: ToolOptions> {
                 option: "--configuration", shortName: "-c", kind: Build.Configuration.self,
                 usage: "Build with configuration (debug|release) [default: debug]"),
             to: { $0.configuration = $1 })
-        
+
         binder.bind(
             option: parser.add(
                 option: "--build-path", kind: PathArgument.self,
@@ -292,7 +292,7 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(
                 option: "--chdir", shortName: "-C", kind: PathArgument.self),
             to: { $0.chdir = $1.path })
-        
+
         binder.bind(
             option: parser.add(
                 option: "--package-path", kind: PathArgument.self,
@@ -408,7 +408,7 @@ public class SwiftTool<Options: ToolOptions> {
         self.buildPath = getEnvBuildPath(workingDir: cwd) ??
             customBuildPath ??
             (packageRoot ?? cwd).appending(component: ".build")
-        
+
         if options.chdir != nil {
             diagnostics.emit(data: ChdirDeprecatedDiagnostic())
         }
@@ -569,14 +569,14 @@ public class SwiftTool<Options: ToolOptions> {
             return try subset.llbuildTargetName(for: loadPackageGraph(), diagnostics: diagnostics, config: buildParameters.configuration.dirname)
         }
     }
-    
+
     func build(parameters: BuildParameters, subset: BuildSubset) throws {
         guard let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: parameters) else {
             return
         }
         try runLLBuild(manifest: parameters.llbuildManifest, llbuildTarget: llbuildTargetName)
     }
-    
+
     /// Build a subset of products and targets using swift-build-tool.
     func build(plan: BuildPlan, subset: BuildSubset) throws {
         guard let llbuildTargetName = subset.llbuildTargetName(for: plan.graph, diagnostics: diagnostics, config: plan.buildParameters.configuration.dirname) else {

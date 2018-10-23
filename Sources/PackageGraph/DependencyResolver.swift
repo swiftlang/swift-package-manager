@@ -152,7 +152,7 @@ public enum VersionSetSpecifier: Hashable, CustomStringConvertible {
             return version.description
         }
     }
-    
+
     public static func == (_ lhs: VersionSetSpecifier, _ rhs: VersionSetSpecifier) -> Bool {
         switch (lhs, rhs) {
         case (.any, .any):
@@ -222,7 +222,7 @@ public protocol PackageContainer {
     /// Get the list of versions which are available for the package.
     ///
     /// The list will be returned in sorted order, with the latest version *first*.
-    /// All versions will not be requested at once. Resolver will request the next one only 
+    /// All versions will not be requested at once. Resolver will request the next one only
     /// if the previous one did not satisfy all constraints.
     func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version>
 
@@ -841,7 +841,7 @@ public class DependencyResolver<
 
     /// Cache for subtree resolutions.
     private var _resolveSubtreeCache: [ResolveSubtreeCacheKey: AnySequence<AssignmentSet>] = [:]
-    
+
     /// Puts the resolver in incomplete mode.
     ///
     /// In this mode, no new containers will be requested from the provider.
@@ -1008,7 +1008,7 @@ public class DependencyResolver<
         if allExclusions.isEmpty, let assignments = _resolveSubtreeCache[cacheKey] {
             return assignments
         }
-        
+
         func validVersions(_ container: Container, in versionSet: VersionSetSpecifier) -> AnySequence<Version> {
             let exclusions = allExclusions[container.identifier] ?? Set()
             return AnySequence(container.versions(filter: {

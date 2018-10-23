@@ -30,7 +30,7 @@ class ReaddirTests: XCTestCase {
             }
             XCTAssertEqual(s.name, "AB")
         }
-        
+
         do {
             var s = dirent()
             withUnsafeMutablePointer(to: &s.d_name) { ptr in
@@ -41,7 +41,7 @@ class ReaddirTests: XCTestCase {
             }
             XCTAssertEqual(s.name, nil)
         }
-        
+
         do {
             var s = dirent()
             let n = MemoryLayout.ofInstance(s.d_name).size - 1

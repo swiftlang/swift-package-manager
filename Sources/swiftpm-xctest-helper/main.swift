@@ -18,7 +18,7 @@ import func Darwin.C.exit
 /// bundle_path: Path to the XCTest bundle
 /// output_file_path: File to write the result into.
 ///
-/// Note: Output is a JSON dictionary. Tests are discovered by 
+/// Note: Output is a JSON dictionary. Tests are discovered by
 /// loading the bundle and then iterating the default Test Suite.
 func run() throws {
 

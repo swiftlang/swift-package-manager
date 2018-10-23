@@ -38,7 +38,7 @@ public class Git {
                     break
                 }
             }
-            
+
             if let version = Version(tag: tag) {
                 knownVersions[version, default: []].append(tag)
             }

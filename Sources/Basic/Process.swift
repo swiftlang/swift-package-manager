@@ -1,9 +1,9 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
@@ -80,7 +80,7 @@ public struct ProcessResult: CustomStringConvertible {
         self.stderrOutput = stderrOutput
         self.exitStatus = exitStatus
     }
-    
+
     /// Converts stdout output bytes to string, assuming they're UTF8.
     public func utf8Output() throws -> String {
         return String(decoding: try output.dematerialize(), as: Unicode.UTF8.self)
@@ -110,7 +110,7 @@ public final class Process: ObjectIdentifierProtocol {
         /// The program requested to be executed cannot be found on the existing search paths, or is not executable.
         case missingExecutableProgram(program: String)
     }
-    
+
     public enum OutputRedirection {
         /// Do not redirect the output
         case none
@@ -118,7 +118,7 @@ public final class Process: ObjectIdentifierProtocol {
         case collect
         /// Stream stdout and stderr via the corresponding closures
         case stream(stdout: OutputClosure, stderr: OutputClosure)
-        
+
         public var redirectsOutput: Bool {
             switch self {
             case .none:
@@ -127,7 +127,7 @@ public final class Process: ObjectIdentifierProtocol {
                 return true
             }
         }
-        
+
         public var outputClosures: (stdoutClosure: OutputClosure, stderrClosure: OutputClosure)? {
             switch self {
             case .stream(let stdoutClosure, let stderrClosure):
@@ -140,7 +140,7 @@ public final class Process: ObjectIdentifierProtocol {
 
     /// Typealias for process id type.
     public typealias ProcessID = pid_t
-    
+
     /// Typealias for stdout/stderr output closure.
     public typealias OutputClosure = ([UInt8]) -> Void
 
@@ -194,7 +194,7 @@ public final class Process: ObjectIdentifierProtocol {
     /// Queue to protect reading/writing on map of validated executables.
     private static let executablesQueue = DispatchQueue(
         label: "org.swift.swiftpm.process.findExecutable")
-    
+
     /// Indicates if a new progress group is created for the child process.
     private let startNewProcessGroup: Bool
 
@@ -358,7 +358,7 @@ public final class Process: ObjectIdentifierProtocol {
 
         if outputRedirection.redirectsOutput {
             let outputClosures = outputRedirection.outputClosures
-            
+
             // Close the write end of the output pipe.
             try close(fd: &outputPipe[1])
 
@@ -584,7 +584,7 @@ extension ProcessResult.Error: CustomStringConvertible {
             case .signalled(let signal):
                 stream <<< "signalled(\(signal)): "
             }
- 
+
             // Strip sandbox information from arguments to keep things pretty.
             var args = result.arguments
             // This seems a little fragile.
@@ -602,7 +602,7 @@ extension ProcessResult.Error: CustomStringConvertible {
                     stream <<< "\n"
                 }
             }
-            
+
             return stream.bytes.asString!
         }
     }

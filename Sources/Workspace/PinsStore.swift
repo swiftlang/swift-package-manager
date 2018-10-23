@@ -37,7 +37,7 @@ public final class PinsStore {
             packageRef: PackageReference,
             state: CheckoutState
         ) {
-            self.packageRef = packageRef 
+            self.packageRef = packageRef
             self.state = state
         }
     }

@@ -37,7 +37,7 @@ final class ProgressBarTests: XCTestCase {
             3%: 3
             4%: 4
             5%: 5
-            
+
             """)
 
         // Test progress bar when writing a tty stream.

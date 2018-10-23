@@ -58,7 +58,7 @@ fileprivate struct FooLocation: DiagnosticLocation {
 
 class DiagnosticsEngineTests: XCTestCase {
     func testBasics() {
-        let diagnostics = DiagnosticsEngine() 
+        let diagnostics = DiagnosticsEngine()
         diagnostics.emit(
             data: FooDiag(arr: ["foo", "bar"], str: "str", int: 2),
             location: FooLocation(name: "foo loc")
@@ -87,14 +87,14 @@ class DiagnosticsEngineTests: XCTestCase {
     }
 
     func testMerging() {
-        let engine1 = DiagnosticsEngine() 
+        let engine1 = DiagnosticsEngine()
         engine1.emit(
             data: FooDiag(arr: ["foo", "bar"], str: "str", int: 2),
             location: FooLocation(name: "foo loc")
         )
         XCTAssertEqual(engine1.diagnostics.count, 1)
 
-        let engine2 = DiagnosticsEngine() 
+        let engine2 = DiagnosticsEngine()
         engine2.emit(
             data: FooDiag(arr: ["foo", "bar"], str: "str", int: 2),
             location: FooLocation(name: "foo loc")
@@ -112,7 +112,7 @@ class DiagnosticsEngineTests: XCTestCase {
 
     func testHandlers() {
         var handledDiagnostics: [Diagnostic] = []
-        let handler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in 
+        let handler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
             handledDiagnostics.append(diagnostic)
         }
 

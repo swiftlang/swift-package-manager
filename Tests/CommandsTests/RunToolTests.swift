@@ -64,7 +64,7 @@ final class RunToolTests: XCTestCase {
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTAssertEqual(stderr, "error: multiple executable products available: exec1, exec2\n")
             }
-            
+
             var runOutput = try execute(["exec1"], packagePath: path)
             XCTAssertMatch(runOutput, .contains("1"))
 
@@ -87,7 +87,7 @@ final class RunToolTests: XCTestCase {
             XCTAssertEqual(try execute([filePath, "1", "2"], packagePath: path), """
                 "\(getcwd())" "1" "2"
                 warning: 'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead
-                
+
                 """)
         }
     }

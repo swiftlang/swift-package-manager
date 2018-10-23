@@ -72,13 +72,13 @@ private class DummyRepositoryProvider: RepositoryProvider {
     }
     private var fetchesLock = Lock()
     var _numFetches = 0
-    
+
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         assert(!localFileSystem.exists(path))
         try! localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.url))
 
         numClones += 1
-        
+
         // We only support one dummy URL.
         let basename = repository.url.components(separatedBy: "/").last!
         if basename != "dummy" {
@@ -111,7 +111,7 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
     private var _willUpdate = [RepositorySpecifier]()
     private var _didUpdate = [RepositorySpecifier]()
 
-    private var fetchedLock = Lock() 
+    private var fetchedLock = Lock()
 
     var willFetch: [RepositorySpecifier] {
         return fetchedLock.withLock({ _willFetch })
@@ -174,7 +174,7 @@ class RepositoryManagerTests: XCTestCase {
 
                 prevHandle = handle
                 XCTAssertEqual(provider.numFetches, 0)
-            
+
                 // Open the repository.
                 let repository = try! handle.open()
                 XCTAssertEqual(repository.tags, ["1.0.0"])
@@ -182,7 +182,7 @@ class RepositoryManagerTests: XCTestCase {
                 // Create a checkout of the repository.
                 let checkoutPath = path.appending(component: "checkout")
                 try! handle.cloneCheckout(to: checkoutPath, editable: false)
-            
+
                 XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "README.txt")))
                 XCTAssert(localFileSystem.exists(checkoutPath))
                 lookupExpectation.fulfill()
@@ -229,7 +229,7 @@ class RepositoryManagerTests: XCTestCase {
             XCTNonNil(prevHandle) {
                 try XCTAssert($0 !== manager.lookupSynchronously(repository: dummyRepo))
             }
-            
+
             // We should have tried fetching these two.
             XCTAssertEqual(Set(delegate.willFetch), [dummyRepo, badDummyRepo])
             XCTAssertEqual(Set(delegate.didFetch), [dummyRepo, badDummyRepo])

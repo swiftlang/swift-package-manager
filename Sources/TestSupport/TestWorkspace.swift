@@ -79,7 +79,7 @@ public final class TestWorkspace {
             let url = (isRoot ? packagePath : packagesDir.appending(RelativePath(package.path ?? package.name))).asString
             let specifier = RepositorySpecifier(url: url)
             let manifestPath = packagePath.appending(component: Manifest.filename)
-            
+
             // Create targets on disk.
             let repo = repoProvider.specifierMap[specifier] ?? InMemoryGitRepository(path: packagePath, fs: fs as! InMemoryFileSystem)
             for target in package.targets {
@@ -509,7 +509,7 @@ public final class TestWorkspaceDelegate: WorkspaceDelegate {
     public func dependenciesUpToDate() {
         events.append("Everything is already up-to-date")
     }
-    
+
     public func fetchingWillBegin(repository: String) {
         events.append("fetching repo: \(repository)")
     }

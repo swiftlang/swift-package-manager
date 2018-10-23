@@ -10,7 +10,7 @@
 
 import Basic
 
-/// Useful extensions to JSON to use in assert methods where 
+/// Useful extensions to JSON to use in assert methods where
 /// the type diagnostics is not that important.
 public extension JSON {
     var dictionary: [String: JSON]? {

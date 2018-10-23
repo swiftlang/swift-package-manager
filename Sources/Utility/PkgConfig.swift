@@ -1,11 +1,11 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors 
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
 import Basic
@@ -151,7 +151,7 @@ public struct PkgConfig {
             for dep in parser.dependencies {
                 // FIXME: This is wasteful, we should be caching the PkgConfig result.
                 let pkg = try PkgConfig(
-                    name: dep, 
+                    name: dep,
                     additionalSearchPaths: additionalSearchPaths,
                     diagnostics: self.diagnostics,
                     fileSystem: fileSystem

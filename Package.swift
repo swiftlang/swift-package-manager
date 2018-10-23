@@ -64,7 +64,7 @@ let package = Package(
             dependencies: []),
 
         // MARK: Support libraries
-        
+
         .target(
             /** Shim target to import missing C headers in Darwin and Glibc modulemap. */
             name: "clibc",
@@ -95,7 +95,7 @@ let package = Package(
             dependencies: ["Basic", "Utility"]),
 
         // MARK: Project Model
-        
+
         .target(
             /** Primitive Package model objects */
             name: "PackageModel",
@@ -106,14 +106,14 @@ let package = Package(
             dependencies: ["Basic", "PackageModel", "Utility", "SPMLLBuild"]),
 
         // MARK: Package Dependency Resolution
-        
+
         .target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
             dependencies: ["Basic", "PackageLoading", "PackageModel", "SourceControl", "Utility"]),
-        
+
         // MARK: Package Manager Functionality
-        
+
         .target(
             /** Builds Modules and Products */
             name: "Build",
@@ -128,7 +128,7 @@ let package = Package(
             dependencies: ["Basic", "Build", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
 
         // MARK: Commands
-        
+
         .target(
             /** High-level commands */
             name: "Commands",
@@ -164,7 +164,7 @@ let package = Package(
             /** Test support executable */
             name: "TestSupportExecutable",
             dependencies: ["Basic", "POSIX", "Utility"]),
-        
+
         .testTarget(
             name: "BasicTests",
             dependencies: ["TestSupport", "TestSupportExecutable"]),

@@ -17,7 +17,7 @@ final class TestToolTests: XCTestCase {
     private func execute(_ args: [String]) throws -> String {
         return try SwiftPMProduct.SwiftTest.execute(args)
     }
-    
+
     func testUsage() throws {
         XCTAssert(try execute(["--help"]).contains("USAGE: swift test"))
     }
@@ -55,7 +55,7 @@ final class TestToolTests: XCTestCase {
         }
       #endif
     }
-    
+
     func testNumWorkersParallelRequeriment() throws {
         // Running swift-test fixtures on linux is not yet possible.
         #if os(macOS)
@@ -68,7 +68,7 @@ final class TestToolTests: XCTestCase {
         }
         #endif
     }
-    
+
     func testNumWorkersValue() throws {
         #if os(macOS)
         fixture(name: "Miscellaneous/EchoExecutable") { path in

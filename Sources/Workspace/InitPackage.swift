@@ -1,9 +1,9 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
@@ -15,7 +15,7 @@ import PackageModel
 public final class InitPackage {
     /// The tool version to be used for new packages.
     public static let newPackageToolsVersion = ToolsVersion(version: "4.2.0")
-    
+
     /// Represents a package type for the purposes of initialization.
     public enum PackageType: String, CustomStringConvertible {
         case empty = "empty"
@@ -187,10 +187,10 @@ public final class InitPackage {
         if packageType == .empty {
             return
         }
-        
+
         let moduleDir = sources.appending(component: "\(pkgname)")
         try makeDirectories(moduleDir)
-        
+
         let sourceFileName = (packageType == .executable) ? "main.swift" : "\(typeName).swift"
         let sourceFile = moduleDir.appending(RelativePath(sourceFileName))
 
@@ -281,7 +281,7 @@ public final class InitPackage {
                         // results.
                         XCTAssertEqual(\(typeName)().text, "Hello, World!")
                     }
-                
+
                     static var allTests = [
                         ("testExample", testExample),
                     ]
@@ -336,7 +336,7 @@ public final class InitPackage {
                         return Bundle.main.bundleURL
                       #endif
                     }
-                
+
                     static var allTests = [
                         ("testExample", testExample),
                     ]

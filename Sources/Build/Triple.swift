@@ -139,7 +139,7 @@ public struct Triple {
     #elseif arch(arm64)
       public static let hostTriple: Triple = .arm64Linux
     #elseif arch(arm)
-      public static let hostTriple: Triple = .armLinux    
+      public static let hostTriple: Triple = .armLinux
     #endif
   #endif
 }

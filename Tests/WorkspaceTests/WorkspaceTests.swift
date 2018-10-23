@@ -770,7 +770,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.5.0")))
         }
         XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Bar")])
-        
+
         // Run update again.
         // Ensure that up-to-date delegate is called when there is nothing to update.
         workspace.checkUpdate(roots: ["Root"]) { diagnostics in
@@ -2545,7 +2545,7 @@ final class WorkspaceTests: XCTestCase {
              XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Foo"])
          }
 
-         workspace.checkReset { diagnostics in 
+         workspace.checkReset { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
          }
 

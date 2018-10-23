@@ -37,7 +37,7 @@ public protocol ByteStreamable {
 ///
 /// The stream accepts a number of custom formatting operators which are defined
 /// in the `Format` struct (used for namespacing purposes). For example:
-/// 
+///
 ///   let items = ["hello", "world"]
 ///   stream <<< Format.asSeparatedList(items, separator: " ")
 ///

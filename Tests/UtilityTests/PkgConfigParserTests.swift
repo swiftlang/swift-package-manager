@@ -1,9 +1,9 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
@@ -15,7 +15,7 @@ import TestSupport
 @testable import Utility
 
 final class PkgConfigParserTests: XCTestCase {
-    
+
     func testGTK3PCFile() {
         try! loadPCFile("gtk+-3.0.pc") { parser in
             XCTAssertEqual(parser.variables, ["libdir": "/usr/local/Cellar/gtk+3/3.18.9/lib", "gtk_host": "x86_64-apple-darwin15.3.0", "includedir": "/usr/local/Cellar/gtk+3/3.18.9/include", "prefix": "/usr/local/Cellar/gtk+3/3.18.9", "gtk_binary_version": "3.0.0", "exec_prefix": "/usr/local/Cellar/gtk+3/3.18.9", "targets": "quartz", "pcfiledir": parser.pcFile.parentDirectory.asString])
@@ -24,7 +24,7 @@ final class PkgConfigParserTests: XCTestCase {
             XCTAssertEqual(parser.libs, ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3"])
         }
     }
-    
+
     func testEmptyCFlags() {
         try! loadPCFile("empty_cflags.pc") { parser in
             XCTAssertEqual(parser.variables, ["prefix": "/usr/local/bin", "exec_prefix": "/usr/local/bin", "pcfiledir": parser.pcFile.parentDirectory.asString])
@@ -33,7 +33,7 @@ final class PkgConfigParserTests: XCTestCase {
             XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lgtk-3"])
         }
     }
-    
+
     func testVariableinDependency() {
         try! loadPCFile("deps_variable.pc") { parser in
             XCTAssertEqual(parser.variables, ["prefix": "/usr/local/bin", "exec_prefix": "/usr/local/bin", "my_dep": "atk", "pcfiledir": parser.pcFile.parentDirectory.asString])
@@ -42,7 +42,7 @@ final class PkgConfigParserTests: XCTestCase {
             XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lgtk-3"])
         }
     }
-    
+
     func testUnresolvablePCFile() throws {
         do {
             try loadPCFile("failure_case.pc")
@@ -51,7 +51,7 @@ final class PkgConfigParserTests: XCTestCase {
             XCTAssert(desc.hasPrefix("Expected a value for variable"))
         }
     }
-    
+
     func testEscapedSpaces() {
         try! loadPCFile("escaped_spaces.pc") { parser in
             XCTAssertEqual(parser.variables, ["prefix": "/usr/local/bin", "exec_prefix": "/usr/local/bin", "my_dep": "atk", "pcfiledir": parser.pcFile.parentDirectory.asString])
@@ -60,7 +60,7 @@ final class PkgConfigParserTests: XCTestCase {
             XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lgtk 3", "-wantareal\\here", "-one\\", "-two"])
         }
     }
-    
+
     /// Test custom search path get higher priority for locating pc files.
     func testCustomPcFileSearchPath() throws {
         let diagnostics = DiagnosticsEngine()
@@ -88,7 +88,7 @@ final class PkgConfigParserTests: XCTestCase {
             XCTAssert(desc.hasPrefix("Text ended before matching quote"))
         }
     }
-    
+
     private func loadPCFile(_ inputName: String, body: ((PkgConfigParser) -> Void)? = nil) throws {
         let input = AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs", inputName)
         var parser = PkgConfigParser(pcFile: input, fileSystem: localFileSystem)

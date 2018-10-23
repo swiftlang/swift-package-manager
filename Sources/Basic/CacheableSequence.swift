@@ -15,14 +15,14 @@ public final class CacheableSequence<T: Sequence>: Sequence {
 
     /// The list of consumed items.
     fileprivate var items: [Element] = []
-    
+
     /// An iterator on the underlying sequence, until complete.
     fileprivate var it: T.Iterator?
-    
+
     public init(_ sequence: T) {
         self.it = sequence.makeIterator()
     }
-    
+
     public func makeIterator() -> Iterator {
         return CacheableSequenceIterator(self)
     }
@@ -53,13 +53,13 @@ public final class CacheableSequence<T: Sequence>: Sequence {
 /// An iterator for a CacheableSequence.
 public final class CacheableSequenceIterator<T: Sequence>: IteratorProtocol {
     public typealias Element = T.Element
-    
+
     /// The index of the iterator.
     var index = 0
 
     /// The sequence being iterated.
     let sequence: CacheableSequence<T>
-    
+
     init(_ sequence: CacheableSequence<T>) {
         self.sequence = sequence
     }

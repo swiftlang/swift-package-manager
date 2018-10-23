@@ -106,7 +106,7 @@ public struct SwiftLanguageVersion: CustomStringConvertible, Comparable {
 
     /// Swift language version 4.
     public static let v4 = SwiftLanguageVersion(uncheckedString: "4")
-    
+
     /// Swift language version 4.2.
     public static let v4_2 = SwiftLanguageVersion(uncheckedString: "4.2")
 
@@ -122,7 +122,7 @@ public struct SwiftLanguageVersion: CustomStringConvertible, Comparable {
     //
     // This should be passed as a value to Swift compiler's -swift-version flag.
     public let rawValue: String
-    
+
     /// The underlying backing store.
     private let _version: Version
 

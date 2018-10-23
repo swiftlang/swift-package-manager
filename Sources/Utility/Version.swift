@@ -79,7 +79,7 @@ extension Version: Comparable {
         }
 
         guard rhs.prereleaseIdentifiers.count > 0 else {
-            return true // Prerelease lhs < non-prerelease rhs 
+            return true // Prerelease lhs < non-prerelease rhs
         }
 
         let zippedIdentifiers = zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers)

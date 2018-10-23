@@ -66,7 +66,7 @@ class PackageGraphTests: XCTestCase {
         XCTAssertNoDiagnostics(diagnostics)
 
         let options = XcodeprojOptions(xcconfigOverrides: AbsolutePath("/Overrides.xcconfig"))
-        
+
         let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: options, fileSystem: fs, diagnostics: diagnostics)
 
         XcodeProjectTester(project) { result in
@@ -216,7 +216,7 @@ class PackageGraphTests: XCTestCase {
             }
         }
     }
-    
+
     func testModulemap() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Bar/Sources/Sea/include/Sea.h",
@@ -284,9 +284,9 @@ class PackageGraphTests: XCTestCase {
             ]
         )
         XCTAssertNoDiagnostics(diagnostics)
-        
+
         let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
-        
+
         XcodeProjectTester(project) { result in
             result.check(projectDir: "Pkg")
             result.check(target: "HelperTool") { targetResult in
@@ -344,7 +344,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "c", dependencies: ["a"]),
                         TargetDescription(name: "d", dependencies: ["b"]),
                         TargetDescription(name: "libd", dependencies: ["d"]),
-        
+
                         TargetDescription(name: "aTests", dependencies: ["a"], type: .test),
                         TargetDescription(name: "bcTests", dependencies: ["b", "c"], type: .test),
                         TargetDescription(name: "dTests", dependencies: ["d"], type: .test),

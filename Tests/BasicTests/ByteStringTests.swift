@@ -48,7 +48,7 @@ class ByteStringTests: XCTestCase {
     func testDescription() {
         XCTAssertEqual(ByteString("Hello, world!").description, "<ByteString:\"Hello, world!\">")
     }
-    
+
     func testHashable() {
         var s = Set([ByteString([1]), ByteString([2])])
         XCTAssert(s.contains(ByteString([1])))

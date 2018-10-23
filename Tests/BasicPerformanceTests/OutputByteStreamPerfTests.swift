@@ -85,7 +85,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     func test1MBOf16ByteArrays_X100() {
         // Test writing 1MB worth of 16 byte strings.
         let bytes16 = [UInt8](repeating: 0, count: 1 << 4)
-        
+
         measure {
             for _ in 0..<100 {
                 let stream = BufferedOutputByteStream()
@@ -96,7 +96,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
             }
         }
     }
-    
+
     // This should give same performance as 16ByteArrays_X100.
     func test1MBOf16ByteArraySlice_X100() {
         let bytes32 = [UInt8](repeating: 0, count: 1 << 5)
@@ -117,7 +117,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     func test1MBOf1KByteArrays_X1000() {
         // Test writing 1MB worth of 1K byte strings.
         let bytes1k = [UInt8](repeating: 0, count: 1 << 10)
-        
+
         measure {
             for _ in 0..<1000 {
                 let stream = BufferedOutputByteStream()
@@ -132,7 +132,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     func test1MBOf16ByteStrings_X10() {
         // Test writing 1MB worth of 16 byte strings.
         let string16 = String(repeating: "X", count: 1 << 4)
-        
+
         measure {
             for _ in 0..<10 {
                 let stream = BufferedOutputByteStream()
@@ -147,7 +147,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
     func test1MBOf1KByteStrings_X100() {
         // Test writing 1MB worth of 1K byte strings.
         let bytes1k = String(repeating: "X", count: 1 << 10)
-        
+
         measure {
             for _ in 0..<100 {
                 let stream = BufferedOutputByteStream()
@@ -158,11 +158,11 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
             }
         }
     }
-    
+
     func test1MBOfJSONEncoded16ByteStrings_X10() {
         // Test writing 1MB worth of JSON encoded 16 byte strings.
         let string16 = String(repeating: "X", count: 1 << 4)
-        
+
         measure {
             for _ in 0..<10 {
                 let stream = BufferedOutputByteStream()
@@ -173,7 +173,7 @@ class OutputByteStreamPerfTests: XCTestCasePerf {
             }
         }
     }
-    
+
     func testFormattedJSONOutput() {
         // Test the writing of JSON formatted output using stream operators.
         struct Thing {

@@ -30,7 +30,7 @@ class PkgConfigTests: XCTestCase {
 
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
     let diagnostics = DiagnosticsEngine()
-    
+
     func testBasics() throws {
         // No pkgConfig name.
         do {
@@ -62,7 +62,7 @@ class PkgConfigTests: XCTestCase {
             XCTAssertTrue(result.couldNotFindConfigFile)
             switch result.error {
                 case PkgConfigError.couldNotFindConfigFile?: break
-                default: 
+                default:
                 XCTFail("Unexpected error \(String(describing: result.error))")
             }
         }

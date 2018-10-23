@@ -97,7 +97,7 @@ extension DiagnosticsEngine {
             return nil
         }
     }
-    
+
     /// Wrap a throwing closure, returning a success boolean and
     /// emitting any thrown errors.
     ///

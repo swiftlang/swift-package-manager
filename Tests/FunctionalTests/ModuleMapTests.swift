@@ -59,7 +59,7 @@ class ModuleMapsTestCase: XCTestCase {
                     Y.bar() called
                     X.foo() called
                     123
-                    
+
                     """)
             }
 

@@ -1,9 +1,9 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
@@ -88,7 +88,7 @@ public struct PackageGraphLoader {
         // the URL but that shouldn't be needed after <rdar://problem/33693433>
         // Ensure that identity and package name are the same once we have an
         // API to specify identity in the manifest file
-        let manifestMapSequence = root.manifests.map({ ($0.name.lowercased(), $0) }) + 
+        let manifestMapSequence = root.manifests.map({ ($0.name.lowercased(), $0) }) +
             externalManifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (Manifest) -> [Manifest] = { manifest in
@@ -197,7 +197,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
             if dependency.products.isEmpty && dependency.targets.filter({ $0.type == .systemModule }).count == 1 {
                 continue
             }
-            
+
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
             if !dependencyIsUsed {
                 diagnostics.emit(data: UnusedDependencyDiagnostic(dependencyName: dependency.name))
@@ -281,7 +281,7 @@ private func createResolvedPackages(
 
     // The set of all target names.
     var allTargetNames = Set<String>()
-    
+
     // Track if multiple targets are found with the same name.
     var foundDuplicateTarget = false
 
@@ -341,7 +341,7 @@ private func createResolvedPackages(
             }
         }
     }
-    
+
     // If a target with similar name was encountered before, we emit a diagnostic.
     if foundDuplicateTarget {
         for targetName in allTargetNames.sorted() {

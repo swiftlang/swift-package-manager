@@ -37,10 +37,10 @@ extension String {
     /**
      Trims whitespace from both ends of a string, if the resulting
      string is empty, returns `nil`.String
-     
+
      Useful because you can short-circuit off the result and thus
      handle “falsy” strings in an elegant way:
-     
+
          return userInput.chuzzle() ?? "default value"
     */
     public func spm_chuzzle() -> String? {

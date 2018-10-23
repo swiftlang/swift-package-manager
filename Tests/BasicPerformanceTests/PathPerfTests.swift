@@ -14,7 +14,7 @@ import Basic
 import TestSupport
 
 class PathPerfTests: XCTestCasePerf {
-    
+
     /// Tests creating very long AbsolutePaths by joining path components.
     func testJoinPerf_X100000() {
         let absPath = AbsolutePath("/hello/little")
@@ -29,6 +29,6 @@ class PathPerfTests: XCTestCasePerf {
             XCTAssertEqual(lengths, (absPath.asString.utf8.count + 1 + relPath.asString.utf8.count) &* N)
         }
     }
-    
+
     // FIXME: We will obviously want a lot more tests here.
 }

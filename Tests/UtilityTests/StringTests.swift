@@ -19,7 +19,7 @@ class StringTests: XCTestCase {
         XCTAssertEqual("abc\r\n\r\r\n".spm_chomp(), "abc\r\n\r")
         XCTAssertEqual("abc\n \n".spm_chomp(), "abc\n ")
     }
-    
+
     func testSeparatorChomp() {
         XCTAssertEqual("abc".spm_chomp(separator: "c"), "ab")
         XCTAssertEqual("abc\n".spm_chomp(separator: "c"), "abc\n")
@@ -41,13 +41,13 @@ class StringTests: XCTestCase {
         XCTAssertEqual(" a\t\r\n".spm_chuzzle(), "a")
         XCTAssertEqual("b".spm_chuzzle(), "b")
     }
-    
+
     func testSplitAround() {
         func eq(_ lhs: (String, String?), _ rhs: (String, String?), file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(lhs.0, rhs.0, file: file, line: line)
             XCTAssertEqual(lhs.1, rhs.1, file: file, line: line)
         }
-        
+
         eq("".spm_split(around: "::"), ("", nil))
         eq("foo".spm_split(around: "::"), ("foo", nil))
         eq("foo::".spm_split(around: "::"), ("foo", ""))

@@ -48,7 +48,7 @@ class GraphAlgorithmsTests: XCTestCase {
         XCTAssertEqual([2, 3, 4], transitiveClosure(1, diamond))
         XCTAssertEqual([4], transitiveClosure([3, 2], diamond))
         XCTAssertEqual([2, 3, 4], transitiveClosure([4, 3, 2, 1], diamond))
-        
+
         // Test cycles.
         XCTAssertEqual([1], transitiveClosure(1, [1: [1]]))
         XCTAssertEqual([1, 2], transitiveClosure(1, [1: [2], 2: [1]]))

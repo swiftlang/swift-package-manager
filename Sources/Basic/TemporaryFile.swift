@@ -80,7 +80,7 @@ public final class TemporaryFile {
 
     /// FileHandle of the temporary file, can be used to read/write data.
     public let fileHandle: FileHandle
-    
+
     /// Whether the file should be deleted on dealloc.
     public let deleteOnClose: Bool
 

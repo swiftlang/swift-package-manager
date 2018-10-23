@@ -17,7 +17,7 @@ private extension ResolvedTarget {
     convenience init(name: String, deps: ResolvedTarget...) {
         self.init(
             target: SwiftTarget(
-                name: name, isTest: false, 
+                name: name, isTest: false,
                 sources: Sources(paths: [], root: AbsolutePath("/")), dependencies: [], swiftVersion: .v4),
             dependencies: deps.map(ResolvedTarget.Dependency.target))
     }

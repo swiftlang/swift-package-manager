@@ -210,7 +210,7 @@ public extension FileSystem {
     func chmod(_ mode: FileMode, path: AbsolutePath) throws {
         try chmod(mode, path: path, options: [])
     }
-    
+
     // Unless the file system type provides an override for this method, throw
     // if `atomically` is `true`, otherwise fall back to whatever implementation already exists.
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
@@ -402,7 +402,7 @@ private class LocalFileSystem: FileSystem {
             break
         }
     }
-    
+
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
         // Perform non-atomic writes using the fast path.
         if !atomically {
@@ -480,7 +480,7 @@ private class LocalFileSystem: FileSystem {
             // A symbolic link with a non-existent target.
             case FTS_SLNONE:
                 // The only symlinks that end up here are ones that don't point
-                // to anything and ones that we found doing a physical walk.  
+                // to anything and ones that we found doing a physical walk.
                 continue
 
             default:
@@ -755,7 +755,7 @@ public class InMemoryFileSystem: FileSystem {
         // Write the file.
         contents.entries[path.basename] = Node(.file(bytes))
     }
-    
+
     public func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
         // In memory file system's writeFileContents is already atomic, so ignore the parameter here
         // and just call the base implementation.

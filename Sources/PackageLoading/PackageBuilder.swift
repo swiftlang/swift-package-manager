@@ -337,7 +337,7 @@ public final class PackageBuilder {
         // Ensure no dupicate target definitions are found.
         let duplicateTargetNames: [String] = manifest.targets.map({ $0.name
         }).spm_findDuplicates()
-        
+
         if !duplicateTargetNames.isEmpty {
             throw Target.Error.duplicateTargets(duplicateTargetNames)
         }
@@ -477,7 +477,7 @@ public final class PackageBuilder {
                 switch $0 {
                 case .target(let name):
                     // Since we already checked above that all referenced targets
-                    // has to present, we always expect this target to be present in 
+                    // has to present, we always expect this target to be present in
                     // potentialModules dictionary.
                     return potentialModuleMap[name]!
                 case .product:
@@ -544,7 +544,7 @@ public final class PackageBuilder {
             let target = try createTarget(
                 potentialModule: potentialModule,
                 manifestTarget: manifestTarget,
-                moduleDependencies: deps, 
+                moduleDependencies: deps,
                 productDeps: productDeps)
             // Add the created target to the map or print no sources warning.
             if let createdTarget = target {

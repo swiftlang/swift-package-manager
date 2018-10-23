@@ -135,14 +135,14 @@ public class DiagnosticID: ObjectIdentifierProtocol {
     ///
     /// The intended use is to support a convenient inline syntax for defining
     /// new diagnostics, for example:
-    ///     
+    ///
     ///     struct TooFewLives: DiagnosticData {
     ///         static var id = DiagnosticID(
     ///             type: TooFewLives.self,
     ///             name: "org.swift.diags.too-few-lives",
     ///             description: { $0 <<< "cannot create a cat with" <<< { $0.count } <<< "lives" }
     ///         )
-    ///     
+    ///
     ///         let count: Int
     ///     }
     public init<T>(

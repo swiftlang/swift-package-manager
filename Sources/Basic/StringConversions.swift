@@ -90,7 +90,7 @@ public extension Array where Element == String {
     /// Returns a localized list of terms representing a conjunction or disjunction.
     func spm_localizedJoin(type: LocalizedJoinType) -> String {
         var result = ""
-        
+
         for (i, item) in enumerated() {
             // Add the separator, if necessary.
             if i == count - 1 {

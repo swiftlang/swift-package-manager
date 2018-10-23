@@ -15,13 +15,13 @@ import struct Basic.RegEx
 public indirect enum StringPattern {
     /// Matches only the start, when matching a list of inputs.
     case start
-    
+
     /// Matches only the end, when matching a list of inputs.
     case end
-    
+
     /// Matches any sequence of zero or more strings, when matched a list of inputs.
     case anySequence
-    
+
     case any
     case contains(String)
     case equal(String)
@@ -35,7 +35,7 @@ public indirect enum StringPattern {
 extension StringPattern: ExpressibleByStringLiteral {
     public typealias UnicodeScalarLiteralType = StringLiteralType
     public typealias ExtendedGraphemeClusterLiteralType = StringLiteralType
-    
+
     public init(unicodeScalarLiteral value: UnicodeScalarLiteralType) {
         self = .equal(value)
     }
@@ -81,17 +81,17 @@ public func ~=(patterns: [StringPattern], input: [String]) -> Bool {
         // If we have read all the pattern, we are done.
         guard let item = patterns.first else { return true }
         let patterns = patterns.dropFirst()
-        
+
         // Otherwise, match the first item and recurse.
         switch item {
         case .start:
             if input.startIndex != startIndex { return false }
             return match(patterns, onlyAt: input)
-            
+
         case .end:
             if input.startIndex != endIndex { return false }
             return match(patterns, onlyAt: input)
-            
+
         case .anySequence:
             return matchAny(patterns, input: input)
 
@@ -100,7 +100,7 @@ public func ~=(patterns: [StringPattern], input: [String]) -> Bool {
             return match(patterns, onlyAt: input.dropFirst())
         }
     }
-    
+
     /// Match a pattern at any position in the input
     func matchAny(_ patterns: Array<StringPattern>.SubSequence, input: Array<String>.SubSequence) -> Bool {
         if match(patterns, onlyAt: input) {
@@ -111,7 +111,7 @@ public func ~=(patterns: [StringPattern], input: [String]) -> Bool {
         }
         return matchAny(patterns, input: input.dropFirst())
     }
-    
+
     return matchAny(patterns[...], input: input[...])
 }
 

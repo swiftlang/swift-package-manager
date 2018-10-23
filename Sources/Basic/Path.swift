@@ -416,7 +416,7 @@ private struct PathImpl: Hashable {
         return suffix(withDot: false)
     }
 
-    /// Returns suffix with leading `.` if withDot is true otherwise without it. 
+    /// Returns suffix with leading `.` if withDot is true otherwise without it.
     private func suffix(withDot: Bool) -> String? {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).

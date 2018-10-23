@@ -107,12 +107,12 @@ public var currentWorkingDirectory: AbsolutePath {
  - Returns: a generator that walks the specified directory producing all
  files therein. If recursively is true will enter any directories
  encountered recursively.
- 
+
  - Warning: directories that cannot be entered due to permission problems
  are silently ignored. So keep that in mind.
- 
+
  - Warning: Symbolic links that point to directories are *not* followed.
- 
+
  - Note: setting recursively to `false` still causes the generator to feed
  you the directory; just not its contents.
  */
@@ -131,12 +131,12 @@ public func walk(
  - Returns: a generator that walks the specified directory producing all
  files therein. Directories are recursed based on the return value of
  `recursing`.
- 
+
  - Warning: directories that cannot be entered due to permissions problems
  are silently ignored. So keep that in mind.
- 
+
  - Warning: Symbolic links that point to directories are *not* followed.
- 
+
  - Note: returning `false` from `recursing` still produces that directory
  from the generator; just not its contents.
  */

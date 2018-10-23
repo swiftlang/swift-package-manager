@@ -15,31 +15,31 @@ import Basic
 class OutputByteStreamTests: XCTestCase {
     func testBasics() {
         var stream = BufferedOutputByteStream()
-        
+
         "Hel".write(to: stream)
         "Hello".dropFirst(3).write(to: stream)
         Character(",").write(to: stream)
         Character(" ").write(to: stream)
         [UInt8]("wor".utf8).write(to: stream)
         [UInt8]("world".utf8)[3..<5].write(to: stream)
-        
+
         let streamable: TextOutputStreamable = Character("!")
         streamable.write(to: &stream)
-        
+
         XCTAssertEqual(stream.position, "Hello, world!".utf8.count)
         stream.flush()
         XCTAssertEqual(stream.bytes, "Hello, world!")
     }
-    
+
     func testStreamOperator() {
         let stream = BufferedOutputByteStream()
 
         stream <<< "Hello" <<< Character(",") <<< Character(" ") <<< [UInt8]("wor".utf8) <<< [UInt8]("world".utf8)[3..<5]
-        
+
         XCTAssertEqual(stream.position, "Hello, world".utf8.count)
         XCTAssertEqual(stream.bytes, "Hello, world")
     }
-    
+
     func testBufferCorrectness() {
         let smallBlock = [UInt8](repeating: 2, count: 1 << 14)
         // Check small / big interleavings for various block sizes (to prove buffer transfer optimizations).
@@ -88,20 +88,20 @@ class OutputByteStreamTests: XCTestCase {
         stream <<< Format.asJSON(1.2 as Double)
         XCTAssertEqual(stream.bytes, "1.2")
     }
-    
+
     func testFormattedOutput() {
         do {
             let stream = BufferedOutputByteStream()
             stream <<< Format.asJSON("\n")
             XCTAssertEqual(stream.bytes, "\"\\n\"")
         }
-        
+
         do {
             let stream = BufferedOutputByteStream()
             stream <<< Format.asJSON(["hello", "world\n"])
             XCTAssertEqual(stream.bytes, "[\"hello\",\"world\\n\"]")
         }
-        
+
         do {
             let stream = BufferedOutputByteStream()
             stream <<< Format.asJSON(["hello": "world\n"])
@@ -123,7 +123,7 @@ class OutputByteStreamTests: XCTestCase {
             stream <<< Format.asSeparatedList(["hello", "world"], separator: ", ")
             XCTAssertEqual(stream.bytes, "hello, world")
         }
-        
+
         do {
             struct MyThing {
                 let value: String

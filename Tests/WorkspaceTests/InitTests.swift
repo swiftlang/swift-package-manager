@@ -1,9 +1,9 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
@@ -18,14 +18,14 @@ import Commands
 class InitTests: XCTestCase {
 
     // MARK: Basic package creation for each package type.
-    
+
     func testInitPackageEmpty() throws {
         mktmpdir { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             let name = path.basename
             try fs.createDirectory(path)
-            
+
             // Create the package
             let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.empty)
             var progressMessages = [String]()
@@ -44,7 +44,7 @@ class InitTests: XCTestCase {
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
         }
     }
-    
+
     func testInitPackageExecutable() throws {
         mktmpdir { tmpPath in
             let fs = localFileSystem
@@ -63,14 +63,14 @@ class InitTests: XCTestCase {
             // Not picky about the specific progress messages, just checking that we got some.
             XCTAssert(progressMessages.count > 0)
 
-            
+
             // Verify basic file system content that we expect in the package
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).asString!
             let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
             XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
-            
+
             let readme = path.appending(component: "README.md")
             XCTAssertTrue(fs.exists(readme))
             let readmeContents = try localFileSystem.readFileContents(readme).asString!
@@ -80,7 +80,7 @@ class InitTests: XCTestCase {
             XCTAssertEqual(
                 try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
                 ["FooTests", "LinuxMain.swift"])
-            
+
             // Try building it
             XCTAssertBuilds(path)
             let binPath = path.appending(components: ".build", Destination.host.target, "debug")
@@ -129,14 +129,14 @@ class InitTests: XCTestCase {
             XCTAssertFileExists(path.appending(components: ".build", Destination.host.target, "debug", "Foo.swiftmodule"))
         }
     }
-    
+
     func testInitPackageSystemModule() throws {
         mktmpdir { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             let name = path.basename
             try fs.createDirectory(path)
-            
+
             // Create the package
             let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.systemModule)
             var progressMessages = [String]()
@@ -144,7 +144,7 @@ class InitTests: XCTestCase {
                 progressMessages.append(message)
             }
             try initPackage.writePackageStructure()
-            
+
             // Not picky about the specific progress messages, just checking that we got some.
             XCTAssert(progressMessages.count > 0)
 
@@ -154,19 +154,19 @@ class InitTests: XCTestCase {
             XCTAssert(fs.exists(path.appending(component: "module.modulemap")))
         }
     }
-    
+
     // MARK: Special case testing
-    
+
     func testInitPackageNonc99Directory() throws {
         let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
         XCTAssertTrue(localFileSystem.isDirectory(tempDir.path))
-        
+
         // Create a directory with non c99name.
         let packageRoot = tempDir.path.appending(component: "some-package")
         let packageName = packageRoot.basename
         try localFileSystem.createDirectory(packageRoot)
         XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
-        
+
         // Create the package
         let initPackage = try InitPackage(name: packageName, destinationPath: packageRoot, packageType: InitPackage.PackageType.library)
         initPackage.progressReporter = { message in
@@ -177,24 +177,24 @@ class InitTests: XCTestCase {
         XCTAssertBuilds(packageRoot)
         XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.host.target, "debug", "some_package.swiftmodule"))
     }
-    
+
     func testNonC99NameExecutablePackage() throws {
         let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
         XCTAssertTrue(localFileSystem.isDirectory(tempDir.path))
-        
+
         let packageRoot = tempDir.path.appending(component: "Foo")
         try localFileSystem.createDirectory(packageRoot)
         XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
-        
+
         // Create package with non c99name.
         let initPackage = try InitPackage(name: "package-name", destinationPath: packageRoot, packageType: InitPackage.PackageType.executable)
         try initPackage.writePackageStructure()
-        
+
         #if os(macOS)
           XCTAssertSwiftTest(packageRoot)
         #else
           XCTAssertBuilds(packageRoot)
         #endif
-        
+
     }
 }

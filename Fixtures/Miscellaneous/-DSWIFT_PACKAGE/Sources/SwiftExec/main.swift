@@ -8,7 +8,7 @@ doesNotCompile()
 foo()
 
 class Bar {
-    var bar: Int = 0 
+    var bar: Int = 0
     #if SWIFT_PACKAGE
     #else
     var bar: String = ""

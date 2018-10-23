@@ -44,28 +44,28 @@ class TemporaryFileTests: XCTestCase {
         // File should be deleted now.
         XCTAssertFalse(isFile(filePath))
     }
-    
+
     func testNoCleanupTemporaryFile() throws {
         let filePath: AbsolutePath
         do {
             let file = try TemporaryFile(deleteOnClose: false)
-            
+
             // Check if file is created.
             XCTAssertTrue(isFile(file.path))
-            
+
             // Try writing some data to the file.
             let stream = BufferedOutputByteStream()
             stream <<< "foo"
             stream <<< "bar"
             stream <<< "baz"
             try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
-            
+
             // Go to the beginning of the file.
             file.fileHandle.seek(toFileOffset: 0)
             // Read the contents.
             let contents = try localFileSystem.readFileContents(file.path)
             XCTAssertEqual(contents, "foobarbaz")
-            
+
             filePath = file.path
         }
         // File should not be deleted.
@@ -103,7 +103,7 @@ class TemporaryFileTests: XCTestCase {
         }
         XCTAssertFalse(localFileSystem.isDirectory(path))
 
-        // Test temp directory is not removed when its not empty. 
+        // Test temp directory is not removed when its not empty.
         do {
             let tempDir = try TemporaryDirectory()
             XCTAssertTrue(localFileSystem.isDirectory(tempDir.path))

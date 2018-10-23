@@ -100,11 +100,11 @@ public struct BuildParameters {
         }
         return TerminalController.isTTY(stream)
     }()
-    
+
     public var regenerateManifestToken: AbsolutePath {
         return dataPath.appending(components: "..", "regenerate-token")
     }
-    
+
     public var llbuildManifest: AbsolutePath {
         return dataPath.appending(components: "..", configuration.dirname + ".yaml")
     }
@@ -543,7 +543,7 @@ public final class ProductBuildDescription {
             }
             args += ["-emit-executable"]
         }
-        
+
         // On linux, set rpath such that dynamic libraries are looked up
         // adjacent to the product. This happens by default on macOS.
         if buildParameters.triple.isLinux() {
@@ -698,7 +698,7 @@ public class BuildPlan {
         for buildProduct in buildProducts {
             try plan(buildProduct)
         }
-        // FIXME: We need to find out if any product has a target on which it depends 
+        // FIXME: We need to find out if any product has a target on which it depends
         // both static and dynamically and then issue a suitable diagnostic or auto
         // handle that situation.
     }
@@ -773,7 +773,7 @@ public class BuildPlan {
             switch dependency {
             case .target(let target):
                 switch target.type {
-                // Include executable and tests only if they're top level contents 
+                // Include executable and tests only if they're top level contents
                 // of the product. Otherwise they are just build time dependency.
                 case .executable, .test:
                     if product.targets.contains(target) {

@@ -74,7 +74,7 @@ final class SchemesGenerator {
         // Create one scheme per executable target.
         for target in rootPackage.targets where target.type == .executable {
             // Find all dependencies of this target within its package.
-            let dependencies = try! topologicalSort(target.dependencies, successors: { 
+            let dependencies = try! topologicalSort(target.dependencies, successors: {
                 $0.dependencies.compactMap({ $0.target }).map(ResolvedTarget.Dependency.target)
             }).compactMap({ $0.target })
 
@@ -92,7 +92,7 @@ final class SchemesGenerator {
         }
 
         // Finally, create one master scheme for the entire package.
-        let regularTargets = rootPackage.targets.filter({ 
+        let regularTargets = rootPackage.targets.filter({
             switch $0.type {
             case .test, .systemModule:
                 return false

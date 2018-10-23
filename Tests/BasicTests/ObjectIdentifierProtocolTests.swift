@@ -33,7 +33,7 @@ class ObjectIdentifierProtocolTests: XCTestCase {
         XCTAssertNotEqual(foo, foo2)
         XCTAssertNotEqual(foo2, foo3)
         XCTAssertEqual(foo, foo3)
-        
+
         XCTAssertNotEqual(foo, bar)
         XCTAssertNotEqual(foo, bar2)
         XCTAssertEqual(bar, bar2)

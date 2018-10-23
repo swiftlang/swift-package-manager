@@ -26,7 +26,7 @@ class ConditionTests: XCTestCase {
             }
         }
         thread.start()
-        
+
         // Wait for the thread to start waiting
         while condition.whileLocked({ !waiting }) {}
 
@@ -55,7 +55,7 @@ class ConditionTests: XCTestCase {
             thread.start()
             return thread
         }
-        
+
         // Wait for each thread to start waiting.
         while condition.whileLocked({ !waiting[0] || !waiting[1] }) {}
 

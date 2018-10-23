@@ -34,7 +34,7 @@ public enum ProductType: CustomStringConvertible, Equatable {
 
     /// A test product.
     case test
-    
+
     public var description: String {
         switch self {
         case .executable:
@@ -86,7 +86,7 @@ public class Product {
         self.name = name
         self.type = type
         self.targets = targets
-        self.linuxMain = linuxMain 
+        self.linuxMain = linuxMain
     }
 }
 

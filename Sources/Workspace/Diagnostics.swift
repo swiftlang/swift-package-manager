@@ -1,9 +1,9 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
@@ -162,11 +162,11 @@ public enum WorkspaceDiagnostics {
             description: {
                 $0 <<< "repository" <<< { "'\($0.repositoryPath.asString)'" } <<< "has uncommited changes"
             })
-    
+
         /// The local path to the repository.
         public let repositoryPath: AbsolutePath
     }
-    
+
     /// The diagnostic triggered when an operation fails because its completion
     /// would loose the unpushed changes in a repository.
     public struct UnpushedChanges: DiagnosticData, Swift.Error {
@@ -176,11 +176,11 @@ public enum WorkspaceDiagnostics {
             description: {
                 $0 <<< "repository" <<< { "'\($0.repositoryPath.asString)'" } <<< "has unpushed changes"
             })
-        
+
         /// The local path to the repository.
         public let repositoryPath: AbsolutePath
     }
-    
+
     public struct LocalDependencyEdited: DiagnosticData, Swift.Error {
         public static var id = DiagnosticID(
             type: LocalDependencyEdited.self,
@@ -202,11 +202,11 @@ public enum WorkspaceDiagnostics {
             description: {
                 $0 <<< "dependency" <<< { "'\($0.dependencyName)'" } <<< "already in edit mode"
             })
-        
+
         /// The name of the dependency being edited.
         public let dependencyName: String
     }
-    
+
     /// The diagnostic triggered when the unedit operation fails because the dependency
     /// is not in edit mode.
     public struct DependencyNotInEditMode: DiagnosticData, Swift.Error {
@@ -216,11 +216,11 @@ public enum WorkspaceDiagnostics {
             description: {
                 $0 <<< "dependency" <<< { "'\($0.dependencyName)'" } <<< "not in edit mode"
             })
-        
+
         /// The name of the dependency being unedited.
         public let dependencyName: String
     }
-    
+
     /// The diagnostic triggered when the edit operation fails because the branch
     /// to be created already exists.
     public struct BranchAlreadyExists: DiagnosticData, Swift.Error {
@@ -230,11 +230,11 @@ public enum WorkspaceDiagnostics {
             description: {
                 $0 <<< "branch" <<< { "'\($0.branch)'" } <<< "already exists"
             })
-        
+
         /// The branch to create.
         public let branch: String
     }
-    
+
     /// The diagnostic triggered when the edit operation fails because the specified
     /// revision does not exist.
     public struct RevisionDoesNotExist: DiagnosticData, Swift.Error {
@@ -244,7 +244,7 @@ public enum WorkspaceDiagnostics {
             description: {
                 $0 <<< "revision" <<< { "'\($0.revision)'" } <<< "does not exist"
             })
-        
+
         /// The revision requested.
         public let revision: String
     }
@@ -259,17 +259,17 @@ public enum WorkspaceDiagnostics {
                 $0 <<< "requires a minimum Swift tools version of" <<< { $0.requiredToolsVersion.description }
                 $0 <<< { "(currently \($0.currentToolsVersion.description))" }
             })
-        
+
         /// The path of the package.
         public let rootPackagePath: AbsolutePath
-        
+
         /// The tools version required by the package.
         public let requiredToolsVersion: ToolsVersion
-        
+
         /// The current tools version.
         public let currentToolsVersion: ToolsVersion
     }
-    
+
     /// The diagnostic triggered when the package at the edit destination is not the
     /// one user is trying to edit.
     public struct MismatchingDestinationPackage: DiagnosticData, Swift.Error {
@@ -281,13 +281,13 @@ public enum WorkspaceDiagnostics {
                 $0 <<< "is" <<< { $0.destinationPackage ?? "<unknown>" }
                 $0 <<< "but was expecting" <<< { $0.expectedPackage }
             })
-        
+
         /// The path to be edited to.
         public let editPath: AbsolutePath
-        
+
         /// The package to edit.
         public let expectedPackage: String
-        
+
         /// The package found at the edit location.
         public let destinationPackage: String?
     }
@@ -321,7 +321,7 @@ public enum WorkspaceDiagnostics {
                 $0 <<< "dependency" <<< { "'\($0.packageName)'" } <<< "was being edited but is missing;"
                 $0 <<< "falling back to original checkout"
             })
-        
+
         /// The package name of the dependency.
         public let packageName: String
     }

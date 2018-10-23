@@ -21,7 +21,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
         let N = 100
         let files = (1...N).map { "/Foo\($0)/source.swift" }
         let fs = InMemoryFileSystem(emptyFiles: files)
-        
+
         var externalManifests = [Manifest]()
         var rootManifests: [Manifest]!
         for pkg in 1...N {
@@ -58,7 +58,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 externalManifests.append(manifest)
             }
         }
-        
+
         measure {
             let diagnostics = DiagnosticsEngine()
             let g = PackageGraphLoader().load(

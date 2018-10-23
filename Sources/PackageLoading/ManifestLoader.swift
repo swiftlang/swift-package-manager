@@ -587,7 +587,7 @@ final class SwiftPMVersionRule: LLBuildRule {
     }
 
     override func inputsAvailable(_ engine: LLTaskBuildEngine) {
-        // FIXME: We need to include git hash in the version 
+        // FIXME: We need to include git hash in the version
         // string to make this rule more correct.
         let version = Versioning.currentVersion.displayString
         engine.taskIsComplete(RuleValue(version: version))

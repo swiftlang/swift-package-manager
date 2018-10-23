@@ -26,7 +26,7 @@ public enum PackageBuilderDiagnostics {
                 $0 <<< "contains no valid source files"
             }
         )
-    
+
         /// The name of the package.
         public let package: String
 

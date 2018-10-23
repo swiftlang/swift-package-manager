@@ -34,7 +34,7 @@ final class BuildToolTests: XCTestCase {
         let binContents = try localFileSystem.getDirectoryContents(binPath)
         return BuildResult(output: output, binContents: binContents)
     }
-    
+
     func testUsage() throws {
         XCTAssert(try execute(["-help"]).contains("USAGE: swift build"))
     }
