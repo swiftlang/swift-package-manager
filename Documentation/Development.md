@@ -183,4 +183,7 @@ $ SWIFT_EXEC=/path/to/my/built/swiftc swift build
 
 SwiftPM computes the path of runtime libraries relative to where it is
 installed. This path can be overridden by setting the environment variable
-`SWIFTPM_PD_LIBS` to a directory containing the libraries.
+`SWIFTPM_PD_LIBS` to a directory containing the libraries. This can be a list of
+absolute search paths separated by colon (":"). SwiftPM will choose the first
+path which exists on disk. If none of the path are present on disk, it will fall
+back to built-in computation.

@@ -240,11 +240,18 @@ public final class UserToolchain: Toolchain {
         ] + destination.extraCCFlags
 
         // Compute the path of directory containing the PackageDescription libraries.
-        let pdLibDir: AbsolutePath 
-        if let pdLibDirEnvStr = getenv("SWIFTPM_PD_LIBS"), let pdLibDirEnv = try? AbsolutePath(validating: pdLibDirEnvStr) {
-            pdLibDir = pdLibDirEnv
-        } else {
-            pdLibDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+        var pdLibDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+
+        // Look for an override in the env.
+        if let pdLibDirEnvStr = getenv("SWIFTPM_PD_LIBS") {
+            // We pick the first path which exists in a colon seperated list.
+            let paths = pdLibDirEnvStr.split(separator: ":").map(String.init)
+            for pathString in paths {
+                if let path = try? AbsolutePath(validating: pathString), localFileSystem.exists(path) {
+                    pdLibDir = path
+                    break
+                }
+            }
         }
 
         manifestResources = UserManifestResources(
