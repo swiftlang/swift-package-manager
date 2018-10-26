@@ -34,7 +34,6 @@ extension MiscellaneousTestCase {
     static let __allTests__MiscellaneousTestCase = [
         ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
         ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),
-        ("testCodeCoverageCompile", testCodeCoverageCompile),
         ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
         ("testExternalDependencyEdges1", testExternalDependencyEdges1),
         ("testExternalDependencyEdges2", testExternalDependencyEdges2),

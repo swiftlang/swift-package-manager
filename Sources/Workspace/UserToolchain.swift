@@ -45,11 +45,6 @@ public final class UserToolchain: Toolchain {
     /// The manifest resource provider.
     public let manifestResources: ManifestResourceProvider
 
-    /// Cache for storing paths of tools after first lookup.
-    ///
-    /// Key -> name of the tool.
-    private var toolsPathCache: [String: AbsolutePath]
-
     /// Path of the `swiftc` compiler.
     public let swiftCompiler: AbsolutePath
 
@@ -144,60 +139,51 @@ public final class UserToolchain: Toolchain {
     /// Environment to use when looking up tools.
     private let processEnvironment: [String: String]
 
-    private func lookup(tool toolName: String) throws -> AbsolutePath {
-        // Check the cache.
-        if let toolPath = toolsPathCache[toolName] {
+    /// Returns the path to clang compiler tool.
+    public func getClangCompiler() throws -> AbsolutePath {
+        // Check if we already computed.
+        if let clang = _clangCompiler {
+            return clang
+        }
+
+        // Check in the environment variable first.
+        if let toolPath = UserToolchain.lookup(variable: "CC", searchPaths: envSearchPaths) {
+            _clangCompiler = toolPath
             return toolPath
         }
 
         // Otherwise, lookup the tool on the system.
-        let arguments = whichArgs + [toolName]
+        let arguments = whichArgs + ["clang"]
         let foundPath = try Process.checkNonZeroExit(arguments: arguments, environment: processEnvironment).spm_chomp()
         guard !foundPath.isEmpty else {
-            throw InvalidToolchainDiagnostic("could not find \(toolName)")
+            throw InvalidToolchainDiagnostic("could not find clang")
         }
+        let toolPath = try AbsolutePath(validating: foundPath)
 
-        let toolPath = AbsolutePath(foundPath)
-
-        // Check that it's valid in the file system.
-        guard localFileSystem.isExecutableFile(toolPath) else {
-            throw InvalidToolchainDiagnostic("could not find \(toolName) at expected path \(toolPath.asString)")
-        }
-        toolsPathCache[toolName] = toolPath
+        _clangCompiler = toolPath
         return toolPath
     }
-
-    /// Returns the path to llvm-cov tool.
-    public func getClangCompiler() throws -> AbsolutePath {
-        let clangToolName = "clang"
-        let toolPath: AbsolutePath
-
-        // Check in the environment variable first.
-        if let value = UserToolchain.lookup(variable: "CC", searchPaths: envSearchPaths) {
-            toolPath = value
-            guard localFileSystem.isExecutableFile(toolPath) else {
-                throw InvalidToolchainDiagnostic("could not find clang at expected path \(toolPath.asString)")
-            }
-            toolsPathCache[clangToolName] = toolPath
-            return toolPath
-        }
-
-        // Otherwise, just do a regular lookup.
-        return try lookup(tool: clangToolName)
-    }
+    private var _clangCompiler: AbsolutePath?
 
     /// Returns the path to llvm-cov tool.
     public func getLLVMCov() throws -> AbsolutePath {
-        return try lookup(tool: "llvm-cov")
+        let toolPath = destination.binDir.appending(component: "llvm-cov")
+        guard localFileSystem.isExecutableFile(toolPath) else {
+            throw InvalidToolchainDiagnostic("could not find llvm-cov at expected path \(toolPath.asString)")
+        }
+        return toolPath
     }
 
     /// Returns the path to llvm-prof tool.
     public func getLLVMProf() throws -> AbsolutePath {
-        return try lookup(tool: "llvm-profdata")
+        let toolPath = destination.binDir.appending(component: "llvm-profdata")
+        guard localFileSystem.isExecutableFile(toolPath) else {
+            throw InvalidToolchainDiagnostic("could not find llvm-profdata at expected path \(toolPath.asString)")
+        }
+        return toolPath
     }
 
     public init(destination: Destination, environment: [String: String] = Process.env) throws {
-        self.toolsPathCache = [:]
         self.destination = destination
         self.processEnvironment = environment
 
