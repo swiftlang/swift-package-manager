@@ -423,6 +423,12 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     func configFilePath() throws -> AbsolutePath {
+        // Look for the override in the environment.
+        if let envPath = Process.env["SWIFTPM_MIRROR_CONFIG"] {
+            return try AbsolutePath(validating: envPath)
+        }
+
+        // Otherwise, use the default path.
         return try getPackageRoot().appending(components: ".swiftpm", "config")
     }
 
