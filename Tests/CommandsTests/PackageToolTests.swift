@@ -23,8 +23,8 @@ import Workspace
 
 final class PackageToolTests: XCTestCase {
     @discardableResult
-    private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath).spm_chomp()
+    private func execute(_ args: [String], packagePath: AbsolutePath? = nil, env: [String: String]? = nil) throws -> String {
+        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: env).spm_chomp()
     }
 
     func testUsage() throws {
@@ -535,6 +535,7 @@ final class PackageToolTests: XCTestCase {
         mktmpdir { prefix in
             let fs = localFileSystem
             let packageRoot = prefix.appending(component: "Foo")
+            let configOverride = prefix.appending(component: "configoverride")
             let configFile = packageRoot.appending(components: ".swiftpm", "config")
 
             fs.createEmptyFiles(at: packageRoot, files:
@@ -548,6 +549,11 @@ final class PackageToolTests: XCTestCase {
             try execute(["config", "set-mirror", "--package-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot)
             try execute(["config", "set-mirror", "--package-url", "git@github.com:apple/swift-package-manager.git", "--mirror-url", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
+
+            // Test env override.
+            try execute(["config", "set-mirror", "--package-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot, env: ["SWIFTPM_MIRROR_CONFIG": configOverride.asString])
+            XCTAssertTrue(fs.isFile(configOverride))
+            XCTAssertTrue(try fs.readFileContents(configOverride).asString!.contains("mygithub"))
 
             // Test reading.
             XCTAssertEqual(try execute(["config", "get-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot),
