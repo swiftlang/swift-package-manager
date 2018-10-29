@@ -264,6 +264,7 @@ public final class InitPackage {
                 var tests = [XCTestCaseEntry]()
                 tests += \(moduleName)Tests.allTests()
                 XCTMain(tests)
+
                 """
         }
     }
@@ -281,7 +282,7 @@ public final class InitPackage {
                         // results.
                         XCTAssertEqual(\(typeName)().text, "Hello, World!")
                     }
-                
+
                     static var allTests = [
                         ("testExample", testExample),
                     ]
@@ -336,7 +337,7 @@ public final class InitPackage {
                         return Bundle.main.bundleURL
                       #endif
                     }
-                
+
                     static var allTests = [
                         ("testExample", testExample),
                     ]
@@ -371,6 +372,7 @@ public final class InitPackage {
                     ]
                 }
                 #endif
+
                 """
         }
     }
