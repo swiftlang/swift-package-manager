@@ -16,6 +16,7 @@ extension BuildPlanTests {
         ("testCppModule", testCppModule),
         ("testDynamicProducts", testDynamicProducts),
         ("testExecAsDependency", testExecAsDependency),
+        ("testIndexStore", testIndexStore),
         ("testNonReachableProductsAndTargets", testNonReachableProductsAndTargets),
         ("testPkgConfigGenericDiagnostic", testPkgConfigGenericDiagnostic),
         ("testPkgConfigHintDiagnostic", testPkgConfigHintDiagnostic),

@@ -356,6 +356,16 @@ public class SwiftTool<Options: ToolOptions> {
                 usage: "Force resolve to versions recorded in the Package.resolved file"),
             to: { $0.forceResolvedVersions = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--enable-index-store", kind: Bool.self,
+                usage: "Enable indexing-while-building feature"),
+            to: { if $1 { $0.indexStoreMode = .on } })
+
+        binder.bind(
+            option: parser.add(option: "--disable-index-store", kind: Bool.self,
+                usage: "Disable indexing-while-building feature"),
+            to: { if $1 { $0.indexStoreMode = .off } })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -694,7 +704,8 @@ public class SwiftTool<Options: ToolOptions> {
                 flags: options.buildFlags,
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
                 sanitizers: options.sanitizers,
-                enableCodeCoverage: options.shouldEnableCodeCoverage
+                enableCodeCoverage: options.shouldEnableCodeCoverage,
+                indexStoreMode: options.indexStoreMode
             )
         })
     }()

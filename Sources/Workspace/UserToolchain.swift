@@ -160,10 +160,23 @@ public final class UserToolchain: Toolchain {
         }
         let toolPath = try AbsolutePath(validating: foundPath)
 
+        // If we found clang using xcrun, assume the vendor is Apple.
+        // FIXME: This might not be the best way to determine this.
+        #if os(macOS)
+            __isClangCompilerVendorApple = true
+        #endif
+
         _clangCompiler = toolPath
         return toolPath
     }
     private var _clangCompiler: AbsolutePath?
+    private var __isClangCompilerVendorApple: Bool?
+
+    public func _isClangCompilerVendorApple() throws -> Bool? {
+        // The boolean gets computed as a side-effect of lookup for clang compiler.
+        _ = try getClangCompiler()
+        return __isClangCompilerVendorApple
+    }
 
     /// Returns the path to llvm-cov tool.
     public func getLLVMCov() throws -> AbsolutePath {
