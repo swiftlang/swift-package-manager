@@ -18,6 +18,11 @@ public protocol Toolchain {
     /// Path of the `clang` compiler.
     func getClangCompiler() throws -> AbsolutePath
 
+    // FIXME: This is a temporary API until index store is widely available in
+    // the OSS clang compiler. This API should not used for any other purpose.
+    /// Returns true if clang compiler's vendor is Apple and nil if unknown.
+    func _isClangCompilerVendorApple() throws -> Bool?
+
     /// Additional flags to be passed to the C compiler.
     var extraCCFlags: [String] { get }
 
@@ -29,4 +34,10 @@ public protocol Toolchain {
 
     /// The dynamic library extension, for e.g. dylib, so.
     var dynamicLibraryExtension: String { get }
+}
+
+extension Toolchain {
+    public func _isClangCompilerVendorApple() throws -> Bool? {
+        return nil
+    }
 }

@@ -64,5 +64,8 @@ public class ToolOptions {
     /// Use Package.resolved file for resolving dependencies.
     public var forceResolvedVersions = false
 
+    /// The mode to use for indexing-while-building feature.
+    public var indexStoreMode: BuildParameters.IndexStoreMode = .auto
+
     public required init() {}
 }

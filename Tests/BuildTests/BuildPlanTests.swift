@@ -34,6 +34,14 @@ private struct MockToolchain: Toolchain {
     func getClangCompiler() throws -> AbsolutePath {
         return AbsolutePath("/fake/path/to/clang")
     }
+
+    func _isClangCompilerVendorApple() throws -> Bool? {
+      #if os(macOS)
+        return true
+      #else
+        return false
+      #endif
+    }
 }
 
 final class BuildPlanTests: XCTestCase {
@@ -47,7 +55,8 @@ final class BuildPlanTests: XCTestCase {
         buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
         config: Build.Configuration = .debug,
         shouldLinkStaticSwiftStdlib: Bool = false,
-        destinationTriple: Triple = Triple.hostTriple
+        destinationTriple: Triple = Triple.hostTriple,
+        indexStoreMode: BuildParameters.IndexStoreMode = .off
     ) -> BuildParameters {
         return BuildParameters(
             dataPath: buildPath,
@@ -55,7 +64,9 @@ final class BuildPlanTests: XCTestCase {
             toolchain: MockToolchain(),
             destinationTriple: destinationTriple,
             flags: BuildFlags(),
-            shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib)
+            shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
+            indexStoreMode: indexStoreMode
+        )
     }
 
     func testBasicSwiftPackage() throws {
@@ -990,6 +1001,49 @@ final class BuildPlanTests: XCTestCase {
             "-module-name", "exe", "-emit-executable",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             ])
+    }
+
+    func testIndexStore() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/include/lib.h"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        func check(for mode: BuildParameters.IndexStoreMode, config: Build.Configuration) throws {
+            let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(config: config, indexStoreMode: mode), graph: graph, diagnostics: diagnostics, fileSystem: fs))
+
+            let lib = try result.target(for: "lib").clangTarget()
+            let path = StringPattern.equal(result.plan.buildParameters.indexStore.asString)
+
+        #if os(macOS)
+            XCTAssertMatch(lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])
+        #else
+            XCTAssertNoMatch(lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])
+        #endif
+
+            let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+            XCTAssertMatch(exe, [.anySequence, "-index-store-path", path, .anySequence])
+        }
+
+        try check(for: .auto, config: .debug)
+        try check(for: .on, config: .debug)
+        try check(for: .on, config: .release)
     }
 }
 

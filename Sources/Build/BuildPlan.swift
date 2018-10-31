@@ -17,6 +17,16 @@ import func POSIX.getenv
 
 public struct BuildParameters {
 
+    /// Mode for the indexing-while-building feature.
+    public enum IndexStoreMode: Equatable {
+        /// Index store should be enabled.
+        case on
+        /// Index store should be disabled.
+        case off
+        /// Index store should be enabled in debug configuration.
+        case auto
+    }
+
     // FIXME: Error handling.
     //
     /// Path to the module cache directory to use for SwiftPM's own tests.
@@ -44,6 +54,12 @@ public struct BuildParameters {
     /// The path to the build directory (inside the data directory).
     public var buildPath: AbsolutePath {
         return dataPath.appending(component: configuration.dirname)
+    }
+
+    /// The path to the index store directory.
+    public var indexStore: AbsolutePath {
+        assert(indexStoreMode != .off, "index store is disabled")
+        return buildPath.appending(components: "index", "store")
     }
 
     /// The path to the code coverage directory.
@@ -90,6 +106,9 @@ public struct BuildParameters {
     /// If should enable llbuild manifest caching.
     public let shouldEnableManifestCaching: Bool
 
+    /// The mode to use for indexing-while-building feature.
+    public let indexStoreMode: IndexStoreMode
+
     /// Whether to enable code coverage.
     public let enableCodeCoverage: Bool
 
@@ -119,7 +138,8 @@ public struct BuildParameters {
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
-        enableCodeCoverage: Bool = false
+        enableCodeCoverage: Bool = false,
+        indexStoreMode: IndexStoreMode = .auto
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
@@ -131,6 +151,25 @@ public struct BuildParameters {
         self.shouldEnableManifestCaching = shouldEnableManifestCaching
         self.sanitizers = sanitizers
         self.enableCodeCoverage = enableCodeCoverage
+        self.indexStoreMode = indexStoreMode
+    }
+
+    /// Returns the compiler arguments for the index store, if enabled.
+    fileprivate var indexStoreArguments: [String] {
+        let addIndexStoreArguments: Bool
+        switch indexStoreMode {
+        case .on:
+            addIndexStoreArguments = true
+        case .off:
+            addIndexStoreArguments = false
+        case .auto:
+            addIndexStoreArguments = configuration == .debug 
+        }
+
+        if addIndexStoreArguments {
+            return ["-index-store-path", indexStore.asString]
+        }
+        return []
     }
 }
 
@@ -228,6 +267,16 @@ public final class ClangTargetBuildDescription {
             args += ["-fobjc-arc"]
         }
         args += ["-fblocks"]
+
+        // Enable index store, if appropriate.
+        //
+        // This feature is not widely available in OSS clang. So, we only enable
+        // index store for Apple's clang or if explicitly asked to. 
+        if Process.env.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
+            args += buildParameters.indexStoreArguments
+        } else if buildParameters.triple.isDarwin(), (try? buildParameters.toolchain._isClangCompilerVendorApple()) == true {
+            args += buildParameters.indexStoreArguments
+        }
 
         if !buildParameters.triple.isWindows() {
             // Using modules currently conflicts with the Windows SDKs.
@@ -361,6 +410,7 @@ public final class SwiftTargetBuildDescription {
         case .release: break
         }
 
+        args += buildParameters.indexStoreArguments
         args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
         args += ["-j\(SwiftCompilerTool.numThreads)"]
