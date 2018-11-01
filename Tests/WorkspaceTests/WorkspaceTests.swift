@@ -1264,17 +1264,17 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkPackageGraph(roots: ["Bar"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Bar' requires a minimum Swift tools version of 4.1.0 (currently 4.0.0)"), behavior: .error, location: "/tmp/ws/roots/Bar")
+                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Bar' is using Swift tools version 4.0.0 which is no longer supported; use 4.1.0 or newer instead"), behavior: .error, location: "/tmp/ws/roots/Bar")
             }
         }
         workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Bar' requires a minimum Swift tools version of 4.1.0 (currently 4.0.0)"), behavior: .error, location: "/tmp/ws/roots/Bar")
+                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Bar' is using Swift tools version 4.0.0 which is no longer supported; use 4.1.0 or newer instead"), behavior: .error, location: "/tmp/ws/roots/Bar")
             }
         }
         workspace.checkPackageGraph(roots: ["Baz"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Baz' requires a minimum Swift tools version of 4.0.0 (currently 3.1.0)"), behavior: .error, location: "/tmp/ws/roots/Baz")
+                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Baz' is using Swift tools version 3.1.0 which is no longer supported; use 4.0.0 or newer instead"), behavior: .error, location: "/tmp/ws/roots/Baz")
             }
         }
     }
