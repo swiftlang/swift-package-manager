@@ -256,8 +256,9 @@ public enum WorkspaceDiagnostics {
             name: "org.swift.diags.workspace.incompatible-tools-version",
             description: {
                 $0 <<< "package at" <<< { "'\($0.rootPackagePath.asString)'" }
-                $0 <<< "requires a minimum Swift tools version of" <<< { $0.requiredToolsVersion.description }
-                $0 <<< { "(currently \($0.currentToolsVersion.description))" }
+                $0 <<< "is using Swift tools version" <<< { $0.currentToolsVersion.description }
+                $0 <<< "which is no longer supported; use" <<< { $0.requiredToolsVersion.description }
+                $0 <<< "or newer instead"
             })
         
         /// The path of the package.
