@@ -2408,6 +2408,16 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", "1.4.0"]
                 ),
+                TestPackage(
+                    name: "Bam",
+                    targets: [
+                        TestTarget(name: "Bam"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bam"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
             ]
         )
 
@@ -2426,8 +2436,13 @@ final class WorkspaceTests: XCTestCase {
         }
 
         try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").asString, forPackageURL: workspace.packagesDir.appending(component: "Bar").asString)
+        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").asString, forPackageURL: workspace.packagesDir.appending(component: "Bam").asString)
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+
+        workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { (graph, diagnostics) in
              PackageGraphTester(graph) { result in
                  result.check(roots: "Foo")
                  result.check(packages: "Foo", "Dep", "Baz")
@@ -2439,6 +2454,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "Dep", at: .checkout(.version("1.5.0")))
             result.check(dependency: "Baz", at: .checkout(.version("1.4.0")))
             result.check(notPresent: "Bar")
+            result.check(notPresent: "Bam")
         }
     }
 

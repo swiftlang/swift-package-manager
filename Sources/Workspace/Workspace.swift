@@ -155,8 +155,9 @@ public class Workspace {
             let inputIdentities = root.manifests.map({
                 PackageReference(identity: $0.name.lowercased(), path: $0.url)
             }) + root.dependencies.map({
-                let identity = PackageReference.computeIdentity(packageURL: $0.url)
-                return PackageReference(identity: identity, path: $0.url)
+                let url = workspace.config.mirroredURL(forURL: $0.url)
+                let identity = PackageReference.computeIdentity(packageURL: url)
+                return PackageReference(identity: identity, path: url)
             })
 
             var requiredIdentities = transitiveClosure(inputIdentities) { identity in
@@ -550,7 +551,7 @@ extension Workspace {
         var updateConstraints = currentManifests.editedPackagesConstraints()
 
         // Create constraints based on root manifest and pins for the update resolution.
-        updateConstraints += graphRoot.constraints
+        updateConstraints += graphRoot.constraints(config: config)
 
         // Record the start time of dependency resolution.
         let resolutionStartTime = Date()
@@ -929,8 +930,9 @@ extension Workspace {
             return DependencyManifests(root: root, dependencies: [], workspace: self)
         }
 
-        let rootDependencyManifests = root.dependencies.compactMap({
-            return loadManifest(forURL: $0.url, diagnostics: diagnostics)
+        let rootDependencyManifests: [Manifest] = root.dependencies.compactMap({
+            let url = config.mirroredURL(forURL: $0.url)
+            return loadManifest(forURL: url, diagnostics: diagnostics)
         })
         let inputManifests = root.manifests + rootDependencyManifests
 
@@ -1141,7 +1143,7 @@ extension Workspace {
             // Use root constraints, dependency manifest constraints and extra
             // constraints to compute if a new resolution is required.
             let dependencies =
-                graphRoot.constraints +
+                graphRoot.constraints(config: config) +
                 // Include constraints from the manifests in the graph root.
                 graphRoot.manifests.flatMap({ $0.dependencyConstraints(config: config) }) +
                 currentManifests.dependencyConstraints() +
@@ -1164,7 +1166,7 @@ extension Workspace {
         // Create the constraints.
         var constraints = [RepositoryPackageConstraint]()
         constraints += currentManifests.editedPackagesConstraints()
-        constraints += graphRoot.constraints + extraConstraints
+        constraints += graphRoot.constraints(config: config) + extraConstraints
 
         // Record the start time of dependency resolution.
         let resolutionStartTime = Date()
