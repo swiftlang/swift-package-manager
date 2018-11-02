@@ -130,9 +130,12 @@ extension OutputByteStream {
 /// protocol. It can not be used as is-as subclasses as several functions need to be
 /// implemented in subclasses.
 public class _OutputByteStreamBase: OutputByteStream {
+    /// If buffering is enabled
+    @usableFromInline let _buffered : Bool
+
     /// The data buffer.
     /// Note: Minimum Buffer size should be one.
-    private var buffer: [UInt8]
+    @usableFromInline var _buffer: [UInt8]
 
     /// Default buffer size of the data buffer.
     private static let bufferSize = 1024
@@ -140,67 +143,98 @@ public class _OutputByteStreamBase: OutputByteStream {
     /// Queue to protect mutating operation.
     fileprivate let queue = DispatchQueue(label: "org.swift.swiftpm.basic.stream")
 
-    init() {
-        self.buffer = []
-        self.buffer.reserveCapacity(_OutputByteStreamBase.bufferSize)
+    init(buffered: Bool) {
+        self._buffered = buffered
+        self._buffer = []
+
+        // When not buffered we still reserve 1 byte, as it is used by the
+        // by the single byte write() variant.
+        self._buffer.reserveCapacity(buffered ? _OutputByteStreamBase.bufferSize : 1)
     }
 
     // MARK: Data Access API
 
     /// The current offset within the output stream.
-    public final var position: Int {
-        return buffer.count
+    public var position: Int {
+        return _buffer.count
     }
 
     /// Currently available buffer size.
-    private var availableBufferSize: Int {
-        return buffer.capacity - buffer.count
+    @usableFromInline var _availableBufferSize: Int {
+        return _buffer.capacity - _buffer.count
     }
 
      /// Clears the buffer maintaining current capacity.
-    private func clearBuffer() {
-        buffer.removeAll(keepingCapacity: true)
+    @usableFromInline func _clearBuffer() {
+        _buffer.removeAll(keepingCapacity: true)
     }
 
     // MARK: Data Output API
 
     public final func flush() {
-        writeImpl(buffer)
-        clearBuffer()
+        writeImpl(ArraySlice(_buffer))
+        _clearBuffer()
         flushImpl()
     }
 
-    func flushImpl() {
+    @usableFromInline func flushImpl() {
         // Do nothing.
     }
 
-    func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
+    @usableFromInline func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
+        fatalError("Subclasses must implement this")
+    }
+
+    @usableFromInline func writeImpl(_ bytes: ArraySlice<UInt8>) {
         fatalError("Subclasses must implement this")
     }
 
     /// Write an individual byte to the buffer.
     public final func write(_ byte: UInt8) {
+        guard _buffered else {
+            _buffer.append(byte)
+            writeImpl(ArraySlice(_buffer))
+            flushImpl()
+            _clearBuffer()
+            return
+        }
+
         // If buffer is full, write and clear it.
-        if availableBufferSize == 0 {
-            writeImpl(buffer)
-            clearBuffer()
+        if _availableBufferSize == 0 {
+            writeImpl(ArraySlice(_buffer))
+            _clearBuffer()
         }
 
         // This will need to change change if we ever have unbuffered stream.
-        precondition(availableBufferSize > 0)
-        buffer.append(byte)
+        precondition(_availableBufferSize > 0)
+        _buffer.append(byte)
     }
 
     /// Write a collection of bytes to the buffer.
-    public final func write<C: Collection>(_ bytes: C) where C.Element == UInt8 {
+    @inlinable public final func write<C: Collection>(_ bytes: C) where C.Element == UInt8 {
+        guard _buffered else {
+            if let b = bytes as? ArraySlice<UInt8> {
+                // Fast path for unbuffered ArraySlice
+                writeImpl(b)
+            } else if let b = bytes as? Array<UInt8> {
+                // Fast path for unbuffered Array
+                writeImpl(ArraySlice(b))
+            } else {
+                // generic collection unfortunately must be temporarily buffered
+                writeImpl(bytes)
+            }
+            flushImpl()
+            return
+        }
+
         // This is based on LLVM's raw_ostream.
-        let availableBufferSize = self.availableBufferSize
+        let availableBufferSize = self._availableBufferSize
         let byteCount = Int(bytes.count)
 
         // If we have to insert more than the available space in buffer.
         if byteCount > availableBufferSize {
             // If buffer is empty, start writing and keep the last chunk in buffer.
-            if buffer.isEmpty {
+            if _buffer.isEmpty {
                 let bytesToWrite = byteCount - (byteCount % availableBufferSize)
                 let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: numericCast(bytesToWrite))
                 writeImpl(bytes.prefix(upTo: writeUptoIndex))
@@ -212,23 +246,23 @@ public class _OutputByteStreamBase: OutputByteStream {
                     return
                 }
                 // Otherwise keep remaining in buffer.
-                buffer += bytes.suffix(from: writeUptoIndex)
+                _buffer += bytes.suffix(from: writeUptoIndex)
                 return
             }
 
             let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: numericCast(availableBufferSize))
             // Append whatever we can accommodate.
-            buffer += bytes.prefix(upTo: writeUptoIndex)
+            _buffer += bytes.prefix(upTo: writeUptoIndex)
 
-            writeImpl(buffer)
-            clearBuffer()
+            writeImpl(ArraySlice(_buffer))
+            _clearBuffer()
 
             // FIXME: We should start again with remaining chunk but this doesn't work. Write everything for now.
             //write(collection: bytes.suffix(from: writeUptoIndex))
             writeImpl(bytes.suffix(from: writeUptoIndex))
             return
         }
-        buffer += bytes
+        _buffer += bytes
     }
 }
 
@@ -264,7 +298,6 @@ public final class ThreadSafeOutputByteStream: OutputByteStream {
         queue.sync {
             stream.write(bytes)
         }
-
     }
 
     public func flush() {
@@ -537,14 +570,13 @@ public struct Format {
 /// Inmemory implementation of OutputByteStream.
 public final class BufferedOutputByteStream: _OutputByteStreamBase {
 
-    // FIXME: For inmemory implementation we should be share this buffer with OutputByteStream.
-    // One way to do this is by allowing OuputByteStream to install external buffers.
-    //
     /// Contents of the stream.
     private var contents = [UInt8]()
 
-    override public init() {
-        super.init()
+    public init() {
+        // We disable the buffering of the underlying _OutputByteStreamBase as
+        // we are explicitly buffering the whole stream in memory
+        super.init(buffered: false)
     }
 
     /// The contents of the output stream.
@@ -555,11 +587,19 @@ public final class BufferedOutputByteStream: _OutputByteStreamBase {
         return ByteString(contents)
     }
 
+    /// The current offset within the output stream.
+    override public final var position: Int {
+        return contents.count
+    }
+
     override final func flushImpl() {
         // Do nothing.
     }
 
     override final func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
+        contents += bytes
+    }
+    override final func writeImpl(_ bytes: ArraySlice<UInt8>) {
         contents += bytes
     }
 }
@@ -591,28 +631,32 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
     private var closeOnDeinit: Bool
 
     /// Instantiate using the file pointer.
-    init(filePointer: UnsafeMutablePointer<FILE>, closeOnDeinit: Bool = true) throws {
+    init(filePointer: UnsafeMutablePointer<FILE>, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
         self.filePointer = filePointer
         self.closeOnDeinit = closeOnDeinit
-        super.init()
+        super.init(buffered: buffered)
     }
 
     /// Opens the file for writing at the provided path.
     ///
     /// - Parameters:
     ///     - path: Path to the file this stream should operate on.
-    ///     - closeOnDeinit: If true closes the file on deinit. clients can use close() if they
-    ///                      want to close themselves or catch errors encountered during writing
-    ///                      to the file. Default value is true.
+    ///     - closeOnDeinit: If true closes the file on deinit. clients can use
+    ///                      close() if they want to close themselves or catch
+    ///                      errors encountered during writing to the file.
+    ///                      Default value is true.
+    ///     - buffered: If true buffers writes in memory until full or flush().
+    ///                 Otherwise, writes are processed and flushed immediately.
+    ///                 Default value is true.
     ///
     /// - Throws: FileSystemError
-    public init(_ path: AbsolutePath, closeOnDeinit: Bool = true) throws {
+    public init(_ path: AbsolutePath, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
         guard let filePointer = fopen(path.asString, "wb") else {
             throw FileSystemError(errno: errno)
         }
         self.filePointer = filePointer
         self.closeOnDeinit = closeOnDeinit
-        super.init()
+        super.init(buffered: buffered)
     }
 
     deinit {
@@ -637,6 +681,21 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
                 errorDetected()
             }
             break
+        }
+    }
+
+    override final func writeImpl(_ bytes: ArraySlice<UInt8>) {
+        bytes.withUnsafeBytes { bytesPtr in
+            while true {
+                let n = fwrite(bytesPtr.baseAddress, 1, bytesPtr.count, filePointer)
+                if n < 0 {
+                    if errno == EINTR { continue }
+                    errorDetected()
+                } else if n != bytesPtr.count {
+                    errorDetected()
+                }
+                break
+            }
         }
     }
 
