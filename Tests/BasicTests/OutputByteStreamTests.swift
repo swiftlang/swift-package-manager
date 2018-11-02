@@ -171,6 +171,22 @@ class OutputByteStreamTests: XCTestCase {
         XCTAssertEqual(read(), "Hello World")
     }
 
+    func testLocalFileStreamArraySliceUnbuffered() throws {
+        let tempFile = try TemporaryFile()
+
+        let bytes1k = [UInt8](repeating: 0, count: 1 << 10)
+
+        func read() -> ByteString? {
+            return try! localFileSystem.readFileContents(tempFile.path)
+        }
+
+        let stream = try LocalFileOutputByteStream(tempFile.path, buffered: false)
+        stream.write(bytes1k)
+        stream.flush()
+        XCTAssertEqual(read()!.contents, bytes1k)
+        try stream.close()
+    }
+
     func testThreadSafeStream() {
         var threads = [Thread]()
 
