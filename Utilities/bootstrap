@@ -257,15 +257,11 @@ class Target(object):
 
         if args.foundation_path:
             import_paths.append(args.foundation_path)
-            import_paths.append(os.path.join(args.foundation_path,
-                                             "usr/lib/swift/CoreFoundation"))
-            import_paths.append(os.path.join(args.foundation_path,
-                                             "usr/lib/swift"))
+            other_args.extend(["-F", os.path.join(args.foundation_path, "CoreFoundation-prefix", "System", "Library", "Frameworks")])
+            import_paths.append(os.path.join(args.foundation_path, "swift"))
         if args.libdispatch_build_dir:
-            import_paths.append(os.path.join(args.libdispatch_build_dir,
-                                             "src"))
-            import_paths.append(os.path.join(args.libdispatch_build_dir,
-                                             "src", "swift"))
+            import_paths.append(os.path.join(args.libdispatch_build_dir, "src"))
+            import_paths.append(os.path.join(args.libdispatch_build_dir, "src", "swift"))
         if args.libdispatch_source_dir:
             import_paths.append(args.libdispatch_source_dir)
         if args.xctest_path:
@@ -1188,16 +1184,14 @@ def main():
     build_flags.extend(create_versoning_args(args))
 
     if args.foundation_path:
-        core_foundation_path = os.path.join(
-            args.foundation_path, "usr", "lib", "swift")
+        build_flags.extend(["-Xswiftc", "-I{}".format(os.path.join(args.foundation_path, "swift"))])
+        core_foundation_path = os.path.join(args.foundation_path, "CoreFoundation-prefix", "System", "Library", "Frameworks")
+        build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-F{}".format(core_foundation_path)])
         # Tell the linker where to look for XCTest, but autolinking
         # knows to pass -lXCTest.
         build_flags.extend(["-Xlinker", "-L", "-Xlinker", args.foundation_path])
         # Add an RPATH, so that the tests can be run directly.
-        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker",
-                            args.foundation_path])
-        build_flags.extend(["-Xswiftc", "-I{}".format(args.foundation_path)])
-        build_flags.extend(["-Xswiftc", "-I{}".format(core_foundation_path)])
+        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", args.foundation_path])
 
     if args.xctest_path:
         # Tell the linker where to look for XCTest, but autolinking
