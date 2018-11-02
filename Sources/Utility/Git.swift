@@ -72,9 +72,15 @@ public class Git {
     /// git from swift build.
     public static var environment: [String: String] {
         var env = ProcessInfo.processInfo.environment
+
         // Disable terminal prompts in git. This will make git error out and return
         // when it needs a user/pass etc instead of hanging the terminal (SR-3981).
         env["GIT_TERMINAL_PROMPT"] = "0"
+
+        // The above is env variable is not enough. However, ssh_config's batch
+        // mode is made for this purpose. see: https://linux.die.net/man/5/ssh_config
+        env["GIT_SSH_COMMAND"] = "ssh -oBatchMode=yes"
+
         return env
     }
 }
