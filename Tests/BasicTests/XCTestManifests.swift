@@ -238,6 +238,7 @@ extension OutputByteStreamTests {
         ("testFormattedOutput", testFormattedOutput),
         ("testJSONEncoding", testJSONEncoding),
         ("testLocalFileStream", testLocalFileStream),
+        ("testLocalFileStreamArraySliceUnbuffered", testLocalFileStreamArraySliceUnbuffered),
         ("testStreamOperator", testStreamOperator),
         ("testThreadSafeStream", testThreadSafeStream),
     ]
