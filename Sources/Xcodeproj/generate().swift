@@ -104,6 +104,12 @@ public func generate(
         extraDirs = []
     }
 
+    // If there is a project root README, include that in the root of the Xcodeproj
+    let readmePath = xcodeprojPath.parentDirectory.appending(component: "README.md")
+    if localFileSystem.exists(readmePath, followSymlink: false) {
+        extraFiles.append(readmePath)
+    }
+
     // FIXME: This could be more efficient by directly writing to a stream
     // instead of first creating a string.
     //
