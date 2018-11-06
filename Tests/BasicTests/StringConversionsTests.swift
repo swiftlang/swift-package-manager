@@ -37,4 +37,12 @@ class StringConversionTests: XCTestCase {
         str = "hello\nA\"B C>D*[$;()^><"
         XCTAssertEqual("'hello\nA\"B C>D*[$;()^><'", str.spm_shellEscaped())
     }
+
+    func testLocalizedJoin() {
+        XCTAssertEqual("foo", ["foo"].spm_localizedJoin(type: .conjunction))
+        XCTAssertEqual("foo", ["foo"].spm_localizedJoin(type: .disjunction))
+
+        XCTAssertEqual("foo or bar", ["foo", "bar"].spm_localizedJoin(type: .disjunction))
+        XCTAssertEqual("foo, bar, and baz", ["foo", "bar", "baz"].spm_localizedJoin(type: .conjunction))
+    }
 }
