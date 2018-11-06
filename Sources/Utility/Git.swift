@@ -73,13 +73,24 @@ public class Git {
     public static var environment: [String: String] {
         var env = ProcessInfo.processInfo.environment
 
-        // Disable terminal prompts in git. This will make git error out and return
-        // when it needs a user/pass etc instead of hanging the terminal (SR-3981).
-        env["GIT_TERMINAL_PROMPT"] = "0"
+        // These variables are inserted into the environment when shelling out
+        // to git if not already present.
+        let underrideVariables =  [
+            // Disable terminal prompts in git. This will make git error out and return
+            // when it needs a user/pass etc instead of hanging the terminal (SR-3981).
+            "GIT_TERMINAL_PROMPT": "0",
 
-        // The above is env variable is not enough. However, ssh_config's batch
-        // mode is made for this purpose. see: https://linux.die.net/man/5/ssh_config
-        env["GIT_SSH_COMMAND"] = "ssh -oBatchMode=yes"
+            // The above is env variable is not enough. However, ssh_config's batch
+            // mode is made for this purpose. see: https://linux.die.net/man/5/ssh_config
+            "GIT_SSH_COMMAND": "ssh -oBatchMode=yes",
+        ]
+
+        for (key, value) in underrideVariables {
+            // Skip this key is already present in the env.
+            if env.keys.contains(key) { continue }
+
+            env[key] = value
+        }
 
         return env
     }
