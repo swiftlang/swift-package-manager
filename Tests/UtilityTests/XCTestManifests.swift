@@ -46,6 +46,7 @@ extension PkgConfigParserTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__PkgConfigParserTests = [
+        ("testBrewPrefix", testBrewPrefix),
         ("testCustomPcFileSearchPath", testCustomPcFileSearchPath),
         ("testEmptyCFlags", testEmptyCFlags),
         ("testEscapedSpaces", testEscapedSpaces),

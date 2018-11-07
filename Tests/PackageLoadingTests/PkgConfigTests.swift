@@ -98,7 +98,7 @@ class PkgConfigTests: XCTestCase {
     func testDependencies() throws {
         // Use additionalSearchPaths instead of pkgConfigArgs to test handling
         // of search paths when loading dependencies.
-        let result = try PkgConfig(name: "Dependent", additionalSearchPaths: [inputsDir], diagnostics: diagnostics)
+        let result = try PkgConfig(name: "Dependent", additionalSearchPaths: [inputsDir], diagnostics: diagnostics, brewPrefix: nil)
 
         XCTAssertEqual(result.name, "Dependent")
         XCTAssertEqual(result.cFlags, ["-I/path/to/dependent/include", "-I/path/to/dependency/include"])

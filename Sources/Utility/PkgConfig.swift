@@ -45,7 +45,7 @@ struct PCFileFinder {
     let diagnostics: DiagnosticsEngine
 
     /// Cached results of locations `pkg-config` will search for `.pc` files
-    private static var pkgConfigPaths: [AbsolutePath]?
+    private(set) static var pkgConfigPaths: [AbsolutePath]? // FIXME: @testable(internal)
 
     /// The built-in search path list.
     ///
@@ -62,12 +62,18 @@ struct PCFileFinder {
     ///
     /// This is needed because on Linux machines, the search paths can be different
     /// from the standard locations that we are currently searching.
-    public init (diagnostics: DiagnosticsEngine) {
+    public init (diagnostics: DiagnosticsEngine, brewPrefix: AbsolutePath?) {
         self.diagnostics = diagnostics
         if PCFileFinder.pkgConfigPaths == nil {
             do {
+                let pkgConfigPath: String
+                if let brewPrefix = brewPrefix {
+                    pkgConfigPath = brewPrefix.appending(components: "bin", "pkg-config").asString
+                } else {
+                    pkgConfigPath = "pkg-config"
+                }
                 let searchPaths = try Process.checkNonZeroExit(
-                args: "pkg-config", "--variable", "pc_path", "pkg-config").spm_chomp()
+                args: pkgConfigPath, "--variable", "pc_path", "pkg-config").spm_chomp()
                 PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
             } catch {
                 diagnostics.emit(data: PkgConfigExecutionDiagnostic())
@@ -130,10 +136,11 @@ public struct PkgConfig {
         name: String,
         additionalSearchPaths: [AbsolutePath] = [],
         diagnostics: DiagnosticsEngine,
-        fileSystem: FileSystem = localFileSystem
+        fileSystem: FileSystem = localFileSystem,
+        brewPrefix: AbsolutePath?
     ) throws {
         self.name = name
-        self.pkgFileFinder = PCFileFinder(diagnostics: diagnostics)
+        self.pkgFileFinder = PCFileFinder(diagnostics: diagnostics, brewPrefix: brewPrefix)
         self.pcFile = try pkgFileFinder.locatePCFile(
             name: name,
             customSearchPaths: PkgConfig.envSearchPaths + additionalSearchPaths,
@@ -154,7 +161,7 @@ public struct PkgConfig {
                     name: dep, 
                     additionalSearchPaths: additionalSearchPaths,
                     diagnostics: self.diagnostics,
-                    fileSystem: fileSystem
+                    brewPrefix: brewPrefix
                 )
                 cFlags += pkg.cFlags
                 libs += pkg.libs
