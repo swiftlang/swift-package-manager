@@ -55,13 +55,13 @@ public struct PkgConfigResult {
 }
 
 /// Get pkgConfig result for a system library target.
-public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: DiagnosticsEngine, fileSystem: FileSystem = localFileSystem) -> PkgConfigResult? {
+public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: DiagnosticsEngine, fileSystem: FileSystem = localFileSystem, brewPrefix: AbsolutePath? = nil) -> PkgConfigResult? {
     // If there is no pkg config name defined, we're done.
     guard let pkgConfigName = target.pkgConfig else { return nil }
 
     // Compute additional search paths for the provider, if any.
     let provider = target.providers?.first { $0.isAvailable }
-    let additionalSearchPaths = provider?.pkgConfigSearchPath() ?? []
+    let additionalSearchPaths = provider?.pkgConfigSearchPath(brewPrefixOverride: brewPrefix) ?? []
 
     // Get the pkg config flags.
     do {
@@ -69,7 +69,8 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: Diagnost
             name: pkgConfigName,
             additionalSearchPaths: additionalSearchPaths,
             diagnostics: diagnostics,
-            fileSystem: fileSystem)
+            fileSystem: fileSystem,
+            brewPrefix: brewPrefix)
 
         // Run the whitelist checker.
         let filtered = whitelist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
@@ -121,18 +122,27 @@ extension SystemPackageProviderDescription {
         return false
     }
 
-    func pkgConfigSearchPath() -> [AbsolutePath] {
+    func pkgConfigSearchPath(brewPrefixOverride: AbsolutePath?) -> [AbsolutePath] {
         switch self {
         case .brew(let packages):
-            // Homebrew can have multiple versions of the same package. The
-            // user can choose another version than the latest by running
-            // ``brew switch NAME VERSION``, so we shouldn't assume to link
-            // to the latest version. Instead use the version as symlinked
-            // in /usr/local/opt/(NAME)/lib/pkgconfig.
-            struct Static {
-                static let value = { try? Process.checkNonZeroExit(args: "brew", "--prefix").spm_chomp() }()
+            let brewPrefix: String
+            if let brewPrefixOverride = brewPrefixOverride {
+                brewPrefix = brewPrefixOverride.asString
+            } else {
+                // Homebrew can have multiple versions of the same package. The
+                // user can choose another version than the latest by running
+                // ``brew switch NAME VERSION``, so we shouldn't assume to link
+                // to the latest version. Instead use the version as symlinked
+                // in /usr/local/opt/(NAME)/lib/pkgconfig.
+                struct Static {
+                    static let value = { try? Process.checkNonZeroExit(args: "brew", "--prefix").spm_chomp() }()
+                }
+                if let value = Static.value {
+                    brewPrefix = value
+                } else {
+                    return []
+                }
             }
-            guard let brewPrefix = Static.value else { return [] }
             return packages.map({ AbsolutePath(brewPrefix).appending(components: "opt", $0, "lib", "pkgconfig") })
         case .apt:
             return []
