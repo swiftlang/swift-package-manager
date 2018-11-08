@@ -407,4 +407,15 @@ public enum WorkspaceDiagnostics {
             }
         )
     }
+
+    public struct RequiresResolution: DiagnosticData {
+        public static let id = DiagnosticID(
+            type: RequiresResolution.self,
+            name: "org.swift.diags.workspace.\(RequiresResolution.self)",
+            defaultBehavior: .error,
+            description: {
+                $0 <<< "cannot update Package.resolved file because automatic resolution is disabled"
+            }
+        )
+    }
 }
