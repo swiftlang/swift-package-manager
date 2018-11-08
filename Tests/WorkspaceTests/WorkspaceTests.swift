@@ -2656,14 +2656,15 @@ final class WorkspaceTests: XCTestCase {
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
             let newState = CheckoutState(revision: revision, version: "1.0.0")
 
-            pinsStore.pin(packageRef: fooPin.packageRef, state: newState )
+            pinsStore.pin(packageRef: fooPin.packageRef, state: newState)
             try pinsStore.saveState()
         }
 
-        // Check force resolve. This should still produce bar @ develop even
-        // though that requirement is gone.
+        // Check force resolve. This should produce an error because the resolved file is out-of-date.
         workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { (graph, diagnostics) in
-            XCTAssertNoDiagnostics(diagnostics)
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: "cannot update Package.resolved file because automatic resolution is disabled", checkContains: true, behavior: .error)
+            }
         }
         workspace.checkManagedDependencies() { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
@@ -2676,6 +2677,19 @@ final class WorkspaceTests: XCTestCase {
 
         // A normal resolution.
         workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+
+        // This force resolution should succeed.
+        workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { (graph, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in

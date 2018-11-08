@@ -1051,7 +1051,11 @@ extension Workspace {
         root: PackageGraphRootInput,
         diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
+        // Ensure the cache path exists.
         createCacheDirectories(with: diagnostics)
+
+        // Load the config.
+        diagnostics.wrap { try config.load() }
 
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
@@ -1095,7 +1099,21 @@ extension Workspace {
             }
         }
 
-        return loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+
+        // Check if a new resolution is required.
+        let dependencies =
+            graphRoot.constraints(config: config) +
+            // Include constraints from the manifests in the graph root.
+            graphRoot.manifests.flatMap({ $0.dependencyConstraints(config: config) }) +
+            currentManifests.dependencyConstraints()
+
+        let result = isResolutionRequired(root: graphRoot, dependencies: dependencies, pinsStore: pinsStore)
+        if result.resolve {
+            diagnostics.emit(data: WorkspaceDiagnostics.RequiresResolution())
+        }
+
+        return currentManifests
     }
 
     /// Implementation of resolve(root:diagnostics:).

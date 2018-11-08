@@ -352,8 +352,12 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.shouldEnableLLBuildLibrary = $1 })
 
         binder.bind(
-            option: parser.add(option: "--force-resolved-versions", kind: Bool.self,
-                usage: "Force resolve to versions recorded in the Package.resolved file"),
+            option: parser.add(option: "--force-resolved-versions", kind: Bool.self),
+            to: { $0.forceResolvedVersions = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--disable-automatic-resolution", kind: Bool.self,
+               usage: "Disable automatic resolution if Package.resolved file is out-of-date"),
             to: { $0.forceResolvedVersions = $1 })
 
         binder.bind(
