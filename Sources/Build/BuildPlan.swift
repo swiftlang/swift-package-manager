@@ -860,10 +860,7 @@ public class BuildPlan {
             switch dependency.underlyingTarget {
             case let target as ClangTarget where target.type == .library:
                 // Setup search paths for C dependencies:
-                // Add `-iquote` for dependencies in the package (#include "...").
-                // Add `-I` for dependencies outside the package (#include <...>).
-                let includeFlag = graph.isInRootPackages(dependency) ? "-iquote" : "-I"
-                clangTarget.additionalFlags += [includeFlag, target.includeDir.asString]
+                clangTarget.additionalFlags += ["-I", target.includeDir.asString]
             case let target as SystemLibraryTarget:
                 clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.asString)"]
                 clangTarget.additionalFlags += pkgConfig(for: target).cFlags

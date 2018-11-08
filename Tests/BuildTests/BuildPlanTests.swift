@@ -283,7 +283,7 @@ final class BuildPlanTests: XCTestCase {
         args += ["-fobjc-arc"]
       #endif
         args += ["-fblocks", "-fmodules", "-fmodule-name=exe",
-            "-I", "/Pkg/Sources/exe/include", "-iquote", "/Pkg/Sources/lib/include", "-I", "/ExtPkg/Sources/extlib/include",
+            "-I", "/Pkg/Sources/exe/include", "-I", "/Pkg/Sources/lib/include", "-I", "/ExtPkg/Sources/extlib/include",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
         XCTAssertEqual(exe.basicArguments(), args)
         XCTAssertEqual(exe.objects, [AbsolutePath("/path/to/build/debug/exe.build/main.c.o")])

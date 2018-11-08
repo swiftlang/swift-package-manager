@@ -33,8 +33,8 @@ private func XCTAssertDirectoryContainsFile(dir: AbsolutePath, filename: String,
 
 class CFamilyTargetTestCase: XCTestCase {
 
-    func testiquoteDep() {
-        fixture(name: "CFamilyTargets/CLibraryiquote") { prefix in
+    func testCLibraryWithSpaces() {
+        fixture(name: "CFamilyTargets/CLibraryWithSpaces") { prefix in
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", Destination.host.target, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Bar.c.o")
