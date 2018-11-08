@@ -7,8 +7,8 @@ extension CFamilyTargetTestCase {
     // to regenerate.
     static let __allTests__CFamilyTargetTestCase = [
         ("testCanForwardExtraFlagsToClang", testCanForwardExtraFlagsToClang),
+        ("testCLibraryWithSpaces", testCLibraryWithSpaces),
         ("testCUsingCAndSwiftDep", testCUsingCAndSwiftDep),
-        ("testiquoteDep", testiquoteDep),
         ("testModuleMapGenerationCases", testModuleMapGenerationCases),
         ("testObjectiveCPackageWithTestTarget", testObjectiveCPackageWithTestTarget),
     ]

@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "CLibraryiquote",
+    name: "CLibraryWithSpaces",
     targets: [
         .target(name: "Bar", dependencies: ["Foo"]),
         .target(name: "Baz", dependencies: ["Foo", "Bar"]),
