@@ -211,8 +211,9 @@ public class Workspace {
             return allConstraints
         }
 
+        // FIXME: @testable(internal)
         /// Returns a list of constraints for all 'edited' package.
-        fileprivate func editedPackagesConstraints() -> [RepositoryPackageConstraint] {
+        func editedPackagesConstraints() -> [RepositoryPackageConstraint] {
             var constraints = [RepositoryPackageConstraint]()
 
             for (_, managedDependency) in dependencies {
@@ -224,7 +225,7 @@ public class Workspace {
                 // We should get the correct one from managed dependency object.
                 let ref = PackageReference(
                     identity: managedDependency.packageRef.identity,
-                    path: managedDependency.packageRef.path,
+                    path: workspace.path(for: managedDependency).asString,
                     isLocal: true
                 )
                 let constraint = RepositoryPackageConstraint(
@@ -1419,9 +1420,30 @@ extension Workspace {
 
         // Set the states from resolved dependencies results.
         for (packageRef, binding) in resolvedDependencies {
-
             // Get the existing managed dependency for this package ref, if any.
-            let currentDependency = managedDependencies[forURL: packageRef.path]
+            let currentDependency: ManagedDependency?
+            if let existingDependency = managedDependencies[forURL: packageRef.path] {
+                currentDependency = existingDependency
+            } else {
+                // Check if this is a edited dependency.
+                //
+                // This is a little bit ugly but can probably be cleaned up by
+                // putting information in the PackageReference type. We change
+                // the package reference for edited packages which causes the
+                // original checkout in somewhat of a dangling state when computing
+                // the state changes this method. We basically need to ensure that
+                // the edited checkout is unchanged.
+                if let editedDependency = managedDependencies.values.first(where: {
+                    guard $0.basedOn != nil else { return false }
+                    return path(for: $0).asString == packageRef.path
+                }) {
+                    currentDependency = editedDependency
+                    let originalReference = editedDependency.basedOn!.packageRef
+                    packageStateChanges[originalReference.path] = (originalReference, .unchanged)
+                } else {
+                    currentDependency = nil
+                }
+            }
 
             switch binding {
             case .excluded:

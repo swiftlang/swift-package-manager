@@ -1342,6 +1342,12 @@ final class WorkspaceTests: XCTestCase {
         }
         XCTAssertTrue(fs.exists(fooPath))
 
+        workspace.loadDependencyManifests(roots: ["Root"]) { (manifests, diagnostics) in
+            let editedPackages = manifests.editedPackagesConstraints()
+            XCTAssertEqual(editedPackages.map({ $0.identifier.path }), [fooPath.asString])
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
         // Try re-editing foo.
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
@@ -1578,6 +1584,14 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
 
+        // Add entry for the edited package.
+        do {
+            let barKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Bar")
+            let editedBarKey = MockManifestLoader.Key(url: "/tmp/ws/edits/Bar")
+            let manifest = workspace.manifestLoader.manifests[barKey]!
+            workspace.manifestLoader.manifests[editedBarKey] = manifest
+        }
+
         // Now, resolve foo at a different version.
         workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.2.0") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -1748,6 +1762,14 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkResolved() { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+
+        // Add entry for the edited package.
+        do {
+            let fooKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Foo")
+            let editedFooKey = MockManifestLoader.Key(url: "/tmp/ws/edits/Foo")
+            let manifest = workspace.manifestLoader.manifests[fooKey]!
+            workspace.manifestLoader.manifests[editedFooKey] = manifest
         }
 
         // Try resolving a bad graph.
