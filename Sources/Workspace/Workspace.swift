@@ -1001,18 +1001,20 @@ extension Workspace {
 
             // Make sure the package has the right minimum tools version.
             guard toolsVersion >= ToolsVersion.minimumRequired else {
-                throw WorkspaceDiagnostics.IncompatibleToolsVersion(
-                    rootPackagePath: packagePath,
-                    requiredToolsVersion: .v4,
-                    currentToolsVersion: toolsVersion)
+                throw WorkspaceDiagnostics.UnsupportedToolsVersion(
+                    packagePath: packagePath,
+                    minimumRequiredToolsVersion: .minimumRequired,
+                    packageToolsVersion: toolsVersion
+                )
             }
 
             // Make sure the package isn't newer than the current tools version.
             guard currentToolsVersion >= toolsVersion else {
-                throw WorkspaceDiagnostics.IncompatibleToolsVersion(
-                    rootPackagePath: packagePath,
-                    requiredToolsVersion: toolsVersion,
-                    currentToolsVersion: currentToolsVersion)
+                throw WorkspaceDiagnostics.RequireNewerTools(
+                    packagePath: packagePath,
+                    installedToolsVersion: currentToolsVersion,
+                    packageToolsVersion: toolsVersion
+                )
             }
 
             // Load the manifest.

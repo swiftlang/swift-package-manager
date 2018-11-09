@@ -249,26 +249,47 @@ public enum WorkspaceDiagnostics {
         public let revision: String
     }
 
-    /// The diagnostic triggered when the root package has an incompatible tools version.
-    public struct IncompatibleToolsVersion: DiagnosticData, Swift.Error {
+    /// The diagnostic triggered when the root package has a newer tools version than the installed tools.
+    public struct RequireNewerTools: DiagnosticData, Swift.Error {
         public static var id = DiagnosticID(
-            type: IncompatibleToolsVersion.self,
-            name: "org.swift.diags.workspace.incompatible-tools-version",
+            type: RequireNewerTools.self,
+            name: "org.swift.diags.workspace.\(RequireNewerTools.self)",
             description: {
-                $0 <<< "package at" <<< { "'\($0.rootPackagePath.asString)'" }
-                $0 <<< "is using Swift tools version" <<< { $0.currentToolsVersion.description }
-                $0 <<< "which is no longer supported; use" <<< { $0.requiredToolsVersion.description }
-                $0 <<< "or newer instead"
+                $0 <<< "package at" <<< { "'\($0.packagePath.asString)'" }
+                $0 <<< "is using Swift tools version" <<< { $0.packageToolsVersion.description }
+                $0 <<< "but the installed version is" <<< { "\($0.installedToolsVersion.description)" }
             })
-        
+
         /// The path of the package.
-        public let rootPackagePath: AbsolutePath
-        
+        public let packagePath: AbsolutePath
+
+        /// The installed tools version.
+        public let installedToolsVersion: ToolsVersion
+
+        /// The tools version of the package.
+        public let packageToolsVersion: ToolsVersion
+    }
+
+    /// The diagnostic triggered when the root package has an unsupported tools version.
+    public struct UnsupportedToolsVersion: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: UnsupportedToolsVersion.self,
+            name: "org.swift.diags.workspace.\(UnsupportedToolsVersion.self)",
+            description: {
+                $0 <<< "package at" <<< { "'\($0.packagePath.asString)'" }
+                $0 <<< "is using Swift tools version" <<< { $0.packageToolsVersion.description }
+                $0 <<< "which is no longer supported; use" <<< { $0.minimumRequiredToolsVersion.description }
+                $0 <<< "or newer instead"
+        })
+
+        /// The path of the package.
+        public let packagePath: AbsolutePath
+
         /// The tools version required by the package.
-        public let requiredToolsVersion: ToolsVersion
-        
+        public let minimumRequiredToolsVersion: ToolsVersion
+
         /// The current tools version.
-        public let currentToolsVersion: ToolsVersion
+        public let packageToolsVersion: ToolsVersion
     }
     
     /// The diagnostic triggered when the package at the edit destination is not the
