@@ -46,6 +46,7 @@ extension RepositoryManagerTests {
         ("testPersistence", testPersistence),
         ("testReset", testReset),
         ("testSkipUpdate", testSkipUpdate),
+        ("testStateFileResilience", testStateFileResilience),
     ]
 }
 
