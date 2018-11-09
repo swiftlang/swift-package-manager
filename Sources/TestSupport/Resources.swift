@@ -53,7 +53,7 @@ public class Resources: ManifestResourceProvider {
       #elseif os(macOS)
         binDir = bundleRoot()
       #else
-        binDir = AbsolutePath(CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory
+        binDir = AbsolutePath(CommandLine.arguments[0], relativeTo: localFileSystem.currentWorkingDirectory!).parentDirectory
       #endif
         toolchain = try! UserToolchain(destination: Destination.hostDestination(binDir))
     }
