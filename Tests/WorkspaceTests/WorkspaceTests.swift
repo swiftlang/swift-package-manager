@@ -97,6 +97,14 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "quix", at: .checkout(.version("1.2.0")))
         }
 
+        let stateFile = workspace.createWorkspace().managedDependencies.statePath
+
+        // Remove state file and check we can get the state back automatically.
+        try fs.removeFileTree(stateFile)
+
+        workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { _, _ in }
+        XCTAssertTrue(fs.exists(stateFile))
+
         // Remove state file and check we get back to a clean state.
         try fs.removeFileTree(workspace.createWorkspace().managedDependencies.statePath)
         workspace.closeWorkspace()
