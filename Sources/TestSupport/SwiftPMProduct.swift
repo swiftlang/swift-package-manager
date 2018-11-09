@@ -43,7 +43,7 @@ public enum SwiftPMProduct {
         }
         fatalError()
       #else
-        return AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory)
+        return AbsolutePath(CommandLine.arguments.first!, relativeTo: localFileSystem.currentWorkingDirectory!)
             .parentDirectory.appending(self.exec)
       #endif
     }
