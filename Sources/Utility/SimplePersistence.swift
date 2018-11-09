@@ -49,7 +49,7 @@ public final class SimplePersistence {
     }
 
     /// The fileSystem to operate on.
-    private var fileSystem: FileSystem
+    private let fileSystem: FileSystem
 
     /// The schema of the state file.
     private let schemaVersion: Int
@@ -148,5 +148,10 @@ public final class SimplePersistence {
         // FIXME: This should write atomically.
         try fileSystem.writeFileContents(
             statePath, bytes: JSON(json).toBytes(prettyPrint: self.prettyPrint))
+    }
+
+    /// Returns true if the state file exists on the filesystem.
+    public func stateFileExists() -> Bool {
+        return fileSystem.exists(statePath)
     }
 }

@@ -307,9 +307,16 @@ public class RepositoryManager {
     }
 
     /// Returns the handle for repository if available, otherwise creates a new one.
+    ///
     /// Note: This method is thread safe.
     private func getHandle(repository: RepositorySpecifier) -> RepositoryHandle {
         return serialQueue.sync {
+
+            // Reset if the state file was deleted during the lifetime of RepositoryManager.
+            if !self.serializedRepositories.isEmpty && !self.persistence.stateFileExists() {
+                self.unsafeReset()
+            }
+
             let handle: RepositoryHandle
             if let oldHandle = self.repositories[repository.url] {
                 handle = oldHandle
@@ -362,9 +369,15 @@ public class RepositoryManager {
     /// Note: This also removes the cloned repositories from the disk.
     public func reset() {
         serialQueue.sync {
-            self.repositories = [:]
-            try? self.fileSystem.removeFileTree(path)
+            self.unsafeReset()
         }
+    }
+
+    /// Performs the reset operation without the serial queue.
+    private func unsafeReset() {
+        self.repositories = [:]
+        self.serializedRepositories = [:]
+        try? self.fileSystem.removeFileTree(path)
     }
 }
 

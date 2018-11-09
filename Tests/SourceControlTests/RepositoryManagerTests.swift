@@ -75,7 +75,8 @@ private class DummyRepositoryProvider: RepositoryProvider {
     
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         assert(!localFileSystem.exists(path))
-        try! localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.url))
+        try localFileSystem.createDirectory(path.parentDirectory, recursive: true)
+        try localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.url))
 
         numClones += 1
         
@@ -370,6 +371,36 @@ class RepositoryManagerTests: XCTestCase {
             XCTAssertEqual(delegate.didFetch.count, 1)
             XCTAssertEqual(delegate.willUpdate.count, 2)
             XCTAssertEqual(delegate.didUpdate.count, 2)
+        }
+    }
+
+    func testStateFileResilience() throws {
+        mktmpdir { path in
+            // Setup a dummy repository.
+            let repos = path.appending(component: "repo")
+            let provider = DummyRepositoryProvider()
+            let delegate = DummyRepositoryManagerDelegate()
+            try localFileSystem.createDirectory(repos, recursive: true)
+            let manager = RepositoryManager(path: repos, provider: provider, delegate: delegate)
+            let dummyRepo = RepositorySpecifier(url: "dummy")
+
+            // Perform a lookup.
+            _ = try manager.lookupSynchronously(repository: dummyRepo)
+            XCTAssertEqual(delegate.didFetch.count, 1)
+
+            // Delete the checkout state file.
+            let stateFile = repos.appending(component: "checkouts-state.json")
+            try localFileSystem.removeFileTree(stateFile)
+
+            // We should refetch the repository since we lost the state file.
+            _ = try manager.lookupSynchronously(repository: dummyRepo)
+            XCTAssertEqual(delegate.didFetch.count, 2)
+
+            // This time remove the entire repository directory and expect that
+            // to work as well.
+            try localFileSystem.removeFileTree(repos)
+            _ = try manager.lookupSynchronously(repository: dummyRepo)
+            XCTAssertEqual(delegate.didFetch.count, 3)
         }
     }
 }
