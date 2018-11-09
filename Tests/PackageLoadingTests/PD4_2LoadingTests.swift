@@ -358,6 +358,61 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         }
     }
 
+    func testCacheInvalidationOnEnv() {
+        mktmpdir { path in
+            let fs = localFileSystem
+
+            let manifestPath = path.appending(components: "pkg", "Package.swift")
+            try fs.writeFileContents(manifestPath) { stream in
+                stream <<< """
+                    import PackageDescription
+                    let package = Package(
+                        name: "Trivial",
+                        targets: [
+                            .target(
+                                name: "foo",
+                                dependencies: []),
+                        ]
+                    )
+                    """
+            }
+
+            let delegate = ManifestTestDelegate()
+
+            let manifestLoader = ManifestLoader(
+                manifestResources: Resources.default, cacheDir: path, delegate: delegate)
+
+            func check(loader: ManifestLoader, expectCached: Bool) {
+                delegate.clear()
+                let manifest = try! loader.load(
+                    package: manifestPath.parentDirectory,
+                    baseURL: manifestPath.asString,
+                    manifestVersion: .v4_2)
+
+                XCTAssertEqual(delegate.loaded, [manifestPath])
+                XCTAssertEqual(delegate.parsed, expectCached ? [] : [manifestPath])
+                XCTAssertEqual(manifest.name, "Trivial")
+                XCTAssertEqual(manifest.targets[0].name, "foo")
+            }
+
+            check(loader: manifestLoader, expectCached: false)
+            check(loader: manifestLoader, expectCached: true)
+
+            try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "1"]) {
+                check(loader: manifestLoader, expectCached: false)
+                check(loader: manifestLoader, expectCached: true)
+            }
+
+            try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "2"]) {
+                check(loader: manifestLoader, expectCached: false)
+                check(loader: manifestLoader, expectCached: true)
+            }
+
+            check(loader: manifestLoader, expectCached: false)
+            check(loader: manifestLoader, expectCached: true)
+        }
+    }
+
     func testCaching() {
         mktmpdir { path in
             let fs = localFileSystem
