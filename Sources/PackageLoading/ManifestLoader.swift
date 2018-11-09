@@ -13,6 +13,7 @@ import PackageModel
 import Utility
 import SPMLLBuild
 import struct POSIX.FileInfo
+import class Foundation.ProcessInfo
 public typealias FileSystem = Basic.FileSystem
 
 public enum ManifestParseError: Swift.Error {
@@ -475,6 +476,8 @@ final class ManifestCacheDelegate: LLBuildEngineDelegate {
             return FileInfoRule(key)
         case SwiftPMVersionRule.ruleName:
             return SwiftPMVersionRule()
+        case ProcessEnvRule.ruleName:
+            return ProcessEnvRule()
         default:
             fatalError("Unknown rule \(rule)")
         }
@@ -509,8 +512,12 @@ final class ManifestLoadRule: LLBuildRule {
     }
 
     override func start(_ engine: LLTaskBuildEngine) {
-        engine.taskNeedsInput(SwiftPMVersionRule.RuleKey(), inputID: 1)
-        engine.taskNeedsInput(FileInfoRule.RuleKey(path: key.path), inputID: 2)
+        // FIXME: Ideally, we should expose an API in the manifest file to track individual
+        // environment variables instead of blindly invalidating when *anything* changes.
+        engine.taskNeedsInput(ProcessEnvRule.RuleKey(), inputID: 1)
+
+        engine.taskNeedsInput(SwiftPMVersionRule.RuleKey(), inputID: 2)
+        engine.taskNeedsInput(FileInfoRule.RuleKey(path: key.path), inputID: 3)
     }
 
     override func inputsAvailable(_ engine: LLTaskBuildEngine) {
@@ -518,6 +525,34 @@ final class ManifestLoadRule: LLBuildRule {
             try loader.parse(path: key.path, manifestVersion: key.manifestVersion)
         })
         engine.taskIsComplete(value)
+    }
+}
+
+// FIXME: Find a proper place for this rule.
+/// A rule to compute the current process environment.
+///
+/// This rule will always run.
+final class ProcessEnvRule: LLBuildRule {
+
+    struct RuleKey: LLBuildKey {
+        typealias BuildValue = RuleValue
+        typealias BuildRule = ProcessEnvRule
+    }
+
+    struct RuleValue: LLBuildValue, Equatable {
+        let env: [String: String]
+    }
+
+    override class var ruleName: String { return "\(ProcessEnvRule.self)" }
+
+    override func isResultValid(_ priorValue: Value) -> Bool {
+        // Always rebuild this rule.
+        return false
+    }
+
+    override func inputsAvailable(_ engine: LLTaskBuildEngine) {
+        let env = ProcessInfo.processInfo.environment
+        engine.taskIsComplete(RuleValue(env: env))
     }
 }
 
