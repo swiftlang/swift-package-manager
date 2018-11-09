@@ -276,6 +276,11 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
         try self.persistence.saveState(self)
     }
 
+     /// Returns true if the state file exists on the filesystem.
+     public func stateFileExists() -> Bool {
+         return persistence.stateFileExists()
+     }
+
     public var values: AnySequence<ManagedDependency> {
         return AnySequence<ManagedDependency>(dependencyMap.values)
     }

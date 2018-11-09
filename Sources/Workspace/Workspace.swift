@@ -1589,6 +1589,12 @@ extension Workspace {
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
     fileprivate func fixManagedDependencies(with diagnostics: DiagnosticsEngine) {
+
+        // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
+        if managedDependencies.values.contains(where: { _ in true }) && !managedDependencies.stateFileExists() {
+            try? managedDependencies.reset()
+        }
+
         for dependency in managedDependencies.values {
             diagnostics.wrap {
 
