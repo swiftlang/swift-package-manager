@@ -12,15 +12,43 @@ import Basic
 import Utility
 
 /// The supported manifest versions.
-public enum ManifestVersion: String, Codable {
-    case v4 = "4"
-    case v4_2 = "4_2"
+public enum ManifestVersion: String, Codable, CustomStringConvertible {
+    case v4
+    case v4_2
+    case v5
 
     /// The Swift language version to use when parsing the manifest file.
     public var swiftLanguageVersion: SwiftLanguageVersion {
+        // FIXME: This is not very scalable. We need to store the tools
+        // version in the manifest and then use that to compute the right
+        // Swift version instead of relying on the manifest version.  The
+        // manifest version is just the version that was used to load the
+        // manifest and shouldn't contribute to what Swift version is
+        // chosen. For e.g., we might have a new manifest version 4.3, but
+        // the language version should still be 4.2.
         switch self {
         case .v4: return .v4
         case .v4_2: return .v4_2
+        case .v5: return .v5
+        }
+    }
+
+    public var description: String {
+        switch self {
+        case .v4: return "4"
+        case .v4_2: return "4.2"
+        case .v5: return "5"
+        }
+    }
+
+    /// Subpath to the the runtime for this manifest version.
+    public var runtimeSubpath: RelativePath {
+        switch self {
+        case .v4:
+            return RelativePath("4")
+        case .v4_2, .v5:
+            // PackageDescription 4.2 and 5 are source compatible so they're contained in the same dylib.
+            return RelativePath("4_2")
         }
     }
 }

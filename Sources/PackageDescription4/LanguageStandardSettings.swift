@@ -45,6 +45,7 @@ public enum SwiftVersion {
     case v3
     case v4
     case v4_2
+    case v5
 
     /// User-defined value of Swift version.
     ///
@@ -54,17 +55,24 @@ public enum SwiftVersion {
 
 extension SwiftVersion: Encodable {
     public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
+        let value: VersionedValue<String>
+        let api = String(reflecting: self)
+
         switch self {
         case .v3:
-            try container.encode("3")
+            value = VersionedValue("3", api: api, versions: [.v4_2])
         case .v4:
-            try container.encode("4")
+            value = VersionedValue("4", api: api)
         case .v4_2:
-            try container.encode("4.2")
-        case .version(let value):
-            try container.encode(value)
+            value = VersionedValue("4.2", api: api)
+        case .v5:
+            value = VersionedValue("5", api: api, versions: [.v5])
+        case .version(let v):
+            value = VersionedValue(v, api: api)
         }
+
+        var container = encoder.singleValueContainer()
+        try container.encode(value)
     }
 }
 #endif

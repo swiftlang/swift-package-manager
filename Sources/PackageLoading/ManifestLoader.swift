@@ -24,6 +24,8 @@ public enum ManifestParseError: Swift.Error {
     case runtimeManifestErrors([String])
 
     case duplicateDependencyDecl([[PackageDependencyDescription]])
+
+    case unsupportedAPI(api: String, supportedVersions: [ManifestVersion])
 }
 
 /// Resources required for manifest loading.
@@ -59,13 +61,23 @@ extension ToolsVersion {
         // ManifestVersion a proper version type and then automatically
         // determine the best version from the available versions.
         //
-        // If the tools version is less than 4.2, return manifest version 4.
-        if major == 4 && minor < 2 {
-            return .v4
-        }
+        // At this point, we expect the tools version to be greater than the minimum required.
+        assert(self >= .minimumRequired, "unexpected tools version \(self)")
 
-        // Return 4.2 otherwise.
-        return .v4_2
+        switch major {
+        case 4:
+            // If the tools version is less than 4.2, return manifest version 4.
+            if minor < 2 {
+                return .v4
+            }
+
+            // Otherwise, return 4.2
+            return .v4_2
+
+        default:
+            // For rest, return the latest manifest version.
+            return .v5
+        }
     }
 }
 
@@ -216,11 +228,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // Load the manifest from JSON.
         let json = try JSON(string: jsonString)
-        let manifestBuilder = try ManifestBuilder(
-            v4: json,
+        var manifestBuilder = ManifestBuilder(
+            manifestVersion: manifestVersion,
             baseURL: baseURL,
             fileSystem: fileSystem ?? localFileSystem
         )
+        try manifestBuilder.build(v4: json)
 
         // Throw if we encountered any runtime errors.
         guard manifestBuilder.errors.isEmpty else {
@@ -418,7 +431,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Returns the runtime path given the manifest version and path to libDir.
     private func runtimePath(for version: ManifestVersion) -> AbsolutePath {
-        return resources.libDir.appending(component: version.rawValue)
+        return resources.libDir.appending(version.runtimeSubpath)
     }
 
     /// Returns the build engine.
