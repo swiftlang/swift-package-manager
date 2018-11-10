@@ -61,7 +61,6 @@ class GenerateXcodeprojTests: XCTestCase {
                Information about project "DummyProjectName":
                    Targets:
                        DummyModuleName
-                       FooPackageDescription
 
                    Build Configurations:
                        Debug

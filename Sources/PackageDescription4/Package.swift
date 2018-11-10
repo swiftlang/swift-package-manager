@@ -215,7 +215,8 @@ extension Package: Encodable {
         try container.encode(dependencies, forKey: .dependencies)
         try container.encode(targets, forKey: .targets)
       #if PACKAGE_DESCRIPTION_4
-        try container.encode(swiftLanguageVersions?.map(String.init), forKey: .swiftLanguageVersions)
+        let slv = swiftLanguageVersions?.map({ VersionedValue(String($0), api: "") })
+        try container.encode(slv, forKey: .swiftLanguageVersions)
       #else
         try container.encode(swiftLanguageVersions, forKey: .swiftLanguageVersions)
       #endif

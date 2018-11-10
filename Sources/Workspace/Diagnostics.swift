@@ -69,6 +69,10 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestParseDiagnostic(errors)
         case .duplicateDependencyDecl(let duplicates):
             return ManifestDuplicateDeclDiagnostic(duplicates)
+        case .unsupportedAPI(let api, let supportedVersions):
+            var error = "'\(api)' is only supported by manifest version(s): "
+            error += supportedVersions.map({ $0.description }).joined(separator: ", ")
+            return ManifestParseDiagnostic([error])
         }
     }
 }

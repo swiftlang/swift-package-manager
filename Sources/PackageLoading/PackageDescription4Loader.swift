@@ -13,23 +13,58 @@ import Utility
 import PackageModel
 
 extension ManifestBuilder {
-    init(v4 json: JSON, baseURL: String, fileSystem: FileSystem) throws {
+    mutating func build(v4 json: JSON) throws {
         let package = try json.getJSON("package")
-        self.name = try package.get("name")
+        self.name = try package.get(String.self, forKey: "name")
         self.pkgConfig = package.get("pkgConfig")
-        let slv = try? package.get([String].self, forKey: "swiftLanguageVersions")
-        self.swiftLanguageVersions = slv?.compactMap(SwiftLanguageVersion.init(string:))
+        self.swiftLanguageVersions = try parseSwiftLanguageVersion(package)
         self.products = try package.getArray("products").map(ProductDescription.init(v4:))
         self.providers = try? package.getArray("providers").map(SystemPackageProviderDescription.init(v4:))
         self.targets = try package.getArray("targets").map(TargetDescription.init(v4:))
         self.dependencies = try package
              .getArray("dependencies")
-             .map({ try PackageDependencyDescription(v4: $0, baseURL: baseURL, fileSystem: fileSystem) })
+             .map({ try PackageDependencyDescription(v4: $0, baseURL: self.baseURL, fileSystem: self.fs) })
 
         self.cxxLanguageStandard = package.get("cxxLanguageStandard")
         self.cLanguageStandard = package.get("cLanguageStandard")
 
         self.errors = try json.get("errors")
+    }
+
+    func parseSwiftLanguageVersion(_ package: JSON) throws -> [SwiftLanguageVersion]?  {
+        guard let versionJSON = try? package.getArray("swiftLanguageVersions") else {
+            return nil
+        }
+
+        /// Parse the versioned value.
+        let versionedValues = try versionJSON.map({ try VersionedValue(json: $0) })
+
+        return try versionedValues.map { versionedValue in 
+            // Throw if this versioned value is not supported by the package's
+            // manifest version.
+            if !versionedValue.supportedVersions.contains(self.manifestVersion) {
+                throw ManifestParseError.unsupportedAPI(
+                    api: versionedValue.api,
+                    supportedVersions: versionedValue.supportedVersions
+                )
+            }
+            
+            return try SwiftLanguageVersion(string: String(json: versionedValue.value))!
+        }
+    }
+}
+
+struct VersionedValue: JSONMappable {
+    let supportedVersions: [ManifestVersion]
+    let value: JSON
+    let api: String
+
+    init(json: JSON) throws {
+        self.api = try json.get(String.self, forKey: "api")
+        self.value = try json.getJSON("value")
+
+        let supportedVersionsJSON = try json.get([String].self, forKey: "supportedVersions")
+        self.supportedVersions = supportedVersionsJSON.map({ ManifestVersion(rawValue: $0)! })
     }
 }
 

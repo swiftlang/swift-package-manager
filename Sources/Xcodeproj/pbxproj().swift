@@ -70,16 +70,18 @@ func xcodeProject(
 
     // Generates a dummy target to provide autocompletion for the manifest file.
     func createPackageDescriptionTarget(for package: ResolvedPackage, manifestFileRef: Xcode.FileReference) {
+        guard let manifestLoader = options.manifestLoader else { return }
+
         let pdTarget = project.addTarget(
             objectID: "\(package.name)::SwiftPMPackageDescription",
             productType: .framework, name: "\(package.name)PackageDescription")
         let compilePhase = pdTarget.addSourcesBuildPhase()
         compilePhase.addBuildFile(fileRef: manifestFileRef)
 
-        var interpreterFlags = options.manifestLoader?.interpreterFlags(for: package.manifest.manifestVersion) ?? []
+        var interpreterFlags = manifestLoader.interpreterFlags(for: package.manifest.manifestVersion)
         if !interpreterFlags.isEmpty {
             // Patch the interpreter flags to use Xcode supported toolchain macro instead of the resolved path.
-            interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/" + String(package.manifest.manifestVersion.rawValue)
+            interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/" + package.manifest.manifestVersion.runtimeSubpath.asString
         }
         pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS += interpreterFlags
         pdTarget.buildSettings.common.SWIFT_VERSION = package.manifest.manifestVersion.swiftLanguageVersion.xcodeBuildSettingValue

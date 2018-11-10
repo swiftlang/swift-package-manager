@@ -161,6 +161,26 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 [.v3, .v4, .v4_2, SwiftLanguageVersion(string: "5")!]
             )
         }
+
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               swiftLanguageVersions: [.v5]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail()
+        } catch {
+            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+                return XCTFail("\(error)")
+            }
+            XCTAssertEqual(api, "PackageDescription.SwiftVersion.v5")
+            XCTAssertEqual(supportedVersions, [.v5])
+        }
     }
 
     func testPackageDependencies() throws {

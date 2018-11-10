@@ -83,8 +83,7 @@ extension ModuleError: CustomStringConvertible {
             if required.isEmpty {
                 return "package '\(package)' supported Swift language versions is empty"
             }
-            let required = required.map(String.init).joined(separator: ", ")
-            return "package '\(package)' not compatible with current tools version (\(current)); it supports: \(required)"
+            return "package '\(package)' requires minimum Swift language version \(required[0]) which is not supported by the current tools version (\(current))"
         case .targetOutsidePackage(let package, let target):
             return "target '\(target)' in package '\(package)' is outside the package root"
         case .unsupportedTargetPath(let targetPath):
@@ -358,7 +357,7 @@ public final class PackageBuilder {
             // Emit deprecation notice.
             switch manifest.manifestVersion {
             case .v4: break
-            case .v4_2:
+            case .v4_2, .v5:
                 diagnostics.emit(
                     data: PackageBuilderDiagnostics.SystemPackageDeprecatedDiagnostic(),
                     location: diagnosticLocation()
@@ -710,20 +709,7 @@ public final class PackageBuilder {
             computedSwiftVersion = swiftVersion
         } else {
             // Otherwise, use the version depending on the manifest version.
-            //
-            // FIXME: This is not very scalable. We need to store the tools
-            // version in the manifest and then use that to compute the right
-            // Swift version instead of relying on the manifest version.  The
-            // manifest version is just the version that was used to load the
-            // manifest and shouldn't contribute to what Swift version is
-            // chosen. For e.g., we might have a new manifest version 4.3, but
-            // the language version should still be 4.2.
-            switch manifest.manifestVersion {
-            case .v4:
-                computedSwiftVersion = .v4
-            case .v4_2:
-                computedSwiftVersion = .v4_2
-            }
+            computedSwiftVersion = manifest.manifestVersion.swiftLanguageVersion
         }
         _swiftVersion = computedSwiftVersion
         return computedSwiftVersion

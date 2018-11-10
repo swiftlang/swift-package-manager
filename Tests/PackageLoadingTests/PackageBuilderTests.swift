@@ -1034,11 +1034,10 @@ class PackageBuilderTests: XCTestCase {
             result.checkDiagnostic("package 'pkg' supported Swift language versions is empty")
         }
 
-        // package.swiftLanguageVersions = ["5", "6"]
         manifest = createManifest(
-            swiftVersions: [SwiftLanguageVersion(string: "5")!, SwiftLanguageVersion(string: "6")!])
+            swiftVersions: [SwiftLanguageVersion(string: "6")!, SwiftLanguageVersion(string: "7")!])
         PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("package \'pkg\' not compatible with current tools version (4.2.0); it supports: 5, 6")
+            result.checkDiagnostic("package \'pkg\' requires minimum Swift language version 6 which is not supported by the current tools version (5.0.0)")
         }
     }
 

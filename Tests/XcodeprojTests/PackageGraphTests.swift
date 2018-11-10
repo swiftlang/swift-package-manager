@@ -169,16 +169,6 @@ class PackageGraphTests: XCTestCase {
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_SWIFT_FLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
-
-            result.check(target: "FooPackageDescription") { targetResult in
-                targetResult.check(productType: .framework)
-                targetResult.check(dependencies: [])
-            }
-
-            result.check(target: "BarPackageDescription") { targetResult in
-                targetResult.check(productType: .framework)
-                targetResult.check(dependencies: [])
-            }
         }
     }
 
