@@ -88,46 +88,48 @@ public final class InitPackage {
                 import PackageDescription
 
                 let package = Package(
-                    name: "\(pkgname)",
 
                 """
 
-            if packageType == .library {
-                stream <<< """
-                        products: [
-                            // Products define the executables and libraries produced by a package, and make them visible to other packages.
-                            .library(
-                                name: "\(pkgname)",
-                                targets: ["\(pkgname)"]),
-                        ],
+            var pkgParams = [String]()
+            pkgParams.append("""
+                    name: "\(pkgname)"
+                """)
 
-                    """
+            if packageType == .library {
+                pkgParams.append("""
+                    products: [
+                        // Products define the executables and libraries produced by a package, and make them visible to other packages.
+                        .library(
+                        name: "\(pkgname)",
+                        targets: ["\(pkgname)"]),
+                    ]
+                """)
             }
 
-            stream <<< """
+            pkgParams.append("""
                     dependencies: [
                         // Dependencies declare other packages that this package depends on.
                         // .package(url: /* package url */, from: "1.0.0"),
-                    ],
-
-                """
+                    ]
+                """)
 
             if packageType == .library || packageType == .executable {
-                stream <<< """
-                        targets: [
-                            // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-                            // Targets can depend on other targets in this package, and on products in packages which this package depends on.
-                            .target(
-                                name: "\(pkgname)",
-                                dependencies: []),
-                            .testTarget(
-                                name: "\(pkgname)Tests",
-                                dependencies: ["\(pkgname)"]),
-                        ]
-
-                    """
+                pkgParams.append("""
+                    targets: [
+                        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
+                        // Targets can depend on other targets in this package, and on products in packages which this package depends on.
+                        .target(
+                            name: "\(pkgname)",
+                            dependencies: []),
+                        .testTarget(
+                            name: "\(pkgname)Tests",
+                            dependencies: ["\(pkgname)"]),
+                    ]
+                """)
             }
-            stream <<< ")\n"
+
+            stream <<< pkgParams.joined(separator: ",\n") <<< "\n)\n"
         }
 
         // Create a tools version with current version but with patch set to zero.

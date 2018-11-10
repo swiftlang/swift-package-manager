@@ -38,7 +38,12 @@ class InitTests: XCTestCase {
             XCTAssert(progressMessages.count > 0)
 
             // Verify basic file system content that we expect in the package
-            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            let manifest = path.appending(component: "Package.swift")
+            XCTAssertTrue(fs.exists(manifest))
+            let manifestContents = try localFileSystem.readFileContents(manifest).asString!
+            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
+            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+            XCTAssertTrue(manifestContents.contains(packageWithNameAndDependencies(with: name)))
             XCTAssert(fs.exists(path.appending(component: "README.md")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
@@ -149,7 +154,12 @@ class InitTests: XCTestCase {
             XCTAssert(progressMessages.count > 0)
 
             // Verify basic file system content that we expect in the package
-            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            let manifest = path.appending(component: "Package.swift")
+            XCTAssertTrue(fs.exists(manifest))
+            let manifestContents = try localFileSystem.readFileContents(manifest).asString!
+            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
+            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+            XCTAssertTrue(manifestContents.contains(packageWithNameAndDependencies(with: name)))
             XCTAssert(fs.exists(path.appending(component: "README.md")))
             XCTAssert(fs.exists(path.appending(component: "module.modulemap")))
         }
@@ -196,5 +206,17 @@ class InitTests: XCTestCase {
           XCTAssertBuilds(packageRoot)
         #endif
         
+    }
+
+    private func packageWithNameAndDependencies(with name: String) -> String {
+        return """
+let package = Package(
+    name: "\(name)",
+    dependencies: [
+        // Dependencies declare other packages that this package depends on.
+        // .package(url: /* package url */, from: "1.0.0"),
+    ]
+)
+"""
     }
 }
