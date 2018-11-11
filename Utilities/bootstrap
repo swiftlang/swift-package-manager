@@ -227,9 +227,6 @@ class Target(object):
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
         link_input_nodes.append(compile_swift_node)
 
-        if args.libdispatch_source_dir:
-            other_args.extend(["-Xcc", "-fblocks"])
-
         other_args.extend(["-swift-version", "4"])
         
         print("  %s:" % json.dumps(compile_swift_node), file=output)
@@ -1143,21 +1140,44 @@ def main():
         mkdir_p(usrdir)
         symlink_force(os.path.join(sandbox_path, "lib"), usrdir)
 
-        if args.foundation_path:
+        if args.foundation_path and args.libdispatch_build_dir and args.xctest_path:
             libswiftdir = os.path.join(sandbox_path, "lib", "swift", "linux")
+            libincludedir = os.path.join(libswiftdir, "x86_64")
             mkdir_p(libswiftdir)
-            symlink_force(os.path.join(args.foundation_path, 'libFoundation.so'),
-                libswiftdir)
-            if args.libdispatch_build_dir:
-                symlink_force(os.path.join(args.libdispatch_build_dir,
-                                           'libBlocksRuntime.so'),
-                              libswiftdir)
-                symlink_force(os.path.join(args.libdispatch_build_dir, "src", "libdispatch.so"),
-                    libswiftdir)
-                symlink_force(os.path.join(args.libdispatch_build_dir, "src", "libswiftDispatch.so"),
-                    libswiftdir)
+            mkdir_p(libincludedir)
 
-    make_fake_toolchain()
+            # Add libFoundation.
+            symlink_force(os.path.join(args.foundation_path, 'libFoundation.so'), libswiftdir)
+
+            # Add Foundation's swiftmodule.
+            for module_file in ["Foundation.swiftmodule", "Foundation.swiftdoc"]:
+                symlink_force(os.path.join(args.foundation_path, 'swift', module_file), libincludedir)
+
+            # Add CoreFoundation "framework". This just contains the header and the modulemap.
+            core_foundation_path = os.path.join(
+                    args.foundation_path, "CoreFoundation-prefix", "System", "Library", "Frameworks", "CoreFoundation.framework")
+            symlink_force(core_foundation_path, libincludedir)
+
+            # Add symlinks for dispatch.
+            symlink_force(os.path.join(args.libdispatch_build_dir, 'libBlocksRuntime.so'), libswiftdir)
+            symlink_force(os.path.join(args.libdispatch_build_dir, "src", "libdispatch.so"), libswiftdir)
+            symlink_force(os.path.join(args.libdispatch_build_dir, "src", "libswiftDispatch.so"), libswiftdir)
+
+            # Add swiftmodules.
+            for module_file in ["Dispatch.swiftmodule", "Dispatch.swiftdoc"]:
+                symlink_force(os.path.join(args.libdispatch_build_dir, 'src', 'swift', module_file), libincludedir)
+
+            symlink_force(os.path.join(args.libdispatch_source_dir), os.path.join(libincludedir, "dispatch"))
+
+            # Add XCTest.
+            for module_file in ["XCTest.swiftmodule", "XCTest.swiftdoc"]:
+                symlink_force(os.path.join(args.xctest_path, module_file), libincludedir)
+            symlink_force(os.path.join(args.xctest_path, "libXCTest.so"), libswiftdir)
+
+            return (libswiftdir, libincludedir)
+        return (None, None)
+
+    (faketoolchain_libdir, faketoolchain_includedir) = make_fake_toolchain()
 
     # Build the package manager with itself.
 
@@ -1183,36 +1203,21 @@ def main():
     # Append the versioning build flags.
     build_flags.extend(create_versoning_args(args))
 
-    if args.foundation_path:
-        build_flags.extend(["-Xswiftc", "-I{}".format(os.path.join(args.foundation_path, "swift"))])
-        core_foundation_path = os.path.join(args.foundation_path, "CoreFoundation-prefix", "System", "Library", "Frameworks")
-        build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-F{}".format(core_foundation_path)])
-        # Tell the linker where to look for XCTest, but autolinking
-        # knows to pass -lXCTest.
-        build_flags.extend(["-Xlinker", "-L", "-Xlinker", args.foundation_path])
-        # Add an RPATH, so that the tests can be run directly.
-        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", args.foundation_path])
+    if faketoolchain_includedir:
+        # This will take care of swiftmodules of Foundation and Dispatch.
+        build_flags.extend(["-Xswiftc", "-I{}".format(faketoolchain_includedir)])
 
-    if args.xctest_path:
-        # Tell the linker where to look for XCTest, but autolinking
-        # knows to pass -lXCTest.
-        build_flags.extend(["-Xlinker", "-L", "-Xlinker", args.xctest_path])
-        # Add an RPATH, so that the tests can be run directly.
-        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", args.xctest_path])
-        build_flags.extend(["-Xswiftc", "-I{}".format(args.xctest_path)])
+        # Pass -F flag for CoreFoundation.
+        build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-F{}".format(faketoolchain_includedir)])
 
-    if args.libdispatch_build_dir:
-        build_flags.extend(["-Xlinker", "-L{}".format(
-            os.path.join(args.libdispatch_build_dir, "src"))])
-        build_flags.extend(["-Xswiftc", "-I{}".format(
-            os.path.join(args.libdispatch_build_dir, "src"))])
-        build_flags.extend(["-Xswiftc", "-I{}".format(
-            os.path.join(args.libdispatch_build_dir, "src", "swift"))])
-        build_flags.extend(["-Xswiftc", "-I{}".format(
-            args.libdispatch_source_dir)])
-        build_flags.extend(["-Xcc", "-fblocks"])
-        build_flags.extend(['-Xlinker', '-L', '-Xlinker', args.libdispatch_build_dir,
-                            '-Xlinker', '-lBlocksRuntime'])
+        # Pass -I for underlying Dispatch module.
+        build_flags.extend(["-Xswiftc", "-I{}".format(os.path.join(faketoolchain_includedir, "dispatch"))])
+
+        # Library search path.
+        build_flags.extend(["-Xlinker", "-L{}".format(faketoolchain_libdir)])
+
+        # Add an RPATH, so that the tests can be run directly.
+        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", faketoolchain_libdir])
 
     # Add llbuild import flags.
     for import_path in llbuild_import_paths(args):
