@@ -43,10 +43,10 @@ final class LinuxMainGenerator {
         for suite in testSuites {
             modulesBuilder.add(suite.tests)
         }
-        let modules = modulesBuilder.build()
+        let modules = modulesBuilder.build().sorted(by: { $0.name < $1.name })
 
         // Generate manifest file for each test module we got from XCTest discovery.
-        for module in modules.lazy.sorted(by: { $0.name < $1.name }) {
+        for module in modules {
             guard let target = graph.reachableTargets.first(where: { $0.c99name == module.name }) else {
                 print("warning: did not find target '\(module.name)'")
                 continue
