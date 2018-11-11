@@ -971,7 +971,7 @@ def main():
     parser.add_argument("--generate-xcodeproj", action="store_true",
                         help="Also generate an Xcode project for SwiftPM")
     parser.add_argument("--test-parallel", action="store_true",
-                        help="Run tests in parallel")
+                        help="Run tests in parallel", default=True)
     parser.add_argument("--test-filter", action="append",
                         help="Filter on a given test", default=[])
     parser.add_argument("--enable-perf-tests", action="store_true",
