@@ -668,13 +668,6 @@ def process_runtime_libraries(build, args, lib_path):
                input_lib_path,
                "-target", "x86_64-apple-macosx10.10"]
     else:
-        # Derive the command line to use by querying to swiftc
-        # driver. Unfortunately we cannot use it directly due to the inability
-        # to use an -X... style arg to pass arguments to the Clang driver, which
-        # it calls before calling the linker.
-
-        # This is the command we would like to use.
-        #
         # We include an RPATH entry so that the Swift libraries can be found
         # relative to where it will be installed (in 'lib/swift/pm/<version>/...').
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.so")
@@ -687,20 +680,8 @@ def process_runtime_libraries(build, args, lib_path):
         # We need to pass one swift file here to bypass the "no input files"
         # error.
         tf = tempfile.NamedTemporaryFile(suffix=".swift")
-        cmds = subprocess.check_output(
-            cmd + [tf.name, "-###"],
-            universal_newlines=True).strip().split("\n")
+        cmd += [tf.name]
 
-        # Get the link command 'swiftc' used.
-        link_cmd = shlex.split(cmds[-1])
-
-        # Unqoute any quoted characters.
-        link_cmd = [arg.replace("\\", "") for arg in link_cmd]
-
-        # Drop any .o files
-        cmd = [arg for arg in link_cmd
-               if arg.endswith(("swift_begin.o", "swift_end.o")) or
-               (not arg.endswith((".o", ".autolink")))]
     subprocess.check_call(cmd)
     return (runtime_module_path, runtime_swiftdoc_path, runtime_lib_path)
 
