@@ -718,6 +718,8 @@ private extension SupportedLanguageExtension {
             return "sourcecode.cpp.objcpp"
         case .swift:
             return "sourcecode.swift"
+        case .s, .S:
+            return "sourcecode.assembly"
         }
     }
 }

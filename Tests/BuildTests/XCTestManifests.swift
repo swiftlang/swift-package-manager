@@ -22,6 +22,7 @@ extension BuildPlanTests {
         ("testPkgConfigHintDiagnostic", testPkgConfigHintDiagnostic),
         ("testPlatforms", testPlatforms),
         ("testREPLArguments", testREPLArguments),
+        ("testSwiftCAsmMixed", testSwiftCAsmMixed),
         ("testSwiftCMixed", testSwiftCMixed),
         ("testSystemPackageBuildPlan", testSystemPackageBuildPlan),
         ("testTestModule", testTestModule),

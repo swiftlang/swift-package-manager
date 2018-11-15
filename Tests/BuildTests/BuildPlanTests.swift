@@ -228,6 +228,7 @@ final class BuildPlanTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.c",
             "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/lib.S",
             "/Pkg/Sources/lib/include/lib.h",
             "/ExtPkg/Sources/extlib/extlib.c",
             "/ExtPkg/Sources/extlib/include/ext.h"
@@ -438,6 +439,42 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
         ])
       #endif
+    }
+
+    func testSwiftCAsmMixed() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/lib.S",
+            "/Pkg/Sources/lib/include/lib.h"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(
+            root: "/Pkg", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    v: .v5,
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+
+        let lib = try result.target(for: "lib").clangTarget()
+        XCTAssertEqual(lib.objects, [
+            AbsolutePath("/path/to/build/debug/lib.build/lib.S.o"),
+            AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")
+        ])
     }
 
     func testREPLArguments() throws {

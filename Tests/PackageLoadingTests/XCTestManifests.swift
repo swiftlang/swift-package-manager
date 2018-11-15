@@ -19,6 +19,8 @@ extension PackageBuilderTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__PackageBuilderTests = [
+        ("testAsmInV5Manifest", testAsmInV5Manifest),
+        ("testAsmIsIgnoredInV4_2Manifest", testAsmIsIgnoredInV4_2Manifest),
         ("testBadExecutableProductDecl", testBadExecutableProductDecl),
         ("testBadREPLPackage", testBadREPLPackage),
         ("testBrokenSymlink", testBrokenSymlink),

@@ -51,6 +51,9 @@ public enum SupportedLanguageExtension: String {
     case cc
     case cpp
     case cxx
+    /// Assembly
+    case s
+    case S
 
     /// Returns a set of valid swift extensions.
     public static var swiftExtensions: Set<String> = {
@@ -67,15 +70,26 @@ public enum SupportedLanguageExtension: String {
         SupportedLanguageExtension.stringSet(mm, cc, cpp, cxx)
     }()
 
-    /// Returns a set of valid c family extensions.
-    public static var cFamilyExtensions: Set<String> = {
-        cExtensions.union(cppExtensions)
+    /// Returns a set of valid assembly file extensions.
+    public static var assemblyExtensions: Set<String> = {
+        SupportedLanguageExtension.stringSet(.s, .S)
     }()
 
+    /// Returns a set of valid extensions in clang targets.
+    public static func clangTargetExtensions(manifestVersion: ManifestVersion) -> Set<String> {
+        let alwaysValidExts = cExtensions.union(cppExtensions)
+        switch manifestVersion {
+        case .v4, .v4_2:
+            return alwaysValidExts
+        case .v5:
+            return alwaysValidExts.union(assemblyExtensions)
+        }
+    }
+
     /// Returns a set of all file extensions we support.
-    public static var validExtensions: Set<String> = {
-        swiftExtensions.union(cFamilyExtensions)
-    }()
+    public static func validExtensions(manifestVersion: ManifestVersion) -> Set<String> {
+        return swiftExtensions.union(clangTargetExtensions(manifestVersion: manifestVersion))
+    }
 
     /// Converts array of LanguageExtension into a string set representation.
     ///

@@ -1394,6 +1394,55 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
+
+    func testAsmIsIgnoredInV4_2Manifest() throws {
+        // .s is not considered a valid source in 4.2 manifest.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/lib/lib.s",
+            "/Sources/lib/lib2.S",
+            "/Sources/lib/lib.c",
+            "/Sources/lib/include/lib.h"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "pkg",
+            v: .v4_2,
+            targets: [
+                TargetDescription(name: "lib", dependencies: []),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkModule("lib") { moduleResult in
+                moduleResult.checkSources(root: "/Sources/lib", paths: "lib.c")
+            }
+        }
+    }
+
+    func testAsmInV5Manifest() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/lib/lib.s",
+            "/Sources/lib/lib2.S",
+            "/Sources/lib/lib.c",
+            "/Sources/lib/include/lib.h"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let manifest = Manifest.createManifest(
+            name: "Pkg",
+            v: .v5,
+            targets: [
+                TargetDescription(name: "lib", dependencies: []),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkModule("lib") { moduleResult in
+                moduleResult.checkSources(root: "/Sources/lib", paths: "lib.c", "lib.s", "lib2.S")
+            }
+        }
+    }
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}
