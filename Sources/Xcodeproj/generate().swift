@@ -251,12 +251,12 @@ func generateSchemes(
 // as a reference to the project.
 func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheckout) throws -> [AbsolutePath] {
     let srcroot = package.path
-    var extraFiles = try findNonSourceFiles(path: srcroot)
+    var extraFiles = try findNonSourceFiles(path: srcroot, manifestVersion: package.manifest.manifestVersion)
 
     for target in package.targets {
         let sourcesDirectory = target.sources.root
         if localFileSystem.isDirectory(sourcesDirectory) {
-            let sourcesExtraFiles = try findNonSourceFiles(path: sourcesDirectory, recursively: true)
+            let sourcesExtraFiles = try findNonSourceFiles(path: sourcesDirectory, manifestVersion: package.manifest.manifestVersion, recursively: true)
             extraFiles.append(contentsOf: sourcesExtraFiles)
         }
     }
@@ -271,14 +271,14 @@ func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheck
 /// - parameters:
 ///   - path: The path of the directory to get the files from
 ///   - recursively: Specifies if the directory at `path` should be searched recursively
-func findNonSourceFiles(path: AbsolutePath, recursively: Bool = false) throws -> [AbsolutePath] {
+func findNonSourceFiles(path: AbsolutePath, manifestVersion: ManifestVersion, recursively: Bool = false) throws -> [AbsolutePath] {
     let filesFromPath = try walk(path, recursively: recursively)
 
     return filesFromPath.filter({
         if !isFile($0) { return false }
         if $0.basename.hasPrefix(".") { return false }
         if $0.basename == "Package.resolved" { return false }
-        if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions.contains(`extension`) {
+        if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions(manifestVersion: manifestVersion).contains(`extension`) {
             return false
         }
         return true

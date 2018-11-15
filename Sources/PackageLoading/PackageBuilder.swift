@@ -268,7 +268,7 @@ public final class PackageBuilder {
 
     private func isValidSource(_ path: AbsolutePath) -> Bool {
         // Ignore files which don't match the expected extensions.
-        guard let ext = path.extension, SupportedLanguageExtension.validExtensions.contains(ext) else {
+        guard let ext = path.extension, SupportedLanguageExtension.validExtensions(manifestVersion: self.manifest.manifestVersion).contains(ext) else {
             return false
         }
 
@@ -666,15 +666,15 @@ public final class PackageBuilder {
         }
         // Select any source files for the C-based languages and for Swift.
         let sources = walked.filter(isValidSource).filter({ !targetExcludedPaths.contains($0) })
-        let cSources = sources.filter({ SupportedLanguageExtension.cFamilyExtensions.contains($0.extension!) })
+        let clangSources = sources.filter({ SupportedLanguageExtension.clangTargetExtensions(manifestVersion: self.manifest.manifestVersion).contains($0.extension!)})
         let swiftSources = sources.filter({ SupportedLanguageExtension.swiftExtensions.contains($0.extension!) })
-        assert(sources.count == cSources.count + swiftSources.count)
+        assert(sources.count == clangSources.count + swiftSources.count)
 
         // Get the platform information for this package.
         let (platforms, areUnknownPlatformsSupported) = self.platforms()
         
         // Create and return the right kind of target depending on what kind of sources we found.
-        if cSources.isEmpty {
+        if clangSources.isEmpty {
             guard !swiftSources.isEmpty else { return nil }
             let swiftSources = Array(swiftSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: swiftSources)
@@ -691,7 +691,7 @@ public final class PackageBuilder {
         } else {
             // No Swift sources, so we expect to have C sources, and we create a C target.
             guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path.asString) }
-            let cSources = Array(cSources)
+            let cSources = Array(clangSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: cSources)
 
             let sources = Sources(paths: cSources, root: potentialModule.path)
