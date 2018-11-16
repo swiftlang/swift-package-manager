@@ -244,7 +244,7 @@ private class LocalFileSystem: FileSystem {
         guard let filestat = try? POSIX.stat(path.asString) else {
             return false
         }
-        return filestat.st_mode & SPMLibc.S_IXUSR != 0
+        return filestat.st_mode & SPMLibc.S_IXUSR != 0 && filestat.st_mode & S_IFREG != 0
     }
 
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {

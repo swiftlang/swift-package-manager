@@ -61,6 +61,7 @@ class FileSystemTests: XCTestCase {
         XCTAssertFalse(fs.isExecutableFile(sym))
         XCTAssertFalse(fs.isExecutableFile(file.path))
         XCTAssertFalse(fs.isExecutableFile(AbsolutePath("/does-not-exist")))
+        XCTAssertFalse(fs.isExecutableFile(AbsolutePath("/")))
 
         // isDirectory()
         XCTAssert(fs.isDirectory(AbsolutePath("/")))
