@@ -122,13 +122,6 @@ func xcodeProject(
     // Set the default `SDKROOT` to the latest macOS SDK.
     projectSettings.common.SDKROOT = "macosx"
 
-    // Set a conservative default deployment target.
-    // FIXME: There needs to be some kind of control over this.  But currently
-    // it is required to set this in order for SwiftPM to be able to self-host
-    // in Xcode; otherwise, the PackageDescription library will be incompatible
-    // with the default deployment target we pass when building.
-    projectSettings.common.MACOSX_DEPLOYMENT_TARGET = "10.10"
-
     // Default to @rpath-based install names.  Any target that links against
     // these products will need to establish the appropriate runpath search
     // paths so that all the products can be found.
@@ -430,6 +423,22 @@ func xcodeProject(
         targetSettings.xcconfigFileRef = xcconfigOverridesFileRef
 
         targetSettings.common.TARGET_NAME = target.name
+
+        // Assign the deployment target.
+        for supportedPlatform in target.underlyingTarget.platforms {
+            switch supportedPlatform.platform {
+            case .macOS:
+                targetSettings.common.MACOSX_DEPLOYMENT_TARGET = supportedPlatform.version?.versionString
+            case .iOS:
+                targetSettings.common.IPHONEOS_DEPLOYMENT_TARGET = supportedPlatform.version?.versionString
+            case .tvOS:
+                targetSettings.common.TVOS_DEPLOYMENT_TARGET = supportedPlatform.version?.versionString
+            case .watchOS:
+                targetSettings.common.WATCHOS_DEPLOYMENT_TARGET = supportedPlatform.version?.versionString
+            default:
+                break
+            }
+        }
 
         let infoPlistFilePath = xcodeprojPath.appending(component: target.infoPlistFileName)
         targetSettings.common.INFOPLIST_FILE = infoPlistFilePath.relative(to: sourceRootDir).asString

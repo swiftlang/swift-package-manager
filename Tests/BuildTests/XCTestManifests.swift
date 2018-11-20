@@ -20,6 +20,7 @@ extension BuildPlanTests {
         ("testNonReachableProductsAndTargets", testNonReachableProductsAndTargets),
         ("testPkgConfigGenericDiagnostic", testPkgConfigGenericDiagnostic),
         ("testPkgConfigHintDiagnostic", testPkgConfigHintDiagnostic),
+        ("testPlatforms", testPlatforms),
         ("testREPLArguments", testREPLArguments),
         ("testSwiftCMixed", testSwiftCMixed),
         ("testSystemPackageBuildPlan", testSystemPackageBuildPlan),

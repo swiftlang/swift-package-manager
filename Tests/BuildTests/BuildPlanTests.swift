@@ -1061,6 +1061,69 @@ final class BuildPlanTests: XCTestCase {
         try check(for: .on, config: .debug)
         try check(for: .on, config: .release)
     }
+
+    func testPlatforms() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/ATarget/foo.swift",
+            "/B/Sources/BTarget/foo.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/A", fs: fileSystem, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "A",
+                    platforms: [
+                        PlatformDescription(name: "macos", version: "10.13"),
+                        .all,
+                    ],
+                    path: "/A",
+                    url: "/A",
+                    v: .v5,
+                    dependencies: [
+                        PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
+                    ]),
+                Manifest.createManifest(
+                    name: "B",
+                    platforms: [
+                        PlatformDescription(name: "macos", version: "10.12"),
+                        .all,
+                    ],
+                    path: "/B",
+                    url: "/B",
+                    v: .v5,
+                    products: [
+                        ProductDescription(name: "BLibrary", targets: ["BTarget"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "BTarget", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(),
+            graph: graph, diagnostics: diagnostics,
+            fileSystem: fileSystem))
+
+        let aTarget = try result.target(for: "ATarget").swiftTarget().compileArguments()
+      #if os(macOS)
+        XCTAssertMatch(aTarget, ["-target", "x86_64-apple-macosx10.13", .anySequence])
+      #else
+        XCTAssertMatch(aTarget, ["-target", "x86_64-unknown-linux", .anySequence])
+      #endif
+
+        let bTarget = try result.target(for: "BTarget").swiftTarget().compileArguments()
+      #if os(macOS)
+        XCTAssertMatch(bTarget, ["-target", "x86_64-apple-macosx10.12", .anySequence])
+      #else
+        XCTAssertMatch(bTarget, ["-target", "x86_64-unknown-linux", .anySequence])
+      #endif
+    }
 }
 
 // MARK:- Test Helpers
