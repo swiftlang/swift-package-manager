@@ -67,6 +67,7 @@ extension WorkspaceTests {
         ("testMissingEditCanRestoreOriginalCheckout", testMissingEditCanRestoreOriginalCheckout),
         ("testMultipleRootPackages", testMultipleRootPackages),
         ("testPackageMirror", testPackageMirror),
+        ("testPlatforms", testPlatforms),
         ("testResolutionFailureWithEditedDependency", testResolutionFailureWithEditedDependency),
         ("testResolve", testResolve),
         ("testResolvedFileUpdate", testResolvedFileUpdate),

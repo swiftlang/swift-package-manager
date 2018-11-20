@@ -364,11 +364,16 @@ public final class PackageBuilder {
                 )
             }
 
+            // Get the platform information for this package.
+            let (platforms, areUnknownPlatformsSupported) = self.platforms()
+
             // Package contains a modulemap at the top level, so we assuming
             // it's a system library target.
             return [
                 SystemLibraryTarget(
                     name: manifest.name,
+                    platforms: platforms,
+                    areUnknownPlatformsSupported: areUnknownPlatformsSupported,
                     path: packagePath, isImplicit: true,
                     pkgConfig: manifest.pkgConfig,
                     providers: manifest.providers)
@@ -580,8 +585,14 @@ public final class PackageBuilder {
             guard fileSystem.isFile(moduleMapPath) else {
                 return nil
             }
+
+            // Get the platform information for this package.
+            let (platforms, areUnknownPlatformsSupported) = self.platforms()
+
             return SystemLibraryTarget(
                 name: potentialModule.name,
+                platforms: platforms,
+                areUnknownPlatformsSupported: areUnknownPlatformsSupported,
                 path: potentialModule.path, isImplicit: false,
                 pkgConfig: manifestTarget?.pkgConfig,
                 providers: manifestTarget?.providers
@@ -659,6 +670,9 @@ public final class PackageBuilder {
         let swiftSources = sources.filter({ SupportedLanguageExtension.swiftExtensions.contains($0.extension!) })
         assert(sources.count == cSources.count + swiftSources.count)
 
+        // Get the platform information for this package.
+        let (platforms, areUnknownPlatformsSupported) = self.platforms()
+        
         // Create and return the right kind of target depending on what kind of sources we found.
         if cSources.isEmpty {
             guard !swiftSources.isEmpty else { return nil }
@@ -667,6 +681,8 @@ public final class PackageBuilder {
             // No C sources, so we expect to have Swift sources, and we create a Swift target.
             return SwiftTarget(
                 name: potentialModule.name,
+                platforms: platforms,
+                areUnknownPlatformsSupported: areUnknownPlatformsSupported,
                 isTest: potentialModule.isTest,
                 sources: Sources(paths: swiftSources, root: potentialModule.path),
                 dependencies: moduleDependencies,
@@ -682,6 +698,8 @@ public final class PackageBuilder {
 
             return ClangTarget(
                 name: potentialModule.name,
+                platforms: platforms,
+                areUnknownPlatformsSupported: areUnknownPlatformsSupported,
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
                 includeDir: publicHeadersPath,
@@ -690,6 +708,61 @@ public final class PackageBuilder {
                 dependencies: moduleDependencies,
                 productDependencies: productDeps)
         }
+    }
+
+    /// Returns the list of platforms supported by the manifest.
+    func platforms() -> (supportedPlatforms: [SupportedPlatform], areUnknownPlatformsSupported: Bool) {
+        if let platforms = _platforms {
+            return platforms
+        }
+
+        var areUnknownPlatformsSupported = false
+        var supportedPlatforms: [SupportedPlatform] = []
+
+        /// Add each declared platform to the supported platforms list.
+        for platform in manifest.platforms {
+            // Check for the special case <all> platform.
+            if platform == .all {
+                assert(!areUnknownPlatformsSupported, "Found <all> platform twice")
+                areUnknownPlatformsSupported = true
+                continue
+            }
+
+            let supportedPlatform = SupportedPlatform(
+                platform: platformRegistry.platformByName[platform.platformName]!,
+                version: platform.version.map({ PlatformVersion($0) })
+            )
+
+            supportedPlatforms.append(supportedPlatform)
+        }
+
+        // If the package supports building for unknown platforms, synthesize
+        // a supported platform for each platform that we know about.
+        if areUnknownPlatformsSupported {
+            // Find the undeclared platforms.
+            let remainingPlatforms = Set(platformRegistry.platformByName.keys).subtracting(supportedPlatforms.map({ $0.platform.name }))
+
+            /// Start synthesizing for each undeclared platform.
+            for platformName in remainingPlatforms {
+                let platform = platformRegistry.platformByName[platformName]!
+
+                let supportedPlatform = SupportedPlatform(
+                    platform: platform,
+                    version: platform.oldestSupportedVersion
+                )
+
+                supportedPlatforms.append(supportedPlatform)
+            }
+        }
+
+        _platforms = (supportedPlatforms, areUnknownPlatformsSupported)
+        return _platforms!
+    }
+    private var _platforms: ([SupportedPlatform], Bool)? = nil
+
+    /// The platform registry instance.
+    private var platformRegistry: PlatformRegistry {
+        return PlatformRegistry.default
     }
 
     /// Computes the swift version to use for this manifest.

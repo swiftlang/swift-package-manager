@@ -41,6 +41,7 @@ extension PackageBuilderTests {
         ("testMixedSources", testMixedSources),
         ("testModuleMapLayout", testModuleMapLayout),
         ("testMultipleTestProducts", testMultipleTestProducts),
+        ("testPlatforms", testPlatforms),
         ("testPredefinedTargetSearchError", testPredefinedTargetSearchError),
         ("testPublicHeadersPath", testPublicHeadersPath),
         ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),

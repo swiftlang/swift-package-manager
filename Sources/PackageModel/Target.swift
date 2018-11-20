@@ -43,14 +43,29 @@ public class Target: ObjectIdentifierProtocol {
     /// The sources for the target.
     public let sources: Sources
 
+    /// The platforms supported by this target.
+    public let platforms: [SupportedPlatform]
+
+    /// True if this target allows building for unknown platforms.
+    public let areUnknownPlatformsSupported: Bool
+
+    /// Returns the supported platform instance for the given platform.
+    public func getSupportedPlatform(for platform: Platform) -> SupportedPlatform? {
+        return self.platforms.first(where: { $0.platform == platform })
+    }
+
     fileprivate init(
         name: String,
+        platforms: [SupportedPlatform],
+        areUnknownPlatformsSupported: Bool,
         type: Kind,
         sources: Sources,
         dependencies: [Target],
         productDependencies: [(name: String, package: String?)] = []
     ) {
         self.name = name
+        self.platforms = platforms
+        self.areUnknownPlatformsSupported = areUnknownPlatformsSupported
         self.type = type
         self.sources = sources
         self.dependencies = dependencies
@@ -80,7 +95,17 @@ public class SwiftTarget: Target {
         // do that currently.
         self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(ToolsVersion.currentToolsVersion.major)) ?? .v4
         let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
-        super.init(name: name, type: .executable, sources: sources, dependencies: dependencies)
+
+        let platforms: [SupportedPlatform] = swiftTestTarget?.platforms ?? []
+
+        super.init(
+            name: name,
+            platforms: platforms,
+            areUnknownPlatformsSupported: true,
+            type: .executable,
+            sources: sources,
+            dependencies: dependencies
+        )
     }
 
     /// The swift version of this target.
@@ -88,6 +113,8 @@ public class SwiftTarget: Target {
 
     public init(
         name: String,
+        platforms: [SupportedPlatform] = [],
+        areUnknownPlatformsSupported: Bool = true,
         isTest: Bool = false,
         sources: Sources,
         dependencies: [Target] = [],
@@ -98,6 +125,8 @@ public class SwiftTarget: Target {
         self.swiftVersion = swiftVersion
         super.init(
             name: name,
+            platforms: platforms,
+            areUnknownPlatformsSupported: areUnknownPlatformsSupported,
             type: type,
             sources: sources,
             dependencies: dependencies,
@@ -124,6 +153,8 @@ public class SystemLibraryTarget: Target {
 
     public init(
         name: String,
+        platforms: [SupportedPlatform] = [],
+        areUnknownPlatformsSupported: Bool = true,
         path: AbsolutePath,
         isImplicit: Bool = true,
         pkgConfig: String? = nil,
@@ -133,7 +164,14 @@ public class SystemLibraryTarget: Target {
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.isImplicit = isImplicit
-        super.init(name: name, type: .systemModule, sources: sources, dependencies: [])
+        super.init(
+            name: name,
+            platforms: platforms,
+            areUnknownPlatformsSupported: areUnknownPlatformsSupported,
+            type: .systemModule,
+            sources: sources,
+            dependencies: []
+        )
     }
 }
 
@@ -156,6 +194,8 @@ public class ClangTarget: Target {
 
     public init(
         name: String,
+        platforms: [SupportedPlatform] = [],
+        areUnknownPlatformsSupported: Bool = true,
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
         includeDir: AbsolutePath,
@@ -172,6 +212,8 @@ public class ClangTarget: Target {
         self.includeDir = includeDir
         super.init(
             name: name,
+            platforms: platforms,
+            areUnknownPlatformsSupported: areUnknownPlatformsSupported,
             type: type,
             sources: sources,
             dependencies: dependencies,

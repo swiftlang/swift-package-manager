@@ -45,11 +45,12 @@ public enum StringCheck: ExpressibleByStringLiteral {
 
 public func DiagnosticsEngineTester(
     _ engine: DiagnosticsEngine,
+    ignoreNotes: Bool = false,
     file: StaticString = #file,
     line: UInt = #line,
     result: (DiagnosticsEngineResult) throws -> Void
 ) {
-    let engineResult = DiagnosticsEngineResult(engine)
+    let engineResult = DiagnosticsEngineResult(engine, ignoreNotes: ignoreNotes)
 
     do {
         try result(engineResult)
@@ -67,8 +68,12 @@ final public class DiagnosticsEngineResult {
 
     fileprivate var uncheckedDiagnostics: [Diagnostic]
 
-    init(_ engine: DiagnosticsEngine) {
-        self.uncheckedDiagnostics = engine.diagnostics
+    init(_ engine: DiagnosticsEngine, ignoreNotes: Bool = false) {
+        if ignoreNotes {
+            self.uncheckedDiagnostics = engine.diagnostics.filter({ $0.behavior != .note })
+        } else {
+            self.uncheckedDiagnostics = engine.diagnostics
+        }
     }
 
     public func check(

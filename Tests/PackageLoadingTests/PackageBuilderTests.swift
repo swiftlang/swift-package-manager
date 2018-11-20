@@ -1318,6 +1318,82 @@ class PackageBuilderTests: XCTestCase {
             result.checkDiagnostic("unable to synthesize a REPL product as there are no library targets in the package")
         }
     }
+
+    func testPlatforms() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/module.modulemap",
+            "/Sources/bar/bar.swift",
+            "/Sources/cbar/bar.c",
+            "/Sources/cbar/include/bar.h"
+        )
+
+        // All platforms with an override.
+        var manifest = Manifest.createManifest(
+            name: "pkg",
+            platforms: [
+                PlatformDescription(name: "macos", version: "10.12"),
+                .all,
+            ],
+            v: .v5,
+            targets: [
+                TargetDescription(name: "foo", type: .system),
+                TargetDescription(name: "cbar"),
+                TargetDescription(name: "bar", dependencies: ["foo"]),
+            ]
+        )
+
+        var expectedPlatforms = [
+            "linux": nil,
+            "macos": "10.12",
+            "ios": "8.0",
+            "tvos": "9.0",
+            "watchos": "2.0",
+        ]
+
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkModule("foo") { t in 
+                t.checkPlatforms(expectedPlatforms, all: true)
+            }
+            result.checkModule("bar") { t in
+                t.checkPlatforms(expectedPlatforms, all: true)
+            }
+            result.checkModule("cbar") { t in
+                t.checkPlatforms(expectedPlatforms, all: true)
+            }
+        }
+
+        // Restricted list of platforms.
+        manifest = Manifest.createManifest(
+            name: "pkg",
+            platforms: [
+                PlatformDescription(name: "macos", version: "10.12"),
+                PlatformDescription(name: "tvos", version: "10.0"),
+            ],
+            v: .v5,
+            targets: [
+                TargetDescription(name: "foo", type: .system),
+                TargetDescription(name: "cbar"),
+                TargetDescription(name: "bar", dependencies: ["foo"]),
+            ]
+        )
+
+        expectedPlatforms = [
+            "macos": "10.12",
+            "tvos": "10.0",
+        ]
+
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkModule("foo") { t in 
+                t.checkPlatforms(expectedPlatforms, all: false)
+            }
+            result.checkModule("bar") { t in
+                t.checkPlatforms(expectedPlatforms, all: false)
+            }
+            result.checkModule("cbar") { t in
+                t.checkPlatforms(expectedPlatforms, all: false)
+            }
+        }
+    }
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}
@@ -1499,6 +1575,12 @@ final class PackageBuilderTester {
                 return XCTFail("\(target) is not a swift target", file: file, line: line)
             }
             XCTAssertEqual(SwiftLanguageVersion(string: swiftVersion)!, swiftTarget.swiftVersion, file: file, line: line)
+        }
+
+        func checkPlatforms(_ platforms: [String: String?], all: Bool, file: StaticString = #file, line: UInt = #line) {
+            let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.map({ ($0.platform.name, $0.version?.versionString) }))
+            XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
+            XCTAssertEqual(target.areUnknownPlatformsSupported, all, file: file, line: line)
         }
     }
 }

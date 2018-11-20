@@ -130,7 +130,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
 
     public init(
         name: String,
-        platforms: [PlatformDescription] = [],
+        platforms: [PlatformDescription],
         path: AbsolutePath,
         url: String,
         version: Utility.Version? = nil,
