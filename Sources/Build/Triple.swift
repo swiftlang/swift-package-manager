@@ -113,7 +113,15 @@ public struct Triple {
         return os == .windows
     }
 
-    public static let macOS = try! Triple("x86_64-apple-macosx10.10")
+    /// Returns the triple string for the given platform version.
+    ///
+    /// This is currently meant for Apple platforms only.
+    public func tripleString(forPlatformVersion version: String) -> String {
+        precondition(isDarwin())
+        return self.tripleString + version
+    }
+
+    public static let macOS = try! Triple("x86_64-apple-macosx")
     public static let x86_64Linux = try! Triple("x86_64-unknown-linux")
     public static let i686Linux = try! Triple("i686-unknown-linux")
     public static let ppc64leLinux = try! Triple("powerpc64le-unknown-linux")

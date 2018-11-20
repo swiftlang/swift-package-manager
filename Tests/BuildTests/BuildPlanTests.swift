@@ -267,10 +267,15 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(3)
 
         let ext = try result.target(for: "extlib").clangTarget()
-        var args = ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
+        var args: [String] = []
+
       #if os(macOS)
-        args += ["-fobjc-arc"]
+        args += ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10"]
+      #else
+        args += ["-target", "x86_64-unknown-linux"]
       #endif
+
+        args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=extlib",
             "-I", "/ExtPkg/Sources/extlib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
         XCTAssertEqual(ext.basicArguments(), args)
@@ -278,10 +283,15 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(ext.moduleMap, AbsolutePath("/path/to/build/debug/extlib.build/module.modulemap"))
 
         let exe = try result.target(for: "exe").clangTarget()
-        args = ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
+        args = []
+
       #if os(macOS)
-        args += ["-fobjc-arc"]
+        args += ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10"]
+      #else
+        args += ["-target", "x86_64-unknown-linux"]
       #endif
+
+        args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=exe",
             "-I", "/Pkg/Sources/exe/include", "-I", "/Pkg/Sources/lib/include", "-I", "/ExtPkg/Sources/extlib/include",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
@@ -396,10 +406,15 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
         
         let lib = try result.target(for: "lib").clangTarget()
-        var args = ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
+        var args: [String] = []
+
       #if os(macOS)
-        args += ["-fobjc-arc"]
+        args += ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10"]
+      #else
+        args += ["-target", "x86_64-unknown-linux"]
       #endif
+
+        args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
         XCTAssertEqual(lib.basicArguments(), args)
@@ -777,18 +792,18 @@ final class BuildPlanTests: XCTestCase {
 
         let exe = try result.target(for: "exe").clangTarget()
     #if os(macOS)
-        XCTAssertEqual(exe.basicArguments(), ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fobjc-arc","-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe.basicArguments(), ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #else
-        XCTAssertEqual(exe.basicArguments(), ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe.basicArguments(), ["-target", "x86_64-unknown-linux", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #endif
         XCTAssertEqual(exe.objects, [AbsolutePath("/path/to/build/debug/exe.build/main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
 
         let lib = try result.target(for: "lib").clangTarget()
     #if os(macOS)
-        XCTAssertEqual(lib.basicArguments(), ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fobjc-arc","-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(lib.basicArguments(), ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #else
-        XCTAssertEqual(lib.basicArguments(), ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(lib.basicArguments(), ["-target", "x86_64-unknown-linux", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #endif
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.cpp.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
@@ -967,17 +982,18 @@ final class BuildPlanTests: XCTestCase {
         )
         
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
-                                     manifests: [
-                                        Manifest.createV4Manifest(
-                                            name: "Pkg",
-                                            path: "/Pkg",
-                                            url: "/Pkg",
-                                            targets: [
-                                                TargetDescription(name: "exe", dependencies: ["lib"]),
-                                                TargetDescription(name: "lib", dependencies: []),
-                                                ]),
-                                        ]
+        let graph = loadPackageGraph(
+            root: "/Pkg", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    targets: [
+                    TargetDescription(name: "exe", dependencies: ["lib"]),
+                    TargetDescription(name: "lib", dependencies: []),
+                ]),
+            ]
         )
         XCTAssertNoDiagnostics(diagnostics)
         
@@ -986,7 +1002,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
         
         let lib = try result.target(for: "lib").clangTarget()
-        var args = ["-g", "-gcodeview", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
+        var args = ["-target", "x86_64-unknown-windows-msvc", "-g", "-gcodeview", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-I", "/Pkg/Sources/lib/include"]
         XCTAssertEqual(lib.basicArguments(), args)
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")])
