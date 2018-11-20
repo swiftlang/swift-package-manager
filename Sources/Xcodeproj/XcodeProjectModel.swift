@@ -362,6 +362,9 @@ public struct Xcode {
             var LD_RUNPATH_SEARCH_PATHS: [String]?
             var LIBRARY_SEARCH_PATHS: [String]?
             var MACOSX_DEPLOYMENT_TARGET: String?
+            var IPHONEOS_DEPLOYMENT_TARGET: String?
+            var TVOS_DEPLOYMENT_TARGET: String?
+            var WATCHOS_DEPLOYMENT_TARGET: String?
             var MODULEMAP_FILE: String?
             var ONLY_ACTIVE_ARCH: String?
             var OTHER_CFLAGS: [String]?
@@ -404,6 +407,9 @@ public struct Xcode {
                 LD_RUNPATH_SEARCH_PATHS: [String]? = nil,
                 LIBRARY_SEARCH_PATHS: [String]? = nil,
                 MACOSX_DEPLOYMENT_TARGET: String? = nil,
+                IPHONEOS_DEPLOYMENT_TARGET: String? = nil,
+                TVOS_DEPLOYMENT_TARGET: String? = nil,
+                WATCHOS_DEPLOYMENT_TARGET: String? = nil,
                 MODULEMAP_FILE: String? = nil,
                 ONLY_ACTIVE_ARCH: String? = nil,
                 OTHER_CFLAGS: [String]? = nil,
@@ -445,6 +451,9 @@ public struct Xcode {
                 self.LD_RUNPATH_SEARCH_PATHS = LD_RUNPATH_SEARCH_PATHS
                 self.LIBRARY_SEARCH_PATHS = LIBRARY_SEARCH_PATHS
                 self.MACOSX_DEPLOYMENT_TARGET = MACOSX_DEPLOYMENT_TARGET
+                self.IPHONEOS_DEPLOYMENT_TARGET = IPHONEOS_DEPLOYMENT_TARGET
+                self.TVOS_DEPLOYMENT_TARGET = TVOS_DEPLOYMENT_TARGET
+                self.WATCHOS_DEPLOYMENT_TARGET = WATCHOS_DEPLOYMENT_TARGET
                 self.MODULEMAP_FILE = MODULEMAP_FILE
                 self.ONLY_ACTIVE_ARCH = ONLY_ACTIVE_ARCH
                 self.OTHER_CFLAGS = OTHER_CFLAGS

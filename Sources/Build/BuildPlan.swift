@@ -177,7 +177,10 @@ public struct BuildParameters {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if triple.isDarwin() {
-            args += [triple.tripleString(forPlatformVersion: "10.10")]
+            guard let macOSSupportedPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
+                fatalError("The target \(target) doesn't support building for macOS")
+            }
+            args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version!.versionString)]
         } else {
             args += [triple.tripleString]
         }
