@@ -1005,7 +1005,7 @@ def main():
 
     # Compute the build paths.
     if platform.system() == 'Darwin':
-        build_target = "x86_64-apple-macosx10.10"
+        build_target = "x86_64-apple-macosx"
     elif platform.system() == 'Linux':              
         if platform.machine() == 'x86_64':
             build_target = "x86_64-unknown-linux"

@@ -171,6 +171,18 @@ public struct BuildParameters {
         }
         return []
     }
+
+    /// Computes the target triple arguments for a given resolved target.
+    fileprivate func targetTripleArgs(for target: ResolvedTarget) -> [String] {
+        var args = ["-target"]
+        // Compute the triple string for Darwin platform using the platform version.
+        if triple.isDarwin() {
+            args += [triple.tripleString(forPlatformVersion: "10.10")]
+        } else {
+            args += [triple.tripleString]
+        }
+        return args
+    }
 }
 
 /// A target description which can either be for a Swift or Clang target.
@@ -258,14 +270,14 @@ public final class ClangTargetBuildDescription {
     /// Builds up basic compilation arguments for this target.
     public func basicArguments() -> [String] {
         var args = [String]()
-        args += buildParameters.toolchain.extraCCFlags
-        args += optimizationArguments
-        args += activeCompilationConditions
-
         // Only enable ARC on macOS.
         if buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
+        args += buildParameters.targetTripleArgs(for: target)
+        args += buildParameters.toolchain.extraCCFlags
+        args += optimizationArguments
+        args += activeCompilationConditions
         args += ["-fblocks"]
 
         // Enable index store, if appropriate.
@@ -398,6 +410,7 @@ public final class SwiftTargetBuildDescription {
     /// The arguments needed to compile this target.
     public func compileArguments() -> [String] {
         var args = [String]()
+        args += buildParameters.targetTripleArgs(for: target)
         args += ["-swift-version", swiftVersion.rawValue]
 
         // Enable batch mode in debug mode.
