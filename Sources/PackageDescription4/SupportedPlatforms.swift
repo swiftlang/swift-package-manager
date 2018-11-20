@@ -112,7 +112,7 @@ extension SupportedPlatform {
             // Perform a quick validation.
             let components = string.split(separator: ".", omittingEmptySubsequences: false).map({ Int($0) })
             var error = components.compactMap({ $0 }).count != components.count
-            error = error || (components.count != 2)
+            error = error || !(components.count == 2 || components.count == 3)
             if error {
                 errors.append("invalid tvOS version string: \(string)")
             }
@@ -146,7 +146,7 @@ extension SupportedPlatform {
             // Perform a quick validation.
             let components = string.split(separator: ".", omittingEmptySubsequences: false).map({ Int($0) })
             var error = components.compactMap({ $0 }).count != components.count
-            error = error || (components.count != 2)
+            error = error || !(components.count == 2 || components.count == 3)
             if error {
                 errors.append("invalid iOS version string: \(string)")
             }
@@ -181,7 +181,7 @@ extension SupportedPlatform {
             // Perform a quick validation.
             let components = string.split(separator: ".", omittingEmptySubsequences: false).map({ Int($0) })
             var error = components.compactMap({ $0 }).count != components.count
-            error = error || (components.count != 2)
+            error = error || !(components.count == 2 || components.count == 3)
             if error {
                 errors.append("invalid watchOS version string: \(string)")
             }
