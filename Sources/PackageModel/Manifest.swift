@@ -101,6 +101,9 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The name of the package.
     public let name: String
 
+    /// The declared platforms in the manifest.
+    public let platforms: [PlatformDescription]
+
     /// The declared package dependencies.
     public let dependencies: [PackageDependencyDescription]
 
@@ -127,6 +130,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
 
     public init(
         name: String,
+        platforms: [PlatformDescription] = [],
         path: AbsolutePath,
         url: String,
         version: Utility.Version? = nil,
@@ -141,6 +145,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         targets: [TargetDescription] = []
     ) {
         self.name = name
+        self.platforms = platforms
         self.path = path
         self.url = url
         self.version = version
@@ -354,4 +359,18 @@ public struct PackageDependencyDescription: Equatable, Codable {
         self.url = url
         self.requirement = requirement
     }
+}
+
+public struct PlatformDescription: Codable, Equatable {
+    public let platformName: String
+    public let version: String?
+
+    public init(name: String, version: String? = nil) {
+        self.platformName = name
+        self.version = version
+    }
+
+    /// This is a special platform that represents that a package implictly
+    /// supports all platforms.
+    public static var all: PlatformDescription = PlatformDescription(name: "<all>")
 }

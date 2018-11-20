@@ -85,6 +85,7 @@ extension PackageDescription4_2LoadingTests {
         ("testCaching", testCaching),
         ("testDuplicateDependencyDecl", testDuplicateDependencyDecl),
         ("testPackageDependencies", testPackageDependencies),
+        ("testPlatforms", testPlatforms),
         ("testRuntimeManifestErrors", testRuntimeManifestErrors),
         ("testSwiftLanguageVersions", testSwiftLanguageVersions),
         ("testSystemLibraryTargets", testSystemLibraryTargets),
@@ -98,6 +99,7 @@ extension PackageDescription5LoadingTests {
     // to regenerate.
     static let __allTests__PackageDescription5LoadingTests = [
         ("testBasics", testBasics),
+        ("testPlatforms", testPlatforms),
         ("testSwiftLanguageVersion", testSwiftLanguageVersion),
     ]
 }

@@ -183,6 +183,43 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         }
     }
 
+    func testPlatforms() throws {
+        // Unfortunately, we can't prevent the nil case.
+        var stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               _platforms: nil
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.name, "Foo")
+            XCTAssertEqual(manifest.platforms, [PlatformDescription.all], "\(manifest.platforms)")
+        }
+
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               _platforms: [.macOS(.v10_10)]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail()
+        } catch {
+            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+                return XCTFail("\(error)")
+            }
+            XCTAssertEqual(api, "platforms")
+            XCTAssertEqual(supportedVersions, [.v5])
+        }
+    }
+
     func testPackageDependencies() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """

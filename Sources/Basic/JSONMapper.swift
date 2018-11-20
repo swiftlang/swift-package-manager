@@ -103,6 +103,13 @@ extension JSON {
     public func getArray(_ key: String) throws -> [JSON] {
         return try get(key)
     }
+
+    public func getArray() throws -> [JSON] {
+        guard case .array(let array) = self else {
+            throw MapError.typeMismatch(key: "<self>", expected: Array<JSON>.self, json: self)
+        }
+        return array
+    }
 }
 
 // MARK: - Conformance for basic JSON types.
