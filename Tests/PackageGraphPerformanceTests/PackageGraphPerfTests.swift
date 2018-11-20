@@ -42,6 +42,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
             // Create manifest.
             let manifest = Manifest(
                 name: name,
+                platforms: [.all],
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
                 version: "1.0.0",
