@@ -17,6 +17,7 @@ extension ManifestBuilder {
         let package = try json.getJSON("package")
         self.name = try package.get(String.self, forKey: "name")
         self.pkgConfig = package.get("pkgConfig")
+        self.platforms = try parsePlatforms(package)
         self.swiftLanguageVersions = try parseSwiftLanguageVersion(package)
         self.products = try package.getArray("products").map(ProductDescription.init(v4:))
         self.providers = try? package.getArray("providers").map(SystemPackageProviderDescription.init(v4:))
@@ -40,17 +41,59 @@ extension ManifestBuilder {
         let versionedValues = try versionJSON.map({ try VersionedValue(json: $0) })
 
         return try versionedValues.map { versionedValue in 
-            // Throw if this versioned value is not supported by the package's
+            // Validate that this versioned value is supported by the current
             // manifest version.
-            if !versionedValue.supportedVersions.contains(self.manifestVersion) {
-                throw ManifestParseError.unsupportedAPI(
-                    api: versionedValue.api,
-                    supportedVersions: versionedValue.supportedVersions
-                )
-            }
+            try versionedValue.validate(for: self.manifestVersion)
             
             return try SwiftLanguageVersion(string: String(json: versionedValue.value))!
         }
+    }
+
+    func parsePlatforms(_ package: JSON) throws -> [PlatformDescription] {
+        guard let platformsJSON = try? package.getJSON("platforms") else {
+            return [.all]
+        }
+
+        /// Ensure that platforms API is used in the right manifest version.
+        let versionedPlatforms = try VersionedValue(json: platformsJSON)
+        try versionedPlatforms.validate(for: self.manifestVersion)
+
+        // Get the declared platform list.
+        let declaredPlatforms = try versionedPlatforms.value.getArray()
+
+        // Empty list is not supported.
+        if declaredPlatforms.isEmpty {
+            throw ManifestParseError.runtimeManifestErrors(["supported platforms can't be empty"])
+        }
+
+        // Start parsing platforms.
+        var platforms: [PlatformDescription] = []
+
+        for platformJSON in declaredPlatforms {
+            // Parse the version and validate that it can be used in the current
+            // manifest version.
+            let versionJSON = try? platformJSON.getJSON("version")
+            let versionedVersion = try versionJSON.map({ try VersionedValue(json: $0) })
+            try versionedVersion?.validate(for: self.manifestVersion)
+
+            // Get the actual value of the version.
+            let version = try versionedVersion.map({ try String(json: $0.value) })
+
+            // Get the platform name.
+            let platformName = try platformJSON.get(String.self, forKey: "platform")
+
+            let description = PlatformDescription(name: platformName, version: version)
+
+            // Check for duplicates.
+            if platforms.map({ $0.platformName }).contains(platformName) {
+                // FIXME: We need to emit the API name and not the internal platform name.
+                throw ManifestParseError.runtimeManifestErrors(["found multiple declaration for the platform: \(platformName)"])
+            }
+
+            platforms.append(description)
+        }
+
+        return platforms
     }
 }
 
@@ -65,6 +108,15 @@ struct VersionedValue: JSONMappable {
 
         let supportedVersionsJSON = try json.get([String].self, forKey: "supportedVersions")
         self.supportedVersions = supportedVersionsJSON.map({ ManifestVersion(rawValue: $0)! })
+    }
+
+    func validate(for manifestVersion: ManifestVersion) throws {
+        if !supportedVersions.contains(manifestVersion) {
+            throw ManifestParseError.unsupportedAPI(
+                api: api,
+                supportedVersions: supportedVersions
+            )
+        }
     }
 }
 

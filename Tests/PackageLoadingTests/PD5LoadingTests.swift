@@ -147,4 +147,85 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTAssertEqual(supportedVersions, [.v4_2])
         }
     }
+
+    func testPlatforms() throws {
+        // Sanity check.
+        var stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               _platforms: [
+                   .macOS(.v10_13), .iOS(.version("12.2")),
+                   .tvOS(.v12), .watchOS(.v3), .linux(), .all,
+               ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.platforms, [
+                PlatformDescription(name: "macos", version: "10.13"),
+                PlatformDescription(name: "ios", version: "12.2"),
+                PlatformDescription(name: "tvos", version: "12.0"),
+                PlatformDescription(name: "watchos", version: "3.0"),
+                PlatformDescription(name: "linux"),
+                .all
+            ])
+        }
+
+        // Test invalid custom versions.
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               _platforms: [
+                   .macOS(.version("11.2")), .iOS(.version("12.x.2")), .tvOS(.version("10..2")),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch ManifestParseError.runtimeManifestErrors(let errors) {
+            XCTAssertEqual(errors, ["invalid macOS version string: 11.2", "invalid iOS version string: 12.x.2", "invalid tvOS version string: 10..2"])
+        }
+
+        // Duplicates.
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               _platforms: [
+                   .macOS(.v10_10), .macOS(.v10_12),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch ManifestParseError.runtimeManifestErrors(let errors) {
+            XCTAssertEqual(errors, ["found multiple declaration for the platform: macos"])
+        }
+
+        // Empty.
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               _platforms: []
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch ManifestParseError.runtimeManifestErrors(let errors) {
+            XCTAssertEqual(errors, ["supported platforms can't be empty"])
+        }
+    }
 }
