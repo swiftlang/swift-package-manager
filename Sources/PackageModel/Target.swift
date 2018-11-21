@@ -54,6 +54,11 @@ public class Target: ObjectIdentifierProtocol {
         return self.platforms.first(where: { $0.platform == platform })
     }
 
+    /// Returns true if this target supports the given platform.
+    public func supportsPlatform(_ platform: Platform) -> Bool {
+        return getSupportedPlatform(for: platform) != nil
+    }
+
     fileprivate init(
         name: String,
         platforms: [SupportedPlatform],

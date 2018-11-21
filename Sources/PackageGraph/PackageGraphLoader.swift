@@ -470,7 +470,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         let productTarget = product.underlyingProduct.targets[0]
 
         /// Check if at least one of our platform is supported by this product dependency.
-        let atLeastOneTargetIsSupported = self.target.platforms.contains(where: productTarget.supportsPlatform)
+        let atLeastOneTargetIsSupported = self.target.platforms.contains(where: { productTarget.supportsPlatform($0.platform) })
 
         if !atLeastOneTargetIsSupported {
             diagnostics.emit(data: ProductHasNoSupportedPlatform(product: product.name, target: target.name))
@@ -514,12 +514,6 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             target: target,
             dependencies: deps
         )
-    }
-}
-
-extension Target {
-    fileprivate func supportsPlatform(_ platform: SupportedPlatform) -> Bool {
-        return getSupportedPlatform(for: platform.platform) != nil
     }
 }
 

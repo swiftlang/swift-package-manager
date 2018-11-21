@@ -96,11 +96,11 @@ public struct LLBuildManifestGenerator {
             case .swift(let description):
                 // Only build targets by default if they are reachabe from a root target.
                 targets.append(createSwiftCompileTarget(description),
-                    buildByDefault: plan.graph.reachableTargets.contains(target),
+                    buildByDefault: plan.graph.isInRootPackages(target),
                     isTest: description.isTestTarget)
             case .clang(let description):
                 targets.append(try createClangCompileTarget(description),
-                    buildByDefault: plan.graph.reachableTargets.contains(target),
+                    buildByDefault: plan.graph.isInRootPackages(target),
                     isTest: description.isTestTarget)
             }
         }
@@ -184,6 +184,11 @@ public struct LLBuildManifestGenerator {
         }
 
         for dependency in target.target.dependencies {
+            // Skip this dependency if it doesn't support the current platform.
+            guard dependency.supportsPlatform(plan.buildParameters.currentPlatform) else {
+                continue
+            }
+
             switch dependency {
             case .target(let target):
                 addStaticTargetInputs(target)

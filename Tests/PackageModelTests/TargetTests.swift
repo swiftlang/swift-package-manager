@@ -134,6 +134,9 @@ class TargetDependencyTests: XCTestCase {
 
 private extension ResolvedTarget {
     var recursiveDeps: [ResolvedTarget] {
-        return recursiveDependencies
+        return try! topologicalSort(self.dependencies, successors: { $0.dependencies }).compactMap({
+            guard case .target(let target) = $0 else { return nil }
+            return target
+        })
     }
 }
