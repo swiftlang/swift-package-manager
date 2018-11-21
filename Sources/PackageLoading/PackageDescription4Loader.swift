@@ -80,7 +80,7 @@ extension ManifestBuilder {
             let version = try versionedVersion.map({ try String(json: $0.value) })
 
             // Get the platform name.
-            let platformName = try platformJSON.get(String.self, forKey: "platform")
+            let platformName: String = try platformJSON.getJSON("platform").get("name")
 
             let description = PlatformDescription(name: platformName, version: version)
 
@@ -254,7 +254,61 @@ extension TargetDescription {
             publicHeadersPath: json.get("publicHeadersPath"),
             type: try .init(v4: json.get("type")),
             pkgConfig: json.get("pkgConfig"),
-            providers: providers
+            providers: providers,
+            settings: try TargetBuildSettingDescription.parseBuildSettings(json)
+        )
+    }
+
+}
+
+extension TargetBuildSettingDescription {
+
+    static func parseBuildSettings(_ json: JSON) throws -> [Setting] {
+        var settings: [Setting] = []
+        for tool in TargetBuildSettingDescription.Tool.allCases {
+            let key = tool.rawValue + "Settings"
+            if let settingsJSON = try? json.getJSON(key) {
+                settings += try parseBuildSettings(settingsJSON, tool: tool)
+            }
+        }
+        return settings
+    }
+
+    static func parseBuildSettings(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> [Setting] {
+        let versionedValue = try VersionedValue(json: json)
+        try versionedValue.validate(for: .v5)
+
+        let declaredSettings = try versionedValue.value.getArray()
+        if declaredSettings.isEmpty {
+            throw ManifestParseError.runtimeManifestErrors(["empty list not supported"])
+        }
+
+        return try declaredSettings.map({
+            try parseBuildSetting($0, tool: tool)
+        })
+    }
+
+    static func parseBuildSetting(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> Setting {
+        let json = try json.getJSON("data")
+        let name = try SettingName(rawValue: json.get("name"))!
+
+        var condition: Condition?
+        if let conditionJSON = try? json.getJSON("condition") {
+            condition = try parseCondition(conditionJSON)
+        }
+
+        return Setting(
+            tool: tool, name: name,
+            value: try json.get("value"),
+            condition: condition
+        )
+    }
+
+    static func parseCondition(_ json: JSON) throws -> Condition {
+        let platformNames: [String]? = try? json.getArray("platforms").map({ try $0.get("name") })
+        return Condition(
+            platformNames: platformNames ?? [],
+            config: try? json.get("config").get("config")
         )
     }
 }

@@ -100,6 +100,7 @@ extension PackageDescription5LoadingTests {
     // to regenerate.
     static let __allTests__PackageDescription5LoadingTests = [
         ("testBasics", testBasics),
+        ("testBuildSettings", testBuildSettings),
         ("testPlatforms", testPlatforms),
         ("testSwiftLanguageVersion", testSwiftLanguageVersion),
     ]
