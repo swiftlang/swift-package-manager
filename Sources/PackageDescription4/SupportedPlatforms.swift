@@ -8,49 +8,68 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+/// Represents a platform.
+public struct Platform: Encodable {
+
+    /// The name of the platform.
+    fileprivate let name: String
+
+    private init(name: String) {
+        self.name = name
+    }
+
+    public static let macOS: Platform = Platform(name: "macos")
+    public static let iOS: Platform = Platform(name: "ios")
+    public static let tvOS: Platform = Platform(name: "tvos")
+    public static let watchOS: Platform = Platform(name: "watchos")
+    public static let linux: Platform = Platform(name: "linux")
+
+    fileprivate static let all: Platform = Platform(name: "<all>")
+}
+
 /// Represents a platform supported by the package.
 public struct SupportedPlatform: Encodable {
 
-    /// The platform name.
-    let platform: String
+    /// The platform.
+    let platform: Platform
 
     /// The platform version.
     let version: VersionedValue<String>?
 
     /// Creates supported platform instance.
-    init(platform: String, version: VersionedValue<String>? = nil) {
+    init(platform: Platform, version: VersionedValue<String>? = nil) {
         self.platform = platform
         self.version = version
     }
 
     /// The macOS platform.
     public static func macOS(_ version: SupportedPlatform.MacOSVersion) -> SupportedPlatform {
-        return SupportedPlatform(platform: "macos", version: version.version)
+        return SupportedPlatform(platform: .macOS, version: version.version)
     }
 
     /// The iOS platform.
     public static func iOS(_ version: SupportedPlatform.IOSVersion) -> SupportedPlatform {
-        return SupportedPlatform(platform: "ios", version: version.version)
+        return SupportedPlatform(platform: .iOS, version: version.version)
     }
 
     /// The tvOS platform.
     public static func tvOS(_ version: SupportedPlatform.TVOSVersion) -> SupportedPlatform {
-        return SupportedPlatform(platform: "tvos", version: version.version)
+        return SupportedPlatform(platform: .tvOS, version: version.version)
     }
 
     /// The watchOS platform.
     public static func watchOS(_ version: SupportedPlatform.WatchOSVersion) -> SupportedPlatform {
-        return SupportedPlatform(platform: "watchos", version: version.version)
+        return SupportedPlatform(platform: .watchOS, version: version.version)
     }
 
     /// The Linux platform.
     public static func linux() -> SupportedPlatform {
-        return SupportedPlatform(platform: "linux")
+        return SupportedPlatform(platform: .linux)
     }
 
     /// Represents all platforms that are unspecified.
     public static var all: SupportedPlatform {
-        return SupportedPlatform(platform: "<all>")
+        return SupportedPlatform(platform: .all)
     }
 }
 

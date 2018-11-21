@@ -228,4 +228,53 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTAssertEqual(errors, ["supported platforms can't be empty"])
         }
     }
+
+    func testBuildSettings() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "Foo",
+                       _cSettings: [
+                           .headerSearchPath("path/to/foo"),
+                           .define("C", .when(platforms: [.linux])),
+                           .define("CC", to: "4", .when(platforms: [.linux], configuration: .release)),
+                       ],
+                       _cxxSettings: [
+                           .headerSearchPath("path/to/bar"),
+                           .define("CXX"),
+                       ],
+                       _swiftSettings: [
+                           .define("SWIFT", .when(configuration: .release)),
+                           .define("SWIFT_DEBUG", .when(platforms: [.watchOS], configuration: .debug)),
+                       ],
+                       _linkerSettings: [
+                           .linkedLibrary("libz"),
+                           .linkedFramework("CoreData", .when(platforms: [.macOS, .tvOS])),
+                       ]
+                   ),
+               ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            let settings = manifest.targets[0].settings
+
+            XCTAssertEqual(settings[0], .init(tool: .c, name: .headerSearchPath, value: ["path/to/foo"]))
+            XCTAssertEqual(settings[1], .init(tool: .c, name: .define, value: ["C"], condition: .init(platformNames: ["linux"])))
+            XCTAssertEqual(settings[2], .init(tool: .c, name: .define, value: ["CC", "4"], condition: .init(platformNames: ["linux"], config: "release")))
+
+            XCTAssertEqual(settings[3], .init(tool: .cxx, name: .headerSearchPath, value: ["path/to/bar"]))
+            XCTAssertEqual(settings[4], .init(tool: .cxx, name: .define, value: ["CXX"]))
+
+            XCTAssertEqual(settings[5], .init(tool: .swift, name: .define, value: ["SWIFT"], condition: .init(config: "release")))
+            XCTAssertEqual(settings[6], .init(tool: .swift, name: .define, value: ["SWIFT_DEBUG"], condition: .init(platformNames: ["watchos"], config: "debug")))
+
+            XCTAssertEqual(settings[7], .init(tool: .linker, name: .linkedLibrary, value: ["libz"]))
+            XCTAssertEqual(settings[8], .init(tool: .linker, name: .linkedFramework, value: ["CoreData"], condition: .init(platformNames: ["macos", "tvos"])))
+        }
+    }
 }
