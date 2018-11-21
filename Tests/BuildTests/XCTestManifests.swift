@@ -25,6 +25,7 @@ extension BuildPlanTests {
         ("testSwiftCMixed", testSwiftCMixed),
         ("testSystemPackageBuildPlan", testSystemPackageBuildPlan),
         ("testTestModule", testTestModule),
+        ("testUnsupportedPlatforms", testUnsupportedPlatforms),
         ("testWindowsTarget", testWindowsTarget),
     ]
 }

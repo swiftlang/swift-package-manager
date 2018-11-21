@@ -74,6 +74,22 @@ public class Product {
     /// The suffix for REPL product name.
     public static let replProductSuffix: String = "__REPL"
 
+    /// Returns true if this product supports the given platform.
+    public func supportsPlatform(_ platform: Platform) -> Bool {
+        // A product supports a platform if all of its targets support that platform.
+        //
+        // We might need something different once we have support for
+        // target-level platform specification. Maybe the product's
+        // platform should be the intersection of the platforms
+        // specified by its targets.
+        for target in self.targets {
+            if !target.supportsPlatform(platform) {
+                return false
+            }
+        }
+        return true
+    }
+
     public init(name: String, type: ProductType, targets: [Target], linuxMain: AbsolutePath? = nil) {
         precondition(!targets.isEmpty)
         if type == .executable {
