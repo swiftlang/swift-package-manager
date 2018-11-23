@@ -1386,6 +1386,7 @@ def main():
         # Copy the libSwiftPM modules.
         # FIXME: This shouldn't require so much knowledge of the manifest.
         # FIXME: We should handle what happens if it's a static library.
+        src_path = os.path.join(target_path, conf, libswiftpm_product.product_name)
         target_map = dict((t.name, t) for t in targets)
         for target_name in libswiftpm_product.targets:
             target = target_map[target_name]
