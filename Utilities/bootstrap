@@ -309,7 +309,7 @@ class Target(object):
 
             print("  %s:" % json.dumps(object_path), file=output)
             print("    tool: clang", file=output)
-            print("    description: Compile %s" % filename, file=output)
+            print("    description: Compiling %s" % filename, file=output)
             print("    inputs: %s" % json.dumps([source]), file=output)
             print("    outputs: %s" % json.dumps([object_path]), file=output)
             print("    args: %s" % json.dumps(args), file=output)
