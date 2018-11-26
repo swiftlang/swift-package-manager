@@ -242,7 +242,7 @@ public struct LLBuildManifestGenerator {
 
             args += ["-c", path.source.asString, "-o", path.object.asString]
             let clang = ClangTool(
-                desc: "Compile \(target.target.name) \(path.filename.asString)",
+                desc: "Compiling \(target.target.name) \(path.filename.asString)",
                 //FIXME: Should we add build time dependency on dependent targets?
                 inputs: [path.source.asString],
                 outputs: [path.object.asString],
