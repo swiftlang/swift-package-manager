@@ -665,9 +665,8 @@ final class ParallelTestRunner {
     /// The queue containing tests which are finished running.
     private let finishedTests = SynchronizedQueue<TestResult?>()
 
-    /// Instance of progress bar. Animating progress bar if stream is a terminal otherwise
-    /// a simple progress bar.
-    private let progressBar: ProgressBarProtocol
+    /// Instance of a terminal progress animation.
+    private let progressBar: ProgressAnimationProtocol
 
     /// Number of tests that will be executed.
     private var numTests = 0
@@ -708,7 +707,7 @@ final class ParallelTestRunner {
         self.xUnitOutput = xUnitOutput
         self.numJobs = numJobs
         self.diagnostics = diagnostics
-        progressBar = createProgressBar(forStream: stdoutStream, header: "Testing:")
+        progressBar = PercentProgressAnimation(stream: stdoutStream, header: "Testing:")
         self.options = options
         self.buildParameters = buildParameters
         
@@ -725,7 +724,7 @@ final class ParallelTestRunner {
     /// Updates the progress bar status.
     private func updateProgress(for test: UnitTest) {
         numCurrentTest += 1
-        progressBar.update(percent: 100*numCurrentTest/numTests, text: test.specifier)
+        progressBar.update(progress: numCurrentTest, total: numTests, text: test.specifier)
     }
 
     private func enqueueTests(_ tests: [UnitTest]) throws {
