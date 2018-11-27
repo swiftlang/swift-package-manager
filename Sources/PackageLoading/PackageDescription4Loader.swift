@@ -21,7 +21,7 @@ extension ManifestBuilder {
         self.swiftLanguageVersions = try parseSwiftLanguageVersion(package)
         self.products = try package.getArray("products").map(ProductDescription.init(v4:))
         self.providers = try? package.getArray("providers").map(SystemPackageProviderDescription.init(v4:))
-        self.targets = try package.getArray("targets").map(TargetDescription.init(v4:))
+        self.targets = try package.getArray("targets").map(parseTarget(json:))
         self.dependencies = try package
              .getArray("dependencies")
              .map({ try PackageDependencyDescription(v4: $0, baseURL: self.baseURL, fileSystem: self.fs) })
@@ -94,6 +94,78 @@ extension ManifestBuilder {
         }
 
         return platforms
+    }
+
+    private func parseTarget(json: JSON) throws -> TargetDescription {
+        let providers = try? json
+            .getArray("providers")
+            .map(SystemPackageProviderDescription.init(v4:))
+
+        let dependencies = try json
+            .getArray("dependencies")
+            .map(TargetDescription.Dependency.init(v4:))
+
+        return TargetDescription(
+            name: try json.get("name"),
+            dependencies: dependencies,
+            path: json.get("path"),
+            exclude: try json.get("exclude"),
+            sources: try? json.get("sources"),
+            publicHeadersPath: json.get("publicHeadersPath"),
+            type: try .init(v4: json.get("type")),
+            pkgConfig: json.get("pkgConfig"),
+            providers: providers,
+            settings: try parseBuildSettings(json)
+        )
+    }
+
+    func parseBuildSettings(_ json: JSON) throws -> [TargetBuildSettingDescription.Setting] {
+        var settings: [TargetBuildSettingDescription.Setting] = []
+        for tool in TargetBuildSettingDescription.Tool.allCases {
+            let key = tool.rawValue + "Settings"
+            if let settingsJSON = try? json.getJSON(key) {
+                settings += try parseBuildSettings(settingsJSON, tool: tool)
+            }
+        }
+        return settings
+    }
+
+    func parseBuildSettings(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> [TargetBuildSettingDescription.Setting] {
+        let versionedValue = try VersionedValue(json: json)
+        try versionedValue.validate(for: self.manifestVersion)
+
+        let declaredSettings = try versionedValue.value.getArray()
+        if declaredSettings.isEmpty {
+            throw ManifestParseError.runtimeManifestErrors(["empty list not supported"])
+        }
+
+        return try declaredSettings.map({
+            try parseBuildSetting($0, tool: tool)
+        })
+    }
+
+    func parseBuildSetting(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> TargetBuildSettingDescription.Setting {
+        let json = try json.getJSON("data")
+        let name = try TargetBuildSettingDescription.SettingName(rawValue: json.get("name"))!
+
+        var condition: TargetBuildSettingDescription.Condition?
+        if let conditionJSON = try? json.getJSON("condition") {
+            condition = try parseCondition(conditionJSON)
+        }
+
+        return .init(
+            tool: tool, name: name,
+            value: try json.get("value"),
+            condition: condition
+        )
+    }
+
+    func parseCondition(_ json: JSON) throws -> TargetBuildSettingDescription.Condition {
+        let platformNames: [String]? = try? json.getArray("platforms").map({ try $0.get("name") })
+        return .init(
+            platformNames: platformNames ?? [],
+            config: try? json.get("config").get("config")
+        )
     }
 }
 
@@ -231,84 +303,6 @@ extension PackageDependencyDescription {
         try self.init(
             url: fixURL(json.get("url")),
             requirement: .init(v4: json.get("requirement"))
-        )
-    }
-}
-
-extension TargetDescription {
-    fileprivate init(v4 json: JSON) throws {
-        let providers = try? json
-            .getArray("providers")
-            .map(SystemPackageProviderDescription.init(v4:))
-
-        let dependencies = try json
-            .getArray("dependencies")
-            .map(TargetDescription.Dependency.init(v4:))
-
-        self.init(
-            name: try json.get("name"),
-            dependencies: dependencies,
-            path: json.get("path"),
-            exclude: try json.get("exclude"),
-            sources: try? json.get("sources"),
-            publicHeadersPath: json.get("publicHeadersPath"),
-            type: try .init(v4: json.get("type")),
-            pkgConfig: json.get("pkgConfig"),
-            providers: providers,
-            settings: try TargetBuildSettingDescription.parseBuildSettings(json)
-        )
-    }
-
-}
-
-extension TargetBuildSettingDescription {
-
-    static func parseBuildSettings(_ json: JSON) throws -> [Setting] {
-        var settings: [Setting] = []
-        for tool in TargetBuildSettingDescription.Tool.allCases {
-            let key = tool.rawValue + "Settings"
-            if let settingsJSON = try? json.getJSON(key) {
-                settings += try parseBuildSettings(settingsJSON, tool: tool)
-            }
-        }
-        return settings
-    }
-
-    static func parseBuildSettings(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> [Setting] {
-        let versionedValue = try VersionedValue(json: json)
-        try versionedValue.validate(for: .v5)
-
-        let declaredSettings = try versionedValue.value.getArray()
-        if declaredSettings.isEmpty {
-            throw ManifestParseError.runtimeManifestErrors(["empty list not supported"])
-        }
-
-        return try declaredSettings.map({
-            try parseBuildSetting($0, tool: tool)
-        })
-    }
-
-    static func parseBuildSetting(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> Setting {
-        let json = try json.getJSON("data")
-        let name = try SettingName(rawValue: json.get("name"))!
-
-        var condition: Condition?
-        if let conditionJSON = try? json.getJSON("condition") {
-            condition = try parseCondition(conditionJSON)
-        }
-
-        return Setting(
-            tool: tool, name: name,
-            value: try json.get("value"),
-            condition: condition
-        )
-    }
-
-    static func parseCondition(_ json: JSON) throws -> Condition {
-        let platformNames: [String]? = try? json.getArray("platforms").map({ try $0.get("name") })
-        return Condition(
-            platformNames: platformNames ?? [],
-            config: try? json.get("config").get("config")
         )
     }
 }

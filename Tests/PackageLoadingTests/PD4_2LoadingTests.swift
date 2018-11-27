@@ -220,6 +220,38 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         }
     }
 
+    func testBuildSettings() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "Foo",
+                       _swiftSettings: [
+                           .define("SWIFT", .when(configuration: .release)),
+                       ],
+                       _linkerSettings: [
+                           .linkedLibrary("libz"),
+                       ]
+                   ),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail()
+        } catch {
+            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+                return XCTFail("\(error)")
+            }
+            XCTAssertEqual(api, "swiftSettings")
+            XCTAssertEqual(supportedVersions, [.v5])
+        }
+    }
+
     func testPackageDependencies() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
