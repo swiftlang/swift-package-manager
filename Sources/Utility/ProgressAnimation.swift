@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2018 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -12,15 +12,26 @@ import Basic
 
 /// A protocol to operate on terminal based progress animations.
 public protocol ProgressAnimationProtocol {
-    func update(progress: Int, total: Int, text: String)
+    /// Update the animation with a new step.
+    /// - Parameters:
+    ///   - step: The index of the operation's current step.
+    ///   - total: The total number of steps before the operation is complete.
+    ///   - text: The description of the current step.
+    func update(step: Int, total: Int, text: String)
+
+    /// Complete the animation.
+    /// - Parameters:
+    ///   - success: Defines if the operation the animation represents was succesful.
     func complete(success: Bool)
+
+    /// Clear the animation.
     func clear()
 }
 
 /// A single line ninja-like progress animation.
 public final class SingleLineNinjaProgressAnimation: ProgressAnimationProtocol {
     private struct State: Hashable {
-        let progress: Int
+        let step: Int
         let total: Int
     }
 
@@ -31,11 +42,13 @@ public final class SingleLineNinjaProgressAnimation: ProgressAnimationProtocol {
         self.stream = stream
     }
 
-    public func update(progress: Int, total: Int, text: String) {
-        let state = State(progress: progress, total: total)
+    public func update(step: Int, total: Int, text: String) {
+        assert(progress <= total)
+
+        let state = State(step: step, total: total)
         guard !displayedStates.contains(state) else { return }
 
-        stream <<< "[\(progress)/\(total)] " <<< text <<< ".. "
+        stream <<< "[\(step)/\(total)] " <<< text <<< ".. "
         stream.flush()
         displayedStates.insert(state)
     }
@@ -59,8 +72,10 @@ public final class MultiLineNinjaProgressAnimation: ProgressAnimationProtocol {
         self.stream = stream
     }
 
-    public func update(progress: Int, total: Int, text: String) {
-        stream <<< "[\(progress)/\(total)] " <<< text
+    public func update(step: Int, total: Int, text: String) {
+        assert(progress <= total)
+
+        stream <<< "[\(step)/\(total)] " <<< text
         stream <<< "\n"
         stream.flush()
     }
@@ -80,9 +95,11 @@ public final class RedrawingNinjaProgressAnimation: ProgressAnimationProtocol {
         self.terminal = terminal
     }
 
-    public func update(progress: Int, total: Int, text: String) {
+    public func update(step: Int, total: Int, text: String) {
+        assert(progress <= total)
+
         terminal.clearLine()
-        terminal.write("[\(progress)/\(total)] ")
+        terminal.write("[\(step)/\(total)] ")
         terminal.write(text)
     }
 
@@ -119,7 +136,9 @@ public final class SingleLinePercentProgressAnimation: ProgressAnimationProtocol
         self.isClear = true
     }
 
-    public func update(progress: Int, total: Int, text: String) {
+    public func update(step: Int, total: Int, text: String) {
+        assert(progress <= total)
+
         if isClear {
             stream <<< header
             stream <<< "\n"
@@ -127,7 +146,7 @@ public final class SingleLinePercentProgressAnimation: ProgressAnimationProtocol
             isClear = false
         }
 
-        let percent = progress * 100 / total
+        let percent = step * 100 / total
         let displayPercentage = Int(Double(percent / 10).rounded(.down)) * 10
         if percent != 100, !displayed.contains(displayPercentage) {
             stream <<< String(displayPercentage) <<< ".. "
@@ -159,7 +178,9 @@ public final class MultiLinePercentProgressAnimation: ProgressAnimationProtocol 
         self.isClear = true
     }
 
-    public func update(progress: Int, total: Int, text: String) {
+    public func update(step: Int, total: Int, text: String) {
+        assert(progress <= total)
+
         if isClear {
             stream <<< header
             stream <<< "\n"
@@ -167,7 +188,7 @@ public final class MultiLinePercentProgressAnimation: ProgressAnimationProtocol 
             isClear = false
         }
 
-        let percent = progress * 100 / total
+        let percent = step * 100 / total
         stream <<< "\(percent)%: " <<< text
         stream <<< "\n"
         stream.flush()
@@ -198,7 +219,9 @@ public final class RedrawingLitProgressAnimation: ProgressAnimationProtocol {
         return String(repeating: string, count: max(count, 0))
     }
 
-    public func update(progress: Int, total: Int, text: String) {
+    public func update(step: Int, total: Int, text: String) {
+        assert(progress <= total)
+
         if isClear {
             let spaceCount = (term.width/2 - header.utf8.count/2)
             term.write(repeating(string: " ", count: spaceCount))
@@ -208,7 +231,7 @@ public final class RedrawingLitProgressAnimation: ProgressAnimationProtocol {
         }
 
         term.clearLine()
-        let percent = progress * 100 / total
+        let percent = step * 100 / total
         let percentString = percent < 10 ? " \(percent)" : "\(percent)"
         let prefix = "\(percentString)% " + term.wrap("[", inColor: .green, bold: true)
         term.write(prefix)
@@ -276,8 +299,8 @@ public class DynamicProgressAnimation: ProgressAnimationProtocol {
         }
     }
 
-    public func update(progress: Int, total: Int, text: String) {
-        animation.update(progress: progress, total: total, text: text)
+    public func update(step: Int, total: Int, text: String) {
+        animation.update(step: step, total: total, text: text)
     }
 
     public func complete(success: Bool) {

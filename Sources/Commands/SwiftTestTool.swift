@@ -724,7 +724,7 @@ final class ParallelTestRunner {
     /// Updates the progress bar status.
     private func updateProgress(for test: UnitTest) {
         numCurrentTest += 1
-        progressBar.update(progress: numCurrentTest, total: numTests, text: test.specifier)
+        progressBar.update(step: numCurrentTest, total: numTests, text: test.specifier)
     }
 
     private func enqueueTests(_ tests: [UnitTest]) throws {
