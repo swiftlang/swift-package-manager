@@ -438,6 +438,18 @@ public enum TargetBuildSettingDescription {
             value: [String],
             condition: Condition? = nil
         ) {
+            switch name {
+            case .headerSearchPath: fallthrough
+            case .define: fallthrough
+            case .linkedLibrary: fallthrough
+            case .linkedFramework:
+                assert(value.count == 1, "\(tool) \(name) \(value)")
+                break
+            case .unsafeFlags:
+                assert(value.count >= 1, "\(tool) \(name) \(value)")
+                break
+            }
+
             self.tool = tool
             self.name = name
             self.value = value

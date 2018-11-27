@@ -77,11 +77,11 @@ public struct CSetting: Encodable {
 
     /// Define macro to a value (or 1 if the value is omitted).
     public static func define(_ name: String, to value: String? = nil, _ condition: BuildSettingCondition? = nil) -> CSetting {
-        var settingValue = [name]
+        var settingValue = name
         if let value = value {
-            settingValue.append(value)
+            settingValue += "=" + value
         }
-        return CSetting(name: "define", value: settingValue, condition: condition)
+        return CSetting(name: "define", value: [settingValue], condition: condition)
     }
 
     /// Set the given unsafe flags.
@@ -107,11 +107,11 @@ public struct CXXSetting: Encodable {
 
     /// Define macro to a value (or 1 if the value is omitted).
     public static func define(_ name: String, to value: String? = nil, _ condition: BuildSettingCondition? = nil) -> CXXSetting {
-        var settingValue = [name]
+        var settingValue = name
         if let value = value {
-            settingValue.append(value)
+            settingValue += "=" + value
         }
-        return CXXSetting(name: "define", value: settingValue, condition: condition)
+        return CXXSetting(name: "define", value: [settingValue], condition: condition)
     }
 
     /// Set the given unsafe flags.
