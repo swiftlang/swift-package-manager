@@ -1386,7 +1386,6 @@ def main():
         # Copy the libSwiftPM modules.
         # FIXME: This shouldn't require so much knowledge of the manifest.
         # FIXME: We should handle what happens if it's a static library.
-        src_path = os.path.join(target_path, conf, libswiftpm_product.product_name)
         target_map = dict((t.name, t) for t in targets)
         for target_name in libswiftpm_product.targets:
             target = target_map[target_name]
@@ -1400,7 +1399,7 @@ def main():
                     continue
                 dst_path = os.path.join(libswiftpm_modules_dir, target.name)
                 cmd = ["rsync", "-a", include_dir, dst_path]
-                note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
+                note("copying to %s: %s" % (dst_path, ' '.join(cmd)))
                 result = subprocess.call(cmd)
                 if result != 0:
                     error("copying failed with exit status %d" % result)
@@ -1412,7 +1411,7 @@ def main():
                         continue
                     dst_path = os.path.join(libswiftpm_modules_dir, target.name + suffix)
                     cmd = ["rsync", "-a", src_path, dst_path]
-                    note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
+                    note("copying to %s: %s" % (dst_path, ' '.join(cmd)))
                     result = subprocess.call(cmd)
                     if result != 0:
                         error("copying failed with exit status %d" % result)
