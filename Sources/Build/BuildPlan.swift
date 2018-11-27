@@ -49,7 +49,7 @@ public struct BuildParameters {
     public let dataPath: AbsolutePath
 
     /// The build configuration.
-    public let configuration: Configuration
+    public let configuration: BuildConfiguration
 
     /// The path to the build directory (inside the data directory).
     public var buildPath: AbsolutePath {
@@ -130,7 +130,7 @@ public struct BuildParameters {
 
     public init(
         dataPath: AbsolutePath,
-        configuration: Configuration,
+        configuration: BuildConfiguration,
         toolchain: Toolchain,
         destinationTriple: Triple = Triple.hostTriple,
         flags: BuildFlags,

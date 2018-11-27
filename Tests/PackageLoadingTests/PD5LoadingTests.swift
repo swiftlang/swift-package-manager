@@ -265,7 +265,7 @@ class PackageDescription5LoadingTests: XCTestCase {
 
             XCTAssertEqual(settings[0], .init(tool: .c, name: .headerSearchPath, value: ["path/to/foo"]))
             XCTAssertEqual(settings[1], .init(tool: .c, name: .define, value: ["C"], condition: .init(platformNames: ["linux"])))
-            XCTAssertEqual(settings[2], .init(tool: .c, name: .define, value: ["CC", "4"], condition: .init(platformNames: ["linux"], config: "release")))
+            XCTAssertEqual(settings[2], .init(tool: .c, name: .define, value: ["CC=4"], condition: .init(platformNames: ["linux"], config: "release")))
 
             XCTAssertEqual(settings[3], .init(tool: .cxx, name: .headerSearchPath, value: ["path/to/bar"]))
             XCTAssertEqual(settings[4], .init(tool: .cxx, name: .define, value: ["CXX"]))

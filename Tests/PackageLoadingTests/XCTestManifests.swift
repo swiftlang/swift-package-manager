@@ -24,6 +24,7 @@ extension PackageBuilderTests {
         ("testBadExecutableProductDecl", testBadExecutableProductDecl),
         ("testBadREPLPackage", testBadREPLPackage),
         ("testBrokenSymlink", testBrokenSymlink),
+        ("testBuildSettings", testBuildSettings),
         ("testCInTests", testCInTests),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testCustomTargetDependencies", testCustomTargetDependencies),

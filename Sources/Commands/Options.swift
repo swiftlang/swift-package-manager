@@ -11,13 +11,14 @@
 import Basic
 import Utility
 import Build
+import PackageModel
 
 public class ToolOptions {
     /// Custom arguments to pass to C compiler, swift compiler and the linker.
     public var buildFlags = BuildFlags()
     
     /// Build configuration.
-    public var configuration: Build.Configuration = .debug
+    public var configuration: BuildConfiguration = .debug
 
     /// The custom build directory, if provided.
     public var buildPath: AbsolutePath?

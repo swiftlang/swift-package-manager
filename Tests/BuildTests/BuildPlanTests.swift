@@ -53,7 +53,7 @@ final class BuildPlanTests: XCTestCase {
 
     func mockBuildParameters(
         buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
-        config: Build.Configuration = .debug,
+        config: BuildConfiguration = .debug,
         shouldLinkStaticSwiftStdlib: Bool = false,
         destinationTriple: Triple = Triple.hostTriple,
         indexStoreMode: BuildParameters.IndexStoreMode = .off
@@ -1078,7 +1078,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(diagnostics)
 
-        func check(for mode: BuildParameters.IndexStoreMode, config: Build.Configuration) throws {
+        func check(for mode: BuildParameters.IndexStoreMode, config: BuildConfiguration) throws {
             let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(config: config, indexStoreMode: mode), graph: graph, diagnostics: diagnostics, fileSystem: fs))
 
             let lib = try result.target(for: "lib").clangTarget()

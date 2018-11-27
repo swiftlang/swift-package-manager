@@ -59,6 +59,9 @@ public class Target: ObjectIdentifierProtocol {
         return getSupportedPlatform(for: platform) != nil
     }
 
+    /// The build settings assignments of this target.
+    public let buildSettings: BuildSettings.AssignmentTable
+
     fileprivate init(
         name: String,
         platforms: [SupportedPlatform],
@@ -66,7 +69,8 @@ public class Target: ObjectIdentifierProtocol {
         type: Kind,
         sources: Sources,
         dependencies: [Target],
-        productDependencies: [(name: String, package: String?)] = []
+        productDependencies: [(name: String, package: String?)] = [],
+        buildSettings: BuildSettings.AssignmentTable
     ) {
         self.name = name
         self.platforms = platforms
@@ -76,6 +80,7 @@ public class Target: ObjectIdentifierProtocol {
         self.dependencies = dependencies
         self.productDependencies = productDependencies
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
+        self.buildSettings = buildSettings
     }
 }
 
@@ -109,7 +114,9 @@ public class SwiftTarget: Target {
             areUnknownPlatformsSupported: true,
             type: .executable,
             sources: sources,
-            dependencies: dependencies
+            dependencies: dependencies,
+            buildSettings: .init()
+
         )
     }
 
@@ -124,7 +131,8 @@ public class SwiftTarget: Target {
         sources: Sources,
         dependencies: [Target] = [],
         productDependencies: [(name: String, package: String?)] = [],
-        swiftVersion: SwiftLanguageVersion
+        swiftVersion: SwiftLanguageVersion,
+        buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
         let type: Kind = isTest ? .test : sources.computeTargetType()
         self.swiftVersion = swiftVersion
@@ -135,7 +143,9 @@ public class SwiftTarget: Target {
             type: type,
             sources: sources,
             dependencies: dependencies,
-            productDependencies: productDependencies)
+            productDependencies: productDependencies,
+            buildSettings: buildSettings
+        )
     }
 }
 
@@ -175,7 +185,8 @@ public class SystemLibraryTarget: Target {
             areUnknownPlatformsSupported: areUnknownPlatformsSupported,
             type: .systemModule,
             sources: sources,
-            dependencies: []
+            dependencies: [],
+            buildSettings: .init()
         )
     }
 }
@@ -207,7 +218,8 @@ public class ClangTarget: Target {
         isTest: Bool = false,
         sources: Sources,
         dependencies: [Target] = [],
-        productDependencies: [(name: String, package: String?)] = []
+        productDependencies: [(name: String, package: String?)] = [],
+        buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
         assert(includeDir.contains(sources.root), "\(includeDir) should be contained in the source root \(sources.root)")
         let type: Kind = isTest ? .test : sources.computeTargetType()
@@ -222,7 +234,9 @@ public class ClangTarget: Target {
             type: type,
             sources: sources,
             dependencies: dependencies,
-            productDependencies: productDependencies)
+            productDependencies: productDependencies,
+            buildSettings: buildSettings
+        )
     }
 }
 

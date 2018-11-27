@@ -672,6 +672,9 @@ public final class PackageBuilder {
 
         // Get the platform information for this package.
         let (platforms, areUnknownPlatformsSupported) = self.platforms()
+
+        // Create the build setting assignment table for this target.
+        let buildSettings = self.buildSettings(for: manifestTarget)
         
         // Create and return the right kind of target depending on what kind of sources we found.
         if clangSources.isEmpty {
@@ -687,7 +690,9 @@ public final class PackageBuilder {
                 sources: Sources(paths: swiftSources, root: potentialModule.path),
                 dependencies: moduleDependencies,
                 productDependencies: productDeps,
-                swiftVersion: try swiftVersion())
+                swiftVersion: try swiftVersion(),
+                buildSettings: buildSettings
+            )
         } else {
             // No Swift sources, so we expect to have C sources, and we create a C target.
             guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path.asString) }
@@ -706,8 +711,86 @@ public final class PackageBuilder {
                 isTest: potentialModule.isTest,
                 sources: sources,
                 dependencies: moduleDependencies,
-                productDependencies: productDeps)
+                productDependencies: productDeps,
+                buildSettings: buildSettings
+            )
         }
+    }
+
+    /// Creates build setting assignment table for the given target.
+    func buildSettings(for target: TargetDescription?) -> BuildSettings.AssignmentTable {
+        var table = BuildSettings.AssignmentTable()
+        guard let target = target else { return table }
+
+        // Process each setting.
+        for setting in target.settings {
+            let decl: BuildSettings.Declaration
+
+            // Compute appropriate declaration for the setting.
+            switch setting.name {
+            case .headerSearchPath:
+
+                switch setting.tool {
+                case .c, .cxx:
+                    decl = .HEADER_SEARCH_PATHS
+                case .swift, .linker:
+                    fatalError("unexpected tool for setting type \(setting)")
+                }
+
+            case .define:
+                switch setting.tool {
+                case .c, .cxx:
+                    decl = .GCC_PREPROCESSOR_DEFINITIONS
+                case .swift:
+                    decl = .SWIFT_ACTIVE_COMPILATION_CONDITIONS
+                case .linker:
+                    fatalError("unexpected tool for setting type \(setting)")
+                }
+
+            case .linkedLibrary:
+                switch setting.tool {
+                case .c, .cxx, .swift:
+                    fatalError("unexpected tool for setting type \(setting)")
+                case .linker:
+                    decl = .LINK_LIBRARIES
+                }
+
+            case .linkedFramework:
+                switch setting.tool {
+                case .c, .cxx, .swift:
+                    fatalError("unexpected tool for setting type \(setting)")
+                case .linker:
+                    decl = .LINK_FRAMEWORKS
+                }
+
+            case .unsafeFlags:
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                case .swift:
+                    decl = .OTHER_SWIFT_FLAGS
+                case .linker:
+                    decl = .OTHER_LDFLAGS
+                }
+            }
+
+            // Create an assignment for this setting.
+            var assignment = BuildSettings.Assignment()
+            assignment.value = setting.value
+
+            if let condition = setting.condition {
+                let config: BuildConfiguration? = condition.config.map({ BuildConfiguration(rawValue: $0)! })
+                let platforms: [PackageModel.Platform] = condition.platformNames.map({ platformRegistry.platformByName[$0]! })
+                assignment.condition = BuildSettings.Condition(platforms: platforms, config: config)
+            }
+
+            // Finally, add the assignment to the assignment table.
+            table.add(assignment, for: decl)
+        }
+
+        return table
     }
 
     /// Returns the list of platforms supported by the manifest.
