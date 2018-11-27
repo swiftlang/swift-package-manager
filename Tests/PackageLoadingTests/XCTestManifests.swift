@@ -84,6 +84,7 @@ extension PackageDescription4_2LoadingTests {
     // to regenerate.
     static let __allTests__PackageDescription4_2LoadingTests = [
         ("testBasics", testBasics),
+        ("testBuildSettings", testBuildSettings),
         ("testCacheInvalidationOnEnv", testCacheInvalidationOnEnv),
         ("testCaching", testCaching),
         ("testDuplicateDependencyDecl", testDuplicateDependencyDecl),
