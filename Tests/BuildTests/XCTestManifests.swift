@@ -10,6 +10,7 @@ extension BuildPlanTests {
         ("testBasicExtPackages", testBasicExtPackages),
         ("testBasicReleasePackage", testBasicReleasePackage),
         ("testBasicSwiftPackage", testBasicSwiftPackage),
+        ("testBuildSettings", testBuildSettings),
         ("testClangTargets", testClangTargets),
         ("testCLanguageStandard", testCLanguageStandard),
         ("testCModule", testCModule),
