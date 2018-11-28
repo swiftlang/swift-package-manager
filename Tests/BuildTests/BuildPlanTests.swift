@@ -1246,6 +1246,129 @@ final class BuildPlanTests: XCTestCase {
                 """), contents)
         }
     }
+
+    func testBuildSettings() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/exe/main.swift",
+            "/A/Sources/bar/bar.swift",
+            "/A/Sources/cbar/barcpp.cpp",
+            "/A/Sources/cbar/bar.c",
+            "/A/Sources/cbar/include/bar.h",
+
+            "/B/Sources/Dep/dep.swift"
+        )
+
+        let aManifest = Manifest.createManifest(
+            name: "A",
+            path: "/A",
+            url: "/A",
+            v: .v5,
+            dependencies: [
+                PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+            ],
+            targets: [
+                TargetDescription(
+                    name: "cbar",
+                    settings: [
+                    .init(tool: .c, name: .headerSearchPath, value: ["Sources/headers"]),
+                    .init(tool: .cxx, name: .headerSearchPath, value: ["Sources/cppheaders"]),
+
+                    .init(tool: .c, name: .define, value: ["CCC=2"]),
+                    .init(tool: .cxx, name: .define, value: ["RCXX"], condition: .init(config: "release")),
+
+                    .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
+                    .init(tool: .cxx, name: .unsafeFlags, value: ["-Icxxfoo", "-L", "cxxbar"]),
+                    ]
+                ),
+                TargetDescription(
+                    name: "bar", dependencies: ["cbar", "Dep"],
+                    settings: [
+                    .init(tool: .swift, name: .define, value: ["LINUX"], condition: .init(platformNames: ["linux"])),
+                    .init(tool: .swift, name: .define, value: ["RLINUX"], condition: .init(platformNames: ["linux"], config: "release")),
+                    .init(tool: .swift, name: .define, value: ["DMACOS"], condition: .init(platformNames: ["macos"], config: "debug")),
+                    .init(tool: .swift, name: .unsafeFlags, value: ["-Isfoo", "-L", "sbar"]),
+                    ]
+                ),
+                TargetDescription(
+                    name: "exe", dependencies: ["bar"],
+                    settings: [
+                    .init(tool: .swift, name: .define, value: ["FOO"]),
+                    .init(tool: .linker, name: .linkedLibrary, value: ["sqlite3"]),
+                    .init(tool: .linker, name: .linkedFramework, value: ["CoreData"], condition: .init(platformNames: ["macos"])),
+                    .init(tool: .linker, name: .unsafeFlags, value: ["-Ilfoo", "-L", "lbar"]),
+                    ]
+                ),
+            ]
+
+        )
+
+        let bManifest = Manifest.createManifest(
+            name: "B",
+            path: "/B",
+            url: "/B",
+            v: .v5,
+            products: [
+                ProductDescription(name: "Dep", targets: ["Dep"]),
+            ],
+            targets: [
+                TargetDescription(
+                    name: "Dep",
+                    settings: [
+                        .init(tool: .swift, name: .define, value: ["DEP"]),
+                        .init(tool: .linker, name: .linkedLibrary, value: ["libz"]),
+                    ]
+                ),
+            ])
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/A", fs: fs, diagnostics: diagnostics,
+            manifests: [aManifest, bManifest]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        func createResult(for dest: Triple) throws -> BuildPlanResult {
+            return BuildPlanResult(plan: try BuildPlan(
+                buildParameters: mockBuildParameters(destinationTriple: dest),
+                graph: graph, diagnostics: diagnostics,
+                fileSystem: fs)
+            )
+        }
+
+        do {
+            let result = try createResult(for: .x86_64Linux)
+
+            let dep = try result.target(for: "Dep").swiftTarget().compileArguments()
+            XCTAssertMatch(dep, [.anySequence, "-DDEP", .end])
+
+            let cbar = try result.target(for: "cbar").clangTarget().basicArguments()
+            XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I/A/Sources/cbar/Sources/headers", "-I/A/Sources/cbar/Sources/cppheaders", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
+
+            let bar = try result.target(for: "bar").swiftTarget().compileArguments()
+            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", .end])
+
+            let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+            XCTAssertMatch(exe, [.anySequence, "-DFOO", .end])
+
+            let linkExe = try result.buildProduct(for: "exe").linkArguments()
+            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-Ilfoo", "-L", "lbar", "-llibz", .end])
+        }
+
+        do {
+            let result = try createResult(for: .macOS)
+
+            let cbar = try result.target(for: "cbar").clangTarget().basicArguments()
+            XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I/A/Sources/cbar/Sources/headers", "-I/A/Sources/cbar/Sources/cppheaders", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
+
+            let bar = try result.target(for: "bar").swiftTarget().compileArguments()
+            XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", .end])
+
+            let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-framework", "CoreData", .end])
+
+            let linkExe = try result.buildProduct(for: "exe").linkArguments()
+            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-framework", "CoreData", "-Ilfoo", "-L", "lbar", "-llibz", .end])
+        }
+    }
 }
 
 // MARK:- Test Helpers
