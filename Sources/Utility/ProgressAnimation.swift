@@ -28,29 +28,34 @@ public protocol ProgressAnimationProtocol {
     func clear()
 }
 
-/// A single line ninja-like progress animation.
-public final class SingleLineNinjaProgressAnimation: ProgressAnimationProtocol {
-    private struct State: Hashable {
-        let step: Int
-        let total: Int
-    }
-
+/// A single line percent-based progress animation.
+public final class SingleLinePercentProgressAnimation: ProgressAnimationProtocol {
     private let stream: OutputByteStream
-    private var displayedStates: Set<State> = []
+    private let header: String?
+    private var displayedPercentages: Set<Int> = []
+    private var hasDisplayedHeader = false
 
-    init(stream: OutputByteStream) {
+    init(stream: OutputByteStream, header: String?) {
         self.stream = stream
+        self.header = header
     }
 
     public func update(step: Int, total: Int, text: String) {
-        assert(progress <= total)
+        if let header = header, !hasDisplayedHeader {
+            stream <<< header
+            stream <<< "\n"
+            stream.flush()
+            hasDisplayedHeader = true
+        }
 
-        let state = State(step: step, total: total)
-        guard !displayedStates.contains(state) else { return }
+        let percentage = step * 100 / total
+        let roundedPercentage = Int(Double(percentage / 10).rounded(.down)) * 10
+        if percentage != 100, !displayedPercentages.contains(roundedPercentage) {
+            stream <<< String(roundedPercentage) <<< ".. "
+            displayedPercentages.insert(roundedPercentage)
+        }
 
-        stream <<< "[\(step)/\(total)] " <<< text <<< ".. "
         stream.flush()
-        displayedStates.insert(state)
     }
 
     public func complete(success: Bool) {
@@ -73,7 +78,7 @@ public final class MultiLineNinjaProgressAnimation: ProgressAnimationProtocol {
     }
 
     public func update(step: Int, total: Int, text: String) {
-        assert(progress <= total)
+        assert(step <= total)
 
         stream <<< "[\(step)/\(total)] " <<< text
         stream <<< "\n"
@@ -96,7 +101,7 @@ public final class RedrawingNinjaProgressAnimation: ProgressAnimationProtocol {
     }
 
     public func update(step: Int, total: Int, text: String) {
-        assert(progress <= total)
+        assert(step <= total)
 
         terminal.clearLine()
         terminal.write("[\(step)/\(total)] ")
@@ -118,78 +123,34 @@ public final class NinjaProgressAnimation: DynamicProgressAnimation {
         super.init(
             stream: stream,
             ttyTerminalAnimationFactory: { RedrawingNinjaProgressAnimation(terminal: $0) },
-            dumbTerminalAnimationFactory: { SingleLineNinjaProgressAnimation(stream: stream) },
+            dumbTerminalAnimationFactory: { SingleLinePercentProgressAnimation(stream: stream, header: nil) },
             defaultAnimationFactory: { MultiLineNinjaProgressAnimation(stream: stream) })
-    }
-}
-
-/// A single line percent-based progress animation.
-public final class SingleLinePercentProgressAnimation: ProgressAnimationProtocol {
-    private let header: String
-    private var isClear: Bool
-    private var stream: OutputByteStream
-    private var displayed: Set<Int> = []
-
-    init(stream: OutputByteStream, header: String) {
-        self.stream = stream
-        self.header = header
-        self.isClear = true
-    }
-
-    public func update(step: Int, total: Int, text: String) {
-        assert(progress <= total)
-
-        if isClear {
-            stream <<< header
-            stream <<< "\n"
-            stream.flush()
-            isClear = false
-        }
-
-        let percent = step * 100 / total
-        let displayPercentage = Int(Double(percent / 10).rounded(.down)) * 10
-        if percent != 100, !displayed.contains(displayPercentage) {
-            stream <<< String(displayPercentage) <<< ".. "
-            displayed.insert(displayPercentage)
-        }
-        stream.flush()
-    }
-
-    public func complete(success: Bool) {
-        if success {
-            stream <<< "OK"
-            stream.flush()
-        }
-    }
-
-    public func clear() {
     }
 }
 
 /// A multi-line percent-based progress animation.
 public final class MultiLinePercentProgressAnimation: ProgressAnimationProtocol {
+    private let stream: OutputByteStream
     private let header: String
-    private var isClear: Bool
-    private var stream: OutputByteStream
+    private var hasDisplayedHeader = false
 
     init(stream: OutputByteStream, header: String) {
         self.stream = stream
         self.header = header
-        self.isClear = true
     }
 
     public func update(step: Int, total: Int, text: String) {
-        assert(progress <= total)
+        assert(step <= total)
 
-        if isClear {
+        if !hasDisplayedHeader {
             stream <<< header
             stream <<< "\n"
             stream.flush()
-            isClear = false
+            hasDisplayedHeader = true
         }
 
-        let percent = step * 100 / total
-        stream <<< "\(percent)%: " <<< text
+        let percentage = step * 100 / total
+        stream <<< "\(percentage)%: " <<< text
         stream <<< "\n"
         stream.flush()
     }
@@ -203,14 +164,13 @@ public final class MultiLinePercentProgressAnimation: ProgressAnimationProtocol 
 
 /// A redrawing lit-like progress animation.
 public final class RedrawingLitProgressAnimation: ProgressAnimationProtocol {
-    private let term: TerminalController
+    private let terminal: TerminalController
     private let header: String
-    private var isClear: Bool // true if haven't drawn anything yet.
+    private var hasDisplayedHeader = false
 
-    init(term: TerminalController, header: String) {
-        self.term = term
+    init(terminal: TerminalController, header: String) {
+        self.terminal = terminal
         self.header = header
-        self.isClear = true
     }
 
     /// Creates repeating string for count times.
@@ -220,50 +180,50 @@ public final class RedrawingLitProgressAnimation: ProgressAnimationProtocol {
     }
 
     public func update(step: Int, total: Int, text: String) {
-        assert(progress <= total)
+        assert(step <= total)
 
-        if isClear {
-            let spaceCount = (term.width/2 - header.utf8.count/2)
-            term.write(repeating(string: " ", count: spaceCount))
-            term.write(header, inColor: .cyan, bold: true)
-            term.endLine()
-            isClear = false
+        if !hasDisplayedHeader {
+            let spaceCount = terminal.width / 2 - header.utf8.count / 2
+            terminal.write(repeating(string: " ", count: spaceCount))
+            terminal.write(header, inColor: .cyan, bold: true)
+            terminal.endLine()
+            hasDisplayedHeader = true
         }
 
-        term.clearLine()
-        let percent = step * 100 / total
-        let percentString = percent < 10 ? " \(percent)" : "\(percent)"
-        let prefix = "\(percentString)% " + term.wrap("[", inColor: .green, bold: true)
-        term.write(prefix)
+        terminal.clearLine()
+        let percentage = step * 100 / total
+        let paddedPercentage = percentage < 10 ? " \(percentage)" : "\(percentage)"
+        let prefix = "\(paddedPercentage)% " + terminal.wrap("[", inColor: .green, bold: true)
+        terminal.write(prefix)
 
-        let barWidth = term.width - prefix.utf8.count
-        let n = Int(Double(barWidth) * Double(percent)/100.0)
+        let barWidth = terminal.width - prefix.utf8.count
+        let n = Int(Double(barWidth) * Double(percentage) / 100.0)
 
-        term.write(repeating(string: "=", count: n) + repeating(string: "-", count: barWidth - n), inColor: .green)
-        term.write("]", inColor: .green, bold: true)
-        term.endLine()
+        terminal.write(repeating(string: "=", count: n) + repeating(string: "-", count: barWidth - n), inColor: .green)
+        terminal.write("]", inColor: .green, bold: true)
+        terminal.endLine()
 
-        term.clearLine()
-        if text.utf8.count > term.width {
+        terminal.clearLine()
+        if text.utf8.count > terminal.width {
             let prefix = "…"
-            term.write(prefix)
-            term.write(String(text.suffix(term.width - prefix.utf8.count)))
+            terminal.write(prefix)
+            terminal.write(String(text.suffix(terminal.width - prefix.utf8.count)))
         } else {
-            term.write(text)
+            terminal.write(text)
         }
 
-        term.moveCursor(up: 1)
+        terminal.moveCursor(up: 1)
     }
 
     public func complete(success: Bool) {
-        term.endLine()
-        term.endLine()
+        terminal.endLine()
+        terminal.endLine()
     }
 
     public func clear() {
-        term.clearLine()
-        term.moveCursor(up: 1)
-        term.clearLine()
+        terminal.clearLine()
+        terminal.moveCursor(up: 1)
+        terminal.clearLine()
     }
 }
 
@@ -272,7 +232,7 @@ public final class PercentProgressAnimation: DynamicProgressAnimation {
     public init(stream: OutputByteStream, header: String) {
         super.init(
             stream: stream,
-            ttyTerminalAnimationFactory: { RedrawingLitProgressAnimation(term: $0, header: header) },
+            ttyTerminalAnimationFactory: { RedrawingLitProgressAnimation(terminal: $0, header: header) },
             dumbTerminalAnimationFactory: { SingleLinePercentProgressAnimation(stream: stream, header: header) },
             defaultAnimationFactory: { MultiLinePercentProgressAnimation(stream: stream, header: header) })
     }
