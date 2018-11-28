@@ -22,6 +22,9 @@ public enum BuildConfiguration: String {
     }
 }
 
+/// A build setting condition.
+public protocol BuildSettingsCondition {}
+
 /// Namespace for build settings.
 public enum BuildSettings {
 
@@ -50,14 +53,25 @@ public enum BuildSettings {
         }
     }
 
-    /// A build setting condition.
-    public struct Condition: Equatable {
-        public var platforms: [Platform]
-        public var config: BuildConfiguration?
+    /// Platforms condition implies that an assignment is valid on these platforms.
+    public struct PlatformsCondition: BuildSettingsCondition {
+        public var platforms: [Platform] {
+            didSet {
+                assert(!platforms.isEmpty, "List of platforms should not be empty")
+            }
+        }
 
-        public init(platforms: [Platform] = [], config: BuildConfiguration? = nil) {
-            precondition(!(platforms.isEmpty && config == nil))
-            self.platforms = platforms
+        public init() {
+            self.platforms = []
+        }
+    }
+
+    /// A configuration condition implies that an assignment is valid on
+    /// a particular build configuration.
+    public struct ConfigurationCondition: BuildSettingsCondition {
+        public var config: BuildConfiguration
+
+        public init(_ config: BuildConfiguration) {
             self.config = config
         }
     }
@@ -67,11 +81,12 @@ public enum BuildSettings {
         /// The assignment value.
         public var value: [String]
 
+        // FIXME: This should be a set but we need Equatable existential (or AnyEquatable) for that.
         /// The condition associated with this assignment.
-        public var condition: Condition?
+        public var conditions: [BuildSettingsCondition]
 
         public init() { 
-            self.condition = nil
+            self.conditions = []
             self.value = []
         }
     }
@@ -121,18 +136,15 @@ public enum BuildSettings {
 
             // Add values from each assignment if it satisfies the bound parameters.
             for assignment in assignments {
-                // Skip this assignment if the bound condition is not satisfied
-                // with the condition associated with this assignment.
-                if let condition = assignment.condition {
-                    // Check for config.
-                    if let assignmentConfig = condition.config {
-                        if assignmentConfig != boundConfig {
-                            continue
-                        }
-                    }
 
-                    // Check for platform.
-                    if !condition.platforms.isEmpty && !condition.platforms.contains(boundPlatform) {
+                if let configCondition = assignment.conditions.compactMap({ $0 as? ConfigurationCondition }).first {
+                    if configCondition.config != boundConfig {
+                        continue
+                    }
+                }
+
+                if let platformsCondition = assignment.conditions.compactMap({ $0 as? PlatformsCondition }).first {
+                    if !platformsCondition.platforms.contains(boundPlatform) {
                         continue
                     }
                 }

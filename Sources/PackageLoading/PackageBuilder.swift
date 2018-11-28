@@ -780,10 +780,15 @@ public final class PackageBuilder {
             var assignment = BuildSettings.Assignment()
             assignment.value = setting.value
 
-            if let condition = setting.condition {
-                let config: BuildConfiguration? = condition.config.map({ BuildConfiguration(rawValue: $0)! })
-                let platforms: [PackageModel.Platform] = condition.platformNames.map({ platformRegistry.platformByName[$0]! })
-                assignment.condition = BuildSettings.Condition(platforms: platforms, config: config)
+            if let config = setting.condition?.config.map({ BuildConfiguration(rawValue: $0)! }) {
+                let condition = BuildSettings.ConfigurationCondition(config)
+                assignment.conditions.append(condition)
+            }
+
+            if let platforms = setting.condition?.platformNames.map({ platformRegistry.platformByName[$0]! }), !platforms.isEmpty {
+                var condition = BuildSettings.PlatformsCondition()
+                condition.platforms = platforms
+                assignment.conditions.append(condition)
             }
 
             // Finally, add the assignment to the assignment table.
