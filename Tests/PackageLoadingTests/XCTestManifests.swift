@@ -36,6 +36,7 @@ extension PackageBuilderTests {
         ("testDuplicateTargets", testDuplicateTargets),
         ("testExcludes", testExcludes),
         ("testExecutableAsADep", testExecutableAsADep),
+        ("testInvalidHeaderSearchPath", testInvalidHeaderSearchPath),
         ("testInvalidManifestConfigForNonSystemModules", testInvalidManifestConfigForNonSystemModules),
         ("testLinuxMain", testLinuxMain),
         ("testLinuxMainError", testLinuxMainError),
