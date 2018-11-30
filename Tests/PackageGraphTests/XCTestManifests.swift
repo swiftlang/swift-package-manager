@@ -41,6 +41,7 @@ extension PackageGraphTests {
         ("testProductDependencies", testProductDependencies),
         ("testSeveralDuplicateModules", testSeveralDuplicateModules),
         ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
+        ("testUnsafeFlags", testUnsafeFlags),
         ("testUnusedDependency2", testUnusedDependency2),
         ("testUnusedDependency", testUnusedDependency),
     ]

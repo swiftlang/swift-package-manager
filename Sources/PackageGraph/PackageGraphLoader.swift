@@ -46,6 +46,46 @@ struct ProductRequiresHigherPlatformVersion: DiagnosticData {
     }
 }
 
+struct ProductHasNoSupportedPlatform: DiagnosticData {
+    static let id = DiagnosticID(
+        type: ProductHasNoSupportedPlatform.self,
+        name: "org.swift.diags.\(ProductHasNoSupportedPlatform.self)",
+        defaultBehavior: .error,
+        description: {
+            $0 <<< "the product" <<< { "'\($0.productDependency)'" } 
+            $0 <<< "doesn't support any of the platform required by"
+            $0 <<< "the target" <<< { "'\($0.target)'" } 
+        })
+
+    public let productDependency: String
+    public let target: String
+
+    init(product: String, target: String) {
+        self.productDependency = product
+        self.target = target
+    }
+}
+
+struct ProductUsesUnsafeFlags: DiagnosticData {
+    static let id = DiagnosticID(
+        type: ProductUsesUnsafeFlags.self,
+        name: "org.swift.diags.\(ProductUsesUnsafeFlags.self)",
+        defaultBehavior: .error,
+        description: {
+            $0 <<< "the target" <<< { "'\($0.target)'" } 
+            $0 <<< "in product" <<< { "'\($0.product)'" }
+            $0 <<< "contains unsafe build flags"
+        })
+
+    public let product: String
+    public let target: String
+
+    init(product: String, target: String) {
+        self.product = product
+        self.target = target
+    }
+}
+
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no targets.
     case noModules(Package)
@@ -461,6 +501,17 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             // If the product's platform version is greater than ours, then it is incompatible.
             if productPlatform.version > targetPlatform.version {
                 diagnostics.emit(data: ProductRequiresHigherPlatformVersion(product: product.name, platform: productPlatform))
+            }
+        }
+
+        // Diagnose if any target in this product uses an unsafe flag.
+        for target in product.targets {
+            let declarations = target.underlyingTarget.buildSettings.assignments.keys
+            for decl in declarations {
+                if BuildSettings.Declaration.unsafeSettings.contains(decl) {
+                    diagnostics.emit(data: ProductUsesUnsafeFlags(product: product.name, target: target.name))
+                    break
+                }
             }
         }
     }
