@@ -728,18 +728,21 @@ public final class ProductBuildDescription {
     private func buildSettingsFlags() -> [String] {
         var flags: [String] = []
 
+        // Linked libraries.
+        let libraries = OrderedSet(staticTargets.reduce([]) {
+            $0 + buildParameters.createScope(for: $1).evaluate(.LINK_LIBRARIES)
+        })
+        flags += libraries.map({ "-l" + $0 })
+
+        // Linked frameworks.
+        let frameworks = OrderedSet(staticTargets.reduce([]) {
+            $0 + buildParameters.createScope(for: $1).evaluate(.LINK_FRAMEWORKS)
+        })
+        flags += frameworks.flatMap({ ["-framework", $0] })
+
+        // Other linker flags.
         for target in staticTargets {
             let scope = buildParameters.createScope(for: target)
-
-            // Linked libraries.
-            let libraries = scope.evaluate(.LINK_LIBRARIES)
-            flags += libraries.map({ "-l" + $0 })
-
-            // Linked frameworks.
-            let frameworks = scope.evaluate(.LINK_FRAMEWORKS)
-            flags += frameworks.flatMap({ ["-framework", $0] })
-
-            // Other linker flags.
             flags += scope.evaluate(.OTHER_LDFLAGS)
         }
 
