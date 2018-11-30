@@ -900,7 +900,8 @@ extension Workspace {
         // We ignore all failures here and return empty array.
         guard let manifestLoader = self.manifestLoader as? ManifestLoader,
               let toolsVersion = try? toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem),
-              currentToolsVersion >= toolsVersion else {
+              currentToolsVersion >= toolsVersion,
+              toolsVersion >= ToolsVersion.minimumRequired else {
             return []
         }
         return manifestLoader.interpreterFlags(for: toolsVersion.manifestVersion)
