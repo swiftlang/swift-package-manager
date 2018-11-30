@@ -426,7 +426,6 @@ extension Xcode.BuildSettingsTable.BuildSettings: PropertyListDictionaryConverti
 
 /// Private helper function that combines a base property list and an overlay
 /// property list, respecting the semantics of `$(inherited)` as we go.
-/// FIXME:  This should possibly be done while constructing the property list.
 fileprivate func combineBuildSettingsPropertyLists(
     baseSettings: PropertyList,
     overlaySettings: PropertyList
@@ -442,10 +441,11 @@ fileprivate func combineBuildSettingsPropertyLists(
     // Iterate over the overlay values and apply them to the base.
     var resultDict = baseDict
     for (name, value) in overlayDict {
-        // FIXME: We should resolve `$(inherited)` here.  The way this works is
-        // that occurrences of `$(inherited)` in the overlay are replaced with
-        // the overlaid value in the base.
-        resultDict[name] = value
+        if let array = baseDict[name]?.array, array.first?.string == "$(inherited)" {
+            resultDict[name] = .array(array + (value.array ?? []))
+        } else {
+            resultDict[name] = value
+        }
     }
     return .dictionary(resultDict)
 }
