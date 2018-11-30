@@ -178,7 +178,7 @@ class PackageDescription5LoadingTests: XCTestCase {
             let package = Package(
                name: "Foo",
                platforms: [
-                   .macOS("11.2"), .iOS("12.x.2"), .tvOS("10..2"),
+                   .macOS("-11.2"), .iOS("12.x.2"), .tvOS("10..2"), .watchOS("1.0"),
                ]
             )
             """
@@ -187,7 +187,7 @@ class PackageDescription5LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail("Unexpected success")
         } catch ManifestParseError.runtimeManifestErrors(let errors) {
-            XCTAssertEqual(errors, ["invalid macOS version string: 11.2", "invalid iOS version string: 12.x.2", "invalid tvOS version string: 10..2"])
+            XCTAssertEqual(errors, ["invalid macOS version string: -11.2", "invalid iOS version string: 12.x.2", "invalid tvOS version string: 10..2", "invalid watchOS version string: 1.0"])
         }
 
         // Duplicates.
