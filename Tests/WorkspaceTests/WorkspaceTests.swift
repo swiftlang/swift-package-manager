@@ -117,29 +117,54 @@ final class WorkspaceTests: XCTestCase {
         let fs = localFileSystem
         mktmpdir { path in
             let foo = path.appending(component: "foo")
-            try fs.writeFileContents(foo.appending(component: "Package.swift")) {
-                $0 <<< """
-                // swift-tools-version:4.0
-                import PackageDescription
-                let package = Package(
-                    name: "foo"
+
+            func createWorkspace(withManifest manifest: (OutputByteStream) -> ()) throws -> Workspace {
+                try fs.writeFileContents(foo.appending(component: "Package.swift")) {
+                    manifest($0)
+                }
+
+                let manifestLoader = ManifestLoader(manifestResources: Resources.default)
+
+                let sandbox = path.appending(component: "ws")
+                return Workspace(
+                    dataPath: sandbox.appending(component: ".build"),
+                    editablesPath: sandbox.appending(component: "edits"),
+                    pinsFile: sandbox.appending(component: "Package.resolved"),
+                    manifestLoader: manifestLoader,
+                    delegate: TestWorkspaceDelegate()
                 )
-                """
             }
 
-            let manifestLoader = ManifestLoader(manifestResources: Resources.default)
+            do {
+                let ws = try createWorkspace {
+                    $0 <<< 
+                        """
+                        // swift-tools-version:4.0
+                        import PackageDescription
+                        let package = Package(
+                            name: "foo"
+                        )
+                        """
+                }
 
-            let sandbox = path.appending(component: "ws")
-            let ws = Workspace(
-                dataPath: sandbox.appending(component: ".build"),
-                editablesPath: sandbox.appending(component: "edits"),
-                pinsFile: sandbox.appending(component: "Package.resolved"),
-                manifestLoader: manifestLoader,
-                delegate: TestWorkspaceDelegate()
-            )
+                XCTAssertMatch((ws.interpreterFlags(for: foo)), [.contains("swift/pm/4")])
+                XCTAssertMatch((ws.interpreterFlags(for: foo)), [.equal("-swift-version"), .equal("4")])
+            }
 
-            XCTAssertMatch((ws.interpreterFlags(for: foo)), [.contains("swift/pm/4")])
-            XCTAssertMatch((ws.interpreterFlags(for: foo)), [.equal("-swift-version"), .equal("4")])
+            do {
+                let ws = try createWorkspace {
+                    $0 <<< 
+                        """
+                        // swift-tools-version:3.1
+                        import PackageDescription
+                        let package = Package(
+                            name: "foo"
+                        )
+                        """
+                }
+
+                XCTAssertEqual(ws.interpreterFlags(for: foo), [])
+            }
         }
     }
 
