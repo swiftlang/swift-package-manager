@@ -1112,7 +1112,6 @@ final class BuildPlanTests: XCTestCase {
                     name: "A",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.13"),
-                        .all,
                     ],
                     path: "/A",
                     url: "/A",
@@ -1127,7 +1126,6 @@ final class BuildPlanTests: XCTestCase {
                     name: "B",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.12"),
-                        .all,
                     ],
                     path: "/B",
                     url: "/B",
@@ -1160,91 +1158,6 @@ final class BuildPlanTests: XCTestCase {
       #else
         XCTAssertMatch(bTarget, ["-target", "x86_64-unknown-linux", .anySequence])
       #endif
-    }
-
-    func testUnsupportedPlatforms() throws {
-        let fileSystem = InMemoryFileSystem(emptyFiles:
-            "/A/Sources/ATarget/foo.swift",
-            "/B/Sources/BTarget/foo.swift",
-            "/C/Sources/CTarget/foo.swift"
-        )
-
-        let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/A", fs: fileSystem, diagnostics: diagnostics,
-            manifests: [
-                Manifest.createManifest(
-                    name: "A",
-                    platforms: [
-                        PlatformDescription(name: "macos", version: "10.13"),
-                        PlatformDescription(name: "linux"),
-                    ],
-                    path: "/A",
-                    url: "/A",
-                    v: .v5,
-                    dependencies: [
-                        PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    targets: [
-                        TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
-                    ]),
-                Manifest.createManifest(
-                    name: "B",
-                    platforms: [
-                        PlatformDescription(name: "linux"),
-                    ],
-                    path: "/B",
-                    url: "/B",
-                    v: .v5,
-                    dependencies: [
-                        PackageDependencyDescription(url: "/C", requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    products: [
-                        ProductDescription(name: "BLibrary", targets: ["BTarget"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "BTarget", dependencies: ["CLibrary"]),
-                    ]),
-                Manifest.createManifest(
-                    name: "C",
-                    path: "/C",
-                    url: "/C",
-                    v: .v5,
-                    products: [
-                        ProductDescription(name: "CLibrary", targets: ["CTarget"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "CTarget", dependencies: []),
-                    ]),
-            ]
-        )
-        XCTAssertNoDiagnostics(diagnostics)
-
-        let plan = try BuildPlan(
-            buildParameters: mockBuildParameters(),
-            graph: graph, diagnostics: diagnostics,
-            fileSystem: fileSystem)
-
-        mktmpdir { path in
-            let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestGenerator(plan, client: "swift-build", resolvedFile: path.appending(component: "Package.resolved"))
-            try llbuild.generateManifest(at: yaml)
-            let contents = try localFileSystem.readFileContents(yaml).asString!
-
-            // We should have entry for A and C but not B.
-            XCTAssertTrue(contents.contains("C.ATarget-debug.module"), contents)
-            XCTAssertTrue(contents.contains("C.CTarget-debug.module"), contents)
-
-          #if os(macOS)
-            XCTAssertFalse(contents.contains("C.BTarget-debug.module"), contents)
-          #else
-            XCTAssertTrue(contents.contains("C.BTarget-debug.module"), contents)
-          #endif
-
-            // By default, we should only build A.
-            XCTAssertTrue(contents.contains("""
-                "main": ["/path/to/build/debug/ATarget.swiftmodule","<ATarget-debug.module>"]
-                """), contents)
-        }
     }
 
     func testBuildSettings() throws {

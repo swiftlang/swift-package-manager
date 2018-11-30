@@ -190,13 +190,13 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             import PackageDescription
             let package = Package(
                name: "Foo",
-               _platforms: nil
+               platforms: nil
             )
             """
 
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Foo")
-            XCTAssertEqual(manifest.platforms, [PlatformDescription.all], "\(manifest.platforms)")
+            XCTAssertEqual(manifest.platforms, [], "\(manifest.platforms)")
         }
 
         stream = BufferedOutputByteStream()
@@ -204,7 +204,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             import PackageDescription
             let package = Package(
                name: "Foo",
-               _platforms: [.macOS(.v10_10)]
+               platforms: [.macOS(.v10_10)]
             )
             """
 

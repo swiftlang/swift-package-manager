@@ -178,9 +178,9 @@ public struct BuildParameters {
         // Compute the triple string for Darwin platform using the platform version.
         if triple.isDarwin() {
             guard let macOSSupportedPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
-                fatalError("The target \(target) doesn't support building for macOS")
+                fatalError("the target \(target) doesn't support building for macOS")
             }
-            args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version!.versionString)]
+            args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
         } else {
             args += [triple.tripleString]
         }
@@ -810,11 +810,6 @@ public class BuildPlan {
         // Create build target description for each target which we need to plan.
         var targetMap = [ResolvedTarget: TargetBuildDescription]()
         for target in graph.allTargets {
-            // Skip the targets that don't support the current platform.
-            guard target.underlyingTarget.supportsPlatform(buildParameters.currentPlatform) else {
-                continue
-            }
-
              switch target.underlyingTarget {
              case is SwiftTarget:
                  targetMap[target] = .swift(SwiftTargetBuildDescription(target: target, buildParameters: buildParameters))
@@ -854,11 +849,6 @@ public class BuildPlan {
         // Create product description for each product we have in the package graph except
         // for automatic libraries because they don't produce any output.
         for product in graph.allProducts where product.type != .library(.automatic) {
-            // Skip this product if it doesn't support the current platform.
-            guard product.underlyingProduct.supportsPlatform(buildParameters.currentPlatform) else {
-                continue
-            }
-
             productMap[product] = ProductBuildDescription(
                 product: product, buildParameters: buildParameters)
         }
@@ -936,10 +926,6 @@ public class BuildPlan {
         // Sort the product targets in topological order.
         let nodes = product.targets.map(ResolvedTarget.Dependency.target)
         let allTargets = try! topologicalSort(nodes, successors: { dependency in
-            guard dependency.supportsPlatform(buildParameters.currentPlatform) else {
-                return []
-            }
-
             switch dependency {
             // Include all the depenencies of a target.
             case .target(let target):
@@ -999,9 +985,7 @@ public class BuildPlan {
 
     /// Plan a Clang target.
     private func plan(clangTarget: ClangTargetBuildDescription) {
-        let recursiveDependencies = clangTarget.target.recursiveDependencies(for: buildParameters.currentPlatform)
-
-        for dependency in recursiveDependencies {
+        for dependency in clangTarget.target.recursiveDependencies() {
             switch dependency.underlyingTarget {
             case let target as ClangTarget where target.type == .library:
                 // Setup search paths for C dependencies:
@@ -1018,9 +1002,7 @@ public class BuildPlan {
     private func plan(swiftTarget: SwiftTargetBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
-        let recursiveDependencies = swiftTarget.target.recursiveDependencies(for: buildParameters.currentPlatform)
-
-        for dependency in recursiveDependencies {
+        for dependency in swiftTarget.target.recursiveDependencies() {
             switch dependency.underlyingTarget {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
                 guard case let .clang(target)? = targetMap[dependency] else {

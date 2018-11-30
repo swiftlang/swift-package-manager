@@ -368,16 +368,12 @@ public struct PackageDependencyDescription: Equatable, Codable {
 
 public struct PlatformDescription: Codable, Equatable {
     public let platformName: String
-    public let version: String?
+    public let version: String
 
-    public init(name: String, version: String? = nil) {
+    public init(name: String, version: String) {
         self.platformName = name
         self.version = version
     }
-
-    /// This is a special platform that represents that a package implictly
-    /// supports all platforms.
-    public static var all: PlatformDescription = PlatformDescription(name: "<all>")
 }
 
 /// A namespace for target-specific build settings.

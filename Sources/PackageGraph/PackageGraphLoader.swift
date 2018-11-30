@@ -33,7 +33,7 @@ struct ProductRequiresHigherPlatformVersion: DiagnosticData {
         defaultBehavior: .error,
         description: {
             $0 <<< "the product" <<< { "'\($0.product)'" } 
-            $0 <<< "requires minimum platform version" <<< { $0.platform.version!.versionString }
+            $0 <<< "requires minimum platform version" <<< { $0.platform.version.versionString }
             $0 <<< "for" <<< { $0.platform.platform.name } <<< "platform"
         })
 
@@ -43,26 +43,6 @@ struct ProductRequiresHigherPlatformVersion: DiagnosticData {
     init(product: String, platform: SupportedPlatform) {
         self.product = product
         self.platform = platform
-    }
-}
-
-struct ProductHasNoSupportedPlatform: DiagnosticData {
-    static let id = DiagnosticID(
-        type: ProductHasNoSupportedPlatform.self,
-        name: "org.swift.diags.\(ProductHasNoSupportedPlatform.self)",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "the product" <<< { "'\($0.productDependency)'" } 
-            $0 <<< "doesn't support any of the platform required by"
-            $0 <<< "the target" <<< { "'\($0.target)'" } 
-        })
-
-    public let productDependency: String
-    public let target: String
-
-    init(product: String, target: String) {
-        self.productDependency = product
-        self.target = target
     }
 }
 
@@ -469,28 +449,17 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         // This will need to become a bit complicated once we have target-level platform support.
         let productTarget = product.underlyingProduct.targets[0]
 
-        /// Check if at least one of our platform is supported by this product dependency.
-        let atLeastOneTargetIsSupported = self.target.platforms.contains(where: { productTarget.supportsPlatform($0.platform) })
-
-        if !atLeastOneTargetIsSupported {
-            diagnostics.emit(data: ProductHasNoSupportedPlatform(product: product.name, target: target.name))
-        }
-
         for targetPlatform in self.target.platforms {
-            // Ignore the compatibility check for platforms that we support but are unsupported by this product.
+            // Currently targets support all platforms so we should get
+            // a matching supported platform in the product dependency.
             guard let productPlatform = productTarget.getSupportedPlatform(for: targetPlatform.platform) else {
-                continue
+                fatalError("Expected supported platform \(targetPlatform.platform) in product target \(productTarget)")
             }
 
             // For the supported platforms, check if the version requirement is satisfied.
             //
-            // We're done if the supported platform doesn't have any version associated with it.
-            guard let targetVersion = targetPlatform.version, let productVersion = productPlatform.version else {
-                continue
-            }
-
             // If the product's platform version is greater than ours, then it is incompatible.
-            if productVersion > targetVersion {
+            if productPlatform.version > targetPlatform.version {
                 diagnostics.emit(data: ProductRequiresHigherPlatformVersion(product: product.name, platform: productPlatform))
             }
         }

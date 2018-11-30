@@ -155,9 +155,9 @@ class PackageDescription5LoadingTests: XCTestCase {
             import PackageDescription
             let package = Package(
                name: "Foo",
-               _platforms: [
-                   .macOS(.v10_13), .iOS(.version("12.2")),
-                   .tvOS(.v12), .watchOS(.v3), .linux(), .all,
+               platforms: [
+                   .macOS(.v10_13), .iOS("12.2"),
+                   .tvOS(.v12), .watchOS(.v3),
                ]
             )
             """
@@ -168,8 +168,6 @@ class PackageDescription5LoadingTests: XCTestCase {
                 PlatformDescription(name: "ios", version: "12.2"),
                 PlatformDescription(name: "tvos", version: "12.0"),
                 PlatformDescription(name: "watchos", version: "3.0"),
-                PlatformDescription(name: "linux"),
-                .all
             ])
         }
 
@@ -179,8 +177,8 @@ class PackageDescription5LoadingTests: XCTestCase {
             import PackageDescription
             let package = Package(
                name: "Foo",
-               _platforms: [
-                   .macOS(.version("11.2")), .iOS(.version("12.x.2")), .tvOS(.version("10..2")),
+               platforms: [
+                   .macOS("11.2"), .iOS("12.x.2"), .tvOS("10..2"),
                ]
             )
             """
@@ -198,7 +196,7 @@ class PackageDescription5LoadingTests: XCTestCase {
             import PackageDescription
             let package = Package(
                name: "Foo",
-               _platforms: [
+               platforms: [
                    .macOS(.v10_10), .macOS(.v10_12),
                ]
             )
@@ -217,7 +215,7 @@ class PackageDescription5LoadingTests: XCTestCase {
             import PackageDescription
             let package = Package(
                name: "Foo",
-               _platforms: []
+               platforms: []
             )
             """
 

@@ -383,11 +383,6 @@ func xcodeProject(
     // to the group tree (the specific top-level group under which they are
     // added depends on whether or not the target is a test target).
     for target in targets {
-        // FIXME: This is a very basic check to avoid adding targets that
-        // don't support Apple platforms. We need to do a better filtering
-        // during recursive dependencies computation.
-        if !target.supportsApplePlatform() { continue }
-
         // Determine the appropriate product type based on the kind of target.
         // FIXME: We should factor this out.
         let productType: Xcode.Target.ProductType
@@ -431,15 +426,16 @@ func xcodeProject(
 
         // Assign the deployment target.
         for supportedPlatform in target.underlyingTarget.platforms {
+            let version = supportedPlatform.version.versionString
             switch supportedPlatform.platform {
             case .macOS:
-                targetSettings.common.MACOSX_DEPLOYMENT_TARGET = supportedPlatform.version?.versionString
+                targetSettings.common.MACOSX_DEPLOYMENT_TARGET = version
             case .iOS:
-                targetSettings.common.IPHONEOS_DEPLOYMENT_TARGET = supportedPlatform.version?.versionString
+                targetSettings.common.IPHONEOS_DEPLOYMENT_TARGET = version
             case .tvOS:
-                targetSettings.common.TVOS_DEPLOYMENT_TARGET = supportedPlatform.version?.versionString
+                targetSettings.common.TVOS_DEPLOYMENT_TARGET = version
             case .watchOS:
-                targetSettings.common.WATCHOS_DEPLOYMENT_TARGET = supportedPlatform.version?.versionString
+                targetSettings.common.WATCHOS_DEPLOYMENT_TARGET = version
             default:
                 break
             }
@@ -490,11 +486,6 @@ func xcodeProject(
         // Add header search paths for any C target on which we depend.
         var hdrInclPaths = ["$(inherited)"]
         for depModule in [target] + target.recursiveDependencies() {
-            // FIXME: This is a very basic check to avoid adding targets that
-            // don't support Apple platforms. We need to do a better filtering
-            // during recursive dependencies computation.
-            if !depModule.supportsApplePlatform() { continue }
-
             // FIXME: Possibly factor this out into a separate protocol; the
             // idea would be that we would ask the target how it contributes
             // to the overall build environment for client targets, which can
@@ -746,18 +737,6 @@ private extension ResolvedTarget {
         default:
             fatalError("unexpected target type")
         }
-    }
-
-    fileprivate func supportsApplePlatform() -> Bool {
-        let applePlatforms: [PackageModel.Platform] = [
-            .macOS, .iOS, .tvOS, .watchOS
-        ]
-        for platform in applePlatforms {
-            if self.underlyingTarget.supportsPlatform(platform) {
-                return true
-            }
-        }
-        return false
     }
 }
 
