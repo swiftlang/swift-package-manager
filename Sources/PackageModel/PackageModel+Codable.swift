@@ -9,6 +9,7 @@
 */
 
 import Foundation
+import Basic
 
 extension ProductType: Codable {
     private enum CodingKeys: String, CodingKey {
@@ -94,7 +95,7 @@ extension PackageDependencyDescription.Requirement: Codable {
             try unkeyedContainer.encode(a1)
         case let .range(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .range)
-            try unkeyedContainer.encode(a1)
+            try unkeyedContainer.encode(CodableRange(a1))
         case let .revision(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .revision)
             try unkeyedContainer.encode(a1)
@@ -118,8 +119,8 @@ extension PackageDependencyDescription.Requirement: Codable {
             self = .exact(a1)
         case .range:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let a1 = try unkeyedValues.decode(Range<Version>.self)
-            self = .range(a1)
+            let a1 = try unkeyedValues.decode(CodableRange<Version>.self)
+            self = .range(a1.range)
         case .revision:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let a1 = try unkeyedValues.decode(String.self)

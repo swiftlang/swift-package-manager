@@ -103,21 +103,40 @@ public func lookupExecutablePath(
     return nil
 }
 
-extension Range: Codable where Bound: Codable {
+/// A wrapper for Range to make it Codable.
+///
+/// Technically, we can use conditional conformance and make
+/// stdlib's Range Codable but since extensions leak out, it
+/// is not a good idea to extend types that you don't own.
+///
+/// Range conformance will be added soon to stdlib so we can remove
+/// this type in the future.
+public struct CodableRange<Bound> where Bound: Comparable & Codable {
+
+    /// The underlying range.
+    public let range: Range<Bound>
+
+    /// Create a CodableRange instance.
+    public init(_ range: Range<Bound>) {
+        self.range = range
+    }
+}
+
+extension CodableRange: Codable {
     private enum CodingKeys: String, CodingKey {
         case lowerBound, upperBound
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(lowerBound, forKey: .lowerBound)
-        try container.encode(upperBound, forKey: .upperBound)
+        try container.encode(range.lowerBound, forKey: .lowerBound)
+        try container.encode(range.upperBound, forKey: .upperBound)
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let lowerBound = try container.decode(Bound.self, forKey: .lowerBound)
         let upperBound = try container.decode(Bound.self, forKey: .upperBound)
-        self.init(uncheckedBounds: (lowerBound, upperBound))
+        self.init(Range(uncheckedBounds: (lowerBound, upperBound)))
     }
 }
