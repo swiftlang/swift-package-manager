@@ -1168,7 +1168,9 @@ final class BuildPlanTests: XCTestCase {
             "/A/Sources/cbar/bar.c",
             "/A/Sources/cbar/include/bar.h",
 
-            "/B/Sources/Dep/dep.swift"
+            "/B/Sources/t1/dep.swift",
+            "/B/Sources/t2/dep.swift",
+            "<end>"
         )
 
         let aManifest = Manifest.createManifest(
@@ -1221,13 +1223,19 @@ final class BuildPlanTests: XCTestCase {
             url: "/B",
             v: .v5,
             products: [
-                ProductDescription(name: "Dep", targets: ["Dep"]),
+                ProductDescription(name: "Dep", targets: ["t1", "t2"]),
             ],
             targets: [
                 TargetDescription(
-                    name: "Dep",
+                    name: "t1",
                     settings: [
                         .init(tool: .swift, name: .define, value: ["DEP"]),
+                        .init(tool: .linker, name: .linkedLibrary, value: ["libz"]),
+                    ]
+                ),
+                TargetDescription(
+                    name: "t2",
+                    settings: [
                         .init(tool: .linker, name: .linkedLibrary, value: ["libz"]),
                     ]
                 ),
@@ -1250,7 +1258,7 @@ final class BuildPlanTests: XCTestCase {
         do {
             let result = try createResult(for: .x86_64Linux)
 
-            let dep = try result.target(for: "Dep").swiftTarget().compileArguments()
+            let dep = try result.target(for: "t1").swiftTarget().compileArguments()
             XCTAssertMatch(dep, [.anySequence, "-DDEP", .end])
 
             let cbar = try result.target(for: "cbar").clangTarget().basicArguments()
@@ -1263,7 +1271,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(exe, [.anySequence, "-DFOO", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
-            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-Ilfoo", "-L", "lbar", "-llibz", .end])
+            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-Ilfoo", "-L", "lbar", .end])
         }
 
         do {
@@ -1279,7 +1287,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(exe, [.anySequence, "-DFOO", "-framework", "CoreData", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
-            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-framework", "CoreData", "-Ilfoo", "-L", "lbar", "-llibz", .end])
+            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-framework", "CoreData", "-Ilfoo", "-L", "lbar", .end])
         }
     }
 }
