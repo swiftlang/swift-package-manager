@@ -273,6 +273,7 @@ func xcodeProject(
     // source files added later will be able to find the right group.
     @discardableResult
     func createSourceGroup(named groupName: String, for targets: [ResolvedTarget], in parentGroup: Xcode.Group) -> Xcode.Group? {
+        let targets = targets.sorted { $0.name < $1.name }
         // Look for the special case of a single target in a flat layout.
         let needsSourcesGroup: Bool
         if let target = targets.spm_only {
