@@ -377,6 +377,11 @@ public class SwiftTool<Options: ToolOptions> {
                 usage: "Disable indexing-while-building feature"),
             to: { if $1 { $0.indexStoreMode = .off } })
 
+        binder.bind(
+            option: parser.add(option: "--enable-pubgrub-resolver", kind: Bool.self,
+                               usage: "[Experimental] Enable the new Pubgrub dependency resolver"),
+            to: { $0.enablePubgrubResolver = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -485,6 +490,7 @@ public class SwiftTool<Options: ToolOptions> {
             config: try getSwiftPMConfig(),
             repositoryProvider: provider,
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
+            enablePubgrubResolver: options.enablePubgrubResolver,
             skipUpdate: options.skipDependencyUpdate
         )
         _workspace = workspace

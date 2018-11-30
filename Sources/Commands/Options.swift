@@ -68,5 +68,8 @@ public class ToolOptions {
     /// The mode to use for indexing-while-building feature.
     public var indexStoreMode: BuildParameters.IndexStoreMode = .auto
 
+    /// Enable the experimental new dependency resolver based on Pubgrub.
+    public var enablePubgrubResolver = false
+
     public required init() {}
 }

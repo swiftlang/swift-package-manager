@@ -279,6 +279,9 @@ public class Workspace {
     /// Enable prefetching containers in resolver.
     fileprivate let isResolverPrefetchingEnabled: Bool
 
+    /// Enable the new Pubgrub dependency resolver.
+    fileprivate let enablePubgrubResolver: Bool
+
     /// Skip updating containers while fetching them.
     fileprivate let skipUpdate: Bool
 
@@ -311,6 +314,7 @@ public class Workspace {
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
         isResolverPrefetchingEnabled: Bool = false,
+        enablePubgrubResolver: Bool = false,
         skipUpdate: Bool = false
     ) {
         self.delegate = delegate
@@ -321,6 +325,7 @@ public class Workspace {
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
         self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
+        self.enablePubgrubResolver = enablePubgrubResolver
         self.skipUpdate = skipUpdate
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
