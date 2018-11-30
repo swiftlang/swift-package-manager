@@ -51,7 +51,7 @@ extension ManifestBuilder {
 
     func parsePlatforms(_ package: JSON) throws -> [PlatformDescription] {
         guard let platformsJSON = try? package.getJSON("platforms") else {
-            return [.all]
+            return []
         }
 
         /// Ensure that platforms API is used in the right manifest version.
@@ -72,12 +72,12 @@ extension ManifestBuilder {
         for platformJSON in declaredPlatforms {
             // Parse the version and validate that it can be used in the current
             // manifest version.
-            let versionJSON = try? platformJSON.getJSON("version")
-            let versionedVersion = try versionJSON.map({ try VersionedValue(json: $0) })
-            try versionedVersion?.validate(for: self.manifestVersion)
+            let versionJSON = try platformJSON.getJSON("version")
+            let versionedVersion = try VersionedValue(json: versionJSON)
+            try versionedVersion.validate(for: self.manifestVersion)
 
             // Get the actual value of the version.
-            let version = try versionedVersion.map({ try String(json: $0.value) })
+            let version = try String(json: versionedVersion.value)
 
             // Get the platform name.
             let platformName: String = try platformJSON.getJSON("platform").get("name")

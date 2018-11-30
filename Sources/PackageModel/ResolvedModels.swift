@@ -35,16 +35,6 @@ public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProt
             case .product(let product): return product
             }
         }
-
-        /// Returns true if this dependency supports the given platform.
-        public func supportsPlatform(_ platform: Platform) -> Bool {
-            switch self {
-            case .target(let target):
-                return target.underlyingTarget.supportsPlatform(platform)
-            case .product(let product):
-                return product.underlyingProduct.supportsPlatform(platform)
-            }
-        }
     }
 
     /// The underlying target represented in this resolved target.
@@ -59,11 +49,8 @@ public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProt
     public let dependencies: [Dependency]
 
     /// Returns the recursive dependencies filtered by the given platform, if present.
-    public func recursiveDependencies(for platform: Platform? = nil) -> [ResolvedTarget] {
+    public func recursiveDependencies() -> [ResolvedTarget] {
         return try! topologicalSort(self.dependencies, successors: {
-            if let platform = platform, !$0.supportsPlatform(platform) {
-                return []
-            }
             switch $0 {
             case .target(let target):
                 return target.dependencies

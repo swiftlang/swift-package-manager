@@ -1695,7 +1695,7 @@ final class WorkspaceTests: XCTestCase {
         let manifest = workspace.manifestLoader.manifests[fooKey]!
         workspace.manifestLoader.manifests[fooKey] = Manifest(
             name: manifest.name,
-            platforms: [.all],
+            platforms: [],
             path: manifest.path,
             url: manifest.url,
             version: manifest.version,
@@ -2822,7 +2822,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-                result.check(diagnostic: .contains("the product 'Baz' doesn't support any of the platform required by the target 'Foo'"), behavior: .error)
+                result.check(diagnostic: .contains("the product 'Baz' requires minimum platform version 10.0 for tvos platform"), behavior: .error)
             }
         }
     }

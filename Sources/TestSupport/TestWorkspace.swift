@@ -464,7 +464,7 @@ public struct TestPackage {
 
     public init(
         name: String,
-        platforms: [PlatformDescription] = [.all],
+        platforms: [PlatformDescription] = [],
         path: String? = nil,
         targets: [TestTarget],
         products: [TestProduct],

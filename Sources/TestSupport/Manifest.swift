@@ -30,7 +30,7 @@ extension Manifest {
     ) -> Manifest {
         return Manifest(
             name: name,
-            platforms: [.all],
+            platforms: [],
             path: AbsolutePath(path).appending(component: Manifest.filename),
             url: url,
             version: version,
@@ -48,7 +48,7 @@ extension Manifest {
 
     public static func createManifest(
         name: String,
-        platforms: [PlatformDescription] = [.all],
+        platforms: [PlatformDescription] = [],
         path: String = "/",
         url: String = "/",
         version: Utility.Version? = nil,

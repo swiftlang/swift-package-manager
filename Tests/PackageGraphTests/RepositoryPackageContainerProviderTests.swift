@@ -188,7 +188,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             versions: [
                 v1: Manifest(
                     name: "Foo",
-                    platforms: [.all],
+                    platforms: [],
                     path: AbsolutePath("/Package.swift"),
                     url: "A",
                     version: v1,
@@ -202,7 +202,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             versions: [
                 v2: Manifest(
                     name: "Bar",
-                    platforms: [.all],
+                    platforms: [],
                     path: AbsolutePath("/Package.swift"),
                     url: "B",
                     version: v2,

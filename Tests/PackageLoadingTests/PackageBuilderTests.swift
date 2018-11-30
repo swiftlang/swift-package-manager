@@ -1327,12 +1327,11 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/cbar/include/bar.h"
         )
 
-        // All platforms with an override.
+        // One platform with an override.
         var manifest = Manifest.createManifest(
             name: "pkg",
             platforms: [
                 PlatformDescription(name: "macos", version: "10.12"),
-                .all,
             ],
             v: .v5,
             targets: [
@@ -1343,7 +1342,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         var expectedPlatforms = [
-            "linux": nil,
+            "linux": "0.0",
             "macos": "10.12",
             "ios": "8.0",
             "tvos": "9.0",
@@ -1352,17 +1351,17 @@ class PackageBuilderTests: XCTestCase {
 
         PackageBuilderTester(manifest, in: fs) { result in
             result.checkModule("foo") { t in 
-                t.checkPlatforms(expectedPlatforms, all: true)
+                t.checkPlatforms(expectedPlatforms)
             }
             result.checkModule("bar") { t in
-                t.checkPlatforms(expectedPlatforms, all: true)
+                t.checkPlatforms(expectedPlatforms)
             }
             result.checkModule("cbar") { t in
-                t.checkPlatforms(expectedPlatforms, all: true)
+                t.checkPlatforms(expectedPlatforms)
             }
         }
 
-        // Restricted list of platforms.
+        // Two platforms with overrides.
         manifest = Manifest.createManifest(
             name: "pkg",
             platforms: [
@@ -1380,17 +1379,20 @@ class PackageBuilderTests: XCTestCase {
         expectedPlatforms = [
             "macos": "10.12",
             "tvos": "10.0",
+            "linux": "0.0",
+            "ios": "8.0",
+            "watchos": "2.0",
         ]
 
         PackageBuilderTester(manifest, in: fs) { result in
             result.checkModule("foo") { t in 
-                t.checkPlatforms(expectedPlatforms, all: false)
+                t.checkPlatforms(expectedPlatforms)
             }
             result.checkModule("bar") { t in
-                t.checkPlatforms(expectedPlatforms, all: false)
+                t.checkPlatforms(expectedPlatforms)
             }
             result.checkModule("cbar") { t in
-                t.checkPlatforms(expectedPlatforms, all: false)
+                t.checkPlatforms(expectedPlatforms)
             }
         }
     }
@@ -1717,10 +1719,9 @@ final class PackageBuilderTester {
             XCTAssertEqual(SwiftLanguageVersion(string: swiftVersion)!, swiftTarget.swiftVersion, file: file, line: line)
         }
 
-        func checkPlatforms(_ platforms: [String: String?], all: Bool, file: StaticString = #file, line: UInt = #line) {
-            let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.map({ ($0.platform.name, $0.version?.versionString) }))
+        func checkPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
+            let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.map({ ($0.platform.name, $0.version.versionString) }))
             XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
-            XCTAssertEqual(target.areUnknownPlatformsSupported, all, file: file, line: line)
         }
     }
 }

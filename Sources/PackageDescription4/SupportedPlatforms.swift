@@ -23,8 +23,6 @@ public struct Platform: Encodable {
     public static let tvOS: Platform = Platform(name: "tvos")
     public static let watchOS: Platform = Platform(name: "watchos")
     public static let linux: Platform = Platform(name: "linux")
-
-    fileprivate static let all: Platform = Platform(name: "<all>")
 }
 
 /// Represents a platform supported by the package.
@@ -42,34 +40,52 @@ public struct SupportedPlatform: Encodable {
         self.version = version
     }
 
-    /// The macOS platform.
+    /// Create macOS supported platform with the given version.
     public static func macOS(_ version: SupportedPlatform.MacOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .macOS, version: version.version)
     }
 
-    /// The iOS platform.
+    /// Create macOS supported platform with the given version string.
+    ///
+    /// The version string must be in format: 10.XX.XX
+    public static func macOS(_ versionString: String) -> SupportedPlatform {
+        return SupportedPlatform(platform: .macOS, version: SupportedPlatform.MacOSVersion(versionString).version)
+    }
+
+    /// Create iOS supported platform with the given version.
     public static func iOS(_ version: SupportedPlatform.IOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .iOS, version: version.version)
     }
 
-    /// The tvOS platform.
+    /// Create iOS supported platform with the given version string.
+    ///
+    /// The version string must be in format: XX.XX
+    public static func iOS(_ versionString: String) -> SupportedPlatform {
+        return SupportedPlatform(platform: .iOS, version: SupportedPlatform.IOSVersion(versionString).version)
+    }
+
+    /// Create tvOS supported platform with the given version.
     public static func tvOS(_ version: SupportedPlatform.TVOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .tvOS, version: version.version)
     }
 
-    /// The watchOS platform.
+    /// Create tvOS supported platform with the given version string.
+    ///
+    /// The version string must be in format: XX.XX
+    public static func tvOS(_ versionString: String) -> SupportedPlatform {
+        return SupportedPlatform(platform: .tvOS, version: SupportedPlatform.TVOSVersion(versionString).version)
+    }
+
+    /// Create watchOS supported platform with the given version.
     public static func watchOS(_ version: SupportedPlatform.WatchOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .watchOS, version: version.version)
     }
 
-    /// The Linux platform.
-    public static func linux() -> SupportedPlatform {
-        return SupportedPlatform(platform: .linux)
-    }
-
-    /// Represents all platforms that are unspecified.
-    public static var all: SupportedPlatform {
-        return SupportedPlatform(platform: .all)
+    /// Create watchOS supported platform with the given version string.
+    ///
+    /// The version string must be in format: XX.XX
+    public static func watchOS(_ versionString: String) -> SupportedPlatform {
+        return SupportedPlatform(platform: .watchOS, version: SupportedPlatform.WatchOSVersion(versionString).version)
     }
 }
 
@@ -92,7 +108,7 @@ extension SupportedPlatform {
         /// Create a macOS version from the given string.
         ///
         /// The version string must be in format: 10.XX.XX
-        public static func version(_ string: String) -> MacOSVersion {
+        fileprivate init(_ string: String) {
             // Perform a quick validation.
             let components = string.split(separator: ".", omittingEmptySubsequences: false).map({ Int($0) })
             var error = components.compactMap({ $0 }).count != components.count
@@ -101,7 +117,7 @@ extension SupportedPlatform {
                 errors.append("invalid macOS version string: \(string)")
             }
 
-            return self.init(VersionedValue(string, api: ""))
+            self.init(VersionedValue(string, api: ""))
         }
 
         public static let v10_10: MacOSVersion = .init("10.10", supportedVersions: [.v5])
@@ -127,7 +143,7 @@ extension SupportedPlatform {
         /// Create a tvOS version from the given string.
         ///
         /// The version string must be in format: XX.XX
-        public static func version(_ string: String) -> TVOSVersion {
+        fileprivate init(_ string: String) {
             // Perform a quick validation.
             let components = string.split(separator: ".", omittingEmptySubsequences: false).map({ Int($0) })
             var error = components.compactMap({ $0 }).count != components.count
@@ -136,7 +152,7 @@ extension SupportedPlatform {
                 errors.append("invalid tvOS version string: \(string)")
             }
 
-            return self.init(VersionedValue(string, api: ""))
+            self.init(VersionedValue(string, api: ""))
         }
 
         public static let v9: TVOSVersion = .init("9.0", supportedVersions: [.v5])
@@ -161,7 +177,7 @@ extension SupportedPlatform {
         /// Create an iOS version from the given string.
         ///
         /// The version string must be in format: XX.XX
-        public static func version(_ string: String) -> IOSVersion {
+        fileprivate init(_ string: String) {
             // Perform a quick validation.
             let components = string.split(separator: ".", omittingEmptySubsequences: false).map({ Int($0) })
             var error = components.compactMap({ $0 }).count != components.count
@@ -170,7 +186,7 @@ extension SupportedPlatform {
                 errors.append("invalid iOS version string: \(string)")
             }
 
-            return self.init(VersionedValue(string, api: ""))
+            self.init(VersionedValue(string, api: ""))
         }
 
         public static let v8: IOSVersion = .init("8.0", supportedVersions: [.v5])
@@ -196,7 +212,7 @@ extension SupportedPlatform {
         /// Create a watchOS version from the given string.
         ///
         /// The version string must be in format: XX.XX
-        public static func version(_ string: String) -> WatchOSVersion {
+        fileprivate init(_ string: String) {
             // Perform a quick validation.
             let components = string.split(separator: ".", omittingEmptySubsequences: false).map({ Int($0) })
             var error = components.compactMap({ $0 }).count != components.count
@@ -205,7 +221,7 @@ extension SupportedPlatform {
                 errors.append("invalid watchOS version string: \(string)")
             }
 
-            return self.init(VersionedValue(string, api: ""))
+            self.init(VersionedValue(string, api: ""))
         }
 
         public static let v2: WatchOSVersion = .init("2.0", supportedVersions: [.v5])

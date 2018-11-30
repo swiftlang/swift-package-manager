@@ -42,10 +42,10 @@ public struct Platform: Equatable, Hashable {
     ///
     /// We currently hardcode this value but we should load it from the
     /// SDK's plist file. This value is always present for Apple platforms.
-    public let oldestSupportedVersion: PlatformVersion?
+    public let oldestSupportedVersion: PlatformVersion
 
     /// Create a platform.
-    private init(name: String, oldestSupportedVersion: PlatformVersion? = nil) {
+    private init(name: String, oldestSupportedVersion: PlatformVersion) {
         self.name = name
         self.oldestSupportedVersion = oldestSupportedVersion
     }
@@ -54,11 +54,14 @@ public struct Platform: Equatable, Hashable {
     public static let iOS: Platform = Platform(name: "ios", oldestSupportedVersion: "8.0")
     public static let tvOS: Platform = Platform(name: "tvos", oldestSupportedVersion: "9.0")
     public static let watchOS: Platform = Platform(name: "watchos", oldestSupportedVersion: "2.0")
-    public static let linux: Platform = Platform(name: "linux")
+    public static let linux: Platform = Platform(name: "linux", oldestSupportedVersion: .unknown)
 }
 
 /// Represents a platform version.
 public struct PlatformVersion: ExpressibleByStringLiteral, Comparable, Hashable {
+
+    /// The unknown platform version.
+    public static let unknown: PlatformVersion = .init("0.0.0")
 
     /// The underlying version storage.
     private let version: Version
@@ -84,7 +87,7 @@ public struct PlatformVersion: ExpressibleByStringLiteral, Comparable, Hashable 
         case 2:
             self.version = Version(components[0], components[1], 0)
         case 3:
-            self.version = Version(components[0], components[1], components[3])
+            self.version = Version(components[0], components[1], components[2])
         default:
             fatalError("Unexpected number of components \(components)")
         }
@@ -109,11 +112,9 @@ public struct SupportedPlatform {
     public let platform: Platform
 
     /// The minimum required version for this platform.
-    ///
-    /// This value is always present for Apple platforms.
-    public let version: PlatformVersion?
+    public let version: PlatformVersion
 
-    public init(platform: Platform, version: PlatformVersion? = nil) {
+    public init(platform: Platform, version: PlatformVersion) {
         self.platform = platform
         self.version = version
     }

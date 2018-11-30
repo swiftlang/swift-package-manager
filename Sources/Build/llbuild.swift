@@ -184,11 +184,6 @@ public struct LLBuildManifestGenerator {
         }
 
         for dependency in target.target.dependencies {
-            // Skip this dependency if it doesn't support the current platform.
-            guard dependency.supportsPlatform(plan.buildParameters.currentPlatform) else {
-                continue
-            }
-
             switch dependency {
             case .target(let target):
                 addStaticTargetInputs(target)

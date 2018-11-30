@@ -65,7 +65,7 @@ public final class Package {
 
   #if !PACKAGE_DESCRIPTION_4
     /// The list of platforms supported by this package.
-    public var _platforms: [SupportedPlatform]?
+    public var platforms: [SupportedPlatform]?
   #endif
 
     /// pkgconfig name to use for C Modules. If present, swiftpm will try to
@@ -127,7 +127,7 @@ public final class Package {
     /// Construct a package.
     public init(
         name: String,
-        _platforms: [SupportedPlatform]? = nil,
+        platforms: [SupportedPlatform]? = nil,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
         products: [Product] = [],
@@ -138,7 +138,7 @@ public final class Package {
         cxxLanguageStandard: CXXLanguageStandard? = nil
     ) {
         self.name = name
-        self._platforms = _platforms
+        self.platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.products = products
@@ -219,7 +219,7 @@ extension Package: Encodable {
         try container.encode(name, forKey: .name)
 
       #if !PACKAGE_DESCRIPTION_4
-        if let platforms = self._platforms {
+        if let platforms = self.platforms {
             // The platforms API was introduced in manifest version 5.
             let versionedPlatforms = VersionedValue(platforms, api: "platforms", versions: [.v5])
             try container.encode(versionedPlatforms, forKey: .platforms)
