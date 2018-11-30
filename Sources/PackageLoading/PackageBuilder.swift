@@ -53,6 +53,9 @@ public enum ModuleError: Swift.Error {
 
     /// Unsupported target path
     case unsupportedTargetPath(String)
+
+    /// Invalid header search path.
+    case invalidHeaderSearchPath(String)
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -88,6 +91,8 @@ extension ModuleError: CustomStringConvertible {
             return "target '\(target)' in package '\(package)' is outside the package root"
         case .unsupportedTargetPath(let targetPath):
             return "target path '\(targetPath)' is not supported; it should be relative to package root"
+        case .invalidHeaderSearchPath(let path):
+            return "invalid header search path '\(path)'; header search path should not be outside the package root"
         }
     }
 }
@@ -663,7 +668,7 @@ public final class PackageBuilder {
         assert(sources.count == clangSources.count + swiftSources.count)
 
         // Create the build setting assignment table for this target.
-        let buildSettings = self.buildSettings(for: manifestTarget)
+        let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path)
         
         // Create and return the right kind of target depending on what kind of sources we found.
         if clangSources.isEmpty {
@@ -705,7 +710,7 @@ public final class PackageBuilder {
     }
 
     /// Creates build setting assignment table for the given target.
-    func buildSettings(for target: TargetDescription?) -> BuildSettings.AssignmentTable {
+    func buildSettings(for target: TargetDescription?, targetRoot: AbsolutePath) throws -> BuildSettings.AssignmentTable {
         var table = BuildSettings.AssignmentTable()
         guard let target = target else { return table }
 
@@ -722,6 +727,12 @@ public final class PackageBuilder {
                     decl = .HEADER_SEARCH_PATHS
                 case .swift, .linker:
                     fatalError("unexpected tool for setting type \(setting)")
+                }
+
+                // Ensure that the search path is contained within the package.
+                let subpath = try RelativePath(validating: setting.value[0])
+                guard targetRoot.appending(subpath).contains(packagePath) else {
+                    throw ModuleError.invalidHeaderSearchPath(subpath.asString)
                 }
 
             case .define:

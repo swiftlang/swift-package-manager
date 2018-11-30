@@ -1462,8 +1462,8 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(
                     name: "cbar",
                     settings: [
-                        .init(tool: .c, name: .headerSearchPath, value: ["/Sources/headers"]),
-                        .init(tool: .cxx, name: .headerSearchPath, value: ["/Sources/cppheaders"]),
+                        .init(tool: .c, name: .headerSearchPath, value: ["Sources/headers"]),
+                        .init(tool: .cxx, name: .headerSearchPath, value: ["Sources/cppheaders"]),
 
                         .init(tool: .c, name: .define, value: ["CCC=2"]),
                         .init(tool: .cxx, name: .define, value: ["CXX"]),
@@ -1498,7 +1498,7 @@ class PackageBuilderTests: XCTestCase {
             result.checkModule("cbar") { result in
                 let scope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.macOS, .debug))
                 XCTAssertEqual(scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS), ["CCC=2", "CXX"])
-                XCTAssertEqual(scope.evaluate(.HEADER_SEARCH_PATHS), ["/Sources/headers", "/Sources/cppheaders"])
+                XCTAssertEqual(scope.evaluate(.HEADER_SEARCH_PATHS), ["Sources/headers", "Sources/cppheaders"])
                 XCTAssertEqual(scope.evaluate(.OTHER_CFLAGS), ["-Icfoo", "-L", "cbar"])
                 XCTAssertEqual(scope.evaluate(.OTHER_CPLUSPLUSFLAGS), ["-Icxxfoo", "-L", "cxxbar"])
 
@@ -1534,6 +1534,46 @@ class PackageBuilderTests: XCTestCase {
             }
 
             result.checkProduct("exe")
+        }
+    }
+
+    func testInvalidHeaderSearchPath() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/pkg/Sources/exe/main.swift"
+        )
+
+        let manifest1 = Manifest.createManifest(
+            name: "pkg",
+            v: .v5,
+            targets: [
+                TargetDescription(
+                    name: "exe",
+                    settings: [
+                        .init(tool: .c, name: .headerSearchPath, value: ["/Sources/headers"]),
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest1, path: AbsolutePath("/pkg"), in: fs) { result in
+            result.checkDiagnostic("invalid relative path '/Sources/headers'; relative path should not begin with '/' or '~'")
+        }
+
+        let manifest2 = Manifest.createManifest(
+            name: "pkg",
+            v: .v5,
+            targets: [
+                TargetDescription(
+                    name: "exe",
+                    settings: [
+                        .init(tool: .c, name: .headerSearchPath, value: ["../../.."]),
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest2, path: AbsolutePath("/pkg"), in: fs) { result in
+            result.checkDiagnostic("invalid header search path '../../..'; header search path should not be outside the package root")
         }
     }
 }
