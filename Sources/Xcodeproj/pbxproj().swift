@@ -608,6 +608,23 @@ func xcodeProject(
         }
     }
 
+    // Go through each target and add its build settings.
+    for (target, xcodeTarget) in modulesToTargets {
+        for (decl, assignments) in target.underlyingTarget.buildSettings.assignments {
+            // Process each assignment of a build settings declaration.
+            for assignment in assignments {
+                // Skip this assignment if it doesn't contain macOS platform.
+                if let platformsCondition = assignment.conditions.compactMap({ $0 as? BuildSettings.PlatformsCondition }).first {
+                    if !platformsCondition.platforms.contains(.macOS) {
+                        continue
+                    }
+                }
+                let config = assignment.conditions.compactMap({ $0 as? BuildSettings.ConfigurationCondition }).first?.config
+                appendSetting(assignment.value, forDecl: decl, to: xcodeTarget.buildSettings, config: config)
+            }
+        }
+    }
+
     // Go through all the target/target pairs again, and add target dependencies
     // for any target dependencies.  As we go, we also add link phases and set
     // up the targets to link against the products of the dependencies.
@@ -751,5 +768,101 @@ private extension SwiftLanguageVersion {
             swiftVersion += ".0"
         }
         return swiftVersion
+    }
+}
+
+
+func appendSetting(
+    _ value: [String],
+    forDecl decl: BuildSettings.Declaration,
+    to table: Xcode.BuildSettingsTable,
+    config: BuildConfiguration? = nil
+) {
+    switch decl {
+    // FIXME: This switch case is kind of sad but we need to convert Xcode's
+    // build model to be of reference type in order to avoid it.
+    case .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
+        switch config {
+        case .debug?:
+            table.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS += value
+        case .release?:
+            table.release.SWIFT_ACTIVE_COMPILATION_CONDITIONS += value
+        case nil:
+            table.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS += value
+        }
+
+    case .OTHER_SWIFT_FLAGS:
+        switch config {
+        case .debug?:
+            table.debug.OTHER_SWIFT_FLAGS += value
+        case .release?:
+            table.release.OTHER_SWIFT_FLAGS += value
+        case nil:
+            table.common.OTHER_SWIFT_FLAGS += value
+        }
+
+    case .GCC_PREPROCESSOR_DEFINITIONS:
+        switch config {
+        case .debug?:
+            table.debug.GCC_PREPROCESSOR_DEFINITIONS += value
+        case .release?:
+            table.release.GCC_PREPROCESSOR_DEFINITIONS += value
+        case nil:
+            table.common.GCC_PREPROCESSOR_DEFINITIONS += value
+        }
+    case .HEADER_SEARCH_PATHS:
+        switch config {
+        case .debug?:
+            table.debug.HEADER_SEARCH_PATHS += value
+        case .release?:
+            table.release.HEADER_SEARCH_PATHS += value
+        case nil:
+            table.common.HEADER_SEARCH_PATHS += value
+        }
+    case .OTHER_CFLAGS:
+        switch config {
+        case .debug?:
+            table.debug.OTHER_CFLAGS += value
+        case .release?:
+            table.release.OTHER_CFLAGS += value
+        case nil:
+            table.common.OTHER_CFLAGS += value
+        }
+
+
+    case .OTHER_LDFLAGS:
+        switch config {
+        case .debug?:
+            table.debug.OTHER_LDFLAGS += value
+        case .release?:
+            table.release.OTHER_LDFLAGS += value
+        case nil:
+            table.common.OTHER_LDFLAGS += value
+        }
+    case .LINK_LIBRARIES:
+        let value = value.map({ "-l" + $0 })
+
+        switch config {
+        case .debug?:
+            table.debug.OTHER_LDFLAGS += value
+        case .release?:
+            table.release.OTHER_LDFLAGS += value
+        case nil:
+            table.common.OTHER_LDFLAGS += value
+        }
+    case .LINK_FRAMEWORKS:
+        let value = value.flatMap({ ["-framework", $0] })
+
+        switch config {
+        case .debug?:
+            table.debug.OTHER_LDFLAGS += value
+        case .release?:
+            table.release.OTHER_LDFLAGS += value
+        case nil:
+            table.common.OTHER_LDFLAGS += value
+        }
+
+    default:
+        fatalError("Unhandled decl \(decl)")
     }
 }

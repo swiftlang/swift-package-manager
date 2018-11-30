@@ -322,14 +322,10 @@ public struct Xcode {
 
         /// Debug build settings are overlaid over the common settings in the
         /// generated Debug configuration.
-        /// FIXME: They are not currently, but should be, overlaid in a manner
-        /// that preserves the semantics of `$(inherited)`.
         var debug = BuildSettings()
 
         /// Release build settings are overlaid over the common settings in the
         /// generated Release configuration.
-        /// FIXME: They are not currently, but should be, overlaid in a manner
-        /// that preserves the semantics of `$(inherited)`.
         var release = BuildSettings()
 
         /// An optional file reference to an .xcconfig file.
