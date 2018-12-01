@@ -6,9 +6,9 @@ final class SwiftPMHelper {
     /// Path to the Swift compiler.
     static let swiftCompiler: String = {
       #if os(macOS)
-        return try! Process.checkNonZeroExit(args: "xcrun", "--sdk", "macosx", "-f", "swift").chomp()
+        return try! Process.checkNonZeroExit(args: "xcrun", "--sdk", "macosx", "-f", "swift").spm_chomp()
       #else
-        return try! Process.checkNonZeroExit(args: "which", "swift").chomp()
+        return try! Process.checkNonZeroExit(args: "which", "swift").spm_chomp()
       #endif
     }()
 
@@ -35,8 +35,8 @@ final class SwiftPMHelper {
             swiftCompiler: AbsolutePath(SwiftPMHelper.swiftCompiler), libDir: libDir)
 
         return ManifestLoader(
-            resources: manifestResources,
-            isManifestCachingEnabled: true,
+            manifestResources: manifestResources,
+            isManifestSandboxEnabled: true,
             cacheDir: rootPackage.appending(component: ".build")
         )
     }
