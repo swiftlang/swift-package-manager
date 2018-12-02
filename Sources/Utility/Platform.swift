@@ -11,16 +11,19 @@
 import Basic
 import Foundation
 
+/// Recognized Platform types.
 public enum Platform {
     case darwin
     case linux(LinuxFlavor)
-
+    
+    /// Recognized flavors of linux.
     public enum LinuxFlavor {
         case debian
     }
 
-    // Lazily return current platform.
+    /// Lazily checked current platform.
     public static var currentPlatform = Platform.findCurrentPlatform()
+    /// Attempt to match `uname` with recognized platforms
     private static func findCurrentPlatform() -> Platform? {
         guard let uname = try? Process.checkNonZeroExit(args: "uname").spm_chomp().lowercased() else { return nil }
         switch uname {
@@ -56,7 +59,7 @@ public enum Platform {
 
     /// Returns the value of given path variable using `getconf` utility.
     ///
-    /// Note: This method returns `nil` if the value is an invalid path.
+    /// - Note: This method returns `nil` if the value is an invalid path.
     private static func getConfstr(_ name: Int32) -> AbsolutePath? {
         let len = confstr(name, nil, 0)
         let tmp = UnsafeMutableBufferPointer(start: UnsafeMutablePointer<Int8>.allocate(capacity: len), count:len)
