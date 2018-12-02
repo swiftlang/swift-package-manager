@@ -140,3 +140,10 @@ extension CodableRange: Codable {
         self.init(Range(uncheckedBounds: (lowerBound, upperBound)))
     }
 }
+
+extension AbsolutePath {
+    /// File URL created from the normalized string representation of the path.
+    public var asURL: Foundation.URL {
+         return URL(fileURLWithPath: asString)
+    }
+}

@@ -8,8 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Foundation
-
 /// Represents an absolute file system path, independently of what (or whether
 /// anything at all) exists at that path in the file system at any given time.
 /// An absolute path always starts with a `/` character, and holds a normalized
@@ -205,11 +203,6 @@ public struct AbsolutePath: Hashable {
     /// in the documentation of the initializer).  This string is never empty.
     public var asString: String {
         return _impl.string
-    }
-
-    /// File URL created from the normalized string representation of the path.
-    public var asURL: Foundation.URL {
-         return URL(fileURLWithPath: asString)
     }
 
     // FIXME: We should investigate if it would be more efficient to instead
