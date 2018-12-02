@@ -6,19 +6,20 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+ -------------------------------------------------------------------------
+ 
+ This file contains temporary shim functions for use during the adoption of
+ AbsolutePath and RelativePath.  The eventual plan is to use the FileSystem
+ API for all of this, at which time this file will go way.  But since it is
+ important to have a quality FileSystem API, we will evolve it slowly.
+ 
+ Meanwhile this file bridges the gap to let call sites be as clean as possible,
+ while making it fairly easy to find those calls later.
 */
 
 import SPMLibc
 import POSIX
 import Foundation
-
-/// This file contains temporary shim functions for use during the adoption of
-/// AbsolutePath and RelativePath.  The eventual plan is to use the FileSystem
-/// API for all of this, at which time this file will go way.  But since it is
-/// important to have a quality FileSystem API, we will evolve it slowly.
-///
-/// Meanwhile this file bridges the gap to let call sites be as clean as pos-
-/// sible, while making it fairly easy to find those calls later.
 
 /// Returns a structure containing information about the file system entity at `path`, or nil
 /// if that path doesn't exist in the file system.  Read, write or execute permission of the
