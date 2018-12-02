@@ -20,19 +20,18 @@ public protocol ProgressBarProtocol {
 ///
 /// On a new line from the `header` (if provided) SingleLineProgressBar
 /// shows simply the passed percent. For example,
-/// ```
-/// let progressBar = SingleLineProgressBar(stream: stdoutStream, header: "Foo")
-/// progressBar.update(percent: 40, text: "Starting")
-/// progressBar.update(percent: 40, text: "Checking")
-/// progressBar.update(percent: 90, text: "Finishing")
-/// progressBar.update(percent: 100, text: "Done")
-/// progressBar.complete(success: true)
-/// ```
+///
+///     let progressBar = SingleLineProgressBar(stream: stdoutStream, header: "Foo")
+///     progressBar.update(percent: 40, text: "Starting")
+///     progressBar.update(percent: 40, text: "Checking")
+///     progressBar.update(percent: 90, text: "Finishing")
+///     progressBar.update(percent: 100, text: "Done")
+///     progressBar.complete(success: true)
+///
 /// Displays
-/// ```
-/// Foo
-/// 40.. 90.. OK
-/// ```
+///
+///     Foo
+///     40.. 90.. OK
 ///
 /// - Warning: Only the progress bar is a single line. The header
 ///            is displayed on it's own line.

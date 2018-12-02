@@ -33,9 +33,9 @@ public struct RegEx {
     ///
     /// For every match in the string, it constructs the collection
     /// of groups matched.
-    /// ```
-    /// RegEx(pattern: "([a-z]+)([0-9]+)").matchGroups(in: "foo1 bar2 baz3")
-    /// ```
+    ///
+    ///     RegEx(pattern: "([a-z]+)([0-9]+)").matchGroups(in: "foo1 bar2 baz3")
+    ///
     /// Returns `[["foo", "1"], ["bar", "2"], ["baz", "3"]]`
     ///
     /// - Parameters:
