@@ -18,10 +18,11 @@
 ///
 /// For best results the predicate function *should* (but need not) satisfy
 /// certain properties, in particular:
-///  (1) The predicate should return false on an empty set and true on the full
-///  set.
-///  (2) If the predicate returns true for a set of changes, it should return
-///  true for all supersets of that set.
+///
+///  1. The predicate should return false on an empty set and true on the full
+///     set.
+///  2. If the predicate returns true for a set of changes, it should return
+///     true for all supersets of that set.
 ///
 /// It is not an error to provide a predicate that does not satisfy these
 /// requirements, and the algorithm will generally produce reasonable results.
