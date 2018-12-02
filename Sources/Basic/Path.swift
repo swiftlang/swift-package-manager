@@ -205,6 +205,11 @@ public struct AbsolutePath: Hashable {
         return _impl.string
     }
 
+    /// File URL created from the normalized string representation of the path.
+    public var asURL: Foundation.URL {
+         return URL(fileURLWithPath: asString)
+    }
+
     // FIXME: We should investigate if it would be more efficient to instead
     // return a path component iterator that does all its work lazily, moving
     // from one path separator to the next on-demand.
