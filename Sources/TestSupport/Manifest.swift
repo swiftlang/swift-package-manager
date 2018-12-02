@@ -30,10 +30,45 @@ extension Manifest {
     ) -> Manifest {
         return Manifest(
             name: name,
+            platforms: [],
             path: AbsolutePath(path).appending(component: Manifest.filename),
             url: url,
             version: version,
             manifestVersion: manifestVersion,
+            pkgConfig: pkgConfig,
+            providers: providers,
+            cLanguageStandard: cLanguageStandard,
+            cxxLanguageStandard: cxxLanguageStandard,
+            swiftLanguageVersions: swiftLanguageVersions,
+            dependencies: dependencies,
+            products: products,
+            targets: targets
+        )
+    }
+
+    public static func createManifest(
+        name: String,
+        platforms: [PlatformDescription] = [],
+        path: String = "/",
+        url: String = "/",
+        version: Utility.Version? = nil,
+        v: ManifestVersion,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProviderDescription]? = nil,
+        cLanguageStandard: String? = nil,
+        cxxLanguageStandard: String? = nil,
+        swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
+        dependencies: [PackageDependencyDescription] = [],
+        products: [ProductDescription] = [],
+        targets: [TargetDescription] = []
+    ) -> Manifest {
+        return Manifest(
+            name: name,
+            platforms: platforms,
+            path: AbsolutePath(path).appending(component: Manifest.filename),
+            url: url,
+            version: version,
+            manifestVersion: v,
             pkgConfig: pkgConfig,
             providers: providers,
             cLanguageStandard: cLanguageStandard,

@@ -9,7 +9,7 @@
 */
 
 /// The description for an individual target.
-public final class Target: Encodable {
+public final class Target {
 
     /// The type of this target.
     public enum TargetType: String, Encodable {
@@ -80,8 +80,20 @@ public final class Target: Encodable {
     /// Providers array for the System library target.
     public let providers: [SystemPackageProvider]?
 
+    /// C build settings.
+    var cSettings: [CSetting]?
+
+    /// C++ build settings.
+    var cxxSettings: [CXXSetting]?
+
+    /// Swift build settings.
+    var swiftSettings: [SwiftSetting]?
+
+    /// Linker build settings.
+    var linkerSettings: [LinkerSetting]?
+
     /// Construct a target.
-    init(
+    private init(
         name: String,
         dependencies: [Dependency],
         path: String?,
@@ -90,7 +102,11 @@ public final class Target: Encodable {
         publicHeadersPath: String?,
         type: TargetType,
         pkgConfig: String? = nil,
-        providers: [SystemPackageProvider]? = nil
+        providers: [SystemPackageProvider]? = nil,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
@@ -101,6 +117,10 @@ public final class Target: Encodable {
         self.type = type
         self.pkgConfig = pkgConfig
         self.providers = providers
+        self.cSettings = cSettings
+        self.cxxSettings = cxxSettings
+        self.swiftSettings = swiftSettings
+        self.linkerSettings = linkerSettings
 
         switch type {
         case .regular, .test:
@@ -115,7 +135,11 @@ public final class Target: Encodable {
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
-        publicHeadersPath: String? = nil
+        publicHeadersPath: String? = nil,
+        _cSettings: [CSetting]? = nil,
+        _cxxSettings: [CXXSetting]? = nil,
+        _swiftSettings: [SwiftSetting]? = nil,
+        _linkerSettings: [LinkerSetting]? = nil
     ) -> Target {
         return Target(
             name: name,
@@ -124,7 +148,12 @@ public final class Target: Encodable {
             exclude: exclude,
             sources: sources,
             publicHeadersPath: publicHeadersPath,
-            type: .regular)
+            type: .regular,
+            cSettings: _cSettings,
+            cxxSettings: _cxxSettings,
+            swiftSettings: _swiftSettings,
+            linkerSettings: _linkerSettings
+        )
     }
 
     public static func testTarget(
@@ -132,7 +161,11 @@ public final class Target: Encodable {
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
-        sources: [String]? = nil
+        sources: [String]? = nil,
+        _cSettings: [CSetting]? = nil,
+        _cxxSettings: [CXXSetting]? = nil,
+        _swiftSettings: [SwiftSetting]? = nil,
+        _linkerSettings: [LinkerSetting]? = nil
     ) -> Target {
         return Target(
             name: name,
@@ -141,7 +174,12 @@ public final class Target: Encodable {
             exclude: exclude,
             sources: sources,
             publicHeadersPath: nil,
-            type: .test)
+            type: .test,
+            cSettings: _cSettings,
+            cxxSettings: _cxxSettings,
+            swiftSettings: _swiftSettings,
+            linkerSettings: _linkerSettings
+        )
     }
 
   #if !PACKAGE_DESCRIPTION_4
@@ -163,6 +201,58 @@ public final class Target: Encodable {
             providers: providers)
     }
   #endif
+}
+
+extension Target: Encodable {
+    private enum CodingKeys: CodingKey {
+        case name
+        case path
+        case sources
+        case exclude
+        case dependencies
+        case publicHeadersPath
+        case type
+        case pkgConfig
+        case providers
+        case cSettings
+        case cxxSettings
+        case swiftSettings
+        case linkerSettings
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        try container.encode(name, forKey: .name)
+        try container.encode(path, forKey: .path)
+        try container.encode(sources, forKey: .sources)
+        try container.encode(exclude, forKey: .exclude)
+        try container.encode(dependencies, forKey: .dependencies)
+        try container.encode(publicHeadersPath, forKey: .publicHeadersPath)
+        try container.encode(type, forKey: .type)
+        try container.encode(pkgConfig, forKey: .pkgConfig)
+        try container.encode(providers, forKey: .providers)
+
+        if let cSettings = self.cSettings {
+            let cSettings = VersionedValue(cSettings, api: "cSettings", versions: [.v5])
+            try container.encode(cSettings, forKey: .cSettings)
+        }
+
+        if let cxxSettings = self.cxxSettings {
+            let cxxSettings = VersionedValue(cxxSettings, api: "cxxSettings", versions: [.v5])
+            try container.encode(cxxSettings, forKey: .cxxSettings)
+        }
+
+        if let swiftSettings = self.swiftSettings {
+            let swiftSettings = VersionedValue(swiftSettings, api: "swiftSettings", versions: [.v5])
+            try container.encode(swiftSettings, forKey: .swiftSettings)
+        }
+
+        if let linkerSettings = self.linkerSettings {
+            let linkerSettings = VersionedValue(linkerSettings, api: "linkerSettings", versions: [.v5])
+            try container.encode(linkerSettings, forKey: .linkerSettings)
+        }
+    }
 }
 
 extension Target.Dependency {

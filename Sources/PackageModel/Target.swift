@@ -43,19 +43,34 @@ public class Target: ObjectIdentifierProtocol {
     /// The sources for the target.
     public let sources: Sources
 
+    /// The list of platforms that are supported by this target.
+    public let platforms: [SupportedPlatform]
+
+    /// Returns the supported platform instance for the given platform.
+    public func getSupportedPlatform(for platform: Platform) -> SupportedPlatform? {
+        return self.platforms.first(where: { $0.platform == platform })
+    }
+
+    /// The build settings assignments of this target.
+    public let buildSettings: BuildSettings.AssignmentTable
+
     fileprivate init(
         name: String,
+        platforms: [SupportedPlatform],
         type: Kind,
         sources: Sources,
         dependencies: [Target],
-        productDependencies: [(name: String, package: String?)] = []
+        productDependencies: [(name: String, package: String?)] = [],
+        buildSettings: BuildSettings.AssignmentTable
     ) {
         self.name = name
+        self.platforms = platforms
         self.type = type
         self.sources = sources
         self.dependencies = dependencies
         self.productDependencies = productDependencies
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
+        self.buildSettings = buildSettings
     }
 }
 
@@ -80,7 +95,18 @@ public class SwiftTarget: Target {
         // do that currently.
         self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(ToolsVersion.currentToolsVersion.major)) ?? .v4
         let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
-        super.init(name: name, type: .executable, sources: sources, dependencies: dependencies)
+
+        let platforms: [SupportedPlatform] = swiftTestTarget?.platforms ?? []
+
+        super.init(
+            name: name,
+            platforms: platforms,
+            type: .executable,
+            sources: sources,
+            dependencies: dependencies,
+            buildSettings: .init()
+
+        )
     }
 
     /// The swift version of this target.
@@ -88,20 +114,25 @@ public class SwiftTarget: Target {
 
     public init(
         name: String,
+        platforms: [SupportedPlatform] = [],
         isTest: Bool = false,
         sources: Sources,
         dependencies: [Target] = [],
         productDependencies: [(name: String, package: String?)] = [],
-        swiftVersion: SwiftLanguageVersion
+        swiftVersion: SwiftLanguageVersion,
+        buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
         let type: Kind = isTest ? .test : sources.computeTargetType()
         self.swiftVersion = swiftVersion
         super.init(
             name: name,
+            platforms: platforms,
             type: type,
             sources: sources,
             dependencies: dependencies,
-            productDependencies: productDependencies)
+            productDependencies: productDependencies,
+            buildSettings: buildSettings
+        )
     }
 }
 
@@ -124,6 +155,7 @@ public class SystemLibraryTarget: Target {
 
     public init(
         name: String,
+        platforms: [SupportedPlatform] = [],
         path: AbsolutePath,
         isImplicit: Bool = true,
         pkgConfig: String? = nil,
@@ -133,7 +165,14 @@ public class SystemLibraryTarget: Target {
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.isImplicit = isImplicit
-        super.init(name: name, type: .systemModule, sources: sources, dependencies: [])
+        super.init(
+            name: name,
+            platforms: platforms,
+            type: .systemModule,
+            sources: sources,
+            dependencies: [],
+            buildSettings: .init()
+        )
     }
 }
 
@@ -156,13 +195,15 @@ public class ClangTarget: Target {
 
     public init(
         name: String,
+        platforms: [SupportedPlatform] = [],
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
         includeDir: AbsolutePath,
         isTest: Bool = false,
         sources: Sources,
         dependencies: [Target] = [],
-        productDependencies: [(name: String, package: String?)] = []
+        productDependencies: [(name: String, package: String?)] = [],
+        buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
         assert(includeDir.contains(sources.root), "\(includeDir) should be contained in the source root \(sources.root)")
         let type: Kind = isTest ? .test : sources.computeTargetType()
@@ -172,10 +213,13 @@ public class ClangTarget: Target {
         self.includeDir = includeDir
         super.init(
             name: name,
+            platforms: platforms,
             type: type,
             sources: sources,
             dependencies: dependencies,
-            productDependencies: productDependencies)
+            productDependencies: productDependencies,
+            buildSettings: buildSettings
+        )
     }
 }
 

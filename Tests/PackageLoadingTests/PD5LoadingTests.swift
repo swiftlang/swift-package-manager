@@ -147,4 +147,132 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTAssertEqual(supportedVersions, [.v4_2])
         }
     }
+
+    func testPlatforms() throws {
+        // Sanity check.
+        var stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [
+                   .macOS(.v10_13), .iOS("12.2"),
+                   .tvOS(.v12), .watchOS(.v3),
+               ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.platforms, [
+                PlatformDescription(name: "macos", version: "10.13"),
+                PlatformDescription(name: "ios", version: "12.2"),
+                PlatformDescription(name: "tvos", version: "12.0"),
+                PlatformDescription(name: "watchos", version: "3.0"),
+            ])
+        }
+
+        // Test invalid custom versions.
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [
+                   .macOS("-11.2"), .iOS("12.x.2"), .tvOS("10..2"), .watchOS("1.0"),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch ManifestParseError.runtimeManifestErrors(let errors) {
+            XCTAssertEqual(errors, ["invalid macOS version string: -11.2", "invalid iOS version string: 12.x.2", "invalid tvOS version string: 10..2", "invalid watchOS version string: 1.0"])
+        }
+
+        // Duplicates.
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [
+                   .macOS(.v10_10), .macOS(.v10_12),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch ManifestParseError.runtimeManifestErrors(let errors) {
+            XCTAssertEqual(errors, ["found multiple declaration for the platform: macos"])
+        }
+
+        // Empty.
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: []
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch ManifestParseError.runtimeManifestErrors(let errors) {
+            XCTAssertEqual(errors, ["supported platforms can't be empty"])
+        }
+    }
+
+    func testBuildSettings() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "Foo",
+                       _cSettings: [
+                           .headerSearchPath("path/to/foo"),
+                           .define("C", .when(platforms: [.linux])),
+                           .define("CC", to: "4", .when(platforms: [.linux], configuration: .release)),
+                       ],
+                       _cxxSettings: [
+                           .headerSearchPath("path/to/bar"),
+                           .define("CXX"),
+                       ],
+                       _swiftSettings: [
+                           .define("SWIFT", .when(configuration: .release)),
+                           .define("SWIFT_DEBUG", .when(platforms: [.watchOS], configuration: .debug)),
+                       ],
+                       _linkerSettings: [
+                           .linkedLibrary("libz"),
+                           .linkedFramework("CoreData", .when(platforms: [.macOS, .tvOS])),
+                       ]
+                   ),
+               ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            let settings = manifest.targets[0].settings
+
+            XCTAssertEqual(settings[0], .init(tool: .c, name: .headerSearchPath, value: ["path/to/foo"]))
+            XCTAssertEqual(settings[1], .init(tool: .c, name: .define, value: ["C"], condition: .init(platformNames: ["linux"])))
+            XCTAssertEqual(settings[2], .init(tool: .c, name: .define, value: ["CC=4"], condition: .init(platformNames: ["linux"], config: "release")))
+
+            XCTAssertEqual(settings[3], .init(tool: .cxx, name: .headerSearchPath, value: ["path/to/bar"]))
+            XCTAssertEqual(settings[4], .init(tool: .cxx, name: .define, value: ["CXX"]))
+
+            XCTAssertEqual(settings[5], .init(tool: .swift, name: .define, value: ["SWIFT"], condition: .init(config: "release")))
+            XCTAssertEqual(settings[6], .init(tool: .swift, name: .define, value: ["SWIFT_DEBUG"], condition: .init(platformNames: ["watchos"], config: "debug")))
+
+            XCTAssertEqual(settings[7], .init(tool: .linker, name: .linkedLibrary, value: ["libz"]))
+            XCTAssertEqual(settings[8], .init(tool: .linker, name: .linkedFramework, value: ["CoreData"], condition: .init(platformNames: ["macos", "tvos"])))
+        }
+    }
 }

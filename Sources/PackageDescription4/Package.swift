@@ -63,6 +63,11 @@ public final class Package {
     /// The name of the package.
     public var name: String
 
+  #if !PACKAGE_DESCRIPTION_4
+    /// The list of platforms supported by this package.
+    public var platforms: [SupportedPlatform]?
+  #endif
+
     /// pkgconfig name to use for C Modules. If present, swiftpm will try to
     /// search for <name>.pc file to get the additional flags needed for the
     /// system target.
@@ -122,6 +127,7 @@ public final class Package {
     /// Construct a package.
     public init(
         name: String,
+        platforms: [SupportedPlatform]? = nil,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
         products: [Product] = [],
@@ -132,6 +138,7 @@ public final class Package {
         cxxLanguageStandard: CXXLanguageStandard? = nil
     ) {
         self.name = name
+        self.platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.products = products
@@ -196,6 +203,7 @@ public enum SystemPackageProvider {
 extension Package: Encodable {
     private enum CodingKeys: CodingKey {
         case name
+        case platforms
         case pkgConfig
         case providers
         case products
@@ -209,6 +217,15 @@ extension Package: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(name, forKey: .name)
+
+      #if !PACKAGE_DESCRIPTION_4
+        if let platforms = self.platforms {
+            // The platforms API was introduced in manifest version 5.
+            let versionedPlatforms = VersionedValue(platforms, api: "platforms", versions: [.v5])
+            try container.encode(versionedPlatforms, forKey: .platforms)
+        }
+      #endif
+
         try container.encode(pkgConfig, forKey: .pkgConfig)
         try container.encode(providers, forKey: .providers)
         try container.encode(products, forKey: .products)

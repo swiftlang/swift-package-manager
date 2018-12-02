@@ -1318,6 +1318,264 @@ class PackageBuilderTests: XCTestCase {
             result.checkDiagnostic("unable to synthesize a REPL product as there are no library targets in the package")
         }
     }
+
+    func testPlatforms() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/module.modulemap",
+            "/Sources/bar/bar.swift",
+            "/Sources/cbar/bar.c",
+            "/Sources/cbar/include/bar.h"
+        )
+
+        // One platform with an override.
+        var manifest = Manifest.createManifest(
+            name: "pkg",
+            platforms: [
+                PlatformDescription(name: "macos", version: "10.12"),
+            ],
+            v: .v5,
+            targets: [
+                TargetDescription(name: "foo", type: .system),
+                TargetDescription(name: "cbar"),
+                TargetDescription(name: "bar", dependencies: ["foo"]),
+            ]
+        )
+
+        var expectedPlatforms = [
+            "linux": "0.0",
+            "macos": "10.12",
+            "ios": "8.0",
+            "tvos": "9.0",
+            "watchos": "2.0",
+        ]
+
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkModule("foo") { t in 
+                t.checkPlatforms(expectedPlatforms)
+            }
+            result.checkModule("bar") { t in
+                t.checkPlatforms(expectedPlatforms)
+            }
+            result.checkModule("cbar") { t in
+                t.checkPlatforms(expectedPlatforms)
+            }
+        }
+
+        // Two platforms with overrides.
+        manifest = Manifest.createManifest(
+            name: "pkg",
+            platforms: [
+                PlatformDescription(name: "macos", version: "10.12"),
+                PlatformDescription(name: "tvos", version: "10.0"),
+            ],
+            v: .v5,
+            targets: [
+                TargetDescription(name: "foo", type: .system),
+                TargetDescription(name: "cbar"),
+                TargetDescription(name: "bar", dependencies: ["foo"]),
+            ]
+        )
+
+        expectedPlatforms = [
+            "macos": "10.12",
+            "tvos": "10.0",
+            "linux": "0.0",
+            "ios": "8.0",
+            "watchos": "2.0",
+        ]
+
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkModule("foo") { t in 
+                t.checkPlatforms(expectedPlatforms)
+            }
+            result.checkModule("bar") { t in
+                t.checkPlatforms(expectedPlatforms)
+            }
+            result.checkModule("cbar") { t in
+                t.checkPlatforms(expectedPlatforms)
+            }
+        }
+    }
+
+    func testAsmIsIgnoredInV4_2Manifest() throws {
+        // .s is not considered a valid source in 4.2 manifest.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/lib/lib.s",
+            "/Sources/lib/lib2.S",
+            "/Sources/lib/lib.c",
+            "/Sources/lib/include/lib.h"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "pkg",
+            v: .v4_2,
+            targets: [
+                TargetDescription(name: "lib", dependencies: []),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkModule("lib") { moduleResult in
+                moduleResult.checkSources(root: "/Sources/lib", paths: "lib.c")
+            }
+        }
+    }
+
+    func testAsmInV5Manifest() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/lib/lib.s",
+            "/Sources/lib/lib2.S",
+            "/Sources/lib/lib.c",
+            "/Sources/lib/include/lib.h"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let manifest = Manifest.createManifest(
+            name: "Pkg",
+            v: .v5,
+            targets: [
+                TargetDescription(name: "lib", dependencies: []),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkModule("lib") { moduleResult in
+                moduleResult.checkSources(root: "/Sources/lib", paths: "lib.c", "lib.s", "lib2.S")
+            }
+        }
+    }
+
+    func testBuildSettings() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/exe/main.swift",
+            "/Sources/bar/bar.swift",
+            "/Sources/cbar/barcpp.cpp",
+            "/Sources/cbar/bar.c",
+            "/Sources/cbar/include/bar.h"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "pkg",
+            v: .v5,
+            targets: [
+                TargetDescription(
+                    name: "cbar",
+                    settings: [
+                        .init(tool: .c, name: .headerSearchPath, value: ["Sources/headers"]),
+                        .init(tool: .cxx, name: .headerSearchPath, value: ["Sources/cppheaders"]),
+
+                        .init(tool: .c, name: .define, value: ["CCC=2"]),
+                        .init(tool: .cxx, name: .define, value: ["CXX"]),
+                        .init(tool: .cxx, name: .define, value: ["RCXX"], condition: .init(config: "release")),
+
+                        .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
+                        .init(tool: .cxx, name: .unsafeFlags, value: ["-Icxxfoo", "-L", "cxxbar"]),
+                    ]
+                ),
+                TargetDescription(
+                    name: "bar", dependencies: ["foo"],
+                    settings: [
+                        .init(tool: .swift, name: .define, value: ["SOMETHING"]),
+                        .init(tool: .swift, name: .define, value: ["LINUX"], condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, name: .define, value: ["RLINUX"], condition: .init(platformNames: ["linux"], config: "release")),
+                        .init(tool: .swift, name: .define, value: ["DMACOS"], condition: .init(platformNames: ["macos"], config: "debug")),
+                        .init(tool: .swift, name: .unsafeFlags, value: ["-Isfoo", "-L", "sbar"]),
+                    ]
+                ),
+                TargetDescription(
+                    name: "exe", dependencies: ["bar"],
+                    settings: [
+                        .init(tool: .linker, name: .linkedLibrary, value: ["sqlite3"]),
+                        .init(tool: .linker, name: .linkedFramework, value: ["CoreData"], condition: .init(platformNames: ["ios"])),
+                        .init(tool: .linker, name: .unsafeFlags, value: ["-Ilfoo", "-L", "lbar"]),
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkModule("cbar") { result in
+                let scope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.macOS, .debug))
+                XCTAssertEqual(scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS), ["CCC=2", "CXX"])
+                XCTAssertEqual(scope.evaluate(.HEADER_SEARCH_PATHS), ["Sources/headers", "Sources/cppheaders"])
+                XCTAssertEqual(scope.evaluate(.OTHER_CFLAGS), ["-Icfoo", "-L", "cbar"])
+                XCTAssertEqual(scope.evaluate(.OTHER_CPLUSPLUSFLAGS), ["-Icxxfoo", "-L", "cxxbar"])
+
+                let releaseScope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.macOS, .release))
+                XCTAssertEqual(releaseScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS), ["CCC=2", "CXX", "RCXX"])
+            }
+
+            result.checkModule("bar") { result in
+                let scope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.linux, .debug))
+                XCTAssertEqual(scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS), ["SOMETHING", "LINUX"])
+                XCTAssertEqual(scope.evaluate(.OTHER_SWIFT_FLAGS), ["-Isfoo", "-L", "sbar"])
+
+                let rscope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.linux, .release))
+                XCTAssertEqual(rscope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS), ["SOMETHING", "LINUX", "RLINUX"])
+
+                let mscope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.macOS, .debug))
+                XCTAssertEqual(mscope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS), ["SOMETHING", "DMACOS"])
+            }
+
+            result.checkModule("exe") { result in
+                let scope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.linux, .debug))
+                XCTAssertEqual(scope.evaluate(.LINK_LIBRARIES), ["sqlite3"])
+                XCTAssertEqual(scope.evaluate(.OTHER_LDFLAGS), ["-Ilfoo", "-L", "lbar"])
+                XCTAssertEqual(scope.evaluate(.LINK_FRAMEWORKS), [])
+                XCTAssertEqual(scope.evaluate(.OTHER_SWIFT_FLAGS), [])
+                XCTAssertEqual(scope.evaluate(.OTHER_CFLAGS), [])
+                XCTAssertEqual(scope.evaluate(.OTHER_CPLUSPLUSFLAGS), [])
+
+                let mscope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.iOS, .debug))
+                XCTAssertEqual(mscope.evaluate(.LINK_LIBRARIES), ["sqlite3"])
+                XCTAssertEqual(mscope.evaluate(.LINK_FRAMEWORKS), ["CoreData"])
+
+            }
+
+            result.checkProduct("exe")
+        }
+    }
+
+    func testInvalidHeaderSearchPath() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/pkg/Sources/exe/main.swift"
+        )
+
+        let manifest1 = Manifest.createManifest(
+            name: "pkg",
+            v: .v5,
+            targets: [
+                TargetDescription(
+                    name: "exe",
+                    settings: [
+                        .init(tool: .c, name: .headerSearchPath, value: ["/Sources/headers"]),
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest1, path: AbsolutePath("/pkg"), in: fs) { result in
+            result.checkDiagnostic("invalid relative path '/Sources/headers'; relative path should not begin with '/' or '~'")
+        }
+
+        let manifest2 = Manifest.createManifest(
+            name: "pkg",
+            v: .v5,
+            targets: [
+                TargetDescription(
+                    name: "exe",
+                    settings: [
+                        .init(tool: .c, name: .headerSearchPath, value: ["../../.."]),
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest2, path: AbsolutePath("/pkg"), in: fs) { result in
+            result.checkDiagnostic("invalid header search path '../../..'; header search path should not be outside the package root")
+        }
+    }
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}
@@ -1444,7 +1702,7 @@ final class PackageBuilderTester {
     }
 
     final class ModuleResult {
-        private let target: PackageModel.Target
+        let target: PackageModel.Target
 
         fileprivate init(_ target: PackageModel.Target) {
             self.target = target
@@ -1499,6 +1757,11 @@ final class PackageBuilderTester {
                 return XCTFail("\(target) is not a swift target", file: file, line: line)
             }
             XCTAssertEqual(SwiftLanguageVersion(string: swiftVersion)!, swiftTarget.swiftVersion, file: file, line: line)
+        }
+
+        func checkPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
+            let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.map({ ($0.platform.name, $0.version.versionString) }))
+            XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
         }
     }
 }

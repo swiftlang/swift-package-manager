@@ -242,6 +242,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         let manifest = Manifest(
             name: manifestBuilder.name,
+            platforms: manifestBuilder.platforms,
             path: inputPath,
             url: baseURL,
             version: version,

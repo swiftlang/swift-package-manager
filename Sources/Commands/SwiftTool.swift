@@ -278,7 +278,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         binder.bind(
             option: parser.add(
-                option: "--configuration", shortName: "-c", kind: Build.Configuration.self,
+                option: "--configuration", shortName: "-c", kind: BuildConfiguration.self,
                 usage: "Build with configuration (debug|release) [default: debug]"),
             to: { $0.configuration = $1 })
         
@@ -854,7 +854,7 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
     return stream.bytes.asString!
 }
 
-extension Build.Configuration: StringEnumArgument {
+extension BuildConfiguration: StringEnumArgument {
     public static var completion: ShellCompletion = .values([
         (debug.rawValue, "build with DEBUG configuration"),
         (release.rawValue, "build with RELEASE configuration"),

@@ -53,6 +53,9 @@ public enum ModuleError: Swift.Error {
 
     /// Unsupported target path
     case unsupportedTargetPath(String)
+
+    /// Invalid header search path.
+    case invalidHeaderSearchPath(String)
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -88,6 +91,8 @@ extension ModuleError: CustomStringConvertible {
             return "target '\(target)' in package '\(package)' is outside the package root"
         case .unsupportedTargetPath(let targetPath):
             return "target path '\(targetPath)' is not supported; it should be relative to package root"
+        case .invalidHeaderSearchPath(let path):
+            return "invalid header search path '\(path)'; header search path should not be outside the package root"
         }
     }
 }
@@ -268,7 +273,7 @@ public final class PackageBuilder {
 
     private func isValidSource(_ path: AbsolutePath) -> Bool {
         // Ignore files which don't match the expected extensions.
-        guard let ext = path.extension, SupportedLanguageExtension.validExtensions.contains(ext) else {
+        guard let ext = path.extension, SupportedLanguageExtension.validExtensions(manifestVersion: self.manifest.manifestVersion).contains(ext) else {
             return false
         }
 
@@ -369,6 +374,7 @@ public final class PackageBuilder {
             return [
                 SystemLibraryTarget(
                     name: manifest.name,
+                    platforms: self.platforms(),
                     path: packagePath, isImplicit: true,
                     pkgConfig: manifest.pkgConfig,
                     providers: manifest.providers)
@@ -580,8 +586,10 @@ public final class PackageBuilder {
             guard fileSystem.isFile(moduleMapPath) else {
                 return nil
             }
+
             return SystemLibraryTarget(
                 name: potentialModule.name,
+                platforms: self.platforms(),
                 path: potentialModule.path, isImplicit: false,
                 pkgConfig: manifestTarget?.pkgConfig,
                 providers: manifestTarget?.providers
@@ -655,41 +663,181 @@ public final class PackageBuilder {
         }
         // Select any source files for the C-based languages and for Swift.
         let sources = walked.filter(isValidSource).filter({ !targetExcludedPaths.contains($0) })
-        let cSources = sources.filter({ SupportedLanguageExtension.cFamilyExtensions.contains($0.extension!) })
+        let clangSources = sources.filter({ SupportedLanguageExtension.clangTargetExtensions(manifestVersion: self.manifest.manifestVersion).contains($0.extension!)})
         let swiftSources = sources.filter({ SupportedLanguageExtension.swiftExtensions.contains($0.extension!) })
-        assert(sources.count == cSources.count + swiftSources.count)
+        assert(sources.count == clangSources.count + swiftSources.count)
 
+        // Create the build setting assignment table for this target.
+        let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path)
+        
         // Create and return the right kind of target depending on what kind of sources we found.
-        if cSources.isEmpty {
+        if clangSources.isEmpty {
             guard !swiftSources.isEmpty else { return nil }
             let swiftSources = Array(swiftSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: swiftSources)
             // No C sources, so we expect to have Swift sources, and we create a Swift target.
             return SwiftTarget(
                 name: potentialModule.name,
+                platforms: self.platforms(),
                 isTest: potentialModule.isTest,
                 sources: Sources(paths: swiftSources, root: potentialModule.path),
                 dependencies: moduleDependencies,
                 productDependencies: productDeps,
-                swiftVersion: try swiftVersion())
+                swiftVersion: try swiftVersion(),
+                buildSettings: buildSettings
+            )
         } else {
             // No Swift sources, so we expect to have C sources, and we create a C target.
             guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path.asString) }
-            let cSources = Array(cSources)
+            let cSources = Array(clangSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: cSources)
 
             let sources = Sources(paths: cSources, root: potentialModule.path)
 
             return ClangTarget(
                 name: potentialModule.name,
+                platforms: self.platforms(),
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
                 includeDir: publicHeadersPath,
                 isTest: potentialModule.isTest,
                 sources: sources,
                 dependencies: moduleDependencies,
-                productDependencies: productDeps)
+                productDependencies: productDeps,
+                buildSettings: buildSettings
+            )
         }
+    }
+
+    /// Creates build setting assignment table for the given target.
+    func buildSettings(for target: TargetDescription?, targetRoot: AbsolutePath) throws -> BuildSettings.AssignmentTable {
+        var table = BuildSettings.AssignmentTable()
+        guard let target = target else { return table }
+
+        // Process each setting.
+        for setting in target.settings {
+            let decl: BuildSettings.Declaration
+
+            // Compute appropriate declaration for the setting.
+            switch setting.name {
+            case .headerSearchPath:
+
+                switch setting.tool {
+                case .c, .cxx:
+                    decl = .HEADER_SEARCH_PATHS
+                case .swift, .linker:
+                    fatalError("unexpected tool for setting type \(setting)")
+                }
+
+                // Ensure that the search path is contained within the package.
+                let subpath = try RelativePath(validating: setting.value[0])
+                guard targetRoot.appending(subpath).contains(packagePath) else {
+                    throw ModuleError.invalidHeaderSearchPath(subpath.asString)
+                }
+
+            case .define:
+                switch setting.tool {
+                case .c, .cxx:
+                    decl = .GCC_PREPROCESSOR_DEFINITIONS
+                case .swift:
+                    decl = .SWIFT_ACTIVE_COMPILATION_CONDITIONS
+                case .linker:
+                    fatalError("unexpected tool for setting type \(setting)")
+                }
+
+            case .linkedLibrary:
+                switch setting.tool {
+                case .c, .cxx, .swift:
+                    fatalError("unexpected tool for setting type \(setting)")
+                case .linker:
+                    decl = .LINK_LIBRARIES
+                }
+
+            case .linkedFramework:
+                switch setting.tool {
+                case .c, .cxx, .swift:
+                    fatalError("unexpected tool for setting type \(setting)")
+                case .linker:
+                    decl = .LINK_FRAMEWORKS
+                }
+
+            case .unsafeFlags:
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                case .swift:
+                    decl = .OTHER_SWIFT_FLAGS
+                case .linker:
+                    decl = .OTHER_LDFLAGS
+                }
+            }
+
+            // Create an assignment for this setting.
+            var assignment = BuildSettings.Assignment()
+            assignment.value = setting.value
+
+            if let config = setting.condition?.config.map({ BuildConfiguration(rawValue: $0)! }) {
+                let condition = BuildSettings.ConfigurationCondition(config)
+                assignment.conditions.append(condition)
+            }
+
+            if let platforms = setting.condition?.platformNames.map({ platformRegistry.platformByName[$0]! }), !platforms.isEmpty {
+                var condition = BuildSettings.PlatformsCondition()
+                condition.platforms = platforms
+                assignment.conditions.append(condition)
+            }
+
+            // Finally, add the assignment to the assignment table.
+            table.add(assignment, for: decl)
+        }
+
+        return table
+    }
+
+    /// Returns the list of platforms supported by the manifest.
+    func platforms() -> [SupportedPlatform] {
+        if let platforms = _platforms {
+            return platforms
+        }
+
+        var supportedPlatforms: [SupportedPlatform] = []
+
+        /// Add each declared platform to the supported platforms list.
+        for platform in manifest.platforms {
+
+            let supportedPlatform = SupportedPlatform(
+                platform: platformRegistry.platformByName[platform.platformName]!,
+                version: PlatformVersion(platform.version)
+            )
+
+            supportedPlatforms.append(supportedPlatform)
+        }
+
+        // Find the undeclared platforms.
+        let remainingPlatforms = Set(platformRegistry.platformByName.keys).subtracting(supportedPlatforms.map({ $0.platform.name }))
+
+        /// Start synthesizing for each undeclared platform.
+        for platformName in remainingPlatforms {
+            let platform = platformRegistry.platformByName[platformName]!
+
+            let supportedPlatform = SupportedPlatform(
+                platform: platform,
+                version: platform.oldestSupportedVersion
+            )
+
+            supportedPlatforms.append(supportedPlatform)
+        }
+
+        _platforms = supportedPlatforms
+        return _platforms!
+    }
+    private var _platforms: [SupportedPlatform]? = nil
+
+    /// The platform registry instance.
+    private var platformRegistry: PlatformRegistry {
+        return PlatformRegistry.default
     }
 
     /// Computes the swift version to use for this manifest.

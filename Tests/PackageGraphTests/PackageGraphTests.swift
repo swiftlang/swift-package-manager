@@ -697,4 +697,62 @@ class PackageGraphTests: XCTestCase {
 
         XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.localizedDescription.contains("multiple products named 'Bar' in: Bar, Baz") }), "\(diagnostics.diagnostics)")
     }
+
+    func testUnsafeFlags() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift",
+            "/Bar/Sources/Bar2/bar.swift",
+            "/Bar/Sources/Bar3/bar.swift",
+            "<end>"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    url: "/Foo",
+                    dependencies: [
+                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    url: "/Bar",
+                    products: [
+                        ProductDescription(name: "Bar", targets: ["Bar", "Bar2", "Bar3"])
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Bar",
+                            settings: [
+                                .init(tool: .swift, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
+                                .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "Bar2",
+                            settings: [
+                                .init(tool: .swift, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
+                                .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "Bar3"
+                        ),
+                    ]),
+            ]
+        )
+
+        XCTAssertEqual(diagnostics.diagnostics.count, 2)
+        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            result.check(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), behavior: .error)
+            result.check(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), behavior: .error)
+        }
+    }
 }

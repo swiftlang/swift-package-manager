@@ -53,7 +53,7 @@ final class BuildPlanTests: XCTestCase {
 
     func mockBuildParameters(
         buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
-        config: Build.Configuration = .debug,
+        config: BuildConfiguration = .debug,
         shouldLinkStaticSwiftStdlib: Bool = false,
         destinationTriple: Triple = Triple.hostTriple,
         indexStoreMode: BuildParameters.IndexStoreMode = .off
@@ -228,6 +228,7 @@ final class BuildPlanTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.c",
             "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/lib.S",
             "/Pkg/Sources/lib/include/lib.h",
             "/ExtPkg/Sources/extlib/extlib.c",
             "/ExtPkg/Sources/extlib/include/ext.h"
@@ -267,10 +268,15 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(3)
 
         let ext = try result.target(for: "extlib").clangTarget()
-        var args = ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
+        var args: [String] = []
+
       #if os(macOS)
-        args += ["-fobjc-arc"]
+        args += ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10"]
+      #else
+        args += ["-target", "x86_64-unknown-linux"]
       #endif
+
+        args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=extlib",
             "-I", "/ExtPkg/Sources/extlib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
         XCTAssertEqual(ext.basicArguments(), args)
@@ -278,10 +284,15 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(ext.moduleMap, AbsolutePath("/path/to/build/debug/extlib.build/module.modulemap"))
 
         let exe = try result.target(for: "exe").clangTarget()
-        args = ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
+        args = []
+
       #if os(macOS)
-        args += ["-fobjc-arc"]
+        args += ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10"]
+      #else
+        args += ["-target", "x86_64-unknown-linux"]
       #endif
+
+        args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=exe",
             "-I", "/Pkg/Sources/exe/include", "-I", "/Pkg/Sources/lib/include", "-I", "/ExtPkg/Sources/extlib/include",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
@@ -396,10 +407,15 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
         
         let lib = try result.target(for: "lib").clangTarget()
-        var args = ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
+        var args: [String] = []
+
       #if os(macOS)
-        args += ["-fobjc-arc"]
+        args += ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10"]
+      #else
+        args += ["-target", "x86_64-unknown-linux"]
       #endif
+
+        args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
         XCTAssertEqual(lib.basicArguments(), args)
@@ -423,6 +439,42 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
         ])
       #endif
+    }
+
+    func testSwiftCAsmMixed() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/lib.S",
+            "/Pkg/Sources/lib/include/lib.h"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(
+            root: "/Pkg", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    v: .v5,
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+
+        let lib = try result.target(for: "lib").clangTarget()
+        XCTAssertEqual(lib.objects, [
+            AbsolutePath("/path/to/build/debug/lib.build/lib.S.o"),
+            AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")
+        ])
     }
 
     func testREPLArguments() throws {
@@ -777,18 +829,18 @@ final class BuildPlanTests: XCTestCase {
 
         let exe = try result.target(for: "exe").clangTarget()
     #if os(macOS)
-        XCTAssertEqual(exe.basicArguments(), ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fobjc-arc","-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe.basicArguments(), ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #else
-        XCTAssertEqual(exe.basicArguments(), ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe.basicArguments(), ["-target", "x86_64-unknown-linux", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #endif
         XCTAssertEqual(exe.objects, [AbsolutePath("/path/to/build/debug/exe.build/main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
 
         let lib = try result.target(for: "lib").clangTarget()
     #if os(macOS)
-        XCTAssertEqual(lib.basicArguments(), ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fobjc-arc","-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(lib.basicArguments(), ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #else
-        XCTAssertEqual(lib.basicArguments(), ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(lib.basicArguments(), ["-target", "x86_64-unknown-linux", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #endif
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.cpp.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
@@ -967,17 +1019,18 @@ final class BuildPlanTests: XCTestCase {
         )
         
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
-                                     manifests: [
-                                        Manifest.createV4Manifest(
-                                            name: "Pkg",
-                                            path: "/Pkg",
-                                            url: "/Pkg",
-                                            targets: [
-                                                TargetDescription(name: "exe", dependencies: ["lib"]),
-                                                TargetDescription(name: "lib", dependencies: []),
-                                                ]),
-                                        ]
+        let graph = loadPackageGraph(
+            root: "/Pkg", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    targets: [
+                    TargetDescription(name: "exe", dependencies: ["lib"]),
+                    TargetDescription(name: "lib", dependencies: []),
+                ]),
+            ]
         )
         XCTAssertNoDiagnostics(diagnostics)
         
@@ -986,7 +1039,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
         
         let lib = try result.target(for: "lib").clangTarget()
-        var args = ["-g", "-gcodeview", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
+        var args = ["-target", "x86_64-unknown-windows-msvc", "-g", "-gcodeview", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-I", "/Pkg/Sources/lib/include"]
         XCTAssertEqual(lib.basicArguments(), args)
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")])
@@ -1025,7 +1078,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(diagnostics)
 
-        func check(for mode: BuildParameters.IndexStoreMode, config: Build.Configuration) throws {
+        func check(for mode: BuildParameters.IndexStoreMode, config: BuildConfiguration) throws {
             let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(config: config, indexStoreMode: mode), graph: graph, diagnostics: diagnostics, fileSystem: fs))
 
             let lib = try result.target(for: "lib").clangTarget()
@@ -1044,6 +1097,198 @@ final class BuildPlanTests: XCTestCase {
         try check(for: .auto, config: .debug)
         try check(for: .on, config: .debug)
         try check(for: .on, config: .release)
+    }
+
+    func testPlatforms() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/ATarget/foo.swift",
+            "/B/Sources/BTarget/foo.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/A", fs: fileSystem, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "A",
+                    platforms: [
+                        PlatformDescription(name: "macos", version: "10.13"),
+                    ],
+                    path: "/A",
+                    url: "/A",
+                    v: .v5,
+                    dependencies: [
+                        PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
+                    ]),
+                Manifest.createManifest(
+                    name: "B",
+                    platforms: [
+                        PlatformDescription(name: "macos", version: "10.12"),
+                    ],
+                    path: "/B",
+                    url: "/B",
+                    v: .v5,
+                    products: [
+                        ProductDescription(name: "BLibrary", targets: ["BTarget"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "BTarget", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(),
+            graph: graph, diagnostics: diagnostics,
+            fileSystem: fileSystem))
+
+        let aTarget = try result.target(for: "ATarget").swiftTarget().compileArguments()
+      #if os(macOS)
+        XCTAssertMatch(aTarget, ["-target", "x86_64-apple-macosx10.13", .anySequence])
+      #else
+        XCTAssertMatch(aTarget, ["-target", "x86_64-unknown-linux", .anySequence])
+      #endif
+
+        let bTarget = try result.target(for: "BTarget").swiftTarget().compileArguments()
+      #if os(macOS)
+        XCTAssertMatch(bTarget, ["-target", "x86_64-apple-macosx10.12", .anySequence])
+      #else
+        XCTAssertMatch(bTarget, ["-target", "x86_64-unknown-linux", .anySequence])
+      #endif
+    }
+
+    func testBuildSettings() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/exe/main.swift",
+            "/A/Sources/bar/bar.swift",
+            "/A/Sources/cbar/barcpp.cpp",
+            "/A/Sources/cbar/bar.c",
+            "/A/Sources/cbar/include/bar.h",
+
+            "/B/Sources/t1/dep.swift",
+            "/B/Sources/t2/dep.swift",
+            "<end>"
+        )
+
+        let aManifest = Manifest.createManifest(
+            name: "A",
+            path: "/A",
+            url: "/A",
+            v: .v5,
+            dependencies: [
+                PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+            ],
+            targets: [
+                TargetDescription(
+                    name: "cbar",
+                    settings: [
+                    .init(tool: .c, name: .headerSearchPath, value: ["Sources/headers"]),
+                    .init(tool: .cxx, name: .headerSearchPath, value: ["Sources/cppheaders"]),
+
+                    .init(tool: .c, name: .define, value: ["CCC=2"]),
+                    .init(tool: .cxx, name: .define, value: ["RCXX"], condition: .init(config: "release")),
+
+                    .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
+                    .init(tool: .cxx, name: .unsafeFlags, value: ["-Icxxfoo", "-L", "cxxbar"]),
+                    ]
+                ),
+                TargetDescription(
+                    name: "bar", dependencies: ["cbar", "Dep"],
+                    settings: [
+                    .init(tool: .swift, name: .define, value: ["LINUX"], condition: .init(platformNames: ["linux"])),
+                    .init(tool: .swift, name: .define, value: ["RLINUX"], condition: .init(platformNames: ["linux"], config: "release")),
+                    .init(tool: .swift, name: .define, value: ["DMACOS"], condition: .init(platformNames: ["macos"], config: "debug")),
+                    .init(tool: .swift, name: .unsafeFlags, value: ["-Isfoo", "-L", "sbar"]),
+                    ]
+                ),
+                TargetDescription(
+                    name: "exe", dependencies: ["bar"],
+                    settings: [
+                    .init(tool: .swift, name: .define, value: ["FOO"]),
+                    .init(tool: .linker, name: .linkedLibrary, value: ["sqlite3"]),
+                    .init(tool: .linker, name: .linkedFramework, value: ["CoreData"], condition: .init(platformNames: ["macos"])),
+                    .init(tool: .linker, name: .unsafeFlags, value: ["-Ilfoo", "-L", "lbar"]),
+                    ]
+                ),
+            ]
+
+        )
+
+        let bManifest = Manifest.createManifest(
+            name: "B",
+            path: "/B",
+            url: "/B",
+            v: .v5,
+            products: [
+                ProductDescription(name: "Dep", targets: ["t1", "t2"]),
+            ],
+            targets: [
+                TargetDescription(
+                    name: "t1",
+                    settings: [
+                        .init(tool: .swift, name: .define, value: ["DEP"]),
+                        .init(tool: .linker, name: .linkedLibrary, value: ["libz"]),
+                    ]
+                ),
+                TargetDescription(
+                    name: "t2",
+                    settings: [
+                        .init(tool: .linker, name: .linkedLibrary, value: ["libz"]),
+                    ]
+                ),
+            ])
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/A", fs: fs, diagnostics: diagnostics,
+            manifests: [aManifest, bManifest]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        func createResult(for dest: Triple) throws -> BuildPlanResult {
+            return BuildPlanResult(plan: try BuildPlan(
+                buildParameters: mockBuildParameters(destinationTriple: dest),
+                graph: graph, diagnostics: diagnostics,
+                fileSystem: fs)
+            )
+        }
+
+        do {
+            let result = try createResult(for: .x86_64Linux)
+
+            let dep = try result.target(for: "t1").swiftTarget().compileArguments()
+            XCTAssertMatch(dep, [.anySequence, "-DDEP", .end])
+
+            let cbar = try result.target(for: "cbar").clangTarget().basicArguments()
+            XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I/A/Sources/cbar/Sources/headers", "-I/A/Sources/cbar/Sources/cppheaders", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
+
+            let bar = try result.target(for: "bar").swiftTarget().compileArguments()
+            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", .end])
+
+            let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+            XCTAssertMatch(exe, [.anySequence, "-DFOO", .end])
+
+            let linkExe = try result.buildProduct(for: "exe").linkArguments()
+            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-Ilfoo", "-L", "lbar", .end])
+        }
+
+        do {
+            let result = try createResult(for: .macOS)
+
+            let cbar = try result.target(for: "cbar").clangTarget().basicArguments()
+            XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I/A/Sources/cbar/Sources/headers", "-I/A/Sources/cbar/Sources/cppheaders", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
+
+            let bar = try result.target(for: "bar").swiftTarget().compileArguments()
+            XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", .end])
+
+            let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-framework", "CoreData", .end])
+
+            let linkExe = try result.buildProduct(for: "exe").linkArguments()
+            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-framework", "CoreData", "-Ilfoo", "-L", "lbar", .end])
+        }
     }
 }
 

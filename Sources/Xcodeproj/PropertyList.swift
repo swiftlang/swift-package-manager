@@ -18,6 +18,20 @@ public enum PropertyList {
     case string(String)
     case array([PropertyList])
     case dictionary([String: PropertyList])
+
+    var string: String? {
+        if case .string(let string) = self {
+            return string
+        }
+        return nil
+    }
+
+    var array: [PropertyList]? {
+        if case .array(let array) = self {
+            return array
+        }
+        return nil
+    }
 }
 
 extension PropertyList: ExpressibleByStringLiteral {

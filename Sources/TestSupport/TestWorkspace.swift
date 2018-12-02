@@ -98,6 +98,7 @@ public final class TestWorkspace {
                 let v = version.flatMap(Version.init(string:))
                 manifests[.init(url: url, version: v)] = Manifest(
                     name: package.name,
+                    platforms: package.platforms,
                     path: manifestPath,
                     url: url,
                     version: v,
@@ -452,6 +453,7 @@ public struct TestDependency {
 public struct TestPackage {
 
     public let name: String
+    public let platforms: [PlatformDescription]
     public let path: String?
     public let targets: [TestTarget]
     public let products: [TestProduct]
@@ -462,6 +464,7 @@ public struct TestPackage {
 
     public init(
         name: String,
+        platforms: [PlatformDescription] = [],
         path: String? = nil,
         targets: [TestTarget],
         products: [TestProduct],
@@ -470,6 +473,7 @@ public struct TestPackage {
         toolsVersion: ToolsVersion? = nil
     ) {
         self.name = name
+        self.platforms = platforms
         self.path = path
         self.targets = targets
         self.products = products

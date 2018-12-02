@@ -49,7 +49,7 @@ public struct BuildParameters {
     public let dataPath: AbsolutePath
 
     /// The build configuration.
-    public let configuration: Configuration
+    public let configuration: BuildConfiguration
 
     /// The path to the build directory (inside the data directory).
     public var buildPath: AbsolutePath {
@@ -130,7 +130,7 @@ public struct BuildParameters {
 
     public init(
         dataPath: AbsolutePath,
-        configuration: Configuration,
+        configuration: BuildConfiguration,
         toolchain: Toolchain,
         destinationTriple: Triple = Triple.hostTriple,
         flags: BuildFlags,
@@ -170,6 +170,35 @@ public struct BuildParameters {
             return ["-index-store-path", indexStore.asString]
         }
         return []
+    }
+
+    /// Computes the target triple arguments for a given resolved target.
+    fileprivate func targetTripleArgs(for target: ResolvedTarget) -> [String] {
+        var args = ["-target"]
+        // Compute the triple string for Darwin platform using the platform version.
+        if triple.isDarwin() {
+            guard let macOSSupportedPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
+                fatalError("the target \(target) doesn't support building for macOS")
+            }
+            args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
+        } else {
+            args += [triple.tripleString]
+        }
+        return args
+    }
+
+    /// The current platform we're building for.
+    var currentPlatform: PackageModel.Platform {
+        if self.triple.isDarwin() {
+            return .macOS
+        } else {
+            return .linux
+        }
+    }
+
+    /// Returns the scoped view of build settings for a given target.
+    fileprivate func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
+        return BuildSettings.Scope(target.underlyingTarget.buildSettings, boundCondition: (currentPlatform, configuration))
     }
 }
 
@@ -258,14 +287,14 @@ public final class ClangTargetBuildDescription {
     /// Builds up basic compilation arguments for this target.
     public func basicArguments() -> [String] {
         var args = [String]()
-        args += buildParameters.toolchain.extraCCFlags
-        args += optimizationArguments
-        args += activeCompilationConditions
-
         // Only enable ARC on macOS.
         if buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
+        args += buildParameters.targetTripleArgs(for: target)
+        args += buildParameters.toolchain.extraCCFlags
+        args += optimizationArguments
+        args += activeCompilationConditions
         args += ["-fblocks"]
 
         // Enable index store, if appropriate.
@@ -289,6 +318,9 @@ public final class ClangTargetBuildDescription {
         }
         args += buildParameters.sanitizers.compileCFlags()
 
+        // Add agruments from declared build settings.
+        args += self.buildSettingsFlags()
+
         // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
         args += buildParameters.flags.cCompilerFlags
 
@@ -297,6 +329,34 @@ public final class ClangTargetBuildDescription {
             args += self.buildParameters.flags.cxxCompilerFlags
         }
         return args
+    }
+
+    /// Returns the build flags from the declared build settings.
+    private func buildSettingsFlags() -> [String] {
+        let scope = buildParameters.createScope(for: target)
+        var flags: [String] = []
+
+        // C defines.
+        let cDefines = scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS)
+        flags += cDefines.map({ "-D" + $0 })
+
+        // Header search paths.
+        let headerSearchPaths = scope.evaluate(.HEADER_SEARCH_PATHS)
+        flags += headerSearchPaths.map({
+            "-I" + target.sources.root.appending(RelativePath($0)).asString
+        })
+
+        // Frameworks.
+        let frameworks = scope.evaluate(.LINK_FRAMEWORKS)
+        flags += frameworks.flatMap({ ["-framework", $0] })
+
+        // Other C flags.
+        flags += scope.evaluate(.OTHER_CFLAGS)
+
+        // Other CXX flags.
+        flags += scope.evaluate(.OTHER_CPLUSPLUSFLAGS)
+
+        return flags
     }
 
     /// Optimization arguments according to the build configuration.
@@ -398,6 +458,7 @@ public final class SwiftTargetBuildDescription {
     /// The arguments needed to compile this target.
     public func compileArguments() -> [String] {
         var args = [String]()
+        args += buildParameters.targetTripleArgs(for: target)
         args += ["-swift-version", swiftVersion.rawValue]
 
         // Enable batch mode in debug mode.
@@ -429,9 +490,47 @@ public final class SwiftTargetBuildDescription {
             args += ["-Xfrontend", "-color-diagnostics"]
         }
 
+        // Add agruments from declared build settings.
+        args += self.buildSettingsFlags()
+
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
         return args
+    }
+
+    /// Returns the build flags from the declared build settings.
+    private func buildSettingsFlags() -> [String] {
+        let scope = buildParameters.createScope(for: target)
+        var flags: [String] = []
+
+        // Swift defines.
+        let swiftDefines = scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS)
+        flags += swiftDefines.map({ "-D" + $0 })
+
+        // Frameworks.
+        let frameworks = scope.evaluate(.LINK_FRAMEWORKS)
+        flags += frameworks.flatMap({ ["-framework", $0] })
+
+        // Other Swift flags.
+        flags += scope.evaluate(.OTHER_SWIFT_FLAGS)
+
+        // Add C flags by prefixing them with -Xcc.
+        //
+        // C defines.
+        let cDefines = scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS)
+        flags += cDefines.flatMap({ ["-Xcc", "-D" + $0] })
+
+        // Header search paths.
+        let headerSearchPaths = scope.evaluate(.HEADER_SEARCH_PATHS)
+        flags += headerSearchPaths.flatMap({ path -> [String] in
+            let path = target.sources.root.appending(RelativePath(path)).asString
+            return ["-Xcc", "-I" + path]
+        })
+
+        // Other C flags.
+        flags += scope.evaluate(.OTHER_CFLAGS).flatMap({ ["-Xcc", $0] })
+
+        return flags
     }
 
     /// A list of compilation conditions to enable for conditional compilation expressions.
@@ -517,6 +616,9 @@ public final class ProductBuildDescription {
     /// Any additional flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
 
+    /// The list of targets that are going to be linked statically in this product.
+    fileprivate var staticTargets: [ResolvedTarget] = []
+
     /// Path to the temporary directory for this product.
     var tempsPath: AbsolutePath {
         return buildParameters.buildPath.appending(component: product.name + ".product")
@@ -601,6 +703,9 @@ public final class ProductBuildDescription {
         }
         args += ["@" + linkFileListPath.asString]
 
+        // Add agruments from declared build settings.
+        args += self.buildSettingsFlags()
+
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.linkerFlags
         args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
@@ -617,6 +722,31 @@ public final class ProductBuildDescription {
 
         try fs.createDirectory(linkFileListPath.parentDirectory, recursive: true)
         try fs.writeFileContents(linkFileListPath, bytes: stream.bytes)
+    }
+
+    /// Returns the build flags from the declared build settings.
+    private func buildSettingsFlags() -> [String] {
+        var flags: [String] = []
+
+        // Linked libraries.
+        let libraries = OrderedSet(staticTargets.reduce([]) {
+            $0 + buildParameters.createScope(for: $1).evaluate(.LINK_LIBRARIES)
+        })
+        flags += libraries.map({ "-l" + $0 })
+
+        // Linked frameworks.
+        let frameworks = OrderedSet(staticTargets.reduce([]) {
+            $0 + buildParameters.createScope(for: $1).evaluate(.LINK_FRAMEWORKS)
+        })
+        flags += frameworks.flatMap({ ["-framework", $0] })
+
+        // Other linker flags.
+        for target in staticTargets {
+            let scope = buildParameters.createScope(for: target)
+            flags += scope.evaluate(.OTHER_LDFLAGS)
+        }
+
+        return flags
     }
 }
 
@@ -757,6 +887,7 @@ public class BuildPlan {
     private func plan(_ buildProduct: ProductBuildDescription) throws {
         // Compute the product's dependency.
         let dependencies = computeDependencies(of: buildProduct.product)
+
         // Add flags for system targets.
         for systemModule in dependencies.systemModules {
             guard case let target as SystemLibraryTarget = systemModule.underlyingTarget else {
@@ -775,6 +906,7 @@ public class BuildPlan {
             }
         }
 
+        buildProduct.staticTargets = dependencies.staticTargets
         buildProduct.dylibs = dependencies.dylibs.map({ productMap[$0]! })
         buildProduct.objects += dependencies.staticTargets.flatMap({ targetMap[$0]!.objects })
 
@@ -856,7 +988,7 @@ public class BuildPlan {
 
     /// Plan a Clang target.
     private func plan(clangTarget: ClangTargetBuildDescription) {
-        for dependency in clangTarget.target.recursiveDependencies {
+        for dependency in clangTarget.target.recursiveDependencies() {
             switch dependency.underlyingTarget {
             case let target as ClangTarget where target.type == .library:
                 // Setup search paths for C dependencies:
@@ -873,7 +1005,7 @@ public class BuildPlan {
     private func plan(swiftTarget: SwiftTargetBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
-        for dependency in swiftTarget.target.recursiveDependencies {
+        for dependency in swiftTarget.target.recursiveDependencies() {
             switch dependency.underlyingTarget {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
                 guard case let .clang(target)? = targetMap[dependency] else {

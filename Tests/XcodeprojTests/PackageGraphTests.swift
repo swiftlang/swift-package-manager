@@ -44,7 +44,14 @@ class PackageGraphTests: XCTestCase {
                         ProductDescription(name: "Foo", targets: ["Foo"])
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: []),
+                        TargetDescription(
+                            name: "Foo", 
+                            settings: [
+                                .init(tool: .swift, name: .define, value: ["CUSTOM"]),
+                                .init(tool: .swift, name: .define, value: ["LINUX"], condition: .init(platformNames: ["linux"])),
+                                .init(tool: .swift, name: .define, value: ["DMACOS"], condition: .init(platformNames: ["linux", "macos"], config: "debug")),
+                            ]
+                        ),
                         TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
                     ]),
                 Manifest.createV4Manifest(
@@ -108,6 +115,11 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Foo") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: [])
+
+                XCTAssertEqual(targetResult.target.buildSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS, ["$(inherited)", "CUSTOM"])
+                XCTAssertEqual(targetResult.target.buildSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS, ["DMACOS"])
+                XCTAssertNil(targetResult.target.buildSettings.release.SWIFT_ACTIVE_COMPILATION_CONDITIONS)
+
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_CFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_LDFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_SWIFT_FLAGS?.first, "$(inherited)")

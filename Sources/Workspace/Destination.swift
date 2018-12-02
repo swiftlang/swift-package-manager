@@ -115,7 +115,7 @@ public struct Destination {
             sdk: sdkPath,
             binDir: binDir,
             dynamicLibraryExtension: "dylib",
-            extraCCFlags: ["-arch", "x86_64", "-mmacosx-version-min=10.10"] + commonArgs,
+            extraCCFlags: commonArgs,
             extraSwiftCFlags: commonArgs,
             extraCPPFlags: ["-lc++"]
         )

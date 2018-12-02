@@ -183,6 +183,75 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         }
     }
 
+    func testPlatforms() throws {
+        // Unfortunately, we can't prevent the nil case.
+        var stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: nil
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.name, "Foo")
+            XCTAssertEqual(manifest.platforms, [], "\(manifest.platforms)")
+        }
+
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [.macOS(.v10_10)]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail()
+        } catch {
+            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+                return XCTFail("\(error)")
+            }
+            XCTAssertEqual(api, "platforms")
+            XCTAssertEqual(supportedVersions, [.v5])
+        }
+    }
+
+    func testBuildSettings() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "Foo",
+                       _swiftSettings: [
+                           .define("SWIFT", .when(configuration: .release)),
+                       ],
+                       _linkerSettings: [
+                           .linkedLibrary("libz"),
+                       ]
+                   ),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail()
+        } catch {
+            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+                return XCTFail("\(error)")
+            }
+            XCTAssertEqual(api, "swiftSettings")
+            XCTAssertEqual(supportedVersions, [.v5])
+        }
+    }
+
     func testPackageDependencies() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """

@@ -141,6 +141,7 @@ public struct MockManifestGraph {
         // Create the root manifest.
         rootManifest = Manifest(
             name: "Root",
+            platforms: [],
             path: path.appending(component: Manifest.filename),
             url: path.asString,
             version: nil,
@@ -153,6 +154,7 @@ public struct MockManifestGraph {
             let url = repos[package.name]!.url
             let manifest = Manifest(
                 name: package.name,
+                platforms: [],
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
                 version: package.version,

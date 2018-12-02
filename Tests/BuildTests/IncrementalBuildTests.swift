@@ -45,7 +45,7 @@ final class IncrementalBuildTests: XCTestCase {
             // Check various things that we expect to see in the full build log.
             // FIXME:  This is specific to the format of the log output, which
             // is quite unfortunate but not easily avoidable at the moment.
-            XCTAssertTrue(fullLog.contains("Compile CLibrarySources Foo.c"))
+            XCTAssertTrue(fullLog.contains("Compiling CLibrarySources Foo.c"))
 
             let llbuildManifest = prefix.appending(components: ".build", "debug.yaml")
             
@@ -62,7 +62,7 @@ final class IncrementalBuildTests: XCTestCase {
             
             // Now build again.  This should be an incremental build.
             let log2 = try executeSwiftBuild(prefix)
-            XCTAssertTrue(log2.contains("Compile CLibrarySources Foo.c"))
+            XCTAssertTrue(log2.contains("Compiling CLibrarySources Foo.c"))
 
             // Read the second llbuild manifest.
             let llbuildContents2 = try localFileSystem.readFileContents(llbuildManifest)
@@ -70,7 +70,7 @@ final class IncrementalBuildTests: XCTestCase {
             // Now build again without changing anything.  This should be a null
             // build.
             let log3 = try executeSwiftBuild(prefix)
-            XCTAssertFalse(log3.contains("Compile CLibrarySources Foo.c"))
+            XCTAssertFalse(log3.contains("Compiling CLibrarySources Foo.c"))
 
             // Read the third llbuild manifest.
             let llbuildContents3 = try localFileSystem.readFileContents(llbuildManifest)

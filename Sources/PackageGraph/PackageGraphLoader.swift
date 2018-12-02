@@ -26,6 +26,66 @@ struct UnusedDependencyDiagnostic: DiagnosticData {
     public let dependencyName: String
 }
 
+struct ProductRequiresHigherPlatformVersion: DiagnosticData {
+    static let id = DiagnosticID(
+        type: ProductRequiresHigherPlatformVersion.self,
+        name: "org.swift.diags.\(ProductRequiresHigherPlatformVersion.self)",
+        defaultBehavior: .error,
+        description: {
+            $0 <<< "the product" <<< { "'\($0.product)'" } 
+            $0 <<< "requires minimum platform version" <<< { $0.platform.version.versionString }
+            $0 <<< "for" <<< { $0.platform.platform.name } <<< "platform"
+        })
+
+    public let product: String
+    public let platform: SupportedPlatform
+
+    init(product: String, platform: SupportedPlatform) {
+        self.product = product
+        self.platform = platform
+    }
+}
+
+struct ProductHasNoSupportedPlatform: DiagnosticData {
+    static let id = DiagnosticID(
+        type: ProductHasNoSupportedPlatform.self,
+        name: "org.swift.diags.\(ProductHasNoSupportedPlatform.self)",
+        defaultBehavior: .error,
+        description: {
+            $0 <<< "the product" <<< { "'\($0.productDependency)'" } 
+            $0 <<< "doesn't support any of the platform required by"
+            $0 <<< "the target" <<< { "'\($0.target)'" } 
+        })
+
+    public let productDependency: String
+    public let target: String
+
+    init(product: String, target: String) {
+        self.productDependency = product
+        self.target = target
+    }
+}
+
+struct ProductUsesUnsafeFlags: DiagnosticData {
+    static let id = DiagnosticID(
+        type: ProductUsesUnsafeFlags.self,
+        name: "org.swift.diags.\(ProductUsesUnsafeFlags.self)",
+        defaultBehavior: .error,
+        description: {
+            $0 <<< "the target" <<< { "'\($0.target)'" } 
+            $0 <<< "in product" <<< { "'\($0.product)'" }
+            $0 <<< "contains unsafe build flags"
+        })
+
+    public let product: String
+    public let target: String
+
+    init(product: String, target: String) {
+        self.product = product
+        self.target = target
+    }
+}
+
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no targets.
     case noModules(Package)
@@ -242,7 +302,7 @@ private func createResolvedPackages(
         })
 
         // Create target builders for each target in the package.
-        let targetBuilders = package.targets.map(ResolvedTargetBuilder.init(target:))
+        let targetBuilders = package.targets.map({ ResolvedTargetBuilder(target: $0, diagnostics: diagnostics) })
         packageBuilder.targets = targetBuilders
 
         // Establish dependencies between the targets. A target can only depend on another target present in the same package.
@@ -416,8 +476,44 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     /// The product dependencies of this target.
     var productDeps: [ResolvedProductBuilder] = []
 
-    init(target: Target) {
+    /// The diagnostics engine.
+    let diagnostics: DiagnosticsEngine
+
+    init(target: Target, diagnostics: DiagnosticsEngine) {
         self.target = target
+        self.diagnostics = diagnostics
+    }
+
+    func validateProductDependency(_ product: ResolvedProduct) {
+        // Get the first target as supported platforms are on the top-level.
+        // This will need to become a bit complicated once we have target-level platform support.
+        let productTarget = product.underlyingProduct.targets[0]
+
+        for targetPlatform in self.target.platforms {
+            // Currently targets support all platforms so we should get
+            // a matching supported platform in the product dependency.
+            guard let productPlatform = productTarget.getSupportedPlatform(for: targetPlatform.platform) else {
+                fatalError("Expected supported platform \(targetPlatform.platform) in product target \(productTarget)")
+            }
+
+            // For the supported platforms, check if the version requirement is satisfied.
+            //
+            // If the product's platform version is greater than ours, then it is incompatible.
+            if productPlatform.version > targetPlatform.version {
+                diagnostics.emit(data: ProductRequiresHigherPlatformVersion(product: product.name, platform: productPlatform))
+            }
+        }
+
+        // Diagnose if any target in this product uses an unsafe flag.
+        for target in product.targets {
+            let declarations = target.underlyingTarget.buildSettings.assignments.keys
+            for decl in declarations {
+                if BuildSettings.Declaration.unsafeSettings.contains(decl) {
+                    diagnostics.emit(data: ProductUsesUnsafeFlags(product: product.name, target: target.name))
+                    break
+                }
+            }
+        }
     }
 
     override func constructImpl() -> ResolvedTarget {
@@ -426,8 +522,14 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             deps.append(.target(dependency.construct()))
         }
         for dependency in productDeps {
-            deps.append(.product(dependency.construct()))
+            let product = dependency.construct()
+
+            // FIXME: Should we not add the dependency if validation fails?
+            validateProductDependency(product)
+
+            deps.append(.product(product))
         }
+
         return ResolvedTarget(
             target: target,
             dependencies: deps

@@ -12,6 +12,7 @@ import PackageModel
 
 struct ManifestBuilder {
     var name: String!
+    var platforms: [PlatformDescription] = []
     var targets: [TargetDescription] = []
     var pkgConfig: String?
     var swiftLanguageVersions: [SwiftLanguageVersion]?

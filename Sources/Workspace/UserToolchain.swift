@@ -229,12 +229,10 @@ public final class UserToolchain: Toolchain {
       #endif
 
         self.extraSwiftCFlags = [
-            "-target", destination.target,
             "-sdk", destination.sdk.asString
         ] + destination.extraSwiftCFlags
 
         self.extraCCFlags = [
-            "-target", destination.target,
             "--sysroot", destination.sdk.asString
         ] + destination.extraCCFlags
 

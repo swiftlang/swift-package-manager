@@ -19,9 +19,12 @@ extension PackageBuilderTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__PackageBuilderTests = [
+        ("testAsmInV5Manifest", testAsmInV5Manifest),
+        ("testAsmIsIgnoredInV4_2Manifest", testAsmIsIgnoredInV4_2Manifest),
         ("testBadExecutableProductDecl", testBadExecutableProductDecl),
         ("testBadREPLPackage", testBadREPLPackage),
         ("testBrokenSymlink", testBrokenSymlink),
+        ("testBuildSettings", testBuildSettings),
         ("testCInTests", testCInTests),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testCustomTargetDependencies", testCustomTargetDependencies),
@@ -33,6 +36,7 @@ extension PackageBuilderTests {
         ("testDuplicateTargets", testDuplicateTargets),
         ("testExcludes", testExcludes),
         ("testExecutableAsADep", testExecutableAsADep),
+        ("testInvalidHeaderSearchPath", testInvalidHeaderSearchPath),
         ("testInvalidManifestConfigForNonSystemModules", testInvalidManifestConfigForNonSystemModules),
         ("testLinuxMain", testLinuxMain),
         ("testLinuxMainError", testLinuxMainError),
@@ -41,6 +45,7 @@ extension PackageBuilderTests {
         ("testMixedSources", testMixedSources),
         ("testModuleMapLayout", testModuleMapLayout),
         ("testMultipleTestProducts", testMultipleTestProducts),
+        ("testPlatforms", testPlatforms),
         ("testPredefinedTargetSearchError", testPredefinedTargetSearchError),
         ("testPublicHeadersPath", testPublicHeadersPath),
         ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
@@ -81,10 +86,12 @@ extension PackageDescription4_2LoadingTests {
     // to regenerate.
     static let __allTests__PackageDescription4_2LoadingTests = [
         ("testBasics", testBasics),
+        ("testBuildSettings", testBuildSettings),
         ("testCacheInvalidationOnEnv", testCacheInvalidationOnEnv),
         ("testCaching", testCaching),
         ("testDuplicateDependencyDecl", testDuplicateDependencyDecl),
         ("testPackageDependencies", testPackageDependencies),
+        ("testPlatforms", testPlatforms),
         ("testRuntimeManifestErrors", testRuntimeManifestErrors),
         ("testSwiftLanguageVersions", testSwiftLanguageVersions),
         ("testSystemLibraryTargets", testSystemLibraryTargets),
@@ -98,6 +105,8 @@ extension PackageDescription5LoadingTests {
     // to regenerate.
     static let __allTests__PackageDescription5LoadingTests = [
         ("testBasics", testBasics),
+        ("testBuildSettings", testBuildSettings),
+        ("testPlatforms", testPlatforms),
         ("testSwiftLanguageVersion", testSwiftLanguageVersion),
     ]
 }

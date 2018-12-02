@@ -26,7 +26,7 @@ enum ManifestVersion: String, Codable, CaseIterable {
 /// This is for mimicking something like the availability attribute for
 /// PackageDescription APIs.
 /// VersionedValue should never be public type.
-struct VersionedValue<T: Codable>: Codable {
+struct VersionedValue<T: Encodable>: Encodable {
     let supportedVersions: [ManifestVersion]
     let value: T
     let api: String

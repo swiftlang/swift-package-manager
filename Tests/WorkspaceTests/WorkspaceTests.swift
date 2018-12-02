@@ -117,29 +117,54 @@ final class WorkspaceTests: XCTestCase {
         let fs = localFileSystem
         mktmpdir { path in
             let foo = path.appending(component: "foo")
-            try fs.writeFileContents(foo.appending(component: "Package.swift")) {
-                $0 <<< """
-                // swift-tools-version:4.0
-                import PackageDescription
-                let package = Package(
-                    name: "foo"
+
+            func createWorkspace(withManifest manifest: (OutputByteStream) -> ()) throws -> Workspace {
+                try fs.writeFileContents(foo.appending(component: "Package.swift")) {
+                    manifest($0)
+                }
+
+                let manifestLoader = ManifestLoader(manifestResources: Resources.default)
+
+                let sandbox = path.appending(component: "ws")
+                return Workspace(
+                    dataPath: sandbox.appending(component: ".build"),
+                    editablesPath: sandbox.appending(component: "edits"),
+                    pinsFile: sandbox.appending(component: "Package.resolved"),
+                    manifestLoader: manifestLoader,
+                    delegate: TestWorkspaceDelegate()
                 )
-                """
             }
 
-            let manifestLoader = ManifestLoader(manifestResources: Resources.default)
+            do {
+                let ws = try createWorkspace {
+                    $0 <<< 
+                        """
+                        // swift-tools-version:4.0
+                        import PackageDescription
+                        let package = Package(
+                            name: "foo"
+                        )
+                        """
+                }
 
-            let sandbox = path.appending(component: "ws")
-            let ws = Workspace(
-                dataPath: sandbox.appending(component: ".build"),
-                editablesPath: sandbox.appending(component: "edits"),
-                pinsFile: sandbox.appending(component: "Package.resolved"),
-                manifestLoader: manifestLoader,
-                delegate: TestWorkspaceDelegate()
-            )
+                XCTAssertMatch((ws.interpreterFlags(for: foo)), [.contains("swift/pm/4")])
+                XCTAssertMatch((ws.interpreterFlags(for: foo)), [.equal("-swift-version"), .equal("4")])
+            }
 
-            XCTAssertMatch((ws.interpreterFlags(for: foo)), [.contains("swift/pm/4")])
-            XCTAssertMatch((ws.interpreterFlags(for: foo)), [.equal("-swift-version"), .equal("4")])
+            do {
+                let ws = try createWorkspace {
+                    $0 <<< 
+                        """
+                        // swift-tools-version:3.1
+                        import PackageDescription
+                        let package = Package(
+                            name: "foo"
+                        )
+                        """
+                }
+
+                XCTAssertEqual(ws.interpreterFlags(for: foo), [])
+            }
         }
     }
 
@@ -1695,6 +1720,7 @@ final class WorkspaceTests: XCTestCase {
         let manifest = workspace.manifestLoader.manifests[fooKey]!
         workspace.manifestLoader.manifests[fooKey] = Manifest(
             name: manifest.name,
+            platforms: [],
             path: manifest.path,
             url: manifest.url,
             version: manifest.version,
@@ -2729,6 +2755,100 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testPlatforms() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    platforms: [
+                        .init(name: "macos", version: "10.13"),
+                    ],
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Baz"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Baz",
+                    platforms: [
+                        .init(name: "macos", version: "10.12"),
+                    ],
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.5.0"]
+                ),
+                TestPackage(
+                    name: "Baz",
+                    platforms: [
+                        .init(name: "macos", version: "10.15"),
+                    ],
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.5.1"]
+                ),
+                TestPackage(
+                    name: "Baz",
+                    platforms: [
+                        .init(name: "tvos", version: "10.0"),
+                    ],
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.5.2"]
+                ),
+            ]
+        )
+
+        var deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Baz", requirement: .exact("1.5.0")),
+        ]
+        workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.5.0")))
+        }
+
+        deps = [
+            .init(name: "Baz", requirement: .exact("1.5.1")),
+        ]
+        workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { (graph, diagnostics) in
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(diagnostic: .contains("the product 'Baz' requires minimum platform version 10.15 for macos platform"), behavior: .error)
+            }
+        }
+
+        deps = [
+            .init(name: "Baz", requirement: .exact("1.5.2")),
+        ]
+        workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { (graph, diagnostics) in
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(diagnostic: .contains("the product 'Baz' requires minimum platform version 10.0 for tvos platform"), behavior: .error)
+            }
         }
     }
 }

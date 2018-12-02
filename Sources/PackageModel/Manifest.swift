@@ -101,6 +101,9 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The name of the package.
     public let name: String
 
+    /// The declared platforms in the manifest.
+    public let platforms: [PlatformDescription]
+
     /// The declared package dependencies.
     public let dependencies: [PackageDependencyDescription]
 
@@ -127,6 +130,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
 
     public init(
         name: String,
+        platforms: [PlatformDescription],
         path: AbsolutePath,
         url: String,
         version: Utility.Version? = nil,
@@ -141,6 +145,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         targets: [TargetDescription] = []
     ) {
         self.name = name
+        self.platforms = platforms
         self.path = path
         self.url = url
         self.version = version
@@ -249,6 +254,9 @@ public struct TargetDescription: Equatable, Codable {
     /// The providers of a system library target.
     public let providers: [SystemPackageProviderDescription]?
 
+    /// The target-specific build settings declared in this target.
+    public let settings: [TargetBuildSettingDescription.Setting]
+
     public init(
         name: String,
         dependencies: [Dependency] = [],
@@ -258,7 +266,8 @@ public struct TargetDescription: Equatable, Codable {
         publicHeadersPath: String? = nil,
         type: TargetType = .regular,
         pkgConfig: String? = nil,
-        providers: [SystemPackageProviderDescription]? = nil
+        providers: [SystemPackageProviderDescription]? = nil,
+        settings: [TargetBuildSettingDescription.Setting] = []
     ) {
         switch type {
         case .regular, .test:
@@ -275,6 +284,7 @@ public struct TargetDescription: Equatable, Codable {
         self.type = type
         self.pkgConfig = pkgConfig
         self.providers = providers
+        self.settings = settings
     }
 }
 
@@ -353,5 +363,93 @@ public struct PackageDependencyDescription: Equatable, Codable {
     public init(url: String, requirement: Requirement) {
         self.url = url
         self.requirement = requirement
+    }
+}
+
+public struct PlatformDescription: Codable, Equatable {
+    public let platformName: String
+    public let version: String
+
+    public init(name: String, version: String) {
+        self.platformName = name
+        self.version = version
+    }
+}
+
+/// A namespace for target-specific build settings.
+public enum TargetBuildSettingDescription {
+
+    /// Represents a build settings condition.
+    public struct Condition: Codable, Equatable {
+
+        public let platformNames: [String]
+        public let config: String?
+
+        public init(platformNames: [String] = [], config: String? = nil) {
+            assert(!(platformNames.isEmpty && config == nil))
+            self.platformNames = platformNames
+            self.config = config
+        }
+    }
+
+    /// The tool for which a build setting is declared.
+    public enum Tool: String, Codable, Equatable, CaseIterable {
+        case c
+        case cxx
+        case swift
+        case linker
+    }
+
+    /// The name of the build setting.
+    public enum SettingName: String, Codable, Equatable {
+        case headerSearchPath
+        case define
+        case linkedLibrary
+        case linkedFramework
+
+        case unsafeFlags
+    }
+
+    /// An individual build setting.
+    public struct Setting: Codable, Equatable {
+
+        /// The tool associated with this setting.
+        public let tool: Tool
+
+        /// The name of the setting.
+        public let name: SettingName
+
+        /// The condition at which the setting should be applied.
+        public let condition: Condition?
+
+        /// The value of the setting.
+        ///
+        /// This is kind of like an "untyped" value since the length
+        /// of the array will depend on the setting type.
+        public let value: [String]
+
+        public init(
+            tool: Tool,
+            name: SettingName,
+            value: [String],
+            condition: Condition? = nil
+        ) {
+            switch name {
+            case .headerSearchPath: fallthrough
+            case .define: fallthrough
+            case .linkedLibrary: fallthrough
+            case .linkedFramework:
+                assert(value.count == 1, "\(tool) \(name) \(value)")
+                break
+            case .unsafeFlags:
+                assert(value.count >= 1, "\(tool) \(name) \(value)")
+                break
+            }
+
+            self.tool = tool
+            self.name = name
+            self.value = value
+            self.condition = condition
+        }
     }
 }

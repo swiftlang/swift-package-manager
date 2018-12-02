@@ -96,11 +96,11 @@ public struct LLBuildManifestGenerator {
             case .swift(let description):
                 // Only build targets by default if they are reachabe from a root target.
                 targets.append(createSwiftCompileTarget(description),
-                    buildByDefault: plan.graph.reachableTargets.contains(target),
+                    buildByDefault: plan.graph.isInRootPackages(target),
                     isTest: description.isTestTarget)
             case .clang(let description):
                 targets.append(try createClangCompileTarget(description),
-                    buildByDefault: plan.graph.reachableTargets.contains(target),
+                    buildByDefault: plan.graph.isInRootPackages(target),
                     isTest: description.isTestTarget)
             }
         }
@@ -237,7 +237,7 @@ public struct LLBuildManifestGenerator {
 
             args += ["-c", path.source.asString, "-o", path.object.asString]
             let clang = ClangTool(
-                desc: "Compile \(target.target.name) \(path.filename.asString)",
+                desc: "Compiling \(target.target.name) \(path.filename.asString)",
                 //FIXME: Should we add build time dependency on dependent targets?
                 inputs: [path.source.asString],
                 outputs: [path.object.asString],
