@@ -10,7 +10,8 @@
 
 import Foundation
 
-/// A simple condition wrapper.
+/// Simple wrapper around NSCondition
+/// - SeeAlso: NSCondition
 public struct Condition {
     private let _condition = NSCondition()
 
@@ -42,6 +43,7 @@ public struct Condition {
     }
 
     /// A helper method to execute the given body while condition is locked.
+    /// - Note: Will ensure condition unlocks even if `body` throws.
     public func whileLocked<T>(_ body: () throws -> T) rethrows -> T {
         _condition.lock()
         defer { _condition.unlock() }
