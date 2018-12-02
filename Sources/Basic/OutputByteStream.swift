@@ -76,9 +76,9 @@ extension OutputByteStream {
     /// Write a string (as UTF8) to the buffer, with escaping appropriate for
     /// embedding within a JSON document.
     ///
-    /// NOTE: This writes the literal data applying JSON string escaping, but
-    /// does not write any other characters (like the quotes that would surround
-    /// a JSON string).
+    /// - Note: This writes the literal data applying JSON string escaping, but
+    ///         does not write any other characters (like the quotes that would surround
+    ///         a JSON string).
     public func writeJSONEscaped(_ string: String) {
         // See RFC7159 for reference: https://tools.ietf.org/html/rfc7159
         for character in string.utf8 {
@@ -134,7 +134,7 @@ public class _OutputByteStreamBase: OutputByteStream {
     @usableFromInline let _buffered : Bool
 
     /// The data buffer.
-    /// Note: Minimum Buffer size should be one.
+    /// - Note: Minimum Buffer size should be one.
     @usableFromInline var _buffer: [UInt8]
 
     /// Default buffer size of the data buffer.
@@ -164,7 +164,7 @@ public class _OutputByteStreamBase: OutputByteStream {
         return _buffer.capacity - _buffer.count
     }
 
-     /// Clears the buffer maintaining current capacity.
+    /// Clears the buffer maintaining current capacity.
     @usableFromInline func _clearBuffer() {
         _buffer.removeAll(keepingCapacity: true)
     }
@@ -567,7 +567,7 @@ public struct Format {
     }
 }
 
-/// Inmemory implementation of OutputByteStream.
+/// In memory implementation of OutputByteStream.
 public final class BufferedOutputByteStream: _OutputByteStreamBase {
 
     /// Contents of the stream.
@@ -581,7 +581,7 @@ public final class BufferedOutputByteStream: _OutputByteStreamBase {
 
     /// The contents of the output stream.
     ///
-    /// Note: This implicitly flushes the stream.
+    /// - Note: This implicitly flushes the stream.
     public var bytes: ByteString {
         flush()
         return ByteString(contents)
