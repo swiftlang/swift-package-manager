@@ -12,6 +12,9 @@ import class Foundation.ProcessInfo
 import Basic
 
 extension Version {
+    /// Try a version from a git tag
+    ///
+    /// - Parameter tag: A version string possibly prepended with "v"
     init?(tag: String) {
         if tag.first == "v" {
             self.init(string: String(tag.dropFirst()))
