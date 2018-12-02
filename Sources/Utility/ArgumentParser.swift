@@ -106,19 +106,20 @@ public enum Shell: String, StringEnumArgument {
 }
 
 /// Various shell completions modes supplied by ArgumentKind.
-///
-/// - none:        Offers no completions at all; e.g. for string identifier
-/// - unspecified: No specific completions, will offer tool's completions
-/// - filename:    Offers filename completions
-/// - function:    Custom function for generating completions. Must be
-///                provided in the script's scope.
-/// - values:      Offers completions from predefined list. A description
-///                can be provided which is shown in some shells, like zsh.
 public enum ShellCompletion {
+    /// Offers no completions at all; e.g. for a string identifier
     case none
+    
+    /// No specific completions, will offer tool's completions
     case unspecified
+    
+    /// Offers filename completions
     case filename
+    
+    /// Custom function for generating completions. Must be provided in the script's scope.
     case function(String)
+    
+    /// Offers completions from predefined list. A description can be provided which is shown in some shells, like zsh.
     case values([(value: String, description: String)])
 }
 
