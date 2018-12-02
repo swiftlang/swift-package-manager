@@ -17,18 +17,50 @@ public protocol ProgressBarProtocol {
 }
 
 /// A single line progress bar.
+///
+/// On a new line from the `header` (if provided) SingleLineProgressBar
+/// shows simply the passed percent. For example,
+/// ```
+/// let progressBar = SingleLineProgressBar(stream: stdoutStream, header: "Foo")
+/// progressBar.update(percent: 40, text: "Starting")
+/// progressBar.update(percent: 40, text: "Checking")
+/// progressBar.update(percent: 90, text: "Finishing")
+/// progressBar.update(percent: 100, text: "Done")
+/// progressBar.complete(success: true)
+/// ```
+/// Displays
+/// ```
+/// Foo
+/// 40.. 90.. OK
+/// ```
+///
+/// - Warning: Only the progress bar is a single line. The header
+///            is displayed on it's own line.
 public final class SingleLineProgressBar: ProgressBarProtocol {
     private let header: String
     private var isClear: Bool
     private var stream: OutputByteStream
     private var displayed: Set<Int> = []
-
+    
+    /// Create a SimpleLineProgress to `stream`
+    ///
+    ///
+    /// - Parameters:
+    ///   - stream: Destination stream for bar.
+    ///   - header: Informative text preceding the bar.
     init(stream: OutputByteStream, header: String) {
         self.stream = stream
         self.header = header
         self.isClear = true
     }
-
+    
+    /// Updates the progress bar.
+    ///
+    /// - Parameters:
+    ///   - percent: Number between 0 and 100
+    ///   - text: Informative text about the update. Ignored in
+    ///           SingleLineProgressBar
+    /// - Note: Repeat percentages are not displayed again.
     public func update(percent: Int, text: String) {
         if isClear {
             stream <<< header
@@ -44,7 +76,12 @@ public final class SingleLineProgressBar: ProgressBarProtocol {
         }
         stream.flush()
     }
-
+    
+    /// Marks the progress as completed.
+    ///
+    /// Will display "OK" is `success` is true.
+    ///
+    /// - Parameter success: Whether the operation was a success.
     public func complete(success: Bool) {
         if success {
             stream <<< "OK"
