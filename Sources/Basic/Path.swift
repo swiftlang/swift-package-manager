@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Foundation
+
 /// Represents an absolute file system path, independently of what (or whether
 /// anything at all) exists at that path in the file system at any given time.
 /// An absolute path always starts with a `/` character, and holds a normalized
