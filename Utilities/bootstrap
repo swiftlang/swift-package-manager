@@ -939,8 +939,6 @@ def main():
                         help="Path to the libdispatch build directory")
     parser.add_argument("--libdispatch-source-dir", dest="libdispatch_source_dir",
                         help="Path to the libdispatch source directory")
-    parser.add_argument("--link-llbuild", dest="link_llbuild",
-                        action="store_true", help="link llbuild", default=True)
     parser.add_argument("--llbuild-link-framework", dest="llbuild_link_framework",
                         action="store_true", help="link llbuild framework")
     parser.add_argument("--llbuild-build-dir", dest="llbuild_build_dir",
