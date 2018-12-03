@@ -772,7 +772,7 @@ def add_rpath(rpath, binary):
 # Install a binary file at the install path.
 #
 # This method removes the hardcoded stdlib path from the binary.
-def installBinary(binary_path, install_path, swiftc_path, add_rpaths=[], delete_rpaths=[]):
+def installBinary(binary_path, install_path, swiftc_path, add_rpaths=[], delete_rpaths=[], should_delete_rpath=True):
     mkdir_p(install_path)
     cmd = ["rsync", "-a", binary_path, install_path]
     note("installing %s: %s" % (
@@ -786,7 +786,7 @@ def installBinary(binary_path, install_path, swiftc_path, add_rpaths=[], delete_
     #
     # FIXME: We need a way to control this, instead of having to rip it
     # out after the fact. https://bugs.swift.org/browse/SR-1967
-    if platform.system() == 'Darwin':
+    if platform.system() == 'Darwin' and should_delete_rpath == True:
         installed_path = os.path.join(
             install_path, os.path.basename(binary_path))
         stdlib_path = os.path.realpath(
@@ -1348,7 +1348,7 @@ def main():
             libswiftpm_add_rpaths = [args.libswiftpm_add_rpath]
 
         libswiftpm_delete_rpaths = [llbuild_lib_path(args)]
-        
+
         # Copy the libSwiftPM library.
         # FIXME: This shouldn't require so much knowledge of the manifest.
         # FIXME: We should handle what happens if it's a static library.
@@ -1367,7 +1367,30 @@ def main():
                 result = subprocess.call(cmd)
                 if result != 0:
                     error("command  failed with exit status %d" % (result,))
-    
+
+        # Copy libllbuildSwift.dylib
+        src_path = os.path.join(target_path, conf, llbuild_lib_path(args), "libllbuildSwift.dylib")
+        installBinary(src_path, libswiftpm_library_dir, args.swiftc_path)
+
+        # Copy libllbuild.dylib
+        src_path = os.path.join(target_path, conf, llbuild_lib_path(args), "libllbuild.dylib")
+        installBinary(src_path, libswiftpm_library_dir, args.swiftc_path, should_delete_rpath=False)
+
+        if args.llbuild_link_framework:
+            src_path = os.path.join(target_path, conf, llbuild_lib_path(args), "llbuild.framework")
+            installBinary(src_path, libswiftpm_library_dir, args.swiftc_path, should_delete_rpath=False)
+
+            # If it's a dynamic library, and if we're on Darwin, fix the dylib id.
+            if platform.system() == 'Darwin':
+                if libswiftpm_product.type == ProductType.DYNAMIC_LIBRARY:
+                    dst_path = os.path.join(target_path, conf, llbuild_lib_path(args), "llbuild.framework", "Versions", "A", "llbuild")
+                    dylib_id = os.path.join("@rpath", "llbuild")
+                    cmd = ["install_name_tool", "-id", dylib_id, dst_path]
+                    note("resetting dylib id: %s" % ' '.join(cmd))
+                    result = subprocess.call(cmd)
+                    if result != 0:
+                        error("command  failed with exit status %d" % (result,))
+
     # Copy the libSwiftPM modules to a directory, if we've been asked to do so.
     # FIXME: There is too much duplication between this part and the one above.
     if args.libswiftpm_modules_dir:
@@ -1417,7 +1440,20 @@ def main():
                         error("copying failed with exit status %d" % result)
             else:
                 error("Unknown target type " + target)
-    
+
+        # Copy the llbuildSwift modules.
+        target_path = os.path.join(build_path, build_target)
+        for suffix in [".swiftmodule", ".swiftdoc"]:
+            src_path = os.path.join(args.llbuild_build_dir, "products", "llbuildSwift", "llbuildSwift" + suffix)
+            if not os.path.exists(src_path):
+                continue
+            dst_path = os.path.join(libswiftpm_modules_dir, "llbuildSwift" + suffix)
+            cmd = ["rsync", "-a", src_path, dst_path]
+            note("copying to %s: %s" % (dst_path, ' '.join(cmd)))
+            result = subprocess.call(cmd)
+            if result != 0:
+                error("copying failed with exit status %d" % result)
+
     # If generating an Xcode project, also use the build product to do that.
     if args.generate_xcodeproj:
         # We will use the `swift-package` binary we just built to generate the
