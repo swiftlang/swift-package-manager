@@ -789,8 +789,8 @@ def installBinary(binary_path, install_path, swiftc_path, add_rpaths=[], delete_
     if platform.system() == 'Darwin':
         installed_path = os.path.join(
             install_path, os.path.basename(binary_path))
-        stdlib_path = os.path.realpath(
-            os.path.join(os.path.dirname(swiftc_path), "..",
+        stdlib_path = os.path.normpath(
+            os.path.join(os.path.dirname(os.path.realpath(swiftc_path)), "..",
                          "lib", "swift", "macosx"))
         delete_rpath(stdlib_path, installed_path)
 
