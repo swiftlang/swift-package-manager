@@ -1376,20 +1376,20 @@ def main():
         src_path = os.path.join(target_path, conf, llbuild_lib_path(args), "libllbuild.dylib")
         installBinary(src_path, libswiftpm_library_dir, args.swiftc_path, should_delete_rpath=False)
 
-        if args.llbuild_link_framework:
-            src_path = os.path.join(target_path, conf, llbuild_lib_path(args), "llbuild.framework")
-            installBinary(src_path, libswiftpm_library_dir, args.swiftc_path, should_delete_rpath=False)
+        # Copy llbuild.framework
+        src_path = os.path.join(target_path, conf, llbuild_lib_path(args), "llbuild.framework")
+        installBinary(src_path, libswiftpm_library_dir, args.swiftc_path, should_delete_rpath=False)
 
-            # If it's a dynamic library, and if we're on Darwin, fix the dylib id.
-            if platform.system() == 'Darwin':
-                if libswiftpm_product.type == ProductType.DYNAMIC_LIBRARY:
-                    dst_path = os.path.join(target_path, conf, llbuild_lib_path(args), "llbuild.framework", "Versions", "A", "llbuild")
-                    dylib_id = os.path.join("@rpath", "llbuild")
-                    cmd = ["install_name_tool", "-id", dylib_id, dst_path]
-                    note("resetting dylib id: %s" % ' '.join(cmd))
-                    result = subprocess.call(cmd)
-                    if result != 0:
-                        error("command  failed with exit status %d" % (result,))
+        # If it's a dynamic library, and if we're on Darwin, fix the dylib id.
+        if platform.system() == 'Darwin':
+            if libswiftpm_product.type == ProductType.DYNAMIC_LIBRARY:
+                dst_path = os.path.join(target_path, conf, llbuild_lib_path(args), "llbuild.framework", "Versions", "A", "llbuild")
+                dylib_id = os.path.join("@rpath", "llbuild.framework", "Versions", "A", "llbuild")
+                cmd = ["install_name_tool", "-id", dylib_id, dst_path]
+                note("resetting dylib id: %s" % ' '.join(cmd))
+                result = subprocess.call(cmd)
+                if result != 0:
+                    error("command  failed with exit status %d" % (result,))
 
     # Copy the libSwiftPM modules to a directory, if we've been asked to do so.
     # FIXME: There is too much duplication between this part and the one above.
