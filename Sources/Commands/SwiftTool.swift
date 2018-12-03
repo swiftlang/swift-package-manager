@@ -220,6 +220,9 @@ public class SwiftTool<Options: ToolOptions> {
     /// The llbuild Build System delegate.
     private(set) var buildDelegate: BuildDelegate
 
+    /// The building progress animation.
+    private(set) var buildingProgressAnimation: ProgressAnimationProtocol
+
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
 
@@ -242,7 +245,11 @@ public class SwiftTool<Options: ToolOptions> {
         originalWorkingDirectory = cwd
 
         // Setup the build delegate.
-        buildDelegate = BuildDelegate(diagnostics: diagnostics)
+        buildingProgressAnimation = NinjaProgressAnimation(stream: stdoutStream)
+        buildDelegate = BuildDelegate(
+            diagnostics: diagnostics,
+            outputStream: stdoutStream,
+            progressAnimation: buildingProgressAnimation)
 
         // Create the parser.
         parser = ArgumentParser(
@@ -522,6 +529,8 @@ public class SwiftTool<Options: ToolOptions> {
         self.stdoutStream = Basic.stderrStream
         DiagnosticsEngineHandler.default.stdoutStream = Basic.stderrStream
         buildDelegate.outputStream = Basic.stderrStream
+        buildingProgressAnimation = NinjaProgressAnimation(stream: Basic.stderrStream)
+        buildDelegate.progressAnimation = buildingProgressAnimation
     }
 
     /// Resolve the dependencies.
@@ -634,7 +643,10 @@ public class SwiftTool<Options: ToolOptions> {
         let buildSystem = BuildSystem(buildFile: manifest.asString, databaseFile: databasePath, delegate: buildDelegate)
         buildDelegate.isVerbose = verbosity != .concise
         buildDelegate.onCommmandFailure = { [weak buildSystem] in buildSystem?.cancel() }
-        guard buildSystem.build(target: llbuildTarget) else { throw Diagnostics.fatalError }
+
+        let success = buildSystem.build(target: llbuildTarget)
+        buildingProgressAnimation.complete(success: success)
+        guard success else { throw Diagnostics.fatalError }
     }
 
     func runLLBuildAsExecutable(manifest: AbsolutePath, llbuildTarget: String) throws {
