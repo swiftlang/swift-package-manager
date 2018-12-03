@@ -319,7 +319,7 @@ alpha, beta.
 A `Version` struct can be initialized using a string literal in following
 format:
 
-``` "major.minor.patch[-prereleaseIdentifiers][+buildMetadata]" ```
+``` "major.minor.patch[-prereleaseIdentifiers][+buildMetadataIdentifiers]" ```
 
-where `prereleaseIdentifiers` and `buildMetadata` are optional.  
-_NOTE: prereleaseIdentifiers are separated by dot (.)._
+where `prereleaseIdentifiers` and `buildMetadataIdentifiers` are optional.
+_NOTE: prereleaseIdentifiers and buildMetadataIdentifiers elements are separated by dot (.)._
