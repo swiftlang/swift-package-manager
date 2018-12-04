@@ -103,6 +103,35 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     }
 }
 
+fileprivate enum PackageResolver {
+    typealias _PubgrubResolver = PubgrubDependencyResolver<RepositoryPackageContainerProvider, WorkspaceResolverDelegate>
+    typealias _DependencyResolver = DependencyResolver<RepositoryPackageContainerProvider, WorkspaceResolverDelegate>
+
+    case pubgrub(_PubgrubResolver)
+    case legacy(_DependencyResolver)
+
+    typealias Identifier = PackageReference
+    typealias Constraint = PackageContainerConstraint<Identifier>
+
+    func resolve(constraints: [Constraint], pins: [Constraint]) throws -> [(container: Identifier, binding: BoundVersion)] {
+        switch self {
+        case .pubgrub(let resolver):
+            return try resolver.solve(constraints: constraints, pins: pins)
+        case .legacy(let resolver):
+            return try resolver.resolve(constraints: constraints, pins: pins)
+        }
+    }
+
+    func resolve(dependencies: [Constraint], pins: [Constraint]) -> _DependencyResolver.Result {
+        switch self {
+        case .pubgrub(let resolver):
+            return resolver.solve(dependencies: dependencies, pins: pins)
+        case .legacy(let resolver):
+            return resolver.resolve(dependencies: dependencies, pins: pins)
+        }
+    }
+}
+
 /// A workspace represents the state of a working project directory.
 ///
 /// The workspace is responsible for managing the persistent working state of a
@@ -287,6 +316,7 @@ public class Workspace {
 
     /// Typealias for dependency resolver we use in the workspace.
     fileprivate typealias PackageDependencyResolver = DependencyResolver<RepositoryPackageContainerProvider, WorkspaceResolverDelegate>
+    fileprivate typealias PubgrubResolver = PubgrubDependencyResolver<RepositoryPackageContainerProvider, WorkspaceResolverDelegate>
 
     /// Create a new package workspace.
     ///
@@ -1547,17 +1577,23 @@ extension Workspace {
     }
 
     /// Creates resolver for the workspace.
-    fileprivate func createResolver() -> PackageDependencyResolver {
+    fileprivate func createResolver() -> PackageResolver {
         let resolverDelegate = WorkspaceResolverDelegate()
-        return DependencyResolver(containerProvider, resolverDelegate,
-            isPrefetchingEnabled: isResolverPrefetchingEnabled,
-            skipUpdate: skipUpdate
-        )
+        if enablePubgrubResolver {
+            let resolver = PubgrubResolver(containerProvider, resolverDelegate,
+                                           skipUpdate: skipUpdate)
+            return .pubgrub(resolver)
+        } else {
+            let resolver = DependencyResolver(containerProvider, resolverDelegate,
+                                              isPrefetchingEnabled: isResolverPrefetchingEnabled,
+                                              skipUpdate: skipUpdate)
+            return .legacy(resolver)
+        }
     }
 
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(
-        resolver: PackageDependencyResolver? = nil,
+        resolver: PackageResolver? = nil,
         dependencies: [RepositoryPackageConstraint],
         pins: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine
