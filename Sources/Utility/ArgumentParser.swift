@@ -107,13 +107,13 @@ public enum Shell: String, StringEnumArgument {
 
 /// Various shell completions modes supplied by ArgumentKind.
 public enum ShellCompletion {
-    /// Offers no completions at all; e.g. for a string identifier
+    /// Offers no completions at all; e.g. for a string identifier.
     case none
     
-    /// No specific completions, will offer tool's completions
+    /// No specific completions, will offer tool's completions.
     case unspecified
     
-    /// Offers filename completions
+    /// Offers filename completions.
     case filename
     
     /// Custom function for generating completions. Must be provided in the script's scope.

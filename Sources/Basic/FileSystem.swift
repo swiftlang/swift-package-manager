@@ -96,7 +96,7 @@ public enum FileMode {
     case userWritable
     case executable
     
-    /// File mode as it would be passed to `chmod`
+    /// File mode as it would be passed to `chmod`.
     public var cliArgument: String {
         switch self {
         case .userUnWritable:
@@ -117,7 +117,7 @@ public enum FileMode {
 /// natural filesystem interface, while still allowing clients to transparently
 /// substitute a virtual file system or redirect file system operations.
 ///
-/// - NOTE: All of these APIs are synchronous and can block.
+/// - Note: All of these APIs are synchronous and can block.
 public protocol FileSystem: class {
     /// Check whether the given path exists and is accessible.
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool

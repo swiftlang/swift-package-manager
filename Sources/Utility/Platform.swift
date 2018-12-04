@@ -23,7 +23,7 @@ public enum Platform {
 
     /// Lazily checked current platform.
     public static var currentPlatform = Platform.findCurrentPlatform()
-    /// Attempt to match `uname` with recognized platforms
+    /// Attempt to match `uname` with recognized platforms.
     private static func findCurrentPlatform() -> Platform? {
         guard let uname = try? Process.checkNonZeroExit(args: "uname").spm_chomp().lowercased() else { return nil }
         switch uname {

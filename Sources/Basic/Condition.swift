@@ -10,7 +10,7 @@
 
 import Foundation
 
-/// Simple wrapper around NSCondition
+/// Simple wrapper around NSCondition.
 /// - SeeAlso: NSCondition
 public struct Condition {
     private let _condition = NSCondition()

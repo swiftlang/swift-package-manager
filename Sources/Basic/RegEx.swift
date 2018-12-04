@@ -10,21 +10,21 @@
 
 import Foundation
 
-/// A helpful wrapper around NSRegularExpression
+/// A helpful wrapper around NSRegularExpression.
 /// - SeeAlso: NSRegularExpression
 public struct RegEx {
     private let regex: NSRegularExpression
     public typealias Options = NSRegularExpression.Options
     
-    /// Creates a new Regex using `pattern`
+    /// Creates a new Regex using `pattern`.
     ///
     /// - Parameters:
     ///     - pattern: A valid Regular Expression pattern
     ///     - options: NSRegularExpression.Options on how the RegEx should be processed.
-    /// - Note: Deliminators must be double escaped. Once for Swift and once for RegEx
+    /// - Note: Deliminators must be double escaped. Once for Swift and once for RegEx.
     ///   Example, to math a negative integer: `RegEx(pattern: "-\d")` -> `RegEx(pattern: "-\\d")`
     /// - SeeAlso: NSRegularExpression
-    /// - Throws: An Error if `pattern` is an invalid Regular Expression
+    /// - Throws: An Error if `pattern` is an invalid Regular Expression.
     public init(pattern: String, options: Options = []) throws {
         self.regex = try NSRegularExpression(pattern: pattern, options: options)
     }
@@ -36,10 +36,10 @@ public struct RegEx {
     ///
     ///     RegEx(pattern: "([a-z]+)([0-9]+)").matchGroups(in: "foo1 bar2 baz3")
     ///
-    /// Returns `[["foo", "1"], ["bar", "2"], ["baz", "3"]]`
+    /// Returns `[["foo", "1"], ["bar", "2"], ["baz", "3"]]`.
     ///
     /// - Parameters:
-    ///     - in: A string to check for matches to the whole Regex
+    ///     - in: A string to check for matches to the whole Regex.
     /// - Returns: A collection where each elements is the collection of matched groups.
     public func matchGroups(in string: String) -> [[String]] {
         let nsString = NSString(string: string)
