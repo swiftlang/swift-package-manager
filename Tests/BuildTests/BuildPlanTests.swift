@@ -54,6 +54,7 @@ final class BuildPlanTests: XCTestCase {
     func mockBuildParameters(
         buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
         config: BuildConfiguration = .debug,
+        flags: BuildFlags = BuildFlags(),
         shouldLinkStaticSwiftStdlib: Bool = false,
         destinationTriple: Triple = Triple.hostTriple,
         indexStoreMode: BuildParameters.IndexStoreMode = .off
@@ -63,7 +64,7 @@ final class BuildPlanTests: XCTestCase {
             configuration: config,
             toolchain: MockToolchain(),
             destinationTriple: destinationTriple,
-            flags: BuildFlags(),
+            flags: flags,
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
             indexStoreMode: indexStoreMode
         )
@@ -1289,6 +1290,40 @@ final class BuildPlanTests: XCTestCase {
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
             XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-framework", "CoreData", "-Ilfoo", "-L", "lbar", .end])
         }
+    }
+
+    func testExtraBuildFlags() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/exe/main.swift",
+            "<end>"
+        )
+
+        let aManifest = Manifest.createManifest(
+            name: "A",
+            path: "/A",
+            url: "/A",
+            v: .v5,
+            targets: [
+                TargetDescription(name: "exe", dependencies: []),
+            ]
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/A", fs: fs, diagnostics: diagnostics,
+            manifests: [aManifest]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        var flags = BuildFlags()
+        flags.linkerFlags = ["-L", "/path/to/foo", "-L/path/to/foo", "-rpath=foo", "-rpath", "foo"]
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(flags: flags),
+            graph: graph, diagnostics: diagnostics,
+            fileSystem: fs)
+        )
+
+        let exe = try result.buildProduct(for: "exe").linkArguments()
+        XCTAssertMatch(exe, [.anySequence, "-L", "/path/to/foo", "-L/path/to/foo", "-Xlinker", "-rpath=foo", "-Xlinker", "-rpath", "-Xlinker", "foo", .anySequence])
     }
 }
 

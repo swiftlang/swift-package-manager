@@ -91,7 +91,32 @@ public struct BuildParameters {
 
     /// Extra flags to pass to linker.
     public var linkerFlags: [String] {
-        return self.flags.linkerFlags.flatMap({ ["-Xlinker", $0] })
+        // Arguments that can be passed directly to the Swift compiler and
+        // doesn't require -Xlinker prefix.
+        //
+        // We do this to avoid sending flags like linker search path at the end
+        // of the search list.
+        let directSwiftLinkerArgs = ["-L"]
+
+        var flags: [String] = []
+        var it = self.flags.linkerFlags.makeIterator()
+        while let flag = it.next() {
+            if directSwiftLinkerArgs.contains(flag) {
+                // `-L <value>` variant.
+                flags.append(flag)
+                guard let nextFlag = it.next() else {
+                    // We expected a flag but don't have one.
+                    continue
+                }
+                flags.append(nextFlag)
+            } else if directSwiftLinkerArgs.contains(where: { flag.hasPrefix($0) }) {
+                // `-L<value>` variant.
+                flags.append(flag)
+            } else {
+                flags += ["-Xlinker", flag]
+            }
+        }
+        return flags
     }
 
     /// The tools version to use.
