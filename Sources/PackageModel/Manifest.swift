@@ -322,7 +322,7 @@ public enum SystemPackageProviderDescription: Equatable {
 public struct PackageDependencyDescription: Equatable, Codable {
 
     /// The dependency requirement.
-    public enum Requirement: Equatable, CustomStringConvertible {
+    public enum Requirement: Equatable, Hashable, CustomStringConvertible {
         case exact(Version)
         case range(Range<Version>)
         case revision(String)
