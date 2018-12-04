@@ -46,7 +46,7 @@ public enum BuildSettings {
         public static let LINK_FRAMEWORKS: Declaration = .init("LINK_FRAMEWORKS")
 
         /// The declaration name.
-        private let name: String
+        public let name: String
     
         private init(_ name: String) {
             self.name = name
