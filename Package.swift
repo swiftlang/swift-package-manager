@@ -185,7 +185,7 @@ let package = Package(
             dependencies: ["swift-build", "swift-package", "swift-test", "Basic", "Utility", "PackageModel", "TestSupport"]),
         .testTarget(
             name: "FunctionalPerformanceTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "swift-build", "swift-package", "TestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "TestSupport"]),
         .testTarget(
             name: "PackageDescription4Tests",
             dependencies: ["PackageDescription4"]),
