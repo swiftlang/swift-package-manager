@@ -154,12 +154,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         manifestResources: ManifestResourceProvider,
         isManifestSandboxEnabled: Bool = true,
         cacheDir: AbsolutePath? = nil,
+        sdkRoot: AbsolutePath? = nil,
         delegate: ManifestLoaderDelegate? = nil
     ) {
         self.resources = manifestResources
         self.isManifestSandboxEnabled = isManifestSandboxEnabled
         self.delegate = delegate
         self.cacheDir = cacheDir
+        self._sdkRoot = sdkRoot
     }
 
     @available(*, deprecated)
