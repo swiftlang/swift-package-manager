@@ -229,10 +229,10 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                targets: [
                    .target(
                        name: "Foo",
-                       _swiftSettings: [
+                       swiftSettings: [
                            .define("SWIFT", .when(configuration: .release)),
                        ],
-                       _linkerSettings: [
+                       linkerSettings: [
                            .linkedLibrary("libz"),
                        ]
                    ),

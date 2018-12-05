@@ -81,16 +81,16 @@ public final class Target {
     public let providers: [SystemPackageProvider]?
 
     /// C build settings.
-    var cSettings: [CSetting]?
+    public var cSettings: [CSetting]?
 
     /// C++ build settings.
-    var cxxSettings: [CXXSetting]?
+    public var cxxSettings: [CXXSetting]?
 
     /// Swift build settings.
-    var swiftSettings: [SwiftSetting]?
+    public var swiftSettings: [SwiftSetting]?
 
     /// Linker build settings.
-    var linkerSettings: [LinkerSetting]?
+    public var linkerSettings: [LinkerSetting]?
 
     /// Construct a target.
     private init(
@@ -136,10 +136,10 @@ public final class Target {
         exclude: [String] = [],
         sources: [String]? = nil,
         publicHeadersPath: String? = nil,
-        _cSettings: [CSetting]? = nil,
-        _cxxSettings: [CXXSetting]? = nil,
-        _swiftSettings: [SwiftSetting]? = nil,
-        _linkerSettings: [LinkerSetting]? = nil
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil
     ) -> Target {
         return Target(
             name: name,
@@ -149,10 +149,10 @@ public final class Target {
             sources: sources,
             publicHeadersPath: publicHeadersPath,
             type: .regular,
-            cSettings: _cSettings,
-            cxxSettings: _cxxSettings,
-            swiftSettings: _swiftSettings,
-            linkerSettings: _linkerSettings
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings
         )
     }
 
@@ -162,10 +162,10 @@ public final class Target {
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
-        _cSettings: [CSetting]? = nil,
-        _cxxSettings: [CXXSetting]? = nil,
-        _swiftSettings: [SwiftSetting]? = nil,
-        _linkerSettings: [LinkerSetting]? = nil
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil
     ) -> Target {
         return Target(
             name: name,
@@ -175,10 +175,10 @@ public final class Target {
             sources: sources,
             publicHeadersPath: nil,
             type: .test,
-            cSettings: _cSettings,
-            cxxSettings: _cxxSettings,
-            swiftSettings: _swiftSettings,
-            linkerSettings: _linkerSettings
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings
         )
     }
 

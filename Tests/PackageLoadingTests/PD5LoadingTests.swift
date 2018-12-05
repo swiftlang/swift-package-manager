@@ -236,20 +236,20 @@ class PackageDescription5LoadingTests: XCTestCase {
                targets: [
                    .target(
                        name: "Foo",
-                       _cSettings: [
+                       cSettings: [
                            .headerSearchPath("path/to/foo"),
                            .define("C", .when(platforms: [.linux])),
                            .define("CC", to: "4", .when(platforms: [.linux], configuration: .release)),
                        ],
-                       _cxxSettings: [
+                       cxxSettings: [
                            .headerSearchPath("path/to/bar"),
                            .define("CXX"),
                        ],
-                       _swiftSettings: [
+                       swiftSettings: [
                            .define("SWIFT", .when(configuration: .release)),
                            .define("SWIFT_DEBUG", .when(platforms: [.watchOS], configuration: .debug)),
                        ],
-                       _linkerSettings: [
+                       linkerSettings: [
                            .linkedLibrary("libz"),
                            .linkedFramework("CoreData", .when(platforms: [.macOS, .tvOS])),
                        ]
