@@ -17,54 +17,43 @@ import TestSupport
 typealias Thread = Basic.Thread
 
 final class ProgressAnimationTests: XCTestCase {
-    func testPercentProgressAnimation() {
-        guard let pty = PseudoTerminal() else {
-            XCTFail("Couldn't create pseudo terminal.")
-            return
-        }
-
-        // Test progress animaton when writing to a non tty stream.
-        let outStream = BufferedOutputByteStream()
-        var animation = PercentProgressAnimation(stream: outStream, header: "test")
+    func testPercentProgressAnimationDumbTerminal() {
+        var outStream = BufferedOutputByteStream()
+        var animation = PercentProgressAnimation(stream: outStream, header: "TestHeader")
 
         runProgressAnimation(animation)
         XCTAssertEqual(outStream.bytes.asString, """
-            test
+            TestHeader
             0%: 0
             10%: 1
             20%: 2
             30%: 3
             40%: 4
             50%: 5
-            
+
             """)
 
-        // Test progress bar when writing a tty stream.
-        animation = PercentProgressAnimation(stream: pty.outStream, header: "TestHeader")
+        outStream = BufferedOutputByteStream()
+        animation = PercentProgressAnimation(stream: outStream, header: "TestHeader")
 
-        var output = ""
-        let thread = Thread {
-            while let out = pty.readMaster() {
-                output += out
-            }
-        }
-        thread.start()
-        runProgressAnimation(animation)
-        pty.closeSlave()
-        // Make sure to read the complete output before checking it.
-        thread.join()
-        pty.closeMaster()
-        XCTAssertTrue(output.spm_chuzzle()?.hasPrefix("\u{1B}[36m\u{1B}[1mTestHeader\u{1B}[0m") ?? false)
+        animation.complete(success: true)
+        XCTAssertEqual(outStream.bytes.asString, "")
     }
 
-    func testNinjaProgressAnimation() {
-        guard let pty = PseudoTerminal() else {
-            XCTFail("Couldn't create pseudo terminal.")
-            return
+    func testPercentProgressAnimationTTY() throws {
+        let output = try readingTTY { tty in
+            let animation = PercentProgressAnimation(stream: tty.outStream, header: "TestHeader")
+            runProgressAnimation(animation)
         }
 
-        // Test progress animaton when writing to a non tty stream.
-        let outStream = BufferedOutputByteStream()
+        let startCyan = "\u{1B}[36m"
+        let bold = "\u{1B}[1m"
+        let end = "\u{1B}[0m"
+        XCTAssertMatch(output.spm_chuzzle(), .prefix("\(startCyan)\(bold)TestHeader\(end)"))
+    }
+
+    func testNinjaProgressAnimationDumbTerminal() {
+        var outStream = BufferedOutputByteStream()
         var animation = NinjaProgressAnimation(stream: outStream)
 
         runProgressAnimation(animation)
@@ -78,35 +67,67 @@ final class ProgressAnimationTests: XCTestCase {
 
             """)
 
-        // Test progress bar when writing a tty stream.
-        animation = NinjaProgressAnimation(stream: pty.outStream)
+        outStream = BufferedOutputByteStream()
+        animation = NinjaProgressAnimation(stream: outStream)
+
+        animation.complete(success: true)
+        XCTAssertEqual(outStream.bytes.asString, "")
+    }
+
+    func testNinjaProgressAnimationTTY() throws {
+        var output = try readingTTY { tty in
+            let animation = NinjaProgressAnimation(stream: tty.outStream)
+            runProgressAnimation(animation)
+        }
+
+        let clearLine = "\u{1B}[2K\r"
+        let newline = "\r\n"
+        XCTAssertEqual(output, """
+            \(clearLine)[0/10] 0\
+            \(clearLine)[1/10] 1\
+            \(clearLine)[2/10] 2\
+            \(clearLine)[3/10] 3\
+            \(clearLine)[4/10] 4\
+            \(clearLine)[5/10] 5\(newline)
+            """)
+
+        output = try readingTTY { tty in
+            let animation = NinjaProgressAnimation(stream: tty.outStream)
+            animation.complete(success: true)
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
+    private func readingTTY(_ closure: (PseudoTerminal) -> Void) throws -> String {
+        guard let terminal = PseudoTerminal() else {
+            struct PseudoTerminalCreationError: Error {}
+            throw PseudoTerminalCreationError()
+        }
 
         var output = ""
         let thread = Thread {
-            while let out = pty.readMaster() {
+            while let out = terminal.readMaster() {
                 output += out
             }
         }
+
         thread.start()
-        runProgressAnimation(animation)
-        pty.closeSlave()
+        closure(terminal)
+        terminal.closeSlave()
+
         // Make sure to read the complete output before checking it.
         thread.join()
-        pty.closeMaster()
-        XCTAssertEqual(output.spm_chuzzle(), """
-            \u{1B}[2K\r[0/10] 0\
-            \u{1B}[2K\r[1/10] 1\
-            \u{1B}[2K\r[2/10] 2\
-            \u{1B}[2K\r[3/10] 3\
-            \u{1B}[2K\r[4/10] 4\
-            \u{1B}[2K\r[5/10] 5
-            """)
+        terminal.closeMaster()
+
+        return output
     }
 
     private func runProgressAnimation(_ animation: ProgressAnimationProtocol) {
         for i in 0...5 {
             animation.update(step: i, total: 10, text: String(i))
         }
+
         animation.complete(success: true)
     }
 }

@@ -95,6 +95,7 @@ public final class MultiLineNinjaProgressAnimation: ProgressAnimationProtocol {
 /// A redrawing ninja-like progress animation.
 public final class RedrawingNinjaProgressAnimation: ProgressAnimationProtocol {
     private let terminal: TerminalController
+    private var hasDisplayedProgress = false
 
     init(terminal: TerminalController) {
         self.terminal = terminal
@@ -106,10 +107,13 @@ public final class RedrawingNinjaProgressAnimation: ProgressAnimationProtocol {
         terminal.clearLine()
         terminal.write("[\(step)/\(total)] ")
         terminal.write(text)
+        hasDisplayedProgress = true
     }
 
     public func complete(success: Bool) {
-        terminal.endLine()
+        if hasDisplayedProgress {
+            terminal.endLine()
+        }
     }
 
     public func clear() {
