@@ -10,6 +10,7 @@
 
 import SPMLibc
 import POSIX
+import Foundation
 
 /// Replace the current process image with a new process image.
 ///
@@ -138,5 +139,12 @@ extension CodableRange: Codable {
         let lowerBound = try container.decode(Bound.self, forKey: .lowerBound)
         let upperBound = try container.decode(Bound.self, forKey: .upperBound)
         self.init(Range(uncheckedBounds: (lowerBound, upperBound)))
+    }
+}
+
+extension AbsolutePath {
+    /// File URL created from the normalized string representation of the path.
+    public var asURL: Foundation.URL {
+         return URL(fileURLWithPath: asString)
     }
 }
