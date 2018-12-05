@@ -15,9 +15,9 @@ public enum GraphError: Swift.Error {
 
 /// Compute the transitive closure of an input node set.
 ///
-/// NOTE: The relation is *not* assumed to be reflexive; i.e. the result will
-/// not automatically include `nodes` unless present in the relation defined by
-/// `successors`.
+/// - Note: The relation is *not* assumed to be reflexive; i.e. the result will
+///         not automatically include `nodes` unless present in the relation defined by
+///         `successors`.
 public func transitiveClosure<T>(
     _ nodes: [T], successors: (T) throws -> [T]
 ) rethrows -> Set<T> {
