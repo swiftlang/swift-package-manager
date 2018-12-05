@@ -62,8 +62,10 @@ extension ProgressAnimationTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__ProgressAnimationTests = [
-        ("testNinjaProgressAnimation", testNinjaProgressAnimation),
-        ("testPercentProgressAnimation", testPercentProgressAnimation),
+        ("testNinjaProgressAnimationDumbTerminal", testNinjaProgressAnimationDumbTerminal),
+        ("testNinjaProgressAnimationTTY", testNinjaProgressAnimationTTY),
+        ("testPercentProgressAnimationDumbTerminal", testPercentProgressAnimationDumbTerminal),
+        ("testPercentProgressAnimationTTY", testPercentProgressAnimationTTY),
     ]
 }
 
