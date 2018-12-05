@@ -33,7 +33,7 @@ public struct Triple {
     public enum Arch: String {
         case x86_64
         case i686
-        case ppc64le
+        case powerpc64le
         case s390x
         case aarch64
         case armv7
