@@ -10,6 +10,7 @@
 
 import SPMLibc
 import POSIX
+import Foundation
 
 /// Replace the current process image with a new process image.
 ///
