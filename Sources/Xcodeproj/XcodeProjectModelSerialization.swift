@@ -441,8 +441,8 @@ fileprivate func combineBuildSettingsPropertyLists(
     // Iterate over the overlay values and apply them to the base.
     var resultDict = baseDict
     for (name, value) in overlayDict {
-        if let array = baseDict[name]?.array, array.first?.string == "$(inherited)" {
-            resultDict[name] = .array(array + (value.array ?? []))
+        if let array = baseDict[name]?.array, let overlayArray = value.array, overlayArray.first?.string == "$(inherited)" {
+            resultDict[name] = .array(array + overlayArray.dropFirst())
         } else {
             resultDict[name] = value
         }
