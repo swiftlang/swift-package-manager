@@ -584,9 +584,9 @@ class llbuild(object):
 
             # Write out the link command.
             if target.is_library:
-                description = "Link %s" % target.name
+                description = "Linking %s" % target.name
             else:
-                description = "Link %s" % link_output_path
+                description = "Linking %s" % link_output_path
             self.writeTool(
                 tool,
                 target.linked_virtual_node,
