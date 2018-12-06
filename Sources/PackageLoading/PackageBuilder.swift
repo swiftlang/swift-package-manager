@@ -595,6 +595,12 @@ public final class PackageBuilder {
                 providers: manifestTarget?.providers
             )
         }
+        
+        // Check for duplicate target dependencies by name
+        let combinedDependencyNames = moduleDependencies.map { $0.name } + productDeps.map { $0.0 }
+        combinedDependencyNames.spm_findDuplicates().forEach {
+            diagnostics.emit(data: PackageBuilderDiagnostics.DuplicateTargetDependencyDiagnostic(dependency: $0, target: potentialModule.name))
+        }
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget?.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent

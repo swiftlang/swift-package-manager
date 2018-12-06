@@ -33,6 +33,7 @@ extension PackageBuilderTests {
         ("testDeclaredExecutableProducts", testDeclaredExecutableProducts),
         ("testDotFilesAreIgnored", testDotFilesAreIgnored),
         ("testDuplicateProducts", testDuplicateProducts),
+        ("testDuplicateTargetDependencies", testDuplicateTargetDependencies),
         ("testDuplicateTargets", testDuplicateTargets),
         ("testExcludes", testExcludes),
         ("testExecutableAsADep", testExecutableAsADep),
