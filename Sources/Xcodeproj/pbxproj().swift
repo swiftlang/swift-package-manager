@@ -146,7 +146,8 @@ func xcodeProject(
     projectSettings.common.COMBINE_HIDPI_IMAGES = "YES"
 
     // Defined for regular `swift build` instantiations, so also should be defined here.
-    projectSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["SWIFT_PACKAGE"]
+    projectSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["$(inherited)", "SWIFT_PACKAGE"]
+    projectSettings.common.GCC_PREPROCESSOR_DEFINITIONS += ["$(inherited)", "SWIFT_PACKAGE=1"]
 
     // Opt out of headermaps.  The semantics of the build should be explicitly
     // defined by the project structure, so that we don't get any additional
@@ -161,10 +162,10 @@ func xcodeProject(
     projectSettings.debug.DEBUG_INFORMATION_FORMAT = "dwarf"
     projectSettings.debug.ENABLE_NS_ASSERTIONS = "YES"
     projectSettings.debug.GCC_OPTIMIZATION_LEVEL = "0"
-    projectSettings.debug.GCC_PREPROCESSOR_DEFINITIONS = ["DEBUG=1", "$(inherited)"]
+    projectSettings.debug.GCC_PREPROCESSOR_DEFINITIONS = ["$(inherited)", "DEBUG=1"]
     projectSettings.debug.ONLY_ACTIVE_ARCH = "YES"
     projectSettings.debug.SWIFT_OPTIMIZATION_LEVEL = "-Onone"
-    projectSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["SWIFT_PACKAGE", "DEBUG"]
+    projectSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS += ["$(inherited)", "DEBUG"]
 
     // Add some release-specific settings.
     projectSettings.release.COPY_PHASE_STRIP = "YES"

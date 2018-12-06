@@ -109,8 +109,9 @@ class PackageGraphTests: XCTestCase {
             XCTAssertEqual(project.buildSettings.common.CLANG_ENABLE_OBJC_ARC, "YES")
             XCTAssertEqual(project.buildSettings.release.SWIFT_OPTIMIZATION_LEVEL, "-Owholemodule")
             XCTAssertEqual(project.buildSettings.debug.SWIFT_OPTIMIZATION_LEVEL, "-Onone")
-            XCTAssertEqual(project.buildSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS!, ["SWIFT_PACKAGE", "DEBUG"])
-            XCTAssertEqual(project.buildSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS!, ["SWIFT_PACKAGE"])
+            XCTAssertEqual(project.buildSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS!, ["$(inherited)", "DEBUG"])
+            XCTAssertEqual(project.buildSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS!, ["$(inherited)", "SWIFT_PACKAGE"])
+            XCTAssertEqual(project.buildSettings.common.GCC_PREPROCESSOR_DEFINITIONS, ["$(inherited)", "SWIFT_PACKAGE=1"])
 
             result.check(target: "Foo") { targetResult in
                 targetResult.check(productType: .framework)
