@@ -183,7 +183,9 @@ public final class BuildDelegate: BuildSystemDelegate {
             return completedCount + scanningCount - upToDateCount
         }
 
-        mutating func update(withStatusChange kind: CommandStatusKind) {
+        mutating func update(command: SPMLLBuild.Command, kind: CommandStatusKind) {
+            guard command.shouldShowStatus else { return }
+
             switch kind {
             case .isScanning:
                 scanningCount += 1
@@ -204,7 +206,6 @@ public final class BuildDelegate: BuildSystemDelegate {
     public var isVerbose: Bool = false
     public var onCommmandFailure: (() -> Void)?
     private var commandCounter = CommandCounter()
-    private var lastProgressDescription: String = ""
     private let queue = DispatchQueue(label: "org.swift.swiftpm.build-delegate")
 
     public init(
@@ -237,7 +238,7 @@ public final class BuildDelegate: BuildSystemDelegate {
 
     public func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
         queue.sync {
-            commandCounter.update(withStatusChange: kind)
+            commandCounter.update(command: command, kind: kind)
         }
     }
 
@@ -245,21 +246,14 @@ public final class BuildDelegate: BuildSystemDelegate {
     }
 
     public func commandStarted(_ command: SPMLLBuild.Command) {
+        guard command.shouldShowStatus else { return }
+
         queue.sync {
             commandCounter.startedCount += 1
-
-            let description: String
-            if command.shouldShowStatus {
-                description = isVerbose ? command.verboseDescription : command.description
-            } else {
-                description = lastProgressDescription
-            }
-
-            lastProgressDescription = description
             progressAnimation.update(
                 step: commandCounter.startedCount,
                 total: commandCounter.estimatedMaximum,
-                text: description)
+                text: isVerbose ? command.verboseDescription : command.description)
         }
     }
 
@@ -303,7 +297,7 @@ public final class BuildDelegate: BuildSystemDelegate {
 
     public func commandProcessHadOutput(_ command: SPMLLBuild.Command, process: ProcessHandle, data: [UInt8]) {
         progressAnimation.clear()
-        outputStream <<< (data + [newLineByte])
+        outputStream <<< data
         outputStream.flush()
     }
 
