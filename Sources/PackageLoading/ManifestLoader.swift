@@ -9,6 +9,7 @@
 */
 
 import Basic
+import enum Basic.Result
 import PackageModel
 import Utility
 import SPMLLBuild
