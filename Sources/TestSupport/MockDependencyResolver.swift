@@ -11,6 +11,7 @@ import XCTest
 import Dispatch
 
 import Basic
+import enum Basic.Result
 import PackageGraph
 import SourceControl
 

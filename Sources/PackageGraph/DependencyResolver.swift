@@ -9,6 +9,7 @@
 */
 
 import Basic
+import enum Basic.Result
 import struct Utility.Version
 import class Foundation.NSDate
 
