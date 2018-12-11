@@ -1129,6 +1129,7 @@ def main():
 
             # Add libFoundation.
             symlink_force(os.path.join(args.foundation_path, 'libFoundation.so'), libswiftdir)
+            symlink_force(os.path.join(args.foundation_path, 'libFoundationSoil.so'), libswiftdir)
 
             # Add Foundation's swiftmodule.
             for module_file in ["Foundation.swiftmodule", "Foundation.swiftdoc"]:
