@@ -12,6 +12,7 @@ import Dispatch
 import class Foundation.OperationQueue
 
 import Basic
+import enum Basic.Result
 import Utility
 
 /// Delegate to notify clients about actions being performed by RepositoryManager.

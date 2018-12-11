@@ -11,6 +11,7 @@
 import XCTest
 
 import Basic
+import enum Basic.Result
 import TestSupport
 
 private enum DummyError: Swift.Error {

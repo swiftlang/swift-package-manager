@@ -9,6 +9,7 @@
  */
 
 import Basic
+import enum Basic.Result
 import Build
 import PackageLoading
 import PackageGraph
