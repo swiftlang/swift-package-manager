@@ -77,6 +77,20 @@ public enum PackageBuilderDiagnostics {
         public let product: Product
     }
 
+    public struct DuplicateTargetDependencyDiagnostic: DiagnosticData {
+        public static let id = DiagnosticID(
+            type: DuplicateTargetDependencyDiagnostic.self,
+            name: "org.swift.diags.pkg-builder.dup-target-dependency",
+            defaultBehavior: .warning,
+            description: {
+                $0 <<< "invalid duplicate target dependency declaration" <<< { "'\($0.dependency)'" }
+                    <<< "in target" <<< { "'\($0.target)'" }
+        })
+
+        public let dependency: String
+        public let target: String
+    }
+
     struct SystemPackageDeprecatedDiagnostic: DiagnosticData {
         static let id = DiagnosticID(
             type: SystemPackageDeprecatedDiagnostic.self,

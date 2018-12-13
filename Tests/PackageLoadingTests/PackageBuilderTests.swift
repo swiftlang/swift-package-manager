@@ -1576,6 +1576,40 @@ class PackageBuilderTests: XCTestCase {
             result.checkDiagnostic("invalid header search path '../../..'; header search path should not be outside the package root")
         }
     }
+
+    func testDuplicateTargetDependencies() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Foo/Sources/Foo2/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifest1 = Manifest.createManifest(
+            name: "Foo",
+            v: .v5,
+            dependencies: [
+                PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+            ],
+            targets: [
+                TargetDescription(
+                    name: "Foo",
+                    dependencies: [
+                        "Bar",
+                        "Bar",
+                        "Foo2",
+                        "Foo2",
+                    ]),
+                TargetDescription(name: "Foo2"),
+            ]
+        )
+
+        PackageBuilderTester(manifest1, path: AbsolutePath("/Foo"), in: fs) { result in
+            result.checkModule("Foo")
+            result.checkModule("Foo2")
+            result.checkDiagnostic("invalid duplicate target dependency declaration 'Bar' in target 'Foo'")
+            result.checkDiagnostic("invalid duplicate target dependency declaration 'Foo2' in target 'Foo'")
+        }
+    }
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}
