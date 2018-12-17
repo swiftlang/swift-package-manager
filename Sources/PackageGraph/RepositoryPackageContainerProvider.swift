@@ -11,7 +11,6 @@
 import Dispatch
 
 import Basic
-import enum Basic.Result
 import PackageLoading
 import PackageModel
 import SourceControl
