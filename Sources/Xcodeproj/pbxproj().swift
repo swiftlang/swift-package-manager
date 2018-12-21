@@ -582,6 +582,13 @@ func xcodeProject(
             // If user provided the modulemap no need to generate.
             if fileSystem.isFile(clangTarget.moduleMapPath) {
                 moduleMapPath = clangTarget.moduleMapPath
+                let headerPhase = xcodeTarget.addHeadersBuildPhase()
+                for case let header as Xcode.FileReference in includeGroup.subitems {
+                  let buildFile = headerPhase.addBuildFile(fileRef: header)
+                  buildFile.settings.ATTRIBUTES = ["Public"]
+                }
+                targetSettings.common.CLANG_ENABLE_MODULES = "YES"
+                targetSettings.common.DEFINES_MODULE = "YES"
             } else if includeGroup.subitems.contains(where: { $0.path == clangTarget.c99name + ".h" }) {
                 // If an umbrella header exists, enable Xcode's builtin module's feature rather than generating
                 // a custom module map. This increases the compatibility of generated Xcode projects.
