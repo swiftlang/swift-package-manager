@@ -148,6 +148,33 @@ class ToolsVersionLoaderTests: XCTestCase {
         }
     }
 
+    func testVersionSpecificManifestFallsBackToLastMajor() throws {
+        let fs = InMemoryFileSystem()
+        let root = AbsolutePath("/pkg")
+        try fs.createDirectory(root, recursive: true)
+
+        try fs.writeFileContents(root.appending(component: "Package.swift"), bytes: "// swift-tools-version:1.0.0\n")
+        let currentMajor = Versioning.currentVersion.major
+        try fs.writeFileContents(root.appending(component: "Package@swift-\(currentMajor-1).swift"), bytes: "// swift-tools-version:3.4.5\n")
+
+        let version = try loader.load(at: root, fileSystem: fs)
+        XCTAssertEqual(version.description, "3.4.5")
+    }
+
+    func testVersionSpecificManifestFallbackOnlyIfCurrentIsOld() throws {
+        let fs = InMemoryFileSystem()
+        let root = AbsolutePath("/pkg")
+        try fs.createDirectory(root, recursive: true)
+
+        let currentVersionAsString = "\(Versioning.currentVersion.major).\(Versioning.currentVersion.minor).\(Versioning.currentVersion.patch)"
+        try fs.writeFileContents(root.appending(component: "Package.swift"), bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(currentVersionAsString)\n"))
+        let currentMajor = Versioning.currentVersion.major
+        try fs.writeFileContents(root.appending(component: "Package@swift-\(currentMajor-1).swift"), bytes: "// swift-tools-version:3.4.5\n")
+
+        let version = try loader.load(at: root, fileSystem: fs)
+        XCTAssertEqual(version.description, "\(currentVersionAsString)")
+    }
+
     func assertFailure(_ bytes: ByteString, _ theSpecifier: String, file: StaticString = #file, line: UInt = #line) {
         do {
             try load(bytes) {
