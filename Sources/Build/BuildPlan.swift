@@ -788,7 +788,7 @@ public class BuildPlan {
         public var description: String {
             switch self {
             case .missingLinuxMain:
-                return "missing LinuxMain.swift file"
+                return "missing LinuxMain.swift file at top level"
             case .noBuildableTarget:
                 return "the package does not contain a buildable target"
             }
