@@ -1166,6 +1166,10 @@ extension Workspace {
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
         let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors else {
+            return currentManifests
+        }
+
         validatePinsStore(dependencyManifests: currentManifests, diagnostics: diagnostics)
 
         // Abort if pinsStore is unloadable or if diagnostics has errors.
