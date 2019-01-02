@@ -14,8 +14,8 @@
 public protocol ObjectIdentifierProtocol: class, Hashable {}
 
 extension ObjectIdentifierProtocol {
-    public var hashValue: Int {
-        return ObjectIdentifier(self).hashValue
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
     }
 
     public static func == (lhs: Self, rhs: Self) -> Bool {

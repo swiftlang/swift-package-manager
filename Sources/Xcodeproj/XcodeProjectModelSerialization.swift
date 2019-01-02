@@ -466,8 +466,8 @@ fileprivate class PropertyListSerializer {
             self.object = object
         }
 
-        var hashValue: Int {
-            return ObjectIdentifier(object).hashValue
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(ObjectIdentifier(object))
         }
 
         static func == (lhs: SerializedObjectRef, rhs: SerializedObjectRef) -> Bool {
