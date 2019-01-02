@@ -738,7 +738,7 @@ public final class PubgrubDependencyResolver<
 
             // add `version` to partial solution as a decision, unless this would produce a conflict in any of the new incompatibilities
             // FIXME: Use correct cause
-            let candidateIncompat = Incompatibility(Term(candidate.package, .versionSet(.exact(version))),
+            let _ = Incompatibility(Term(candidate.package, .versionSet(.exact(version))),
                                                     cause: .root)
 //            if case .satisfied = solution.satisfies(candidateIncompat) {
 //                continue // TODO: is this correct?
