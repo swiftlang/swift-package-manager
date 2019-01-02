@@ -499,12 +499,8 @@ public struct TestPackage {
 public final class TestWorkspaceDelegate: WorkspaceDelegate {
 
     public var events = [String]()
-    public var managedDependenciesData = [AnySequence<ManagedDependency>]()
 
     public init() {}
-
-    public func packageGraphWillLoad(currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>) {
-    }
 
     public func repositoryWillUpdate(_ repository: String) {
         events.append("updating repo: \(repository)")
@@ -536,9 +532,5 @@ public final class TestWorkspaceDelegate: WorkspaceDelegate {
 
     public func willResolveDependencies() {
         events.append("will resolve dependencies")
-    }
-
-    public func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
-        managedDependenciesData.append(dependencies)
     }
 }
