@@ -19,18 +19,6 @@ import Utility
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: class {
 
-    // FIXME: This is defunct.
-    //
-    /// The workspace is about to load the complete package graph.
-    ///
-    /// This delegate will only be called if we actually need to fetch and resolve dependencies. 
-    ///
-    /// - Parameters:
-    ///   - currentGraph: The current package graph. This is most likely a partial package graph.
-    ///   - dependencies: The current managed dependencies in the workspace.
-    ///   - missingURLs: The top-level missing packages we need to fetch. This will never be empty.
-    func packageGraphWillLoad(currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>)
-
     /// The workspace has started fetching this repository.
     func fetchingWillBegin(repository: String)
 
@@ -54,9 +42,6 @@ public protocol WorkspaceDelegate: class {
 
     /// The workspace is removing this repository because it is no longer needed.
     func removing(repository: String)
-
-    /// Called when the managed dependencies are updated.
-    func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>)
 
     /// Called when the resolver is about to be run.
     func willResolveDependencies()

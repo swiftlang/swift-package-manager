@@ -90,13 +90,6 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         self.stdoutStream = stdoutStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(stdoutStream)
     }
 
-    func packageGraphWillLoad(
-        currentGraph: PackageGraph,
-        dependencies: AnySequence<ManagedDependency>,
-        missingURLs: Set<String>
-    ) {
-    }
-
     func fetchingWillBegin(repository: String) {
         stdoutStream <<< "Fetching \(repository)"
         stdoutStream <<< "\n"
@@ -144,9 +137,6 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         stdoutStream <<< "warning: " <<< message
         stdoutStream <<< "\n"
         stdoutStream.flush()
-    }
-
-    func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
     }
 }
 
