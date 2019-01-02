@@ -1683,6 +1683,17 @@ extension Workspace {
             return
         }
 
+        // First remove the checkouts that are no longer required.
+        for (packageRef, state) in packageStateChanges {
+            diagnostics.wrap {
+                switch state {
+                case .added, .updated, .unchanged: break
+                case .removed:
+                    try remove(package: packageRef)
+                }
+            }
+        }
+
         // Update or clone new packages.
         for (packageRef, state) in packageStateChanges {
             diagnostics.wrap {
@@ -1691,9 +1702,7 @@ extension Workspace {
                     _ = try clone(package: packageRef, requirement: requirement)
                 case .updated(let requirement):
                     _ = try clone(package: packageRef, requirement: requirement)
-                case .removed:
-                    try remove(package: packageRef)
-                case .unchanged: break
+                case .removed, .unchanged: break
                 }
             }
         }
@@ -1745,7 +1754,7 @@ extension Workspace {
         }
 
         // Clone the repository into the checkouts.
-        let path = checkoutsPath.appending(component: package.repository.fileSystemIdentifier)
+        let path = checkoutsPath.appending(component: package.repository.basename)
 
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
         try fileSystem.removeFileTree(path)

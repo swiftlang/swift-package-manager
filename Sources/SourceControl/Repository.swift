@@ -25,16 +25,20 @@ public struct RepositorySpecifier: Hashable {
     /// This identifier is suitable for use in a file system path, and
     /// unique for each repository.
     public var fileSystemIdentifier: String {
-        var basename = url.components(separatedBy: "/").last!
-        if basename.hasSuffix(".git") {
-            basename = String(basename.dropLast(4))
-        }
-
         // Use first 8 chars of a stable hash.
         let hash = SHA256(url).digestString()
         let suffix = hash.dropLast(hash.count - 8)
 
         return basename + "-" + suffix
+    }
+
+    /// Returns the cleaned basename for the specifier.
+    public var basename: String {
+        var basename = url.components(separatedBy: "/").last!
+        if basename.hasSuffix(".git") {
+            basename = String(basename.dropLast(4))
+        }
+        return basename
     }
 }
 
