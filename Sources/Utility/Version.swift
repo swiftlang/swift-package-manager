@@ -45,21 +45,6 @@ public struct Version: Hashable {
     }
 }
 
-#if !swift(>=4.2)
-extension Version {
-    public var hashValue: Int {
-        let mul: UInt64 = 0x9ddfea08eb382d69
-        var result: UInt64 = 0
-        result = (result &* mul) ^ UInt64(bitPattern: Int64(major.hashValue))
-        result = (result &* mul) ^ UInt64(bitPattern: Int64(minor.hashValue))
-        result = (result &* mul) ^ UInt64(bitPattern: Int64(patch.hashValue))
-        result = prereleaseIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64(bitPattern: Int64($1.hashValue)) })
-        result = buildMetadataIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64(bitPattern: Int64($1.hashValue)) })
-        return Int(truncatingIfNeeded: result)
-    }
-}
-#endif
-
 extension Version: Comparable {
 
     func isEqualWithoutPrerelease(_ other: Version) -> Bool {
