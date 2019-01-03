@@ -16,6 +16,9 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
     /// The resolver was unable to find a solution to the input constraints.
     case unsatisfiable
 
+    /// The resolver found a dependency cycle.
+    case cycle(AnyPackageContainerIdentifier)
+
     /// The resolver encountered a versioned container which has a revision dependency.
     case incompatibleConstraints(
         dependency: (AnyPackageContainerIdentifier, String),
@@ -26,6 +29,10 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
         case (.unsatisfiable, .unsatisfiable):
             return true
         case (.unsatisfiable, _):
+            return false
+        case (.cycle(let lhs), .cycle(let rhs)):
+            return lhs == rhs 
+        case (.cycle, _):
             return false
         case (.incompatibleConstraints(let lDependency, let lRevisions),
               .incompatibleConstraints(let rDependency, let rRevisions)):
@@ -39,6 +46,8 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
         switch self {
         case .unsatisfiable:
             return "unable to resolve dependencies"
+        case .cycle(let package):
+            return "the package \(package.identifier) depends on itself"
         case let .incompatibleConstraints(dependency, revisions):
             let stream = BufferedOutputByteStream()
             stream <<< "the package \(dependency.0.identifier) @ \(dependency.1) contains incompatible dependencies:\n"
@@ -1020,6 +1029,13 @@ public class DependencyResolver<
         //
         // FIXME: We must detect recursion here.
         func merge(constraints: [Constraint], binding: BoundVersion) -> AnySequence<AssignmentSet> {
+
+            // Diagnose if this container depends on itself.
+            if constraints.contains(where: { $0.identifier == container.identifier }) {
+                error = DependencyResolverError.cycle(AnyPackageContainerIdentifier(container.identifier))
+                return AnySequence([])
+            }
+
             // Create an assignment for the container.
             var assignment = AssignmentSet()
             assignment[container] = binding
