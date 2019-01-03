@@ -109,23 +109,6 @@ public enum VersionSetSpecifier: Hashable, CustomStringConvertible {
         }
     }
 
-    //FIXME: Remove in 4.2
-    public var hashValue: Int {
-        switch (self) {
-        case .any:
-            return 0xB58D
-
-        case .empty:
-            return 0x7121
-
-        case .range(let range):
-            return 0x4CF3 ^ (range.lowerBound.hashValue &* 31) ^ range.upperBound.hashValue
-
-        case .exact(let version):
-            return 0xD04F ^ version.hashValue
-        }
-    }
-
     /// Check if the set contains a version.
     public func contains(_ version: Version) -> Bool {
         switch self {
@@ -415,15 +398,6 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
     /// Get the version set specifier associated with the given package `identifier`.
     public subscript(identifier: Identifier) -> Requirement {
         return constraints[identifier] ?? .versionSet(.any)
-    }
-
-    //FIXME: Remove in 4.2? Perhaps?
-    public var hashValue: Int {
-        var result = 0
-        for c in self.constraints {
-            result ^= c.key.hashValue &* 0x62F ^ c.value.hashValue
-        }
-        return result
     }
 
     /// Create a constraint set by merging the `requirement` for container `identifier`.
@@ -839,8 +813,9 @@ public class DependencyResolver<
         let container: Container
         let allConstraints: ConstraintSet
 
-        var hashValue: Int {
-            return container.identifier.hashValue ^ allConstraints.hashValue
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(container.identifier)
+            hasher.combine(allConstraints)
         }
 
         static func ==(lhs: ResolveSubtreeCacheKey, rhs: ResolveSubtreeCacheKey) -> Bool {

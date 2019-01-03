@@ -109,12 +109,7 @@ extension Package: CustomStringConvertible {
     }
 }
 
-extension Package: Hashable, Equatable {
-    public var hashValue: Int { return ObjectIdentifier(self).hashValue }
-    
-    public static func == (lhs: Package, rhs: Package) -> Bool {
-        return ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
-    }
+extension Package: ObjectIdentifierProtocol {
 }
 
 /// A package reference.
@@ -163,8 +158,8 @@ public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConv
         return lhs.identity == rhs.identity
     }
 
-    public var hashValue: Int {
-        return identity.hashValue
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(identity)
     }
 
     public init(json: JSON) throws {
