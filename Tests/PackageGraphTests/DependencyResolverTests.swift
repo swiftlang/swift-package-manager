@@ -523,6 +523,31 @@ class DependencyResolverTests: XCTestCase {
         }
     }
 
+    func testCycle() throws {
+        let develop = "develop"
+
+        let provider = MockPackagesProvider(containers: [
+            MockPackageContainer(name: "A", dependencies: [
+                develop: [
+                    (container: "B", requirement: .revision(develop)),
+                ],
+            ]),
+
+            MockPackageContainer(name: "B", dependencies: [
+                develop: [
+                    (container: "B", requirement: .revision(develop)),
+                ],
+            ]),
+        ])
+
+        let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+        XCTAssertThrows(DependencyResolverError.cycle(.init("B"))) {
+            _ = try resolver.resolve(constraints: [
+                MockPackageConstraint(container: "A", requirement: .revision(develop)),
+            ])
+        }
+    }
+
     func testUnversionedConstraint() throws {
         let provider = MockPackagesProvider(containers: [
             MockPackageContainer(name: "A", dependenciesByVersion: [v1: [], v1_1: []]),
