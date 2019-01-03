@@ -90,18 +90,6 @@ extension ByteString: CustomStringConvertible {
     }
 }
 
-#if !swift(>=4.2)
-extension ByteString {
-    public var hashValue: Int {
-        var result = contents.count
-        for byte in contents {
-            result = result &* 31 &+ Int(byte)
-        }
-        return result
-    }
-}
-#endif
-
 /// ByteStreamable conformance for a ByteString.
 extension ByteString: ByteStreamable {
     public func write(to stream: OutputByteStream) {
