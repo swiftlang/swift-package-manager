@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2019 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -36,9 +36,10 @@ struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
 
     /// The same term with an inversed `isPositive` value.
     var inverse: Term {
-        return Term(package: package,
-                    requirement: requirement,
-                    isPositive: !isPositive)
+        return Term(
+            package: package,
+            requirement: requirement,
+            isPositive: !isPositive)
     }
 
     /// Check if this term satisfies another term, e.g. if `self` is true,
@@ -149,9 +150,10 @@ struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
     }
 
     private func with(_ requirement: Requirement) -> Term {
-        return Term(package: self.package,
-                    requirement: requirement,
-                    isPositive: self.isPositive)
+        return Term(
+            package: self.package,
+            requirement: requirement,
+            isPositive: self.isPositive)
     }
 
     /// Verify if the term fulfills all requirements to be a valid choice for
@@ -188,8 +190,7 @@ public struct Incompatibility<Identifier: PackageContainerIdentifier>: Equatable
 
     init(_ terms: Set<Term<Identifier>>, cause: Cause<Identifier>) {
         // TODO: Normalize terms so that each package has at most one term referring to it.
-        assert(terms.count > 0,
-               "An incompatibility must contain at least one term.")
+        assert(terms.count > 0, "An incompatibility must contain at least one term.")
         self.terms = terms
         self.cause = cause
     }
@@ -270,10 +271,12 @@ struct Assignment<Identifier: PackageContainerIdentifier>: Equatable {
     let cause: Incompatibility<Identifier>?
     let isDecision: Bool
 
-    private init(term: Term<Identifier>,
-                 decisionLevel: Int,
-                 cause: Incompatibility<Identifier>?,
-                 isDecision: Bool) {
+    private init(
+        term: Term<Identifier>,
+        decisionLevel: Int,
+        cause: Incompatibility<Identifier>?,
+        isDecision: Bool
+    ) {
         self.term = term
         self.decisionLevel = decisionLevel
         self.cause = cause
@@ -282,21 +285,24 @@ struct Assignment<Identifier: PackageContainerIdentifier>: Equatable {
 
     /// An assignment made during decision making.
     static func decision(_ term: Term<Identifier>, decisionLevel: Int) -> Assignment {
-        return self.init(term: term,
-                         decisionLevel: decisionLevel,
-                         cause: nil,
-                         isDecision: true)
+        return self.init(
+            term: term,
+            decisionLevel: decisionLevel,
+            cause: nil,
+            isDecision: true)
     }
 
     /// An assignment derived from previously known incompatibilities during
     /// unit propagation.
-    static func derivation(_ term: Term<Identifier>,
-                           cause: Incompatibility<Identifier>,
-                           decisionLevel: Int) -> Assignment {
-        return self.init(term: term,
-                         decisionLevel: decisionLevel,
-                         cause: cause,
-                         isDecision: false)
+    static func derivation(
+        _ term: Term<Identifier>,
+        cause: Incompatibility<Identifier>,
+        decisionLevel: Int) -> Assignment {
+        return self.init(
+            term: term,
+            decisionLevel: decisionLevel,
+            cause: cause,
+            isDecision: false)
     }
 }
 
@@ -341,9 +347,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     /// Create a new derivation assignment and add it to the partial solution's
     /// list of known assignments.
     func derive(_ term: Term<Identifier>, cause: Incompatibility<Identifier>) {
-        let derivation = Assignment.derivation(term,
-                                               cause: cause,
-                                               decisionLevel: decisionLevel)
+        let derivation = Assignment.derivation(term, cause: cause, decisionLevel: decisionLevel)
         self.assignments.append(derivation)
     }
 
@@ -378,33 +382,35 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     /// In the case that the satisfier alone does not satisfy the
     /// incompatibility, it is possible that `previous` and `satisifer` refer
     /// to the same assignment.
-    func earliestSatisfiers(for incompat: Incompatibility<Identifier>) -> (previous: Assignment<Identifier>?, satisfier: Assignment<Identifier>?) {
+    func earliestSatisfiers(
+        for incompat: Incompatibility<Identifier>
+    ) -> (previous: Assignment<Identifier>?, satisfier: Assignment<Identifier>?) {
 
-            var firstSatisfier: Assignment<Identifier>?
-            for idx in assignments.indices {
-                let slice = assignments[...idx]
-                if arraySatisfies(Array(slice), incompatibility: incompat) == .satisfied {
-                    firstSatisfier = assignments[idx]
-                    break
-                }
+        var firstSatisfier: Assignment<Identifier>?
+        for idx in assignments.indices {
+            let slice = assignments[...idx]
+            if arraySatisfies(Array(slice), incompatibility: incompat) == .satisfied {
+                firstSatisfier = assignments[idx]
+                break
             }
+        }
 
-            guard let satisfier = firstSatisfier else {
-                // The incompatibility is not (yet) satisfied by this solution's
-                // list of assignments.
-                return (nil, nil)
+        guard let satisfier = firstSatisfier else {
+            // The incompatibility is not (yet) satisfied by this solution's
+            // list of assignments.
+            return (nil, nil)
+        }
+
+        var previous: Assignment<Identifier>?
+        for idx in assignments.indices {
+            let slice = assignments[...idx] + [satisfier]
+            if arraySatisfies(Array(slice), incompatibility: incompat) == .satisfied {
+                previous = assignments[idx]
+                break
             }
+        }
 
-            var previous: Assignment<Identifier>?
-            for idx in assignments.indices {
-                let slice = assignments[...idx] + [satisfier]
-                if arraySatisfies(Array(slice), incompatibility: incompat) == .satisfied {
-                    previous = assignments[idx]
-                    break
-                }
-            }
-
-            return (previous, satisfier)
+        return (previous, satisfier)
     }
 
     /// Backtrack to a specific decision level by dropping all assignments with
@@ -420,21 +426,22 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     func versionIntersection(for package: Identifier) -> Term<Identifier>? {
         let packageAssignments = assignments.filter { $0.term.package == package }
         let firstTerm = packageAssignments.first?.term
-        guard let intersection = packageAssignments
-            .reduce(firstTerm, { result, assignment in
+        guard let intersection = packageAssignments.reduce(firstTerm, { result, assignment in
                 guard let res = result?.intersect(with: assignment.term) else {
                     return nil
                 }
                 return res
             })
-        else {
-            return nil
+            else {
+                return nil
         }
         return intersection
     }
 }
 
-fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(_ array: [Assignment<Identifier>], incompatibility: Incompatibility<Identifier>) -> Satisfaction<Identifier> {
+fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(
+    _ array: [Assignment<Identifier>], incompatibility: Incompatibility<Identifier>
+) -> Satisfaction<Identifier> {
     guard array.count > 0 else { return .unsatisfied }
 
     // Gather all terms which are satisfied by the assignments in the current solution.
@@ -513,7 +520,7 @@ public final class PubgrubDependencyResolver<
         _ provider: Provider,
         _ delegate: Delegate? = nil,
         skipUpdate: Bool = false
-    ) {
+        ) {
         self.provider = provider
         self.delegate = delegate
         self.skipUpdate = skipUpdate
@@ -560,7 +567,9 @@ public final class PubgrubDependencyResolver<
     /// resolution is unable to provide a result, an error is thrown.
     /// - Warning: It is expected that the root package reference has been set
     ///            before this is called.
-    public func solve(constraints: [Constraint], pins: [Constraint]) throws -> [(container: Identifier, binding: BoundVersion)] {
+    public func solve(
+        constraints: [Constraint], pins: [Constraint]
+    ) throws -> [(container: Identifier, binding: BoundVersion)] {
         // TODO: Handle pins
         assert(self.root != nil)
 
@@ -620,15 +629,14 @@ public final class PubgrubDependencyResolver<
             // resolution produces more general incompatibilities later on
             // making it advantageous to check those first.
             for incompatibility in incompatibilities[package]?.reversed() ?? [] {
-                    switch solution.satisfies(incompatibility) {
-                    case .unsatisfied:
-                        break
-                    case .satisfied:
-                        return incompatibility
-                    case .almostSatisfied(except: let term):
-                        solution.derive(term.inverse,
-                                        cause: incompatibility)
-                    }
+                switch solution.satisfies(incompatibility) {
+                case .unsatisfied:
+                    break
+                case .satisfied:
+                    return incompatibility
+                case .almostSatisfied(except: let term):
+                    solution.derive(term.inverse, cause: incompatibility)
+                }
             }
         }
 
@@ -682,9 +690,10 @@ public final class PubgrubDependencyResolver<
                     }
                 }
 
-                incompatibility = Incompatibility(priorCauseTerms,
-                                                  cause: .conflict(conflict: conflict,
-                                                                   other: incompatibility))
+                incompatibility = Incompatibility(
+                    priorCauseTerms,
+                    cause: .conflict(conflict: conflict, other: incompatibility)
+                )
             }
         }
 
@@ -738,11 +747,10 @@ public final class PubgrubDependencyResolver<
 
             // add `version` to partial solution as a decision, unless this would produce a conflict in any of the new incompatibilities
             // FIXME: Use correct cause
-            let _ = Incompatibility(Term(candidate.package, .versionSet(.exact(version))),
-                                                    cause: .root)
-//            if case .satisfied = solution.satisfies(candidateIncompat) {
-//                continue // TODO: is this correct?
-//            }
+            let _ = Incompatibility(Term(candidate.package, .versionSet(.exact(version))), cause: .root)
+            //            if case .satisfied = solution.satisfies(candidateIncompat) {
+            //                continue // TODO: is this correct?
+            //            }
             solution.decide(Term(candidate.package, .versionSet(.exact(version))))
 
             return candidate.package
@@ -773,9 +781,11 @@ public final class PubgrubDependencyResolver<
         return stream.bytes.asString!
     }
 
-    private func visit(_ incompatibility: Incompatibility<Identifier>,
-                       _ stream: BufferedOutputByteStream,
-                       isConclusion: Bool = false) {
+    private func visit(
+        _ incompatibility: Incompatibility<Identifier>,
+        _ stream: BufferedOutputByteStream,
+        isConclusion: Bool = false
+    ) {
 
         let isNumbered = isConclusion || derivations[incompatibility]! > 1
 
@@ -817,22 +827,22 @@ public final class PubgrubDependencyResolver<
                     visit(simple, stream)
                     visit(complex, stream)
                     write(incompatibility,
-                          message: "Thus, \(incompatibility)",
-                          isNumbered: isNumbered,
-                          toStream: stream)
+                        message: "Thus, \(incompatibility)",
+                        isNumbered: isNumbered,
+                        toStream: stream)
                 } else {
                     visit(lhs, stream, isConclusion: true)
                     write(incompatibility,
-                          message: "\n",
-                          isNumbered: isNumbered,
-                          toStream: stream)
+                        message: "\n",
+                        isNumbered: isNumbered,
+                        toStream: stream)
 
                     visit(rhs, stream)
                     // TODO: lhsLine will always be nil here...
                     write(incompatibility,
-                          message: "And because \(lhs) (\(lhsLine ?? -1)), \(incompatibility).",
-                          isNumbered: isNumbered,
-                          toStream: stream)
+                        message: "And because \(lhs) (\(lhsLine ?? -1)), \(incompatibility).",
+                        isNumbered: isNumbered,
+                        toStream: stream)
                 }
 
             }
@@ -849,9 +859,9 @@ public final class PubgrubDependencyResolver<
 
             if let derivedLine = lineNumbers[derived] {
                 write(incompatibility,
-                      message: "Because \(external) and \(derived) (\(derivedLine)), \(incompatibility).",
-                      isNumbered: isNumbered,
-                      toStream: stream)
+                    message: "Because \(external) and \(derived) (\(derivedLine)), \(incompatibility).",
+                    isNumbered: isNumbered,
+                    toStream: stream)
             } else if derivations[incompatibility]! <= 1 {
                 guard case .conflict(let lhs, let rhs) = derived.cause else {
                     // FIXME
@@ -861,21 +871,21 @@ public final class PubgrubDependencyResolver<
                 let collapsedExternal = lhs.cause.isConflict ? rhs : lhs
                 visit(collapsedDerived, stream)
                 write(incompatibility,
-                      message: "And because \(collapsedExternal) and \(external), \(incompatibility).",
-                      isNumbered: isNumbered,
-                      toStream: stream)
+                    message: "And because \(collapsedExternal) and \(external), \(incompatibility).",
+                    isNumbered: isNumbered,
+                    toStream: stream)
             } else {
                 visit(derived, stream)
                 write(incompatibility,
-                      message: "And because \(external), \(incompatibility).",
-                      isNumbered: isNumbered,
-                      toStream: stream)
+                    message: "And because \(external), \(incompatibility).",
+                    isNumbered: isNumbered,
+                    toStream: stream)
             }
         default:
             write(incompatibility,
-                  message: "Because \(lhs) and \(rhs), \(incompatibility).",
-                  isNumbered: isNumbered,
-                  toStream: stream)
+                message: "Because \(lhs) and \(rhs), \(incompatibility).",
+                isNumbered: isNumbered,
+                toStream: stream)
         }
     }
 
@@ -885,10 +895,12 @@ public final class PubgrubDependencyResolver<
     /// the incompatibility and how it as derived. If `isNumbered` is true, a
     /// line number will be assigned to this incompatibility so that it can be
     /// referred to again.
-    private func write(_ i: Incompatibility<Identifier>,
-                       message: String,
-                       isNumbered: Bool,
-                       toStream stream: BufferedOutputByteStream) {
+    private func write(
+        _ i: Incompatibility<Identifier>,
+        message: String,
+        isNumbered: Bool,
+        toStream stream: BufferedOutputByteStream
+    ) {
         if isNumbered {
             let number = lineNumbers.count + 1
             lineNumbers[i] = number
