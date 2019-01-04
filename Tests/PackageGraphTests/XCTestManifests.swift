@@ -9,6 +9,7 @@ extension DependencyResolverTests {
         ("testBasics", testBasics),
         ("testCompleteness", testCompleteness),
         ("testContainerConstraintSet", testContainerConstraintSet),
+        ("testCycle", testCycle),
         ("testDiagnostics", testDiagnostics),
         ("testExactConstraint", testExactConstraint),
         ("testIncompleteMode", testIncompleteMode),
