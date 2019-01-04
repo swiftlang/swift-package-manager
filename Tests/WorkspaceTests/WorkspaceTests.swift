@@ -225,6 +225,42 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+	func testDuplicateRootPackages() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: []),
+                    ],
+                    products: [],
+                    dependencies: []
+                ),
+                TestPackage(
+                    name: "Foo",
+                    path: "Nested/Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: []),
+                    ],
+                    products: [],
+                    dependencies: []
+                ),
+            ],
+            packages: []
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo", "Nested/Foo"]) { (graph, diagnostics) in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .equal("found multiple top-level packages named 'Foo'"), behavior: .error)
+            }
+        }
+    }
+
     /// Test that the remote repository is not resolved when a root package with same name is already present.
     func testRootAsDependency1() throws {
         let sandbox = AbsolutePath("/tmp/ws/")

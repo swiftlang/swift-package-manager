@@ -38,7 +38,6 @@ public final class TestWorkspace {
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         skipUpdate: Bool = false
     ) throws {
-        precondition(Set(roots.map({$0.name})).count == roots.count, "Root packages should be unique")
         self.sandbox = sandbox
         self.fs = fs
         self.config = SwiftPMConfig(path: sandbox.appending(component: "swiftpm"), fs: fs)
@@ -155,7 +154,7 @@ public final class TestWorkspace {
     }
 
     public func rootPaths(for packages: [String]) -> [AbsolutePath] {
-        return packages.map({ rootsDir.appending(component: $0) })
+        return packages.map({ rootsDir.appending(RelativePath($0)) })
     }
 
     public struct PackageDependency {

@@ -665,9 +665,18 @@ extension Workspace {
         packages: [AbsolutePath],
         diagnostics: DiagnosticsEngine
     ) -> [Manifest] {
-        return packages.compactMap({ package -> Manifest? in
-			loadManifest(packagePath: package, url: package.asString, diagnostics: diagnostics)
+        let rootManifests = packages.compactMap({ package -> Manifest? in
+            loadManifest(packagePath: package, url: package.asString, diagnostics: diagnostics)
         })
+
+        // Check for duplicate root packages.
+        let duplicateRoots = rootManifests.spm_findDuplicateElements(by: \.name)
+        if !duplicateRoots.isEmpty {
+            diagnostics.emit(data: WorkspaceDiagnostics.DuplicateRoots(name: duplicateRoots[0][0].name))
+            return []
+        }
+
+        return rootManifests
     }
 }
 

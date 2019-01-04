@@ -443,4 +443,16 @@ public enum WorkspaceDiagnostics {
             }
         )
     }
+
+    public struct DuplicateRoots: DiagnosticData {
+        public static let id = DiagnosticID(
+            type: DuplicateRoots.self,
+            name: "org.swift.diags.workspace.\(DuplicateRoots.self)",
+            description: {
+                $0 <<< "found multiple top-level packages named" <<< { "'" + $0.name + "'" }
+            }
+        )
+
+        let name: String
+    }
 }
