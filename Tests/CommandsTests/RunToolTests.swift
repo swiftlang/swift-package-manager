@@ -44,7 +44,7 @@ final class RunToolTests: XCTestCase {
                 """))
 
             // swift-build-tool output should go to stderr.
-            XCTAssertMatch(try result.utf8stderrOutput(), .regex("Compil(e|ing) Swift Module"))
+            XCTAssertMatch(try result.utf8stderrOutput(), .regex("Compiling"))
             XCTAssertMatch(try result.utf8stderrOutput(), .contains("Linking"))
 
             do {
