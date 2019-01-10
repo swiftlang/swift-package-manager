@@ -955,6 +955,11 @@ fileprivate func constructTestEnvironment(
         env["LLVM_PROFILE_FILE"] = codecovProfile.asString
     }
 
+  #if os(macOS)
+    // Add path to Swift stdlib.
+    env["DYLD_LIBRARY_PATH"] = toolchain.makeDyldLibPath(withExistingValue: env["DYLD_LIBRARY_PATH"])
+  #endif
+
   #if !os(macOS)
     return env
   #else
