@@ -10,6 +10,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+// This is an empty patch, used to diagnose CI build failures.
+
 import PackageDescription
 
 let package = Package(
