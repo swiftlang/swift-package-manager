@@ -336,6 +336,12 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
 /// Delegate interface for dependency resoler status.
 public protocol DependencyResolverDelegate {
     associatedtype Identifier: PackageContainerIdentifier
+
+    func trace(_ step: TraceStep)
+}
+
+public extension DependencyResolverDelegate {
+    func trace(_ step: TraceStep) { }
 }
 
 // FIXME: This should be nested, but cannot be currently.

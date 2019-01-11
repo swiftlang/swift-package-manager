@@ -514,13 +514,33 @@ enum Satisfaction<Identifier: PackageContainerIdentifier>: Equatable {
     case unsatisfied
 }
 
-struct TraceStep {
-    let value: String
-    let type: String
-    let location: String
+/// A step the resolver takes to advance its progress, e.g. deriving a new assignment
+/// or creating a new incompatibility based on a package's dependencies.
+/// These are reported to the resolver's delegate.
+public struct TraceStep {
+    let value: Traceable
+    let type: StepType
+    let location: Location
     let cause: String?
-    let decisionLevel: Int?
+    let decisionLevel: Int
+
+    enum StepType: String {
+        case incompatibility
+        case decision
+        case derivation
+    }
+
+    enum Location: String {
+        case topLevel = "top level"
+        case unitPropagation = "unit propagation"
+        case decisionMaking = "decision making"
+        case conflictResolution = "conflict resolution"
+    }
 }
+
+public protocol Traceable: CustomStringConvertible {}
+extension Incompatibility: Traceable {}
+extension Term: Traceable {}
 
 /// The solver that is able to transitively resolve a set of package constraints
 /// specified by a root package.
@@ -547,6 +567,18 @@ public final class PubgrubDependencyResolver<
     /// refer to. This means an incompatibility can occur several times.
     var incompatibilities: [Identifier: [Incompatibility<Identifier>]] = [:]
 
+    /// Find all incompatibilities containing a positive term for a given package.
+    func positiveIncompatibilities(for package: Identifier) -> [Incompatibility<Identifier>]? {
+        guard let all = incompatibilities[package] else {
+            return nil
+        }
+        return all.filter {
+            $0.terms.contains { term in
+                term.package == package && term.isPositive == true
+            }
+        }
+    }
+
     /// The root package reference.
     var root: Identifier?
 
@@ -562,28 +594,28 @@ public final class PubgrubDependencyResolver<
     /// Skip updating containers while fetching them.
     private let skipUpdate: Bool
 
-    var saveTraceSteps = false
-    var traceSteps: [TraceStep] = []
     func trace(
-        value: String,
-        type: String,
-        location: String,
+        value: Traceable,
+        type: TraceStep.StepType,
+        location: TraceStep.Location,
         cause: String?
         ) {
-        guard saveTraceSteps else { return }
-        traceSteps.append(TraceStep(value: value,
-                                    type: type,
-                                    location: location,
-                                    cause: cause,
-                                    decisionLevel: solution.decisionLevel))
+        delegate?.trace(TraceStep(value: value,
+                                  type: type,
+                                  location: location,
+                                  cause: cause,
+                                  decisionLevel: solution.decisionLevel))
     }
-    func traceDescription() -> String {
-        let headers = ["Step", "Value", "Type", "Location", "Cause", "Dec. Lvl."]
-        let values = traceSteps.enumerated().map { (idx, s) -> [String] in
-            let decLvl = s.decisionLevel == nil ? "" : "\(s.decisionLevel!)"
-            return ["\(idx + 1)", s.value, s.type, s.location, s.cause ?? "", decLvl]
-        }
-        return textTable([headers] + values)
+
+    func decide(_ package: Identifier, version: Version, location: TraceStep.Location) {
+        let term = Term(package, .versionSet(.exact(version)))
+        trace(value: term, type: .decision, location: location, cause: nil)
+        solution.decide(term)
+    }
+
+    func derive(_ term: Term<Identifier>, cause: Incompatibility<Identifier>, location: TraceStep.Location) {
+        trace(value: term, type: .derivation, location: location, cause: nil)
+        solution.derive(term, cause: cause)
     }
 
     public init(
@@ -597,10 +629,13 @@ public final class PubgrubDependencyResolver<
     }
 
     /// Add a new incompatibility to the list of known incompatibilities.
-    func add(_ incompatibility: Incompatibility<Identifier>) {
+    func add(_ incompatibility: Incompatibility<Identifier>, location: TraceStep.Location) {
+        trace(value: incompatibility, type: .incompatibility, location: location, cause: nil)
         for package in incompatibility.terms.map({ $0.package }) {
             if incompatibilities[package] != nil {
-                incompatibilities[package]!.append(incompatibility)
+                if !incompatibilities[package]!.contains(incompatibility) {
+                    incompatibilities[package]!.append(incompatibility)
+                }
             } else {
                 incompatibilities[package] = [incompatibility]
             }
@@ -641,19 +676,19 @@ public final class PubgrubDependencyResolver<
         constraints: [Constraint], pins: [Constraint]
     ) throws -> [(container: Identifier, binding: BoundVersion)] {
         // TODO: Handle pins
-        assert(self.root != nil)
+        guard let root = self.root else {
+            fatalError("Expected resolver root reference to be set.")
+        }
 
         // Handle root, e.g. add dependencies and root decision.
-        solution.decide(Term(self.root!, .versionSet(.exact("1.0.0"))))
-        trace(value: "root 1.0.0", type: "decision", location: "top level", cause: nil)
+        decide(root, version: "1.0.0", location: .topLevel)
 
         let rootContainer = try getContainer(for: self.root!)
         for dependency in try rootContainer.getUnversionedDependencies() {
             let incompatibility = Incompatibility(
-                Term(self.root!, .versionSet(.exact("1.0.0"))),
+                Term(root, .versionSet(.exact("1.0.0"))),
                 Term(not: dependency.identifier, dependency.requirement), cause: .root)
-            add(incompatibility)
-            trace(value: "\(incompatibility)", type: "incompatibility", location: "top level", cause: nil)
+            add(incompatibility, location: .topLevel)
         }
 
         var next: Identifier? = root
@@ -680,7 +715,7 @@ public final class PubgrubDependencyResolver<
         }
 
         let decisions = solution.assignments.filter { $0.isDecision }
-        return decisions.map { assignment in
+        let finalAssignments: [(container: Identifier, binding: BoundVersion)] = decisions.map { assignment in
             var boundVersion: BoundVersion
             switch assignment.term.requirement {
             case .versionSet(.exact(let version)):
@@ -698,6 +733,8 @@ public final class PubgrubDependencyResolver<
 
             return (assignment.term.package, boundVersion)
         }
+
+        return finalAssignments.filter { $0.container != root }
     }
 
     /// Perform unit propagation to derive new assignments based on the current
@@ -711,14 +748,14 @@ public final class PubgrubDependencyResolver<
             // According to the experience of pub developers, conflict
             // resolution produces more general incompatibilities later on
             // making it advantageous to check those first.
-            for incompatibility in incompatibilities[package]?.reversed() ?? [] {
+            for incompatibility in positiveIncompatibilities(for: package)?.reversed() ?? [] {
                 switch solution.satisfies(incompatibility) {
                 case .unsatisfied:
                     break
                 case .satisfied:
                     return incompatibility
                 case .almostSatisfied(except: let term):
-                    solution.derive(term.inverse, cause: incompatibility)
+                    derive(term.inverse, cause: incompatibility, location: .unitPropagation)
                 }
             }
         }
@@ -756,7 +793,7 @@ public final class PubgrubDependencyResolver<
 
             if satisfier.isDecision || previousSatisfierLevel != satisfier.decisionLevel {
                 if incompatibility != conflict {
-                    add(incompatibility)
+                    add(incompatibility, location: .conflictResolution)
                 }
                 solution.backtrack(toDecisionLevel: previousSatisfierLevel)
                 return incompatibility
@@ -794,10 +831,10 @@ public final class PubgrubDependencyResolver<
     }
 
     func makeDecision() throws -> Identifier? {
-        // If there are no more unsatisfied terms, version solving is complete.
+        // If there are no more undecided terms, version solving is complete.
         guard !solution.undecided.isEmpty else { return nil }
 
-        // Select a possible candidate from all unsatisfied assignments, making
+        // Select a possible candidate from all undecided assignments, making
         // sure it only exists as a positive derivation and no decision.
         for candidate in solution.undecided where candidate.isValidDecision(for: solution) {
             guard let term = solution.versionIntersection(for: candidate.package) else {
@@ -814,8 +851,7 @@ public final class PubgrubDependencyResolver<
             guard let version = latestVersion else {
                 // FIXME: Use correct cause
                 let incompatibility = Incompatibility(term, cause: .root)
-                add(incompatibility)
-                trace(value: "\(incompatibility)", type: "incompatibility", location: "decision making", cause: nil)
+                add(incompatibility, location: .decisionMaking)
                 continue
             }
 
@@ -826,9 +862,9 @@ public final class PubgrubDependencyResolver<
                         Term(candidate.package, .versionSet(.exact(version))),
                         Term(not: dep.identifier, dep.requirement)
                     ]
-                    return Incompatibility(terms, cause: Incompatibility<Identifier>.Cause.dependency(package: candidate.package))
+                    return Incompatibility(terms, cause: .dependency(package: candidate.package))
                 }
-                .forEach { add($0) }
+                .forEach { add($0, location: .decisionMaking) }
 
             // add `version` to partial solution as a decision, unless this would produce a conflict in any of the new incompatibilities
             // FIXME: Use correct cause
@@ -836,9 +872,7 @@ public final class PubgrubDependencyResolver<
             //            if case .satisfied = solution.satisfies(candidateIncompat) {
             //                continue // TODO: is this correct?
             //            }
-            let decision = Term(candidate.package, .versionSet(.exact(version)))
-            solution.decide(decision)
-            trace(value: "\(decision)", type: "decision", location: "decision making", cause: nil)
+            decide(candidate.package, version: version, location: .decisionMaking)
 
             return candidate.package
         }
@@ -1033,42 +1067,4 @@ public final class PubgrubDependencyResolver<
             return container
         }
     }
-}
-
-fileprivate func textTable(_ data: [[String]]) -> String {
-    guard let firstRow = data.first, !firstRow.isEmpty else {
-        return ""
-    }
-
-    func maxWidth(_ array: [String]) -> Int {
-        guard let maxElement = array.max(by: { $0.count < $1.count }) else {
-            return 0
-        }
-        return maxElement.count
-    }
-
-    func pad(_ string: String, _ padding: Int) -> String {
-        let padding = padding - (string.count - 1)
-        guard padding >= 0 else {
-            return string
-        }
-        return " " + string + Array(repeating: " ", count: padding).joined()
-    }
-
-    var columns = [[String]]()
-    for i in 0..<firstRow.count {
-        columns.append(data.map { $0[i] })
-    }
-
-    let dividerLine = columns
-        .map { Array(repeating: "-", count: maxWidth($0) + 2).joined() }
-        .reduce("+") { $0 + $1 + "+" }
-
-    return data
-        .reduce([dividerLine]) { result, row -> [String] in
-            let rowString = zip(row, columns)
-                .map { pad(String(describing: $0), maxWidth($1)) }
-                .reduce("|") { $0 + $1 + "|" }
-            return result + [rowString, dividerLine]}
-        .joined(separator: "\n")
 }

@@ -117,6 +117,66 @@ public class _MockResolverDelegate: DependencyResolverDelegate {
     public typealias Identifier = _MockPackageContainer.Identifier
 
     public init() {}
+
+    var traceSteps: [TraceStep] = []
+
+    public func trace(_ step: TraceStep) {
+        traceSteps.append(step)
+    }
+
+    func traceDescription() -> String {
+        let headers = ["Step", "Value", "Type", "Location", "Cause", "Dec. Lvl."]
+        let values = traceSteps.enumerated().map { val -> [String] in
+            let (idx, s) = val
+            return [
+                "\(idx + 1)",
+                s.value.description,
+                s.type.rawValue,
+                s.location.rawValue,
+                s.cause ?? "",
+                String(s.decisionLevel)
+            ]
+        }
+        return textTable([headers] + values)
+    }
+
+    func textTable(_ data: [[String]]) -> String {
+        guard let firstRow = data.first, !firstRow.isEmpty else {
+            return ""
+        }
+
+        func maxWidth(_ array: [String]) -> Int {
+            guard let maxElement = array.max(by: { $0.count < $1.count }) else {
+                return 0
+            }
+            return maxElement.count
+        }
+
+        func pad(_ string: String, _ padding: Int) -> String {
+            let padding = padding - (string.count - 1)
+            guard padding >= 0 else {
+                return string
+            }
+            return " " + string + Array(repeating: " ", count: padding).joined()
+        }
+
+        var columns = [[String]]()
+        for i in 0..<firstRow.count {
+            columns.append(data.map { $0[i] })
+        }
+
+        let dividerLine = columns
+            .map { Array(repeating: "-", count: maxWidth($0) + 2).joined() }
+            .reduce("+") { $0 + $1 + "+" }
+
+        return data
+            .reduce([dividerLine]) { result, row -> [String] in
+                let rowString = zip(row, columns)
+                    .map { pad(String(describing: $0), maxWidth($1)) }
+                    .reduce("|") { $0 + $1 + "|" }
+                return result + [rowString, dividerLine]}
+            .joined(separator: "\n")
+    }
 }
 
 
@@ -354,9 +414,9 @@ final class PubgrubTests: XCTestCase {
         let solver = PubgrubDependencyResolver(emptyProvider, delegate)
 
         let a = Incompatibility(term("a@1.0.0"))
-        solver.add(a)
+        solver.add(a, location: .topLevel)
         let ab = Incompatibility(term("a@1.0.0"), term("b@2.0.0"))
-        solver.add(ab)
+        solver.add(ab, location: .topLevel)
 
         XCTAssertEqual(solver.incompatibilities, [
             "a": [a, ab],
@@ -371,7 +431,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertNil(solver1.propagate("root"))
 
         // even if incompatibilities are present
-        solver1.add(Incompatibility(term("a@1.0.0")))
+        solver1.add(Incompatibility(term("a@1.0.0")), location: .topLevel)
         XCTAssertNil(solver1.propagate("a"))
 
         // adding a satisfying term should result in a conflict
@@ -381,7 +441,7 @@ final class PubgrubTests: XCTestCase {
         // Unit propagation should derive a new assignment from almost satisfied incompatibilities.
         let solver2 = PubgrubDependencyResolver(emptyProvider, delegate)
         solver2.add(Incompatibility(Term("root", .versionSet(.any)),
-                                   term("¬a@1.0.0")))
+                                    term("¬a@1.0.0")), location: .topLevel)
         solver2.solution.decide(term("root@1.0.0"))
         XCTAssertEqual(solver2.solution.assignments.count, 1)
         XCTAssertNil(solver2.propagate(PackageReference(identity: "root", path: "")))
@@ -393,14 +453,8 @@ final class PubgrubTests: XCTestCase {
         solver1.root = rootRef
 
         let notRoot = Incompatibility(Term(not: rootRef, .versionSet(.any)), cause: .root)
-        solver1.add(notRoot)
+        solver1.add(notRoot, location: .topLevel)
         XCTAssertNil(solver1.resolve(conflict: notRoot))
-
-//        let solver2 = PubgrubDependencyResolver(emptyProvider, delegate)
-//        solver2.add(notRoot)
-//        solver2.add(Incompatibility("a^1.0.0", cause: .dependency(package: rootRef)))
-//        let resolved = solver2.resolve(conflict: Incompatibility("a^1.5.0")) // -> nil
-//        XCTAssertEqual(resolved, Incompatibility(term("a^1.5.0")))
     }
 
     func testResolverDecisionMaking() {
@@ -432,7 +486,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(solver2.incompatibilities["a"], [Incompatibility<PackageReference>("a@1.0.0", "¬b^1.0.0", cause: .dependency(package: "a"))])
     }
 
-    func testPubgrubNoConflicts() {
+    func testResolutionNoConflicts() {
         let root = _MockPackageContainer(name: rootRef)
         root.unversionedDeps = [_MockPackageConstraint(container: aRef, versionRequirement: v1Range)]
         let a = _MockPackageContainer(name: aRef, dependenciesByVersion: [
@@ -447,15 +501,14 @@ final class PubgrubTests: XCTestCase {
         let delegate = _MockResolverDelegate()
         let resolver = PubgrubDependencyResolver(provider, delegate)
 
-        resolver.saveTraceSteps = true
-
         let result = resolver.solve(root: rootRef, pins: [])
-//        print(resolver.traceDescription())
 
         switch result {
         case .success(let bindings):
             XCTAssertEqual(bindings.count, 2)
-            XCTAssert(bindings.allSatisfy { $0.binding == .version("1.0.0") })
+            let (a, b) = (bindings[0], bindings[1])
+            XCTAssertEqual(a.binding, .version("1.0.0"))
+            XCTAssertEqual(b.binding, .version("1.0.0"))
         case .error(let error):
             XCTFail("Unexpected error: \(error)")
         case .unsatisfiable(dependencies: let constraints, pins: let pins):
