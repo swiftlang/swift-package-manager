@@ -96,7 +96,7 @@ def main():
     """Main script entry-point."""
 
     parser = argparse.ArgumentParser(
-        usage="%(prog)s [build|run|bootstrap|swift-build|swift-test|swift-run]",
+        usage="%(prog)s [build|run|bootstrap|spm]",
         description="This script simplifies all the docker operations to build "
                     "and run a container for SwiftPM development and testing "
                     "on Linux.")
@@ -123,26 +123,12 @@ def main():
     parser_bootstrap.add_argument("arguments", nargs="*")
     parser_bootstrap.set_defaults(func=bootstrap)
 
-    # swift-build
+    # spm
     parser_swift_build = subparsers.add_parser(
-        "swift-build",
-        help="runs the swift-build executable in a container.")
+        "spm",
+        help="runs the spm helper script in a container.")
     parser_swift_build.add_argument("arguments", nargs="*")
     parser_swift_build.set_defaults(func=build_run)
-
-    # swift-test
-    parser_swift_test = subparsers.add_parser(
-        "swift-test",
-        help="runs the swift-test executable in a container.")
-    parser_swift_test.add_argument("arguments", nargs="*")
-    parser_swift_test.set_defaults(func=build_run)
-
-    # swift-run
-    parser_swift_run = subparsers.add_parser(
-        "swift-run",
-        help="runs the swift-run executable in a container.")
-    parser_swift_run.add_argument("arguments", nargs="*")
-    parser_swift_run.set_defaults(func=build_run)
 
     args = parser.parse_args()
     args.func(args)
