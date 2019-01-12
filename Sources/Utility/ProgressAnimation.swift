@@ -105,8 +105,16 @@ public final class RedrawingNinjaProgressAnimation: ProgressAnimationProtocol {
         assert(step <= total)
 
         terminal.clearLine()
-        terminal.write("[\(step)/\(total)] ")
-        terminal.write(text)
+
+        let progressText = "[\(step)/\(total)] \(text)"
+        if progressText.utf8.count > terminal.width {
+            let suffix = "…"
+            terminal.write(String(progressText.prefix(terminal.width - suffix.utf8.count)))
+            terminal.write(suffix)
+        } else {
+            terminal.write(progressText)
+        }
+
         hasDisplayedProgress = true
     }
 
