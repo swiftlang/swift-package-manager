@@ -14,6 +14,7 @@ import Basic
 import Utility
 import TestSupport
 import PackageModel
+import PackageLoading
 
 @testable import Build
 
