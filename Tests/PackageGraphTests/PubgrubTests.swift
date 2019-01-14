@@ -492,7 +492,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(decision, "a")
 
         XCTAssertEqual(solver2.incompatibilities.count, 2)
-        XCTAssertEqual(solver2.incompatibilities["a"], [Incompatibility<PackageReference>("a@1.0.0", "¬b^1.0.0", cause: .dependency(package: "a"))])
+        XCTAssertEqual(solver2.incompatibilities["a"], [Incompatibility<PackageReference>("a^1.0.0", "¬b^1.0.0", cause: .dependency(package: "a"))])
     }
 
     func testResolutionNoConflicts() {
@@ -507,7 +507,6 @@ final class PubgrubTests: XCTestCase {
         ])
 
         let provider = _MockPackageProvider(containers: [root, a, b])
-        let delegate = _MockResolverDelegate()
         let resolver = PubgrubDependencyResolver(provider, delegate)
 
         let result = resolver.solve(root: rootRef, pins: [])
@@ -515,9 +514,45 @@ final class PubgrubTests: XCTestCase {
         switch result {
         case .success(let bindings):
             XCTAssertEqual(bindings.count, 2)
-            let (a, b) = (bindings[0], bindings[1])
-            XCTAssertEqual(a.binding, .version("1.0.0"))
-            XCTAssertEqual(b.binding, .version("1.0.0"))
+            let a = bindings.first { $0.container.identity == "a" }
+            let b = bindings.first { $0.container.identity == "b" }
+            XCTAssertEqual(a?.binding, .version("1.0.0"))
+            XCTAssertEqual(b?.binding, .version("1.0.0"))
+        case .error(let error):
+            XCTFail("Unexpected error: \(error)")
+        case .unsatisfiable(dependencies: let constraints, pins: let pins):
+            XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)")
+        }
+    }
+
+    func testResolutionAvoidingConflictResolutionDuringDecisionMaking() {
+        let root = _MockPackageContainer(name: rootRef)
+        root.unversionedDeps = [
+            _MockPackageConstraint(container: aRef, versionRequirement: v1Range),
+            _MockPackageConstraint(container: bRef, versionRequirement: v1Range)
+        ]
+        let a = _MockPackageContainer(name: aRef, dependenciesByVersion: [
+            v1: [],
+            v1_1: [(container: bRef, versionRequirement: v2Range)]
+            ])
+        let b = _MockPackageContainer(name: bRef, dependenciesByVersion: [
+            v1: [],
+            v1_1: [],
+            v2: []
+            ])
+
+        let provider = _MockPackageProvider(containers: [root, a, b])
+        let resolver = PubgrubDependencyResolver(provider, delegate)
+
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        switch result {
+        case .success(let bindings):
+            XCTAssertEqual(bindings.count, 2)
+            let a = bindings.first { $0.container.identity == "a" }
+            let b = bindings.first { $0.container.identity == "b" }
+            XCTAssertEqual(a?.binding, .version("1.0.0"))
+            XCTAssertEqual(b?.binding, .version("1.1.0"))
         case .error(let error):
             XCTFail("Unexpected error: \(error)")
         case .unsatisfiable(dependencies: let constraints, pins: let pins):

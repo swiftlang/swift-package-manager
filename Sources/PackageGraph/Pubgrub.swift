@@ -880,40 +880,41 @@ public final class PubgrubDependencyResolver<
                 fatalError("failed to create version intersection for \(candidate.package)")
             }
 
-            // select an actual `version` of `candidate` that matches `term`
             let container = try! getContainer(for: term.package)
-            let latestVersion = Array(container.versions { term.isSatisfied(by: $0) }).first
 
-            // if no such version exists
-            //    add incompatibility {term} to incompatibilities and return package's name
-            //    this avoids this range of versions in the future
-            guard let version = latestVersion else {
-                // FIXME: Use correct cause
-                let incompatibility = Incompatibility(term, cause: .root)
-                add(incompatibility, location: .decisionMaking)
-                continue
-            }
+            var latestVersion: Version?
+            versionSelection: for version in container.versions(filter: { term.isSatisfied(by: $0) }) {
+                if latestVersion == nil { latestVersion = version }
 
-            // add each incompatibility from version's dependencies to incompatibilities
-            try container.getDependencies(at: version)
-                .map { dep -> Incompatibility<Identifier> in
-                    let terms: Set = [
-                        Term(candidate.package, .versionSet(.exact(version))),
-                        Term(not: dep.identifier, dep.requirement)
-                    ]
-                    return Incompatibility(terms, cause: .dependency(package: candidate.package))
+                // Add all of this version's dependencies as incompatibilities.
+                let depIncompatibilities = try container.getDependencies(at: version)
+                    .map { dep -> Incompatibility<Identifier> in
+                        var terms: Set<Term<Identifier>> = []
+                        if version == latestVersion {
+                            let nextMajor = Version(version.major + 1, 0, 0)
+                            terms.insert(Term(candidate.package, .versionSet(.range(version..<nextMajor))))
+                            terms.insert(Term(not: dep.identifier, dep.requirement))
+                        } else {
+                            terms.insert(Term(candidate.package, .versionSet(.exact(version))))
+                            terms.insert(Term(not: dep.identifier, dep.requirement))
+                        }
+                        return Incompatibility(terms, cause: .dependency(package: candidate.package))
                 }
-                .forEach { add($0, location: .decisionMaking) }
+                depIncompatibilities.forEach { add($0, location: .decisionMaking) }
 
-            // add `version` to partial solution as a decision, unless this would produce a conflict in any of the new incompatibilities
-            // FIXME: Use correct cause
-            let _ = Incompatibility(Term(candidate.package, .versionSet(.exact(version))), cause: .root)
-            //            if case .satisfied = solution.satisfies(candidateIncompat) {
-            //                continue // TODO: is this correct?
-            //            }
-            decide(candidate.package, version: version, location: .decisionMaking)
+                for incompat in depIncompatibilities {
+                    // Check if this decision would result in a conflict when
+                    // added. If so, we try the next earlier version instead.
+                    let tmp = PartialSolution(assignments: solution.assignments)
+                    tmp.decide(candidate.package, atExactVersion: version)
+                    if case .satisfied = tmp.satisfies(incompat) {
+                        continue versionSelection
+                    }
+                }
 
-            return candidate.package
+                decide(candidate.package, version: version, location: .decisionMaking)
+                return candidate.package
+            }
         }
 
         return nil
