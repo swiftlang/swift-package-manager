@@ -232,3 +232,54 @@ func removeDefaultFlags(cFlags: [String], libs: [String]) -> ([String], [String]
     }
     return (remove(flag: ("-I", "/usr/include"), from: cFlags), remove(flag: ("-L", "/usr/lib"), from: libs))
 }
+
+public struct PkgConfigDiagnosticLocation: DiagnosticLocation {
+    public let pcFile: String
+    public let target: String
+
+    public init(pcFile: String, target: String) {
+        self.pcFile = pcFile
+        self.target = target
+    }
+
+    public var localizedDescription: String {
+        return "'\(target)' \(pcFile).pc"
+    }
+}
+
+public struct PkgConfigGenericDiagnostic: DiagnosticData {
+    public static let id = DiagnosticID(
+        type: PkgConfigGenericDiagnostic.self,
+        name: "org.swift.diags.pkg-config-generic",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< { $0.error }
+        }
+    )
+
+    public let error: String
+
+    public init(error: String) {
+        self.error = error
+    }
+}
+
+public struct PkgConfigHintDiagnostic: DiagnosticData {
+    public static let id = DiagnosticID(
+        type: PkgConfigHintDiagnostic.self,
+        name: "org.swift.diags.pkg-config-hint",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "you may be able to install" <<< { $0.pkgConfigName } <<< "using your system-packager:\n"
+            $0 <<< { $0.installText }
+        }
+    )
+
+    public let pkgConfigName: String
+    public let installText: String
+
+    public init(pkgConfigName: String, installText: String) {
+        self.pkgConfigName = pkgConfigName
+        self.installText = installText
+    }
+}
