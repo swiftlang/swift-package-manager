@@ -274,6 +274,15 @@ final class PubgrubTests: XCTestCase {
         XCTAssertFalse(partiallySatisfied.isValidDecision(for: solution100_150))
     }
 
+    func testIncompatibilityNormalizeTermsOnInit() {
+        let i = Incompatibility(term("a^1.0.0"), term("a^1.5.0"), term("¬b@1.0.0"))
+        XCTAssertEqual(i.terms.count, 2)
+        let a = i.terms.first { $0.package == "a" }
+        let b = i.terms.first { $0.package == "b" }
+        XCTAssertEqual(a?.requirement, .versionSet(.range("1.5.0"..<"2.0.0")))
+        XCTAssertEqual(b?.requirement, .versionSet(.exact("1.0.0")))
+    }
+
     func testSolutionPositive() {
         let s1 = PartialSolution(assignments:[
             .derivation("a^1.5.0", cause: _cause, decisionLevel: 0),

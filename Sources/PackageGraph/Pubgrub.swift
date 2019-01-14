@@ -91,22 +91,26 @@ struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
         }
     }
 
-    /// Create an intersection with another term returning a new term which
-    /// represents the version constraints allowed by both the current and
-    /// given term.
-    /// Returns `nil` if an intersection is not possible (possibly due to
-    /// being constrained on branches, revisions, local, etc. or entirely
-    /// different packages).
+    /// Create an intersection with another term.
     func intersect(with other: Term) -> Term? {
-        // TODO: This needs more tests.
         guard self.package == other.package else { return nil }
-        guard case .versionSet(let lhs) = self.requirement, case .versionSet(let rhs) = other.requirement else { return nil }
+        return intersect(withRequirement: other.requirement, andPolarity: other.isPositive)
+    }
 
-        let samePolarity = self.isPositive == other.isPositive
+    /// Create an intersection with a requirement and polarity returning a new
+    /// term which represents the version constraints allowed by both the current
+    /// and given term.
+    /// Returns `nil` if an intersection is not possible (possibly due to being
+    /// constrained on branches, revisions, local, etc. or entirely different packages).
+    func intersect(withRequirement requirement: Requirement, andPolarity isPositive: Bool) -> Term? {
+        // TODO: This needs more tests.
+        guard case .versionSet(let lhs) = self.requirement, case .versionSet(let rhs) = requirement else { return nil }
+
+        let samePolarity = self.isPositive == isPositive
 
         if samePolarity {
             if case .range(let lhs) = lhs, case .range(let rhs) = rhs {
-                let bothNegative = !self.isPositive && !other.isPositive
+                let bothNegative = !self.isPositive && !isPositive
                 if bothNegative {
                     guard lhs.overlaps(rhs) || rhs.overlaps(lhs) else { return nil }
 
@@ -222,10 +226,39 @@ public struct Incompatibility<Identifier: PackageContainerIdentifier>: Equatable
         self.init(Set(terms), cause: cause)
     }
 
+    // This is only used in the initializer below.
+    private struct PackageAndPolarity: Hashable {
+        let package: Identifier
+        let isPositive: Bool
+
+        init(_ term: Term<Identifier>) {
+            self.package = term.package
+            self.isPositive = term.isPositive
+        }
+    }
+
     init(_ terms: Set<Term<Identifier>>, cause: Cause<Identifier>) {
-        // TODO: Normalize terms so that each package has at most one term referring to it.
         assert(terms.count > 0, "An incompatibility must contain at least one term.")
-        self.terms = terms
+
+        // Normalize terms so that at most one term refers to one package/polarity
+        // combination. E.g. we don't want both a^1.0.0 and a^1.5.0 to be terms
+        // in the same incompatibility, but have these combined by intersecting
+        // their version requirements to a^1.5.0.
+
+        typealias Requirement = PackageContainerConstraint<Identifier>.Requirement
+        let intersectedPackages = terms.reduce(into: [PackageAndPolarity: Requirement]()) { res, term in
+            let pap = PackageAndPolarity(term)
+            let previous = res[pap, default: term.requirement]
+            let intersection = term.intersect(withRequirement: previous, andPolarity: term.isPositive)
+            return res[pap] = intersection!.requirement
+        }
+
+        let terms = intersectedPackages.keys.map { pap -> Term<Identifier> in
+            let requirement = intersectedPackages[pap]!
+            return Term(package: pap.package, requirement: requirement, isPositive: pap.isPositive)
+        }
+
+        self.terms = Set(terms)
         self.cause = cause
     }
 }
@@ -383,7 +416,6 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
     /// A list of all packages that have been assigned, but are not yet satisfied.
     var undecided: [Term<Identifier>] {
-
         let decisionTerms = assignments
             .filter { $0.isDecision }
             .map { $0.term }
