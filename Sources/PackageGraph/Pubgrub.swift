@@ -516,21 +516,29 @@ enum Satisfaction<Identifier: PackageContainerIdentifier>: Equatable {
 
 /// A step the resolver takes to advance its progress, e.g. deriving a new assignment
 /// or creating a new incompatibility based on a package's dependencies.
-/// These are reported to the resolver's delegate.
 public struct TraceStep {
-    let value: Traceable
-    let type: StepType
-    let location: Location
-    let cause: String?
-    let decisionLevel: Int
+    /// The traced value, e.g. an incompatibility or term.
+    public let value: Traceable
+    /// How this value came to be.
+    public let type: StepType
+    /// Where this value was created.
+    public let location: Location
+    /// A previous step that caused this step.
+    public let cause: String?
+    /// The solution's current decision level.
+    public let decisionLevel: Int
 
-    enum StepType: String {
+    /// A step can either store an incompatibility or a decided or derived
+    /// assignment's term.
+    public enum StepType: String {
         case incompatibility
         case decision
         case derivation
     }
 
-    enum Location: String {
+
+    /// The location a step is created at.
+    public enum Location: String {
         case topLevel = "top level"
         case unitPropagation = "unit propagation"
         case decisionMaking = "decision making"
@@ -573,9 +581,7 @@ public final class PubgrubDependencyResolver<
             return nil
         }
         return all.filter {
-            $0.terms.contains { term in
-                term.package == package && term.isPositive == true
-            }
+            $0.terms.first { $0.package == package }!.isPositive
         }
     }
 

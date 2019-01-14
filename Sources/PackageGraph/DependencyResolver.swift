@@ -337,6 +337,7 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
 public protocol DependencyResolverDelegate {
     associatedtype Identifier: PackageContainerIdentifier
 
+    /// Collect diagnostic information for a step the resolver takes.
     func trace(_ step: TraceStep)
 }
 
