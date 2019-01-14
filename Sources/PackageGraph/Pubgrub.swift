@@ -399,7 +399,8 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
     /// Create a new decision assignment and add it to the partial solution's
     /// list of known assignments.
-    func decide(_ term: Term<Identifier>) {
+    func decide(_ package: Identifier, atExactVersion version: Version) {
+        let term = Term(package, .versionSet(.exact(version)))
         let decision = Assignment.decision(term, decisionLevel: decisionLevel)
         self.assignments.append(decision)
     }
@@ -616,7 +617,7 @@ public final class PubgrubDependencyResolver<
     func decide(_ package: Identifier, version: Version, location: TraceStep.Location) {
         let term = Term(package, .versionSet(.exact(version)))
         trace(value: term, type: .decision, location: location, cause: nil)
-        solution.decide(term)
+        solution.decide(package, atExactVersion: version)
     }
 
     func derive(_ term: Term<Identifier>, cause: Incompatibility<Identifier>, location: TraceStep.Location) {

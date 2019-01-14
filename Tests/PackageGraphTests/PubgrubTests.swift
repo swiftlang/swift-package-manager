@@ -340,7 +340,7 @@ final class PubgrubTests: XCTestCase {
         let b = term("b@2.0.0")
 
         let solution = PartialSolution<PackageReference>(assignments: [])
-        solution.decide(a)
+        solution.decide(aRef, atExactVersion: "1.0.0")
         solution.derive(b, cause: _cause)
 
         XCTAssertEqual(solution.decisionLevel, 1)
@@ -435,14 +435,14 @@ final class PubgrubTests: XCTestCase {
         XCTAssertNil(solver1.propagate("a"))
 
         // adding a satisfying term should result in a conflict
-        solver1.solution.decide(term("a@1.0.0"))
+        solver1.solution.decide(aRef, atExactVersion: "1.0.0")
         XCTAssertEqual(solver1.propagate(aRef), Incompatibility(term("a@1.0.0")))
 
         // Unit propagation should derive a new assignment from almost satisfied incompatibilities.
         let solver2 = PubgrubDependencyResolver(emptyProvider, delegate)
         solver2.add(Incompatibility(Term("root", .versionSet(.any)),
                                     term("¬a@1.0.0")), location: .topLevel)
-        solver2.solution.decide(term("root@1.0.0"))
+        solver2.solution.decide(rootRef, atExactVersion: "1.0.0")
         XCTAssertEqual(solver2.solution.assignments.count, 1)
         XCTAssertNil(solver2.propagate(PackageReference(identity: "root", path: "")))
         XCTAssertEqual(solver2.solution.assignments.count, 2)
