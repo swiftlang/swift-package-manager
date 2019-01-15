@@ -53,6 +53,9 @@ extension PubgrubTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__PubgrubTests = [
+        ("testIncompatibilityNormalizeTermsOnInit", testIncompatibilityNormalizeTermsOnInit),
+        ("testResolutionAvoidingConflictResolutionDuringDecisionMaking", testResolutionAvoidingConflictResolutionDuringDecisionMaking),
+        ("testResolutionNoConflicts", testResolutionNoConflicts),
         ("testResolverAddIncompatibility", testResolverAddIncompatibility),
         ("testResolverConflictResolution", testResolverConflictResolution),
         ("testResolverDecisionMaking", testResolverDecisionMaking),
@@ -62,9 +65,9 @@ extension PubgrubTests {
         ("testSolutionFindSatisfiers", testSolutionFindSatisfiers),
         ("testSolutionPositive", testSolutionPositive),
         ("testSolutionSatisfiesIncompatibility", testSolutionSatisfiesIncompatibility),
-        ("testSolutionUnsatisfied", testSolutionUnsatisfied),
+        ("testSolutionUndecided", testSolutionUndecided),
         ("testSolutionVersionIntersection", testSolutionVersionIntersection),
-        ("testTermIntersect", testTermIntersect),
+        ("testTermIntersection", testTermIntersection),
         ("testTermInverse", testTermInverse),
         ("testTermIsValidDecision", testTermIsValidDecision),
         ("testTermSatisfies", testTermSatisfies),
