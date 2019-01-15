@@ -287,6 +287,22 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
 
         /// Un-versioned requirement i.e. a version should not resolved.
         case unversioned
+
+        /// Returns if this requirement pins to an exact version, e.g. a specific
+        /// version or a revision.
+        public var isExact: Bool {
+            switch self {
+            case .versionSet(let vs):
+                if case .exact = vs {
+                    return true
+                }
+                return false
+            case .revision(_):
+                return true
+            case .unversioned:
+                return false
+            }
+        }
     }
 
     /// The identifier for the container the constraint is on.
@@ -320,6 +336,13 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
 /// Delegate interface for dependency resoler status.
 public protocol DependencyResolverDelegate {
     associatedtype Identifier: PackageContainerIdentifier
+
+    /// Collect diagnostic information for a step the resolver takes.
+    func trace(_ step: TraceStep)
+}
+
+public extension DependencyResolverDelegate {
+    func trace(_ step: TraceStep) { }
 }
 
 // FIXME: This should be nested, but cannot be currently.
