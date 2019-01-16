@@ -144,27 +144,6 @@ public enum VersionSetSpecifier: Hashable, CustomStringConvertible {
             return version.description
         }
     }
-    
-    public static func == (_ lhs: VersionSetSpecifier, _ rhs: VersionSetSpecifier) -> Bool {
-        switch (lhs, rhs) {
-        case (.any, .any):
-            return true
-        case (.any, _):
-            return false
-        case (.empty, .empty):
-            return true
-        case (.empty, _):
-            return false
-        case (.range(let lhs), .range(let rhs)):
-            return lhs == rhs
-        case (.range, _):
-            return false
-        case (.exact(let lhs), .exact(let rhs)):
-            return lhs == rhs
-        case (.exact, _):
-            return false
-        }
-    }
 }
 
 /// An identifier which unambiguously references a package container.
@@ -326,10 +305,6 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
 
     public var description: String {
         return "Constraint(\(identifier), \(requirement))"
-    }
-
-    public static func == (lhs: PackageContainerConstraint, rhs: PackageContainerConstraint) -> Bool {
-        return lhs.identifier == rhs.identifier && lhs.requirement == rhs.requirement
     }
 }
 

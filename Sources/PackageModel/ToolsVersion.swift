@@ -90,10 +90,6 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
 
     // MARK: - Comparable
 
-    public static func == (lhs: ToolsVersion, rhs: ToolsVersion) -> Bool {
-        return lhs._version == rhs._version
-    }
-
     public static func < (lhs: ToolsVersion, rhs: ToolsVersion) -> Bool {
         return lhs._version < rhs._version
     }
