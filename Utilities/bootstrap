@@ -1132,7 +1132,7 @@ def main():
             symlink_force(os.path.join(args.foundation_path, 'libFoundationBase.so'), libswiftdir)
 
             # Add Foundation's swiftmodule.
-            for module_file in ["Foundation.swiftmodule", "Foundation.swiftdoc"]:
+            for module_file in ["Foundation.swiftmodule", "Foundation.swiftdoc", "FoundationBase.swiftmodule", "FoundationBase.swiftdoc"]:
                 symlink_force(os.path.join(args.foundation_path, 'swift', module_file), libincludedir)
 
             # Add CoreFoundation "framework". This just contains the header and the modulemap.
