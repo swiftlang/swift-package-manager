@@ -3,7 +3,7 @@ import Build
 import Utility
 import POSIX
 
-enum DestinationError: Swift.Error {
+public enum DestinationError: Swift.Error {
     /// Couldn't find the Xcode installation.
     case invalidInstallation(String)
 
@@ -12,7 +12,7 @@ enum DestinationError: Swift.Error {
 }
 
 extension DestinationError: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         switch self {
         case .invalidSchemaVersion:
             return "unsupported destination file schema version"
