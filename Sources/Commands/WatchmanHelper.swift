@@ -66,7 +66,7 @@ final class WatchmanHelper {
         stream <<< "set -eu" <<< "\n\n"
         stream <<< "swift package generate-xcodeproj"
         if let xcconfigOverrides = options.xcconfigOverrides {
-            stream <<< " --xcconfig-overrides " <<< xcconfigOverrides.asString
+            stream <<< " --xcconfig-overrides " <<< xcconfigOverrides
         }
         stream <<< "\n"
 
@@ -82,15 +82,15 @@ final class WatchmanHelper {
         var args = [String]()
         args += ["--settle", "2"]
         args += ["-p", "Package.swift", "Package.resolved"]
-        args += ["--run", scriptPath.asString.spm_shellEscaped()]
+        args += ["--run", scriptPath.description.spm_shellEscaped()]
 
         // Find and execute watchman.
         let watchmanMakeToolPath = try self.watchmanMakeToolPath()
 
-        print("Starting:", watchmanMakeToolPath.asString, args.joined(separator: " "))
+        print("Starting:", watchmanMakeToolPath, args.joined(separator: " "))
 
         let pathRelativeToWorkingDirectory = watchmanMakeToolPath.relative(to: packageRoot)
-        try exec(path: watchmanMakeToolPath.asString, args: [pathRelativeToWorkingDirectory.asString] + args)
+        try exec(path: watchmanMakeToolPath.description, args: [pathRelativeToWorkingDirectory.description] + args)
     }
 
     private func watchmanMakeToolPath() throws -> AbsolutePath {

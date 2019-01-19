@@ -88,7 +88,7 @@ class ArgumentParserTests: XCTestCase {
 
         let stream = BufferedOutputByteStream()
         parser.printUsage(on: stream)
-        let usage = stream.bytes.asString!
+        let usage = stream.bytes.description
         XCTAssert(usage.contains("OVERVIEW: Sample overview"))
         XCTAssert(usage.contains("USAGE: SomeBinary sample parser"))
         XCTAssert(usage.contains("  package name of the year\n                          The name of the package"))
@@ -304,7 +304,7 @@ class ArgumentParserTests: XCTestCase {
 
         var stream = BufferedOutputByteStream()
         parser.printUsage(on: stream)
-        var usage = stream.bytes.asString!
+        var usage = stream.bytes.description
 
         XCTAssert(usage.contains("OVERVIEW: Sample overview"))
         XCTAssert(usage.contains("USAGE: SomeBinary sample parser"))
@@ -317,7 +317,7 @@ class ArgumentParserTests: XCTestCase {
 
         stream = BufferedOutputByteStream()
         parserA.printUsage(on: stream)
-        usage = stream.bytes.asString!
+        usage = stream.bytes.description
 
         XCTAssert(usage.contains("OVERVIEW: A!"))
         XCTAssert(!usage.contains("USAGE:"))
@@ -327,7 +327,7 @@ class ArgumentParserTests: XCTestCase {
 
         stream = BufferedOutputByteStream()
         parserB.printUsage(on: stream)
-        usage = stream.bytes.asString!
+        usage = stream.bytes.description
 
         XCTAssert(usage.contains("OVERVIEW: B!"))
         XCTAssert(!usage.contains("USAGE:"))
@@ -464,21 +464,21 @@ class ArgumentParserTests: XCTestCase {
         // Test that relative path is resolved.
         do {
             let actual = try! SwiftPMProduct.TestSupportExecutable.execute(["pathArgumentTest", "some/path"]).spm_chomp()
-            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("some/path")).asString
+            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("some/path")).description
             XCTAssertEqual(actual, expected)
         }
 
         // Test that relative path starting with ./ is resolved.
         do {
             let actual = try! SwiftPMProduct.TestSupportExecutable.execute(["pathArgumentTest", "./some/path"]).spm_chomp()
-            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("./some/path")).asString
+            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("./some/path")).description
             XCTAssertEqual(actual, expected)
         }
 
         // Test that relative path starting with ../ is resolved.
         do {
             let actual = try! SwiftPMProduct.TestSupportExecutable.execute(["pathArgumentTest", "../other/path"]).spm_chomp()
-            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("../other/path")).asString
+            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("../other/path")).description
             XCTAssertEqual(actual, expected)
         }
 

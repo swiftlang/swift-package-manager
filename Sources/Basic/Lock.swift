@@ -55,7 +55,7 @@ public final class FileLock {
     public func lock() throws {
         // Open the lock file.
         if fd == nil {
-            let fd = SPMLibc.open(lockFile.asString, O_WRONLY | O_CREAT | O_CLOEXEC, 0o666)
+            let fd = SPMLibc.open(lockFile.description, O_WRONLY | O_CREAT | O_CLOEXEC, 0o666)
             if fd == -1 {
                 throw FileSystemError(errno: errno)
             }

@@ -402,6 +402,6 @@ extension RepositoryManager: SimplePersistanceProtocol {
 
 extension RepositoryManager.RepositoryHandle: CustomStringConvertible {
     public var description: String {
-        return "<\(type(of: self)) subpath:\(subpath.asString)>"
+        return "<\(type(of: self)) subpath:\(subpath)>"
     }
 }

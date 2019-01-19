@@ -109,10 +109,7 @@ extension JSON {
 
     /// Encode a JSON item into a JSON string
     public func toString(prettyPrint: Bool = false) -> String {
-        guard let contents = self.toBytes(prettyPrint: prettyPrint).asString else {
-            fatalError("Failed to serialize JSON: \(self)")
-        }
-        return contents
+        return toBytes(prettyPrint: prettyPrint).description
     }
 }
 
@@ -311,13 +308,25 @@ extension Bool: JSONSerializable {
 
 extension AbsolutePath: JSONSerializable {
     public func toJSON() -> JSON {
-        return .string(asString)
+        return .string(description)
     }
 }
 
 extension RelativePath: JSONSerializable {
     public func toJSON() -> JSON {
-        return .string(asString)
+        return .string(description)
+    }
+}
+
+extension Array: JSONSerializable where Element: JSONSerializable {
+    public func toJSON() -> JSON {
+        return .array(self.map({ $0.toJSON() }))
+    }
+}
+
+extension Dictionary: JSONSerializable where Key == String, Value: JSONSerializable {
+    public func toJSON() -> JSON {
+        return .dictionary(self.mapValues({ $0.toJSON() }))
     }
 }
 

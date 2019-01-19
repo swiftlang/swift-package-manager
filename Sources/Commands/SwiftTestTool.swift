@@ -340,14 +340,14 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         let codeCovFiles = try localFileSystem.getDirectoryContents(buildParameters.codeCovPath)
 
         // Construct arguments for invoking the llvm-prof tool.
-        var args = [llvmProf.asString, "merge", "-sparse"]
+        var args = [llvmProf.description, "merge", "-sparse"]
         for file in codeCovFiles {
             let filePath = buildParameters.codeCovPath.appending(component: file)
             if filePath.extension == "profraw" {
-                args.append(filePath.asString)
+                args.append(filePath.description)
             }
         }
-        args += ["-o",  buildParameters.codeCovDataFile.asString]
+        args += ["-o", buildParameters.codeCovDataFile.description]
 
         try Process.checkNonZeroExit(arguments: args)
     }
@@ -358,9 +358,10 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         let llvmCov = try getToolchain().getLLVMCov()
         let buildParameters = try self.buildParameters()
         let args = [
-            llvmCov.asString, "export",
-            "-instr-profile=" + buildParameters.codeCovDataFile.asString,
-            testBinary.asString
+            llvmCov.description,
+            "export",
+            "-instr-profile=\(buildParameters.codeCovDataFile)",
+            testBinary.description
         ]
         let result = try Process.popen(arguments: args)
 
@@ -472,18 +473,18 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         // Run the correct tool.
       #if os(macOS)
         let tempFile = try TemporaryFile()
-        let args = [SwiftTestTool.xctestHelperPath().asString, path.asString, tempFile.path.asString]
+        let args = [SwiftTestTool.xctestHelperPath().description, path.description, tempFile.path.description]
         var env = try constructTestEnvironment(toolchain: try getToolchain(), options: self.options, buildParameters: self.buildParameters())
         // Add the sdk platform path if we have it. If this is not present, we
         // might always end up failing.
         if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPath() {
-            env["DYLD_FRAMEWORK_PATH"] = sdkPlatformFrameworksPath.asString
+            env["DYLD_FRAMEWORK_PATH"] = sdkPlatformFrameworksPath.description
         }
         try Process.checkNonZeroExit(arguments: args, environment: env)
         // Read the temporary file's content.
-        let data = try localFileSystem.readFileContents(tempFile.path).asString ?? ""
+        let data = try localFileSystem.readFileContents(tempFile.path).validDescription ?? ""
       #else
-        let args = [path.asString, "--dump-tests-json"]
+        let args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args)
       #endif
         // Parse json and return TestSuites.
@@ -579,13 +580,13 @@ final class TestRunner {
         guard let xctest = toolchain.xctest else {
             throw TestError.testsExecutableNotFound
         }
-        args = [xctest.asString]
+        args = [xctest.description]
         if let xctestArg = xctestArg {
             args += ["-XCTest", xctestArg]
         }
-        args += [path.asString]
+        args += [path.description]
       #else
-        args += [path.asString]
+        args += [path.description]
         if let xctestArg = xctestArg {
             args += [xctestArg]
         }
@@ -952,7 +953,7 @@ fileprivate func constructTestEnvironment(
         // SwiftPM repeatedly invokes the test binary with the test case name as
         // the filter.
         let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "default%m.profraw")
-        env["LLVM_PROFILE_FILE"] = codecovProfile.asString
+        env["LLVM_PROFILE_FILE"] = codecovProfile.description
     }
 
   #if !os(macOS)
@@ -965,7 +966,7 @@ fileprivate func constructTestEnvironment(
 
     // Get the runtime libraries.
     var runtimes = try options.sanitizers.sanitizers.map({ sanitizer in
-        return try toolchain.runtimeLibrary(for: sanitizer).asString
+        return try toolchain.runtimeLibrary(for: sanitizer).description
     })
 
     // Append any existing value to the front.

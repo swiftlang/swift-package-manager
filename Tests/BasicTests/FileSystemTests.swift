@@ -56,7 +56,7 @@ class FileSystemTests: XCTestCase {
 
             """
         try! localFileSystem.writeFileContents(executable, bytes: stream.bytes)
-        try! Process.checkNonZeroExit(args: "chmod", "+x", executable.asString)
+        try! Process.checkNonZeroExit(args: "chmod", "+x", executable.description)
         XCTAssertTrue(fs.isExecutableFile(executable))
         XCTAssertFalse(fs.isExecutableFile(sym))
         XCTAssertFalse(fs.isExecutableFile(file.path))

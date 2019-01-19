@@ -49,7 +49,7 @@ public struct ManifestDuplicateDeclDiagnostic: DiagnosticData {
                     stream <<< "\n"
                 }
 
-                return stream.bytes.asString!
+                return stream.bytes.description
             }, preference: .default)
         }
     )
@@ -122,7 +122,7 @@ public enum ResolverDiagnostics {
                 stream <<< "unversioned"
             }
 
-            return stream.bytes.asString!
+            return stream.bytes.description
         }
 
         /// The conflicting dependencies.
@@ -164,7 +164,7 @@ public enum WorkspaceDiagnostics {
             type: UncommitedChanges.self,
             name: "org.swift.diags.workspace.uncommited-changes",
             description: {
-                $0 <<< "repository" <<< { "'\($0.repositoryPath.asString)'" } <<< "has uncommited changes"
+                $0 <<< "repository" <<< { "'\($0.repositoryPath)'" } <<< "has uncommited changes"
             })
     
         /// The local path to the repository.
@@ -178,7 +178,7 @@ public enum WorkspaceDiagnostics {
             type: UnpushedChanges.self,
             name: "org.swift.diags.workspace.unpushed-changes",
             description: {
-                $0 <<< "repository" <<< { "'\($0.repositoryPath.asString)'" } <<< "has unpushed changes"
+                $0 <<< "repository" <<< { "'\($0.repositoryPath)'" } <<< "has unpushed changes"
             })
         
         /// The local path to the repository.
@@ -259,7 +259,7 @@ public enum WorkspaceDiagnostics {
             type: RequireNewerTools.self,
             name: "org.swift.diags.workspace.\(RequireNewerTools.self)",
             description: {
-                $0 <<< "package at" <<< { "'\($0.packagePath.asString)'" }
+                $0 <<< "package at" <<< { "'\($0.packagePath)'" }
                 $0 <<< "is using Swift tools version" <<< { $0.packageToolsVersion.description }
                 $0 <<< "but the installed version is" <<< { "\($0.installedToolsVersion.description)" }
             })
@@ -280,7 +280,7 @@ public enum WorkspaceDiagnostics {
             type: UnsupportedToolsVersion.self,
             name: "org.swift.diags.workspace.\(UnsupportedToolsVersion.self)",
             description: {
-                $0 <<< "package at" <<< { "'\($0.packagePath.asString)'" }
+                $0 <<< "package at" <<< { "'\($0.packagePath)'" }
                 $0 <<< "is using Swift tools version" <<< { $0.packageToolsVersion.description }
                 $0 <<< "which is no longer supported; use" <<< { $0.minimumRequiredToolsVersion.description }
                 $0 <<< "or newer instead"
@@ -303,7 +303,7 @@ public enum WorkspaceDiagnostics {
             type: MismatchingDestinationPackage.self,
             name: "org.swift.diags.workspace.mismatching-destination-package",
             description: {
-                $0 <<< "package at" <<< { "'\($0.editPath.asString)'" }
+                $0 <<< "package at" <<< { "'\($0.editPath)'" }
                 $0 <<< "is" <<< { $0.destinationPackage ?? "<unknown>" }
                 $0 <<< "but was expecting" <<< { $0.expectedPackage }
             })

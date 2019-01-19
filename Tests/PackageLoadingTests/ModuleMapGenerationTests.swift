@@ -145,7 +145,7 @@ func ModuleMapTester(_ name: String, includeDir: String = "include", in fileSyst
     do {
         try generator.generateModuleMap(inDir: .root)
         // FIXME: Find a better way.
-        diagnostics = Set(warningStream.bytes.asReadableString.split(separator: "\n").map(String.init))
+        diagnostics = Set(warningStream.bytes.description.split(separator: "\n").map(String.init))
     } catch {
       diagnostics.insert("\(error)")
     }

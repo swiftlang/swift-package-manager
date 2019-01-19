@@ -239,7 +239,7 @@ public class Workspace {
                 // We should get the correct one from managed dependency object.
                 let ref = PackageReference(
                     identity: managedDependency.packageRef.identity,
-                    path: workspace.path(for: managedDependency).asString,
+                    path: workspace.path(for: managedDependency).description,
                     isLocal: true
                 )
                 let constraint = RepositoryPackageConstraint(
@@ -666,7 +666,7 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) -> [Manifest] {
         let rootManifests = packages.compactMap({ package -> Manifest? in
-            loadManifest(packagePath: package, url: package.asString, diagnostics: diagnostics)
+            loadManifest(packagePath: package, url: package.description, diagnostics: diagnostics)
         })
 
         // Check for duplicate root packages.
@@ -1489,7 +1489,7 @@ extension Workspace {
                 // the edited checkout is unchanged.
                 if let editedDependency = managedDependencies.values.first(where: {
                     guard $0.basedOn != nil else { return false }
-                    return path(for: $0).asString == packageRef.path
+                    return path(for: $0).description == packageRef.path
                 }) {
                     currentDependency = editedDependency
                     let originalReference = editedDependency.basedOn!.packageRef

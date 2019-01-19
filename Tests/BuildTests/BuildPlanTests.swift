@@ -376,7 +376,7 @@ final class BuildPlanTests: XCTestCase {
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestGenerator(plan, client: "swift-build", resolvedFile: path.appending(component: "Package.resolved"))
             try llbuild.generateManifest(at: yaml)
-            let contents = try localFileSystem.readFileContents(yaml).asString!
+            let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertTrue(contents.contains("-std=gnu99\",\"-c\",\"/Pkg/Sources/lib/lib.c"))
             XCTAssertTrue(contents.contains("-std=c++1z\",\"-c\",\"/Pkg/Sources/lib/libx.cpp"))
         }
@@ -1084,7 +1084,7 @@ final class BuildPlanTests: XCTestCase {
             let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(config: config, indexStoreMode: mode), graph: graph, diagnostics: diagnostics, fileSystem: fs))
 
             let lib = try result.target(for: "lib").clangTarget()
-            let path = StringPattern.equal(result.plan.buildParameters.indexStore.asString)
+            let path = StringPattern.equal(result.plan.buildParameters.indexStore.description)
 
         #if os(macOS)
             XCTAssertMatch(lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])

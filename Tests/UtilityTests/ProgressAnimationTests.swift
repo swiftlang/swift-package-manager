@@ -22,7 +22,7 @@ final class ProgressAnimationTests: XCTestCase {
         var animation = PercentProgressAnimation(stream: outStream, header: "TestHeader")
 
         runProgressAnimation(animation)
-        XCTAssertEqual(outStream.bytes.asString, """
+        XCTAssertEqual(outStream.bytes.validDescription, """
             TestHeader
             0%: 0
             10%: 1
@@ -37,7 +37,7 @@ final class ProgressAnimationTests: XCTestCase {
         animation = PercentProgressAnimation(stream: outStream, header: "TestHeader")
 
         animation.complete(success: true)
-        XCTAssertEqual(outStream.bytes.asString, "")
+        XCTAssertEqual(outStream.bytes.validDescription, "")
     }
 
     func testPercentProgressAnimationTTY() throws {
@@ -57,7 +57,7 @@ final class ProgressAnimationTests: XCTestCase {
         var animation = NinjaProgressAnimation(stream: outStream)
 
         runProgressAnimation(animation)
-        XCTAssertEqual(outStream.bytes.asString, """
+        XCTAssertEqual(outStream.bytes.validDescription, """
             [0/10] 0
             [1/10] 1
             [2/10] 2
@@ -71,7 +71,7 @@ final class ProgressAnimationTests: XCTestCase {
         animation = NinjaProgressAnimation(stream: outStream)
 
         animation.complete(success: true)
-        XCTAssertEqual(outStream.bytes.asString, "")
+        XCTAssertEqual(outStream.bytes.validDescription, "")
     }
 
     func testNinjaProgressAnimationTTY() throws {

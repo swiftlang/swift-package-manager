@@ -16,7 +16,7 @@ class JSONTests: XCTestCase {
     func testEncoding() {
         // Test the basics of encoding each object type.
         func encode(_ item: JSON) -> String {
-            return item.toBytes().asString ?? "<unrepresentable>"
+            return item.toBytes().validDescription ?? "<unrepresentable>"
         }
 
         XCTAssertEqual(encode(.null), "null")

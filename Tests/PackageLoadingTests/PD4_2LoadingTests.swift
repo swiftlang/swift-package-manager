@@ -30,7 +30,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         try fs.writeFileContents(manifestPath, bytes: contents)
         let m = try manifestLoader.load(
             package: AbsolutePath.root,
-            baseURL: AbsolutePath.root.asString,
+            baseURL: AbsolutePath.root.description,
             manifestVersion: .v4_2,
             fileSystem: fs)
         guard m.manifestVersion == .v4_2 else {
@@ -377,7 +377,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                     bytes: bogusManifest)
             }
             // Check we can load the repository.
-            let manifest = try manifestLoader.load(package: root, baseURL: root.asString, manifestVersion: .v4_2, fileSystem: fs)
+            let manifest = try manifestLoader.load(package: root, baseURL: root.description, manifestVersion: .v4_2, fileSystem: fs)
             XCTAssertEqual(manifest.name, "Trivial")
         }
     }
@@ -475,7 +475,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 delegate.clear()
                 let manifest = try! loader.load(
                     package: manifestPath.parentDirectory,
-                    baseURL: manifestPath.asString,
+                    baseURL: manifestPath.description,
                     manifestVersion: .v4_2)
 
                 XCTAssertEqual(delegate.loaded, [manifestPath])
@@ -530,7 +530,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 delegate.clear()
                 let manifest = try! loader.load(
                     package: manifestPath.parentDirectory,
-                    baseURL: manifestPath.asString,
+                    baseURL: manifestPath.description,
                     manifestVersion: .v4_2)
 
                 XCTAssertEqual(delegate.loaded, [manifestPath])

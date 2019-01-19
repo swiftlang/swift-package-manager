@@ -342,6 +342,18 @@ public func <<< (stream: OutputByteStream, value: ByteStreamable) -> OutputByteS
     return stream
 }
 
+@discardableResult
+public func <<< (stream: OutputByteStream, value: CustomStringConvertible) -> OutputByteStream {
+    value.description.write(to: stream)
+    return stream
+}
+
+@discardableResult
+public func <<< (stream: OutputByteStream, value: ByteStreamable & CustomStringConvertible) -> OutputByteStream {
+    value.write(to: stream)
+    return stream
+}
+
 extension UInt8: ByteStreamable {
     public func write(to stream: OutputByteStream) {
         stream.write(self)
@@ -434,6 +446,10 @@ public struct Format {
         }
     }
 
+    /// Write the input CustomStringConvertible encoded as a JSON object.
+    static public func asJSON<T: CustomStringConvertible>(_ value: T) -> ByteStreamable {
+        return JSONEscapedStringStreamable(value: value.description)
+    }
     /// Write the input string encoded as a JSON object.
     static public func asJSON(_ string: String) -> ByteStreamable {
         return JSONEscapedStringStreamable(value: string)
@@ -448,6 +464,10 @@ public struct Format {
         }
     }
 
+    /// Write the input string list encoded as a JSON object.
+    static public func asJSON<T: CustomStringConvertible>(_ items: [T]) -> ByteStreamable {
+        return JSONEscapedStringListStreamable(items: items.map({ $0.description }))
+    }
     /// Write the input string list encoded as a JSON object.
     //
     // FIXME: We might be able to make this more generic through the use of a "JSONEncodable" protocol.
@@ -651,7 +671,7 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
     ///
     /// - Throws: FileSystemError
     public init(_ path: AbsolutePath, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
-        guard let filePointer = fopen(path.asString, "wb") else {
+        guard let filePointer = fopen(path.description, "wb") else {
             throw FileSystemError(errno: errno)
         }
         self.filePointer = filePointer

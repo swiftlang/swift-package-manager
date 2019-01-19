@@ -18,7 +18,7 @@ func fileLockTest(cacheDir: AbsolutePath, path: AbsolutePath, content: Int) thro
         // Get thr current contents of the file if any.
         let currentData: Int
         if localFileSystem.exists(path) {
-            currentData = Int(try localFileSystem.readFileContents(path).asString!) ?? 0
+            currentData = Int(try localFileSystem.readFileContents(path).description) ?? 0
         } else {
             currentData = 0
         }
@@ -121,7 +121,7 @@ do {
         let handlerTest = try HandlerTest(options.temporaryFile!)
         handlerTest.run()
     case .pathArgumentTest:
-        print(options.absolutePath!.asString)
+        print(options.absolutePath!)
     case .help:
         parser.printUsage(on: stdoutStream)
     }

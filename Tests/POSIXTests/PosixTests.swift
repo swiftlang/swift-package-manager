@@ -27,12 +27,12 @@ class PosixTests: XCTestCase {
             try fs.writeFileContents(foo) { _ in }
             XCTAssertTrue(fs.isFile(foo))
 
-            try rename(old: foo.asString, new: bar.asString)
+            try rename(old: foo.description, new: bar.description)
             XCTAssertFalse(fs.isFile(foo))
             XCTAssertTrue(fs.isFile(bar))
 
             do {
-                try rename(old: foo.asString, new: bar.asString)
+                try rename(old: foo.description, new: bar.description)
                 XCTFail()
             } catch SystemError.rename {}
         }

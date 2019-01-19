@@ -24,9 +24,9 @@ class PathPerfTests: XCTestCasePerf {
             var lengths = 0
             for _ in 0 ..< N {
                 let result = absPath.appending(relPath)
-                lengths = lengths &+ result.asString.utf8.count
+                lengths = lengths &+ result.description.utf8.count
             }
-            XCTAssertEqual(lengths, (absPath.asString.utf8.count + 1 + relPath.asString.utf8.count) &* N)
+            XCTAssertEqual(lengths, (absPath.description.utf8.count + 1 + relPath.description.utf8.count) &* N)
         }
     }
     

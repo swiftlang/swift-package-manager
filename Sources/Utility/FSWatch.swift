@@ -274,7 +274,7 @@ public final class Inotify {
         /// Add watch for each path.
         for (path, options) in paths {
 
-            let wd = inotify_add_watch(fd, path.asString, UInt32(options.rawValue))
+            let wd = inotify_add_watch(fd, path.description, UInt32(options.rawValue))
             guard wd != -1 else {
                 throw Error.failedToWatch(path)
             }
@@ -566,7 +566,7 @@ public final class FSEventStream {
         self.stream = FSEventStreamCreate(nil,
             callback, 
             &callbackContext, 
-            paths.map({ $0.asString }) as CFArray, 
+            paths.map({ $0.description }) as CFArray, 
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
             latency,
             // FIXME: This needs to be customizable.

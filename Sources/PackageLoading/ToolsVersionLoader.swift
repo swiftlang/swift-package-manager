@@ -63,7 +63,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         public var description: String {
             switch self {
             case .malformed(let versionSpecifier, let file):
-                return "the version specifier '\(versionSpecifier)' in '\(file.asString)' is not valid"
+                return "the version specifier '\(versionSpecifier)' in '\(file)' is not valid"
             }
         }
     }
@@ -91,7 +91,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 maxSplits: 1,
                 omittingEmptySubsequences: false)
             let misspellings = ["swift-tool", "tool-version"]
-            if let firstLine = ByteString(splitted[0]).asString,
+            if let firstLine = ByteString(splitted[0]).validDescription,
                misspellings.first(where: firstLine.lowercased().contains) != nil {
                 throw Error.malformed(specifier: firstLine, file: file)
             }
@@ -113,7 +113,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             maxSplits: 1,
             omittingEmptySubsequences: false)
         // Try to match our regex and see if a valid specifier line.
-        guard let firstLine = ByteString(splitted[0]).asString,
+        guard let firstLine = ByteString(splitted[0]).validDescription,
               let match = ToolsVersionLoader.regex.firstMatch(
                   in: firstLine, options: [], range: NSRange(location: 0, length: firstLine.count)),
               match.numberOfRanges >= 2 else {

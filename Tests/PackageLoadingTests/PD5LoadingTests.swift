@@ -30,7 +30,7 @@ class PackageDescription5LoadingTests: XCTestCase {
         try fs.writeFileContents(manifestPath, bytes: contents)
         let m = try manifestLoader.load(
             package: AbsolutePath.root,
-            baseURL: AbsolutePath.root.asString,
+            baseURL: AbsolutePath.root.description,
             manifestVersion: .v5,
             fileSystem: fs)
         guard m.manifestVersion == .v5 else {

@@ -314,7 +314,7 @@ public class DiagnosticsEngine: CustomStringConvertible {
             stream <<< diag.localizedDescription <<< ", "
         }
         stream <<< "]"
-        return stream.bytes.asString!
+        return stream.bytes.description
     }
 }
 

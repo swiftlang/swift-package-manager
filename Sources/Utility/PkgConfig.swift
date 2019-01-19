@@ -68,7 +68,7 @@ struct PCFileFinder {
             do {
                 let pkgConfigPath: String
                 if let brewPrefix = brewPrefix {
-                    pkgConfigPath = brewPrefix.appending(components: "bin", "pkg-config").asString
+                    pkgConfigPath = brewPrefix.appending(components: "bin", "pkg-config").description
                 } else {
                     pkgConfigPath = "pkg-config"
                 }
@@ -208,11 +208,11 @@ struct PkgConfigParser {
         }
 
         // Add pcfiledir variable. This is path to the directory containing the pc file.
-        variables["pcfiledir"] = pcFile.parentDirectory.asString
+        variables["pcfiledir"] = pcFile.parentDirectory.description
 
         let fileContents = try fileSystem.readFileContents(pcFile)
         // FIXME: Should we error out instead if content is not UTF8 representable?
-        for line in fileContents.asString?.components(separatedBy: "\n") ?? [] {
+        for line in fileContents.validDescription?.components(separatedBy: "\n") ?? [] {
             // Remove commented or any trailing comment from the line.
             let uncommentedLine = removeComment(line: line)
             // Ignore any empty or whitespace line.
@@ -228,7 +228,7 @@ struct PkgConfigParser {
                 variables[name.spm_chuzzle() ?? ""] = try resolveVariables(value)
             } else {
                 // Unexpected thing in the pc file, abort.
-                throw PkgConfigError.parsingError("Unexpected line: \(line) in \(pcFile.asString)")
+                throw PkgConfigError.parsingError("Unexpected line: \(line) in \(pcFile)")
             }
         }
     }
@@ -293,9 +293,10 @@ struct PkgConfigParser {
             if operators.contains(arg) {
                 // We should have a version number next, skip.
                 guard it.next() != nil else {
-                    throw PkgConfigError.parsingError(
-                        "Expected version number after \(deps.last.debugDescription) \(arg) in \"\(depString)\" in " +
-                        "\(pcFile.asString)")
+                    throw PkgConfigError.parsingError("""
+                        Expected version number after \(deps.last.debugDescription) \(arg) in \"\(depString)\" in \
+                        \(pcFile)
+                        """)
                 }
             } else {
                 // Otherwise it is a dependency.
@@ -331,7 +332,8 @@ struct PkgConfigParser {
                 // Append the contents before the variable.
                 result += fragment[fragment.startIndex..<variable.startIndex]
                 guard let variableValue = variables[variable.name] else {
-                    throw PkgConfigError.parsingError("Expected a value for variable '\(variable.name)' in \(pcFile.asString). Variables: \(variables)")
+                    throw PkgConfigError.parsingError(
+                        "Expected a value for variable '\(variable.name)' in \(pcFile). Variables: \(variables)")
                 }
                 // Append the value of the variable.
                 result += variableValue
@@ -380,7 +382,7 @@ struct PkgConfigParser {
         }
         guard !inQuotes else {
             throw PkgConfigError.parsingError(
-                "Text ended before matching quote was found in line: \(line) file: \(pcFile.asString)")
+                "Text ended before matching quote was found in line: \(line) file: \(pcFile)")
         }
         saveFragment()
         return splits

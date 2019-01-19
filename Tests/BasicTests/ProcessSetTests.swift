@@ -16,7 +16,7 @@ import TestSupport
 
 class ProcessSetTests: XCTestCase {
     func script(_ name: String) -> String {
-        return AbsolutePath(#file).parentDirectory.appending(components: "processInputs", name).asString
+        return AbsolutePath(#file).parentDirectory.appending(components: "processInputs", name).description
     }
 
     func testSigInt() throws {
@@ -42,7 +42,7 @@ class ProcessSetTests: XCTestCase {
                 // Launch the script and notify main thread.
                 let tempFile = try TemporaryFile()
                 let waitFile = tempFile.path
-                let process = Process(args: self.script(scriptName), waitFile.asString)
+                let process = Process(args: self.script(scriptName), waitFile.description)
                 try processSet.add(process)
                 try process.launch()
                 guard waitForFile(waitFile) else {

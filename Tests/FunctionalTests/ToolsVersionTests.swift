@@ -91,7 +91,7 @@ class ToolsVersionTests: XCTestCase {
 
             // Build the primary package.
             _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
-            let exe = primaryPath.appending(components: ".build", Destination.host.target, "debug", "Primary").asString
+            let exe = primaryPath.appending(components: ".build", Destination.host.target, "debug", "Primary").description
             // v1 should get selected because v1.0.1 depends on a (way) higher set of tools.
             XCTAssertEqual(try Process.checkNonZeroExit(args: exe).spm_chomp(), "foo@1.0")
 

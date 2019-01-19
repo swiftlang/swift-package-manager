@@ -57,12 +57,12 @@ class FunctionalTests: XCTestCase {
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
             let output =  systemModule.appending(component: "libSystemModule.dylib")
-            try systemQuietly(["clang", "-shared", input.asString, "-o", output.asString])
+            try systemQuietly(["clang", "-shared", input.description, "-o", output.description])
 
             let pcFile = prefix.appending(component: "libSystemModule.pc")
             try! write(path: pcFile) { stream in
                 stream <<< """
-                    prefix=\(prefix.appending(component: "SystemModule").asString)
+                    prefix=\(prefix.appending(component: "SystemModule"))
                     exec_prefix=${prefix}
                     libdir=${exec_prefix}
                     includedir=${prefix}/Sources/include
@@ -75,7 +75,7 @@ class FunctionalTests: XCTestCase {
                     """
             }
             let moduleUser = prefix.appending(component: "SystemModuleUser")
-            let env = ["PKG_CONFIG_PATH": prefix.asString]
+            let env = ["PKG_CONFIG_PATH": prefix.description]
             XCTAssertXcodeprojGen(moduleUser, env: env)
             let pbx = moduleUser.appending(component: "SystemModuleUser.xcodeproj")
             XCTAssertDirectoryExists(pbx)
@@ -143,13 +143,13 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
 
         // Override path to the Swift compiler.
         let stream = BufferedOutputByteStream()
-        stream <<< "SWIFT_EXEC = " <<< swiftCompilerPath.asString <<< "\n"
+        stream <<< "SWIFT_EXEC = " <<< swiftCompilerPath <<< "\n"
 
         // Override Swift libary path, if present.
         let swiftLibraryPath = resolveSymlinks(swiftCompilerPath).appending(components: "..", "..", "lib", "swift", "macosx")
         if localFileSystem.exists(swiftCompilerPath) {
-            stream <<< "SWIFT_LIBRARY_PATH = " <<< swiftLibraryPath.asString <<< "\n"
-            stream <<< "TOOLCHAIN_DIR = " <<< swiftCompilerPath.appending(components: "..", "..").asString <<< "\n"
+            stream <<< "SWIFT_LIBRARY_PATH = " <<< swiftLibraryPath <<< "\n"
+            stream <<< "TOOLCHAIN_DIR = " <<< swiftCompilerPath.appending(components: "..", "..") <<< "\n"
         }
         
         // We don't need dSYM generated for tests
@@ -158,7 +158,7 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
         try localFileSystem.writeFileContents(xcconfig, bytes: stream.bytes)
 
         try Process.checkNonZeroExit(
-            args: "xcodebuild", "-project", project.asString, "-alltargets", "-xcconfig", xcconfig.asString, environment: env)
+            args: "xcodebuild", "-project", project.description, "-alltargets", "-xcconfig", xcconfig.description, environment: env)
     } catch {
         XCTFail("xcodebuild failed:\n\n\(error)\n", file: file, line: line)
         switch error {

@@ -143,8 +143,8 @@ public struct ModuleMapGenerator {
         let umbrellaHeader = path.appending(component: target.c99name + ".h")
         let invalidUmbrellaHeader = path.appending(component: target.name + ".h")
         if target.c99name != target.name && fileSystem.isFile(invalidUmbrellaHeader) {
-            warningStream <<< ("warning: \(invalidUmbrellaHeader.asString) should be renamed to " +
-                "\(umbrellaHeader.asString) to be used as an umbrella header")
+            warningStream <<< "warning: \(invalidUmbrellaHeader) should be renamed to "
+            warningStream <<< "\(umbrellaHeader) to be used as an umbrella header"
             warningStream.flush()
         }
     }
@@ -159,9 +159,9 @@ public struct ModuleMapGenerator {
         stream <<< "module \(target.c99name) {\n"
         switch type {
         case .header(let header):
-            stream <<< "    umbrella header \"\(header.asString)\"\n"
+            stream <<< "    umbrella header \"\(header)\"\n"
         case .directory(let path):
-            stream <<< "    umbrella \"\(path.asString)\"\n"
+            stream <<< "    umbrella \"\(path)\"\n"
         }
         stream <<< "    export *\n"
         stream <<< "}\n"
@@ -193,16 +193,16 @@ extension ModuleMapGenerator.ModuleMapError.UnsupportedIncludeLayoutType: Custom
     public var description: String {
         switch self {
         case .umbrellaHeaderWithAdditionalNonEmptyDirectories(let (umbrella, dirs)):
-            return "umbrella header defined at '\(umbrella.asString)', but directories exist: " +
-                dirs.map({ $0.asString }).sorted().joined(separator: ", ") +
+            return "umbrella header defined at '\(umbrella)', but directories exist: " +
+                dirs.map({ $0.description }).sorted().joined(separator: ", ") +
                 "; consider removing them"
         case .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(let (umbrella, dirs)):
-            return "umbrella header defined at '\(umbrella.asString)', but more than one directories exist: " +
-                dirs.map({ $0.asString }).sorted().joined(separator: ", ") +
+            return "umbrella header defined at '\(umbrella)', but more than one directories exist: " +
+                dirs.map({ $0.description }).sorted().joined(separator: ", ") +
                 "; consider reducing them to one"
         case .umbrellaHeaderWithAdditionalFilesInIncludeDirectory(let (umbrella, files)):
-            return "umbrella header defined at '\(umbrella.asString)', but files exist:" +
-                files.map({ $0.asString }).sorted().joined(separator: ", ") +
+            return "umbrella header defined at '\(umbrella)', but files exist:" +
+                files.map({ $0.description }).sorted().joined(separator: ", ") +
                 "; consider removing them"
         }
     }
