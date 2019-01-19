@@ -380,8 +380,14 @@ private func createResolvedPackages(
             for productRef in targetBuilder.target.productDependencies {
                 // Find the product in this package's dependency products.
                 guard let product = productDependencyMap[productRef.name] else {
-                    let error = PackageGraphError.productDependencyNotFound(name: productRef.name, package: productRef.package)
-                    diagnostics.emit(error, location: diagnosticLocation())
+                    // Only emit a diagnostic if there are no other diagnostics.
+                    // This avoids flooding the diagnostics with product not
+                    // found errors when there are more important errors to
+                    // resolve (like authentication issues).
+                    if !diagnostics.hasErrors {
+                        let error = PackageGraphError.productDependencyNotFound(name: productRef.name, package: productRef.package)
+                        diagnostics.emit(error, location: diagnosticLocation())
+                    }
                     continue
                 }
 

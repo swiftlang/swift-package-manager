@@ -40,6 +40,7 @@ extension PackageGraphTests {
         ("testMultipleDuplicateModules", testMultipleDuplicateModules),
         ("testNestedDuplicateModules", testNestedDuplicateModules),
         ("testProductDependencies", testProductDependencies),
+        ("testProductDependencyNotFound", testProductDependencyNotFound),
         ("testSeveralDuplicateModules", testSeveralDuplicateModules),
         ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
         ("testUnsafeFlags", testUnsafeFlags),

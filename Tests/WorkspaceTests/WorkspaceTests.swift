@@ -1283,7 +1283,6 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("/tmp/ws/pkgs/Foo @ 1.0.0..<2.0.0"), behavior: .error)
-                result.check(diagnostic: .contains("product dependency 'Foo' not found"), behavior: .error, location: "'Root' /tmp/ws/roots/Root")
             }
         }
     }
@@ -2035,7 +2034,6 @@ final class WorkspaceTests: XCTestCase {
             }
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("1.5.0 contains incompatible dependencies"), behavior: .error)
-                result.check(diagnostic: .contains("product dependency 'Bar' not found"), behavior: .error, location: "'Foo' /tmp/ws/roots/Foo")
             }
         }
     }
