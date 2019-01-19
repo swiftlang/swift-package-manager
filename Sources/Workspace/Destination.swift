@@ -46,6 +46,9 @@ public struct Destination {
     /// The file extension for dynamic libraries (eg. `.so` or `.dylib`)
     public let dynamicLibraryExtension: String
 
+    /// The compiler flag for specifying the sysroot (eg. `--sysroot` or `-isysroot`).
+    public let sysrootFlag: String
+
     /// Additional flags to be passed to the C compiler.
     public let extraCCFlags: [String]
 
@@ -94,7 +97,7 @@ public struct Destination {
       #if os(macOS)
         // Get the SDK.
         let sdkPath: AbsolutePath
-        if let value = lookupExecutablePath(filename: getenv("SYSROOT")) {
+        if let value = lookupExecutablePath(filename: getenv("SDKROOT")) {
             sdkPath = value
         } else {
             // No value in env, so search for it.
@@ -115,6 +118,7 @@ public struct Destination {
             sdk: sdkPath,
             binDir: binDir,
             dynamicLibraryExtension: "dylib",
+            sysrootFlag: "-isysroot",
             extraCCFlags: commonArgs,
             extraSwiftCFlags: commonArgs,
             extraCPPFlags: ["-lc++"]
@@ -125,6 +129,7 @@ public struct Destination {
             sdk: .root,
             binDir: binDir,
             dynamicLibraryExtension: "so",
+            sysrootFlag: "--sysroot",
             extraCCFlags: ["-fPIC"],
             extraSwiftCFlags: [],
             extraCPPFlags: ["-lstdc++"]
@@ -187,6 +192,7 @@ extension Destination: JSONMappable {
             sdk: AbsolutePath(json.get("sdk")),
             binDir: AbsolutePath(json.get("toolchain-bin-dir")),
             dynamicLibraryExtension: json.get("dynamic-library-extension"),
+            sysrootFlag: json.get("sysroot-flag"),
             extraCCFlags: json.get("extra-cc-flags"),
             extraSwiftCFlags: json.get("extra-swiftc-flags"),
             extraCPPFlags: json.get("extra-cpp-flags")
