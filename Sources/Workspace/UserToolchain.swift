@@ -65,20 +65,6 @@ public final class UserToolchain: Toolchain {
         return swiftCompiler.parentDirectory.appending(component: "swift")
     }
 
-    /// Path containing the macOS Swift stdlib.
-    var macosSwiftStdlib: AbsolutePath {
-        return resolveSymlinks(swiftCompiler).appending(RelativePath("../../lib/swift/macosx"))
-    }
-
-    public func makeDyldLibPath(withExistingValue value: String? = nil) -> String {
-        var dyldLibPath = ""
-        if let dyldLib = value, !dyldLib.isEmpty {
-            dyldLibPath = dyldLib + ":"
-        }
-        dyldLibPath += macosSwiftStdlib.asString
-        return dyldLibPath
-    }
-
     /// Path to the xctest utility.
     ///
     /// This is only present on macOS.
