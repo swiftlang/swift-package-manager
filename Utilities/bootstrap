@@ -1231,7 +1231,10 @@ def main():
         "SWIFTPM_BOOTSTRAP=1",
     ]
     if args.sysroot:
-        env_cmd.append("SYSROOT=" + args.sysroot)
+        if platform.system() == 'Darwin':
+            env_cmd.append("SDKROOT=" + args.sysroot)
+        else:
+            env_cmd.append("SYSROOT=" + args.sysroot)
     cmd = env_cmd + [bootstrapped_product] + build_flags
 
     # Always build tests in stage2.
