@@ -9,7 +9,7 @@
 */
 
 import Basic
-import Utility
+import SPMUtility
 import PackageModel
 
 extension ManifestBuilder {
@@ -40,11 +40,11 @@ extension ManifestBuilder {
         /// Parse the versioned value.
         let versionedValues = try versionJSON.map({ try VersionedValue(json: $0) })
 
-        return try versionedValues.map { versionedValue in 
+        return try versionedValues.map { versionedValue in
             // Validate that this versioned value is supported by the current
             // manifest version.
             try versionedValue.validate(for: self.manifestVersion)
-            
+
             return try SwiftLanguageVersion(string: String(json: versionedValue.value))!
         }
     }

@@ -10,7 +10,7 @@
 
 import Foundation
 import Basic
-import Utility
+import SPMUtility
 
 let listDependenciesCommand = "swift package \(PackageMode.completionTool.rawValue) \(PackageToolOptions.CompletionToolMode.listDependencies.rawValue)"
 let listExecutablesCommand = "swift package \(PackageMode.completionTool.rawValue) \(PackageToolOptions.CompletionToolMode.listExecutables.rawValue)"

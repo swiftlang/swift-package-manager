@@ -14,7 +14,7 @@ import PackageLoading
 import PackageModel
 import PackageGraph
 import SourceControl
-import Utility
+import SPMUtility
 
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: class {
@@ -217,7 +217,7 @@ public class Workspace {
                         requirement: .unversioned)
                     allConstraints.append(constraint)
 
-                case .checkout, .local: 
+                case .checkout, .local:
                     // For checkouts, add all the constraints in the manifest.
                     allConstraints += externalManifest.dependencyConstraints(config: workspace.config)
                 }
@@ -554,7 +554,7 @@ extension Workspace {
         diagnostics.wrap { try config.load() }
 
         // Load the root manifests and currently checked out manifests.
-        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
@@ -1090,7 +1090,7 @@ extension Workspace {
         // Load the config.
         diagnostics.wrap { try config.load() }
 
-        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
 
         // Load the pins store or abort now.
@@ -1105,7 +1105,7 @@ extension Workspace {
         let pins = pinsStore.pins.map({ $0 })
         DispatchQueue.concurrentPerform(iterations: pins.count) { idx in
             _ = try? await {
-                containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, completion: $0) 
+                containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, completion: $0)
             }
         }
 
@@ -1170,7 +1170,7 @@ extension Workspace {
         diagnostics.wrap { try config.load() }
 
         // Load the root manifests and currently checked out manifests.
-        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
@@ -1268,7 +1268,7 @@ extension Workspace {
         //
         // This would usually happen when we're resolving from scratch and the
         // resolved file has an outdated entry for a transitive dependency whose
-        // URL was changed. For e.g., the resolved file could refer to a dependency 
+        // URL was changed. For e.g., the resolved file could refer to a dependency
         // through a ssh url but its new reference is now changed to http.
         if !updatedDependencyManifests.computePackageURLs().missing.isEmpty {
             // Retry resolution which will most likely resolve correctly now since
@@ -1523,8 +1523,8 @@ extension Workspace {
             case .revision(let identifier):
                 // Get the latest revision from the container.
                 let container = try await {
-                    containerProvider.getContainer(for: packageRef, skipUpdate: true, completion: $0) 
-                } as! RepositoryPackageContainer 
+                    containerProvider.getContainer(for: packageRef, skipUpdate: true, completion: $0)
+                } as! RepositoryPackageContainer
                 var revision = try container.getRevision(forIdentifier: identifier)
                 let branch = identifier == revision.identifier ? nil : identifier
 
@@ -1715,7 +1715,7 @@ extension Workspace {
                 }
             }
         }
-        
+
         // Inform the delegate if nothing was updated.
         if packageStateChanges.filter({ $0.1 == .unchanged }).count == packageStateChanges.count {
             delegate?.dependenciesUpToDate()
@@ -1846,27 +1846,27 @@ extension Workspace {
 
     /// Removes the clone and checkout of the provided specifier.
     fileprivate func remove(package: PackageReference) throws {
-        
+
         guard let dependency = managedDependencies[forURL: package.path] else {
             fatalError("This should never happen, trying to remove \(package.identity) which isn't in workspace")
         }
 
         // We only need to update the managed dependency structure to "remove"
         // a local package.
-        // 
+        //
         // Note that we don't actually remove a local package from disk.
         switch dependency.state {
         case .local:
             managedDependencies[forURL: package.path] = nil
             try managedDependencies.saveState()
             return
-        case .checkout, .edited: 
+        case .checkout, .edited:
             break
         }
-        
+
         // Inform the delegate.
         delegate?.removing(repository: dependency.packageRef.repository.url)
-        
+
         // Compute the dependency which we need to remove.
         let dependencyToRemove: ManagedDependency
 
@@ -1879,7 +1879,7 @@ extension Workspace {
             dependencyToRemove = dependency
             managedDependencies[forURL: dependencyToRemove.packageRef.path] = nil
         }
-        
+
         // Remove the checkout.
         let dependencyPath = checkoutsPath.appending(dependencyToRemove.subpath)
         let checkedOutRepo = try repositoryManager.provider.openCheckout(at: dependencyPath)

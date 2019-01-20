@@ -15,7 +15,7 @@ import PackageLoading
 import PackageModel
 import PackageGraph
 import SourceControl
-import Utility
+import SPMUtility
 @testable import Workspace
 
 import TestSupport
@@ -137,7 +137,7 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 let ws = try createWorkspace {
-                    $0 <<< 
+                    $0 <<<
                         """
                         // swift-tools-version:4.0
                         import PackageDescription
@@ -153,7 +153,7 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 let ws = try createWorkspace {
-                    $0 <<< 
+                    $0 <<<
                         """
                         // swift-tools-version:3.1
                         import PackageDescription
@@ -839,7 +839,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.5.0")))
         }
         XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Bar")])
-        
+
         // Run update again.
         // Ensure that up-to-date delegate is called when there is nothing to update.
         workspace.checkUpdate(roots: ["Root"]) { diagnostics in
@@ -2651,7 +2651,7 @@ final class WorkspaceTests: XCTestCase {
              XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Foo"])
          }
 
-         workspace.checkReset { diagnostics in 
+         workspace.checkReset { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
          }
 

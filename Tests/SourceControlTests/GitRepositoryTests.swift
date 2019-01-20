@@ -12,7 +12,7 @@ import XCTest
 
 import Basic
 import SourceControl
-import Utility
+import SPMUtility
 
 import TestSupport
 
@@ -54,7 +54,7 @@ class GitRepositoryTests: XCTestCase {
 
             let revision = try repository.resolveRevision(tag: tags.first ?? "<invalid>")
             // FIXME: It would be nice if we had a deterministic hash here...
-            XCTAssertEqual(revision.identifier, 
+            XCTAssertEqual(revision.identifier,
                 try Process.popen(
                     args: Git.tool, "-C", testRepoPath.description, "rev-parse", "--verify", "1.2.3").utf8Output().spm_chomp())
             if let revision = try? repository.resolveRevision(tag: "<invalid>") {
@@ -516,7 +516,7 @@ class GitRepositoryTests: XCTestCase {
             }
             let foo = GitRepository(path: fooPath)
             let bar = GitRepository(path: barPath)
-            // The tag 1.0.0 does not contain the submodule. 
+            // The tag 1.0.0 does not contain the submodule.
             try foo.tag(name: "1.0.0")
 
             // Fetch and clone repo foo.

@@ -10,7 +10,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 import Basic
 import Build
-import Utility
+import SPMUtility
 import PackageGraph
 import PackageModel
 
@@ -67,7 +67,7 @@ public class RunToolOptions: ToolOptions {
         }
         return .run
     }
-    
+
     /// If the executable product should be built before running.
     var shouldBuild = true
 
@@ -76,10 +76,10 @@ public class RunToolOptions: ToolOptions {
 
     /// If should launch the Swift REPL.
     var shouldLaunchREPL = false
-    
+
     /// The executable product to run.
     var executable: String?
-    
+
     /// The arguments to pass to the executable.
     var arguments: [String] = []
 }
@@ -135,7 +135,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             // Redirect stdout to stderr because swift-run clients usually want
             // to ignore swiftpm's output and only care about the tool's output.
             self.redirectStdoutToStderr()
-                    
+
             let plan = try BuildPlan(buildParameters: self.buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
             let product = try findProduct(in: plan.graph)
 
@@ -165,7 +165,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             }) else {
                 throw RunError.executableNotFound(executable)
             }
-            
+
             return executableProduct
         } else {
             // If the executable is implicit, search through root products.
@@ -180,11 +180,11 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             guard rootExecutables.count == 1 else {
                 throw RunError.multipleExecutables(rootExecutables.map({ $0.name }))
             }
-            
+
             return rootExecutables[0]
         }
     }
-    
+
     /// Executes the executable at the specified path.
     private func run(_ excutablePath: AbsolutePath, arguments: [String]) throws {
         // Make sure we are running from the original working directory.
@@ -223,7 +223,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             option: parser.add(option: buildTestsOptionName, kind: Bool.self,
                                usage: "Build both source and test targets"),
             to: { $0.shouldBuildTests = $1 })
-        
+
         binder.bindArray(
             positional: parser.add(
                 positional: "executable", kind: [String].self, optional: true, strategy: .remaining,

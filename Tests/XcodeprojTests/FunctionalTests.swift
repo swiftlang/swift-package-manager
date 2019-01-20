@@ -14,7 +14,7 @@ import Basic
 import Commands
 import TestSupport
 import PackageModel
-import Utility
+import SPMUtility
 import Xcodeproj
 
 class FunctionalTests: XCTestCase {
@@ -99,7 +99,7 @@ class FunctionalTests: XCTestCase {
         }
       #endif
     }
-    
+
     func testSystemModule() {
 #if os(macOS)
         // Because there isn't any one system target that we can depend on for testing purposes, we build our own.
@@ -151,10 +151,10 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
             stream <<< "SWIFT_LIBRARY_PATH = " <<< swiftLibraryPath <<< "\n"
             stream <<< "TOOLCHAIN_DIR = " <<< swiftCompilerPath.appending(components: "..", "..") <<< "\n"
         }
-        
+
         // We don't need dSYM generated for tests
         stream <<< "DEBUG_INFORMATION_FORMAT = dwarf\n"
-        
+
         try localFileSystem.writeFileContents(xcconfig, bytes: stream.bytes)
 
         try Process.checkNonZeroExit(

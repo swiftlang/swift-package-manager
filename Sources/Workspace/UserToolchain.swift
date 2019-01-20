@@ -14,7 +14,7 @@ import Basic
 import Build
 import PackageLoading
 import protocol Build.Toolchain
-import Utility
+import SPMUtility
 
 #if os(macOS)
 private let whichArgs: [String] = ["xcrun", "--find"]

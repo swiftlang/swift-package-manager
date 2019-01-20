@@ -14,7 +14,7 @@ import Basic
 import PackageGraph
 import SourceControl
 
-import struct Utility.Version
+import struct SPMUtility.Version
 
 public typealias MockDependencyResolver = DependencyResolver<MockPackagesProvider, MockResolverDelegate>
 

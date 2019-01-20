@@ -11,7 +11,7 @@
 import XCTest
 
 import Basic
-import Utility
+import SPMUtility
 import PackageModel
 import PackageGraph
 import TestSupport

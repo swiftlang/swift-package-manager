@@ -9,7 +9,7 @@
 */
 
 import Basic
-import Utility
+import SPMUtility
 
 import XCTest
 

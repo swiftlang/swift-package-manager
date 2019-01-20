@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import Utility
+@testable import SPMUtility
 import XCTest
 
 class StringTests: XCTestCase {
@@ -19,7 +19,7 @@ class StringTests: XCTestCase {
         XCTAssertEqual("abc\r\n\r\r\n".spm_chomp(), "abc\r\n\r")
         XCTAssertEqual("abc\n \n".spm_chomp(), "abc\n ")
     }
-    
+
     func testSeparatorChomp() {
         XCTAssertEqual("abc".spm_chomp(separator: "c"), "ab")
         XCTAssertEqual("abc\n".spm_chomp(separator: "c"), "abc\n")
@@ -41,13 +41,13 @@ class StringTests: XCTestCase {
         XCTAssertEqual(" a\t\r\n".spm_chuzzle(), "a")
         XCTAssertEqual("b".spm_chuzzle(), "b")
     }
-    
+
     func testSplitAround() {
         func eq(_ lhs: (String, String?), _ rhs: (String, String?), file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(lhs.0, rhs.0, file: file, line: line)
             XCTAssertEqual(lhs.1, rhs.1, file: file, line: line)
         }
-        
+
         eq("".spm_split(around: "::"), ("", nil))
         eq("foo".spm_split(around: "::"), ("foo", nil))
         eq("foo::".spm_split(around: "::"), ("foo", ""))
@@ -58,12 +58,12 @@ class StringTests: XCTestCase {
 
 class URLTests: XCTestCase {
     func testSchema() {
-        XCTAssertEqual(Utility.URL.scheme("http://github.com/foo/bar"), "http")
-        XCTAssertEqual(Utility.URL.scheme("https://github.com/foo/bar"), "https")
-        XCTAssertEqual(Utility.URL.scheme("HTTPS://github.com/foo/bar"), "https")
-        XCTAssertEqual(Utility.URL.scheme("git@github.com/foo/bar"), "git")
-        XCTAssertEqual(Utility.URL.scheme("ssh@github.com/foo/bar"), "ssh")
-        XCTAssertNil(Utility.URL.scheme("github.com/foo/bar"))
-        XCTAssertNil(Utility.URL.scheme("user:/github.com/foo/bar"))
+        XCTAssertEqual(SPMUtility.URL.scheme("http://github.com/foo/bar"), "http")
+        XCTAssertEqual(SPMUtility.URL.scheme("https://github.com/foo/bar"), "https")
+        XCTAssertEqual(SPMUtility.URL.scheme("HTTPS://github.com/foo/bar"), "https")
+        XCTAssertEqual(SPMUtility.URL.scheme("git@github.com/foo/bar"), "git")
+        XCTAssertEqual(SPMUtility.URL.scheme("ssh@github.com/foo/bar"), "ssh")
+        XCTAssertNil(SPMUtility.URL.scheme("github.com/foo/bar"))
+        XCTAssertNil(SPMUtility.URL.scheme("user:/github.com/foo/bar"))
     }
 }

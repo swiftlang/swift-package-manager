@@ -12,7 +12,7 @@ import XCTest
 import Commands
 import TestSupport
 import Basic
-import Utility
+import SPMUtility
 import Workspace
 
 class ModuleMapsTestCase: XCTestCase {
@@ -59,7 +59,7 @@ class ModuleMapsTestCase: XCTestCase {
                     Y.bar() called
                     X.foo() called
                     123
-                    
+
                     """)
             }
 

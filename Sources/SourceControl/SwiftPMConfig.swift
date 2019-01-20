@@ -11,7 +11,7 @@
 import Foundation
 
 import Basic
-import Utility
+import SPMUtility
 
 // FIXME: We may want to move this class to some other layer once we start
 // supporting more things than just mirrors.

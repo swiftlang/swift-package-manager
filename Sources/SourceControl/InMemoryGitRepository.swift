@@ -10,7 +10,7 @@
 
 import Basic
 import Dispatch
-import Utility
+import SPMUtility
 import class Foundation.NSUUID
 
 /// The error encountered during in memory git repository operations.

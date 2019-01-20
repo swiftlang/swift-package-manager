@@ -9,7 +9,7 @@
 */
 
 import Basic
-import Utility
+import SPMUtility
 import PackageModel
 
 public enum PackageBuilderDiagnostics {
@@ -26,7 +26,7 @@ public enum PackageBuilderDiagnostics {
                 $0 <<< "contains no valid source files"
             }
         )
-    
+
         /// The name of the package.
         public let package: String
 

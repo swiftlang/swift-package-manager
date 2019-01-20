@@ -10,7 +10,7 @@
 
 import Basic
 import PackageModel
-import Utility
+import SPMUtility
 import class Foundation.ProcessInfo
 
 /// Describes a tool which can be understood by llbuild's BuildSystem library.

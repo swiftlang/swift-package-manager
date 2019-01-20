@@ -9,7 +9,7 @@
 */
 
 import Basic
-import Utility
+import SPMUtility
 
 /// The supported manifest versions.
 public enum ManifestVersion: String, Codable, CustomStringConvertible {
@@ -116,7 +116,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         platforms: [PlatformDescription],
         path: AbsolutePath,
         url: String,
-        version: Utility.Version? = nil,
+        version: SPMUtility.Version? = nil,
         manifestVersion: ManifestVersion,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
@@ -312,11 +312,11 @@ public struct PackageDependencyDescription: Equatable, Codable {
         case branch(String)
         case localPackage
 
-        public static func upToNextMajor(from version: Utility.Version) -> Requirement {
+        public static func upToNextMajor(from version: SPMUtility.Version) -> Requirement {
             return .range(version..<Version(version.major + 1, 0, 0))
         }
 
-        public static func upToNextMinor(from version: Utility.Version) -> Requirement {
+        public static func upToNextMinor(from version: SPMUtility.Version) -> Requirement {
             return .range(version..<Version(version.major, version.minor + 1, 0))
         }
 

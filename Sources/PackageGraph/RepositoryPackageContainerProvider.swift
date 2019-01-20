@@ -14,7 +14,7 @@ import Basic
 import PackageLoading
 import PackageModel
 import SourceControl
-import Utility
+import SPMUtility
 
 /// Adaptor for exposing repositories as PackageContainerProvider instances.
 ///
@@ -151,7 +151,7 @@ public class BasePackageContainer: PackageContainer {
     public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
         fatalError("This should never be called")
     }
-    
+
     fileprivate init(
         _ identifier: Identifier,
         config: SwiftPMConfig,
@@ -183,7 +183,7 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
         if let manifest = _manifest {
             return manifest
         }
-        
+
         // Load the tools version.
         let toolsVersion = try toolsVersionLoader.load(at: AbsolutePath(identifier.path), fileSystem: fs)
 
@@ -202,11 +202,11 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
             fileSystem: fs)
         return _manifest!
     }
-    
+
     public override func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {
         return try loadManifest().dependencyConstraints(config: config)
     }
-    
+
     public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
         assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
         let manifest = try loadManifest()
@@ -267,7 +267,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             }
 
             // Otherwise, compute and cache the result.
-            let isValid = (try? self.toolsVersion(for: $0)).flatMap({ 
+            let isValid = (try? self.toolsVersion(for: $0)).flatMap({
                 guard $0 >= ToolsVersion.minimumRequired else {
                     return false
                 }
@@ -310,7 +310,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         //
         // FIXME: Move this utility to a more stable location.
         let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(repository.tags)
-        
+
         let knownVersions = knownVersionsWithDuplicates.mapValues({ tags -> String in
             if tags.count == 2 {
                 // FIXME: Warn if the two tags point to different git references.
@@ -319,7 +319,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             assert(tags.count == 1, "Unexpected number of tags")
             return tags[0]
         })
-        
+
         self.knownVersions = knownVersions
         self.reversedVersions = [Version](knownVersions.keys).sorted().reversed()
         super.init(
@@ -422,7 +422,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         // We just return an empty array if requested for unversioned dependencies.
         return []
     }
-    
+
     public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
         let identifier: String
         switch boundVersion {
@@ -434,7 +434,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             assertionFailure("Unexpected type requirement \(boundVersion)")
             return self.identifier
         }
-        
+
         // FIXME: We expect by the time this method is called, we would already have the
         // manifest in the cache. We can probably get rid of this requirement once we implement
         // proper manifest caching.

@@ -12,7 +12,7 @@ import func XCTest.XCTFail
 
 import Basic
 import POSIX
-import Utility
+import SPMUtility
 
 #if os(macOS)
 import class Foundation.Bundle

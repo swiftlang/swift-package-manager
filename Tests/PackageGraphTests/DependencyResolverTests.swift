@@ -14,7 +14,7 @@ import Basic
 import PackageGraph
 import SourceControl
 
-import struct Utility.Version
+import struct SPMUtility.Version
 
 import TestSupport
 
@@ -552,7 +552,7 @@ class DependencyResolverTests: XCTestCase {
         let provider = MockPackagesProvider(containers: [
             MockPackageContainer(name: "A", dependenciesByVersion: [v1: [], v1_1: []]),
             MockPackageContainer(name: "B", dependenciesByVersion: [
-                v1: [(container: "A", versionRequirement: v1Range)], 
+                v1: [(container: "A", versionRequirement: v1Range)],
                 v1_1: []
             ]),
         ])

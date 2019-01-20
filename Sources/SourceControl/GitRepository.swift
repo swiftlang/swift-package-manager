@@ -10,7 +10,7 @@
 
 import Basic
 import Dispatch
-import Utility
+import SPMUtility
 
 public enum GitRepositoryProviderError: Swift.Error {
     case gitCloneFailure(errorOutput: String)

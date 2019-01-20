@@ -15,7 +15,7 @@ import PackageLoading
 import PackageModel
 import PackageGraph
 import SourceControl
-import Utility
+import SPMUtility
 
 /// Represents a mock package.
 public struct MockPackage {
@@ -23,12 +23,12 @@ public struct MockPackage {
     public let name: String
 
     /// The current available version of the package.
-    public let version: Utility.Version?
+    public let version: SPMUtility.Version?
 
     /// The dependencies of the package.
     public let dependencies: [MockDependency]
 
-    public init(_ name: String, version: Utility.Version?, dependencies: [MockDependency] = []) {
+    public init(_ name: String, version: SPMUtility.Version?, dependencies: [MockDependency] = []) {
         self.name = name
         self.version = version
         self.dependencies = dependencies
@@ -41,14 +41,14 @@ public struct MockDependency {
     public let name: String
 
     /// The allowed version range of this dependency.
-    public let version: Range<Utility.Version>
+    public let version: Range<SPMUtility.Version>
 
-    public init(_ name: String, version: Range<Utility.Version>) {
+    public init(_ name: String, version: Range<SPMUtility.Version>) {
         self.name = name
         self.version = version
     }
 
-    public init(_ name: String, version: Utility.Version) {
+    public init(_ name: String, version: SPMUtility.Version) {
         self.name = name
         self.version = version..<Version(version.major, version.minor, version.patch + 1)
     }
@@ -79,7 +79,7 @@ public struct MockManifestGraph {
     }
 
     /// Convinience accessor for external manifests.
-    public func manifest(_ package: String, version: Utility.Version) -> Manifest {
+    public func manifest(_ package: String, version: SPMUtility.Version) -> Manifest {
         return manifests[MockManifestLoader.Key(url: repo(package).url, version: version)]!
     }
 

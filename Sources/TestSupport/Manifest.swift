@@ -10,14 +10,14 @@
 
 import PackageModel
 import Basic
-import Utility
+import SPMUtility
 
 extension Manifest {
     public static func createV4Manifest(
         name: String,
         path: String = "/",
         url: String = "/",
-        version: Utility.Version? = nil,
+        version: SPMUtility.Version? = nil,
         manifestVersion: ManifestVersion = .v4,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
@@ -51,7 +51,7 @@ extension Manifest {
         platforms: [PlatformDescription] = [],
         path: String = "/",
         url: String = "/",
-        version: Utility.Version? = nil,
+        version: SPMUtility.Version? = nil,
         v: ManifestVersion,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,

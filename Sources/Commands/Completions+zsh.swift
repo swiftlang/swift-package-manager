@@ -10,7 +10,7 @@
 
 import Foundation
 import Basic
-import Utility
+import SPMUtility
 
 /// Template for ZSH completion script.
 ///

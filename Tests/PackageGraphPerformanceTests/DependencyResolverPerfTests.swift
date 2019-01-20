@@ -16,7 +16,7 @@ import PackageGraph
 import PackageLoading
 import SourceControl
 
-import struct Utility.Version
+import struct SPMUtility.Version
 
 import TestSupport
 
@@ -220,11 +220,11 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
     func testSourceKitten_X1000() throws {
         try runPackageTest(name: "SourceKitten.json", N: 1000)
     }
-    
+
     func runPackageTest(name: String, N: Int = 1) throws {
         let graph = try mockGraph(for: name)
         let provider = MockPackagesProvider(containers: graph.containers)
-        
+
         measure {
             for _ in 0 ..< N {
                 let resolver = MockDependencyResolver(provider, MockResolverDelegate())
@@ -315,7 +315,7 @@ struct GitRepositoryResolutionHelper {
         )
     }
 
-    var constraints: [RepositoryPackageConstraint] { 
+    var constraints: [RepositoryPackageConstraint] {
         return manifestGraph.rootManifest.dependencyConstraints(config: SwiftPMConfig())
     }
 

@@ -17,7 +17,7 @@ import Xcodeproj
 import PackageModel
 import SourceControl
 import TestSupport
-import Utility
+import SPMUtility
 import Workspace
 @testable import class Workspace.PinsStore
 
@@ -92,7 +92,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(targets?[1]["sources"]?.array?.map{$0.stringValue} ?? [], ["main.swift"])
 
             let textOutput = try execute(["describe"], packagePath: prefix)
-            
+
             XCTAssert(textOutput.hasPrefix("Name: SwiftCMixed"))
             XCTAssert(textOutput.contains("    C99name: CExec"))
             XCTAssert(textOutput.contains("    Name: SeaLib"))
@@ -124,7 +124,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(name, "Dealer")
             guard case let .string(path)? = contents["path"] else { XCTFail("unexpected result"); return }
             XCTAssertEqual(resolveSymlinks(AbsolutePath(path)), resolveSymlinks(packageRoot))
-        } 
+        }
     }
 
     func testInitEmpty() throws {
@@ -133,7 +133,7 @@ final class PackageToolTests: XCTestCase {
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
             _ = try execute(["init", "--type", "empty"], packagePath: path)
-            
+
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
@@ -166,7 +166,7 @@ final class PackageToolTests: XCTestCase {
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
             _ = try execute(["init"], packagePath: path)
-            
+
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
             XCTAssertEqual(
@@ -174,19 +174,19 @@ final class PackageToolTests: XCTestCase {
                 ["FooTests", "LinuxMain.swift"])
         }
     }
-    
+
     func testInitCustomNameExecutable() throws {
         mktmpdir { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
             _ = try execute(["init", "--name", "CustomName", "--type", "executable"], packagePath: path)
-            
+
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).description
             let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
             XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version)\n"))
-            
+
             XCTAssertTrue(fs.exists(manifest))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "CustomName")), ["main.swift"])
             XCTAssertEqual(
@@ -194,7 +194,7 @@ final class PackageToolTests: XCTestCase {
                 ["CustomNameTests", "LinuxMain.swift"])
         }
     }
-    
+
     func testPackageEditAndUnedit() {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
@@ -342,7 +342,7 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("resolve", "bar", "--branch", "YOLO")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                let state = CheckoutState(revision: yoloRevision, branch: "YOLO") 
+                let state = CheckoutState(revision: yoloRevision, branch: "YOLO")
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.state, state)
             }
 
@@ -350,7 +350,7 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("resolve", "bar", "--revision", yoloRevision.identifier)
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                let state = CheckoutState(revision: yoloRevision) 
+                let state = CheckoutState(revision: yoloRevision)
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.state, state)
             }
 
@@ -404,7 +404,7 @@ final class PackageToolTests: XCTestCase {
             func execute(_ args: String...) throws -> String {
                 return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath)
             }
-            
+
             // Try to pin bar.
             do {
                 try execute("resolve", "bar")
