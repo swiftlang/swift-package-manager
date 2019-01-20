@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct Utility.Version
+import struct SPMUtility.Version
 import XCTest
 
 class VersionTests: XCTestCase {

@@ -9,7 +9,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
 import XCTest
-import Utility
+import SPMUtility
 
 class StringConversionTests: XCTestCase {
 
@@ -21,25 +21,25 @@ class StringConversionTests: XCTestCase {
     }
 
     func testManglingToC99ExtendedIdentifier() {
-        
+
         // Simple cases.
         XCTAssertEqual("foo".spm_mangledToC99ExtendedIdentifier(), "foo")
-        
+
         // Edge cases.
         XCTAssertEqual("".spm_mangledToC99ExtendedIdentifier(), "")
         XCTAssertEqual("_".spm_mangledToC99ExtendedIdentifier(), "_")
         XCTAssertEqual("\n".spm_mangledToC99ExtendedIdentifier(), "_")
-        
+
         // Invalid non-leading characters.
         XCTAssertEqual("_-".spm_mangledToC99ExtendedIdentifier(), "__")
         XCTAssertEqual("foo-bar".spm_mangledToC99ExtendedIdentifier(), "foo_bar")
-        
+
         // Invalid leading characters.
         XCTAssertEqual("1".spm_mangledToC99ExtendedIdentifier(), "_")
         XCTAssertEqual("1foo".spm_mangledToC99ExtendedIdentifier(), "_foo")
         XCTAssertEqual("٠٠٠".spm_mangledToC99ExtendedIdentifier(), "_٠٠")
         XCTAssertEqual("12 3".spm_mangledToC99ExtendedIdentifier(), "_2_3")
-        
+
         // FIXME: There are lots more interesting test cases to add here.
         var str1 = ""
         str1.spm_mangleToC99ExtendedIdentifier()

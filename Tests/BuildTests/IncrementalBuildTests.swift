@@ -1,9 +1,9 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
@@ -12,7 +12,7 @@ import XCTest
 
 import TestSupport
 import Basic
-import Utility
+import SPMUtility
 import func SPMLibc.sleep
 
 
@@ -41,14 +41,14 @@ final class IncrementalBuildTests: XCTestCase {
         fixture(name: "CFamilyTargets/CLibrarySources") { prefix in
             // Build it once and capture the log (this will be a full build).
             let fullLog = try executeSwiftBuild(prefix)
-            
+
             // Check various things that we expect to see in the full build log.
             // FIXME:  This is specific to the format of the log output, which
             // is quite unfortunate but not easily avoidable at the moment.
             XCTAssertTrue(fullLog.contains("Compiling CLibrarySources Foo.c"))
 
             let llbuildManifest = prefix.appending(components: ".build", "debug.yaml")
-            
+
             // Modify the source file in a way that changes its size so that the low-level
             // build system can detect the change. The timestamp change might be too less
             // for it to detect.
@@ -59,14 +59,14 @@ final class IncrementalBuildTests: XCTestCase {
 
             // Read the first llbuild manifest.
             let llbuildContents1 = try localFileSystem.readFileContents(llbuildManifest)
-            
+
             // Now build again.  This should be an incremental build.
             let log2 = try executeSwiftBuild(prefix)
             XCTAssertTrue(log2.contains("Compiling CLibrarySources Foo.c"))
 
             // Read the second llbuild manifest.
             let llbuildContents2 = try localFileSystem.readFileContents(llbuildManifest)
-            
+
             // Now build again without changing anything.  This should be a null
             // build.
             let log3 = try executeSwiftBuild(prefix)
@@ -79,7 +79,7 @@ final class IncrementalBuildTests: XCTestCase {
             XCTAssertEqual(llbuildContents2, llbuildContents3)
         }
     }
-    
+
     // FIXME:  We should add a lot more test cases here; the one above is just
     // a starter test.
 }

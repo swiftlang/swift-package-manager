@@ -12,7 +12,7 @@ import Basic
 import PackageLoading
 import PackageModel
 import SourceControl
-import Utility
+import SPMUtility
 import func POSIX.exit
 import Workspace
 

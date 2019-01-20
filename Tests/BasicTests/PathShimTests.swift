@@ -19,7 +19,7 @@ class PathShimTests : XCTestCase {
     func testResolvingSymlinks() {
         // Make sure the root path resolves to itself.
         XCTAssertEqual(resolveSymlinks(AbsolutePath.root), AbsolutePath.root)
-        
+
         // For the rest of the tests we'll need a temporary directory.
         let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
         // FIXME: it would be better to not need to resolve symbolic links, but we end up relying on /tmp -> /private/tmp.
@@ -28,19 +28,19 @@ class PathShimTests : XCTestCase {
         // Create a symbolic link and directory.
         let slnkPath = tmpDirPath.appending(component: "slnk")
         let fldrPath = tmpDirPath.appending(component: "fldr")
-        
+
         // Create a symbolic link pointing at the (so far non-existent) directory.
         try! createSymlink(slnkPath, pointingAt: fldrPath, relative: true)
-        
+
         // Resolving the symlink should not yet change anything.
         XCTAssertEqual(resolveSymlinks(slnkPath), slnkPath)
-        
+
         // Create a directory to be the referent of the symbolic link.
         try! makeDirectories(fldrPath)
-        
+
         // Resolving the symlink should now point at the directory.
         XCTAssertEqual(resolveSymlinks(slnkPath), fldrPath)
-        
+
         // Resolving the directory should still not change anything.
         XCTAssertEqual(resolveSymlinks(fldrPath), fldrPath)
     }
@@ -48,18 +48,18 @@ class PathShimTests : XCTestCase {
     func testRescursiveDirectoryCreation() {
         // For the tests we'll need a temporary directory.
         let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
-        
+
         // Create a directory under several ancestor directories.
         let dirPath = tmpDir.path.appending(components: "abc", "def", "ghi", "mno", "pqr")
         try! makeDirectories(dirPath)
-        
+
         // Check that we were able to actually create the directory.
         XCTAssertTrue(isDirectory(dirPath))
-        
+
         // Check that there's no error if we try to create the directory again.
         try! makeDirectories(dirPath)
     }
-    
+
     func testCurrentWorkingDirectory() {
         // Test against what POSIX returns, at least for now.
         let cwd = localFileSystem.currentWorkingDirectory!
@@ -88,7 +88,7 @@ class WalkTests : XCTestCase {
         let root = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory.appending(component: "Sources")
         var expected = [
             root.appending(component: "Build"),
-            root.appending(component: "Utility")
+            root.appending(component: "SPMUtility")
         ]
         for x in try! walk(root) {
             if let i = expected.index(of: x) {
@@ -102,7 +102,7 @@ class WalkTests : XCTestCase {
         let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
         // FIXME: it would be better to not need to resolve symbolic links, but we end up relying on /tmp -> /private/tmp.
         let tmpDirPath = resolveSymlinks(tmpDir.path)
-            
+
         try! makeDirectories(tmpDirPath.appending(component: "foo"))
         try! makeDirectories(tmpDirPath.appending(components: "bar", "baz", "goo"))
         try! createSymlink(tmpDirPath.appending(components: "foo", "symlink"), pointingAt: tmpDirPath.appending(component: "bar"), relative: true)
@@ -119,7 +119,7 @@ class WalkTests : XCTestCase {
     func testWalkingADirectorySymlinkResolvesOnce() {
         let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
         let tmpDirPath = tmpDir.path
-        
+
         try! makeDirectories(tmpDirPath.appending(components: "foo", "bar"))
         try! makeDirectories(tmpDirPath.appending(components: "abc", "bar"))
         try! createSymlink(tmpDirPath.appending(component: "symlink"), pointingAt: tmpDirPath.appending(component: "foo"), relative: true)

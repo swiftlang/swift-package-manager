@@ -10,6 +10,6 @@ let package = Package(
     targets: [
         .testTarget(
             name: "ExtraTests",
-            dependencies: ["Utility"]),
+            dependencies: ["SPMUtility"]),
     ]
 )

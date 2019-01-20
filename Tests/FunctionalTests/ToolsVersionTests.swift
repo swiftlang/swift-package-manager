@@ -11,7 +11,7 @@
 import XCTest
 
 import Basic
-import Utility
+import SPMUtility
 import TestSupport
 import Commands
 import PackageModel
@@ -132,7 +132,7 @@ class ToolsVersionTests: XCTestCase {
                     import PackageDescription
                     let package = Package(
                         name: "Primary",
-                        dependencies: [.package(url: "../Dep", from: "1.0.0")], 
+                        dependencies: [.package(url: "../Dep", from: "1.0.0")],
                         targets: [.target(name: "Primary", dependencies: ["Dep"], path: ".")],
                         swiftLanguageVersions: [\(ToolsVersion.currentToolsVersion.major), 1000])
                     """

@@ -12,7 +12,7 @@ import Dispatch
 import class Foundation.OperationQueue
 
 import Basic
-import Utility
+import SPMUtility
 
 /// Delegate to notify clients about actions being performed by RepositoryManager.
 public protocol RepositoryManagerDelegate: class {
@@ -140,7 +140,7 @@ public class RepositoryManager {
     fileprivate var repositories: [String: RepositoryHandle] = [:]
 
     /// The map of serialized repositories.
-    /// 
+    ///
     /// NOTE: This is to be used only for persistence support.
     fileprivate var serializedRepositories: [String: JSON] = [:]
 

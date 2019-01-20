@@ -14,7 +14,7 @@ import TestSupport
 import Basic
 import PackageModel
 import SourceControl
-import Utility
+import SPMUtility
 import Workspace
 
 typealias Process = Basic.Process
@@ -24,7 +24,7 @@ private func XCTAssertDirectoryContainsFile(dir: AbsolutePath, filename: String,
     do {
         for entry in try walk(dir) {
             if entry.basename == filename { return }
-        } 
+        }
     } catch {
         XCTFail("Failed with error \(error)", file: file, line: line)
     }
@@ -41,7 +41,7 @@ class CFamilyTargetTestCase: XCTestCase {
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
         }
     }
-    
+
     func testCUsingCAndSwiftDep() {
         fixture(name: "DependencyResolution/External/CUsingCDep") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
@@ -53,7 +53,7 @@ class CFamilyTargetTestCase: XCTestCase {
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
         }
     }
-    
+
     func testModuleMapGenerationCases() {
         fixture(name: "CFamilyTargets/ModuleMapGenerationCases") { prefix in
             XCTAssertBuilds(prefix)
@@ -73,7 +73,7 @@ class CFamilyTargetTestCase: XCTestCase {
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
         }
     }
-    
+
     func testObjectiveCPackageWithTestTarget(){
       #if os(macOS)
         fixture(name: "CFamilyTargets/ObjCmacOSPackage") { prefix in

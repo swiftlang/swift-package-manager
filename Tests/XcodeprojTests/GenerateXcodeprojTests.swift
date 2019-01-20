@@ -14,7 +14,7 @@ import PackageGraph
 import PackageModel
 import SourceControl
 @testable import Xcodeproj
-import Utility
+import SPMUtility
 import XCTest
 
 class GenerateXcodeprojTests: XCTestCase {
@@ -25,7 +25,7 @@ class GenerateXcodeprojTests: XCTestCase {
         let expectedPath = AbsolutePath("/path/to/project/Bar.xcodeproj")
         XCTAssertEqual(xcodeprojPath, expectedPath)
     }
-    
+
     func testXcodebuildCanParseIt() {
       #if os(macOS)
         mktmpdir { dstdir in
@@ -65,9 +65,9 @@ class GenerateXcodeprojTests: XCTestCase {
                    Build Configurations:
                        Debug
                        Release
-               
+
                    If no build configuration is specified and -scheme is not passed then "Release" is used.
-               
+
                    Schemes:
                        Foo-Package
                """), output)

@@ -9,7 +9,7 @@
  */
 
 import Basic
-import Utility
+import SPMUtility
 
 /// Available runtime sanitizers.
 public enum Sanitizer: String {

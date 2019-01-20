@@ -10,7 +10,7 @@
 
 import Basic
 import PackageModel
-import Utility
+import SPMUtility
 
 /// An error in the structure or layout of a package.
 public enum ModuleError: Swift.Error {
@@ -342,7 +342,7 @@ public final class PackageBuilder {
         // Ensure no dupicate target definitions are found.
         let duplicateTargetNames: [String] = manifest.targets.map({ $0.name
         }).spm_findDuplicates()
-        
+
         if !duplicateTargetNames.isEmpty {
             throw Target.Error.duplicateTargets(duplicateTargetNames)
         }
@@ -483,7 +483,7 @@ public final class PackageBuilder {
                 switch $0 {
                 case .target(let name):
                     // Since we already checked above that all referenced targets
-                    // has to present, we always expect this target to be present in 
+                    // has to present, we always expect this target to be present in
                     // potentialModules dictionary.
                     return potentialModuleMap[name]!
                 case .product:
@@ -550,7 +550,7 @@ public final class PackageBuilder {
             let target = try createTarget(
                 potentialModule: potentialModule,
                 manifestTarget: manifestTarget,
-                moduleDependencies: deps, 
+                moduleDependencies: deps,
                 productDeps: productDeps)
             // Add the created target to the map or print no sources warning.
             if let createdTarget = target {
@@ -596,7 +596,7 @@ public final class PackageBuilder {
                 providers: manifestTarget?.providers
             )
         }
-        
+
         // Check for duplicate target dependencies by name
         let combinedDependencyNames = moduleDependencies.map { $0.name } + productDeps.map { $0.0 }
         combinedDependencyNames.spm_findDuplicates().forEach {
@@ -676,7 +676,7 @@ public final class PackageBuilder {
 
         // Create the build setting assignment table for this target.
         let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path)
-        
+
         // Create and return the right kind of target depending on what kind of sources we found.
         if clangSources.isEmpty {
             guard !swiftSources.isEmpty else { return nil }

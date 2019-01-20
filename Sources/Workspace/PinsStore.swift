@@ -9,7 +9,7 @@
 */
 
 import Basic
-import Utility
+import SPMUtility
 import SourceControl
 import PackageModel
 import PackageGraph
@@ -37,7 +37,7 @@ public final class PinsStore {
             packageRef: PackageReference,
             state: CheckoutState
         ) {
-            self.packageRef = packageRef 
+            self.packageRef = packageRef
             self.state = state
         }
     }

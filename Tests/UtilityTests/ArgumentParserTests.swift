@@ -11,7 +11,7 @@
 import XCTest
 import Basic
 import TestSupport
-import Utility
+import SPMUtility
 
 enum SampleEnum: String {
     case Foo
@@ -57,7 +57,7 @@ class ArgumentParserTests: XCTestCase {
         let inputFiles = parser.add(positional: "input files", kind: [String].self, usage: "A list of input files")
         let outputFiles = parser.add(option: "--output-files", kind: [String].self, usage: "A list of output files")
         let remaining = parser.add(option: "--remaining", kind: [String].self, strategy: .remaining, usage: "Remaining arguments")
-        
+
         let args = try parser.parse([
             "Foo",
             "-b", "bugfix",
@@ -211,7 +211,7 @@ class ArgumentParserTests: XCTestCase {
         binder.bindPositional(
             parser.add(positional: "foo", kind: String.self),
             parser.add(positional: "bar", kind: Int.self),
-            to: { 
+            to: {
                 $0.foo = $1
                 $0.bar = $2
             })
@@ -520,7 +520,7 @@ class ArgumentParserTests: XCTestCase {
                 esac
                 COMPREPLY=( $(compgen -W "--revision" -- $cur) )
             }
-            
+
 
             """))
 
@@ -541,8 +541,8 @@ class ArgumentParserTests: XCTestCase {
                 )
                 _arguments $arguments && return
             }
-            
-            
+
+
             """))
     }
 
@@ -588,16 +588,16 @@ class ArgumentParserTests: XCTestCase {
 
     func testRemainingStrategy() throws {
         let parser = ArgumentParser(commandName: "SomeBinary", usage: "sample parser", overview: "Sample overview")
-        
+
         let option1 = parser.add(option: "--foo", kind: String.self)
         let option2 = parser.add(option: "--bar", kind: [String].self, strategy: .remaining)
         let positional = parser.add(positional: "executable", kind: [String].self, optional: true, strategy: .remaining)
-        
+
         var args = try parser.parse([
             "--foo", "bar",
             "exe", "--with", "options", "--foo", "notbar"
         ])
-        
+
         XCTAssertEqual(args.get(option1), "bar")
         XCTAssertNil(args.get(option2))
         XCTAssertEqual(args.get(positional) ?? [], ["exe", "--with", "options", "--foo", "notbar"])

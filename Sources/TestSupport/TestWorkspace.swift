@@ -78,7 +78,7 @@ public final class TestWorkspace {
             let url = (isRoot ? packagePath : packagesDir.appending(RelativePath(package.path ?? package.name))).description
             let specifier = RepositorySpecifier(url: url)
             let manifestPath = packagePath.appending(component: Manifest.filename)
-            
+
             // Create targets on disk.
             let repo = repoProvider.specifierMap[specifier] ?? InMemoryGitRepository(path: packagePath, fs: fs as! InMemoryFileSystem)
             for target in package.targets {
@@ -211,7 +211,7 @@ public final class TestWorkspace {
         result(diagnostics)
     }
 
-    public func checkResolve(pkg: String, roots: [String], version: Utility.Version, _ result: (DiagnosticsEngine) -> ()) {
+    public func checkResolve(pkg: String, roots: [String], version: SPMUtility.Version, _ result: (DiagnosticsEngine) -> ()) {
         let diagnostics = DiagnosticsEngine()
         let workspace = createWorkspace()
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
@@ -273,7 +273,7 @@ public final class TestWorkspace {
 
     public enum State {
         public enum CheckoutState {
-            case version(Utility.Version)
+            case version(SPMUtility.Version)
             case revision(String)
             case branch(String)
         }
@@ -508,7 +508,7 @@ public final class TestWorkspaceDelegate: WorkspaceDelegate {
     public func dependenciesUpToDate() {
         events.append("Everything is already up-to-date")
     }
-    
+
     public func fetchingWillBegin(repository: String) {
         events.append("fetching repo: \(repository)")
     }

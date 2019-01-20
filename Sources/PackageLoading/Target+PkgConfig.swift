@@ -10,7 +10,7 @@
 
 import Basic
 import PackageModel
-import Utility
+import SPMUtility
 
 /// Wrapper struct containing result of a pkgConfig query.
 public struct PkgConfigResult {

@@ -15,7 +15,7 @@ import TestSupport
 
 import PackageModel
 import PackageLoading
-import Utility
+import SPMUtility
 
 class ToolsVersionLoaderTests: XCTestCase {
 

@@ -12,7 +12,7 @@ import XCTest
 
 import Basic
 import POSIX
-import Utility
+import SPMUtility
 
 #if os(macOS)
 import class Foundation.Bundle
@@ -41,7 +41,7 @@ public func XCTAssertBuilds(
         } catch {
             XCTFail("""
                 `swift build -c \(conf)' failed:
-                
+
                 \(error)
 
                 """, file: file, line: line)
@@ -60,7 +60,7 @@ public func XCTAssertSwiftTest(
     } catch {
         XCTFail("""
             `swift test' failed:
-            
+
             \(error)
 
             """, file: file, line: line)
@@ -143,7 +143,7 @@ public func XCTAssertThrows<T: Swift.Error, Ignore>(
     }
 }
 
-public func XCTNonNil<T>( 
+public func XCTNonNil<T>(
    _ optional: T?,
    file: StaticString = #file,
    line: UInt = #line,

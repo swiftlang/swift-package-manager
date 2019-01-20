@@ -9,7 +9,7 @@
 */
 
 import Basic
-import struct Utility.Version
+import struct SPMUtility.Version
 import class Foundation.NSDate
 
 public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {

@@ -16,7 +16,7 @@ import PackageGraph
 import PackageModel
 import POSIX
 import SourceControl
-import Utility
+import SPMUtility
 import Workspace
 import Commands
 
@@ -234,12 +234,12 @@ public func loadPackageGraph(
 
 /// Temporary override environment variables
 ///
-/// WARNING! This method is not thread-safe. POSIX environments are shared 
-/// between threads. This means that when this method is called simultaneously 
+/// WARNING! This method is not thread-safe. POSIX environments are shared
+/// between threads. This means that when this method is called simultaneously
 /// from different threads, the environment will neither be setup nor restored
 /// correctly.
 ///
-/// - throws: errors thrown in `body`, POSIX.SystemError.setenv and 
+/// - throws: errors thrown in `body`, POSIX.SystemError.setenv and
 ///           POSIX.SystemError.unsetenv
 public func withCustomEnv(_ env: [String: String], body: () throws -> Void) throws {
     let state = Array(env.keys).map({ ($0, getenv($0)) })

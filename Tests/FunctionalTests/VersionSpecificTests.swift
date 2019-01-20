@@ -12,7 +12,7 @@ import XCTest
 
 import Basic
 import SourceControl
-import Utility
+import SPMUtility
 
 import TestSupport
 

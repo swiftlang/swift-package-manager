@@ -14,7 +14,7 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 import SourceControl
-import Utility
+import SPMUtility
 import Xcodeproj
 import Workspace
 import Foundation
@@ -66,7 +66,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             seeAlso: type(of: self).otherToolNames()
         )
     }
-    
+
     override func runImpl() throws {
         switch options.mode {
         case .version:
@@ -120,7 +120,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .initPackage:
             // FIXME: Error handling.
             let cwd = localFileSystem.currentWorkingDirectory!
-            
+
             let packageName = options.packageName ?? cwd.basename
             let initPackage = try InitPackage(
                 name: packageName, destinationPath: cwd, packageType: options.initMode)
@@ -365,7 +365,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 option: "--type", kind: InitPackage.PackageType.self,
                 usage: "empty|library|executable|system-module"),
             to: { $0.initMode = $1 })
-        
+
         binder.bind(
             option: initPackageParser.add(
                 option: "--name", kind: String.self,
@@ -554,7 +554,7 @@ public class PackageToolOptions: ToolOptions {
     var describeMode: DescribeMode = .text
 
     var initMode: InitPackage.PackageType = .library
-    
+
     var packageName: String?
 
     var inputPath: AbsolutePath?

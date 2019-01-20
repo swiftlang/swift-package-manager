@@ -14,7 +14,7 @@ import PackageGraph
 import PackageModel
 import PackageLoading
 import SourceControl
-import Utility
+import SPMUtility
 
 public struct XcodeprojOptions {
     /// The build flags.
@@ -125,7 +125,7 @@ public func generate(
     )
 
     for target in graph.reachableTargets where target.type == .library || target.type == .test {
-        ///// For framework targets, generate target.c99Name_Info.plist files in the 
+        ///// For framework targets, generate target.c99Name_Info.plist files in the
         ///// directory that Xcode project is generated
         let name = target.infoPlistFileName
         try open(xcodeprojPath.appending(RelativePath(name))) { print in

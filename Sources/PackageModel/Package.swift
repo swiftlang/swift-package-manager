@@ -9,10 +9,10 @@
 */
 
 import Basic
-import Utility
+import SPMUtility
 
 // Re-export Version from PackageModel, since it is a key part of the model.
-@_exported import struct Utility.Version
+@_exported import struct SPMUtility.Version
 
 /// The basic package representation.
 ///

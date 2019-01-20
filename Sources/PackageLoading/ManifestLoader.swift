@@ -10,7 +10,7 @@
 
 import Basic
 import PackageModel
-import Utility
+import SPMUtility
 import SPMLLBuild
 import struct POSIX.FileInfo
 import class Foundation.ProcessInfo
@@ -368,14 +368,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return []
       #else
         // The Linux bots require extra arguments in order to locate the corelibs.
-        // We can potentially drop this by installing some stable linux toolchain 
+        // We can potentially drop this by installing some stable linux toolchain
         // after Swift gets ABI and module stability.
         //
         // Compute if SwiftPM is bootstrapping.
         let env = ProcessInfo.processInfo.environment
         guard env.keys.contains("SWIFTPM_BOOTSTRAP") else { return [] }
-        guard let buildPathStr = env["SWIFTPM_BUILD_DIR"], let buildPath = try? AbsolutePath(validating: buildPathStr) else { 
-            return [] 
+        guard let buildPathStr = env["SWIFTPM_BUILD_DIR"], let buildPath = try? AbsolutePath(validating: buildPathStr) else {
+            return []
         }
 
         // Construct the required search paths relative to the build directory.
@@ -667,7 +667,7 @@ final class SwiftPMVersionRule: LLBuildRule {
     }
 
     override func inputsAvailable(_ engine: LLTaskBuildEngine) {
-        // FIXME: We need to include git hash in the version 
+        // FIXME: We need to include git hash in the version
         // string to make this rule more correct.
         let version = Versioning.currentVersion.displayString
         engine.taskIsComplete(RuleValue(version: version))

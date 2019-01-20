@@ -13,13 +13,13 @@ import TestSupport
 
 import Basic
 import PackageModel
-import Utility
+import SPMUtility
 
 import PackageLoading
 
 /// Tests for the handling of source layout conventions.
 class PackageBuilderTests: XCTestCase {
-    
+
     func testDotFilesAreIgnored() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/.Bar.swift",
@@ -662,7 +662,7 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
-    
+
     func testDuplicateTargets() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/main.swift",
@@ -1153,14 +1153,14 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
-    
+
     func testDuplicateProducts() {
         // Check that declaring executable product doesn't collide with the
         // inferred products.
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/foo.swift"
         )
-        
+
         let manifest = Manifest.createV4Manifest(
             name: "pkg",
             products: [
@@ -1350,7 +1350,7 @@ class PackageBuilderTests: XCTestCase {
         ]
 
         PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { t in 
+            result.checkModule("foo") { t in
                 t.checkPlatforms(expectedPlatforms)
             }
             result.checkModule("bar") { t in
@@ -1385,7 +1385,7 @@ class PackageBuilderTests: XCTestCase {
         ]
 
         PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { t in 
+            result.checkModule("foo") { t in
                 t.checkPlatforms(expectedPlatforms)
             }
             result.checkModule("bar") { t in

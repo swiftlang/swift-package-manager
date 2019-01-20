@@ -14,7 +14,7 @@ import Basic
 import PackageModel
 import PackageLoading
 import PackageGraph
-import Utility
+import SPMUtility
 
 public enum MockManifestLoaderError: Swift.Error {
     case unknownRequest(String)

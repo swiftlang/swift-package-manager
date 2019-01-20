@@ -11,7 +11,7 @@
 import XCTest
 
 import Basic
-import Utility
+import SPMUtility
 
 import PackageModel
 import TestSupport
@@ -77,7 +77,7 @@ class PackageDescription4LoadingTests: XCTestCase {
         let fiveVersions = [
             "5.1.0", "6.1.100", "5.0.0", "7.0.0",
         ]
-            
+
         for version in fiveVersions {
             let toolsVersion = ToolsVersion(string: version)!
             XCTAssertEqual(toolsVersion.manifestVersion, .v5, version)

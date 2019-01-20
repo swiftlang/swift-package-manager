@@ -9,7 +9,7 @@
 */
 
 import Basic
-import Utility
+import SPMUtility
 import PackageModel
 import PackageGraph
 import PackageLoading
@@ -144,11 +144,11 @@ public struct BuildParameters {
         }
         return TerminalController.isTTY(stream)
     }()
-    
+
     public var regenerateManifestToken: AbsolutePath {
         return dataPath.appending(components: "..", "regenerate-token")
     }
-    
+
     public var llbuildManifest: AbsolutePath {
         return dataPath.appending(components: "..", configuration.dirname + ".yaml")
     }
@@ -188,7 +188,7 @@ public struct BuildParameters {
         case .off:
             addIndexStoreArguments = false
         case .auto:
-            addIndexStoreArguments = configuration == .debug 
+            addIndexStoreArguments = configuration == .debug
         }
 
         if addIndexStoreArguments {
@@ -325,7 +325,7 @@ public final class ClangTargetBuildDescription {
         // Enable index store, if appropriate.
         //
         // This feature is not widely available in OSS clang. So, we only enable
-        // index store for Apple's clang or if explicitly asked to. 
+        // index store for Apple's clang or if explicitly asked to.
         if Process.env.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
             args += buildParameters.indexStoreArguments
         } else if buildParameters.triple.isDarwin(), (try? buildParameters.toolchain._isClangCompilerVendorApple()) == true {
@@ -719,7 +719,7 @@ public final class ProductBuildDescription {
             }
             args += ["-emit-executable"]
         }
-        
+
         // On linux, set rpath such that dynamic libraries are looked up
         // adjacent to the product. This happens by default on macOS.
         if buildParameters.triple.isLinux() {
@@ -902,7 +902,7 @@ public class BuildPlan {
         for buildProduct in buildProducts {
             try plan(buildProduct)
         }
-        // FIXME: We need to find out if any product has a target on which it depends 
+        // FIXME: We need to find out if any product has a target on which it depends
         // both static and dynamically and then issue a suitable diagnostic or auto
         // handle that situation.
     }
@@ -979,7 +979,7 @@ public class BuildPlan {
             switch dependency {
             case .target(let target):
                 switch target.type {
-                // Include executable and tests only if they're top level contents 
+                // Include executable and tests only if they're top level contents
                 // of the product. Otherwise they are just build time dependency.
                 case .executable, .test:
                     if product.targets.contains(target) {

@@ -12,7 +12,7 @@ import XCTest
 import Commands
 import TestSupport
 import Basic
-import Utility
+import SPMUtility
 import Workspace
 
 class BuildPerfTests: XCTestCasePerf {

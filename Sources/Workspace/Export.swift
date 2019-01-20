@@ -9,7 +9,7 @@
  */
 
 @_exported import Basic
-@_exported import Utility
+@_exported import SPMUtility
 
 @_exported import PackageGraph
 @_exported import PackageLoading

@@ -9,7 +9,7 @@
 */
 
 import XCTest
-import Utility
+import SPMUtility
 import SPMLibc
 import TestSupport
 @testable import Basic

@@ -11,7 +11,7 @@
 import XCTest
 import TestSupport
 import Basic
-@testable import Utility
+@testable import SPMUtility
 
 class miscTests: XCTestCase {
     func testClangVersionOutput() {

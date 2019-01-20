@@ -9,7 +9,7 @@
 */
 
 import Basic
-import Utility
+import SPMUtility
 import POSIX
 import Xcodeproj
 
@@ -47,7 +47,7 @@ final class WatchmanHelper {
         fs: FileSystem = localFileSystem
     ) {
         self.watchmanScriptsDir = watchmanScriptsDir
-        self.diagnostics = diagnostics 
+        self.diagnostics = diagnostics
         self.packageRoot = packageRoot
         self.fs = fs
     }
@@ -78,7 +78,7 @@ final class WatchmanHelper {
     }
 
     private func run(_ scriptPath: AbsolutePath) throws {
-        // Construct the arugments. 
+        // Construct the arugments.
         var args = [String]()
         args += ["--settle", "2"]
         args += ["-p", "Package.swift", "Package.resolved"]

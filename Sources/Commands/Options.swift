@@ -9,14 +9,14 @@
 */
 
 import Basic
-import Utility
+import SPMUtility
 import Build
 import PackageModel
 
 public class ToolOptions {
     /// Custom arguments to pass to C compiler, swift compiler and the linker.
     public var buildFlags = BuildFlags()
-    
+
     /// Build configuration.
     public var configuration: BuildConfiguration = .debug
 
@@ -25,7 +25,7 @@ public class ToolOptions {
 
     /// The custom working directory that the tool should operate in (deprecated).
     public var chdir: AbsolutePath?
-    
+
     /// The custom working directory that the tool should operate in.
     public var packagePath: AbsolutePath?
 
@@ -49,7 +49,7 @@ public class ToolOptions {
 
     /// If should link the Swift stdlib statically.
     public var shouldLinkStaticSwiftStdlib = false
-    
+
     /// If should enable building with llbuild library.
     public var shouldEnableLLBuildLibrary = true
 

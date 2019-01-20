@@ -11,7 +11,7 @@
 import Basic
 import PackageModel
 import PackageLoading
-import Utility
+import SPMUtility
 
 /// Write the given tools version at the given path.
 ///

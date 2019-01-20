@@ -9,7 +9,7 @@
 */
 
 import Build
-import Utility
+import SPMUtility
 import Basic
 import PackageGraph
 
@@ -52,7 +52,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
           #endif
 
             guard let subset = options.buildSubset(diagnostics: diagnostics) else { return }
-          
+
            // Create the build plan and build.
            let plan = try BuildPlan(buildParameters: buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
            try build(plan: plan, subset: subset)

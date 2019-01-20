@@ -10,7 +10,7 @@
 
 import Basic
 import PackageModel
-import Utility
+import SPMUtility
 import Foundation
 
 /// Protocol for the manifest loader interface.

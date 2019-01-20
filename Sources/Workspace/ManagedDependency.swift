@@ -1,9 +1,9 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
@@ -12,7 +12,7 @@ import Basic
 import PackageGraph
 import PackageModel
 import SourceControl
-import Utility
+import SPMUtility
 
 /// An individual managed dependency.
 ///
@@ -66,7 +66,7 @@ public final class ManagedDependency: JSONMappable, JSONSerializable, CustomStri
     /// A dependency which in editable state is based on a dependency from
     /// which it edited from.
     ///
-    /// This information is useful so it can be restored when users 
+    /// This information is useful so it can be restored when users
     /// unedit a package.
     var basedOn: ManagedDependency?
 

@@ -13,7 +13,7 @@ import POSIX
 import PackageGraph
 import PackageModel
 import PackageLoading
-import Utility
+import SPMUtility
 
 /// Errors encounter during Xcode project generation
 public enum ProjectGenerationError: Swift.Error {

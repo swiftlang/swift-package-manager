@@ -4,7 +4,7 @@ import Foundation
 import Basic
 import POSIX
 import SPMLibc
-import Utility
+import SPMUtility
 
 /// Execute the file lock test.
 ///
