@@ -28,7 +28,7 @@ public enum ModuleError: Swift.Error {
     case modulesNotFound([String])
 
     /// Invalid custom path
-    case invalidCustomPath((target: String, path: String))
+    case invalidCustomPath(target: String, path: String)
 
     /// Package layout is invalid.
     case invalidLayout(InvalidLayoutType)
@@ -95,7 +95,7 @@ extension ModuleError: CustomStringConvertible {
         case .unsupportedTargetPath(let targetPath):
             return "target path '\(targetPath)' is not supported; it should be relative to package root"
         case .invalidCustomPath(let target, let path):
-            return "the specified custom path '\(path)' for target '\(target)' does not exist"
+            return "target path '\(path)' for target '\(target)' does not exist"
         case .invalidHeaderSearchPath(let path):
             return "invalid header search path '\(path)'; header search path should not be outside the package root"
         }
@@ -446,7 +446,7 @@ public final class PackageBuilder {
                 if fileSystem.isDirectory(path) {
                     return path
                 }
-                throw ModuleError.invalidCustomPath((target: target.name, path: subpath))
+                throw ModuleError.invalidCustomPath(target: target.name, path: subpath)
             }
 
             // Check if target is present in the predefined directory.

@@ -1112,7 +1112,7 @@ class PackageBuilderTests: XCTestCase {
 
         PackageBuilderTester(manifest, in: fs) { result in
 
-            result.checkDiagnostic("the specified custom path './NotExist' for target 'Foo' does not exist")
+            result.checkDiagnostic("target path './NotExist' for target 'Foo' does not exist")
 
         }
     }
