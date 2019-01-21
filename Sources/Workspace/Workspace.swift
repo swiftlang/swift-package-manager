@@ -458,6 +458,7 @@ extension Workspace {
         version: Version? = nil,
         branch: String? = nil,
         revision: String? = nil,
+        shouldResolveMissingDepenencies: Bool = true,
         diagnostics: DiagnosticsEngine
     ) {
         // Look up the dependency and check if we can pin it.
@@ -483,7 +484,7 @@ extension Workspace {
                 container: dependency.packageRef, requirement: requirement)
 
         // Run the resolution.
-        _resolve(root: root, extraConstraints: [constraint], diagnostics: diagnostics)
+        _resolve(root: root, extraConstraints: [constraint], diagnostics: diagnostics, shouldResolveMissingDepenencies: shouldResolveMissingDepenencies)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -612,15 +613,16 @@ extension Workspace {
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         forceResolvedVersions: Bool = false,
+        shouldResolveMissingDepenencies: Bool = true,
         diagnostics: DiagnosticsEngine
     ) -> PackageGraph {
 
         // Perform dependency resolution, if required.
         let manifests: DependencyManifests
         if forceResolvedVersions {
-            manifests = self._resolveToResolvedVersion(root: root, diagnostics: diagnostics)
+            manifests = self._resolveToResolvedVersion(root: root, shouldResolveMissingDepenencies: shouldResolveMissingDepenencies, diagnostics: diagnostics)
         } else {
-            manifests = self._resolve(root: root, diagnostics: diagnostics)
+            manifests = self._resolve(root: root, diagnostics: diagnostics, shouldResolveMissingDepenencies: shouldResolveMissingDepenencies)
         }
         let externalManifests = manifests.allManifests()
 
@@ -640,10 +642,12 @@ extension Workspace {
     @discardableResult
     public func loadPackageGraph(
         root: AbsolutePath,
+        shouldResolveMissingDepenencies: Bool = true,
         diagnostics: DiagnosticsEngine
     ) -> PackageGraph {
         return self.loadPackageGraph(
             root: PackageGraphRootInput(packages: [root]),
+            shouldResolveMissingDepenencies: shouldResolveMissingDepenencies,
             diagnostics: diagnostics
         )
     }
@@ -656,9 +660,10 @@ extension Workspace {
     /// checkout will be restored according to its pin.
     public func resolve(
         root: PackageGraphRootInput,
+        shouldResolveMissingDepenencies: Bool = true,
         diagnostics: DiagnosticsEngine
     ) {
-        _resolve(root: root, diagnostics: diagnostics)
+        _resolve(root: root, diagnostics: diagnostics, shouldResolveMissingDepenencies: shouldResolveMissingDepenencies)
     }
 
     /// Loads and returns manifests at the given paths.
@@ -1083,6 +1088,7 @@ extension Workspace {
     @discardableResult
     fileprivate func _resolveToResolvedVersion(
         root: PackageGraphRootInput,
+        shouldResolveMissingDepenencies: Bool = true,
         diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
         // Ensure the cache path exists.
@@ -1093,6 +1099,11 @@ extension Workspace {
 
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
+
+        // Skip further checks and return what we got locally
+        guard shouldResolveMissingDepenencies else {
+            return loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        }
 
         // Load the pins store or abort now.
         guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }), !diagnostics.hasErrors else {
@@ -1161,7 +1172,8 @@ extension Workspace {
         root: PackageGraphRootInput,
         extraConstraints: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine,
-        retryOnPackagePathMismatch: Bool = true
+        retryOnPackagePathMismatch: Bool = true,
+        shouldResolveMissingDepenencies: Bool = true
     ) -> DependencyManifests {
 
         // Ensure the cache path exists and validate that edited dependencies.
@@ -1184,6 +1196,11 @@ extension Workspace {
 
         // Abort if pinsStore is unloadable or if diagnostics has errors.
         guard !diagnostics.hasErrors, let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
+            return currentManifests
+        }
+
+        // Skip further checks and return what we got locally
+        guard shouldResolveMissingDepenencies else {
             return currentManifests
         }
 
@@ -1286,7 +1303,8 @@ extension Workspace {
                     root: root,
                     extraConstraints: extraConstraints,
                     diagnostics: diagnostics,
-                    retryOnPackagePathMismatch: false
+                    retryOnPackagePathMismatch: false,
+                    shouldResolveMissingDepenencies: shouldResolveMissingDepenencies
                 )
             } else {
                 // If we weren't able to resolve properly even after a retry, it
