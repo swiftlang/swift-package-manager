@@ -146,6 +146,42 @@ public enum VersionSetSpecifier: Hashable, CustomStringConvertible {
     }
 }
 
+/// A requirement that a package must satisfy.
+public enum PackageRequirement: Hashable {
+
+    /// The requirement is specified by the version set.
+    case versionSet(VersionSetSpecifier)
+
+    /// The requirement is specified by the revision.
+    ///
+    /// The revision string (identifier) should be valid and present in the
+    /// container. Only one revision requirement per container is possible
+    /// i.e. two revision requirements for same container will lead to
+    /// unsatisfiable resolution. The revision requirement can either come
+    /// from initial set of constraints or from dependencies of a revision
+    /// requirement.
+    case revision(String)
+
+    /// Un-versioned requirement i.e. a version should not resolved.
+    case unversioned
+
+    /// Returns if this requirement pins to an exact version, e.g. a specific
+    /// version or a revision.
+    public var isExact: Bool {
+        switch self {
+        case .versionSet(let vs):
+            if case .exact = vs {
+                return true
+            }
+            return false
+        case .revision:
+            return true
+        case .unversioned:
+            return false
+        }
+    }
+}
+
 /// An identifier which unambiguously references a package container.
 ///
 /// This identifier is used to abstractly refer to another container when
@@ -248,51 +284,15 @@ public protocol PackageContainerProvider {
 public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomStringConvertible, Equatable {
     public typealias Identifier = T
 
-    /// The requirement of this constraint.
-    public enum Requirement: Hashable {
-
-        /// The requirement is specified by the version set.
-        case versionSet(VersionSetSpecifier)
-
-        /// The requirement is specified by the revision.
-        ///
-        /// The revision string (identifier) should be valid and present in the
-        /// container. Only one revision requirement per container is possible
-        /// i.e. two revision requirements for same container will lead to
-        /// unsatisfiable resolution. The revision requirement can either come
-        /// from initial set of constraints or from dependencies of a revision
-        /// requirement.
-        case revision(String)
-
-        /// Un-versioned requirement i.e. a version should not resolved.
-        case unversioned
-
-        /// Returns if this requirement pins to an exact version, e.g. a specific
-        /// version or a revision.
-        public var isExact: Bool {
-            switch self {
-            case .versionSet(let vs):
-                if case .exact = vs {
-                    return true
-                }
-                return false
-            case .revision(_):
-                return true
-            case .unversioned:
-                return false
-            }
-        }
-    }
-
     /// The identifier for the container the constraint is on.
     public let identifier: Identifier
 
     /// The constraint requirement.
-    public let requirement: Requirement
+    public let requirement: PackageRequirement
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `requirement`.
-    public init(container identifier: Identifier, requirement: Requirement) {
+    public init(container identifier: Identifier, requirement: PackageRequirement) {
         self.identifier = identifier
         self.requirement = requirement
     }
@@ -367,7 +367,7 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
 public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Hashable {
     public typealias Container = C
     public typealias Identifier = Container.Identifier
-    public typealias Requirement = PackageContainerConstraint<Identifier>.Requirement
+    public typealias Requirement = PackageRequirement
 
     public typealias Index = Dictionary<Identifier, Requirement>.Index
     public typealias Element = Dictionary<Identifier, Requirement>.Element

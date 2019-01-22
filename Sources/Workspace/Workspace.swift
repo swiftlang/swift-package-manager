@@ -469,7 +469,7 @@ extension Workspace {
         }
 
         // Compute the custom or extra constraint we need to impose.
-        let requirement: RepositoryPackageConstraint.Requirement
+        let requirement: PackageRequirement
         if let version = version {
             requirement = .versionSet(.exact(version))
         } else if let branch = branch {

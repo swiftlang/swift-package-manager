@@ -118,7 +118,7 @@ public struct PackageGraphRoot {
 extension PackageDependencyDescription.Requirement {
 
     /// Returns the constraint requirement representation.
-    public func toConstraintRequirement() -> RepositoryPackageConstraint.Requirement {
+    public func toConstraintRequirement() -> PackageRequirement {
         switch self {
         case .range(let range):
             return .versionSet(.range(range))

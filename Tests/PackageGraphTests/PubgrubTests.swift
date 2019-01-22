@@ -22,7 +22,7 @@ public class _MockPackageContainer: PackageContainer {
 
     public typealias Identifier = PackageReference
 
-    public typealias Dependency = (container: Identifier, requirement: _MockPackageConstraint.Requirement)
+    public typealias Dependency = (container: Identifier, requirement: PackageRequirement)
 
     let name: Identifier
 
