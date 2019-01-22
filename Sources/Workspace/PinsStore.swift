@@ -188,9 +188,4 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
             "state": state,
         ])
     }
-
-    public static func == (lhs: PinsStore.Pin, rhs: PinsStore.Pin) -> Bool {
-        return lhs.packageRef == rhs.packageRef &&
-               lhs.state == rhs.state
-    }
 }
