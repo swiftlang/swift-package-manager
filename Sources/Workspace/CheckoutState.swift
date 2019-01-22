@@ -56,7 +56,7 @@ public struct CheckoutState: Equatable, CustomStringConvertible {
 extension CheckoutState {
 
     /// Returns requirement induced by this state.
-    func requirement() -> RepositoryPackageConstraint.Requirement {
+    func requirement() -> PackageRequirement {
         if let version = version {
             return .versionSet(.exact(version))
         } else if let branch = branch {

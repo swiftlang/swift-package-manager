@@ -14,7 +14,7 @@ import struct PackageModel.PackageReference
 
 /// A term represents a statement about a package that may be true or false.
 struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
-    typealias Requirement = PackageContainerConstraint<Identifier>.Requirement
+    typealias Requirement = PackageRequirement
 
     let package: Identifier
     let requirement: Requirement
@@ -245,8 +245,7 @@ public struct Incompatibility<Identifier: PackageContainerIdentifier>: Equatable
         // in the same incompatibility, but have these combined by intersecting
         // their version requirements to a^1.5.0.
 
-        typealias Requirement = PackageContainerConstraint<Identifier>.Requirement
-        let intersectedPackages = terms.reduce(into: [PackageAndPolarity: Requirement]()) { res, term in
+        let intersectedPackages = terms.reduce(into: [PackageAndPolarity: PackageRequirement]()) { res, term in
             let pap = PackageAndPolarity(term)
             let previous = res[pap, default: term.requirement]
             let intersection = term.intersect(withRequirement: previous, andPolarity: term.isPositive)
