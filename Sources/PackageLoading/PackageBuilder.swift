@@ -27,7 +27,7 @@ public enum ModuleError: Swift.Error {
     /// One or more referenced targets could not be found.
     case modulesNotFound([String])
 
-    /// Invalid custom path
+    /// Invalid custom path.
     case invalidCustomPath(target: String, path: String)
 
     /// Package layout is invalid.
@@ -95,7 +95,7 @@ extension ModuleError: CustomStringConvertible {
         case .unsupportedTargetPath(let targetPath):
             return "target path '\(targetPath)' is not supported; it should be relative to package root"
         case .invalidCustomPath(let target, let path):
-            return "target path '\(path)' for target '\(target)' does not exist"
+            return "invalid custom path '\(path)' for target '\(target)'"
         case .invalidHeaderSearchPath(let path):
             return "invalid header search path '\(path)'; header search path should not be outside the package root"
         }
