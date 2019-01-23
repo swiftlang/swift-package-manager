@@ -157,7 +157,7 @@ class OutputByteStreamTests: XCTestCase {
         let tempFile = try TemporaryFile()
 
         func read() -> String? {
-            return try! localFileSystem.readFileContents(tempFile.path).asString
+            return try! localFileSystem.readFileContents(tempFile.path).validDescription
         }
 
         let stream = try LocalFileOutputByteStream(tempFile.path)

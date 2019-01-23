@@ -95,19 +95,19 @@ public func XCTAssertBuildFails(
 
 public func XCTAssertFileExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     if !isFile(path) {
-        XCTFail("Expected file doesn't exist: \(path.asString)", file: file, line: line)
+        XCTFail("Expected file doesn't exist: \(path)", file: file, line: line)
     }
 }
 
 public func XCTAssertDirectoryExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     if !isDirectory(path) {
-        XCTFail("Expected directory doesn't exist: \(path.asString)", file: file, line: line)
+        XCTFail("Expected directory doesn't exist: \(path)", file: file, line: line)
     }
 }
 
 public func XCTAssertNoSuchPath(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     if exists(path) {
-        XCTFail("path exists but should not: \(path.asString)", file: file, line: line)
+        XCTFail("path exists but should not: \(path)", file: file, line: line)
     }
 }
 

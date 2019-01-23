@@ -74,7 +74,7 @@ public struct PackageGraphRoot {
             // strip that. We need to design a URL data structure for SwiftPM.
             let filePrefix = "file://"
             if url.hasPrefix(filePrefix) {
-                self.url = AbsolutePath(String(url.dropFirst(filePrefix.count))).asString
+                self.url = AbsolutePath(String(url.dropFirst(filePrefix.count))).description
             } else {
                 self.url = url
             }
@@ -95,7 +95,7 @@ public struct PackageGraphRoot {
     /// Create a package graph root.
     public init(input: PackageGraphRootInput, manifests: [Manifest]) {
         self.packageRefs = zip(input.packages, manifests).map { (path, manifest) in
-            PackageReference(identity: manifest.name.lowercased(), path: path.asString, isLocal: true)
+            PackageReference(identity: manifest.name.lowercased(), path: path.description, isLocal: true)
         }
         self.manifests = manifests
         self.dependencies = input.dependencies

@@ -59,9 +59,21 @@ public struct ByteString: ExpressibleByArrayLiteral, Hashable {
     public var count: Int {
         return _bytes.count
     }
+}
+
+/// Conform to CustomDebugStringConvertible.
+extension ByteString: CustomStringConvertible {
+    /// Return the string decoded as a UTF8 sequence, or traps if not possible.
+    public var description: String {
+        guard let description = validDescription else {
+            fatalError("invalid byte string: \(cString)")
+        }
+
+        return description
+    }
 
     /// Return the string decoded as a UTF8 sequence, if possible.
-    public var asString: String? {
+    public var validDescription: String? {
         // FIXME: This is very inefficient, we need a way to pass a buffer. It
         // is also wrong if the string contains embedded '\0' characters.
         let tmp = _bytes + [UInt8(0)]
@@ -72,7 +84,7 @@ public struct ByteString: ExpressibleByArrayLiteral, Hashable {
 
     /// Return the string decoded as a UTF8 sequence, substituting replacement
     /// characters for ill-formed UTF8 sequences.
-    public var asReadableString: String {
+    public var cString: String {
         // FIXME: This is very inefficient, we need a way to pass a buffer. It
         // is also wrong if the string contains embedded '\0' characters.
         let tmp = _bytes + [UInt8(0)]
@@ -80,13 +92,10 @@ public struct ByteString: ExpressibleByArrayLiteral, Hashable {
             return String(cString: unsafeBitCast(ptr.baseAddress, to: UnsafePointer<CChar>.self))
         }
     }
-}
 
-/// Conform to CustomStringConvertible.
-extension ByteString: CustomStringConvertible {
-    public var description: String {
-        // For now, default to the "readable string" representation.
-        return "<ByteString:\"\(asReadableString)\">"
+    @available(*, deprecated, message: "use description or validDescription instead")
+    public var asString: String? {
+        return validDescription
     }
 }
 

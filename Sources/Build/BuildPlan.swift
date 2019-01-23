@@ -192,7 +192,7 @@ public struct BuildParameters {
         }
 
         if addIndexStoreArguments {
-            return ["-index-store-path", indexStore.asString]
+            return ["-index-store-path", indexStore.description]
         }
         return []
     }
@@ -303,8 +303,8 @@ public final class ClangTargetBuildDescription {
     {
         return target.sources.relativePaths.map({ source in
             let path = target.sources.root.appending(source)
-            let object = tempsPath.appending(RelativePath(source.asString + ".o"))
-            let deps = tempsPath.appending(RelativePath(source.asString + ".d"))
+            let object = tempsPath.appending(RelativePath("\(source).o"))
+            let deps = tempsPath.appending(RelativePath("\(source).d"))
             return (source, path, object, deps)
         })
     }
@@ -336,7 +336,7 @@ public final class ClangTargetBuildDescription {
             // Using modules currently conflicts with the Windows SDKs.
             args += ["-fmodules", "-fmodule-name=" + target.c99name]
         }
-        args += ["-I", clangTarget.includeDir.asString]
+        args += ["-I", clangTarget.includeDir.description]
         args += additionalFlags
         if !buildParameters.triple.isWindows() {
             args += moduleCacheArgs
@@ -368,7 +368,7 @@ public final class ClangTargetBuildDescription {
         // Header search paths.
         let headerSearchPaths = scope.evaluate(.HEADER_SEARCH_PATHS)
         flags += headerSearchPaths.map({
-            "-I" + target.sources.root.appending(RelativePath($0)).asString
+            "-I\(target.sources.root.appending(RelativePath($0)))"
         })
 
         // Frameworks.
@@ -432,7 +432,7 @@ public final class ClangTargetBuildDescription {
 
     /// Module cache arguments.
     private var moduleCacheArgs: [String] {
-        return ["-fmodules-cache-path=" + buildParameters.moduleCache.asString]
+        return ["-fmodules-cache-path=\(buildParameters.moduleCache)"]
     }
 }
 
@@ -452,7 +452,7 @@ public final class SwiftTargetBuildDescription {
 
     /// The objects in this target.
     var objects: [AbsolutePath] {
-        return target.sources.relativePaths.map({ tempsPath.appending(RelativePath($0.asString + ".o")) })
+        return target.sources.relativePaths.map({ tempsPath.appending(RelativePath("\($0).o")) })
     }
 
     /// The path to the swiftmodule file after compilation.
@@ -548,8 +548,7 @@ public final class SwiftTargetBuildDescription {
         // Header search paths.
         let headerSearchPaths = scope.evaluate(.HEADER_SEARCH_PATHS)
         flags += headerSearchPaths.flatMap({ path -> [String] in
-            let path = target.sources.root.appending(RelativePath(path)).asString
-            return ["-Xcc", "-I" + path]
+            return ["-Xcc", "-I\(target.sources.root.appending(RelativePath(path)))"]
         })
 
         // Other C flags.
@@ -584,7 +583,7 @@ public final class SwiftTargetBuildDescription {
 
     /// Module cache arguments.
     private var moduleCacheArgs: [String] {
-        return ["-module-cache-path", buildParameters.moduleCache.asString]
+        return ["-module-cache-path", buildParameters.moduleCache.description]
     }
 }
 
@@ -673,7 +672,7 @@ public final class ProductBuildDescription {
 
     /// The arguments to link and create this product.
     public func linkArguments() -> [String] {
-        var args = [buildParameters.toolchain.swiftCompiler.asString]
+        var args = [buildParameters.toolchain.swiftCompiler.description]
         args += buildParameters.toolchain.extraSwiftCFlags
         args += buildParameters.sanitizers.linkSwiftFlags()
         args += additionalFlags
@@ -685,8 +684,8 @@ public final class ProductBuildDescription {
                 args += ["-g"]
             }
         }
-        args += ["-L", buildParameters.buildPath.asString]
-        args += ["-o", binary.asString]
+        args += ["-L", buildParameters.buildPath.description]
+        args += ["-o", binary.description]
         args += ["-module-name", product.name.spm_mangledToC99ExtendedIdentifier()]
         args += dylibs.map({ "-l" + $0.product.name })
 
@@ -726,7 +725,7 @@ public final class ProductBuildDescription {
         if buildParameters.triple.isLinux() {
             args += ["-Xlinker", "-rpath=$ORIGIN"]
         }
-        args += ["@" + linkFileListPath.asString]
+        args += ["@\(linkFileListPath)"]
 
         // Add agruments from declared build settings.
         args += self.buildSettingsFlags()
@@ -742,7 +741,7 @@ public final class ProductBuildDescription {
         let stream = BufferedOutputByteStream()
 
         for object in objects {
-            stream <<< object.asString.spm_shellEscaped() <<< "\n"
+            stream <<< object.description.spm_shellEscaped() <<< "\n"
         }
 
         try fs.createDirectory(linkFileListPath.parentDirectory, recursive: true)
@@ -1017,9 +1016,9 @@ public class BuildPlan {
             switch dependency.underlyingTarget {
             case let target as ClangTarget where target.type == .library:
                 // Setup search paths for C dependencies:
-                clangTarget.additionalFlags += ["-I", target.includeDir.asString]
+                clangTarget.additionalFlags += ["-I", target.includeDir.description]
             case let target as SystemLibraryTarget:
-                clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.asString)"]
+                clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath)"]
                 clangTarget.additionalFlags += pkgConfig(for: target).cFlags
             default: continue
             }
@@ -1042,11 +1041,11 @@ public class BuildPlan {
                 // in that case from here.
                 guard let moduleMap = target.moduleMap else { break }
                 swiftTarget.additionalFlags += [
-                    "-Xcc", "-fmodule-map-file=\(moduleMap.asString)",
-                    "-I", target.clangTarget.includeDir.asString,
+                    "-Xcc", "-fmodule-map-file=\(moduleMap)",
+                    "-I", target.clangTarget.includeDir.description,
                 ]
             case let target as SystemLibraryTarget:
-                swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.asString)"]
+                swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath)"]
                 swiftTarget.additionalFlags += pkgConfig(for: target).cFlags
             default: break
             }
@@ -1056,7 +1055,7 @@ public class BuildPlan {
     /// Creates arguments required to launch the Swift REPL that will allow
     /// importing the modules in the package graph.
     public func createREPLArguments() -> [String] {
-        let buildPath = buildParameters.buildPath.asString
+        let buildPath = buildParameters.buildPath.description
         var arguments = ["-I" + buildPath, "-L" + buildPath]
 
         // Link the special REPL product that contains all of the library targets.
@@ -1072,7 +1071,7 @@ public class BuildPlan {
                 case .swift: break
             case .clang(let targetDescription):
                 if let includeDir = targetDescription.moduleMap?.parentDirectory {
-                    arguments += ["-I" + includeDir.asString]
+                    arguments += ["-I\(includeDir)"]
                 }
             }
         }

@@ -39,12 +39,12 @@ class LockTests: XCTestCase {
         let N = 10
         let threads = (1...N).map { idx in
             return Thread {
-                _ = try! SwiftPMProduct.TestSupportExecutable.execute(["fileLockTest", tempDir.path.asString, sharedResource.path.asString, String(idx)])
+                _ = try! SwiftPMProduct.TestSupportExecutable.execute(["fileLockTest", tempDir.path.description, sharedResource.path.description, String(idx)])
             }
         }
         threads.forEach { $0.start() }
         threads.forEach { $0.join() }
 
-        XCTAssertEqual(try localFileSystem.readFileContents(sharedResource.path).asString, String((N * (N + 1) / 2 )))
+        XCTAssertEqual(try localFileSystem.readFileContents(sharedResource.path).description, String((N * (N + 1) / 2 )))
     }
 }

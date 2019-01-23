@@ -103,7 +103,7 @@ public final class UserToolchain: Toolchain {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path = path else { return }
             guard localFileSystem.isExecutableFile(path) else {
-                throw InvalidToolchainDiagnostic("could not find the `swiftc` at expected path \(path.asString)")
+                throw InvalidToolchainDiagnostic("could not find the `swiftc` at expected path \(path)")
             }
         }
 
@@ -124,7 +124,7 @@ public final class UserToolchain: Toolchain {
         } else if let SWIFT_EXEC = SWIFT_EXEC {
             resolvedBinDirCompiler = SWIFT_EXEC
         } else {
-            throw InvalidToolchainDiagnostic("could not find the `swiftc` at expected path \(binDirCompiler.asString)")
+            throw InvalidToolchainDiagnostic("could not find the `swiftc` at expected path \(binDirCompiler)")
         }
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
@@ -182,7 +182,7 @@ public final class UserToolchain: Toolchain {
     public func getLLVMCov() throws -> AbsolutePath {
         let toolPath = destination.binDir.appending(component: "llvm-cov")
         guard localFileSystem.isExecutableFile(toolPath) else {
-            throw InvalidToolchainDiagnostic("could not find llvm-cov at expected path \(toolPath.asString)")
+            throw InvalidToolchainDiagnostic("could not find llvm-cov at expected path \(toolPath)")
         }
         return toolPath
     }
@@ -191,7 +191,7 @@ public final class UserToolchain: Toolchain {
     public func getLLVMProf() throws -> AbsolutePath {
         let toolPath = destination.binDir.appending(component: "llvm-profdata")
         guard localFileSystem.isExecutableFile(toolPath) else {
-            throw InvalidToolchainDiagnostic("could not find llvm-profdata at expected path \(toolPath.asString)")
+            throw InvalidToolchainDiagnostic("could not find llvm-profdata at expected path \(toolPath)")
         }
         return toolPath
     }
@@ -215,7 +215,7 @@ public final class UserToolchain: Toolchain {
         // Look for llbuild in bin dir.
         llbuild = binDir.appending(component: "swift-build-tool")
         guard localFileSystem.exists(llbuild) else {
-            throw InvalidToolchainDiagnostic("could not find `llbuild` at expected path \(llbuild.asString)")
+            throw InvalidToolchainDiagnostic("could not find `llbuild` at expected path \(llbuild)")
         }
 
 
@@ -229,11 +229,11 @@ public final class UserToolchain: Toolchain {
       #endif
 
         self.extraSwiftCFlags = [
-            "-sdk", destination.sdk.asString
+            "-sdk", destination.sdk.description
         ] + destination.extraSwiftCFlags
 
         self.extraCCFlags = [
-            destination.sysrootFlag, destination.sdk.asString
+            destination.sysrootFlag, destination.sdk.description
         ] + destination.extraCCFlags
 
         // Compute the path of directory containing the PackageDescription libraries.

@@ -106,8 +106,6 @@ public struct Xcode {
             /// directory (which varies depending on active scheme, active run
             /// destination, or even an overridden build setting.
             case buildDir = "BUILT_PRODUCTS_DIR"
-            /// The string form, suitable for use in an Xcode project file.
-            var asString: String { return rawValue }
         }
 
         init(path: String, pathBase: RefPathBase = .groupDir, name: String? = nil) {
@@ -178,7 +176,6 @@ public struct Xcode {
             case framework = "com.apple.product-type.framework"
             case executable = "com.apple.product-type.tool"
             case unitTest = "com.apple.product-type.bundle.unit-test"
-            var asString: String { return rawValue }
         }
         init(objectID: String?, productType: ProductType?, name: String) {
             self.objectID = objectID

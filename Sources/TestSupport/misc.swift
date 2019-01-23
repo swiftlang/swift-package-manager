@@ -56,7 +56,7 @@ public func fixture(
 
         // Check that the fixture is really there.
         guard isDirectory(fixtureDir) else {
-            XCTFail("No such fixture: \(fixtureDir.asString)", file: file, line: line)
+            XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
             return
         }
 
@@ -64,7 +64,7 @@ public func fixture(
         if isFile(fixtureDir.appending(component: "Package.swift")) {
             // It's a single package, so copy the whole directory as-is.
             let dstDir = tmpDir.path.appending(component: copyName)
-            try systemQuietly("cp", "-R", "-H", fixtureDir.asString, dstDir.asString)
+            try systemQuietly("cp", "-R", "-H", fixtureDir.description, dstDir.description)
 
             // Invoke the block, passing it the path of the copied fixture.
             try body(dstDir)
@@ -74,7 +74,7 @@ public func fixture(
                 let srcDir = fixtureDir.appending(component: fileName)
                 guard isDirectory(srcDir) else { continue }
                 let dstDir = tmpDir.path.appending(component: fileName)
-                try systemQuietly("cp", "-R", "-H", srcDir.asString, dstDir.asString)
+                try systemQuietly("cp", "-R", "-H", srcDir.description, dstDir.description)
                 initGitRepo(dstDir, tag: "1.2.3", addFile: false)
             }
 
@@ -114,13 +114,13 @@ public func initGitRepo(
     do {
         if addFile {
             let file = dir.appending(component: "file.swift")
-            try systemQuietly(["touch", file.asString])
+            try systemQuietly(["touch", file.description])
         }
 
-        try systemQuietly([Git.tool, "-C", dir.asString, "init"])
-        try systemQuietly([Git.tool, "-C", dir.asString, "config", "user.email", "example@example.com"])
-        try systemQuietly([Git.tool, "-C", dir.asString, "config", "user.name", "Example Example"])
-        try systemQuietly([Git.tool, "-C", dir.asString, "config", "commit.gpgsign", "false"])
+        try systemQuietly([Git.tool, "-C", dir.description, "init"])
+        try systemQuietly([Git.tool, "-C", dir.description, "config", "user.email", "example@example.com"])
+        try systemQuietly([Git.tool, "-C", dir.description, "config", "user.name", "Example Example"])
+        try systemQuietly([Git.tool, "-C", dir.description, "config", "commit.gpgsign", "false"])
         let repo = GitRepository(path: dir)
         try repo.stageEverything()
         try repo.commit(message: "msg")
@@ -205,9 +205,9 @@ public func loadPackageGraph(
     createREPLProduct: Bool = false
 ) -> PackageGraph {
     let input = PackageGraphRootInput(packages: roots.map({ AbsolutePath($0) }))
-    let rootManifests = manifests.filter({ roots.contains($0.path.parentDirectory.asString) })
+    let rootManifests = manifests.filter({ roots.contains($0.path.parentDirectory.description) })
     let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests)
-    let externalManifests = manifests.filter({ !roots.contains($0.path.parentDirectory.asString) })
+    let externalManifests = manifests.filter({ !roots.contains($0.path.parentDirectory.description) })
 
     return PackageGraphLoader().load(
         root: graphRoot,

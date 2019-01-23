@@ -939,7 +939,7 @@ public final class PubgrubDependencyResolver<
         let stream = BufferedOutputByteStream()
         visit(incompatibility, stream)
 
-        return stream.bytes.asString!
+        return stream.bytes.description
     }
 
     private func visit(

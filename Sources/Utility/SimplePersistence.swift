@@ -31,7 +31,7 @@ extension SimplePersistence.Error: CustomStringConvertible {
             return "unsupported schema version \(version)"
 
         case let .restoreFailure(stateFile, error):
-            return "unable to restore state from \(stateFile.asString); \(error)"
+            return "unable to restore state from \(stateFile); \(error)"
         }
     }
 }

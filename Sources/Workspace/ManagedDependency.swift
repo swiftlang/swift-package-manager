@@ -138,7 +138,7 @@ public final class ManagedDependency: JSONMappable, JSONSerializable, CustomStri
     public func toJSON() -> JSON {
         return .init([
             "packageRef": packageRef.toJSON(),
-            "subpath": subpath.asString,
+            "subpath": subpath,
             "basedOn": basedOn.toJSON(),
             "state": state,
         ])

@@ -111,7 +111,7 @@ public struct Destination {
 
         // Compute common arguments for clang and swift.
         // This is currently just frameworks path.
-        let commonArgs = Destination.sdkPlatformFrameworkPath(environment: environment).map({ ["-F", $0.asString] }) ?? []
+        let commonArgs = Destination.sdkPlatformFrameworkPath(environment: environment).map({ ["-F", $0.description] }) ?? []
 
         return Destination(
             target: hostTargetTriple,

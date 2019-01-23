@@ -18,46 +18,46 @@ public extension GitRepository {
 
     /// Create the repository using git init.
     func create() throws {
-        try systemQuietly([Git.tool, "-C", path.asString, "init"])
+        try systemQuietly([Git.tool, "-C", path.description, "init"])
     }
 
     /// Returns current branch name. If HEAD is on a detached state, this returns HEAD.
     func currentBranch() throws -> String {
         return try Process.checkNonZeroExit(
-            args: Git.tool, "-C", path.asString, "rev-parse", "--abbrev-ref", "HEAD").spm_chomp()
+            args: Git.tool, "-C", path.description, "rev-parse", "--abbrev-ref", "HEAD").spm_chomp()
     }
 
     /// Stage a file.
     func stage(file: String) throws {
-        try systemQuietly([Git.tool, "-C", path.asString, "add", file])
+        try systemQuietly([Git.tool, "-C", path.description, "add", file])
     }
 
     /// Stage multiple files.
     func stage(files: String...) throws {
-        try systemQuietly([Git.tool, "-C", path.asString, "add"] + files)
+        try systemQuietly([Git.tool, "-C", path.description, "add"] + files)
     }
 
     /// Stage entire unstaged changes.
     func stageEverything() throws {
-        try systemQuietly([Git.tool, "-C", path.asString, "add", "."])
+        try systemQuietly([Git.tool, "-C", path.description, "add", "."])
     }
 
     /// Commit the staged changes. If the message is not provided a dummy message will be used for the commit.
     func commit(message: String? = nil) throws {
         // FIXME: We don't need to set these everytime but we usually only commit once or twice for a test repo.
-        try systemQuietly([Git.tool, "-C", path.asString, "config", "user.email", "example@example.com"])
-        try systemQuietly([Git.tool, "-C", path.asString, "config", "user.name", "Example Example"])
-        try systemQuietly([Git.tool, "-C", path.asString, "config", "commit.gpgsign", "false"])
-        try systemQuietly([Git.tool, "-C", path.asString, "commit", "-m", message ?? "Add some files."])
+        try systemQuietly([Git.tool, "-C", path.description, "config", "user.email", "example@example.com"])
+        try systemQuietly([Git.tool, "-C", path.description, "config", "user.name", "Example Example"])
+        try systemQuietly([Git.tool, "-C", path.description, "config", "commit.gpgsign", "false"])
+        try systemQuietly([Git.tool, "-C", path.description, "commit", "-m", message ?? "Add some files."])
     }
 
     /// Tag the git repo.
     func tag(name: String) throws {
-        try systemQuietly([Git.tool, "-C", path.asString, "tag", name])
+        try systemQuietly([Git.tool, "-C", path.description, "tag", name])
     }
 
     /// Push the changes to specified remote and branch.
     func push(remote: String, branch: String) throws {
-        try systemQuietly([Git.tool, "-C", path.asString, "push", remote, branch])
+        try systemQuietly([Git.tool, "-C", path.description, "push", remote, branch])
     }
 }

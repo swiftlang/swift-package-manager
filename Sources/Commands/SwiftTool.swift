@@ -387,7 +387,7 @@ public class SwiftTool<Options: ToolOptions> {
             if let packagePath = options.packagePath ?? options.chdir {
                 // FIXME: This should be an API which takes AbsolutePath and maybe
                 // should be moved to file system APIs with currentWorkingDirectory.
-                try POSIX.chdir(packagePath.asString)
+                try POSIX.chdir(packagePath.description)
             }
 
             let processSet = ProcessSet()
@@ -626,7 +626,7 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     func runLLBuild(manifest: AbsolutePath, llbuildTarget: String) throws {
-        assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest.asString)")
+        assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest)")
         if options.shouldEnableLLBuildLibrary {
             try runLLBuildAsLibrary(manifest: manifest, llbuildTarget: llbuildTarget)
         } else {
@@ -635,8 +635,8 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     func runLLBuildAsLibrary(manifest: AbsolutePath, llbuildTarget: String) throws {
-        let databasePath = buildPath.appending(component: "build.db").asString
-        let buildSystem = BuildSystem(buildFile: manifest.asString, databaseFile: databasePath, delegate: buildDelegate)
+        let databasePath = buildPath.appending(component: "build.db").description
+        let buildSystem = BuildSystem(buildFile: manifest.description, databaseFile: databasePath, delegate: buildDelegate)
         buildDelegate.isVerbose = verbosity != .concise
         buildDelegate.onCommmandFailure = { [weak buildSystem] in buildSystem?.cancel() }
 
@@ -668,7 +668,7 @@ public class SwiftTool<Options: ToolOptions> {
         }
       #endif
 
-        args += [try getToolchain().llbuild.asString, "-f", manifest.asString, llbuildTarget]
+        args += [try getToolchain().llbuild.description, "-f", manifest.description, llbuildTarget]
         if verbosity != .concise {
             args.append("-v")
         }
@@ -678,7 +678,7 @@ public class SwiftTool<Options: ToolOptions> {
         // We override the temporary directory so tools assuming full access to
         // the tmp dir can create files here freely, provided they respect this
         // variable.
-        env["TMPDIR"] = tempDir.asString
+        env["TMPDIR"] = tempDir.description
 
         // Run llbuild and print output on standard streams.
         let process = Process(arguments: args, environment: env, outputRedirection: shouldRedirectStdoutToStderr ? .collect : .none)
@@ -847,19 +847,19 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
     stream <<< "(allow file-write*" <<< "\n"
     for directory in Platform.darwinCacheDirectories() {
         // For compiler module cache.
-        stream <<< "    (regex #\"^\(directory.asString)/org\\.llvm\\.clang.*\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory)/org\\.llvm\\.clang.*\")" <<< "\n"
         // For archive tool.
-        stream <<< "    (regex #\"^\(directory.asString)/ar.*\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory)/ar.*\")" <<< "\n"
         // For xcrun cache.
-        stream <<< "    (regex #\"^\(directory.asString)/xcrun.*\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory)/xcrun.*\")" <<< "\n"
         // For autolink files.
-        stream <<< "    (regex #\"^\(directory.asString)/.*\\.(swift|c)-[0-9a-f]+\\.autolink\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory)/.*\\.(swift|c)-[0-9a-f]+\\.autolink\")" <<< "\n"
     }
     for directory in allowedDirectories {
-        stream <<< "    (subpath \"\(directory.asString)\")" <<< "\n"
+        stream <<< "    (subpath \"\(directory)\")" <<< "\n"
     }
     stream <<< ")" <<< "\n"
-    return stream.bytes.asString!
+    return stream.bytes.description
 }
 
 extension BuildConfiguration: StringEnumArgument {

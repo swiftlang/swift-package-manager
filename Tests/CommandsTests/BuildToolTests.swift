@@ -52,9 +52,9 @@ final class BuildToolTests: XCTestCase {
             let fullPath = resolveSymlinks(path)
             let targetPath = fullPath.appending(components: ".build", Destination.host.target)
             XCTAssertEqual(try execute(["--show-bin-path"], packagePath: fullPath),
-                           targetPath.appending(components: "debug").asString + "\n")
+                           "\(targetPath.appending(components: "debug"))\n")
             XCTAssertEqual(try execute(["-c", "release", "--show-bin-path"], packagePath: fullPath),
-                           targetPath.appending(components: "release").asString + "\n")
+                           "\(targetPath.appending(components: "release"))\n")
 
             // Test symlink.
             _ = try execute([], packagePath: fullPath)

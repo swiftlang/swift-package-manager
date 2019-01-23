@@ -68,10 +68,10 @@ class PkgConfigTests: XCTestCase {
         }
 
         // Pc file.
-        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.asString]) {
+        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.description]) {
             let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"), diagnostics: diagnostics)!
             XCTAssertEqual(result.pkgConfigName, "Foo")
-            XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-I" + inputsDir.asString])
+            XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-I\(inputsDir)"])
             XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
             XCTAssertNil(result.provider)
             XCTAssertNil(result.error)
@@ -79,7 +79,7 @@ class PkgConfigTests: XCTestCase {
         }
 
         // Pc file with non whitelisted flags.
-        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.asString]) {
+        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.description]) {
             let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), diagnostics: diagnostics)!
             XCTAssertEqual(result.pkgConfigName, "Bar")
             XCTAssertEqual(result.cFlags, ["-I/path/to/inc"])

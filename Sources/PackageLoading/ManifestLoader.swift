@@ -309,7 +309,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // The compiler has special meaning for files with extensions like .ll, .bc etc.
         // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
         assert(manifestPath.extension == "swift",
-               "Manifest files must contain .swift suffix in their name, given: \(manifestPath.asString).")
+               "Manifest files must contain .swift suffix in their name, given: \(manifestPath).")
 
         // For now, we load the manifest by having Swift interpret it directly.
         // Eventually, we should have two loading processes, one that loads only
@@ -317,7 +317,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // and validates it.
 
         // Compute the path to runtime we need to load.
-        let runtimePath = self.runtimePath(for: manifestVersion).asString
+        let runtimePath = self.runtimePath(for: manifestVersion).description
         let interpreterFlags = self.interpreterFlags(for: manifestVersion)
 
         var cmd = [String]()
@@ -329,13 +329,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += ["sandbox-exec", "-p", sandboxProfile()]
         }
       #endif
-        cmd += [resources.swiftCompiler.asString]
+        cmd += [resources.swiftCompiler.description]
         cmd += ["--driver-mode=swift"]
         cmd += bootstrapArgs()
         cmd += verbosity.ccArgs
         cmd += ["-L", runtimePath, "-lPackageDescription"]
         cmd += interpreterFlags
-        cmd += [manifestPath.asString]
+        cmd += [manifestPath.description]
 
         // Create and open a temporary file to write json to.
         let file = try TemporaryFile()
@@ -355,7 +355,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             diagnostics?.emit(data: ManifestLoadingDiagnostic(output: output))
         }
 
-        guard let json = try localFileSystem.readFileContents(file.path).asString else {
+        guard let json = try localFileSystem.readFileContents(file.path).validDescription else {
             throw StringError("the manifest has invalid encoding")
         }
 
@@ -384,10 +384,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let dispatchIncdir = incdir.appending(component: "dispatch")
 
         return [
-            "-I" + incdir.asString,
-            "-I" + dispatchIncdir.asString,
-            "-L" + libdir.asString,
-            "-Xcc", "-F" + incdir.asString,
+            "-I\(incdir)",
+            "-I\(dispatchIncdir)",
+            "-L\(libdir)",
+            "-Xcc", "-F\(incdir)",
         ]
       #endif
     }
@@ -420,12 +420,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         var cmd = [String]()
         let runtimePath = self.runtimePath(for: manifestVersion)
         cmd += ["-swift-version", manifestVersion.swiftLanguageVersion.rawValue]
-        cmd += ["-I", runtimePath.asString]
+        cmd += ["-I", runtimePath.description]
       #if os(macOS)
         cmd += ["-target", "x86_64-apple-macosx10.10"]
       #endif
         if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
-            cmd += ["-sdk", sdkRoot.asString]
+            cmd += ["-sdk", sdkRoot.description]
         }
         return cmd
     }
@@ -447,7 +447,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         if isManifestCachingEnabled {
             try localFileSystem.createDirectory(cacheDir, recursive: true)
-            try engine.attachDB(path: cacheDir.appending(component: "manifest.db").asString)
+            try engine.attachDB(path: cacheDir.appending(component: "manifest.db").description)
         }
         _engine = engine
         return engine
@@ -471,10 +471,10 @@ private func sandboxProfile() -> String {
     // Allow writing in temporary locations.
     stream <<< "(allow file-write*" <<< "\n"
     for directory in Platform.darwinCacheDirectories() {
-        stream <<< "    (regex #\"^\(directory.asString)/org\\.llvm\\.clang.*\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory)/org\\.llvm\\.clang.*\")" <<< "\n"
     }
     stream <<< ")" <<< "\n"
-    return stream.bytes.asString!
+    return stream.bytes.description
 }
 
 // FIXME: We should probably just remove this and make all Manifest errors Codable.

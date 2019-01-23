@@ -58,7 +58,7 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
                     stream  <<< "\n"
                 }
             }
-            return stream.bytes.asString!
+            return stream.bytes.description
         }
     }
 }

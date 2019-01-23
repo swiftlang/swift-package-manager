@@ -108,7 +108,7 @@ public final class TemporaryFile {
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkstemps method. The XXXXXX in this string will be replaced by a random string
         // which will be the actual path to the temporary file.
-        var template = [UInt8](path.asString.utf8).map({ Int8($0) }) + [Int8(0)]
+        var template = [UInt8](path.description.utf8).map({ Int8($0) }) + [Int8(0)]
 
         fd = SPMLibc.mkstemps(&template, Int32(suffix.utf8.count))
         // If mkstemps failed then throw error.
@@ -121,7 +121,7 @@ public final class TemporaryFile {
     /// Remove the temporary file before deallocating.
     deinit {
         if deleteOnClose {
-            unlink(path.asString)
+            unlink(path.description)
         }
     }
 }
@@ -204,7 +204,7 @@ public final class TemporaryDirectory {
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
         // which will be the actual path to the temporary directory.
-        var template = [UInt8](path.asString.utf8).map({ Int8($0) }) + [Int8(0)]
+        var template = [UInt8](path.description.utf8).map({ Int8($0) }) + [Int8(0)]
 
         if SPMLibc.mkdtemp(&template) == nil {
             throw MakeDirectoryError(errno: errno)
@@ -216,9 +216,9 @@ public final class TemporaryDirectory {
     /// Remove the temporary file before deallocating.
     deinit {
         if shouldRemoveTreeOnDeinit {
-            _ = try? FileManager.default.removeItem(atPath: path.asString)
+            _ = try? FileManager.default.removeItem(atPath: path.description)
         } else {
-            rmdir(path.asString)
+            rmdir(path.description)
         }
     }
 }

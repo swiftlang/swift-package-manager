@@ -22,7 +22,7 @@ public struct Sources {
 
     public init(paths: [AbsolutePath], root: AbsolutePath) {
         let relativePaths = paths.map({ $0.relative(to: root) })
-        self.relativePaths = relativePaths.sorted(by: { $0.asString < $1.asString })
+        self.relativePaths = relativePaths.sorted(by: { $0.description < $1.description })
         self.root = root
     }
 

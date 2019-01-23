@@ -143,8 +143,8 @@ public enum PackageLocation {
             if let name = name {
                 stream <<< "'\(name)' "
             }
-            stream <<< packagePath.asString
-            return stream.bytes.asString!
+            stream <<< packagePath
+            return stream.bytes.description
         }
     }
 

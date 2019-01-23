@@ -71,7 +71,7 @@ public final class InitPackage {
     }
 
     private func writePackageFile(_ path: AbsolutePath, body: (OutputByteStream) -> Void) throws {
-        progressReporter?("Creating \(path.relative(to: destinationPath).asString)")
+        progressReporter?("Creating \(path.relative(to: destinationPath))")
         try localFileSystem.writeFileContents(path, body: body)
     }
 
@@ -183,7 +183,7 @@ public final class InitPackage {
         guard exists(sources) == false else {
             return
         }
-        progressReporter?("Creating \(sources.relative(to: destinationPath).asString)/")
+        progressReporter?("Creating \(sources.relative(to: destinationPath))/")
         try makeDirectories(sources)
 
         if packageType == .empty {
@@ -245,7 +245,7 @@ public final class InitPackage {
         guard exists(tests) == false else {
             return
         }
-        progressReporter?("Creating \(tests.relative(to: destinationPath).asString)/")
+        progressReporter?("Creating \(tests.relative(to: destinationPath))/")
         try makeDirectories(tests)
 
         switch packageType {
@@ -351,7 +351,7 @@ public final class InitPackage {
 
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
         let testModule = testsPath.appending(RelativePath(pkgname + Target.testModuleNameSuffix))
-        progressReporter?("Creating \(testModule.relative(to: destinationPath).asString)/")
+        progressReporter?("Creating \(testModule.relative(to: destinationPath))/")
         try makeDirectories(testModule)
 
         let testClassFile = testModule.appending(RelativePath("\(moduleName)Tests.swift"))

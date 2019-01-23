@@ -158,10 +158,7 @@ public final class TerminalController {
     public func wrap(_ string: String, inColor color: Color, bold: Bool = false) -> String {
         let stream = BufferedOutputByteStream()
         writeWrapped(string, inColor: color, bold: bold, stream: stream)
-        guard let string = stream.bytes.asString else {
-            fatalError("Couldn't get string value from stream.")
-        }
-        return string
+        return stream.bytes.description
     }
 
     private func writeWrapped(_ string: String, inColor color: Color, bold: Bool = false, stream: OutputByteStream) {

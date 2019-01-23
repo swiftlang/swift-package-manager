@@ -117,12 +117,12 @@ private final class JSONDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage) {
         func convert(_ package: ResolvedPackage) -> JSON {
             return .orderedDictionary([
-                    "name": .string(package.name),
-                    "url": .string(package.manifest.url),
-                    "version": .string(package.manifest.version?.description ?? "unspecified"),
-                    "path": .string(package.path.asString),
-                    "dependencies": .array(package.dependencies.map(convert)),
-                ])
+                "name": .string(package.name),
+                "url": .string(package.manifest.url),
+                "version": .string(package.manifest.version?.description ?? "unspecified"),
+                "path": .string(package.path.description),
+                "dependencies": .array(package.dependencies.map(convert)),
+            ])
         }
 
         print(convert(rootpkg).toString(prettyPrint: true))

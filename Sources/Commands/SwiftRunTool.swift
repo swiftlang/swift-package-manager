@@ -190,11 +190,11 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
         // Make sure we are running from the original working directory.
         let cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
         if cwd == nil || originalWorkingDirectory != cwd {
-            try POSIX.chdir(originalWorkingDirectory.asString)
+            try POSIX.chdir(originalWorkingDirectory.description)
         }
 
         let pathRelativeToWorkingDirectory = excutablePath.relative(to: originalWorkingDirectory)
-        try exec(path: excutablePath.asString, args: [pathRelativeToWorkingDirectory.asString] + arguments)
+        try exec(path: excutablePath.description, args: [pathRelativeToWorkingDirectory.description] + arguments)
     }
 
     /// Determines if a path points to a valid swift file.

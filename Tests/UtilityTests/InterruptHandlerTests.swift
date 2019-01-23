@@ -19,9 +19,9 @@ class InterruptHandlerTests: XCTestCase {
         // Disabled because it sometimes hangs the CI, possibly due to https://bugs.swift.org/browse/SR-5042
       #if false
         mktmpdir { path in
-            let exec = SwiftPMProduct.TestSupportExecutable.path.asString
+            let exec = SwiftPMProduct.TestSupportExecutable.path.description
             let waitFile = path.appending(component: "waitFile")
-            let process = Process(args: exec, "interruptHandlerTest", waitFile.asString)
+            let process = Process(args: exec, "interruptHandlerTest", waitFile.description)
             try process.launch()
             guard waitForFile(waitFile) else {
                 return XCTFail("Couldn't launch the process")

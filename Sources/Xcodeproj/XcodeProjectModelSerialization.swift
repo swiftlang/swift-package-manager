@@ -90,7 +90,7 @@ fileprivate func makeReferenceDict(
     if let name = reference.name {
         dict["name"] = .string(name)
     }
-    dict["sourceTree"] = .string(reference.pathBase.asString)
+    dict["sourceTree"] = .string(reference.pathBase.rawValue)
     return dict
 }
 
@@ -178,7 +178,7 @@ extension Xcode.Target: PropertyListSerializable {
         }))
         dict["productName"] = .string(productName)
         if let productType = productType {
-            dict["productType"] = .string(productType.asString)
+            dict["productType"] = .string(productType.rawValue)
         }
         if let productReference = productReference {
             dict["productReference"] = .identifier(serializer.id(of: productReference))

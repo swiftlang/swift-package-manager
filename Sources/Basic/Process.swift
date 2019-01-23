@@ -603,7 +603,7 @@ extension ProcessResult.Error: CustomStringConvertible {
                 }
             }
             
-            return stream.bytes.asString!
+            return stream.bytes.description
         }
     }
 }

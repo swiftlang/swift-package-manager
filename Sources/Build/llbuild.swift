@@ -144,14 +144,14 @@ public struct LLBuildManifestGenerator {
         // Create archive tool for static library and shell tool for rest of the products.
         if buildProduct.product.type == .library(.static) {
             tool = ArchiveTool(
-                inputs: buildProduct.objects.map({ $0.asString }),
-                outputs: [buildProduct.binary.asString])
+                inputs: buildProduct.objects.map({ $0.description }),
+                outputs: [buildProduct.binary.description])
         } else {
             let inputs = buildProduct.objects + buildProduct.dylibs.map({ $0.binary })
             tool = ShellTool(
                 description: "Linking \(buildProduct.binary.prettyPath())",
-                inputs: inputs.map({ $0.asString }),
-                outputs: [buildProduct.binary.asString],
+                inputs: inputs.map({ $0.description }),
+                outputs: [buildProduct.binary.description],
                 args: buildProduct.linkArguments(),
                 allowMissingInputs: false
             )
@@ -168,16 +168,16 @@ public struct LLBuildManifestGenerator {
     private func createSwiftCompileTarget(_ target: SwiftTargetBuildDescription) -> Target {
         // Compute inital inputs.
         var inputs = SortedArray<String>()
-        inputs += target.target.sources.paths.map({ $0.asString })
+        inputs += target.target.sources.paths.map({ $0.description })
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.
             if target.underlyingTarget is SystemLibraryTarget { return }
             switch plan.targetMap[target] {
             case .swift(let target)?:
-                inputs.insert(target.moduleOutputPath.asString)
+                inputs.insert(target.moduleOutputPath.description)
             case .clang(let target)?:
-                inputs += target.objects.map({ $0.asString })
+                inputs += target.objects.map({ $0.description })
             case nil:
                 fatalError("unexpected: target \(target) not in target map \(plan.targetMap)")
             }
@@ -192,7 +192,7 @@ public struct LLBuildManifestGenerator {
                 switch product.type {
                 case .executable, .library(.dynamic):
                     // Establish a dependency on binary of the product.
-                    inputs += [plan.productMap[product]!.binary.asString]
+                    inputs += [plan.productMap[product]!.binary.description]
 
                 // For automatic and static libraries, add their targets as static input.
                 case .library(.automatic), .library(.static):
@@ -208,7 +208,7 @@ public struct LLBuildManifestGenerator {
         let buildConfig = plan.buildParameters.configuration.dirname
         var buildTarget = Target(name: target.target.getLLBuildTargetName(config: buildConfig))
         // The target only cares about the module output.
-        buildTarget.outputs.insert(target.moduleOutputPath.asString)
+        buildTarget.outputs.insert(target.moduleOutputPath.description)
         let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
         buildTarget.cmds.insert(Command(name: target.target.getCommandName(config: buildConfig), tool: tool))
         return buildTarget
@@ -224,7 +224,7 @@ public struct LLBuildManifestGenerator {
 
         let commands: [Command] = try target.compilePaths().map({ path in
             var args = target.basicArguments()
-            args += ["-MD", "-MT", "dependencies", "-MF", path.deps.asString]
+            args += ["-MD", "-MT", "dependencies", "-MF", path.deps.description]
 
             // Add language standard flag if needed.
             if let ext = path.source.extension {
@@ -235,15 +235,15 @@ public struct LLBuildManifestGenerator {
                 }
             }
 
-            args += ["-c", path.source.asString, "-o", path.object.asString]
+            args += ["-c", path.source.description, "-o", path.object.description]
             let clang = ClangTool(
-                desc: "Compiling \(target.target.name) \(path.filename.asString)",
+                desc: "Compiling \(target.target.name) \(path.filename)",
                 //FIXME: Should we add build time dependency on dependent targets?
-                inputs: [path.source.asString],
-                outputs: [path.object.asString],
-                args: [try plan.buildParameters.toolchain.getClangCompiler().asString] + args,
-                deps: path.deps.asString)
-            return Command(name: path.object.asString, tool: clang)
+                inputs: [path.source.description],
+                outputs: [path.object.description],
+                args: [try plan.buildParameters.toolchain.getClangCompiler().description] + args,
+                deps: path.deps.description)
+            return Command(name: path.object.description, tool: clang)
         })
 
         // For Clang, the target requires all command outputs.

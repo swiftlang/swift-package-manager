@@ -66,7 +66,7 @@ public enum Platform {
         defer { tmp.deallocate() }
         guard confstr(name, tmp.baseAddress, len) == len else { return nil }
         let value = String(cString: tmp.baseAddress!)
-        guard value.hasSuffix(AbsolutePath.root.asString) else { return nil }
+        guard value.hasSuffix(AbsolutePath.root.description) else { return nil }
         return resolveSymlinks(AbsolutePath(value))
     }
 }

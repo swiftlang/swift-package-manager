@@ -41,12 +41,12 @@ class ByteStringTests: XCTestCase {
     }
 
     func testAsString() {
-        XCTAssertEqual(ByteString("hello").asString, "hello")
-        XCTAssertEqual(ByteString([0xFF,0xFF]).asString, nil)
+        XCTAssertEqual(ByteString("hello").validDescription, "hello")
+        XCTAssertEqual(ByteString([0xFF,0xFF]).validDescription, nil)
     }
 
     func testDescription() {
-        XCTAssertEqual(ByteString("Hello, world!").description, "<ByteString:\"Hello, world!\">")
+        XCTAssertEqual(ByteString("Hello, world!").description, "Hello, world!")
     }
     
     func testHashable() {

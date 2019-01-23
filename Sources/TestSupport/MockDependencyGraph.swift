@@ -105,7 +105,7 @@ public struct MockManifestGraph {
         let repos = Dictionary(items: try packages.map({ package -> (String, RepositorySpecifier) in
             let repoPath = path.appending(component: package.name)
             let tag = package.version?.description ?? "initial"
-            let specifier = RepositorySpecifier(url: repoPath.asString)
+            let specifier = RepositorySpecifier(url: repoPath.description)
 
             // If this is in memory mocked graph.
             if let inMemory = inMemory {
@@ -135,7 +135,7 @@ public struct MockManifestGraph {
         } else {
             // Make a sources folder for our root package.
             try makeDirectories(src)
-            try systemQuietly(["touch", src.appending(component: "foo.swift").asString])
+            try systemQuietly(["touch", src.appending(component: "foo.swift").description])
         }
 
         // Create the root manifest.
@@ -143,7 +143,7 @@ public struct MockManifestGraph {
             name: "Root",
             platforms: [],
             path: path.appending(component: Manifest.filename),
-            url: path.asString,
+            url: path.description,
             version: nil,
             manifestVersion: .v4,
             dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: rootDeps)
@@ -164,7 +164,7 @@ public struct MockManifestGraph {
             return (MockManifestLoader.Key(url: url, version: package.version), manifest)
         }))
         // Add the root manifest.
-        manifests[MockManifestLoader.Key(url: path.asString, version: nil)] = rootManifest
+        manifests[MockManifestLoader.Key(url: path.description, version: nil)] = rootManifest
 
         manifestLoader = MockManifestLoader(manifests: manifests)
         self.manifests = manifests
