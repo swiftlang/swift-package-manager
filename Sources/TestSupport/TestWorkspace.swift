@@ -266,7 +266,7 @@ public final class TestWorkspace {
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies)
         let graph = workspace.loadPackageGraph(
-            root: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics)
+            root: rootInput, resolution: .forceResolvedVersions, diagnostics: diagnostics)
         result(graph, diagnostics)
     }
 

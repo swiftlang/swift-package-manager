@@ -563,7 +563,7 @@ public class SwiftTool<Options: ToolOptions> {
             let graph = try workspace.loadPackageGraph(
                 root: getWorkspaceRoot(),
                 createREPLProduct: createREPLProduct,
-                forceResolvedVersions: options.forceResolvedVersions,
+                resolution: .forceResolvedVersions,
                 diagnostics: diagnostics
             )
 

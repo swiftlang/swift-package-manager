@@ -129,6 +129,7 @@ fileprivate enum PackageResolver {
 ///
 /// This class does *not* support concurrent operations.
 public class Workspace {
+
     /// A struct representing all the current manifests (root + external) in a package graph.
     struct DependencyManifests {
         /// The package graph root.
@@ -385,6 +386,18 @@ public class Workspace {
 // MARK: - Public API
 
 extension Workspace {
+    /// Package resolution kind
+    public enum ResolutionKind {
+        /// Resolve to resolved version
+        case forceResolvedVersions
+        /// Fetch remote dependencies if needed
+        case automaticResolution
+        /// Resolve available packages
+        case none
+    }
+}
+
+extension Workspace {
 
     /// Puts a dependency in edit mode creating a checkout in editables directory.
     ///
@@ -612,17 +625,16 @@ extension Workspace {
         root: PackageGraphRootInput,
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
-        forceResolvedVersions: Bool = false,
-        shouldResolveMissingDepenencies: Bool = true,
+        resolution: ResolutionKind = .automaticResolution,
         diagnostics: DiagnosticsEngine
     ) -> PackageGraph {
 
         // Perform dependency resolution, if required.
         let manifests: DependencyManifests
-        if forceResolvedVersions {
-            manifests = self._resolveToResolvedVersion(root: root, shouldResolveMissingDepenencies: shouldResolveMissingDepenencies, diagnostics: diagnostics)
+        if resolution == .forceResolvedVersions {
+            manifests = self._resolveToResolvedVersion(root: root, shouldResolveMissingDepenencies: true, diagnostics: diagnostics)
         } else {
-            manifests = self._resolve(root: root, diagnostics: diagnostics, shouldResolveMissingDepenencies: shouldResolveMissingDepenencies)
+            manifests = self._resolve(root: root, diagnostics: diagnostics, shouldResolveMissingDepenencies: resolution == .automaticResolution)
         }
         let externalManifests = manifests.allManifests()
 
@@ -642,12 +654,12 @@ extension Workspace {
     @discardableResult
     public func loadPackageGraph(
         root: AbsolutePath,
-        shouldResolveMissingDepenencies: Bool = true,
+        resolution: ResolutionKind = .automaticResolution,
         diagnostics: DiagnosticsEngine
     ) -> PackageGraph {
         return self.loadPackageGraph(
             root: PackageGraphRootInput(packages: [root]),
-            shouldResolveMissingDepenencies: shouldResolveMissingDepenencies,
+            resolution: resolution,
             diagnostics: diagnostics
         )
     }
