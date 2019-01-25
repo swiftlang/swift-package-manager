@@ -137,6 +137,10 @@ public struct BuildParameters {
     /// Whether to enable code coverage.
     public let enableCodeCoverage: Bool
 
+    /// Whether to enable generation of `.swiftinterface` files alongside
+    /// `.swiftmodule`s.
+    public let enableParseableModuleInterfaces: Bool
+
     /// Checks if stdout stream is tty.
     fileprivate let isTTY: Bool = {
         guard let stream = stdoutStream.stream as? LocalFileOutputByteStream else {
@@ -164,7 +168,8 @@ public struct BuildParameters {
         shouldEnableManifestCaching: Bool = false,
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         enableCodeCoverage: Bool = false,
-        indexStoreMode: IndexStoreMode = .auto
+        indexStoreMode: IndexStoreMode = .auto,
+        enableParseableModuleInterfaces: Bool = false
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
@@ -177,6 +182,7 @@ public struct BuildParameters {
         self.sanitizers = sanitizers
         self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode
+        self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
     }
 
     /// Returns the compiler arguments for the index store, if enabled.
@@ -460,6 +466,11 @@ public final class SwiftTargetBuildDescription {
         return buildParameters.buildPath.appending(component: target.c99name + ".swiftmodule")
     }
 
+    /// The path to the swifinterface file after compilation.
+    var parseableModuleInterfaceOutputPath: AbsolutePath {
+        return buildParameters.buildPath.appending(component: target.c99name + ".swiftinterface")
+    }
+
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
 
@@ -513,6 +524,11 @@ public final class SwiftTargetBuildDescription {
         // Add arguments to colorize output if stdout is tty
         if buildParameters.isTTY {
             args += ["-Xfrontend", "-color-diagnostics"]
+        }
+
+        // Add the output for the `.swiftinterface`, if requested.
+        if buildParameters.enableParseableModuleInterfaces {
+            args += ["-emit-parseable-module-interface-path", parseableModuleInterfaceOutputPath.description]
         }
 
         // Add agruments from declared build settings.
