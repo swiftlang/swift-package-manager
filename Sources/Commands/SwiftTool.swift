@@ -372,6 +372,10 @@ public class SwiftTool<Options: ToolOptions> {
                                usage: "[Experimental] Enable the new Pubgrub dependency resolver"),
             to: { $0.enablePubgrubResolver = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--enable-parseable-module-interfaces", kind: Bool.self),
+            to: { $0.shouldEnableParseableModuleInterfaces = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -717,7 +721,8 @@ public class SwiftTool<Options: ToolOptions> {
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
                 sanitizers: options.sanitizers,
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
-                indexStoreMode: options.indexStoreMode
+                indexStoreMode: options.indexStoreMode,
+                enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces
             )
         })
     }()

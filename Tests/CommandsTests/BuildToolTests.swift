@@ -162,6 +162,13 @@ final class BuildToolTests: XCTestCase {
                 XCTAssert(!result.binContents.contains("BTarget1.build"))
                 XCTAssert(!result.binContents.contains("cexec"))
                 XCTAssert(!result.binContents.contains("CTarget.build"))
+
+                // Also make sure we didn't emit parseable module interfaces
+                // (do this here to avoid doing a second build in
+                // testParseableInterfaces().
+                XCTAssert(!result.binContents.contains("ATarget.swiftinterface"))
+                XCTAssert(!result.binContents.contains("BTarget.swiftinterface"))
+                XCTAssert(!result.binContents.contains("CTarget.swiftinterface"))
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
@@ -178,6 +185,18 @@ final class BuildToolTests: XCTestCase {
                 XCTAssert(!result.binContents.contains("BTarget1.build"))
                 XCTAssert(!result.binContents.contains("BTarget2.build"))
                 XCTAssert(!result.binContents.contains("cexec"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
+        }
+    }
+
+    func testParseableInterfaces() {
+        fixture(name: "Miscellaneous/ParseableInterfaces") { path in
+            do {
+                let result = try build(["--enable-parseable-module-interfaces"], packagePath: path)
+                XCTAssert(result.binContents.contains("A.swiftinterface"))
+                XCTAssert(result.binContents.contains("B.swiftinterface"))
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }

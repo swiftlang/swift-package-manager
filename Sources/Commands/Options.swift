@@ -71,5 +71,8 @@ public class ToolOptions {
     /// Enable the experimental new dependency resolver based on Pubgrub.
     public var enablePubgrubResolver = false
 
+    /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
+    public var shouldEnableParseableModuleInterfaces = false
+
     public required init() {}
 }

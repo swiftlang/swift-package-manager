@@ -8,6 +8,7 @@ extension BuildToolTests {
     static let __allTests__BuildToolTests = [
         ("testBinPathAndSymlink", testBinPathAndSymlink),
         ("testNonReachableProductsAndTargetsFunctional", testNonReachableProductsAndTargetsFunctional),
+        ("testParseableInterfaces", testParseableInterfaces),
         ("testProductAndTarget", testProductAndTarget),
         ("testSeeAlso", testSeeAlso),
         ("testUsage", testUsage),
