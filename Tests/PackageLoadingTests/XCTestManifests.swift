@@ -51,6 +51,7 @@ extension PackageBuilderTests {
         ("testPublicHeadersPath", testPublicHeadersPath),
         ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
         ("testSpecialTargetDir", testSpecialTargetDir),
+        ("testSpecifiedCustomPathDoesNotExist", testSpecifiedCustomPathDoesNotExist),
         ("testSystemLibraryTarget", testSystemLibraryTarget),
         ("testSystemLibraryTargetDiagnostics", testSystemLibraryTargetDiagnostics),
         ("testSystemPackageDeclaresTargetsDiagnostic", testSystemPackageDeclaresTargetsDiagnostic),
