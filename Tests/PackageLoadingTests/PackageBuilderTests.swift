@@ -1100,6 +1100,21 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testSpecifiedCustomPathDoesNotExist() {
+        let fs = InMemoryFileSystem(emptyFiles: "/Foo.swift")
+
+        let manifest = Manifest.createV4Manifest(
+            name: "Foo",
+            targets: [
+                TargetDescription(name: "Foo", path: "./NotExist")
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkDiagnostic("invalid custom path './NotExist' for target 'Foo'")
+        }
+    }
+
     func testSpecialTargetDir() {
         // Special directory should be src because both target and test target are under it.
         let fs = InMemoryFileSystem(emptyFiles:
