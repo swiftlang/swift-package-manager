@@ -250,10 +250,16 @@ public final class BuildDelegate: BuildSystemDelegate {
 
         queue.sync {
             commandCounter.startedCount += 1
-            progressAnimation.update(
-                step: commandCounter.startedCount,
-                total: commandCounter.estimatedMaximum,
-                text: isVerbose ? command.verboseDescription : command.description)
+
+            if isVerbose {
+                outputStream <<< command.verboseDescription <<< "\n"
+                outputStream.flush()
+            } else {
+                progressAnimation.update(
+                    step: commandCounter.startedCount,
+                    total: commandCounter.estimatedMaximum,
+                    text: command.description)
+            }
         }
     }
 
