@@ -709,10 +709,13 @@ final class ParallelTestRunner {
         self.numJobs = numJobs
         self.diagnostics = diagnostics
 
+        let isVerbose = options.verbosity > 0
         if Process.env["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
-            progressAnimation = PercentProgressAnimation(stream: stdoutStream, header: "Testing:")
+            progressAnimation = PercentProgressAnimation(stream: stdoutStream,
+                                                         header: "Testing:",
+                                                         isVerbose: isVerbose)
         } else {
-            progressAnimation = NinjaProgressAnimation(stream: stdoutStream)
+            progressAnimation = NinjaProgressAnimation(stream: stdoutStream, isVerbose: isVerbose)
         }
 
         self.options = options

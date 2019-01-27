@@ -234,13 +234,6 @@ public class SwiftTool<Options: ToolOptions> {
         }
         originalWorkingDirectory = cwd
 
-        // Setup the build delegate.
-        buildingProgressAnimation = NinjaProgressAnimation(stream: stdoutStream)
-        buildDelegate = BuildDelegate(
-            diagnostics: diagnostics,
-            outputStream: stdoutStream,
-            progressAnimation: buildingProgressAnimation)
-
         // Create the parser.
         parser = ArgumentParser(
             commandName: "swift \(toolName)",
@@ -382,6 +375,18 @@ public class SwiftTool<Options: ToolOptions> {
             var options = Options()
             try binder.fill(parseResult: result, into: &options)
 
+            verbosity = Verbosity(rawValue: options.verbosity)
+
+            buildingProgressAnimation = NinjaProgressAnimation(
+                stream: stdoutStream,
+                isVerbose: verbosity != .concise)
+
+            // Setup the build delegate.
+            buildDelegate = BuildDelegate(
+                diagnostics: diagnostics,
+                outputStream: stdoutStream,
+                progressAnimation: buildingProgressAnimation)
+
             self.options = options
             // Honor package-path option is provided.
             if let packagePath = options.packagePath ?? options.chdir {
@@ -491,7 +496,6 @@ public class SwiftTool<Options: ToolOptions> {
     public func run() {
         do {
             // Setup the globals.
-            verbosity = Verbosity(rawValue: options.verbosity)
             Process.verbose = verbosity != .concise
             // Call the implementation.
             try runImpl()
@@ -525,7 +529,9 @@ public class SwiftTool<Options: ToolOptions> {
         self.stdoutStream = Basic.stderrStream
         DiagnosticsEngineHandler.default.stdoutStream = Basic.stderrStream
         buildDelegate.outputStream = Basic.stderrStream
-        buildingProgressAnimation = NinjaProgressAnimation(stream: Basic.stderrStream)
+        buildingProgressAnimation = NinjaProgressAnimation(
+            stream: Basic.stderrStream,
+            isVerbose: verbosity == .concise)
         buildDelegate.progressAnimation = buildingProgressAnimation
     }
 

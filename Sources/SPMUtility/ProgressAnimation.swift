@@ -131,9 +131,10 @@ public final class RedrawingNinjaProgressAnimation: ProgressAnimationProtocol {
 
 /// A ninja-like progress animation that adapts to the provided output stream.
 public final class NinjaProgressAnimation: DynamicProgressAnimation {
-    public init(stream: OutputByteStream) {
+    public init(stream: OutputByteStream, isVerbose: Bool = false) {
         super.init(
             stream: stream,
+            isVerbose: isVerbose,
             ttyTerminalAnimationFactory: { RedrawingNinjaProgressAnimation(terminal: $0) },
             dumbTerminalAnimationFactory: { SingleLinePercentProgressAnimation(stream: stream, header: nil) },
             defaultAnimationFactory: { MultiLineNinjaProgressAnimation(stream: stream) })
@@ -241,9 +242,10 @@ public final class RedrawingLitProgressAnimation: ProgressAnimationProtocol {
 
 /// A percent-based progress animation that adapts to the provided output stream.
 public final class PercentProgressAnimation: DynamicProgressAnimation {
-    public init(stream: OutputByteStream, header: String) {
+  public init(stream: OutputByteStream, header: String, isVerbose: Bool = false) {
         super.init(
             stream: stream,
+            isVerbose: isVerbose,
             ttyTerminalAnimationFactory: { RedrawingLitProgressAnimation(terminal: $0, header: header) },
             dumbTerminalAnimationFactory: { SingleLinePercentProgressAnimation(stream: stream, header: header) },
             defaultAnimationFactory: { MultiLinePercentProgressAnimation(stream: stream, header: header) })
@@ -256,11 +258,14 @@ public class DynamicProgressAnimation: ProgressAnimationProtocol {
 
     public init(
         stream: OutputByteStream,
+        isVerbose: Bool,
         ttyTerminalAnimationFactory: (TerminalController) -> ProgressAnimationProtocol,
         dumbTerminalAnimationFactory: () -> ProgressAnimationProtocol,
         defaultAnimationFactory: () -> ProgressAnimationProtocol
     ) {
-        if let terminal = TerminalController(stream: stream) {
+        if isVerbose {
+            animation = defaultAnimationFactory()
+        } else if let terminal = TerminalController(stream: stream) {
             animation = ttyTerminalAnimationFactory(terminal)
         } else if let fileStream = stream as? LocalFileOutputByteStream,
             TerminalController.terminalType(fileStream) == .dumb

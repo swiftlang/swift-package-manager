@@ -74,6 +74,25 @@ final class ProgressAnimationTests: XCTestCase {
         XCTAssertEqual(outStream.bytes.validDescription, "")
     }
 
+    func testNinjaProgressAnimationVerbose() throws {
+        let oneHundredDashes = String(repeating: "-", count: 100)
+        let output = try readingTTY { tty in
+            let animation = NinjaProgressAnimation(stream: tty.outStream, isVerbose: true)
+            for i in 0...3 {
+                animation.update(step: i, total: 3, text: oneHundredDashes)
+            }
+            animation.complete(success: true)
+        }
+
+        let newline = "\r\n"
+        XCTAssertEqual(output, """
+            [0/3] \(oneHundredDashes)\(newline)\
+            [1/3] \(oneHundredDashes)\(newline)\
+            [2/3] \(oneHundredDashes)\(newline)\
+            [3/3] \(oneHundredDashes)\(newline)
+            """)
+    }
+
     func testNinjaProgressAnimationTTY() throws {
         var output = try readingTTY { tty in
             let animation = NinjaProgressAnimation(stream: tty.outStream)
