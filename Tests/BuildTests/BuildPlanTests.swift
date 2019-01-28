@@ -1162,6 +1162,61 @@ final class BuildPlanTests: XCTestCase {
       #endif
     }
 
+    func testPlatformsValidation() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/ATarget/foo.swift",
+            "/B/Sources/BTarget/foo.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/A", fs: fileSystem, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "A",
+                    platforms: [
+                        PlatformDescription(name: "macos", version: "10.13"),
+                        PlatformDescription(name: "ios", version: "10"),
+                    ],
+                    path: "/A",
+                    url: "/A",
+                    v: .v5,
+                    dependencies: [
+                        PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
+                    ]),
+                Manifest.createManifest(
+                    name: "B",
+                    platforms: [
+                        PlatformDescription(name: "macos", version: "10.14"),
+                        PlatformDescription(name: "ios", version: "11"),
+                    ],
+                    path: "/B",
+                    url: "/B",
+                    v: .v5,
+                    products: [
+                        ProductDescription(name: "BLibrary", targets: ["BTarget"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "BTarget", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        XCTAssertThrows(Diagnostics.fatalError) {
+            _ = try BuildPlan(
+                buildParameters: mockBuildParameters(destinationTriple: .macOS),
+                graph: graph, diagnostics: diagnostics,
+                fileSystem: fileSystem)
+        }
+
+        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            result.check(diagnostic: .contains("the product 'BLibrary' requires minimum platform version 10.14 for macos platform"), behavior: .error)
+        }
+    }
+
     func testBuildSettings() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/A/Sources/exe/main.swift",

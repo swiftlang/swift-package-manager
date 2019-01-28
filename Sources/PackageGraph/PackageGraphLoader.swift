@@ -26,26 +26,6 @@ struct UnusedDependencyDiagnostic: DiagnosticData {
     public let dependencyName: String
 }
 
-struct ProductRequiresHigherPlatformVersion: DiagnosticData {
-    static let id = DiagnosticID(
-        type: ProductRequiresHigherPlatformVersion.self,
-        name: "org.swift.diags.\(ProductRequiresHigherPlatformVersion.self)",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "the product" <<< { "'\($0.product)'" }
-            $0 <<< "requires minimum platform version" <<< { $0.platform.version.versionString }
-            $0 <<< "for" <<< { $0.platform.platform.name } <<< "platform"
-        })
-
-    public let product: String
-    public let platform: SupportedPlatform
-
-    init(product: String, platform: SupportedPlatform) {
-        self.product = product
-        self.platform = platform
-    }
-}
-
 struct ProductHasNoSupportedPlatform: DiagnosticData {
     static let id = DiagnosticID(
         type: ProductHasNoSupportedPlatform.self,
@@ -491,25 +471,6 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     }
 
     func validateProductDependency(_ product: ResolvedProduct) {
-        // Get the first target as supported platforms are on the top-level.
-        // This will need to become a bit complicated once we have target-level platform support.
-        let productTarget = product.underlyingProduct.targets[0]
-
-        for targetPlatform in self.target.platforms {
-            // Currently targets support all platforms so we should get
-            // a matching supported platform in the product dependency.
-            guard let productPlatform = productTarget.getSupportedPlatform(for: targetPlatform.platform) else {
-                fatalError("Expected supported platform \(targetPlatform.platform) in product target \(productTarget)")
-            }
-
-            // For the supported platforms, check if the version requirement is satisfied.
-            //
-            // If the product's platform version is greater than ours, then it is incompatible.
-            if productPlatform.version > targetPlatform.version {
-                diagnostics.emit(data: ProductRequiresHigherPlatformVersion(product: product.name, platform: productPlatform))
-            }
-        }
-
         // Diagnose if any target in this product uses an unsafe flag.
         for target in product.targets {
             let declarations = target.underlyingTarget.buildSettings.assignments.keys
