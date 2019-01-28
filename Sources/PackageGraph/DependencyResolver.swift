@@ -313,11 +313,11 @@ public protocol DependencyResolverDelegate {
     associatedtype Identifier: PackageContainerIdentifier
 
     /// Collect diagnostic information for a step the resolver takes.
-    func trace(_ step: TraceStep)
+    func trace(_ step: TraceStep<Identifier>)
 }
 
 public extension DependencyResolverDelegate {
-    func trace(_ step: TraceStep) { }
+    func trace(_ step: TraceStep<Identifier>) { }
 }
 
 // FIXME: This should be nested, but cannot be currently.

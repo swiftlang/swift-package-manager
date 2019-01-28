@@ -118,25 +118,33 @@ public class _MockResolverDelegate: DependencyResolverDelegate {
 
     public init() {}
 
-    var traceSteps: [TraceStep] = []
+    var traceSteps: [TraceStep<Identifier>] = []
 
-    public func trace(_ step: TraceStep) {
+    public func trace(_ step: TraceStep<Identifier>) {
         traceSteps.append(step)
     }
 
     func traceDescription() -> String {
         let headers = ["Step", "Value", "Type", "Location", "Cause", "Dec. Lvl."]
-        let values = traceSteps.enumerated().map { val -> [String] in
-            let (idx, s) = val
-            return [
-                "\(idx + 1)",
-                s.value.description,
-                s.type.rawValue,
-                s.location.rawValue,
-                s.cause ?? "",
-                String(s.decisionLevel)
-            ]
-        }
+        let values = traceSteps
+            .compactMap { step -> GeneralTraceStep? in
+                if case .general(let generalStep) = step {
+                    return generalStep
+                }
+                return nil
+            }
+            .enumerated()
+            .map { val -> [String] in
+                let (idx, s) = val
+                return [
+                    "\(idx + 1)",
+                    s.value.description,
+                    s.type.rawValue,
+                    s.location.rawValue,
+                    s.cause ?? "",
+                    String(s.decisionLevel)
+                ]
+            }
         return textTable([headers] + values)
     }
 

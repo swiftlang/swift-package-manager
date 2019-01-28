@@ -177,7 +177,7 @@ struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
 }
 
 extension Term: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         var pkg = "\(package)"
         if let pkgRef = package as? PackageReference {
             pkg = pkgRef.identity
@@ -360,7 +360,7 @@ extension Incompatibility {
 /// at or before it in the partial solution that caused it to be derived. This
 /// is later used during conflict resolution to figure out how far back to jump
 /// when a conflict is found.
-struct Assignment<Identifier: PackageContainerIdentifier>: Equatable {
+public struct Assignment<Identifier: PackageContainerIdentifier>: Equatable {
     let term: Term<Identifier>
     let decisionLevel: Int
     let cause: Incompatibility<Identifier>?
@@ -400,6 +400,17 @@ struct Assignment<Identifier: PackageContainerIdentifier>: Equatable {
             decisionLevel: decisionLevel,
             cause: cause,
             isDecision: false)
+    }
+}
+
+extension Assignment: CustomStringConvertible {
+    public var description: String {
+        switch self.isDecision {
+        case true:
+            return "[Decision \(decisionLevel): \(term)]"
+        case false:
+            return "[Derivation: \(term) ← \(cause?.description ?? "-")]"
+        }
     }
 }
 
@@ -568,7 +579,7 @@ enum Satisfaction<Identifier: PackageContainerIdentifier>: Equatable {
 
 /// A step the resolver takes to advance its progress, e.g. deriving a new assignment
 /// or creating a new incompatibility based on a package's dependencies.
-public struct TraceStep {
+public struct GeneralTraceStep {
     /// The traced value, e.g. an incompatibility or term.
     public let value: Traceable
     /// How this value came to be.
@@ -588,7 +599,6 @@ public struct TraceStep {
         case derivation
     }
 
-
     /// The location a step is created at.
     public enum Location: String {
         case topLevel = "top level"
@@ -596,6 +606,20 @@ public struct TraceStep {
         case decisionMaking = "decision making"
         case conflictResolution = "conflict resolution"
     }
+}
+
+/// A step the resolver takes during conflict resolution.
+public struct ConflictResolutionTraceStep<Identifier: PackageContainerIdentifier> {
+    /// The conflicted incompatibility.
+    public let incompatibility: Incompatibility<Identifier>
+    public let term: Term<Identifier>
+    /// The satisfying assignment.
+    public let satisfier: Assignment<Identifier>
+}
+
+public enum TraceStep<Identifier: PackageContainerIdentifier> {
+    case general(GeneralTraceStep)
+    case conflictResolution(ConflictResolutionTraceStep<Identifier>)
 }
 
 public protocol Traceable: CustomStringConvertible {}
@@ -654,24 +678,37 @@ public final class PubgrubDependencyResolver<
 
     func trace(
         value: Traceable,
-        type: TraceStep.StepType,
-        location: TraceStep.Location,
+        type: GeneralTraceStep.StepType,
+        location: GeneralTraceStep.Location,
         cause: String?
         ) {
-        delegate?.trace(TraceStep(value: value,
-                                  type: type,
-                                  location: location,
-                                  cause: cause,
-                                  decisionLevel: solution.decisionLevel))
+        let step = GeneralTraceStep(value: value,
+                             type: type,
+                             location: location,
+                             cause: cause,
+                             decisionLevel: solution.decisionLevel)
+        delegate?.trace(.general(step))
     }
 
-    func decide(_ package: Identifier, version: Version, location: TraceStep.Location) {
+    /// Trace a conflict resolution step.
+    func trace(
+        incompatibility: Incompatibility<Identifier>,
+        term: Term<Identifier>,
+        satisfier: Assignment<Identifier>
+        ) {
+        let step = ConflictResolutionTraceStep(incompatibility: incompatibility,
+                                               term: term,
+                                               satisfier: satisfier)
+        delegate?.trace(.conflictResolution(step))
+    }
+
+    func decide(_ package: Identifier, version: Version, location: GeneralTraceStep.Location) {
         let term = Term(package, .versionSet(.exact(version)))
         trace(value: term, type: .decision, location: location, cause: nil)
         solution.decide(package, atExactVersion: version)
     }
 
-    func derive(_ term: Term<Identifier>, cause: Incompatibility<Identifier>, location: TraceStep.Location) {
+    func derive(_ term: Term<Identifier>, cause: Incompatibility<Identifier>, location: GeneralTraceStep.Location) {
         trace(value: term, type: .derivation, location: location, cause: nil)
         solution.derive(term, cause: cause)
     }
@@ -687,7 +724,7 @@ public final class PubgrubDependencyResolver<
     }
 
     /// Add a new incompatibility to the list of known incompatibilities.
-    func add(_ incompatibility: Incompatibility<Identifier>, location: TraceStep.Location) {
+    func add(_ incompatibility: Incompatibility<Identifier>, location: GeneralTraceStep.Location) {
         trace(value: incompatibility, type: .incompatibility, location: location, cause: nil)
         for package in incompatibility.terms.map({ $0.package }) {
             if incompatibilities[package] != nil {
@@ -745,7 +782,8 @@ public final class PubgrubDependencyResolver<
         for dependency in try rootContainer.getUnversionedDependencies() {
             let incompatibility = Incompatibility(
                 Term(root, .versionSet(.exact("1.0.0"))),
-                Term(not: dependency.identifier, dependency.requirement), cause: .root)
+                Term(not: dependency.identifier, dependency.requirement),
+                root: root, cause: .root)
             add(incompatibility, location: .topLevel)
         }
 
@@ -869,10 +907,10 @@ public final class PubgrubDependencyResolver<
                     }
                 }
 
-                incompatibility = Incompatibility(
-                    priorCauseTerms,
-                    cause: .conflict(conflict: conflict, other: incompatibility)
-                )
+                incompatibility = Incompatibility(priorCauseTerms,
+                                                  root: root!,
+                                                  cause: .conflict(conflict: conflict,
+                                                                   other: incompatibility))
             }
         }
 
