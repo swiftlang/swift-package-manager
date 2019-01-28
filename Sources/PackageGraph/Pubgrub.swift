@@ -219,46 +219,63 @@ private extension Range where Bound == Version {
 /// all be true at the same time. In dependency resolution, these are derived
 /// from version requirements and when running into unresolvable situations.
 public struct Incompatibility<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
-    let terms: Set<Term<Identifier>>
+    let terms: OrderedSet<Term<Identifier>>
     let cause: Cause<Identifier>
 
+    init(terms: OrderedSet<Term<Identifier>>, cause: Cause<Identifier>) {
+        self.terms = terms
+        self.cause = cause
+    }
+
     init(_ terms: Term<Identifier>..., cause: Cause<Identifier> = .root) {
-        self.init(Set(terms), cause: cause)
+        self.init(terms: OrderedSet(terms), cause: cause)
     }
 
-    // This is only used in the initializer below.
-    private struct PackageAndPolarity: Hashable {
-        let package: Identifier
-        let isPositive: Bool
-
-        init(_ term: Term<Identifier>) {
-            self.package = term.package
-            self.isPositive = term.isPositive
-        }
-    }
-
-    init(_ terms: Set<Term<Identifier>>, cause: Cause<Identifier>) {
+    init(_ terms: OrderedSet<Term<Identifier>>, root: Identifier, cause: Cause<Identifier>) {
         assert(terms.count > 0, "An incompatibility must contain at least one term.")
+
+
+        // Remove the root package from generated incompatibilities, since it will
+        // always be selected.
+        var terms = terms
+        if terms.count > 1,
+            case .conflict(conflict: _, other: _) = cause,
+            terms.contains(where: { $0.isPositive && $0.package == root })
+        {
+            terms = OrderedSet(terms.filter { !$0.isPositive || $0.package != root })
+        }
+
+        let termsArray = Array(terms)
+        if termsArray.count == 1 ||
+            (termsArray.count == 2 && termsArray.first?.package != termsArray.last?.package)
+        {
+            self.init(terms: terms, cause: cause)
+            return
+        }
 
         // Normalize terms so that at most one term refers to one package/polarity
         // combination. E.g. we don't want both a^1.0.0 and a^1.5.0 to be terms
         // in the same incompatibility, but have these combined by intersecting
         // their version requirements to a^1.5.0.
 
-        let intersectedPackages = terms.reduce(into: [PackageAndPolarity: PackageRequirement]()) { res, term in
-            let pap = PackageAndPolarity(term)
-            let previous = res[pap, default: term.requirement]
+        typealias Requirement = PackageContainerConstraint<Identifier>.Requirement
+        let dict = terms.reduce(into: [Identifier: Requirement]()) { res, term in
+            let previous = res[term.package, default: term.requirement]
             let intersection = term.intersect(withRequirement: previous, andPolarity: term.isPositive)
-            return res[pap] = intersection!.requirement
+            assert(intersection != nil, """
+                Attempting to create an incompatibility with terms for \(term.package)
+                intersecting versions \(previous) and \(term.requirement). These are
+                mutually exclusive and can't be intersected, making this incompatibility
+                irrelevant.
+                """)
+            return res[term.package] = intersection!.requirement
+        }
+        let newTerms = dict.keys.map { pkg -> Term<Identifier> in
+            let req = dict[pkg]!
+            return Term(pkg, req)
         }
 
-        let terms = intersectedPackages.keys.map { pap -> Term<Identifier> in
-            let requirement = intersectedPackages[pap]!
-            return Term(package: pap.package, requirement: requirement, isPositive: pap.isPositive)
-        }
-
-        self.terms = Set(terms)
-        self.cause = cause
+        self.init(terms: OrderedSet(newTerms), cause: cause)
     }
 }
 
@@ -861,8 +878,8 @@ public final class PubgrubDependencyResolver<
     }
 
     /// Does a given incompatibility specify that version solving has entirely
-    /// failed? E.g. is this incompatibility either empty or only for the root
-    /// package?
+    /// failed, meaning this incompatibility is either empty or only for the root
+    /// package.
     private func isCompleteFailure(_ incompatibility: Incompatibility<Identifier>) -> Bool {
         guard !incompatibility.terms.isEmpty else { return true }
         return incompatibility.terms.count == 1 && incompatibility.terms.first?.package == root
@@ -888,16 +905,16 @@ public final class PubgrubDependencyResolver<
                 // Add all of this version's dependencies as incompatibilities.
                 let depIncompatibilities = try container.getDependencies(at: version)
                     .map { dep -> Incompatibility<Identifier> in
-                        var terms: Set<Term<Identifier>> = []
+                        var terms: OrderedSet<Term<Identifier>> = []
                         if version == latestVersion {
                             let nextMajor = Version(version.major + 1, 0, 0)
-                            terms.insert(Term(candidate.package, .versionSet(.range(version..<nextMajor))))
-                            terms.insert(Term(not: dep.identifier, dep.requirement))
+                            terms.append(Term(candidate.package, .versionSet(.range(version..<nextMajor))))
+                            terms.append(Term(not: dep.identifier, dep.requirement))
                         } else {
-                            terms.insert(Term(candidate.package, .versionSet(.exact(version))))
-                            terms.insert(Term(not: dep.identifier, dep.requirement))
+                            terms.append(Term(candidate.package, .versionSet(.exact(version))))
+                            terms.append(Term(not: dep.identifier, dep.requirement))
                         }
-                        return Incompatibility(terms, cause: .dependency(package: candidate.package))
+                        return Incompatibility(terms, root: root!, cause: .dependency(package: candidate.package))
                 }
                 depIncompatibilities.forEach { add($0, location: .decisionMaking) }
 

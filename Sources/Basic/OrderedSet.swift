@@ -105,3 +105,5 @@ extension OrderedSet: RandomAccessCollection {
 public func == <T>(lhs: OrderedSet<T>, rhs: OrderedSet<T>) -> Bool {
     return lhs.contents == rhs.contents
 }
+
+extension OrderedSet: Hashable where Element: Hashable { }
