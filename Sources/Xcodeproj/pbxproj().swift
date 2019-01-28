@@ -141,6 +141,7 @@ func xcodeProject(
     // Also set the `Xcode` build preset in Swift to let code conditionalize on
     // being built in Xcode.
     projectSettings.common.OTHER_SWIFT_FLAGS += ["-DXcode"]
+    projectSettings.common.MACOSX_DEPLOYMENT_TARGET = "10.10"
 
     // Prevent Xcode project upgrade warnings.
     projectSettings.common.COMBINE_HIDPI_IMAGES = "YES"
@@ -426,21 +427,25 @@ func xcodeProject(
 
         targetSettings.common.TARGET_NAME = target.name
 
-        // Assign the deployment target.
-        for supportedPlatform in target.underlyingTarget.platforms {
-            let version = supportedPlatform.version.versionString
-            switch supportedPlatform.platform {
-            case .macOS:
-                targetSettings.common.MACOSX_DEPLOYMENT_TARGET = version
-            case .iOS:
-                targetSettings.common.IPHONEOS_DEPLOYMENT_TARGET = version
-            case .tvOS:
-                targetSettings.common.TVOS_DEPLOYMENT_TARGET = version
-            case .watchOS:
-                targetSettings.common.WATCHOS_DEPLOYMENT_TARGET = version
-            default:
-                break
+        // Assign the deployment target if the package is using the newer manifest version.
+        switch package.manifest.manifestVersion {
+        case .v5:
+            for supportedPlatform in target.underlyingTarget.platforms {
+                let version = supportedPlatform.version.versionString
+                switch supportedPlatform.platform {
+                case .macOS:
+                    targetSettings.common.MACOSX_DEPLOYMENT_TARGET = version
+                case .iOS:
+                    targetSettings.common.IPHONEOS_DEPLOYMENT_TARGET = version
+                case .tvOS:
+                    targetSettings.common.TVOS_DEPLOYMENT_TARGET = version
+                case .watchOS:
+                    targetSettings.common.WATCHOS_DEPLOYMENT_TARGET = version
+                default:
+                    break
+                }
             }
+        case .v4, .v4_2: break
         }
 
         let infoPlistFilePath = xcodeprojPath.appending(component: target.infoPlistFileName)
