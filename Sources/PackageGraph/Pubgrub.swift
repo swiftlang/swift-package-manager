@@ -670,9 +670,6 @@ public final class PubgrubDependencyResolver<
     /// The resolver's delegate.
     let delegate: Delegate?
 
-    /// A subset of packages used during unit propagation.
-    var changed: Set<Identifier> = []
-
     /// Skip updating containers while fetching them.
     private let skipUpdate: Bool
 
@@ -787,27 +784,12 @@ public final class PubgrubDependencyResolver<
             add(incompatibility, location: .topLevel)
         }
 
-        var next: Identifier? = root
-        while let nxt = next {
-            if let conflict = propagate(nxt) {
-                guard let rootCause = resolve(conflict: conflict) else {
-                    throw Error.unresolvable(conflict)
-                }
-                changed.removeAll()
-
-                guard case .almostSatisfied(except: let term) = solution.satisfies(rootCause) else {
-                    fatalError("""
-                        Expected root cause [\(rootCause)] to almost satisfy the \
-                        current partial solution:
-                        \(solution)
-                        """)
-                }
-                changed.insert(term.package)
-            }
-
-            // If decision making determines that no more decisions are to be
-            // made, it returns nil to signal that version solving is done.
-            next = try makeDecision()
+        do {
+            try run(propagating: root)
+        } catch {
+            print("Encountered error: \(error)")
+            return []
+            // TODO: Handle error, output explanation.
         }
 
         let decisions = solution.assignments.filter { $0.isDecision }
@@ -833,11 +815,45 @@ public final class PubgrubDependencyResolver<
         return finalAssignments.filter { $0.container != root }
     }
 
+    /// Perform unit propagation, resolving conflicts if necessary and making
+    /// decisions if nothing else is left to be done.
+    /// After this method returns `solution` is either populated with a list of
+    /// final version assignments or an error is thrown.
+    func run(propagating package: Identifier) throws {
+        var changed: Set<Identifier> = []
+
+        var next: Identifier? = root
+        while let nxt = next {
+            if let conflict = propagate(nxt, changed: &changed) {
+                guard let rootCause = resolve(conflict: conflict) else {
+                    throw Error.unresolvable(conflict)
+                }
+
+                let satisfaction = solution.satisfies(rootCause)
+                print(satisfaction)
+                guard case .almostSatisfied(except: let term) = satisfaction else {
+                    fatalError("""
+                        Expected root cause [\(rootCause)] to almost satisfy the \
+                        current partial solution:
+                        \(solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))
+                        """)
+                }
+
+                changed.removeAll()
+                changed.insert(term.package)
+            }
+
+            // If decision making determines that no more decisions are to be
+            // made, it returns nil to signal that version solving is done.
+            next = try makeDecision()
+        }
+    }
+
     /// Perform unit propagation to derive new assignments based on the current
     /// partial solution.
     /// If a conflict is found, the conflicting incompatibility is returned to
     /// resolve the conflict on.
-    func propagate(_ package: Identifier) -> Incompatibility<Identifier>? {
+    func propagate(_ package: Identifier, changed: inout Set<Identifier>) -> Incompatibility<Identifier>? {
         changed.insert(package)
         while !changed.isEmpty {
             let package = changed.removeFirst()

@@ -469,17 +469,19 @@ final class PubgrubTests: XCTestCase {
 
     func testResolverUnitPropagation() {
         let solver1 = PubgrubDependencyResolver(emptyProvider, delegate)
+        var changed: Set<PackageReference> = []
 
         // no known incompatibilities should result in no satisfaction checks
-        XCTAssertNil(solver1.propagate("root"))
+        XCTAssertNil(solver1.propagate("root", changed: &changed))
 
         // even if incompatibilities are present
         solver1.add(Incompatibility(term("a@1.0.0"), root: rootRef), location: .topLevel)
-        XCTAssertNil(solver1.propagate("a"))
+        XCTAssertNil(solver1.propagate("a", changed: &changed))
 
         // adding a satisfying term should result in a conflict
         solver1.solution.decide(aRef, atExactVersion: "1.0.0")
-        XCTAssertEqual(solver1.propagate(aRef), Incompatibility(term("a@1.0.0"), root: rootRef))
+        XCTAssertEqual(solver1.propagate(aRef, changed: &changed),
+                       Incompatibility(term("a@1.0.0"), root: rootRef))
 
         // Unit propagation should derive a new assignment from almost satisfied incompatibilities.
         let solver2 = PubgrubDependencyResolver(emptyProvider, delegate)
@@ -488,7 +490,8 @@ final class PubgrubTests: XCTestCase {
                                     root: rootRef), location: .topLevel)
         solver2.solution.decide(rootRef, atExactVersion: "1.0.0")
         XCTAssertEqual(solver2.solution.assignments.count, 1)
-        XCTAssertNil(solver2.propagate(PackageReference(identity: "root", path: "")))
+        XCTAssertNil(solver2.propagate(PackageReference(identity: "root", path: ""),
+                                        changed: &changed))
         XCTAssertEqual(solver2.solution.assignments.count, 2)
     }
 
