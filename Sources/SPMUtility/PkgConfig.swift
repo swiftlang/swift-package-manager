@@ -68,7 +68,7 @@ struct PCFileFinder {
             do {
                 let pkgConfigPath: String
                 if let brewPrefix = brewPrefix {
-                    pkgConfigPath = brewPrefix.appending(components: "bin", "pkg-config").description
+                    pkgConfigPath = brewPrefix.appending(components: "bin", "pkg-config").pathString
                 } else {
                     pkgConfigPath = "pkg-config"
                 }
@@ -208,7 +208,7 @@ struct PkgConfigParser {
         }
 
         // Add pcfiledir variable. This is path to the directory containing the pc file.
-        variables["pcfiledir"] = pcFile.parentDirectory.description
+        variables["pcfiledir"] = pcFile.parentDirectory.pathString
 
         let fileContents = try fileSystem.readFileContents(pcFile)
         // FIXME: Should we error out instead if content is not UTF8 representable?
@@ -228,7 +228,7 @@ struct PkgConfigParser {
                 variables[name.spm_chuzzle() ?? ""] = try resolveVariables(value)
             } else {
                 // Unexpected thing in the pc file, abort.
-                throw PkgConfigError.parsingError("Unexpected line: \(line) in \(pcFile)")
+                throw PkgConfigError.parsingError("Unexpected line: \(line) in \(pcFile.pathString)")
             }
         }
     }
@@ -295,7 +295,7 @@ struct PkgConfigParser {
                 guard it.next() != nil else {
                     throw PkgConfigError.parsingError("""
                         Expected version number after \(deps.last.debugDescription) \(arg) in \"\(depString)\" in \
-                        \(pcFile)
+                        \(pcFile.pathString)
                         """)
                 }
             } else {

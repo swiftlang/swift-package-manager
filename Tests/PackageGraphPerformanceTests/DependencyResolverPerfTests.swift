@@ -100,7 +100,7 @@ class DependencyResolverPerfTests: XCTestCasePerf {
                 manifestLoader: ManifestLoader(manifestResources: Resources.default))
 
             let resolver = DependencyResolver(containerProvider, GitRepositoryResolutionHelper.DummyResolverDelegate())
-            let container = PackageReference(identity: "dep", path: dep.description)
+            let container = PackageReference(identity: "dep", path: dep.pathString)
             let constraints = RepositoryPackageConstraint(container: container, versionRequirement: .range("1.0.0"..<"2.0.0"))
             let result = try! resolver.resolve(constraints: [constraints])
             XCTAssert(result.count == 1)
@@ -321,7 +321,7 @@ struct GitRepositoryResolutionHelper {
 
     func resolve(prefetchingEnabled: Bool = false) -> [(container: PackageReference, binding: BoundVersion)] {
         let repositoriesPath = path.appending(component: "repositories")
-        _ = try? systemQuietly(["rm", "-r", repositoriesPath.description])
+        _ = try? systemQuietly(["rm", "-r", repositoriesPath.pathString])
         let repositoryManager = RepositoryManager(path: repositoriesPath, provider: GitRepositoryProvider(), delegate: DummyRepositoryManagerDelegate())
         let containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,

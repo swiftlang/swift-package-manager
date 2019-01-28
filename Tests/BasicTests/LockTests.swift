@@ -39,7 +39,7 @@ class LockTests: XCTestCase {
         let N = 10
         let threads = (1...N).map { idx in
             return Thread {
-                _ = try! SwiftPMProduct.TestSupportExecutable.execute(["fileLockTest", tempDir.path.description, sharedResource.path.description, String(idx)])
+                _ = try! SwiftPMProduct.TestSupportExecutable.execute(["fileLockTest", tempDir.path.pathString, sharedResource.path.pathString, String(idx)])
             }
         }
         threads.forEach { $0.start() }

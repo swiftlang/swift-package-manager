@@ -127,7 +127,7 @@ extension SystemPackageProviderDescription {
         case .brew(let packages):
             let brewPrefix: String
             if let brewPrefixOverride = brewPrefixOverride {
-                brewPrefix = brewPrefixOverride.description
+                brewPrefix = brewPrefixOverride.pathString
             } else {
                 // Homebrew can have multiple versions of the same package. The
                 // user can choose another version than the latest by running

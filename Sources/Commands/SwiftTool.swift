@@ -391,7 +391,7 @@ public class SwiftTool<Options: ToolOptions> {
             if let packagePath = options.packagePath ?? options.chdir {
                 // FIXME: This should be an API which takes AbsolutePath and maybe
                 // should be moved to file system APIs with currentWorkingDirectory.
-                try POSIX.chdir(packagePath.description)
+                try POSIX.chdir(packagePath.pathString)
             }
 
             let processSet = ProcessSet()
@@ -639,8 +639,8 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     func runLLBuildAsLibrary(manifest: AbsolutePath, llbuildTarget: String) throws {
-        let databasePath = buildPath.appending(component: "build.db").description
-        let buildSystem = BuildSystem(buildFile: manifest.description, databaseFile: databasePath, delegate: buildDelegate)
+        let databasePath = buildPath.appending(component: "build.db").pathString
+        let buildSystem = BuildSystem(buildFile: manifest.pathString, databaseFile: databasePath, delegate: buildDelegate)
         buildDelegate.isVerbose = verbosity != .concise
         buildDelegate.onCommmandFailure = { [weak buildSystem] in buildSystem?.cancel() }
 
@@ -672,7 +672,7 @@ public class SwiftTool<Options: ToolOptions> {
         }
       #endif
 
-        args += [try getToolchain().llbuild.description, "-f", manifest.description, llbuildTarget]
+        args += [try getToolchain().llbuild.pathString, "-f", manifest.pathString, llbuildTarget]
         if verbosity != .concise {
             args.append("-v")
         }
@@ -682,7 +682,7 @@ public class SwiftTool<Options: ToolOptions> {
         // We override the temporary directory so tools assuming full access to
         // the tmp dir can create files here freely, provided they respect this
         // variable.
-        env["TMPDIR"] = tempDir.description
+        env["TMPDIR"] = tempDir.pathString
 
         // Run llbuild and print output on standard streams.
         let process = Process(arguments: args, environment: env, outputRedirection: shouldRedirectStdoutToStderr ? .collect : .none)
@@ -852,16 +852,16 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
     stream <<< "(allow file-write*" <<< "\n"
     for directory in Platform.darwinCacheDirectories() {
         // For compiler module cache.
-        stream <<< "    (regex #\"^\(directory)/org\\.llvm\\.clang.*\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory.pathString)/org\\.llvm\\.clang.*\")" <<< "\n"
         // For archive tool.
-        stream <<< "    (regex #\"^\(directory)/ar.*\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory.pathString)/ar.*\")" <<< "\n"
         // For xcrun cache.
-        stream <<< "    (regex #\"^\(directory)/xcrun.*\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory.pathString)/xcrun.*\")" <<< "\n"
         // For autolink files.
-        stream <<< "    (regex #\"^\(directory)/.*\\.(swift|c)-[0-9a-f]+\\.autolink\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory.pathString)/.*\\.(swift|c)-[0-9a-f]+\\.autolink\")" <<< "\n"
     }
     for directory in allowedDirectories {
-        stream <<< "    (subpath \"\(directory)\")" <<< "\n"
+        stream <<< "    (subpath \"\(directory.pathString)\")" <<< "\n"
     }
     stream <<< ")" <<< "\n"
     return stream.bytes.description

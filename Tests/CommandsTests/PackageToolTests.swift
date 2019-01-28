@@ -207,7 +207,7 @@ final class PackageToolTests: XCTestCase {
             _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
-            let exec = [fooPath.appending(components: ".build", Destination.host.target, "debug", "foo").description]
+            let exec = [fooPath.appending(components: ".build", Destination.host.target, "debug", "foo").pathString]
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -252,7 +252,7 @@ final class PackageToolTests: XCTestCase {
 
             // Test editing with a path i.e. ToT development.
             let bazTot = prefix.appending(component: "tot")
-            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.description], packagePath: fooPath)
+            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
             XCTAssertTrue(exists(bazTot))
             XCTAssertTrue(isSymlink(bazEditsPath))
 
@@ -268,7 +268,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertFalse(isSymlink(bazEditsPath))
 
             // Check that on re-editing with path, we don't make a new clone.
-            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.description], packagePath: fooPath)
+            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
             XCTAssertTrue(isSymlink(bazEditsPath))
             XCTAssertEqual(try localFileSystem.readFileContents(bazTotPackageFile), stream.bytes)
         }
@@ -369,7 +369,7 @@ final class PackageToolTests: XCTestCase {
                 let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
                 return buildOutput
             }
-            let exec = [fooPath.appending(components: ".build", Destination.host.target, "debug", "foo").description]
+            let exec = [fooPath.appending(components: ".build", Destination.host.target, "debug", "foo").pathString]
 
             // Build and sanity check.
             _ = try build()
@@ -551,7 +551,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertTrue(fs.isFile(configFile))
 
             // Test env override.
-            try execute(["config", "set-mirror", "--package-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot, env: ["SWIFTPM_MIRROR_CONFIG": configOverride.description])
+            try execute(["config", "set-mirror", "--package-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot, env: ["SWIFTPM_MIRROR_CONFIG": configOverride.pathString])
             XCTAssertTrue(fs.isFile(configOverride))
             XCTAssertTrue(try fs.readFileContents(configOverride).description.contains("mygithub"))
 

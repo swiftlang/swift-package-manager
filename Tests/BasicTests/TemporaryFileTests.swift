@@ -114,7 +114,7 @@ class TemporaryFileTests: XCTestCase {
         }
         XCTAssertTrue(localFileSystem.isDirectory(path))
         // Cleanup.
-        try FileManager.default.removeItem(atPath: path.description)
+        try FileManager.default.removeItem(atPath: path.pathString)
         XCTAssertFalse(localFileSystem.isDirectory(path))
 
         // Test temp directory is removed when its not empty and removeTreeOnDeinit is enabled.

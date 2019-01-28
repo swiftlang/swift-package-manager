@@ -242,7 +242,7 @@ public extension FileSystem {
 private class LocalFileSystem: FileSystem {
 
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
-        guard let filestat = try? POSIX.stat(path.description) else {
+        guard let filestat = try? POSIX.stat(path.pathString) else {
             return false
         }
         return filestat.st_mode & SPMLibc.S_IXUSR != 0 && filestat.st_mode & S_IFREG != 0
@@ -287,7 +287,7 @@ private class LocalFileSystem: FileSystem {
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
-        guard let dir = SPMLibc.opendir(path.description) else {
+        guard let dir = SPMLibc.opendir(path.pathString) else {
             throw FileSystemError(errno: errno)
         }
         defer { _ = SPMLibc.closedir(dir) }
@@ -329,7 +329,7 @@ private class LocalFileSystem: FileSystem {
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
         // Try to create the directory.
-        let result = mkdir(path.description, SPMLibc.S_IRWXU | SPMLibc.S_IRWXG)
+        let result = mkdir(path.pathString, SPMLibc.S_IRWXU | SPMLibc.S_IRWXG)
 
         // If it succeeded, we are done.
         if result == 0 { return }
@@ -354,7 +354,7 @@ private class LocalFileSystem: FileSystem {
 
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         // Open the file.
-        let fp = fopen(path.description, "rb")
+        let fp = fopen(path.pathString, "rb")
         if fp == nil {
             throw FileSystemError(errno: errno)
         }
@@ -383,7 +383,7 @@ private class LocalFileSystem: FileSystem {
 
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         // Open the file.
-        let fp = fopen(path.description, "wb")
+        let fp = fopen(path.pathString, "wb")
         if fp == nil {
             throw FileSystemError(errno: errno)
         }
@@ -412,7 +412,7 @@ private class LocalFileSystem: FileSystem {
         let temp = try TemporaryFile(dir: path.parentDirectory, deleteOnClose: false)
         do {
             try writeFileContents(temp.path, bytes: bytes)
-            try POSIX.rename(old: temp.path.description, new: path.description)
+            try POSIX.rename(old: temp.path.pathString, new: path.pathString)
         } catch {
             // Write or rename failed, delete the temporary file.
             // Rethrow the original error, however, as that's the
@@ -424,7 +424,7 @@ private class LocalFileSystem: FileSystem {
 
     func removeFileTree(_ path: AbsolutePath) throws {
         if self.exists(path, followSymlink: false) {
-            try FileManager.default.removeItem(atPath: path.description)
+            try FileManager.default.removeItem(atPath: path.pathString)
         }
     }
 
@@ -441,7 +441,7 @@ private class LocalFileSystem: FileSystem {
         let ftsOptions = recursive ? FTS_PHYSICAL : FTS_LOGICAL
 
         // Get handle to the file hierarchy we want to traverse.
-        let paths = CStringArray([path.description])
+        let paths = CStringArray([path.pathString])
         guard let ftsp = fts_open(paths.cArray, ftsOptions, nil) else {
             throw FileSystemError(errno: errno)
         }
@@ -809,7 +809,7 @@ public class RerootedFileSystemView: FileSystem {
             return root
         } else {
             // FIXME: Optimize?
-            return root.appending(RelativePath(String(path.description.dropFirst(1))))
+            return root.appending(RelativePath(String(path.pathString.dropFirst(1))))
         }
     }
 

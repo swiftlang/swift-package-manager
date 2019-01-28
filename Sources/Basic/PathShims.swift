@@ -31,9 +31,9 @@ import Foundation
 /// non-existent path, then this function returns nil.
 func stat(_ path: AbsolutePath, followSymlink: Bool = true) throws -> SPMLibc.stat {
     if followSymlink {
-        return try stat(path.description)
+        return try stat(path.pathString)
     }
-    return try lstat(path.description)
+    return try lstat(path.pathString)
 }
 
 /// Returns true if and only if `path` refers to an existent file system entity.
@@ -77,7 +77,7 @@ public func isSymlink(_ path: AbsolutePath) -> Bool {
 
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
-    let pathStr = path.description
+    let pathStr = path.pathString
     guard let resolvedPathStr = try? POSIX.realpath(pathStr) else { return path }
     // FIXME: We should measure if it's really more efficient to compare the strings first.
     return (resolvedPathStr == pathStr) ? path : AbsolutePath(resolvedPathStr)
@@ -86,15 +86,15 @@ public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
 /// Creates a new, empty directory at `path`.  If needed, any non-existent ancestor paths are also created.  If there is
 /// already a directory at `path`, this function does nothing (in particular, this is not considered to be an error).
 public func makeDirectories(_ path: AbsolutePath) throws {
-    try FileManager.default.createDirectory(atPath: path.description, withIntermediateDirectories: true, attributes: [:])
+    try FileManager.default.createDirectory(atPath: path.pathString, withIntermediateDirectories: true, attributes: [:])
 }
 
 /// Creates a symbolic link at `path` whose content points to `dest`.  If `relative` is true, the symlink contents will
 /// be a relative path, otherwise it will be absolute.
 public func createSymlink(_ path: AbsolutePath, pointingAt dest: AbsolutePath, relative: Bool = true) throws {
-    let destString = relative ? dest.relative(to: path.parentDirectory).description : dest.description
-    let rv = SPMLibc.symlink(destString, path.description)
-    guard rv == 0 else { throw SystemError.symlink(errno, path.description, dest: destString) }
+    let destString = relative ? dest.relative(to: path.parentDirectory).pathString : dest.pathString
+    let rv = SPMLibc.symlink(destString, path.pathString)
+    guard rv == 0 else { throw SystemError.symlink(errno, path.pathString, dest: destString) }
 }
 
 /// The current working directory of the processs.
@@ -200,16 +200,16 @@ extension AbsolutePath {
     public func prettyPath(cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory) -> String {
         guard let dir = cwd else {
             // No current directory, display as is.
-            return self.description
+            return self.pathString
         }
         // FIXME: Instead of string prefix comparison we should add a proper API
         // to AbsolutePath to determine ancestry.
         if self == dir {
             return "."
-        } else if self.description.hasPrefix(dir.description + "/") {
-            return "./" + self.relative(to: dir).description
+        } else if self.pathString.hasPrefix(dir.pathString + "/") {
+            return "./" + self.relative(to: dir).pathString
         } else {
-            return self.description
+            return self.pathString
         }
     }
 }

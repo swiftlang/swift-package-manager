@@ -317,7 +317,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // and validates it.
 
         // Compute the path to runtime we need to load.
-        let runtimePath = self.runtimePath(for: manifestVersion).description
+        let runtimePath = self.runtimePath(for: manifestVersion).pathString
         let interpreterFlags = self.interpreterFlags(for: manifestVersion)
 
         var cmd = [String]()
@@ -329,13 +329,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += ["sandbox-exec", "-p", sandboxProfile()]
         }
       #endif
-        cmd += [resources.swiftCompiler.description]
+        cmd += [resources.swiftCompiler.pathString]
         cmd += ["--driver-mode=swift"]
         cmd += bootstrapArgs()
         cmd += verbosity.ccArgs
         cmd += ["-L", runtimePath, "-lPackageDescription"]
         cmd += interpreterFlags
-        cmd += [manifestPath.description]
+        cmd += [manifestPath.pathString]
 
         // Create and open a temporary file to write json to.
         let file = try TemporaryFile()
@@ -420,12 +420,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         var cmd = [String]()
         let runtimePath = self.runtimePath(for: manifestVersion)
         cmd += ["-swift-version", manifestVersion.swiftLanguageVersion.rawValue]
-        cmd += ["-I", runtimePath.description]
+        cmd += ["-I", runtimePath.pathString]
       #if os(macOS)
         cmd += ["-target", "x86_64-apple-macosx10.10"]
       #endif
         if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
-            cmd += ["-sdk", sdkRoot.description]
+            cmd += ["-sdk", sdkRoot.pathString]
         }
         return cmd
     }
@@ -447,7 +447,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         if isManifestCachingEnabled {
             try localFileSystem.createDirectory(cacheDir, recursive: true)
-            try engine.attachDB(path: cacheDir.appending(component: "manifest.db").description)
+            try engine.attachDB(path: cacheDir.appending(component: "manifest.db").pathString)
         }
         _engine = engine
         return engine
@@ -471,7 +471,7 @@ private func sandboxProfile() -> String {
     // Allow writing in temporary locations.
     stream <<< "(allow file-write*" <<< "\n"
     for directory in Platform.darwinCacheDirectories() {
-        stream <<< "    (regex #\"^\(directory)/org\\.llvm\\.clang.*\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory.pathString)/org\\.llvm\\.clang.*\")" <<< "\n"
     }
     stream <<< ")" <<< "\n"
     return stream.bytes.description

@@ -119,9 +119,9 @@ public enum SwiftPMProduct {
         environment["IS_SWIFTPM_TEST"] = "1"
         environment["SDKROOT"] = nil
 
-        var completeArgs = [path.description]
+        var completeArgs = [path.pathString]
         if let packagePath = packagePath {
-            completeArgs += ["--package-path", packagePath.description]
+            completeArgs += ["--package-path", packagePath.pathString]
         }
         completeArgs += args
 

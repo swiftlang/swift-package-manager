@@ -23,11 +23,11 @@ class ModuleMapsTestCase: XCTestCase {
             let outdir = prefix.appending(components: rootpkg, ".build", Destination.host.target, "debug")
             try makeDirectories(outdir)
             let output = outdir.appending(component: "libfoo.\(Destination.host.dynamicLibraryExtension)")
-            try systemQuietly(["clang", "-shared", input.description, "-o", output.description])
+            try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
 
-            var Xld = ["-L", outdir.description]
+            var Xld = ["-L", outdir.pathString]
         #if os(Linux)
-            Xld += ["-rpath", outdir.description]
+            Xld += ["-rpath", outdir.pathString]
         #endif
 
             try body(prefix, Xld)
@@ -40,9 +40,9 @@ class ModuleMapsTestCase: XCTestCase {
             XCTAssertBuilds(prefix.appending(component: "App"), Xld: Xld)
 
             let targetPath = prefix.appending(components: "App", ".build", Destination.host.target)
-            let debugout = try Process.checkNonZeroExit(args: targetPath.appending(components: "debug", "App").description)
+            let debugout = try Process.checkNonZeroExit(args: targetPath.appending(components: "debug", "App").pathString)
             XCTAssertEqual(debugout, "123\n")
-            let releaseout = try Process.checkNonZeroExit(args: targetPath.appending(components: "release", "App").description)
+            let releaseout = try Process.checkNonZeroExit(args: targetPath.appending(components: "release", "App").pathString)
             XCTAssertEqual(releaseout, "123\n")
         }
     }
@@ -53,7 +53,7 @@ class ModuleMapsTestCase: XCTestCase {
             XCTAssertBuilds(prefix.appending(component: "packageA"), Xld: Xld)
 
             func verify(_ conf: String, file: StaticString = #file, line: UInt = #line) throws {
-                let out = try Process.checkNonZeroExit(args: prefix.appending(components: "packageA", ".build", Destination.host.target, conf, "packageA").description)
+                let out = try Process.checkNonZeroExit(args: prefix.appending(components: "packageA", ".build", Destination.host.target, conf, "packageA").pathString)
                 XCTAssertEqual(out, """
                     calling Y.bar()
                     Y.bar() called

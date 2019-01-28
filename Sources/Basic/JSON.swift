@@ -308,13 +308,13 @@ extension Bool: JSONSerializable {
 
 extension AbsolutePath: JSONSerializable {
     public func toJSON() -> JSON {
-        return .string(description)
+        return .string(pathString)
     }
 }
 
 extension RelativePath: JSONSerializable {
     public func toJSON() -> JSON {
-        return .string(description)
+        return .string(pathString)
     }
 }
 

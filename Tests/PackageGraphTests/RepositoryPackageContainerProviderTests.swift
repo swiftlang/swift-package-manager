@@ -236,7 +236,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let repoPath = AbsolutePath.root.appending(component: "some-repo")
         let filePath = repoPath.appending(component: "Package.swift")
 
-        let specifier = RepositorySpecifier(url: repoPath.description)
+        let specifier = RepositorySpecifier(url: repoPath.pathString)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
         try repo.createDirectory(repoPath, recursive: true)
         try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)\n"))
@@ -261,7 +261,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let provider = RepositoryPackageContainerProvider(
                 repositoryManager: repositoryManager,
                 manifestLoader: MockManifestLoader(manifests: [:]))
-        let ref = PackageReference(identity: "foo", path: repoPath.description)
+        let ref = PackageReference(identity: "foo", path: repoPath.pathString)
         let container = try await { provider.getContainer(for: ref, completion: $0) }
         let v = container.versions(filter: { _ in true }).map{$0}
         XCTAssertEqual(v, ["2.0.3", "1.0.3", "1.0.2", "1.0.1", "1.0.0"])
@@ -273,7 +273,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let repoPath = AbsolutePath.root.appending(component: "some-repo")
         let filePath = repoPath.appending(component: "Package.swift")
 
-        let specifier = RepositorySpecifier(url: repoPath.description)
+        let specifier = RepositorySpecifier(url: repoPath.pathString)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
 
         try repo.createDirectory(repoPath, recursive: true)
@@ -345,7 +345,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let repoPath = AbsolutePath.root.appending(component: "some-repo")
         let filePath = repoPath.appending(component: "Package.swift")
         
-        let specifier = RepositorySpecifier(url: repoPath.description)
+        let specifier = RepositorySpecifier(url: repoPath.pathString)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
         try repo.createDirectory(repoPath, recursive: true)
         try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)\n"))
@@ -372,7 +372,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let provider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
             manifestLoader: MockManifestLoader(manifests: [:]))
-        let ref = PackageReference(identity: "foo", path: repoPath.description)
+        let ref = PackageReference(identity: "foo", path: repoPath.pathString)
         let container = try await { provider.getContainer(for: ref, completion: $0) }
         let v = container.versions(filter: { _ in true }).map{$0}
         XCTAssertEqual(v, ["1.0.4-alpha", "1.0.2-dev.2", "1.0.2-dev", "1.0.1", "1.0.0", "1.0.0-beta.1", "1.0.0-alpha.1"])
@@ -384,7 +384,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let repoPath = AbsolutePath.root.appending(component: "some-repo")
         let filePath = repoPath.appending(component: "Package.swift")
         
-        let specifier = RepositorySpecifier(url: repoPath.description)
+        let specifier = RepositorySpecifier(url: repoPath.pathString)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
         try repo.createDirectory(repoPath, recursive: true)
         try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)\n"))
@@ -410,7 +410,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let provider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
             manifestLoader: MockManifestLoader(manifests: [:]))
-        let ref = PackageReference(identity: "foo", path: repoPath.description)
+        let ref = PackageReference(identity: "foo", path: repoPath.pathString)
         let container = try await { provider.getContainer(for: ref, completion: $0) }
         let v = container.versions(filter: { _ in true }).map{$0}
         XCTAssertEqual(v, ["2.0.1", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])

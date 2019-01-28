@@ -19,7 +19,7 @@ typealias Process = Basic.Process
 
 class ProcessTests: XCTestCase {
     func script(_ name: String) -> String {
-        return AbsolutePath(#file).parentDirectory.appending(components: "processInputs", name).description
+        return AbsolutePath(#file).parentDirectory.appending(components: "processInputs", name).pathString
     }
 
     func testBasics() throws {
@@ -50,7 +50,7 @@ class ProcessTests: XCTestCase {
         let stream = BufferedOutputByteStream()
         stream <<< Format.asRepeating(string: "a", count: count)
         try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
-        let outputCount = try Process.popen(args: "cat", file.path.description).utf8Output().count
+        let outputCount = try Process.popen(args: "cat", file.path.pathString).utf8Output().count
         XCTAssert(outputCount == count)
     }
 
@@ -84,7 +84,7 @@ class ProcessTests: XCTestCase {
                 
                 """)
 
-            try withCustomEnv(["PATH": path.description]) {
+            try withCustomEnv(["PATH": path.pathString]) {
                 XCTAssertEqual(Process.findExecutable("nonExecutableProgram"), nil)
             }
         }
@@ -100,7 +100,7 @@ class ProcessTests: XCTestCase {
                 
                 """)
 
-            try withCustomEnv(["PATH": path.description]) {
+            try withCustomEnv(["PATH": path.pathString]) {
                 do {
                     let process = Process(args: "nonExecutableProgram")
                     try process.launch()
@@ -118,7 +118,7 @@ class ProcessTests: XCTestCase {
         mktmpdir { path in
             let file = path.appending(component: "pidfile")
             let waitFile = path.appending(component: "waitFile")
-            let process = Process(args: script("print-pid"), file.description, waitFile.description)
+            let process = Process(args: script("print-pid"), file.pathString, waitFile.pathString)
             try process.launch()
             guard waitForFile(waitFile) else {
                 return XCTFail("Couldn't launch the process")
@@ -137,7 +137,7 @@ class ProcessTests: XCTestCase {
         mktmpdir { path in
             let file = path.appending(component: "pidfile")
             let waitFile = path.appending(component: "waitFile")
-            let process = Process(args: script("subprocess"), file.description, waitFile.description)
+            let process = Process(args: script("subprocess"), file.pathString, waitFile.pathString)
             try process.launch()
             guard waitForFile(waitFile) else {
                 return XCTFail("Couldn't launch the process")

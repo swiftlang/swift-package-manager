@@ -671,7 +671,7 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
     ///
     /// - Throws: FileSystemError
     public init(_ path: AbsolutePath, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
-        guard let filePointer = fopen(path.description, "wb") else {
+        guard let filePointer = fopen(path.pathString, "wb") else {
             throw FileSystemError(errno: errno)
         }
         self.filePointer = filePointer

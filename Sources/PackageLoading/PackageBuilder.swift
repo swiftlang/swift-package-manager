@@ -82,10 +82,10 @@ extension ModuleError: CustomStringConvertible {
             return "public headers directory path for '\(name)' is invalid or not contained in the target"
         case .overlappingSources(let target, let sources):
             return "target '\(target)' has sources overlapping sources: " +
-                sources.map({ $0.description }).joined(separator: ", ")
+                sources.map({ $0.pathString }).joined(separator: ", ")
         case .multipleLinuxMainFound(let package, let linuxMainFiles):
             return "package '\(package)' has multiple linux main files: " +
-                linuxMainFiles.map({ $0.description }).sorted().joined(separator: ", ")
+                linuxMainFiles.map({ $0.pathString }).sorted().joined(separator: ", ")
         case .incompatibleToolsVersions(let package, let required, let current):
             if required.isEmpty {
                 return "package '\(package)' supported Swift language versions is empty"
@@ -297,7 +297,7 @@ public final class PackageBuilder {
             // Diagnose broken symlinks.
             if fileSystem.isSymlink(path) {
                 diagnostics.emit(
-                    data: PackageBuilderDiagnostics.BorkenSymlinkDiagnostic(path: path.description),
+                    data: PackageBuilderDiagnostics.BorkenSymlinkDiagnostic(path: path.pathString),
                     location: diagnosticLocation()
                 )
             }
@@ -573,7 +573,7 @@ public final class PackageBuilder {
     private func validateModuleName(_ path: AbsolutePath, _ name: String, isTest: Bool) throws {
         if name.isEmpty {
             throw Target.Error.invalidName(
-                path: path.relative(to: packagePath).description,
+                path: path.relative(to: packagePath).pathString,
                 problem: .emptyName)
         }
     }
@@ -671,7 +671,7 @@ public final class PackageBuilder {
 
         // Make sure there is no modulemap mixed with the sources.
         if let path = walked.first(where: { $0.basename == moduleMapFilename }) {
-            throw ModuleError.invalidLayout(.modulemapInSources(path.description))
+            throw ModuleError.invalidLayout(.modulemapInSources(path.pathString))
         }
         // Select any source files for the C-based languages and for Swift.
         let sources = walked.filter(isValidSource).filter({ !targetExcludedPaths.contains($0) })
@@ -700,7 +700,7 @@ public final class PackageBuilder {
             )
         } else {
             // No Swift sources, so we expect to have C sources, and we create a C target.
-            guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path.description) }
+            guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path.pathString) }
             let cSources = Array(clangSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: cSources)
 
@@ -744,7 +744,7 @@ public final class PackageBuilder {
                 // Ensure that the search path is contained within the package.
                 let subpath = try RelativePath(validating: setting.value[0])
                 guard targetRoot.appending(subpath).contains(packagePath) else {
-                    throw ModuleError.invalidHeaderSearchPath(subpath.description)
+                    throw ModuleError.invalidHeaderSearchPath(subpath.pathString)
                 }
 
             case .define:

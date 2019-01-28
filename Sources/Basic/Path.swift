@@ -199,6 +199,12 @@ public struct AbsolutePath: Hashable {
     /// Root directory (whose string representation is just a path separator).
     public static let root = AbsolutePath("/")
 
+    /// Normalized string representation (the normalization rules are described
+    /// in the documentation of the initializer).  This string is never empty.
+    public var pathString: String {
+        return _impl.string
+    }
+
     /// Returns an array of strings that make up the path components of the
     /// absolute path.  This is the same sequence of strings as the basenames
     /// of each successive path component, starting from the root.  Therefore
@@ -271,6 +277,12 @@ public struct RelativePath: Hashable {
         return _impl.extension
     }
 
+    /// Normalized string representation (the normalization rules are described
+    /// in the documentation of the initializer).  This string is never empty.
+    public var pathString: String {
+        return _impl.string
+    }
+
     /// Returns an array of strings that make up the path components of the
     /// relative path.  This is the same sequence of strings as the basenames
     /// of each successive path component.  Therefore the returned array of
@@ -284,7 +296,7 @@ public struct RelativePath: Hashable {
 extension AbsolutePath: Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        try container.encode(description)
+        try container.encode(pathString)
     }
 
     public init(from decoder: Decoder) throws {
@@ -296,7 +308,7 @@ extension AbsolutePath: Codable {
 extension RelativePath: Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        try container.encode(description)
+        try container.encode(pathString)
     }
 
     public init(from decoder: Decoder) throws {
@@ -308,19 +320,19 @@ extension RelativePath: Codable {
 // Make absolute paths Comparable.
 extension AbsolutePath: Comparable {
     public static func < (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-        return lhs.description < rhs.description
+        return lhs.pathString < rhs.pathString
     }
 }
 
 /// Make absolute paths CustomStringConvertible and CustomDebugStringConvertible.
 extension AbsolutePath: CustomStringConvertible, CustomDebugStringConvertible {
     public var description: String {
-        return _impl.string
+        return pathString
     }
 
     public var debugDescription: String {
         // FIXME: We should really be escaping backslashes and quotes here.
-        return "<AbsolutePath:\"\(_impl.string)\">"
+        return "<AbsolutePath:\"\(pathString)\">"
     }
 }
 

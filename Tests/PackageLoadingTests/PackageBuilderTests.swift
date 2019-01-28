@@ -78,7 +78,7 @@ class PackageBuilderTests: XCTestCase {
             )
 
             PackageBuilderTester(manifest, path: path, in: fs) { result in
-                result.checkDiagnostic("ignoring broken symlink \(linkPath)")
+                result.checkDiagnostic("ignoring broken symlink \(linkPath.pathString)")
                 result.checkModule("foo")
             }
         }
@@ -1706,8 +1706,8 @@ final class PackageBuilderTester {
         guard case .package(let package) = result else {
             return XCTFail("Expected package did not load \(self)", file: file, line: line)
         }
-        XCTAssertEqual(target, package.targetSearchPath.description, file: file, line: line)
-        XCTAssertEqual(testTarget, package.testTargetSearchPath.description, file: file, line: line)
+        XCTAssertEqual(target, package.targetSearchPath.pathString, file: file, line: line)
+        XCTAssertEqual(testTarget, package.testTargetSearchPath.pathString, file: file, line: line)
     }
 
     func checkModule(_ name: String, file: StaticString = #file, line: UInt = #line, _ body: ((ModuleResult) -> Void)? = nil) {
@@ -1761,7 +1761,7 @@ final class PackageBuilderTester {
             guard case let target as ClangTarget = target else {
                 return XCTFail("Include directory is being checked on a non clang target", file: file, line: line)
             }
-            XCTAssertEqual(target.includeDir.description, includeDir, file: file, line: line)
+            XCTAssertEqual(target.includeDir.pathString, includeDir, file: file, line: line)
         }
 
         func check(c99name: String? = nil, type: PackageModel.Target.Kind? = nil, file: StaticString = #file, line: UInt = #line) {
@@ -1777,7 +1777,7 @@ final class PackageBuilderTester {
             if let root = root {
                 XCTAssertEqual(target.sources.root, AbsolutePath(root), file: file, line: line)
             }
-            let sources = Set(self.target.sources.relativePaths.map({ $0.description }))
+            let sources = Set(self.target.sources.relativePaths.map({ $0.pathString }))
             XCTAssertEqual(sources, Set(paths), "unexpected source files in \(target.name)", file: file, line: line)
         }
 

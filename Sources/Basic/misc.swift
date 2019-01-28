@@ -145,6 +145,6 @@ extension CodableRange: Codable {
 extension AbsolutePath {
     /// File URL created from the normalized string representation of the path.
     public var asURL: Foundation.URL {
-         return URL(fileURLWithPath: description)
+         return URL(fileURLWithPath: pathString)
     }
 }

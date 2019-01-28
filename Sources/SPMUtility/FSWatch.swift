@@ -566,7 +566,7 @@ public final class FSEventStream {
         self.stream = FSEventStreamCreate(nil,
             callback, 
             &callbackContext, 
-            paths.map({ $0.description }) as CFArray, 
+            paths.map({ $0.pathString }) as CFArray, 
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
             latency,
             // FIXME: This needs to be customizable.
