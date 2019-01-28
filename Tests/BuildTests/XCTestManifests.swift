@@ -23,6 +23,7 @@ extension BuildPlanTests {
         ("testPkgConfigGenericDiagnostic", testPkgConfigGenericDiagnostic),
         ("testPkgConfigHintDiagnostic", testPkgConfigHintDiagnostic),
         ("testPlatforms", testPlatforms),
+        ("testPlatformsValidation", testPlatformsValidation),
         ("testREPLArguments", testREPLArguments),
         ("testSwiftCAsmMixed", testSwiftCAsmMixed),
         ("testSwiftCMixed", testSwiftCMixed),

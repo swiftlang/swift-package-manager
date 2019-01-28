@@ -853,6 +853,19 @@ public class BuildPlan {
         // Create build target description for each target which we need to plan.
         var targetMap = [ResolvedTarget: TargetBuildDescription]()
         for target in graph.allTargets {
+
+            // Validate the product dependencies of this target.
+            for dependency in target.dependencies {
+                switch dependency {
+                case .target: break
+                case .product(let product):
+                    if buildParameters.triple.isDarwin() {
+                        BuildPlan.validateDeploymentVersionOfProductDependency(
+                            product, forTarget: target, diagnostics: diagnostics)
+                    }
+                }
+            }
+
              switch target.underlyingTarget {
              case is SwiftTarget:
                  targetMap[target] = .swift(SwiftTargetBuildDescription(target: target, buildParameters: buildParameters))
@@ -871,6 +884,11 @@ public class BuildPlan {
         /// Ensure we have at least one buildable target.
         guard !targetMap.isEmpty else {
             throw Error.noBuildableTarget
+        }
+
+        // Abort now if we have any diagnostics at this point.
+        guard !diagnostics.hasErrors else {
+            throw Diagnostics.fatalError
         }
 
         if buildParameters.triple.isLinux() {
@@ -900,6 +918,30 @@ public class BuildPlan {
         self.targetMap = targetMap
         // Finally plan these targets.
         try plan()
+    }
+
+    static func validateDeploymentVersionOfProductDependency(
+        _ product: ResolvedProduct,
+        forTarget target: ResolvedTarget,
+        diagnostics: DiagnosticsEngine
+    ) {
+        // Get the first target as supported platforms are on the top-level.
+        // This will need to become a bit complicated once we have target-level platform support.
+        let productTarget = product.underlyingProduct.targets[0]
+
+        guard let productPlatform = productTarget.getSupportedPlatform(for: .macOS) else {
+            fatalError("Expected supported platform macOS in product target \(productTarget)")
+        }
+        guard let targetPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
+            fatalError("Expected supported platform macOS in target \(target)")
+        }
+
+        // Check if the version requirement is satisfied.
+        //
+        // If the product's platform version is greater than ours, then it is incompatible.
+        if productPlatform.version > targetPlatform.version {
+            diagnostics.emit(data: ProductRequiresHigherPlatformVersion(product: product.name, platform: productPlatform))
+        }
     }
 
     /// Plan the targets and products.
@@ -1127,4 +1169,24 @@ public class BuildPlan {
 
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
+}
+
+struct ProductRequiresHigherPlatformVersion: DiagnosticData {
+    static let id = DiagnosticID(
+        type: ProductRequiresHigherPlatformVersion.self,
+        name: "org.swift.diags.\(ProductRequiresHigherPlatformVersion.self)",
+        defaultBehavior: .error,
+        description: {
+            $0 <<< "the product" <<< { "'\($0.product)'" }
+            $0 <<< "requires minimum platform version" <<< { $0.platform.version.versionString }
+            $0 <<< "for" <<< { $0.platform.platform.name } <<< "platform"
+    })
+
+    public let product: String
+    public let platform: SupportedPlatform
+
+    init(product: String, platform: SupportedPlatform) {
+        self.product = product
+        self.platform = platform
+    }
 }
