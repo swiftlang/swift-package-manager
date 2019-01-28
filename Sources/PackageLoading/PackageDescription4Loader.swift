@@ -288,13 +288,13 @@ extension PackageDependencyDescription {
 
             // If the dependency URL starts with '~/', try to expand it.
             if url.hasPrefix("~/") {
-                return fileSystem.homeDirectory.appending(RelativePath(String(url.dropFirst(2)))).description
+                return fileSystem.homeDirectory.appending(RelativePath(String(url.dropFirst(2)))).pathString
             }
 
             // If the dependency URL is not remote, try to "fix" it.
             if URL.scheme(url) == nil {
                 // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
-                return AbsolutePath(url, relativeTo: AbsolutePath(baseURL)).description
+                return AbsolutePath(url, relativeTo: AbsolutePath(baseURL)).pathString
             }
 
             return url

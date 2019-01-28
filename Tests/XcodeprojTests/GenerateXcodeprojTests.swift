@@ -55,7 +55,7 @@ class GenerateXcodeprojTests: XCTestCase {
             // We can only validate this on OS X.
             // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.
             let output = try Process.checkNonZeroExit(
-                args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.description).spm_chomp()
+                args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.pathString).spm_chomp()
 
             XCTAssertTrue(output.hasPrefix("""
                Information about project "DummyProjectName":
@@ -144,12 +144,12 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             let graph = loadPackageGraph(
-                root: packagePath.description, fs: localFileSystem, diagnostics: diagnostics,
+                root: packagePath.pathString, fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.description,
-                        url: packagePath.description,
+                        path: packagePath.pathString,
+                        url: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -178,12 +178,12 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             let graph = loadPackageGraph(
-                root: packagePath.description, fs: localFileSystem, diagnostics: diagnostics,
+                root: packagePath.pathString, fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.description,
-                        url: packagePath.description,
+                        path: packagePath.pathString,
+                        url: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -212,12 +212,12 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             let graph = loadPackageGraph(
-                root: packagePath.description, fs: localFileSystem, diagnostics: diagnostics,
+                root: packagePath.pathString, fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.description,
-                        url: packagePath.description,
+                        path: packagePath.pathString,
+                        url: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -249,12 +249,12 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             let graph = loadPackageGraph(
-                root: packagePath.description, fs: localFileSystem, diagnostics: diagnostics,
+                root: packagePath.pathString, fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.description,
-                        url: packagePath.description,
+                        path: packagePath.pathString,
+                        url: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -291,12 +291,12 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             let graph = loadPackageGraph(
-                root: packagePath.description, fs: localFileSystem, diagnostics: diagnostics,
+                root: packagePath.pathString, fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.description,
-                        url: packagePath.description,
+                        path: packagePath.pathString,
+                        url: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])

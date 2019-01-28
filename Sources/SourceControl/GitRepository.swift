@@ -39,7 +39,7 @@ public class GitRepositoryProvider: RepositoryProvider {
         // status information.
 
         let process = Process(
-            args: Git.tool, "clone", "--mirror", repository.url, path.description, environment: Git.environment)
+            args: Git.tool, "clone", "--mirror", repository.url, path.pathString, environment: Git.environment)
         // Add to process set.
         try processSet?.add(process)
         // Launch the process.
@@ -69,7 +69,7 @@ public class GitRepositoryProvider: RepositoryProvider {
             // a clone from our cache of repositories and then we replace the remote to the one originally
             // present in the bare repository.
             try Process.checkNonZeroExit(args:
-                    Git.tool, "clone", sourcePath.description, destinationPath.description)
+                    Git.tool, "clone", sourcePath.pathString, destinationPath.pathString)
             // The default name of the remote.
             let origin = "origin"
             // In destination repo remove the remote which will be pointing to the source repo.
@@ -88,14 +88,14 @@ public class GitRepositoryProvider: RepositoryProvider {
             // only ever expect to get back a revision that remains present in the
             // object storage.
             try Process.checkNonZeroExit(args:
-                    Git.tool, "clone", "--shared", sourcePath.description, destinationPath.description)
+                    Git.tool, "clone", "--shared", sourcePath.pathString, destinationPath.pathString)
         }
     }
 
     public func checkoutExists(at path: AbsolutePath) throws -> Bool {
         precondition(exists(path))
 
-        let result = try Process.popen(args: Git.tool, "-C", path.description, "rev-parse", "--is-bare-repository")
+        let result = try Process.popen(args: Git.tool, "-C", path.pathString, "rev-parse", "--is-bare-repository")
         return try result.exitStatus == .terminated(code: 0) && result.utf8Output().spm_chomp() == "false"
     }
 
@@ -225,7 +225,7 @@ public class GitRepository: Repository, WorkingCheckout {
         self.isWorkingRepo = isWorkingRepo
         do {
             let isBareRepo = try Process.checkNonZeroExit(
-                    args: Git.tool, "-C", path.description, "rev-parse", "--is-bare-repository").spm_chomp() == "true"
+                    args: Git.tool, "-C", path.pathString, "rev-parse", "--is-bare-repository").spm_chomp() == "true"
             assert(isBareRepo != isWorkingRepo)
         } catch {
             // Ignore if we couldn't run popen for some reason.
@@ -240,7 +240,7 @@ public class GitRepository: Repository, WorkingCheckout {
     func setURL(remote: String, url: String) throws {
         try queue.sync {
             try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.description, "remote", "set-url", remote, url)
+                args: Git.tool, "-C", path.pathString, "remote", "set-url", remote, url)
             return
         }
     }
@@ -252,12 +252,12 @@ public class GitRepository: Repository, WorkingCheckout {
         return try queue.sync {
             // Get the remote names.
             let remoteNamesOutput = try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.description, "remote").spm_chomp()
+                args: Git.tool, "-C", path.pathString, "remote").spm_chomp()
             let remoteNames = remoteNamesOutput.split(separator: "\n").map(String.init)
             return try remoteNames.map({ name in
                 // For each remote get the url.
                 let url = try Process.checkNonZeroExit(
-                    args: Git.tool, "-C", path.description, "config", "--get", "remote.\(name).url").spm_chomp()
+                    args: Git.tool, "-C", path.pathString, "config", "--get", "remote.\(name).url").spm_chomp()
                 return (name, url)
             })
         }
@@ -284,7 +284,7 @@ public class GitRepository: Repository, WorkingCheckout {
     private func getTags() -> [String] {
         // FIXME: Error handling.
         let tagList = try! Process.checkNonZeroExit(
-            args: Git.tool, "-C", path.description, "tag", "-l").spm_chomp()
+            args: Git.tool, "-C", path.pathString, "tag", "-l").spm_chomp()
         return tagList.split(separator: "\n").map(String.init)
     }
 
@@ -299,7 +299,7 @@ public class GitRepository: Repository, WorkingCheckout {
     public func fetch() throws {
         try queue.sync {
             try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.description, "remote", "update", "-p", environment: Git.environment)
+                args: Git.tool, "-C", path.pathString, "remote", "update", "-p", environment: Git.environment)
             self.tagsCache = nil
         }
     }
@@ -310,7 +310,7 @@ public class GitRepository: Repository, WorkingCheckout {
         return queue.sync {
             // Check nothing has been changed
             guard let result = try? Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.description, "status", "-s") else
+                args: Git.tool, "-C", path.pathString, "status", "-s") else
             {
                 return false
             }
@@ -327,7 +327,7 @@ public class GitRepository: Repository, WorkingCheckout {
     public func hasUnpushedCommits() throws -> Bool {
         return try queue.sync {
             let hasOutput = try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.description, "log", "--branches", "--not", "--remotes").spm_chomp().isEmpty
+                args: Git.tool, "-C", path.pathString, "log", "--branches", "--not", "--remotes").spm_chomp().isEmpty
             return !hasOutput
         }
     }
@@ -336,7 +336,7 @@ public class GitRepository: Repository, WorkingCheckout {
         return try queue.sync {
             return try Revision(
                 identifier: Process.checkNonZeroExit(
-                    args: Git.tool, "-C", path.description, "rev-parse", "--verify", "HEAD").spm_chomp())
+                    args: Git.tool, "-C", path.pathString, "rev-parse", "--verify", "HEAD").spm_chomp())
         }
     }
 
@@ -345,7 +345,7 @@ public class GitRepository: Repository, WorkingCheckout {
         // may need to take a little more care here.
         try queue.sync {
             try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.description, "reset", "--hard", tag)
+                args: Git.tool, "-C", path.pathString, "reset", "--hard", tag)
             try self.updateSubmoduleAndClean()
         }
     }
@@ -355,7 +355,7 @@ public class GitRepository: Repository, WorkingCheckout {
         // may need to take a little more care here.
         try queue.sync {
             try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.description, "checkout", "-f", revision.identifier)
+                args: Git.tool, "-C", path.pathString, "checkout", "-f", revision.identifier)
             try self.updateSubmoduleAndClean()
         }
     }
@@ -363,16 +363,16 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Initializes and updates the submodules, if any, and cleans left over the files and directories using git-clean.
     private func updateSubmoduleAndClean() throws {
         try Process.checkNonZeroExit(args: Git.tool,
-            "-C", path.description, "submodule", "update", "--init", "--recursive", environment: Git.environment)
+            "-C", path.pathString, "submodule", "update", "--init", "--recursive", environment: Git.environment)
         try Process.checkNonZeroExit(args: Git.tool,
-            "-C", path.description, "clean", "-ffdx")
+            "-C", path.pathString, "clean", "-ffdx")
     }
 
     /// Returns true if a revision exists.
     public func exists(revision: Revision) -> Bool {
         return queue.sync {
             let result = try? Process.popen(
-                args: Git.tool, "-C", path.description, "rev-parse", "--verify", revision.identifier)
+                args: Git.tool, "-C", path.pathString, "rev-parse", "--verify", revision.identifier)
             return result?.exitStatus == .terminated(code: 0)
         }
     }
@@ -381,7 +381,7 @@ public class GitRepository: Repository, WorkingCheckout {
         precondition(isWorkingRepo, "This operation should run in a working repo.")
         try queue.sync {
             try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.description, "checkout", "-b", newBranch)
+                args: Git.tool, "-C", path.pathString, "checkout", "-b", newBranch)
             return
         }
     }
@@ -402,19 +402,19 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Returns true if the file at `path` is ignored by `git`
     public func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
         return try queue.sync {
-            let stringPaths = paths.map({ $0.description })
+            let stringPaths = paths.map({ $0.pathString })
 
             let pathsFile = try TemporaryFile()
             try localFileSystem.writeFileContents(pathsFile.path) {
                 for path in paths {
-                    $0 <<< path <<< "\0"
+                    $0 <<< path.pathString <<< "\0"
                 }
             }
 
             let args = [
-                Git.tool, "-C", self.path.description.spm_shellEscaped(),
+                Git.tool, "-C", self.path.pathString.spm_shellEscaped(),
                 "check-ignore", "-z", "--stdin",
-                "<", pathsFile.path.description.spm_shellEscaped()
+                "<", pathsFile.path.pathString.spm_shellEscaped()
             ]
             let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
             let result = try Process.popen(arguments: argsWithSh)
@@ -445,7 +445,7 @@ public class GitRepository: Repository, WorkingCheckout {
         }
         let response = try queue.sync {
             try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.description, "rev-parse", "--verify", specifier).spm_chomp()
+                args: Git.tool, "-C", path.pathString, "rev-parse", "--verify", specifier).spm_chomp()
         }
         if let hash = Hash(response) {
             return hash
@@ -467,7 +467,7 @@ public class GitRepository: Repository, WorkingCheckout {
         // Get the contents using `ls-tree`.
         let treeInfo = try queue.sync {
             try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.description, "ls-tree", hash.bytes.description)
+                args: Git.tool, "-C", path.pathString, "ls-tree", hash.bytes.description)
         }
 
         var contents: [Tree.Entry] = []
@@ -522,7 +522,7 @@ public class GitRepository: Repository, WorkingCheckout {
             //
             // FIXME: We need to get the raw bytes back, not a String.
             let output = try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.description, "cat-file", "-p", hash.bytes.description)
+                args: Git.tool, "-C", path.pathString, "cat-file", "-p", hash.bytes.description)
             return ByteString(encodingAsUTF8: output)
         }
     }

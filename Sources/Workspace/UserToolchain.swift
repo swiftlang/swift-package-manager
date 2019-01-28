@@ -229,11 +229,11 @@ public final class UserToolchain: Toolchain {
       #endif
 
         self.extraSwiftCFlags = [
-            "-sdk", destination.sdk.description
+            "-sdk", destination.sdk.pathString
         ] + destination.extraSwiftCFlags
 
         self.extraCCFlags = [
-            destination.sysrootFlag, destination.sdk.description
+            destination.sysrootFlag, destination.sdk.pathString
         ] + destination.extraCCFlags
 
         // Compute the path of directory containing the PackageDescription libraries.

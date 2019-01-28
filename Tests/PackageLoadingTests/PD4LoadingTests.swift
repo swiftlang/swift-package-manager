@@ -31,7 +31,7 @@ class PackageDescription4LoadingTests: XCTestCase {
         try fs.writeFileContents(manifestPath, bytes: contents)
         let m = try manifestLoader.load(
             package: AbsolutePath.root,
-            baseURL: AbsolutePath.root.description,
+            baseURL: AbsolutePath.root.pathString,
             manifestVersion: .v4,
             fileSystem: fs)
         guard m.manifestVersion == .v4 else {
@@ -393,7 +393,7 @@ class PackageDescription4LoadingTests: XCTestCase {
 
         let diagnostics = DiagnosticsEngine()
         let manifest = try manifestLoader.load(
-            package: .root, baseURL: AbsolutePath.root.description,
+            package: .root, baseURL: AbsolutePath.root.pathString,
             manifestVersion: .v4, fileSystem: fs,
             diagnostics: diagnostics
         )

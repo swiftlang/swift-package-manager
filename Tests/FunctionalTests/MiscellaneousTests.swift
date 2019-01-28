@@ -118,7 +118,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testInternalDependencyEdges() {
         fixture(name: "Miscellaneous/DependencyEdges/Internal") { prefix in
-            let execpath = prefix.appending(components: ".build", Destination.host.target, "debug", "Foo").description
+            let execpath = prefix.appending(components: ".build", Destination.host.target, "debug", "Foo").pathString
 
             XCTAssertBuilds(prefix)
             var output = try Process.checkNonZeroExit(args: execpath)
@@ -142,7 +142,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testExternalDependencyEdges1() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            let execpath = prefix.appending(components: "app", ".build", Destination.host.target, "debug", "Dealer").description
+            let execpath = prefix.appending(components: "app", ".build", Destination.host.target, "debug", "Dealer").pathString
 
             let packageRoot = prefix.appending(component: "app")
             XCTAssertBuilds(packageRoot)
@@ -169,7 +169,7 @@ class MiscellaneousTestCase: XCTestCase {
      */
     func testExternalDependencyEdges2() {
         fixture(name: "Miscellaneous/DependencyEdges/External") { prefix in
-            let execpath = [prefix.appending(components: "root", ".build", Destination.host.target, "debug", "dep2").description]
+            let execpath = [prefix.appending(components: "root", ".build", Destination.host.target, "debug", "dep2").pathString]
 
             let packageRoot = prefix.appending(component: "root")
             XCTAssertBuilds(prefix.appending(component: "root"))
@@ -236,7 +236,7 @@ class MiscellaneousTestCase: XCTestCase {
           do {
             // Run tests in parallel with verbose output.
             _ = try SwiftPMProduct.SwiftTest.execute(
-                ["--parallel", "--verbose", "--xunit-output", xUnitOutput.description],
+                ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString],
                 packagePath: prefix)
           } catch SwiftPMProductError.executionFailure(_, let output, _) {
             XCTAssert(output.contains("testExample1"))
@@ -277,13 +277,13 @@ class MiscellaneousTestCase: XCTestCase {
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
             let output =  systemModule.appending(component: "libSystemModule.\(dynamicLibraryExtension)")
-            try systemQuietly(["clang", "-shared", input.description, "-o", output.description])
+            try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
 
             let pcFile = prefix.appending(component: "libSystemModule.pc")
 
             let stream = BufferedOutputByteStream()
             stream <<< """
-                prefix=\(systemModule)
+                prefix=\(systemModule.pathString)
                 exec_prefix=${prefix}
                 libdir=${exec_prefix}
                 includedir=${prefix}/Sources/include
@@ -298,7 +298,7 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.writeFileContents(pcFile, bytes: stream.bytes)
 
             let moduleUser = prefix.appending(component: "SystemModuleUserClang")
-            let env = ["PKG_CONFIG_PATH": prefix.description]
+            let env = ["PKG_CONFIG_PATH": prefix.pathString]
             _ = try executeSwiftBuild(moduleUser, env: env)
 
             XCTAssertFileExists(moduleUser.appending(components: ".build", Destination.host.target, "debug", "SystemModuleUserClang"))

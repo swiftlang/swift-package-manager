@@ -120,7 +120,7 @@ private final class JSONDumper: DependenciesDumper {
                 "name": .string(package.name),
                 "url": .string(package.manifest.url),
                 "version": .string(package.manifest.version?.description ?? "unspecified"),
-                "path": .string(package.path.description),
+                "path": .string(package.path.pathString),
                 "dependencies": .array(package.dependencies.map(convert)),
             ])
         }

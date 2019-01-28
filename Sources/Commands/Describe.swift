@@ -64,9 +64,9 @@ extension Target: JSONSerializable {
         stream <<< Format.asRepeating(string: " ", count: indent)
             <<< "Module type: " <<< String(describing: Swift.type(of: self)) <<< "\n"
         stream <<< Format.asRepeating(string: " ", count: indent)
-            <<< "Path: " <<< sources.root <<< "\n"
+            <<< "Path: " <<< sources.root.pathString <<< "\n"
         stream <<< Format.asRepeating(string: " ", count: indent)
-            <<< "Sources: " <<< sources.relativePaths.map({ $0.description }).joined(separator: ", ") <<< "\n"
+            <<< "Sources: " <<< sources.relativePaths.map({ $0.pathString }).joined(separator: ", ") <<< "\n"
     }
 
     public func toJSON() -> JSON {
@@ -83,7 +83,7 @@ extension Target: JSONSerializable {
 
 extension Sources: JSONSerializable {
     public func toJSON() -> JSON {
-        return .array(relativePaths.map({ .string($0.description) }))
+        return .array(relativePaths.map({ .string($0.pathString) }))
     }
 }
 

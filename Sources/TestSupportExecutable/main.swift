@@ -121,7 +121,7 @@ do {
         let handlerTest = try HandlerTest(options.temporaryFile!)
         handlerTest.run()
     case .pathArgumentTest:
-        print(options.absolutePath!)
+        print(options.absolutePath!.pathString)
     case .help:
         parser.printUsage(on: stdoutStream)
     }

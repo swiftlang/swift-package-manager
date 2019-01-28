@@ -75,7 +75,7 @@ public final class TestWorkspace {
             let packagePath = basePath.appending(RelativePath(package.path ?? package.name))
 
             let sourcesDir = packagePath.appending(component: "Sources")
-            let url = (isRoot ? packagePath : packagesDir.appending(RelativePath(package.path ?? package.name))).description
+            let url = (isRoot ? packagePath : packagesDir.appending(RelativePath(package.path ?? package.name))).pathString
             let specifier = RepositorySpecifier(url: url)
             let manifestPath = packagePath.appending(component: Manifest.filename)
 
@@ -170,7 +170,7 @@ public final class TestWorkspace {
 
         fileprivate func convert(_ packagesDir: AbsolutePath) -> PackageGraphRootInput.PackageDependency {
             return PackageGraphRootInput.PackageDependency(
-                url: packagesDir.appending(RelativePath(name)).description,
+                url: packagesDir.appending(RelativePath(name)).pathString,
                 requirement: requirement,
                 location: name
             )
@@ -445,7 +445,7 @@ public struct TestDependency {
     }
 
     public func convert(baseURL: AbsolutePath) -> PackageDependencyDescription {
-        return PackageDependencyDescription(url: baseURL.appending(RelativePath(name)).description, requirement: requirement)
+        return PackageDependencyDescription(url: baseURL.appending(RelativePath(name)).pathString, requirement: requirement)
     }
 }
 

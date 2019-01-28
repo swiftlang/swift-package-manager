@@ -81,7 +81,7 @@ func xcodeProject(
         var interpreterFlags = manifestLoader.interpreterFlags(for: package.manifest.manifestVersion)
         if !interpreterFlags.isEmpty {
             // Patch the interpreter flags to use Xcode supported toolchain macro instead of the resolved path.
-            interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/\(package.manifest.manifestVersion.runtimeSubpath)"
+            interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/\(package.manifest.manifestVersion.runtimeSubpath.pathString)"
         }
         pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS += interpreterFlags
         pdTarget.buildSettings.common.SWIFT_VERSION = package.manifest.manifestVersion.swiftLanguageVersion.xcodeBuildSettingValue
@@ -98,7 +98,7 @@ func xcodeProject(
     // directory (note that those two directories might or might be the same).
     // The effect is to make any `projectDir`-relative path be relative to the
     // source root directory, i.e. the path of the root package.
-    project.projectDir = sourceRootDir.relative(to: xcodeprojPath.parentDirectory).description
+    project.projectDir = sourceRootDir.relative(to: xcodeprojPath.parentDirectory).pathString
 
     // Configure the project settings.
     let projectSettings = project.buildSettings
@@ -193,7 +193,7 @@ func xcodeProject(
         // Create a file reference for the .xcconfig file (with a path relative
         // to the group).
         xcconfigOverridesFileRef = xcconfigsGroup.addFileReference(
-            path: xcconfigPath.relative(to: sourceRootDir).description,
+            path: xcconfigPath.relative(to: sourceRootDir).pathString,
             name: xcconfigPath.basename)
 
         // We don't assign the file reference as the xcconfig file reference of
@@ -293,7 +293,7 @@ func xcodeProject(
         // Create a group for each target.
         for target in targets {
             // The sources could be anywhere, so we use a project-relative path.
-            let path = target.sources.root.relative(to: sourceRootDir).description
+            let path = target.sources.root.relative(to: sourceRootDir).pathString
             let name = (sourcesGroup == nil ? groupName : target.name)
             let group = (sourcesGroup ?? parentGroup)
                 .addGroup(path: (path == "." ? "" : path), pathBase: .projectDir, name: name)
@@ -349,7 +349,7 @@ func xcodeProject(
             let group = createSourceGroup(named: groupName, for: package.targets.filter({ $0.type != .test }), in: dependenciesGroup)
             if let group = group {
                 let manifestPath = package.path.appending(component: "Package.swift")
-                let manifestFileRef = group.addFileReference(path: manifestPath.description, name: "Package.swift", fileType: "sourcecode.swift")
+                let manifestFileRef = group.addFileReference(path: manifestPath.pathString, name: "Package.swift", fileType: "sourcecode.swift")
                 createPackageDescriptionTarget(for: package, manifestFileRef: manifestFileRef)
             }
         }
@@ -362,7 +362,7 @@ func xcodeProject(
     // Add "blue folders" for any other directories at the top level (note that
     // they are not guaranteed to be direct children of the root directory).
     for extraDir in extraDirs {
-        project.mainGroup.addFileReference(path: extraDir.relative(to: sourceRootDir).description, pathBase: .projectDir)
+        project.mainGroup.addFileReference(path: extraDir.relative(to: sourceRootDir).pathString, pathBase: .projectDir)
     }
 
     for extraFile in extraFiles {
@@ -444,7 +444,7 @@ func xcodeProject(
         }
 
         let infoPlistFilePath = xcodeprojPath.appending(component: target.infoPlistFileName)
-        targetSettings.common.INFOPLIST_FILE = infoPlistFilePath.relative(to: sourceRootDir).description
+        targetSettings.common.INFOPLIST_FILE = infoPlistFilePath.relative(to: sourceRootDir).pathString
 
         if target.type == .test {
             targetSettings.common.CLANG_ENABLE_MODULES = "YES"
@@ -498,14 +498,14 @@ func xcodeProject(
             // See: <rdar://problem/21912068> SourceKit cannot handle relative include paths (working directory)
             switch depModule.underlyingTarget {
               case let systemTarget as SystemLibraryTarget:
-                hdrInclPaths.append("$(SRCROOT)/\(systemTarget.path.relative(to: sourceRootDir))")
+                hdrInclPaths.append("$(SRCROOT)/\(systemTarget.path.relative(to: sourceRootDir).pathString)")
                 if let pkgArgs = pkgConfigArgs(for: systemTarget, diagnostics: diagnostics) {
                     targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
                     targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
                     targetSettings.common.OTHER_CFLAGS += pkgArgs.cFlags
                 }
             case let clangTarget as ClangTarget:
-                hdrInclPaths.append("$(SRCROOT)/\(clangTarget.includeDir.relative(to: sourceRootDir))")
+                hdrInclPaths.append("$(SRCROOT)/\(clangTarget.includeDir.relative(to: sourceRootDir).pathString)")
               default:
                 continue
             }
@@ -516,7 +516,7 @@ func xcodeProject(
         targetSettings.common.FRAMEWORK_SEARCH_PATHS = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
 
         // Add a file reference for the target's product.
-        let productRef = productsGroup.addFileReference(path: target.productPath.description, pathBase: .buildDir, objectID: "\(package.name)::\(target.name)::Product")
+        let productRef = productsGroup.addFileReference(path: target.productPath.pathString, pathBase: .buildDir, objectID: "\(package.name)::\(target.name)::Product")
 
         // Set that file reference as the target's product reference.
         xcodeTarget.productReference = productRef
@@ -602,7 +602,7 @@ func xcodeProject(
             }
 
             if let moduleMapPath = moduleMapPath {
-                includeGroup.addFileReference(path: moduleMapPath.description, name: moduleMapPath.basename)
+                includeGroup.addFileReference(path: moduleMapPath.pathString, name: moduleMapPath.basename)
                 // Save this modulemap path mapped to target so we can later wire it up for its dependees.
                 modulesToModuleMap[target] = (moduleMapPath, isGenerated)
             }
@@ -663,12 +663,12 @@ func xcodeProject(
                 assert(dependency.underlyingTarget is ClangTarget)
                 xcodeTarget.buildSettings.common.OTHER_SWIFT_FLAGS += [
                     "-Xcc",
-                    "-fmodule-map-file=$(SRCROOT)/\(moduleMap.path.relative(to: sourceRootDir))",
+                    "-fmodule-map-file=$(SRCROOT)/\(moduleMap.path.relative(to: sourceRootDir).pathString)",
                 ]
                 // Workaround for a interface generation bug. <rdar://problem/30071677>
                 if moduleMap.isGenerated {
                     xcodeTarget.buildSettings.common.HEADER_SEARCH_PATHS += [
-                        "$(SRCROOT)/\(moduleMap.path.parentDirectory.relative(to: sourceRootDir))"
+                        "$(SRCROOT)/\(moduleMap.path.parentDirectory.relative(to: sourceRootDir).pathString)"
                     ]
                 }
             }

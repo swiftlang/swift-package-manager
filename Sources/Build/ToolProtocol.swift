@@ -102,7 +102,7 @@ struct SwiftCompilerTool: ToolProtocol {
 
     /// Outputs produced by the tool.
     var outputs: [String] {
-        return target.objects.map({ $0.description }) + [target.moduleOutputPath.description]
+        return target.objects.map({ $0.pathString }) + [target.moduleOutputPath.pathString]
     }
 
     /// The underlying Swift build target.
@@ -118,25 +118,25 @@ struct SwiftCompilerTool: ToolProtocol {
     func append(to stream: OutputByteStream) {
         stream <<< "    tool: swift-compiler\n"
         stream <<< "    executable: "
-            <<< Format.asJSON(target.buildParameters.toolchain.swiftCompiler) <<< "\n"
+            <<< Format.asJSON(target.buildParameters.toolchain.swiftCompiler.pathString) <<< "\n"
         stream <<< "    module-name: "
             <<< Format.asJSON(target.target.c99name) <<< "\n"
         stream <<< "    module-output-path: "
-            <<< Format.asJSON(target.moduleOutputPath) <<< "\n"
+            <<< Format.asJSON(target.moduleOutputPath.pathString) <<< "\n"
         stream <<< "    inputs: "
             <<< Format.asJSON(inputs) <<< "\n"
         stream <<< "    outputs: "
             <<< Format.asJSON(outputs) <<< "\n"
         stream <<< "    import-paths: "
-            <<< Format.asJSON([target.buildParameters.buildPath]) <<< "\n"
+            <<< Format.asJSON([target.buildParameters.buildPath.pathString]) <<< "\n"
         stream <<< "    temps-path: "
-            <<< Format.asJSON(target.tempsPath) <<< "\n"
+            <<< Format.asJSON(target.tempsPath.pathString) <<< "\n"
         stream <<< "    objects: "
-            <<< Format.asJSON(target.objects) <<< "\n"
+            <<< Format.asJSON(target.objects.map{$0.pathString}) <<< "\n"
         stream <<< "    other-args: "
             <<< Format.asJSON(target.compileArguments()) <<< "\n"
         stream <<< "    sources: "
-            <<< Format.asJSON(target.target.sources.paths) <<< "\n"
+            <<< Format.asJSON(target.target.sources.paths.map{$0.pathString}) <<< "\n"
         stream <<< "    is-library: "
             <<< Format.asJSON(target.target.type == .library || target.target.type == .test) <<< "\n"
         stream <<< "    enable-whole-module-optimization: "

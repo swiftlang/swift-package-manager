@@ -340,14 +340,14 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         let codeCovFiles = try localFileSystem.getDirectoryContents(buildParameters.codeCovPath)
 
         // Construct arguments for invoking the llvm-prof tool.
-        var args = [llvmProf.description, "merge", "-sparse"]
+        var args = [llvmProf.pathString, "merge", "-sparse"]
         for file in codeCovFiles {
             let filePath = buildParameters.codeCovPath.appending(component: file)
             if filePath.extension == "profraw" {
-                args.append(filePath.description)
+                args.append(filePath.pathString)
             }
         }
-        args += ["-o", buildParameters.codeCovDataFile.description]
+        args += ["-o", buildParameters.codeCovDataFile.pathString]
 
         try Process.checkNonZeroExit(arguments: args)
     }
@@ -358,10 +358,10 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         let llvmCov = try getToolchain().getLLVMCov()
         let buildParameters = try self.buildParameters()
         let args = [
-            llvmCov.description,
+            llvmCov.pathString,
             "export",
             "-instr-profile=\(buildParameters.codeCovDataFile)",
-            testBinary.description
+            testBinary.pathString
         ]
         let result = try Process.popen(arguments: args)
 
@@ -473,12 +473,12 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         // Run the correct tool.
       #if os(macOS)
         let tempFile = try TemporaryFile()
-        let args = [SwiftTestTool.xctestHelperPath().description, path.description, tempFile.path.description]
+        let args = [SwiftTestTool.xctestHelperPath().pathString, path.pathString, tempFile.path.pathString]
         var env = try constructTestEnvironment(toolchain: try getToolchain(), options: self.options, buildParameters: self.buildParameters())
         // Add the sdk platform path if we have it. If this is not present, we
         // might always end up failing.
         if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPath() {
-            env["DYLD_FRAMEWORK_PATH"] = sdkPlatformFrameworksPath.description
+            env["DYLD_FRAMEWORK_PATH"] = sdkPlatformFrameworksPath.pathString
         }
         try Process.checkNonZeroExit(arguments: args, environment: env)
         // Read the temporary file's content.
@@ -580,11 +580,11 @@ final class TestRunner {
         guard let xctest = toolchain.xctest else {
             throw TestError.testsExecutableNotFound
         }
-        args = [xctest.description]
+        args = [xctest.pathString]
         if let xctestArg = xctestArg {
             args += ["-XCTest", xctestArg]
         }
-        args += [path.description]
+        args += [path.pathString]
       #else
         args += [path.description]
         if let xctestArg = xctestArg {
@@ -953,7 +953,7 @@ fileprivate func constructTestEnvironment(
         // SwiftPM repeatedly invokes the test binary with the test case name as
         // the filter.
         let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "default%m.profraw")
-        env["LLVM_PROFILE_FILE"] = codecovProfile.description
+        env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
     }
 
   #if !os(macOS)
@@ -966,7 +966,7 @@ fileprivate func constructTestEnvironment(
 
     // Get the runtime libraries.
     var runtimes = try options.sanitizers.sanitizers.map({ sanitizer in
-        return try toolchain.runtimeLibrary(for: sanitizer).description
+        return try toolchain.runtimeLibrary(for: sanitizer).pathString
     })
 
     // Append any existing value to the front.

@@ -464,21 +464,21 @@ class ArgumentParserTests: XCTestCase {
         // Test that relative path is resolved.
         do {
             let actual = try! SwiftPMProduct.TestSupportExecutable.execute(["pathArgumentTest", "some/path"]).spm_chomp()
-            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("some/path")).description
+            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("some/path")).pathString
             XCTAssertEqual(actual, expected)
         }
 
         // Test that relative path starting with ./ is resolved.
         do {
             let actual = try! SwiftPMProduct.TestSupportExecutable.execute(["pathArgumentTest", "./some/path"]).spm_chomp()
-            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("./some/path")).description
+            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("./some/path")).pathString
             XCTAssertEqual(actual, expected)
         }
 
         // Test that relative path starting with ../ is resolved.
         do {
             let actual = try! SwiftPMProduct.TestSupportExecutable.execute(["pathArgumentTest", "../other/path"]).spm_chomp()
-            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("../other/path")).description
+            let expected = localFileSystem.currentWorkingDirectory!.appending(RelativePath("../other/path")).pathString
             XCTAssertEqual(actual, expected)
         }
 

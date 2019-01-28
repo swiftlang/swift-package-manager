@@ -118,10 +118,10 @@ public func generate(
 
     try generateSchemes(
         graph: graph,
-        container: xcodeprojPath.relative(to: srcroot).description,
+        container: xcodeprojPath.relative(to: srcroot).pathString,
         schemesDir: schemesDir,
         options: options,
-        schemeContainer: xcodeprojPath.relative(to: srcroot).description
+        schemeContainer: xcodeprojPath.relative(to: srcroot).pathString
     )
 
     for target in graph.reachableTargets where target.type == .library || target.type == .test {

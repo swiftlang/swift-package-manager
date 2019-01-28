@@ -1084,7 +1084,7 @@ final class BuildPlanTests: XCTestCase {
             let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(config: config, indexStoreMode: mode), graph: graph, diagnostics: diagnostics, fileSystem: fs))
 
             let lib = try result.target(for: "lib").clangTarget()
-            let path = StringPattern.equal(result.plan.buildParameters.indexStore.description)
+            let path = StringPattern.equal(result.plan.buildParameters.indexStore.pathString)
 
         #if os(macOS)
             XCTAssertMatch(lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])

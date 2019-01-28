@@ -23,14 +23,14 @@ class miscTests: XCTestCase {
             try localFileSystem.writeFileContents(pathEnvClang, bytes: "")
             let pathEnv = [path.appending(component: "pathEnv2"), pathEnv1]
 
-            try! Process.checkNonZeroExit(args: "chmod", "+x", pathEnvClang.description)
+            try! Process.checkNonZeroExit(args: "chmod", "+x", pathEnvClang.pathString)
 
             // nil and empty string should fail.
             XCTAssertNil(lookupExecutablePath(filename: nil, currentWorkingDirectory: path, searchPaths: pathEnv))
             XCTAssertNil(lookupExecutablePath(filename: "", currentWorkingDirectory: path, searchPaths: pathEnv))
             
             // Absolute path to a binary should return it.
-            var exec = lookupExecutablePath(filename: pathEnvClang.description, currentWorkingDirectory: path, searchPaths: pathEnv)
+            var exec = lookupExecutablePath(filename: pathEnvClang.pathString, currentWorkingDirectory: path, searchPaths: pathEnv)
             XCTAssertEqual(exec, pathEnvClang)
             
             // This should lookup from PATH variable since executable is not present in cwd.
@@ -40,7 +40,7 @@ class miscTests: XCTestCase {
             // Create the binary relative to cwd and make it executable.
             let clang = path.appending(component: "clang")
             try localFileSystem.writeFileContents(clang, bytes: "")
-            try! Process.checkNonZeroExit(args: "chmod", "+x", clang.description)
+            try! Process.checkNonZeroExit(args: "chmod", "+x", clang.pathString)
             // We should now find clang which is in cwd.
             exec = lookupExecutablePath(filename: "clang", currentWorkingDirectory: path, searchPaths: pathEnv)
             XCTAssertEqual(exec, clang)

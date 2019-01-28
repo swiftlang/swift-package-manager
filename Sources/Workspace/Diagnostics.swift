@@ -259,7 +259,7 @@ public enum WorkspaceDiagnostics {
             type: RequireNewerTools.self,
             name: "org.swift.diags.workspace.\(RequireNewerTools.self)",
             description: {
-                $0 <<< "package at" <<< { "'\($0.packagePath)'" }
+                $0 <<< "package at" <<< { "'\($0.packagePath.pathString)'" }
                 $0 <<< "is using Swift tools version" <<< { $0.packageToolsVersion.description }
                 $0 <<< "but the installed version is" <<< { "\($0.installedToolsVersion.description)" }
             })
@@ -280,7 +280,7 @@ public enum WorkspaceDiagnostics {
             type: UnsupportedToolsVersion.self,
             name: "org.swift.diags.workspace.\(UnsupportedToolsVersion.self)",
             description: {
-                $0 <<< "package at" <<< { "'\($0.packagePath)'" }
+                $0 <<< "package at" <<< { "'\($0.packagePath.pathString)'" }
                 $0 <<< "is using Swift tools version" <<< { $0.packageToolsVersion.description }
                 $0 <<< "which is no longer supported; use" <<< { $0.minimumRequiredToolsVersion.description }
                 $0 <<< "or newer instead"

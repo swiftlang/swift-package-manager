@@ -48,10 +48,10 @@ class SwiftPMXCTestHelperTests: XCTestCase {
 #if os(macOS)
 func XCTAssertXCTestHelper(_ bundlePath: AbsolutePath, testCases: NSDictionary) {
     do {
-        let env = ["DYLD_FRAMEWORK_PATH": Resources.default.sdkPlatformFrameworksPath.description]
+        let env = ["DYLD_FRAMEWORK_PATH": Resources.default.sdkPlatformFrameworksPath.pathString]
         let outputFile = bundlePath.parentDirectory.appending(component: "tests.txt")
-        let _ = try SwiftPMProduct.XCTestHelper.execute([bundlePath.description, outputFile.description], env: env)
-        guard let data = NSData(contentsOfFile: outputFile.description) else {
+        let _ = try SwiftPMProduct.XCTestHelper.execute([bundlePath.pathString, outputFile.pathString], env: env)
+        guard let data = NSData(contentsOfFile: outputFile.pathString) else {
             XCTFail("No output found in : \(outputFile)"); return;
         }
         let json = try JSONSerialization.jsonObject(with: data as Data, options: []) as AnyObject

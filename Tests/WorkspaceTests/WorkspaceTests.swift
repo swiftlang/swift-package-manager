@@ -437,12 +437,12 @@ final class WorkspaceTests: XCTestCase {
 
         let dependencies: [PackageGraphRootInput.PackageDependency] = [
             .init(
-                url: workspace.packagesDir.appending(component: "Bar").description,
+                url: workspace.packagesDir.appending(component: "Bar").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
                 location: ""
             ),
             .init(
-                url: "file://\(workspace.packagesDir.appending(component: "Foo"))/",
+                url: "file://\(workspace.packagesDir.appending(component: "Foo").pathString)/",
                 requirement: .upToNextMajor(from: "1.0.0"),
                 location: ""
             ),
@@ -1412,7 +1412,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.loadDependencyManifests(roots: ["Root"]) { (manifests, diagnostics) in
             let editedPackages = manifests.editedPackagesConstraints()
-            XCTAssertEqual(editedPackages.map({ $0.identifier.path }), [fooPath.description])
+            XCTAssertEqual(editedPackages.map({ $0.identifier.path }), [fooPath.pathString])
             XCTAssertNoDiagnostics(diagnostics)
         }
 
@@ -2525,8 +2525,8 @@ final class WorkspaceTests: XCTestCase {
             result.check(notPresent: "Baz")
         }
 
-        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").description, forPackageURL: workspace.packagesDir.appending(component: "Bar").description)
-        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").description, forPackageURL: workspace.packagesDir.appending(component: "Bam").description)
+        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forPackageURL: workspace.packagesDir.appending(component: "Bar").pathString)
+        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forPackageURL: workspace.packagesDir.appending(component: "Bam").pathString)
 
         let deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
