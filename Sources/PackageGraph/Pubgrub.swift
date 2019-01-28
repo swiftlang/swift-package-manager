@@ -112,8 +112,6 @@ struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
             if case .range(let lhs) = lhs, case .range(let rhs) = rhs {
                 let bothNegative = !self.isPositive && !isPositive
                 if bothNegative {
-                    guard lhs.overlaps(rhs) || rhs.overlaps(lhs) else { return nil }
-
                     let lower = min(lhs.lowerBound, rhs.lowerBound)
                     let upper = max(lhs.upperBound, rhs.upperBound)
                     return self.with(.versionSet(.range(lower..<upper)))
@@ -132,17 +130,20 @@ struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
                 }
                 return nil
             case (.range(let lhs), .range(let rhs)):
-                guard lhs.overlaps(rhs) || rhs.overlaps(lhs) else { return nil }
-                var lower: Range<Version>.Bound
-                var upper: Range<Version>.Bound
-                if lhs.upperBound > rhs.upperBound {
-                    lower = min(rhs.upperBound, lhs.upperBound)
-                    upper = max(rhs.upperBound, lhs.upperBound)
-                } else {
-                    lower = min(lhs.lowerBound, rhs.lowerBound)
-                    upper = max(lhs.lowerBound, rhs.lowerBound)
+                let positive = self.isPositive ? lhs : rhs
+                let negative = self.isPositive ? rhs : lhs
+                let positiveTerm = Term(self.package, self.requirement)
+                guard lhs != rhs else {
+                    return nil
                 }
-                return self.with(.versionSet(.range(lower..<upper)))
+                guard lhs.overlaps(rhs) else {
+                    return positiveTerm.with(.versionSet(.range(positive)))
+                }
+                if positive.lowerBound < negative.lowerBound {
+                    return positiveTerm.with(.versionSet(.range(positive.lowerBound..<negative.lowerBound)))
+                } else {
+                    return positiveTerm.with(.versionSet(.range(negative.upperBound..<positive.upperBound)))
+                }
             default:
                 // This covers any combinations including .empty or .any.
                 return nil
@@ -227,13 +228,13 @@ public struct Incompatibility<Identifier: PackageContainerIdentifier>: Equatable
         self.cause = cause
     }
 
-    init(_ terms: Term<Identifier>..., cause: Cause<Identifier> = .root) {
-        self.init(terms: OrderedSet(terms), cause: cause)
+    init(_ terms: Term<Identifier>..., root: Identifier, cause: Cause<Identifier> = .root) {
+        let termSet = OrderedSet(terms)
+        self.init(termSet, root: root, cause: cause)
     }
 
     init(_ terms: OrderedSet<Term<Identifier>>, root: Identifier, cause: Cause<Identifier>) {
         assert(terms.count > 0, "An incompatibility must contain at least one term.")
-
 
         // Remove the root package from generated incompatibilities, since it will
         // always be selected.
@@ -259,20 +260,22 @@ public struct Incompatibility<Identifier: PackageContainerIdentifier>: Equatable
         // their version requirements to a^1.5.0.
 
         typealias Requirement = PackageContainerConstraint<Identifier>.Requirement
-        let dict = terms.reduce(into: [Identifier: Requirement]()) { res, term in
-            let previous = res[term.package, default: term.requirement]
-            let intersection = term.intersect(withRequirement: previous, andPolarity: term.isPositive)
+        let dict = terms.reduce(into: [Identifier: (req: Requirement, polarity: Bool)]()) {
+            res, term in
+            let previous = res[term.package, default: (term.requirement, term.isPositive)]
+            let intersection = term.intersect(withRequirement: previous.req,
+                                              andPolarity: previous.polarity)
             assert(intersection != nil, """
                 Attempting to create an incompatibility with terms for \(term.package)
                 intersecting versions \(previous) and \(term.requirement). These are
                 mutually exclusive and can't be intersected, making this incompatibility
                 irrelevant.
                 """)
-            return res[term.package] = intersection!.requirement
+            return res[term.package] = (intersection!.requirement, intersection!.isPositive)
         }
         let newTerms = dict.keys.map { pkg -> Term<Identifier> in
             let req = dict[pkg]!
-            return Term(pkg, req)
+            return Term(package: pkg, requirement: req.req, isPositive: req.polarity)
         }
 
         self.init(terms: OrderedSet(newTerms), cause: cause)
