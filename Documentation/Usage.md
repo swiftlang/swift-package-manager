@@ -650,6 +650,12 @@ package. The executable's name is optional when running without arguments and wh
 is only one executable product. For more information on the run tool, run
 `swift run --help`.
 
+Note: Which executable product (debug or release) is executed when using `swift run` is not guaranteed to be debug or release, to guarantee which one is executed use the --configuration or -c option: 
+```bash
+$swift run -c debug
+$swift run -c release
+```
+
 ## Build Configurations
 
 SwiftPM allows two build configurations: Debug (default) and Release.
