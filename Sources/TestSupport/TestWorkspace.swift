@@ -86,10 +86,9 @@ public final class TestWorkspace {
                 try repo.createDirectory(targetDir, recursive: true)
                 try repo.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
             }
-            if let toolsVersion = package.toolsVersion {
-                try repo.writeFileContents(manifestPath, bytes: "")
-                try writeToolsVersion(at: packagePath, version: toolsVersion, fs: repo)
-            }
+            let toolsVersion = package.toolsVersion ?? .currentToolsVersion
+            try repo.writeFileContents(manifestPath, bytes: "")
+            try writeToolsVersion(at: packagePath, version: toolsVersion, fs: repo)
             repo.commit()
 
             let versions: [String?] = isRoot ? [nil] : package.versions
