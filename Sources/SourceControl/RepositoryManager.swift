@@ -157,7 +157,7 @@ public class RepositoryManager {
     private let operationQueue: OperationQueue
 
     /// The filesystem to operate on.
-    private var fileSystem: FileSystem
+    public let fileSystem: FileSystem
 
     /// Simple persistence helper.
     private let persistence: SimplePersistence

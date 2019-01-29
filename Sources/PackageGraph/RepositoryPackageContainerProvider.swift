@@ -70,7 +70,8 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
                     config: self.config,
                     manifestLoader: self.manifestLoader,
                     toolsVersionLoader: self.toolsVersionLoader,
-                    currentToolsVersion: self.currentToolsVersion)
+                    currentToolsVersion: self.currentToolsVersion,
+                    fs: self.repositoryManager.fileSystem)
                 completion(Result(container))
             }
             return

@@ -148,6 +148,39 @@ class ToolsVersionLoaderTests: XCTestCase {
         }
     }
 
+    func testVersionSpecificManifestFallbacks() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/pkg/foo"
+        )
+        let root = AbsolutePath("/pkg")
+
+        try fs.writeFileContents(root.appending(component: "Package.swift"), bytes: "// swift-tools-version:1.0.0\n")
+        try fs.writeFileContents(root.appending(component: "Package@swift-4.2.swift"), bytes: "// swift-tools-version:3.4.5\n")
+        try fs.writeFileContents(root.appending(component: "Package@swift-5.1.swift"), bytes: "// swift-tools-version:3.4.6\n")
+        try fs.writeFileContents(root.appending(component: "Package@swift-5.2.swift"), bytes: "// swift-tools-version:3.4.7\n")
+        try fs.writeFileContents(root.appending(component: "Package@swift-5.3.swift"), bytes: "// swift-tools-version:3.4.8\n")
+
+        do {
+            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "5.1.1")).load(at: root, fileSystem: fs)
+            XCTAssertEqual(version.description, "3.4.6")
+        }
+
+        do {
+            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "5.2.5")).load(at: root, fileSystem: fs)
+            XCTAssertEqual(version.description, "3.4.7")
+        }
+
+        do {
+            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "3.0.0")).load(at: root, fileSystem: fs)
+            XCTAssertEqual(version.description, "1.0.0")
+        }
+
+        do {
+            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "5.3.0")).load(at: root, fileSystem: fs)
+            XCTAssertEqual(version.description, "3.4.8")
+        }
+    }
+
     func assertFailure(_ bytes: ByteString, _ theSpecifier: String, file: StaticString = #file, line: UInt = #line) {
         do {
             try load(bytes) {
