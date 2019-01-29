@@ -60,6 +60,23 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The standard filename for the manifest.
     public static let filename = basename + ".swift"
 
+    /// Returns the manifest at the given package path.
+    ///
+    /// Version specific manifest is chosen if present, otherwise path to regular
+    /// manfiest is returned.
+    public static func path(
+        atPackagePath packagePath: AbsolutePath,
+        fileSystem: FileSystem
+    ) -> AbsolutePath {
+        for versionSpecificKey in Versioning.currentVersionSpecificKeys {
+            let versionSpecificPath = packagePath.appending(component: Manifest.basename + versionSpecificKey + ".swift")
+            if fileSystem.isFile(versionSpecificPath) {
+                return versionSpecificPath
+            }
+        }
+        return packagePath.appending(component: filename)
+    }
+
     /// The standard basename for the manifest.
     public static let basename = "Package"
 

@@ -143,8 +143,6 @@ extension ToolsVersionLoaderTests {
         ("testBasics", testBasics),
         ("testNonMatching", testNonMatching),
         ("testVersionSpecificManifest", testVersionSpecificManifest),
-        ("testVersionSpecificManifestFallbackOnlyIfCurrentIsOld", testVersionSpecificManifestFallbackOnlyIfCurrentIsOld),
-        ("testVersionSpecificManifestFallsBackToLastMajor", testVersionSpecificManifestFallsBackToLastMajor),
     ]
 }
 
