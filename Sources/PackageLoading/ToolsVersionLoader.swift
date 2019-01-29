@@ -26,33 +26,6 @@ public protocol ToolsVersionLoaderProtocol {
     func load(at path: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion
 }
 
-extension Manifest {
-    /// Returns the manifest at the given package path.
-    ///
-    /// Version specific manifest is chosen if present, otherwise path to regular
-    /// manfiest is returned.
-    public static func path(
-        atPackagePath packagePath: AbsolutePath,
-        fileSystem: FileSystem
-        ) throws -> AbsolutePath {
-        for versionSpecificKey in Versioning.currentVersionSpecificKeys {
-            let versionSpecificPath = packagePath.appending(component: Manifest.basename + versionSpecificKey + ".swift")
-            if fileSystem.isFile(versionSpecificPath) {
-                return versionSpecificPath
-            }
-        }
-        let previousMajorPath = packagePath.appending(component: "\(Manifest.basename)@swift-\(Versioning.currentVersion.major-1).swift")
-        let regularPath = packagePath.appending(component: filename)
-        // If a version specific manifest for the previous major exists which has a newer tools version, prefer it.
-        if let previousMajorToolsVersion = try? ToolsVersionLoader().load(file: previousMajorPath, fileSystem: fileSystem) {
-            let regularToolsVersion = try ToolsVersionLoader().load(file: regularPath, fileSystem: fileSystem)
-            return regularToolsVersion > previousMajorToolsVersion ? regularPath : previousMajorPath
-        } else {
-            return regularPath
-        }
-    }
-}
-
 public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     public init() {
     }
@@ -70,16 +43,13 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
 
     public func load(at path: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
         // The file which contains the tools version.
-        let file = try Manifest.path(atPackagePath: path, fileSystem: fileSystem)
+        let file = Manifest.path(atPackagePath: path, fileSystem: fileSystem)
         guard fileSystem.isFile(file) else {
             // FIXME: We should return an error from here but Workspace tests rely on this in order to work.
             // This doesn't really cause issues (yet) in practice though.
             return ToolsVersion.currentToolsVersion
         }
-        return try load(file: file, fileSystem: fileSystem)
-    }
 
-    fileprivate func load(file: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
         // FIXME: We don't need the entire file, just the first line.
         let contents = try fileSystem.readFileContents(file)
 
