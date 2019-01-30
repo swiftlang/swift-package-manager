@@ -964,6 +964,11 @@ public final class PubgrubDependencyResolver<
         // If there are no more undecided terms, version solving is complete.
         guard !solution.undecided.isEmpty else { return nil }
 
+        // This is set when we encounter a possible conflict below, but
+        // reset at the next version. The idea is to track the case that the
+        // last available version results in a conflict.
+        var latestConflict: Identifier?
+
         // Select a possible candidate from all undecided assignments, making
         // sure it only exists as a positive derivation and no decision.
         for candidate in solution.undecided where candidate.isValidDecision(for: solution) {
@@ -976,6 +981,7 @@ public final class PubgrubDependencyResolver<
             var latestVersion: Version?
             versionSelection: for version in container.versions(filter: { term.isSatisfied(by: $0) }) {
                 if latestVersion == nil { latestVersion = version }
+                latestConflict = nil
 
                 // Add all of this version's dependencies as incompatibilities.
                 let depIncompatibilities = try container.getDependencies(at: version)
@@ -999,6 +1005,7 @@ public final class PubgrubDependencyResolver<
                     let tmp = PartialSolution(assignments: solution.assignments)
                     tmp.decide(candidate.package, atExactVersion: version)
                     if case .satisfied = tmp.satisfies(incompat) {
+                        latestConflict = candidate.package
                         continue versionSelection
                     }
                 }
@@ -1008,6 +1015,9 @@ public final class PubgrubDependencyResolver<
             }
         }
 
+        if let conflict = latestConflict {
+            return conflict
+        }
         return nil
     }
 
