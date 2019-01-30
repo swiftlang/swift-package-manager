@@ -118,6 +118,8 @@ public enum ResolverDiagnostics {
                 stream <<< set.description
             case .revision(let revision):
                 stream <<< revision
+            case .branch(let branch, _):
+                stream <<< branch
             case .unversioned:
                 stream <<< "unversioned"
             }

@@ -115,6 +115,10 @@ public class MockPackageContainer: PackageContainer {
         return name
     }
 
+    public func resolveRevision(identifier: String) throws -> String {
+        return identifier
+    }
+
     public convenience init(
         name: Identifier,
         dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]
@@ -162,7 +166,7 @@ extension MockPackageContainer {
                         return (constraint.identifier, versionSet)
                     case .unversioned:
                         fatalError()
-                    case .revision:
+                    case .revision, .branch:
                         fatalError()
                     }
                 })

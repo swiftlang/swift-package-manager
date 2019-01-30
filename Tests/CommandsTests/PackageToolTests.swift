@@ -330,6 +330,9 @@ final class PackageToolTests: XCTestCase {
             try execute("update")
 
             let pinsFile = fooPath.appending(component: "Package.resolved")
+            func pinsStore() throws -> PinsStore {
+                return try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+            }
             XCTAssert(exists(pinsFile))
 
             // Update bar repo.
@@ -341,9 +344,18 @@ final class PackageToolTests: XCTestCase {
             // Try to pin bar at a branch.
             do {
                 try execute("resolve", "bar", "--branch", "YOLO")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
                 let state = CheckoutState(revision: yoloRevision, branch: "YOLO")
-                XCTAssertEqual(pinsStore.pinsMap["bar"]!.state, state)
+                XCTAssertEqual(try pinsStore().pinsMap["bar"]!.state, state)
+
+                // Add a new commit to the YOLO branch.
+                try localFileSystem.writeFileContents(barPath.appending(component: "foo"), bytes: "")
+                try barRepo.stageEverything()
+                try barRepo.commit(message: "something")
+
+                // We should still get the pinned version even after a reset.
+                try execute("reset")
+                try execute("resolve")
+                XCTAssertEqual(try pinsStore().pinsMap["bar"]!.state, state)
             }
 
             // Try to pin bar at a revision.

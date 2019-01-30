@@ -131,7 +131,7 @@ extension PackageDependencyDescription.Requirement {
         case .branch(let identifier):
             assert(Git.checkRefFormat(ref: identifier))
 
-            return .revision(identifier)
+            return .branch(identifier, revision: nil)
 
         case .exact(let version):
             return .versionSet(.exact(version))
