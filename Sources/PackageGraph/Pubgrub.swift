@@ -771,7 +771,7 @@ public final class PubgrubDependencyResolver<
         return solve(root: root, pins: pins)
     }
 
-    public enum Error: Swift.Error {
+    public enum PubgrubError: Swift.Error {
         case unresolvable(Incompatibility<Identifier>)
     }
 
@@ -801,10 +801,12 @@ public final class PubgrubDependencyResolver<
 
         do {
             try run(propagating: root)
-        } catch {
-            print("Encountered error: \(error)")
+        } catch PubgrubError.unresolvable(let conflict) {
+            let description = reportError(for: conflict)
+            print(description)
             return []
-            // TODO: Handle error, output explanation.
+        } catch {
+            fatalError("Unexpected error.")
         }
 
         let decisions = solution.assignments.filter { $0.isDecision }
@@ -841,7 +843,7 @@ public final class PubgrubDependencyResolver<
         while let nxt = next {
             if let conflict = propagate(nxt, changed: &changed) {
                 guard let rootCause = resolve(conflict: conflict) else {
-                    throw Error.unresolvable(conflict)
+                    throw PubgrubError.unresolvable(conflict)
                 }
 
                 let satisfaction = solution.satisfies(rootCause)
