@@ -417,11 +417,17 @@ extension Assignment: CustomStringConvertible {
 /// The partial solution is a constantly updated solution used throughout the
 /// dependency resolution process, tracking know assignments.
 final class PartialSolution<Identifier: PackageContainerIdentifier> {
+    var root: Identifier?
+
+    /// All known assigments.
     var assignments: [Assignment<Identifier>]
+
+    /// All known decisions.
+    var decisions: [Identifier: VersionSetSpecifier] = [:]
 
     /// The current decision level.
     var decisionLevel: Int {
-        return assignments.filter { $0.isDecision }.count
+        return decisions.count
     }
 
     init(assignments: [Assignment<Identifier>] = []) {
@@ -462,6 +468,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     /// Create a new decision assignment and add it to the partial solution's
     /// list of known assignments.
     func decide(_ package: Identifier, atExactVersion version: Version) {
+        decisions[package] = .exact(version)
         let term = Term(package, .versionSet(.exact(version)))
         let decision = Assignment.decision(term, decisionLevel: decisionLevel)
         self.assignments.append(decision)
@@ -517,6 +524,13 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
                 previous = assignments[idx]
                 break
             }
+        }
+
+        guard previous != assignments.first else {
+            // this is the root assignment, if this is the previous satisfier we
+            // want to return nil instead to signal to conflict resolution that
+            // we've hit the root incompatibility.
+            return (nil, satisfier)
         }
 
         return (previous, satisfier)
@@ -740,6 +754,7 @@ public final class PubgrubDependencyResolver<
     /// Run the resolution algorithm on a root package finding a valid assignment of versions.
     public func solve(root: Identifier, pins: [Constraint]) -> Result {
         self.root = root
+        self.solution.root = root
         do {
             return try .success(solve(constraints: [], pins: pins))
         } catch {
@@ -887,16 +902,17 @@ public final class PubgrubDependencyResolver<
         while !isCompleteFailure(incompatibility) {
             // Find the earliest assignment so that `incompatibility` is
             // satisfied by the partial solution up to and including it.
-            // ↳ `satisfier`
+            // ↳ `possibleSatisfier`
             // Also find the earliest assignment before `satisfier` which
             // satisfies `incompatibility` up to and including it + `satisfier`.
             // ↳ `previous`
             let (previous, possibleSatisfier) = solution.earliestSatisfiers(for: incompatibility)
             guard let satisfier = possibleSatisfier else { break }
 
-            // `term` is incompatibility's term referring to the same term as
-            // satisfier.
+            // `term` is incompatibility's term referring to the same term as satisfier.
             let term = incompatibility.terms.first { $0.package == satisfier.term.package }
+
+            trace(incompatibility: incompatibility, term: term!, satisfier: satisfier)
 
             // Decision level is where the root package was selected. According
             // to PubGrub documentation it's also fine to fall back to 0, but
@@ -913,13 +929,15 @@ public final class PubgrubDependencyResolver<
                 // `priorCauseTerms` should be a union of the terms in
                 // `incompatibility` and the terms in `satisfier`'s cause, minus
                 // the terms referring to `satisfier`'s package.
-                var priorCauseTerms = incompatibility.terms.union(satisfier.cause?.terms ?? [])
-                priorCauseTerms = priorCauseTerms.filter { $0.package != satisfier.term.package }
+                let termSet = Set(incompatibility.terms)
+                let priorCauseTermsArr = Array(termSet.union(satisfier.cause?.terms ?? []))
+                    .filter { $0.package != satisfier.term.package }
+                var priorCauseTerms = OrderedSet(priorCauseTermsArr)
 
                 if !satisfier.term.satisfies(term!) {
                     // add ¬(satisfier \ term) to priorCauseTerms
                     if satisfier.term != term {
-                        priorCauseTerms.insert(satisfier.term.inverse)
+                        priorCauseTerms.append(satisfier.term.inverse)
                     }
                 }
 
