@@ -162,6 +162,10 @@ public enum PackageRequirement: Hashable {
     /// requirement.
     case revision(String)
 
+    // The requirement is specified by the branch and an optional revision
+    // within that branch.
+    case branch(String, revision: String?)
+
     /// Un-versioned requirement i.e. a version should not resolved.
     case unversioned
 
@@ -174,7 +178,7 @@ public enum PackageRequirement: Hashable {
                 return true
             }
             return false
-        case .revision:
+        case .revision, .branch:
             return true
         case .unversioned:
             return false
@@ -266,6 +270,13 @@ public protocol PackageContainer {
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
     func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier
+
+    /// Resolve the revision for an identifier.
+    ///
+    /// The identifier can be a branch name or a revision identifier.
+    ///
+    /// - Throws: If the identifier can not be resolved.
+    func resolveRevision(identifier: String) throws -> String
 }
 
 /// An interface for resolving package containers.
@@ -337,8 +348,13 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
     /// The package assignment is unversioned.
     case unversioned
 
+    /// The package assignment is this revision on the given branch.
+    case revision(String, branch: String?)
+
     /// The package assignment is this revision.
-    case revision(String)
+    public static func revision(_ revision: String) -> BoundVersion {
+        return .revision(revision, branch: nil)
+    }
 
     public var description: String {
         switch self {
@@ -348,7 +364,10 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
             return version.description
         case .unversioned:
             return "unversioned"
-        case .revision(let identifier):
+        case .revision(let identifier, let branch):
+            if let branch = branch {
+                return branch + "[\(identifier)]"
+            }
             return identifier
         }
     }
@@ -447,6 +466,44 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
 
         // Exisiting revision requirements always *wins*.
         case (_, .revision):
+            return self
+
+        case (.branch(let lhs), .branch(let rhs)):
+            if lhs == rhs {
+                // We can always merge two identitical branch requirements.
+                return self
+            } else if lhs.0 == rhs.0 {
+                // If there are two requirements for a particular branch, we
+                // pick the one which has a revision.
+                //
+                // We shouldn't merge if both have a bound revision (which
+                // should be impossible unless there are two pins for the
+                // package).
+                assert([lhs.revision, rhs.revision].compactMap{$0}.count == 1)
+
+                if lhs.revision != nil {
+                    var result = self
+                    result.constraints[identifier] = requirement
+                    return result
+                } else if rhs.revision != nil {
+                    return self
+                }
+            }
+
+            return nil
+
+        // We can merge the branch requiement if it currently does not have a requirement.
+        case (.branch, .versionSet(.any)):
+            var result = self
+            result.constraints[identifier] = requirement
+            return result
+
+        // Otherwise, we can't merge the branch requirement.
+        case (.branch, _):
+            return nil
+
+        // Exisiting branch requirements always *wins*.
+        case (_, .branch):
             return self
         }
     }
@@ -606,7 +663,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
                 // If the package is unversioned or excluded, it doesn't contribute.
                 continue
 
-            case .revision(let identifier):
+            case .revision(let identifier, _):
                 // FIXME: Need caching and error handling here. See the FIXME below.
                 merge(constraints: try! container.getDependencies(at: identifier))
 
@@ -642,12 +699,17 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
             }
             return false
 
-        case .revision(let identifier):
+        case .revision(let identifier, let branch):
             // If we already have a revision constraint, it should be same as
             // the one we're trying to set.
             if case .revision(let existingRevision) = constraints[container.identifier] {
-                return existingRevision == identifier
+                return existingRevision == identifier && branch == nil
             }
+
+            if case .branch(let existingBranch, let existingRevision) = constraints[container.identifier] {
+                return existingRevision == identifier && existingBranch == branch
+            }
+
             // Otherwise, it is always valid to set a revision binding. Note
             // that there are rules that prevents versioned constraints from
             // having revision constraints, but that is handled by the resolver.
@@ -1039,6 +1101,17 @@ public class DependencyResolver<
             }
             result = merge(constraints: constraints, binding: .revision(identifier))
 
+        case .branch(let branch, let revision):
+            // Get the revision for the branch if we don't have one. This will resolve
+            // to HEAD of the branch, which usually happen on package update or when
+            // resolving without a resolved file.
+            let resolvedRevision = revision ?? (try? container.resolveRevision(identifier: branch))
+
+            guard let revision = resolvedRevision, let constraints = self.safely({ try container.getDependencies(at: revision) }) else {
+                return AnySequence([])
+            }
+            result = merge(constraints: constraints, binding: .revision(revision, branch: branch))
+
         case .versionSet(let versionSet):
             // The previous valid version that was picked.
             var previousVersion: Version? = nil
@@ -1072,7 +1145,7 @@ public class DependencyResolver<
                         switch $0.requirement {
                         case .versionSet:
                             return nil
-                        case .revision(let revision):
+                        case .revision(let revision), .branch(let revision, _):
                             return (AnyPackageContainerIdentifier($0.identifier), revision)
                         case .unversioned:
                             // FIXME: Maybe we should have metadata inside unversion to signify

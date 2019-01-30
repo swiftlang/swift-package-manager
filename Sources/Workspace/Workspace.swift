@@ -473,7 +473,7 @@ extension Workspace {
         if let version = version {
             requirement = .versionSet(.exact(version))
         } else if let branch = branch {
-            requirement = .revision(branch)
+            requirement = .branch(branch, revision: nil)
         } else if let revision = revision {
             requirement = .revision(revision)
         } else {
@@ -1356,7 +1356,7 @@ extension Workspace {
 
             case .local?:
                 switch constraint.value {
-                case .versionSet, .revision:
+                case .versionSet, .revision, .branch:
                     // We have a local package but the requirement is now different.
                     return (true, validPins)
                 case .unversioned:
@@ -1468,8 +1468,6 @@ extension Workspace {
         resolvedDependencies: [(PackageReference, BoundVersion)],
         updateBranches: Bool
     ) throws -> [(PackageReference, PackageStateChange)] {
-        // Load pins store and managed dependendencies.
-        let pinsStore = try self.pinsStore.load()
         var packageStateChanges: [String: (PackageReference, PackageStateChange)] = [:]
 
         // Set the states from resolved dependencies results.
@@ -1520,23 +1518,13 @@ extension Workspace {
                     packageStateChanges[packageRef.path] = (packageRef, .added(.unversioned))
                 }
 
-            case .revision(let identifier):
-                // Get the latest revision from the container.
+            case .revision(let identifier, let branch):
+                // Get the revision from the container because the identifier
+                // used might not be the canonical revision (e.g., it could be a short-ref).
                 let container = try await {
                     containerProvider.getContainer(for: packageRef, skipUpdate: true, completion: $0)
                 } as! RepositoryPackageContainer
-                var revision = try container.getRevision(forIdentifier: identifier)
-                let branch = identifier == revision.identifier ? nil : identifier
-
-                // If we have a branch and we shouldn't be updating the
-                // branches, use the revision from pin instead (if present).
-                if branch != nil {
-                    if let pin = pinsStore.pins.first(where: { $0.packageRef == packageRef }),
-                        !updateBranches,
-                        pin.state.branch == branch {
-                        revision = pin.state.revision
-                    }
-                }
+                let revision = try container.getRevision(forIdentifier: identifier)
 
                 // First check if we have this dependency.
                 if let currentDependency = currentDependency {

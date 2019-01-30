@@ -60,7 +60,7 @@ extension CheckoutState {
         if let version = version {
             return .versionSet(.exact(version))
         } else if let branch = branch {
-            return .revision(branch)
+            return .branch(branch, revision: revision.identifier)
         }
         return .revision(revision.identifier)
     }

@@ -153,6 +153,10 @@ public class BasePackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
+    public func resolveRevision(identifier: String) throws -> String {
+        fatalError("This should never be called")
+    }
+
     fileprivate init(
         _ identifier: Identifier,
         config: SwiftPMConfig,
@@ -350,6 +354,10 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         return try repository.resolveRevision(identifier: identifier)
     }
 
+    public override func resolveRevision(identifier: String) throws -> String {
+        return try getRevision(forIdentifier: identifier).identifier
+    }
+
     /// Returns the tools version of the given version of the package.
     private func toolsVersion(for version: Version) throws -> ToolsVersion {
         let tag = knownVersions[version]!
@@ -429,7 +437,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         switch boundVersion {
         case .version(let version):
             identifier = version.description
-        case .revision(let revision):
+        case .revision(let revision, _):
             identifier = revision
         case .unversioned, .excluded:
             assertionFailure("Unexpected type requirement \(boundVersion)")
