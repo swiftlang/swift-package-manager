@@ -400,28 +400,28 @@ final class PubgrubTests: XCTestCase {
             .decision("c@3.0.0", decisionLevel: 0)
         ])
 
-        let ac = Incompatibility<PackageReference>("a@1.0.0", "c@3.0.0")
+        let ac = Incompatibility<PackageReference>("a@1.0.0", "c@3.0.0", root: rootRef)
         let (previous1, satisfier1) = s3.earliestSatisfiers(for: ac)
-        XCTAssertEqual(previous1!.term, "a@1.0.0")
-        XCTAssertEqual(satisfier1!.term, "c@3.0.0")
+        XCTAssertEqual(previous1?.term, "a@1.0.0")
+        XCTAssertEqual(satisfier1?.term, "c@3.0.0")
 
         let s2 = PartialSolution<PackageReference>(assignments: [
             .decision("a@1.0.0", decisionLevel: 0),
             .decision("b@2.0.0", decisionLevel: 0)
         ])
 
-        let ab = Incompatibility<PackageReference>("a@1.0.0", "b@2.0.0")
+        let ab = Incompatibility<PackageReference>("a@1.0.0", "b@2.0.0", root: rootRef)
         let (previous2, satisfier2) = s2.earliestSatisfiers(for: ab)
-        XCTAssertEqual(previous2!.term, "a@1.0.0")
-        XCTAssertEqual(satisfier2!.term, "b@2.0.0")
+        XCTAssertEqual(previous2?.term, "a@1.0.0")
+        XCTAssertEqual(satisfier2?.term, "b@2.0.0")
 
         let s1 = PartialSolution<PackageReference>(assignments: [
             .decision("a@1.0.0", decisionLevel: 0)
         ])
 
-        let a = Incompatibility<PackageReference>("a@1.0.0")
+        let a = Incompatibility<PackageReference>("a@1.0.0", root: rootRef)
         let (previous3, satisfier3) = s1.earliestSatisfiers(for: a)
-        XCTAssertEqual(previous3!.term, "a@1.0.0")
+        XCTAssertEqual(previous3?.term, "a@1.0.0")
         XCTAssertEqual(previous3, satisfier3)
     }
 
