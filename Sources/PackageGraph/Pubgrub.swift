@@ -539,7 +539,18 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     /// Backtrack to a specific decision level by dropping all assignments with
     /// a decision level which is greater.
     func backtrack(toDecisionLevel decisionLevel: Int) {
-        assignments.removeAll { $0.decisionLevel > decisionLevel }
+        var toBeRemoved: [(Int, Assignment<Identifier>)] = []
+
+        for (idx, assignment) in zip(0..., assignments) {
+            if assignment.decisionLevel > decisionLevel {
+                toBeRemoved.append((idx, assignment))
+            }
+        }
+
+        for (idx, remove) in toBeRemoved.reversed() {
+            assignments.remove(at: idx)
+            decisions.removeValue(forKey: remove.term.package)
+        }
     }
 
     /// Create an intersection of the versions of all assignments referring to

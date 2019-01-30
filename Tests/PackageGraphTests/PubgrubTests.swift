@@ -208,6 +208,7 @@ private let v2_0_0Range: VersionSetSpecifier = .range("2.0.0" ..< "2.0.1")
 
 let aRef = PackageReference(identity: "a", path: "")
 let bRef = PackageReference(identity: "b", path: "")
+let cRef = PackageReference(identity: "c", path: "")
 
 let rootRef = PackageReference(identity: "root", path: "")
 let rootCause = Incompatibility(Term(rootRef, .versionSet(.exact("1.0.0"))), root: rootRef)
@@ -426,11 +427,10 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testSolutionBacktrack() {
-        let solution = PartialSolution<PackageReference>(assignments: [
-            .decision("a@1.0.0", decisionLevel: 1),
-            .decision("b@1.0.0", decisionLevel: 2),
-            .decision("c@1.0.0", decisionLevel: 3),
-        ])
+        let solution = PartialSolution<PackageReference>()
+        solution.decide(aRef, atExactVersion: "1.0.0")
+        solution.decide(bRef, atExactVersion: "1.0.0")
+        solution.decide(cRef, atExactVersion: "1.0.0")
 
         XCTAssertEqual(solution.decisionLevel, 3)
         solution.backtrack(toDecisionLevel: 1)
