@@ -743,6 +743,16 @@ public final class ProductBuildDescription {
         }
         args += ["@\(linkFileListPath.pathString)"]
 
+        // Embed the swift stdlib library path inside tests and executables on Darwin.
+        switch product.type {
+        case .library: break
+        case .test, .executable:
+            if buildParameters.triple.isDarwin() {
+                let stdlib = buildParameters.toolchain.macosSwiftStdlib
+                args += ["-Xlinker", "-rpath", "-Xlinker", stdlib.pathString]
+            }
+        }
+
         // Add agruments from declared build settings.
         args += self.buildSettingsFlags()
 
