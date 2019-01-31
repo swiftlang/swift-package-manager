@@ -365,16 +365,21 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(s3.satisfies(Incompatibility("¬a@1.0.0", "b@2.0.0", root: rootRef)),
                        .unsatisfied)
 
-        let s4 = PartialSolution<PackageReference>(assignments: [])
+        // Empty solution + single term incompatibility is almost satisfied.
+        let s4 = PartialSolution<PackageReference>()
         XCTAssertEqual(s4.satisfies(Incompatibility("a@1.0.0", root: rootRef)),
+                       .almostSatisfied(except: "a@1.0.0"))
+
+        let s5 = PartialSolution<PackageReference>()
+        XCTAssertEqual(s5.satisfies(Incompatibility("a@1.0.0", "¬b@1.0.0", root: rootRef)),
                        .unsatisfied)
 
-        let s5 = PartialSolution<PackageReference>(assignments: [
+        let s6 = PartialSolution<PackageReference>(assignments: [
             .decision("root@1.0.0", decisionLevel: 0),
             .decision("a@0.1.0", decisionLevel: 0),
             .decision("b@0.2.0", decisionLevel: 0)
         ])
-        XCTAssertEqual(s5.satisfies(Incompatibility("root@1.0.0", "b@0.2.0",
+        XCTAssertEqual(s6.satisfies(Incompatibility("root@1.0.0", "b@0.2.0",
                                                     root: rootRef)),
                        .satisfied)
     }

@@ -576,7 +576,12 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(
     _ array: [Assignment<Identifier>], incompatibility: Incompatibility<Identifier>
 ) -> Satisfaction<Identifier> {
-    guard array.count > 0 else { return .unsatisfied }
+    guard !array.isEmpty else {
+        if incompatibility.terms.count == 1 {
+            return .almostSatisfied(except: incompatibility.terms.first!)
+        }
+        return .unsatisfied
+    }
 
     // Gather all terms which are satisfied by the assignments in the current solution.
     let satisfiedTerms = incompatibility.terms.filter { term in
