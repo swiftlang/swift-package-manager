@@ -14,17 +14,6 @@ import SourceControl
 import PackageModel
 import PackageGraph
 
-public enum PinOperationError: Swift.Error, CustomStringConvertible {
-    case notPinned
-
-    public var description: String {
-        switch self {
-        case .notPinned:
-            return "The provided package is not pinned"
-        }
-    }
-}
-
 public final class PinsStore {
     public struct Pin {
         /// The package reference of the pinned dependency.
@@ -79,7 +68,11 @@ public final class PinsStore {
             statePath: pinsFile,
             prettyPrint: true)
         pinsMap = [:]
-        _ = try self.persistence.restoreState(self)
+        do {
+            _ = try self.persistence.restoreState(self)
+        } catch SimplePersistence.Error.restoreFailure {
+            throw WorkspaceDiagnostics.MalformedPackageResolved()
+        }
     }
 
     /// Pin a repository at a version.
