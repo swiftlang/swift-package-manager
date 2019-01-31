@@ -15,6 +15,9 @@ public protocol Toolchain {
     /// Path of the `swiftc` compiler.
     var swiftCompiler: AbsolutePath { get }
 
+    /// Path containing the macOS Swift stdlib.
+    var macosSwiftStdlib: AbsolutePath { get }
+
     /// Path of the `clang` compiler.
     func getClangCompiler() throws -> AbsolutePath
 
@@ -39,5 +42,9 @@ public protocol Toolchain {
 extension Toolchain {
     public func _isClangCompilerVendorApple() throws -> Bool? {
         return nil
+    }
+
+    public var macosSwiftStdlib: AbsolutePath { 
+        return resolveSymlinks(swiftCompiler).appending(RelativePath("../../lib/swift/macosx"))
     }
 }
