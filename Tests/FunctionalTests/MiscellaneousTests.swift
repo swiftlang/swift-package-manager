@@ -51,6 +51,23 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testShortRefRevisionDependency() {
+        fixture(name: "Miscellaneous/RevisionDependency") { prefix in
+            let root = prefix.appending(component: "root")
+
+            do {
+                let output = try SwiftPMProduct.SwiftPackage.execute(["resolve"], packagePath: root)
+                XCTAssertMatch(output, .contains("Completed resolution"))
+            }
+
+            // We shouldn't re-resolve now.
+            do {
+                let output = try SwiftPMProduct.SwiftPackage.execute(["resolve"], packagePath: root)
+                XCTAssertNoMatch(output, .contains("Completed resolution"))
+            }
+        }
+    }
+
     func testCanBuildMoreThanTwiceWithExternalDependencies() {
 
         // running `swift build` multiple times should not fail
