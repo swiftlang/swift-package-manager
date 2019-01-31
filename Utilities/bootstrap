@@ -943,6 +943,8 @@ def main():
                         action="store_true", help="link llbuild", default=True)
     parser.add_argument("--llbuild-link-framework", dest="llbuild_link_framework",
                         action="store_true", help="link llbuild framework")
+    parser.add_argument("--llbuild-framework-paths", dest="llbuild_framework_paths",
+                        nargs='*', help="Path to directories containing the llbuild framework")
     parser.add_argument("--llbuild-build-dir", dest="llbuild_build_dir",
                         help="Path to llbuild build directory")
     parser.add_argument("--llbuild-source-dir", dest="llbuild_source_dir",
@@ -1077,13 +1079,25 @@ def main():
     # We either support linking the llbuild framework or dynamic library.
     #
     # llbuild-build-dir is expected to be path llbuild's CMake build
-    # directory when linking the dylib. Otherwise, it should contain
-    # llbuild.framework and we don't require the llbuild source directory.
+    # directory when linking the dylib. Otherwise, llbuild-framework-paths
+    # should contain llbuild.framework and we don't require the llbuild source
+    # directory.
     if args.llbuild_link_framework:
         if args.llbuild_source_dir:
             error("--llbuild-link-framework can't be used with --llbuild-source-dir")
+        if not args.llbuild_framework_paths:
+            error("--llbuild-link-framework requires --llbuild-framework-paths")
+
+        # Search for llbuild.framework in the given paths.
+        for path in args.llbuild_framework_paths:
+            candidate = os.path.join(path, "llbuild.framework")
+            if os.path.exists(candidate):
+                args.llbuild_build_dir = path
+                break
+
         if not args.llbuild_build_dir:
-            error("--llbuild-link-framework requires --llbuild-build-dir")
+            error("could not locate llbuild.framework in %s" % args.llbuild_framework_paths)
+
     elif not args.llbuild_source_dir:
         args.llbuild_source_dir = get_llbuild_source_path()
     if args.llbuild_build_dir:
