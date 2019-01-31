@@ -46,6 +46,7 @@ extension MiscellaneousTestCase {
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
         ("testReportingErrorFromGitCommand", testReportingErrorFromGitCommand),
         ("testSecondBuildIsNullInModulemapGen", testSecondBuildIsNullInModulemapGen),
+        ("testShortRefRevisionDependency", testShortRefRevisionDependency),
         ("testSpaces", testSpaces),
         ("testSwiftTestFilter", testSwiftTestFilter),
         ("testSwiftTestLinuxMainGeneration", testSwiftTestLinuxMainGeneration),

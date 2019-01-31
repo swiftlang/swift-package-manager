@@ -68,6 +68,10 @@ public func fixture(
 
             // Invoke the block, passing it the path of the copied fixture.
             try body(dstDir)
+        } else if isFile(fixtureDir.appending(component: fixtureSubpath.basename + ".zip")) {
+            let zip = fixtureDir.appending(component: fixtureSubpath.basename + ".zip")
+            try systemQuietly("unzip", zip.pathString, "-d", tmpDir.path.pathString)
+            try body(tmpDir.path.appending(component: fixtureSubpath.basename))
         } else {
             // Copy each of the package directories and construct a git repo in it.
             for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {

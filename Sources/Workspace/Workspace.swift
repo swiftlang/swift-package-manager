@@ -1317,6 +1317,16 @@ extension Workspace {
 
         // The input dependencies should be mergable, otherwise we have bigger problems.
         for constraint in dependencies {
+            var constraint = constraint
+
+            // Get the canonical revision so we don't end up mixing short-refs revisions.
+            if case .revision(let identifier) = constraint.requirement {
+                let container = try? await{ containerProvider.getContainer(for: constraint.identifier, skipUpdate: true, completion: $0) }
+                if let resolvedRevision = container.flatMap({ try? $0.resolveRevision(identifier: identifier) }) {
+                    constraint = RepositoryPackageConstraint(container: constraint.identifier, requirement: .revision(resolvedRevision))
+                }
+            }
+
             if let mergedSet = constraintSet.merging(constraint) {
                 constraintSet = mergedSet
             } else {
