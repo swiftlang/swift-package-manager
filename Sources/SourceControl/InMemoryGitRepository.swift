@@ -97,9 +97,9 @@ public final class InMemoryGitRepository {
 
     /// Commits the current state of the repository filesystem and returns the commit identifier.
     @discardableResult
-    public func commit(hash: String? = nil) -> String {
+    public func commit() -> String {
         // Create a fake hash for thie commit.
-        let hash = hash ?? String((NSUUID().uuidString + NSUUID().uuidString).prefix(40))
+        let hash = String((NSUUID().uuidString + NSUUID().uuidString).prefix(40))
         head.hash = hash
         // Store the commit in history.
         history[hash] = head.copy()

@@ -186,7 +186,7 @@ extension Term: CustomStringConvertible {
         switch requirement {
         case .unversioned:
             req = "unversioned"
-        case .revision(let rev), .branch(let rev, _):
+        case .revision(let rev):
             req = rev
         case .versionSet(let vs):
             switch vs {
@@ -759,9 +759,7 @@ public final class PubgrubDependencyResolver<
             case .versionSet(.exact(let version)):
                 boundVersion = .version(version)
             case .revision(let rev):
-                boundVersion = .revision(rev, branch: nil)
-            case .branch(let branch, revision: let rev):
-                boundVersion = .revision(rev!, branch: branch)
+                boundVersion = .revision(rev)
             case .versionSet(.range(_)):
                 // FIXME: A new requirement type that makes having a range here impossible feels like the correct thing to do.
                 fatalError("Solution should not contain version ranges.")

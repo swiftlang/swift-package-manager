@@ -1017,7 +1017,7 @@ where C.Identifier == String
             actual[identifier] = versionSet
         case .unversioned:
             return XCTFail("Unexpected unversioned constraint for \(identifier)", file: file, line: line)
-        case .revision, .branch:
+        case .revision:
             return XCTFail("Unexpected revision constraint for \(identifier)", file: file, line: line)
         }
     }

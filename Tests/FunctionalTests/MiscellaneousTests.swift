@@ -33,7 +33,7 @@ class MiscellaneousTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let output = try executeSwiftBuild(prefix.appending(component: "Bar"))
             XCTAssertTrue(output.contains("Resolving"))
-            XCTAssertTrue(output.contains("at 1.2.3"), output)
+            XCTAssertTrue(output.contains("at 1.2.3"))
         }
     }
 
