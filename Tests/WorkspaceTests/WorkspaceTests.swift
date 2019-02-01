@@ -2729,11 +2729,11 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkManagedDependencies() { result in
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
-            result.check(dependency: "bar", at: .checkout(.revision("develop")))
+            result.check(dependency: "bar", at: .checkout(.branch("develop")))
         }
         workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
-            result.check(dependency: "bar", at: .checkout(.revision("develop")))
+            result.check(dependency: "bar", at: .checkout(.branch("develop")))
         }
 
         // Change pin of foo to something else.
@@ -2758,11 +2758,11 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkManagedDependencies() { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
-            result.check(dependency: "bar", at: .checkout(.revision("develop")))
+            result.check(dependency: "bar", at: .checkout(.branch("develop")))
         }
         workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
-            result.check(dependency: "bar", at: .checkout(.revision("develop")))
+            result.check(dependency: "bar", at: .checkout(.branch("develop")))
         }
 
         // A normal resolution.

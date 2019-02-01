@@ -105,12 +105,8 @@ public final class TestWorkspace {
                     products: package.products.map({ ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) }),
                     targets: package.targets.map({ $0.convert() })
                 )
-
-                // Tag semver versions and add a commit for non-versions.
-                if let version = v {
-                    try repo.tag(name: version.description)
-                } else if let version = version {
-                    repo.commit(hash: version)
+                if let version = version {
+                    try repo.tag(name: version)
                 }
             }
 

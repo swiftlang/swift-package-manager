@@ -62,10 +62,6 @@ public class _MockPackageContainer: PackageContainer {
         return name
     }
 
-    public func resolveRevision(identifier: String) throws -> String {
-        return identifier
-    }
-
     public convenience init(
         name: Identifier,
         dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]
