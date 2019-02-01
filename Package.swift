@@ -263,3 +263,14 @@ if getenv("SWIFTPM_BOOTSTRAP") == nil {
     ]
     package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += ["llbuildSwift"]
 }
+
+if getenv("SWIFTPM_BUILD_PACKAGE_EDITOR") != nil {
+    package.targets += [
+        .target(name: "SPMPackageEditor", dependencies: ["Workspace", "SwiftSyntax"]),
+        .target(name: "swiftpm-manifest-tool", dependencies: ["SPMPackageEditor"]),
+        .testTarget(name: "SPMPackageEditorTests", dependencies: ["SPMPackageEditor", "TestSupport"]),
+    ]
+    package.dependencies += [
+        .package(path: "../swift-syntax"),
+    ]
+}
