@@ -43,9 +43,6 @@ public struct Destination {
     /// The binDir in the containing the compilers/linker to be used for the compilation.
     public let binDir: AbsolutePath
 
-    /// The compiler flag for specifying the sysroot (eg. `--sysroot` or `-isysroot`).
-    public let sysrootFlag: String
-
     /// Additional flags to be passed to the C compiler.
     public let extraCCFlags: [String]
 
@@ -114,7 +111,6 @@ public struct Destination {
             target: hostTargetTriple,
             sdk: sdkPath,
             binDir: binDir,
-            sysrootFlag: "-isysroot",
             extraCCFlags: commonArgs,
             extraSwiftCFlags: commonArgs,
             extraCPPFlags: ["-lc++"]
@@ -124,7 +120,6 @@ public struct Destination {
             target: hostTargetTriple,
             sdk: .root,
             binDir: binDir,
-            sysrootFlag: "--sysroot",
             extraCCFlags: ["-fPIC"],
             extraSwiftCFlags: [],
             extraCPPFlags: ["-lstdc++"]
@@ -178,7 +173,6 @@ extension Destination: JSONMappable {
             target: Triple(json.get("target")),
             sdk: AbsolutePath(json.get("sdk")),
             binDir: AbsolutePath(json.get("toolchain-bin-dir")),
-            sysrootFlag: json.get("sysroot-flag"),
             extraCCFlags: json.get("extra-cc-flags"),
             extraSwiftCFlags: json.get("extra-swiftc-flags"),
             extraCPPFlags: json.get("extra-cpp-flags")
