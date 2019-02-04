@@ -96,7 +96,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             return
         }
 
-        if clang.major <= 3 && clang.minor < 6 {
+        if clang < Version(3, 6, 0) {
             print("warning: minimum recommended clang is version 3.6, otherwise you may encounter linker errors.")
         }
     }
