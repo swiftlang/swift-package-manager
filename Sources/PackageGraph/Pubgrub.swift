@@ -78,17 +78,19 @@ struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
     }
 
     func isSatisfied(by other: Version) -> Bool {
-        // TODO: isPositive plays a role here as well, doesn't it?
+        let isSatisfied: Bool
         switch requirement {
         case .versionSet(.exact(let version)):
-            return version == other
+            isSatisfied = version == other
         case .versionSet(.range(let range)):
-            return range.contains(version: other)
+            isSatisfied = range.contains(version: other)
         case .versionSet(.any):
-            return true
+            isSatisfied = true
         default:
-            return false
+            isSatisfied = false
         }
+
+        return isPositive ? isSatisfied : !isSatisfied
     }
 
     /// Create an intersection with another term.
@@ -266,9 +268,9 @@ public struct Incompatibility<Identifier: PackageContainerIdentifier>: Equatable
             let intersection = term.intersect(withRequirement: previous.req,
                                               andPolarity: previous.polarity)
             assert(intersection != nil, """
-                Attempting to create an incompatibility with terms for \(term.package)
-                intersecting versions \(previous) and \(term.requirement). These are
-                mutually exclusive and can't be intersected, making this incompatibility
+                Attempting to create an incompatibility with terms for \(term.package) \
+                intersecting versions \(previous) and \(term.requirement). These are \
+                mutually exclusive and can't be intersected, making this incompatibility \
                 irrelevant.
                 """)
             return res[term.package] = (intersection!.requirement, intersection!.isPositive)
@@ -427,7 +429,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
     /// The current decision level.
     var decisionLevel: Int {
-        return decisions.count
+        return decisions.count - 1
     }
 
     init(assignments: [Assignment<Identifier>] = []) {
@@ -542,6 +544,11 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         var toBeRemoved: [(Int, Assignment<Identifier>)] = []
 
         for (idx, assignment) in zip(0..., assignments) {
+            // Remove *all* derivations and decisions above the specified level.
+            if !assignment.isDecision {
+                toBeRemoved.append((idx, assignment))
+                continue
+            }
             if assignment.decisionLevel > decisionLevel {
                 toBeRemoved.append((idx, assignment))
             }
@@ -570,6 +577,27 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
                 return nil
         }
         return intersection
+    }
+
+    /// Check if the solution contains a positive decision for a given package.
+    func hasDecision(for package: Identifier) -> Bool {
+        for decision in assignments where decision.isDecision {
+            if decision.term.package == package && decision.term.isPositive {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// Does the solution contain a decision for every derivation meaning
+    /// that all necessary packages have been found?
+    var isFinished: Bool {
+        for derivation in assignments where !derivation.isDecision {
+            guard self.hasDecision(for: derivation.term.package) else {
+                return false
+            }
+        }
+        return true
     }
 }
 
@@ -863,10 +891,9 @@ public final class PubgrubDependencyResolver<
                 }
 
                 let satisfaction = solution.satisfies(rootCause)
-                print(satisfaction)
                 guard case .almostSatisfied(except: let term) = satisfaction else {
                     fatalError("""
-                        Expected root cause [\(rootCause)] to almost satisfy the \
+                        Expected root cause \(rootCause) to almost satisfy the \
                         current partial solution:
                         \(solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))
                         """)
@@ -874,6 +901,13 @@ public final class PubgrubDependencyResolver<
 
                 changed.removeAll()
                 changed.insert(term.package)
+                continue
+            }
+
+            // If the solution contains a decision for every derivation version
+            // solving is finished.
+            if solution.isFinished {
+                return
             }
 
             // If decision making determines that no more decisions are to be
@@ -932,6 +966,16 @@ public final class PubgrubDependencyResolver<
 
             trace(incompatibility: incompatibility, term: term!, satisfier: satisfier)
 
+            if previous == nil {
+                add(incompatibility, location: .conflictResolution)
+                if let previous = previous {
+                    solution.backtrack(toDecisionLevel: previous.decisionLevel - 1)
+                } else {
+                    solution.backtrack(toDecisionLevel: 0)
+                }
+                return incompatibility
+            }
+
             // Decision level is where the root package was selected. According
             // to PubGrub documentation it's also fine to fall back to 0, but
             // choosing 1 tends to produce better error output.
@@ -980,7 +1024,9 @@ public final class PubgrubDependencyResolver<
 
     func makeDecision() throws -> Identifier? {
         // If there are no more undecided terms, version solving is complete.
-        guard !solution.undecided.isEmpty else { return nil }
+        guard !solution.undecided.isEmpty else {
+            return nil
+        }
 
         // This is set when we encounter a possible conflict below, but
         // reset at the next version. The idea is to track the case that the
@@ -1001,10 +1047,50 @@ public final class PubgrubDependencyResolver<
                 if latestVersion == nil { latestVersion = version }
                 latestConflict = nil
 
+                // If there is an existing single-positive-term incompatibility
+                // that forbids this version, we should skip right to trying the
+                // next one.
+                let requirements = incompatibilities[term.package]?
+                    .filter {
+                        $0.terms.count == 1 &&
+                        $0.terms.first?.package == term.package &&
+                        $0.terms.first?.isPositive == true
+                    }
+                    .map {
+                        $0.terms.first!.requirement
+                    }
+
+                for forbidden in requirements ?? [] {
+                    switch forbidden {
+                    case .versionSet(let versionSet):
+                        switch versionSet {
+                        case .any:
+                            continue versionSelection
+                        case .range(let forbidden):
+                            if forbidden.contains(version: version) {
+                                continue versionSelection
+                            }
+                        case .exact(let forbidden):
+                            if forbidden == version {
+                                continue versionSelection
+                            }
+                        case .empty:
+                            break
+                        }
+                    default:
+                        break
+                    }
+                }
+
                 // Add all of this version's dependencies as incompatibilities.
                 let depIncompatibilities = try container.getDependencies(at: version)
                     .map { dep -> Incompatibility<Identifier> in
                         var terms: OrderedSet<Term<Identifier>> = []
+                        // If the selected version is the latest version, Pubgrub
+                        // represents the term as having an unbounded upper range.
+                        // We can't represent that here (currently), so we're
+                        // pretending that it goes to the next nonexistent major
+                        // version.
                         if version == latestVersion {
                             let nextMajor = Version(version.major + 1, 0, 0)
                             terms.append(Term(candidate.package, .versionSet(.range(version..<nextMajor))))
