@@ -729,9 +729,9 @@ public final class ProductBuildDescription {
             // Link the Swift stdlib statically if requested.
             if buildParameters.shouldLinkStaticSwiftStdlib {
                 // FIXME: This does not work for linux yet (SR-648).
-              #if os(macOS)
-                args += ["-static-stdlib"]
-              #endif
+                if !buildParameters.triple.isLinux() {
+                    args += ["-static-stdlib"]
+                }
             }
             args += ["-emit-executable"]
         }
