@@ -13,7 +13,7 @@ import Basic
 import struct PackageModel.PackageReference
 
 /// A term represents a statement about a package that may be true or false.
-struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
+public struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
     typealias Requirement = PackageRequirement
 
     let package: Identifier
@@ -261,7 +261,7 @@ public struct Incompatibility<Identifier: PackageContainerIdentifier>: Equatable
         // in the same incompatibility, but have these combined by intersecting
         // their version requirements to a^1.5.0.
 
-        typealias Requirement = PackageContainerConstraint<Identifier>.Requirement
+        typealias Requirement = PackageRequirement
         let dict = terms.reduce(into: [Identifier: (req: Requirement, polarity: Bool)]()) {
             res, term in
             let previous = res[term.package, default: (term.requirement, term.isPositive)]
