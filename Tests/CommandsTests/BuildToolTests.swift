@@ -50,7 +50,7 @@ final class BuildToolTests: XCTestCase {
     func testBinPathAndSymlink() throws {
         fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
             let fullPath = resolveSymlinks(path)
-            let targetPath = fullPath.appending(components: ".build", Destination.host.target)
+            let targetPath = fullPath.appending(components: ".build", Destination.host.target.tripleString)
             XCTAssertEqual(try execute(["--show-bin-path"], packagePath: fullPath),
                            "\(targetPath.appending(components: "debug").pathString)\n")
             XCTAssertEqual(try execute(["-c", "release", "--show-bin-path"], packagePath: fullPath),

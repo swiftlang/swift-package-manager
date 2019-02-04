@@ -44,7 +44,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         fixture(name: "Miscellaneous/ExactDependencies") { prefix in
             XCTAssertBuilds(prefix.appending(component: "app"))
-            let buildDir = prefix.appending(components: "app", ".build", Destination.host.target, "debug")
+            let buildDir = prefix.appending(components: "app", ".build", Destination.host.target.tripleString, "debug")
             XCTAssertFileExists(buildDir.appending(component: "FooExec"))
             XCTAssertFileExists(buildDir.appending(component: "FooLib1.swiftmodule"))
             XCTAssertFileExists(buildDir.appending(component: "FooLib2.swiftmodule"))
@@ -118,7 +118,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testInternalDependencyEdges() {
         fixture(name: "Miscellaneous/DependencyEdges/Internal") { prefix in
-            let execpath = prefix.appending(components: ".build", Destination.host.target, "debug", "Foo").pathString
+            let execpath = prefix.appending(components: ".build", Destination.host.target.tripleString, "debug", "Foo").pathString
 
             XCTAssertBuilds(prefix)
             var output = try Process.checkNonZeroExit(args: execpath)
@@ -142,7 +142,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testExternalDependencyEdges1() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            let execpath = prefix.appending(components: "app", ".build", Destination.host.target, "debug", "Dealer").pathString
+            let execpath = prefix.appending(components: "app", ".build", Destination.host.target.tripleString, "debug", "Dealer").pathString
 
             let packageRoot = prefix.appending(component: "app")
             XCTAssertBuilds(packageRoot)
@@ -169,7 +169,7 @@ class MiscellaneousTestCase: XCTestCase {
      */
     func testExternalDependencyEdges2() {
         fixture(name: "Miscellaneous/DependencyEdges/External") { prefix in
-            let execpath = [prefix.appending(components: "root", ".build", Destination.host.target, "debug", "dep2").pathString]
+            let execpath = [prefix.appending(components: "root", ".build", Destination.host.target.tripleString, "debug", "dep2").pathString]
 
             let packageRoot = prefix.appending(component: "root")
             XCTAssertBuilds(prefix.appending(component: "root"))
@@ -193,7 +193,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testSpaces() {
         fixture(name: "Miscellaneous/Spaces Fixture") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target, "debug", "Module_Name_1.build", "Foo.swift.o"))
+            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target.tripleString, "debug", "Module_Name_1.build", "Foo.swift.o"))
         }
     }
 
@@ -301,7 +301,7 @@ class MiscellaneousTestCase: XCTestCase {
             let env = ["PKG_CONFIG_PATH": prefix.pathString]
             _ = try executeSwiftBuild(moduleUser, env: env)
 
-            XCTAssertFileExists(moduleUser.appending(components: ".build", Destination.host.target, "debug", "SystemModuleUserClang"))
+            XCTAssertFileExists(moduleUser.appending(components: ".build", Destination.host.target.tripleString, "debug", "SystemModuleUserClang"))
         }
     }
 
