@@ -22,10 +22,10 @@ class miscTests: XCTestCase {
         XCTAssert(getClangVersion(versionOutput: versionOutput) == nil)
 
         versionOutput = "Ubuntu clang version 3.6.0-2ubuntu1~trusty1 (tags/RELEASE_360/final) (based on LLVM 3.6.0)"
-        XCTAssert(getClangVersion(versionOutput: versionOutput) ?? (0, 0) == (3, 6))
+        XCTAssert(getClangVersion(versionOutput: versionOutput) ?? Version(0, 0, 0) == Version(3, 6, 0))
 
         versionOutput = "Ubuntu clang version 2.4-1ubuntu3 (tags/RELEASE_34/final) (based on LLVM 3.4)"
-        XCTAssert(getClangVersion(versionOutput: versionOutput) ?? (0, 0) == (2, 4))
+        XCTAssert(getClangVersion(versionOutput: versionOutput) ?? Version(0, 0, 0) == Version(2, 4, 0))
     }
 
     func testVersion() throws {

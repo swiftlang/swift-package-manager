@@ -12,7 +12,7 @@ import Basic
 import Foundation
 
 /// Get clang's version from the given version output string on Ubuntu.
-public func getClangVersion(versionOutput: String) -> (major: Int, minor: Int)? {
+public func getClangVersion(versionOutput: String) -> Version? {
     // Clang outputs version in this format on Ubuntu:
     // Ubuntu clang version 3.6.0-2ubuntu1~trusty1 (tags/RELEASE_360/final) (based on LLVM 3.6.0)
     let versionStringPrefix = "Ubuntu clang version "
@@ -29,7 +29,7 @@ public func getClangVersion(versionOutput: String) -> (major: Int, minor: Int)? 
     guard versions.count > 1, let major = Int(versions[0]), let minor = Int(versions[1]) else {
         return nil
     }
-    return (major, minor)
+    return Version(major, minor, versions.count > 2 ? Int(versions[2]) ?? 0 : 0)
 }
 
 /// Prints the time taken to execute a closure.
