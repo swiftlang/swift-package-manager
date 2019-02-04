@@ -275,15 +275,11 @@ private class LocalFileSystem: FileSystem {
     }
 
     var homeDirectory: AbsolutePath {
-      #if os(macOS)
         if #available(macOS 10.12, *) {
             return AbsolutePath(FileManager.default.homeDirectoryForCurrentUser.path)
         } else {
-            fatalError("Unsupported OS")
+            return AbsolutePath(NSHomeDirectory())
         }
-      #else
-        return AbsolutePath(FileManager.default.homeDirectoryForCurrentUser.path)
-      #endif
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
