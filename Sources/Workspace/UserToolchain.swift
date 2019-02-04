@@ -229,7 +229,7 @@ public final class UserToolchain: Toolchain {
         ] + destination.extraSwiftCFlags
 
         self.extraCCFlags = [
-            destination.sysrootFlag, destination.sdk.pathString
+            destination.target.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
         ] + destination.extraCCFlags
 
         // Compute the path of directory containing the PackageDescription libraries.
