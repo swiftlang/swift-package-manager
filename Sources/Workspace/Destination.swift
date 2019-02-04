@@ -43,9 +43,6 @@ public struct Destination {
     /// The binDir in the containing the compilers/linker to be used for the compilation.
     public let binDir: AbsolutePath
 
-    /// The file extension for dynamic libraries (eg. `.so` or `.dylib`)
-    public let dynamicLibraryExtension: String
-
     /// The compiler flag for specifying the sysroot (eg. `--sysroot` or `-isysroot`).
     public let sysrootFlag: String
 
@@ -117,7 +114,6 @@ public struct Destination {
             target: hostTargetTriple,
             sdk: sdkPath,
             binDir: binDir,
-            dynamicLibraryExtension: "dylib",
             sysrootFlag: "-isysroot",
             extraCCFlags: commonArgs,
             extraSwiftCFlags: commonArgs,
@@ -128,7 +124,6 @@ public struct Destination {
             target: hostTargetTriple,
             sdk: .root,
             binDir: binDir,
-            dynamicLibraryExtension: "so",
             sysrootFlag: "--sysroot",
             extraCCFlags: ["-fPIC"],
             extraSwiftCFlags: [],
@@ -156,14 +151,6 @@ public struct Destination {
 
     /// Target triple for the host system.
     private static let hostTargetTriple = Triple.hostTriple
-
-  #if os(macOS)
-    /// Returns the host's dynamic library extension.
-    public static let hostDynamicLibraryExtension = "dylib"
-  #else
-    /// Returns the host's dynamic library extension.
-    public static let hostDynamicLibraryExtension = "so"
-  #endif
 }
 
 extension Destination {
@@ -191,7 +178,6 @@ extension Destination: JSONMappable {
             target: Triple(json.get("target")),
             sdk: AbsolutePath(json.get("sdk")),
             binDir: AbsolutePath(json.get("toolchain-bin-dir")),
-            dynamicLibraryExtension: json.get("dynamic-library-extension"),
             sysrootFlag: json.get("sysroot-flag"),
             extraCCFlags: json.get("extra-cc-flags"),
             extraSwiftCFlags: json.get("extra-swiftc-flags"),

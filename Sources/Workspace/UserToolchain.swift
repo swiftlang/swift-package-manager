@@ -56,10 +56,6 @@ public final class UserToolchain: Toolchain {
         return destination.extraCPPFlags
     }
 
-    public var dynamicLibraryExtension: String {
-        return destination.dynamicLibraryExtension
-    }
-
     /// Path of the `swift` interpreter.
     public var swiftInterpreter: AbsolutePath {
         return swiftCompiler.parentDirectory.appending(component: "swift")

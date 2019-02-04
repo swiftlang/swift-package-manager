@@ -27,11 +27,6 @@ private struct MockToolchain: Toolchain {
     #else
     let extraCPPFlags: [String] = ["-lstdc++"]
     #endif
-  #if os(macOS)
-    let dynamicLibraryExtension = "dylib"
-  #else
-    let dynamicLibraryExtension = "so"
-  #endif
     func getClangCompiler() throws -> AbsolutePath {
         return AbsolutePath("/fake/path/to/clang")
     }

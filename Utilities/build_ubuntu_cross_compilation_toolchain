@@ -239,7 +239,6 @@ cat > "$cross_tc_basename/ubuntu-xenial-destination.json" <<EOF
     "sdk": "$(pwd)/$cross_tc_basename/$linux_sdk_name",
     "toolchain-bin-dir": "$(pwd)/$cross_tc_basename/$xc_tc_name/usr/bin",
     "target": "x86_64-unknown-linux",
-    "dynamic-library-extension": "so",
     "extra-cc-flags": [
         "-fPIC"
     ],

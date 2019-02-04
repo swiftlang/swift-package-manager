@@ -631,7 +631,7 @@ public final class ProductBuildDescription {
         case .library(.static):
             return RelativePath("lib\(name).a")
         case .library(.dynamic):
-            return RelativePath("lib\(name).\(self.buildParameters.toolchain.dynamicLibraryExtension)")
+            return RelativePath("lib\(name)\(self.buildParameters.triple.dynamicLibraryExtension)")
         case .library(.automatic):
             fatalError()
         case .test:

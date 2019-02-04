@@ -34,9 +34,6 @@ public protocol Toolchain {
 
     /// Additional flags to be passed when compiling with C++.
     var extraCPPFlags: [String] { get }
-
-    /// The dynamic library extension, for e.g. dylib, so.
-    var dynamicLibraryExtension: String { get }
 }
 
 extension Toolchain {

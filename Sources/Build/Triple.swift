@@ -151,3 +151,17 @@ public struct Triple {
     #endif
   #endif
 }
+
+extension Triple {
+    /// The file extension for dynamic libraries (eg. `.dll`, `.so`, or `.dylib`)
+    public var dynamicLibraryExtension: String {
+        switch os {
+        case .darwin, .macOS:
+            return ".dylib"
+        case .linux:
+            return ".so"
+        case .windows:
+            return ".dll"
+        }
+    }
+}
