@@ -88,7 +88,7 @@ class InitTests: XCTestCase {
             
             // Try building it
             XCTAssertBuilds(path)
-            let binPath = path.appending(components: ".build", Destination.host.target, "debug")
+            let binPath = path.appending(components: ".build", Destination.host.target.tripleString, "debug")
             XCTAssertFileExists(binPath.appending(component: "Foo"))
             XCTAssertFileExists(binPath.appending(component: "Foo.swiftmodule"))
         }
@@ -131,7 +131,7 @@ class InitTests: XCTestCase {
 
             // Try building it
             XCTAssertBuilds(path)
-            XCTAssertFileExists(path.appending(components: ".build", Destination.host.target, "debug", "Foo.swiftmodule"))
+            XCTAssertFileExists(path.appending(components: ".build", Destination.host.target.tripleString, "debug", "Foo.swiftmodule"))
         }
     }
     
@@ -185,7 +185,7 @@ class InitTests: XCTestCase {
 
         // Try building it.
         XCTAssertBuilds(packageRoot)
-        XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.host.target, "debug", "some_package.swiftmodule"))
+        XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.host.target.tripleString, "debug", "some_package.swiftmodule"))
     }
     
     func testNonC99NameExecutablePackage() throws {

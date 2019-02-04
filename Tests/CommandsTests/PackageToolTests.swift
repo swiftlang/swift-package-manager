@@ -207,7 +207,7 @@ final class PackageToolTests: XCTestCase {
             _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
-            let exec = [fooPath.appending(components: ".build", Destination.host.target, "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", Destination.host.target.tripleString, "debug", "foo").pathString]
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -281,7 +281,7 @@ final class PackageToolTests: XCTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(component: ".build")
-            let binFile = buildPath.appending(components: Destination.host.target, "debug", "Bar")
+            let binFile = buildPath.appending(components: Destination.host.target.tripleString, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(isDirectory(buildPath))
 
@@ -300,7 +300,7 @@ final class PackageToolTests: XCTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(component: ".build")
-            let binFile = buildPath.appending(components: Destination.host.target, "debug", "Bar")
+            let binFile = buildPath.appending(components: Destination.host.target.tripleString, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(isDirectory(buildPath))
             // Clean, and check for removal of the build directory but not Packages.
@@ -369,7 +369,7 @@ final class PackageToolTests: XCTestCase {
                 let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
                 return buildOutput
             }
-            let exec = [fooPath.appending(components: ".build", Destination.host.target, "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", Destination.host.target.tripleString, "debug", "foo").pathString]
 
             // Build and sanity check.
             _ = try build()

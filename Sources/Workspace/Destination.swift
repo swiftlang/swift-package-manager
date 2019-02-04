@@ -35,7 +35,7 @@ public struct Destination {
     ///  - abi = eabi, gnu, android, macho, elf, etc.
     ///
     /// for more information see //https://clang.llvm.org/docs/CrossCompilation.html
-    public let target: String
+    public let target: Triple
 
     /// The SDK used to compile for the destination.
     public let sdk: AbsolutePath
@@ -75,7 +75,7 @@ public struct Destination {
         // FIXME: We may want to allow overriding this using an env variable but that
         // doesn't seem urgent or extremely useful as of now.
         return AbsolutePath(#file).parentDirectory
-            .parentDirectory.parentDirectory.appending(components: ".build", hostTargetTriple, "debug")
+            .parentDirectory.parentDirectory.appending(components: ".build", hostTargetTriple.tripleString, "debug")
       #else
         guard let cwd = originalWorkingDirectory else {
             return try! AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory
@@ -155,7 +155,7 @@ public struct Destination {
     private static var _sdkPlatformFrameworkPath: AbsolutePath? = nil
 
     /// Target triple for the host system.
-    private static let hostTargetTriple = Triple.hostTriple.tripleString
+    private static let hostTargetTriple = Triple.hostTriple
 
   #if os(macOS)
     /// Returns the host's dynamic library extension.
@@ -188,7 +188,7 @@ extension Destination: JSONMappable {
         }
 
         try self.init(
-            target: json.get("target"),
+            target: Triple(json.get("target")),
             sdk: AbsolutePath(json.get("sdk")),
             binDir: AbsolutePath(json.get("toolchain-bin-dir")),
             dynamicLibraryExtension: json.get("dynamic-library-extension"),
