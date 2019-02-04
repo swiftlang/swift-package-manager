@@ -21,10 +21,6 @@ typealias ProcessID = Basic.Process.ProcessID
 
 class MiscellaneousTestCase: XCTestCase {
 
-    private var dynamicLibraryExtension: String {
-        return Destination.hostDynamicLibraryExtension
-    }
-
     func testPrintsSelectedDependencyVersion() {
 
         // verifies the stdout contains information about
@@ -276,7 +272,7 @@ class MiscellaneousTestCase: XCTestCase {
             let systemModule = prefix.appending(component: "SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
-            let output =  systemModule.appending(component: "libSystemModule.\(dynamicLibraryExtension)")
+            let output =  systemModule.appending(component: "libSystemModule\(Destination.host.target.dynamicLibraryExtension)")
             try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
 
             let pcFile = prefix.appending(component: "libSystemModule.pc")

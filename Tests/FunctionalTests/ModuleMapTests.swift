@@ -22,7 +22,7 @@ class ModuleMapsTestCase: XCTestCase {
             let input = prefix.appending(components: cModuleName, "C", "foo.c")
             let outdir = prefix.appending(components: rootpkg, ".build", Destination.host.target.tripleString, "debug")
             try makeDirectories(outdir)
-            let output = outdir.appending(component: "libfoo.\(Destination.host.dynamicLibraryExtension)")
+            let output = outdir.appending(component: "libfoo\(Destination.host.target.dynamicLibraryExtension)")
             try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
 
             var Xld = ["-L", outdir.pathString]
