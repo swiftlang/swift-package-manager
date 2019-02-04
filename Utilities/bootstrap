@@ -749,13 +749,13 @@ def get_swiftc_path():
     except:
         error("unable to find 'swiftc' tool for bootstrap build")
 
-def delete_rpath(rpath, binary):
+def delete_rpath(rpath, binary, allowFailing=False):
     if platform.system() == 'Darwin':
         cmd = ["install_name_tool", "-delete_rpath", rpath, binary]
         note("removing RPATH from %s: %s" % (
                 binary, ' '.join(cmd)))
         result = subprocess.call(cmd)
-        if result != 0:
+        if not allowFailing and result != 0:
             error("command failed with exit status %d" % (result,))
     else:
         error("unable to remove RPATHs on this platform")
@@ -791,7 +791,7 @@ def installBinary(binary_path, install_path, args, add_rpaths=[], delete_rpaths=
     if platform.system() == 'Darwin':
         installed_path = os.path.join(
             install_path, os.path.basename(binary_path))
-        delete_rpath(args.swift_stdlib_path, installed_path)
+        delete_rpath(args.swift_stdlib_path, installed_path, True)
 
         # Remove additional RPATHs, if requested.
         for rpath in delete_rpaths:
