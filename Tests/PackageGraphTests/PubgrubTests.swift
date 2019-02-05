@@ -118,25 +118,33 @@ public class _MockResolverDelegate: DependencyResolverDelegate {
 
     public init() {}
 
-    var traceSteps: [TraceStep] = []
+    var traceSteps: [TraceStep<Identifier>] = []
 
-    public func trace(_ step: TraceStep) {
+    public func trace(_ step: TraceStep<Identifier>) {
         traceSteps.append(step)
     }
 
     func traceDescription() -> String {
         let headers = ["Step", "Value", "Type", "Location", "Cause", "Dec. Lvl."]
-        let values = traceSteps.enumerated().map { val -> [String] in
-            let (idx, s) = val
-            return [
-                "\(idx + 1)",
-                s.value.description,
-                s.type.rawValue,
-                s.location.rawValue,
-                s.cause ?? "",
-                String(s.decisionLevel)
-            ]
-        }
+        let values = traceSteps
+            .compactMap { step -> GeneralTraceStep? in
+                if case .general(let generalStep) = step {
+                    return generalStep
+                }
+                return nil
+            }
+            .enumerated()
+            .map { val -> [String] in
+                let (idx, s) = val
+                return [
+                    "\(idx + 1)",
+                    s.value.description,
+                    s.type.rawValue,
+                    s.location.rawValue,
+                    s.cause ?? "",
+                    String(s.decisionLevel)
+                ]
+            }
         return textTable([headers] + values)
     }
 
@@ -200,10 +208,11 @@ private let v2_0_0Range: VersionSetSpecifier = .range("2.0.0" ..< "2.0.1")
 
 let aRef = PackageReference(identity: "a", path: "")
 let bRef = PackageReference(identity: "b", path: "")
+let cRef = PackageReference(identity: "c", path: "")
 
 let rootRef = PackageReference(identity: "root", path: "")
-let rootCause = Incompatibility(Term(rootRef, .versionSet(.exact("1.0.0"))))
-let _cause = Incompatibility<PackageReference>("cause@0.0.0")
+let rootCause = Incompatibility(Term(rootRef, .versionSet(.exact("1.0.0"))), root: rootRef)
+let _cause = Incompatibility<PackageReference>("cause@0.0.0", root: rootRef)
 
 fileprivate func term(_ literal: String) -> Term<PackageReference> {
     return Term(stringLiteral: literal)
@@ -260,6 +269,24 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(
             term("¬a^1.0.0").intersect(with: term("¬a-1.5.0-3.0.0")),
             term("¬a-1.0.0-3.0.0"))
+
+        XCTAssertEqual(
+            term("a^1.0.0").intersect(with: term("a^1.0.0")),
+            term("a^1.0.0"))
+
+        XCTAssertEqual(
+            term("¬a^1.0.0").intersect(with: term("¬a^1.0.0")),
+            term("¬a^1.0.0"))
+
+        XCTAssertNil(term("a^1.0.0").intersect(with: term("¬a^1.0.0")))
+
+        XCTAssertEqual(
+            term("¬a^1.0.0").intersect(with: term("a^2.0.0")),
+            term("a^2.0.0"))
+
+        XCTAssertEqual(
+            term("a^2.0.0").intersect(with: term("¬a^1.0.0")),
+            term("a^2.0.0"))
     }
 
     func testTermIsValidDecision() {
@@ -275,12 +302,19 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testIncompatibilityNormalizeTermsOnInit() {
-        let i = Incompatibility(term("a^1.0.0"), term("a^1.5.0"), term("¬b@1.0.0"))
-        XCTAssertEqual(i.terms.count, 2)
-        let a = i.terms.first { $0.package == "a" }
-        let b = i.terms.first { $0.package == "b" }
-        XCTAssertEqual(a?.requirement, .versionSet(.range("1.5.0"..<"2.0.0")))
-        XCTAssertEqual(b?.requirement, .versionSet(.exact("1.0.0")))
+        let i1 = Incompatibility(term("a^1.0.0"), term("a^1.5.0"), term("¬b@1.0.0"),
+                                 root: rootRef)
+        XCTAssertEqual(i1.terms.count, 2)
+        let a1 = i1.terms.first { $0.package == "a" }
+        let b1 = i1.terms.first { $0.package == "b" }
+        XCTAssertEqual(a1?.requirement, .versionSet(.range("1.5.0"..<"2.0.0")))
+        XCTAssertEqual(b1?.requirement, .versionSet(.exact("1.0.0")))
+
+        let i2 = Incompatibility(term("¬a^1.0.0"), term("a^2.0.0"),
+                                 root: rootRef)
+        XCTAssertEqual(i2.terms.count, 1)
+        let a2 = i2.terms.first
+        XCTAssertEqual(a2?.requirement, .versionSet(.range("2.0.0"..<"3.0.0")))
     }
 
     func testSolutionPositive() {
@@ -316,91 +350,90 @@ final class PubgrubTests: XCTestCase {
         let s1 = PartialSolution<PackageReference>(assignments: [
             .decision("a@1.0.0", decisionLevel: 0)
         ])
-        XCTAssertEqual(s1.satisfies(Incompatibility("a@1.0.0")),
+        XCTAssertEqual(s1.satisfies(Incompatibility("a@1.0.0", root: rootRef)),
                        .satisfied)
 
         let s2 = PartialSolution<PackageReference>(assignments: [
             .decision("b@2.0.0", decisionLevel: 0)
         ])
-        XCTAssertEqual(s2.satisfies(Incompatibility("¬a@1.0.0", "b@2.0.0")),
+        XCTAssertEqual(s2.satisfies(Incompatibility("¬a@1.0.0", "b@2.0.0", root: rootRef)),
                        .almostSatisfied(except: "¬a@1.0.0"))
 
         let s3 = PartialSolution<PackageReference>(assignments: [
             .decision("c@3.0.0", decisionLevel: 0)
         ])
-        XCTAssertEqual(s3.satisfies(Incompatibility("¬a@1.0.0", "b@2.0.0")),
+        XCTAssertEqual(s3.satisfies(Incompatibility("¬a@1.0.0", "b@2.0.0", root: rootRef)),
                        .unsatisfied)
 
-        let s4 = PartialSolution<PackageReference>(assignments: [])
-        XCTAssertEqual(s4.satisfies(Incompatibility("a@1.0.0")),
+        // Empty solution + single term incompatibility is almost satisfied.
+        let s4 = PartialSolution<PackageReference>()
+        XCTAssertEqual(s4.satisfies(Incompatibility("a@1.0.0", root: rootRef)),
+                       .almostSatisfied(except: "a@1.0.0"))
+
+        let s5 = PartialSolution<PackageReference>()
+        XCTAssertEqual(s5.satisfies(Incompatibility("a@1.0.0", "¬b@1.0.0", root: rootRef)),
                        .unsatisfied)
 
-        let s5 = PartialSolution<PackageReference>(assignments: [
+        let s6 = PartialSolution<PackageReference>(assignments: [
             .decision("root@1.0.0", decisionLevel: 0),
             .decision("a@0.1.0", decisionLevel: 0),
             .decision("b@0.2.0", decisionLevel: 0)
         ])
-        XCTAssertEqual(s5.satisfies(Incompatibility("root@1.0.0", "b@0.2.0")),
+        XCTAssertEqual(s6.satisfies(Incompatibility("root@1.0.0", "b@0.2.0",
+                                                    root: rootRef)),
                        .satisfied)
     }
 
     func testSolutionAddAssignments() {
+        let root = term("root@1.0.0")
         let a = term("a@1.0.0")
         let b = term("b@2.0.0")
 
         let solution = PartialSolution<PackageReference>(assignments: [])
+        solution.decide(rootRef, atExactVersion: "1.0.0")
         solution.decide(aRef, atExactVersion: "1.0.0")
         solution.derive(b, cause: _cause)
-
         XCTAssertEqual(solution.decisionLevel, 1)
+
         XCTAssertEqual(solution.assignments, [
-            .decision(a, decisionLevel: 0),
+            .decision(root, decisionLevel: 0),
+            .decision(a, decisionLevel: 1),
             .derivation(b, cause: _cause, decisionLevel: 1)
+        ])
+        XCTAssertEqual(solution.decisions, [
+            rootRef: .exact("1.0.0"),
+            aRef: .exact("1.0.0")
         ])
     }
 
-    func testSolutionFindSatisfiers() {
-        let s3 = PartialSolution<PackageReference>(assignments: [
-            .decision("a@1.0.0", decisionLevel: 0),
-            .decision("b@2.0.0", decisionLevel: 0),
-            .decision("c@3.0.0", decisionLevel: 0)
-        ])
+    func _testSolutionFindSatisfiers() {
+        let solution = PartialSolution<PackageReference>()
+        solution.decide(rootRef, atExactVersion: "1.0.0") // ← previous, but actually nil because this is the root decision
+        solution.derive(Term(aRef, .versionSet(.any)), cause: _cause) // ← satisfier
+        solution.decide(aRef, atExactVersion: "2.0.0")
+        solution.derive("b^1.0.0", cause: _cause)
 
-        let ac = Incompatibility<PackageReference>("a@1.0.0", "c@3.0.0")
-        let (previous1, satisfier1) = s3.earliestSatisfiers(for: ac)
-        XCTAssertEqual(previous1!.term, "a@1.0.0")
-        XCTAssertEqual(satisfier1!.term, "c@3.0.0")
+        let i1 = Incompatibility(term("b^1.0.0"), term("¬a^1.0.0"), root: rootRef)
+        let (previous1, satisfier1) = solution.earliestSatisfiers(for: i1)
+        XCTAssertEqual(previous1?.term, "a@2.0.0")
+        XCTAssertEqual(satisfier1?.term, "b^1.0.0")
 
-        let s2 = PartialSolution<PackageReference>(assignments: [
-            .decision("a@1.0.0", decisionLevel: 0),
-            .decision("b@2.0.0", decisionLevel: 0)
-        ])
-
-        let ab = Incompatibility<PackageReference>("a@1.0.0", "b@2.0.0")
-        let (previous2, satisfier2) = s2.earliestSatisfiers(for: ab)
-        XCTAssertEqual(previous2!.term, "a@1.0.0")
-        XCTAssertEqual(satisfier2!.term, "b@2.0.0")
-
-        let s1 = PartialSolution<PackageReference>(assignments: [
-            .decision("a@1.0.0", decisionLevel: 0)
-        ])
-
-        let a = Incompatibility<PackageReference>("a@1.0.0")
-        let (previous3, satisfier3) = s1.earliestSatisfiers(for: a)
-        XCTAssertEqual(previous3!.term, "a@1.0.0")
-        XCTAssertEqual(previous3, satisfier3)
+        let i2 = Incompatibility(term("a^2.0.0"), root: rootRef)
+        let (previous2, satisfier2) = solution.earliestSatisfiers(for: i2)
+        XCTAssertNil(previous2)
+        XCTAssertEqual(satisfier2?.term, "a@2.0.0")
     }
 
     func testSolutionBacktrack() {
-        let solution = PartialSolution<PackageReference>(assignments: [
-            .decision("a@1.0.0", decisionLevel: 1),
-            .decision("b@1.0.0", decisionLevel: 2),
-            .decision("c@1.0.0", decisionLevel: 3),
-        ])
+        // TODO: This should probably add derivations to cover that logic as well.
+        let solution = PartialSolution<PackageReference>()
+        solution.decide(aRef, atExactVersion: "1.0.0")
+        solution.decide(bRef, atExactVersion: "1.0.0")
+        solution.decide(cRef, atExactVersion: "1.0.0")
 
-        XCTAssertEqual(solution.decisionLevel, 3)
+        XCTAssertEqual(solution.decisionLevel, 2)
         solution.backtrack(toDecisionLevel: 1)
-        XCTAssertEqual(solution.assignments.count, 1)
+        XCTAssertEqual(solution.assignments.count, 2)
         XCTAssertEqual(solution.decisionLevel, 1)
     }
 
@@ -419,12 +452,29 @@ final class PubgrubTests: XCTestCase {
                        .versionSet(.range("1.5.0"..<"2.0.0")))
     }
 
+    func testSolutionIsFinished() {
+        let unfinished = PartialSolution<PackageReference>()
+        unfinished.decide(rootRef, atExactVersion: "1.0.0")
+        unfinished.derive("a^1.0.0", cause: _cause)
+        unfinished.decide(aRef, atExactVersion: "1.0.0")
+        unfinished.derive("b^2.0.0", cause: _cause)
+        XCTAssertFalse(unfinished.isFinished)
+
+        let finished = PartialSolution<PackageReference>()
+        finished.decide(rootRef, atExactVersion: "1.0.0")
+        finished.derive("a^1.0.0", cause: _cause)
+        finished.decide(aRef, atExactVersion: "1.0.0")
+        finished.derive("b^2.0.0", cause: _cause)
+        finished.decide(bRef, atExactVersion: "2.5.0")
+        XCTAssert(finished.isFinished)
+    }
+
     func testResolverAddIncompatibility() {
         let solver = PubgrubDependencyResolver(emptyProvider, delegate)
 
-        let a = Incompatibility(term("a@1.0.0"))
+        let a = Incompatibility(term("a@1.0.0"), root: rootRef)
         solver.add(a, location: .topLevel)
-        let ab = Incompatibility(term("a@1.0.0"), term("b@2.0.0"))
+        let ab = Incompatibility(term("a@1.0.0"), term("b@2.0.0"), root: rootRef)
         solver.add(ab, location: .topLevel)
 
         XCTAssertEqual(solver.incompatibilities, [
@@ -435,25 +485,29 @@ final class PubgrubTests: XCTestCase {
 
     func testResolverUnitPropagation() {
         let solver1 = PubgrubDependencyResolver(emptyProvider, delegate)
+        var changed: Set<PackageReference> = []
 
         // no known incompatibilities should result in no satisfaction checks
-        XCTAssertNil(solver1.propagate("root"))
+        XCTAssertNil(solver1.propagate("root", changed: &changed))
 
         // even if incompatibilities are present
-        solver1.add(Incompatibility(term("a@1.0.0")), location: .topLevel)
-        XCTAssertNil(solver1.propagate("a"))
+        solver1.add(Incompatibility(term("a@1.0.0"), root: rootRef), location: .topLevel)
+        XCTAssertNil(solver1.propagate("a", changed: &changed))
 
         // adding a satisfying term should result in a conflict
         solver1.solution.decide(aRef, atExactVersion: "1.0.0")
-        XCTAssertEqual(solver1.propagate(aRef), Incompatibility(term("a@1.0.0")))
+        XCTAssertEqual(solver1.propagate(aRef, changed: &changed),
+                       Incompatibility(term("a@1.0.0"), root: rootRef))
 
         // Unit propagation should derive a new assignment from almost satisfied incompatibilities.
         let solver2 = PubgrubDependencyResolver(emptyProvider, delegate)
         solver2.add(Incompatibility(Term("root", .versionSet(.any)),
-                                    term("¬a@1.0.0")), location: .topLevel)
+                                    term("¬a@1.0.0"),
+                                    root: rootRef), location: .topLevel)
         solver2.solution.decide(rootRef, atExactVersion: "1.0.0")
         XCTAssertEqual(solver2.solution.assignments.count, 1)
-        XCTAssertNil(solver2.propagate(PackageReference(identity: "root", path: "")))
+        XCTAssertNil(solver2.propagate(PackageReference(identity: "root", path: ""),
+                                        changed: &changed))
         XCTAssertEqual(solver2.solution.assignments.count, 2)
     }
 
@@ -461,7 +515,9 @@ final class PubgrubTests: XCTestCase {
         let solver1 = PubgrubDependencyResolver(emptyProvider, delegate)
         solver1.root = rootRef
 
-        let notRoot = Incompatibility(Term(not: rootRef, .versionSet(.any)), cause: .root)
+        let notRoot = Incompatibility(Term(not: rootRef, .versionSet(.any)),
+                                      root: rootRef,
+                                      cause: .root)
         solver1.add(notRoot, location: .topLevel)
         XCTAssertNil(solver1.resolve(conflict: notRoot))
     }
@@ -492,7 +548,11 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(decision, "a")
 
         XCTAssertEqual(solver2.incompatibilities.count, 2)
-        XCTAssertEqual(solver2.incompatibilities["a"], [Incompatibility<PackageReference>("a^1.0.0", "¬b^1.0.0", cause: .dependency(package: "a"))])
+        XCTAssertEqual(solver2.incompatibilities["a"], [
+            Incompatibility<PackageReference>("a^1.0.0", "¬b^1.0.0",
+                                              root: rootRef,
+                                              cause: .dependency(package: "a"))
+        ])
     }
 
     func testResolutionNoConflicts() {
@@ -534,12 +594,12 @@ final class PubgrubTests: XCTestCase {
         let a = _MockPackageContainer(name: aRef, dependenciesByVersion: [
             v1: [],
             v1_1: [(container: bRef, versionRequirement: v2Range)]
-            ])
+        ])
         let b = _MockPackageContainer(name: bRef, dependenciesByVersion: [
             v1: [],
             v1_1: [],
             v2: []
-            ])
+        ])
 
         let provider = _MockPackageProvider(containers: [root, a, b])
         let resolver = PubgrubDependencyResolver(provider, delegate)
@@ -553,6 +613,40 @@ final class PubgrubTests: XCTestCase {
             let b = bindings.first { $0.container.identity == "b" }
             XCTAssertEqual(a?.binding, .version("1.0.0"))
             XCTAssertEqual(b?.binding, .version("1.1.0"))
+        case .error(let error):
+            XCTFail("Unexpected error: \(error)")
+        case .unsatisfiable(dependencies: let constraints, pins: let pins):
+            XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)")
+        }
+    }
+
+    func testResolutionPerformingConflictResolution() {
+        let root = _MockPackageContainer(name: rootRef)
+        root.unversionedDeps = [
+            // Pubgrub has a listed as >=1.0.0, which we can't really represent
+            // here... It's either .any or 1.0.0..<n.0.0 with n>2. Both should
+            // have the same effect though.
+            _MockPackageConstraint(container: aRef, versionRequirement: .any)
+        ]
+        let a = _MockPackageContainer(name: aRef, dependenciesByVersion: [
+            v1: [],
+            v2: [(container: bRef, versionRequirement: v1Range)]
+        ])
+        let b = _MockPackageContainer(name: bRef, dependenciesByVersion: [
+            v1: [(container: aRef, versionRequirement: v1Range)]
+        ])
+
+        let provider = _MockPackageProvider(containers: [root, a, b])
+        let resolver = PubgrubDependencyResolver(provider, delegate)
+
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        switch result {
+        case .success(let bindings):
+            XCTAssertEqual(bindings.count, 1)
+            let a = bindings.first
+            XCTAssertEqual(a?.container, "a")
+            XCTAssertEqual(a?.binding, .version("1.0.0"))
         case .error(let error):
             XCTFail("Unexpected error: \(error)")
         case .unsatisfiable(dependencies: let constraints, pins: let pins):
