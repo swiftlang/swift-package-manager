@@ -249,6 +249,9 @@ public struct Incompatibility<Identifier: PackageContainerIdentifier>: Equatable
         }
 
         let termsArray = Array(terms)
+
+        // If there is only one term or two terms referring to the same package
+        // we can skip the extra work of trying to normalize these.
         if termsArray.count == 1 ||
             (termsArray.count == 2 && termsArray.first?.package != termsArray.last?.package)
         {
