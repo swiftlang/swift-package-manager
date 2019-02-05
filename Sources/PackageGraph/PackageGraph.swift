@@ -30,7 +30,13 @@ public struct PackageGraph {
     public let allTargets: Set<ResolvedTarget>
  
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
-    public var allProducts: Set<ResolvedProduct>
+    public let allProducts: Set<ResolvedProduct>
+
+    /// The set of package dependencies required for a fully resolved graph.
+    ///
+    //// This set will also have references to packages that are currently present
+    /// in the graph due to loading errors. This set doesn't include the root packages.
+    public let requiredDependencies: Set<PackageReference>
 
     /// Returns true if a given target is present in root packages.
     public func isInRootPackages(_ target: ResolvedTarget) -> Bool {
@@ -44,8 +50,13 @@ public struct PackageGraph {
     }
 
     /// Construct a package graph directly.
-    public init(rootPackages: [ResolvedPackage], rootDependencies: [ResolvedPackage] = []) {
+    public init(
+        rootPackages: [ResolvedPackage],
+        rootDependencies: [ResolvedPackage] = [],
+        requiredDependencies: Set<PackageReference>
+    ) {
         self.rootPackages = rootPackages
+        self.requiredDependencies = requiredDependencies
         let inputPackages = rootPackages + rootDependencies
         self.packages = try! topologicalSort(inputPackages, successors: { $0.dependencies })
 
