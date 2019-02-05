@@ -629,6 +629,7 @@ extension Workspace {
             root: manifests.root,
             config: config,
             externalManifests: externalManifests,
+            requiredDependencies: manifests.computePackageURLs().required,
             diagnostics: diagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,

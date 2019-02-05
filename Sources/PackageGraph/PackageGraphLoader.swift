@@ -116,6 +116,7 @@ public struct PackageGraphLoader {
         root: PackageGraphRoot,
         config: SwiftPMConfig = SwiftPMConfig(),
         externalManifests: [Manifest],
+        requiredDependencies: Set<PackageReference> = [],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
         shouldCreateMultipleTestProducts: Bool = false,
@@ -205,7 +206,8 @@ public struct PackageGraphLoader {
 
         return PackageGraph(
             rootPackages: rootPackages,
-            rootDependencies: resolvedPackages.filter({ rootDependencies.contains($0.manifest) })
+            rootDependencies: resolvedPackages.filter({ rootDependencies.contains($0.manifest) }),
+            requiredDependencies: requiredDependencies
         )
     }
 }
