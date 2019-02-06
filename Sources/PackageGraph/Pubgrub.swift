@@ -884,9 +884,10 @@ public final class PubgrubDependencyResolver<
     /// After this method returns `solution` is either populated with a list of
     /// final version assignments or an error is thrown.
     func run(propagating package: Identifier) throws {
-        var changed: Set<Identifier> = []
+        var changed: OrderedSet<Identifier> = []
 
         var next: Identifier? = root
+
         while let nxt = next {
             if let conflict = propagate(nxt, changed: &changed) {
                 guard let rootCause = resolve(conflict: conflict) else {
@@ -898,12 +899,12 @@ public final class PubgrubDependencyResolver<
                     fatalError("""
                         Expected root cause \(rootCause) to almost satisfy the \
                         current partial solution:
-                        \(solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))
+                        \(solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))\n
                         """)
                 }
 
-                changed.removeAll()
-                changed.insert(term.package)
+                changed.removeAll(keepingCapacity: false)
+                changed.append(term.package)
                 continue
             }
 
@@ -923,8 +924,8 @@ public final class PubgrubDependencyResolver<
     /// partial solution.
     /// If a conflict is found, the conflicting incompatibility is returned to
     /// resolve the conflict on.
-    func propagate(_ package: Identifier, changed: inout Set<Identifier>) -> Incompatibility<Identifier>? {
-        changed.insert(package)
+    func propagate(_ package: Identifier, changed: inout OrderedSet<Identifier>) -> Incompatibility<Identifier>? {
+        changed.append(package)
         while !changed.isEmpty {
             let package = changed.removeFirst()
             // According to the experience of pub developers, conflict
