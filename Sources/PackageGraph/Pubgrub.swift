@@ -972,11 +972,7 @@ public final class PubgrubDependencyResolver<
 
             if previous == nil {
                 add(incompatibility, location: .conflictResolution)
-                if let previous = previous {
-                    solution.backtrack(toDecisionLevel: previous.decisionLevel - 1)
-                } else {
-                    solution.backtrack(toDecisionLevel: 0)
-                }
+                solution.backtrack(toDecisionLevel: 0)
                 return incompatibility
             }
 
