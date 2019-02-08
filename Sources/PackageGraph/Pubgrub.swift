@@ -1050,10 +1050,15 @@ public final class PubgrubDependencyResolver<
                 fatalError("failed to create version intersection for \(candidate.package)")
             }
 
-            let container = try! getContainer(for: term.package)
-
             var latestVersion: Version?
-            versionSelection: for version in container.versions(filter: { term.isSatisfied(by: $0) }) {
+
+            let container = try! getContainer(for: term.package)
+            let availableVersions = Array(container.versions(filter: { term.isSatisfied(by: $0)} ))
+            if availableVersions.isEmpty {
+                add(Incompatibility(term, root: root!), location: .decisionMaking)
+                return candidate.package
+            }
+            versionSelection: for version in availableVersions {
                 if latestVersion == nil { latestVersion = version }
                 latestConflict = nil
 
