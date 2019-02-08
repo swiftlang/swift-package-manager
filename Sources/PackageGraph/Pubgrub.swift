@@ -548,7 +548,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
         for (idx, assignment) in zip(0..., assignments) {
             // Remove *all* derivations and decisions above the specified level.
-            if !assignment.isDecision {
+            if !assignment.isDecision && assignment.decisionLevel >= decisionLevel {
                 toBeRemoved.append((idx, assignment))
                 continue
             }
