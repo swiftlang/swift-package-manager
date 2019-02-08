@@ -591,12 +591,20 @@ fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(
         return .unsatisfied
     }
 
-    let normalizedTerms = normalize(terms: array.map { $0.term })
+    let decisions = array.filter { $0.isDecision }
+    let derivations = array.filter { !$0.isDecision }
+    let normalizedDerivations = normalize(terms: derivations.map { $0.term })
 
     // Gather all terms which are satisfied by the assignments in the current solution.
     let satisfiedTerms = incompatibility.terms.filter { term in
-        normalizedTerms.contains(where: { assignmentTerm in
-            assignmentTerm.satisfies(term)
+        if decisions.contains(where: { decision in
+            decision.term.satisfies(term)
+        }) {
+            return true
+        }
+
+        return normalizedDerivations.contains(where: { derivationTerm in
+            derivationTerm.satisfies(term)
         })
     }
 
