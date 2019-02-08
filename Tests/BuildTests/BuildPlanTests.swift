@@ -18,6 +18,26 @@ import PackageLoading
 
 @testable import Build
 
+#if os(macOS)
+    let defaultTargetTriple: String =  "x86_64-apple-macosx10.10"
+#elseif os(Windows)
+    let defaultTargetTriple: String =  "x86_64-unknown-windows-msvc"
+#elseif os(Linux)
+    #if arch(x86_64)
+      let defaultTargetTriple: String = "x86_64-unknown-linux"
+    #elseif arch(i386)
+      let defaultTargetTriple: String = "i386-unknown-linux"
+    #elseif arch(powerpc64le)
+      let defaultTargetTriple: String = "ppc64le-unknown-linux"
+    #elseif arch(s390x)
+      let defaultTargetTriple: String = "s390x-unknown-linux"
+    #elseif arch(arm64)
+      let defaultTargetTriple: String = "aarch64-unknown-linux"
+    #elseif arch(arm)
+      let defaultTargetTriple: String = "armv7-unknown-linux-gnueabihf"
+    #endif
+#endif
+
 private struct MockToolchain: Toolchain {
     let swiftCompiler = AbsolutePath("/fake/path/to/swiftc")
     let extraCCFlags: [String] = []
@@ -273,9 +293,9 @@ final class BuildPlanTests: XCTestCase {
         var args: [String] = []
 
       #if os(macOS)
-        args += ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10"]
+        args += ["-fobjc-arc", "-target", defaultTargetTriple]
       #else
-        args += ["-target", "x86_64-unknown-linux"]
+        args += ["-target", defaultTargetTriple]
       #endif
 
         args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
@@ -289,9 +309,9 @@ final class BuildPlanTests: XCTestCase {
         args = []
 
       #if os(macOS)
-        args += ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10"]
+        args += ["-fobjc-arc", "-target", defaultTargetTriple]
       #else
-        args += ["-target", "x86_64-unknown-linux"]
+        args += ["-target", defaultTargetTriple]
       #endif
 
         args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
@@ -412,9 +432,9 @@ final class BuildPlanTests: XCTestCase {
         var args: [String] = []
 
       #if os(macOS)
-        args += ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10"]
+        args += ["-fobjc-arc", "-target", defaultTargetTriple]
       #else
-        args += ["-target", "x86_64-unknown-linux"]
+        args += ["-target", defaultTargetTriple]
       #endif
 
         args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
@@ -831,18 +851,18 @@ final class BuildPlanTests: XCTestCase {
 
         let exe = try result.target(for: "exe").clangTarget()
     #if os(macOS)
-        XCTAssertEqual(exe.basicArguments(), ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe.basicArguments(), ["-fobjc-arc", "-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #else
-        XCTAssertEqual(exe.basicArguments(), ["-target", "x86_64-unknown-linux", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe.basicArguments(), ["-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #endif
         XCTAssertEqual(exe.objects, [AbsolutePath("/path/to/build/debug/exe.build/main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
 
         let lib = try result.target(for: "lib").clangTarget()
     #if os(macOS)
-        XCTAssertEqual(lib.basicArguments(), ["-fobjc-arc", "-target", "x86_64-apple-macosx10.10", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(lib.basicArguments(), ["-fobjc-arc", "-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #else
-        XCTAssertEqual(lib.basicArguments(), ["-target", "x86_64-unknown-linux", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(lib.basicArguments(), ["-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #endif
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.cpp.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
@@ -1151,17 +1171,16 @@ final class BuildPlanTests: XCTestCase {
       #if os(macOS)
         XCTAssertMatch(aTarget, ["-target", "x86_64-apple-macosx10.13", .anySequence])
       #else
-        XCTAssertMatch(aTarget, ["-target", "x86_64-unknown-linux", .anySequence])
+        XCTAssertMatch(aTarget, [.equal("-target"), .equal(defaultTargetTriple), .anySequence] )
       #endif
 
         let bTarget = try result.target(for: "BTarget").swiftTarget().compileArguments()
       #if os(macOS)
         XCTAssertMatch(bTarget, ["-target", "x86_64-apple-macosx10.12", .anySequence])
       #else
-        XCTAssertMatch(bTarget, ["-target", "x86_64-unknown-linux", .anySequence])
+        XCTAssertMatch(bTarget, [.equal("-target"), .equal(defaultTargetTriple), .anySequence] )
       #endif
     }
-
     func testPlatformsValidation() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/A/Sources/ATarget/foo.swift",
