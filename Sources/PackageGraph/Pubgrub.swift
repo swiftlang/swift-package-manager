@@ -259,31 +259,8 @@ public struct Incompatibility<Identifier: PackageContainerIdentifier>: Equatable
             return
         }
 
-        // Normalize terms so that at most one term refers to one package/polarity
-        // combination. E.g. we don't want both a^1.0.0 and a^1.5.0 to be terms
-        // in the same incompatibility, but have these combined by intersecting
-        // their version requirements to a^1.5.0.
-
-        typealias Requirement = PackageRequirement
-        let dict = terms.reduce(into: [Identifier: (req: Requirement, polarity: Bool)]()) {
-            res, term in
-            let previous = res[term.package, default: (term.requirement, term.isPositive)]
-            let intersection = term.intersect(withRequirement: previous.req,
-                                              andPolarity: previous.polarity)
-            assert(intersection != nil, """
-                Attempting to create an incompatibility with terms for \(term.package) \
-                intersecting versions \(previous) and \(term.requirement). These are \
-                mutually exclusive and can't be intersected, making this incompatibility \
-                irrelevant.
-                """)
-            return res[term.package] = (intersection!.requirement, intersection!.isPositive)
-        }
-        let newTerms = dict.keys.map { pkg -> Term<Identifier> in
-            let req = dict[pkg]!
-            return Term(package: pkg, requirement: req.req, isPositive: req.polarity)
-        }
-
-        self.init(terms: OrderedSet(newTerms), cause: cause)
+        let normalizedTerms = normalize(terms: terms.contents)
+        self.init(terms: OrderedSet(normalizedTerms), cause: cause)
     }
 }
 
@@ -614,10 +591,12 @@ fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(
         return .unsatisfied
     }
 
+    let normalizedTerms = normalize(terms: array.map { $0.term })
+
     // Gather all terms which are satisfied by the assignments in the current solution.
     let satisfiedTerms = incompatibility.terms.filter { term in
-        array.contains(where: { assignment in
-            assignment.term.satisfies(term)
+        normalizedTerms.contains(where: { assignmentTerm in
+            assignmentTerm.satisfies(term)
         })
     }
 
@@ -630,6 +609,37 @@ fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(
     default:
         return .unsatisfied
     }
+}
+
+/// Normalize terms so that at most one term refers to one package/polarity
+/// combination. E.g. we don't want both a^1.0.0 and a^1.5.0 to be terms in the
+/// same incompatibility, but have these combined by intersecting their version
+/// requirements to a^1.5.0.
+fileprivate func normalize<Identifier: PackageContainerIdentifier>(
+    terms: [Term<Identifier>]) -> [Term<Identifier>] {
+    typealias Requirement = PackageRequirement
+    let dict = terms.reduce(into: [Identifier: (req: Requirement, polarity: Bool)]()) {
+        res, term in
+        let previous = res[term.package, default: (term.requirement, term.isPositive)]
+        let intersection = term.intersect(withRequirement: previous.req,
+                                          andPolarity: previous.polarity)
+        assert(intersection != nil, """
+            Attempting to create an incompatibility with terms for \(term.package) \
+            intersecting versions \(previous) and \(term.requirement). These are \
+            mutually exclusive and can't be intersected, making this incompatibility \
+            irrelevant.
+            """)
+        return res[term.package] = (intersection!.requirement, intersection!.isPositive)
+    }
+    // Sorting the values for deterministic test runs.
+    let sortedKeys = dict.keys.sorted(by: { lhs, rhs in
+        return String(describing: lhs) < String(describing: rhs)
+    })
+    let newTerms = sortedKeys.map { pkg -> Term<Identifier> in
+        let req = dict[pkg]!
+        return Term(package: pkg, requirement: req.req, isPositive: req.polarity)
+    }
+    return newTerms
 }
 
 enum Satisfaction<Identifier: PackageContainerIdentifier>: Equatable {
