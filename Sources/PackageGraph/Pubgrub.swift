@@ -1100,14 +1100,15 @@ public final class PubgrubDependencyResolver<
                             terms.append(Term(not: dep.identifier, dep.requirement))
                         }
                         return Incompatibility(terms, root: root!, cause: .dependency(package: candidate.package))
-                }
+                    }
                 depIncompatibilities.forEach { add($0, location: .decisionMaking) }
 
+                let tmp = PartialSolution(assignments: solution.assignments)
+                tmp.decide(candidate.package, atExactVersion: version)
+                // Check if this decision would result in a conflict when added.
+                // If so, we try the next earlier version instead.
+                #warning("Why is this depIncompatibilities and not incompatibilities[candidate.package]?")
                 for incompat in depIncompatibilities {
-                    // Check if this decision would result in a conflict when
-                    // added. If so, we try the next earlier version instead.
-                    let tmp = PartialSolution(assignments: solution.assignments)
-                    tmp.decide(candidate.package, atExactVersion: version)
                     if case .satisfied = tmp.satisfies(incompat) {
                         latestConflict = candidate.package
                         continue versionSelection
