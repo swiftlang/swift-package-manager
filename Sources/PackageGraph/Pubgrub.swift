@@ -1130,7 +1130,7 @@ public final class PubgrubDependencyResolver<
                 tmp.decide(candidate.package, atExactVersion: version)
                 // Check if this decision would result in a conflict when added.
                 // If so, we try the next earlier version instead.
-                #warning("Why is this depIncompatibilities and not incompatibilities[candidate.package]?")
+                // FIXME: Why is this depIncompatibilities and not incompatibilities[candidate.package]?
                 for incompat in depIncompatibilities {
                     if case .satisfied = tmp.satisfies(incompat) {
                         latestConflict = candidate.package
