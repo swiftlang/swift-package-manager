@@ -881,7 +881,7 @@ public final class PubgrubDependencyResolver<
         }
 
         do {
-            try run(propagating: root)
+            try run()
         } catch PubgrubError.unresolvable(let conflict) {
             let description = reportError(for: conflict)
             print(description)
@@ -917,31 +917,14 @@ public final class PubgrubDependencyResolver<
     /// decisions if nothing else is left to be done.
     /// After this method returns `solution` is either populated with a list of
     /// final version assignments or an error is thrown.
-    func run(propagating package: Identifier) throws {
-        var changed: OrderedSet<Identifier> = []
-
+    func run() throws {
         var next: Identifier? = root
-
         while let nxt = next {
-            if let conflict = propagate(nxt, changed: &changed) {
-                guard let rootCause = resolve(conflict: conflict) else {
-                    throw PubgrubError.unresolvable(conflict)
-                }
+            try propagate(nxt)
 
-                let satisfaction = solution.satisfies(rootCause)
-                guard case .almostSatisfied(except: let term) = satisfaction else {
-                    fatalError("""
-                        Expected root cause \(rootCause) to almost satisfy the \
-                        current partial solution:
-                        \(solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))\n
-                        """)
-                }
-
-                changed.removeAll(keepingCapacity: false)
-                changed.append(term.package)
-                continue
-            }
-
+            // FIXME: Is this really needed here because next should return nil
+            // once version solving has finished.
+            //
             // If the solution contains a decision for every derivation version
             // solving is finished.
             if solution.isFinished {
@@ -958,26 +941,51 @@ public final class PubgrubDependencyResolver<
     /// partial solution.
     /// If a conflict is found, the conflicting incompatibility is returned to
     /// resolve the conflict on.
-    func propagate(_ package: Identifier, changed: inout OrderedSet<Identifier>) -> Incompatibility<Identifier>? {
-        changed.append(package)
+    func propagate(_ package: Identifier) throws {
+        var changed: OrderedSet<Identifier> = [package]
+
         while !changed.isEmpty {
             let package = changed.removeFirst()
+
             // According to the experience of pub developers, conflict
             // resolution produces more general incompatibilities later on
             // making it advantageous to check those first.
-            for incompatibility in positiveIncompatibilities(for: package)?.reversed() ?? [] {
+            loop: for incompatibility in positiveIncompatibilities(for: package)?.reversed() ?? [] {
+                // FIXME: This needs to find set relation for each term in the incompatibility since
+                // that matters. For e.g., 1.1.0..<2.0.0 won't satisfy 1.0.0..<2.0.0 but they're
+                // overlapping.
                 switch solution.satisfies(incompatibility) {
                 case .unsatisfied:
                     break
+
                 case .satisfied:
-                    return incompatibility
+                    // The incompatibility is satisfied so we need to go into conflict resolution.
+                    guard let rootCause = resolve(conflict: incompatibility) else {
+                        throw PubgrubError.unresolvable(incompatibility)
+                    }
+
+                    let satisfaction = solution.satisfies(rootCause)
+                    guard case .almostSatisfied(except: let term) = satisfaction else {
+                        fatalError("""
+                            Expected root cause \(rootCause) to almost satisfy the \
+                            current partial solution:
+                            \(solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))\n
+                            """)
+                    }
+                    // FIXME: This is causing a loop.
+                    // derive(term.inverse, cause: incompatibility, location: .unitPropagation)
+
+                    changed.removeAll(keepingCapacity: false)
+                    changed.append(term.package)
+                    break loop
+
                 case .almostSatisfied(except: let term):
                     derive(term.inverse, cause: incompatibility, location: .unitPropagation)
+                    // FIXME: This is causing a loop.
+                    // changed.append(term.package)
                 }
             }
         }
-
-        return nil
     }
 
     /// Perform conflict resolution to backtrack to the root cause of a
@@ -1005,6 +1013,7 @@ public final class PubgrubDependencyResolver<
             trace(incompatibility: incompatibility, term: term!, satisfier: satisfier)
 
             if previous == nil {
+                // FIXME: Shouldn't we add the incompatibility after backtracking?
                 add(incompatibility, location: .conflictResolution)
                 solution.backtrack(toDecisionLevel: 0)
                 return incompatibility
