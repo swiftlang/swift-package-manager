@@ -522,7 +522,7 @@ final class PubgrubTests: XCTestCase {
 
     func testResolverConflictResolution() {
         let solver1 = PubgrubDependencyResolver(emptyProvider, delegate)
-        solver1.root = rootRef
+        solver1.set(rootRef)
 
         let notRoot = Incompatibility(Term(not: rootRef, .versionSet(.any)),
                                       root: rootRef,
@@ -533,7 +533,7 @@ final class PubgrubTests: XCTestCase {
 
     func testResolverDecisionMaking() {
         let solver1 = PubgrubDependencyResolver(emptyProvider, delegate)
-        solver1.root = rootRef
+        solver1.set(rootRef)
 
         // No decision can be made if no unsatisfied terms are available.
         XCTAssertNil(try solver1.makeDecision())
@@ -544,12 +544,12 @@ final class PubgrubTests: XCTestCase {
         ])
         let provider = _MockPackageProvider(containers: [a])
         let solver2 = PubgrubDependencyResolver(provider, delegate)
-        solver2.root = rootRef
 
         let solution = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: rootCause, decisionLevel: 0)
         ])
         solver2.solution = solution
+        solver2.set(rootRef)
 
         XCTAssertEqual(solver2.incompatibilities.count, 0)
 
