@@ -467,6 +467,14 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         return arraySatisfies(self.assignments, incompatibility: incompatibility)
     }
 
+    /// Returns true if the given term satisfies the partial solution.
+    func satisfies(_ term: Term<Identifier>) -> Bool {
+        // FIXME: Maybe we should implement this without having to convert the
+        // term to an incompatibility.
+        let incompatibility = Incompatibility(term, root: root!)
+        return arraySatisfies(self.assignments, incompatibility: incompatibility) == .satisfied
+    }
+
     /// Find a pair of assignments, a satisfier and a previous satisfier, for
     /// which the partial solution satisfies a given incompatibility up to and
     /// including the satisfier. The previous satisfier represents the first
@@ -741,7 +749,7 @@ public final class PubgrubDependencyResolver<
     }
 
     /// The root package reference.
-    var root: Identifier?
+    private(set) var root: Identifier?
 
     /// The container provider used to load package containers.
     let provider: Provider
@@ -752,12 +760,18 @@ public final class PubgrubDependencyResolver<
     /// Skip updating containers while fetching them.
     private let skipUpdate: Bool
 
+    /// Set the package root.
+    func set(_ root: Identifier) {
+        self.root = root
+        self.solution.root = root
+    }
+
     func trace(
         value: Traceable,
         type: GeneralTraceStep.StepType,
         location: GeneralTraceStep.Location,
         cause: String?
-        ) {
+    ) {
         let step = GeneralTraceStep(value: value,
                              type: type,
                              location: location,
@@ -780,6 +794,9 @@ public final class PubgrubDependencyResolver<
 
     func decide(_ package: Identifier, version: Version, location: GeneralTraceStep.Location) {
         let term = Term(package, .versionSet(.exact(version)))
+        // FIXME: Shouldn't we check this _before_ making a decision?
+        assert(term.isValidDecision(for: solution))
+
         trace(value: term, type: .decision, location: location, cause: nil)
         solution.decide(package, atExactVersion: version)
     }
@@ -818,8 +835,7 @@ public final class PubgrubDependencyResolver<
     // TODO: This should be the actual (and probably only) entrypoint to version solving.
     /// Run the resolution algorithm on a root package finding a valid assignment of versions.
     public func solve(root: Identifier, pins: [Constraint]) -> Result {
-        self.root = root
-        self.solution.root = root
+        self.set(root)
         do {
             return try .success(solve(constraints: [], pins: pins))
         } catch {
@@ -1041,112 +1057,52 @@ public final class PubgrubDependencyResolver<
     }
 
     func makeDecision() throws -> Identifier? {
+        let undecided = solution.undecided
+
         // If there are no more undecided terms, version solving is complete.
-        guard !solution.undecided.isEmpty else {
+        guard !undecided.isEmpty else {
             return nil
         }
 
-        // This is set when we encounter a possible conflict below, but
-        // reset at the next version. The idea is to track the case that the
-        // last available version results in a conflict.
-        var latestConflict: Identifier?
+        // FIXME: We should choose a package with least available versions for the
+        // constraints that we have so far on the package.
+        let candidate = undecided.first!
 
-        // Select a possible candidate from all undecided assignments, making
-        // sure it only exists as a positive derivation and no decision.
-        for candidate in solution.undecided where candidate.isValidDecision(for: solution) {
-            guard let term = solution.versionIntersection(for: candidate.package) else {
-                fatalError("failed to create version intersection for \(candidate.package)")
-            }
+        guard let pkgTerm = solution.versionIntersection(for: candidate.package) else {
+            fatalError("failed to create version intersection for \(candidate.package)")
+        }
 
-            var latestVersion: Version?
+        // Get the best available version for this package.
+        guard let version = try getBestAvailableVersion(for: pkgTerm) else {
+            // FIXME: It seems wrong to add the incompatibility with cause root here.
+            add(Incompatibility(pkgTerm, root: root!), location: .decisionMaking)
+            return pkgTerm.package
+        }
 
-            let container = try! getContainer(for: term.package)
-            let availableVersions = Array(container.versions(filter: { term.isSatisfied(by: $0)} ))
-            if availableVersions.isEmpty {
-                add(Incompatibility(term, root: root!), location: .decisionMaking)
-                return candidate.package
-            }
-            versionSelection: for version in availableVersions {
-                if latestVersion == nil { latestVersion = version }
-                latestConflict = nil
+        // Add all of this version's dependencies as incompatibilities.
+        let depIncompatibilities = try incompatibilites(for: pkgTerm.package, at: version)
 
-                // If there is an existing single-positive-term incompatibility
-                // that forbids this version, we should skip right to trying the
-                // next one.
-                let requirements = incompatibilities[term.package]?
-                    .filter {
-                        $0.terms.count == 1 &&
-                        $0.terms.first?.package == term.package &&
-                        $0.terms.first?.isPositive == true
-                    }
-                    .map {
-                        $0.terms.first!.requirement
-                    }
+        var haveConflict = false
+        for incompatibility in depIncompatibilities {
+            // Add the incompatibility to our partial solution.
+            add(incompatibility, location: .decisionMaking)
 
-                for forbidden in requirements ?? [] {
-                    switch forbidden {
-                    case .versionSet(let versionSet):
-                        switch versionSet {
-                        case .any:
-                            continue versionSelection
-                        case .range(let forbidden):
-                            if forbidden.contains(version: version) {
-                                continue versionSelection
-                            }
-                        case .exact(let forbidden):
-                            if forbidden == version {
-                                continue versionSelection
-                            }
-                        case .empty:
-                            break
-                        }
-                    default:
-                        break
-                    }
-                }
-
-                // Add all of this version's dependencies as incompatibilities.
-                let depIncompatibilities = try container.getDependencies(at: version)
-                    .map { dep -> Incompatibility<Identifier> in
-                        var terms: OrderedSet<Term<Identifier>> = []
-                        // If the selected version is the latest version, Pubgrub
-                        // represents the term as having an unbounded upper range.
-                        // We can't represent that here (currently), so we're
-                        // pretending that it goes to the next nonexistent major
-                        // version.
-                        if version == latestVersion {
-                            let nextMajor = Version(version.major + 1, 0, 0)
-                            terms.append(Term(candidate.package, .versionSet(.range(version..<nextMajor))))
-                            terms.append(Term(not: dep.identifier, dep.requirement))
-                        } else {
-                            terms.append(Term(candidate.package, .versionSet(.exact(version))))
-                            terms.append(Term(not: dep.identifier, dep.requirement))
-                        }
-                        return Incompatibility(terms, root: root!, cause: .dependency(package: candidate.package))
-                    }
-                depIncompatibilities.forEach { add($0, location: .decisionMaking) }
-
-                let tmp = PartialSolution(assignments: solution.assignments)
-                tmp.decide(candidate.package, atExactVersion: version)
-                // Check if this decision would result in a conflict when added.
-                // If so, we try the next earlier version instead.
-                // FIXME: Why is this depIncompatibilities and not incompatibilities[candidate.package]?
-                for incompat in depIncompatibilities {
-                    if case .satisfied = tmp.satisfies(incompat) {
-                        latestConflict = candidate.package
-                        continue versionSelection
-                    }
-                }
-
-                decide(candidate.package, version: version, location: .decisionMaking)
-                return candidate.package
+            // Check if this incompatibility will statisfy the solution.
+            haveConflict = haveConflict || incompatibility.terms.allSatisfy {
+                // We only need to check if the terms other than this package
+                // are satisfied because we _know_ that the terms matching
+                // this package will be satisfied if we make this version
+                // as a decision.
+                $0.package == pkgTerm.package || solution.satisfies($0)
             }
         }
 
-        if let conflict = latestConflict {
-            return conflict
+        // Decide this version if there was no conflict with its dependencies.
+        if !haveConflict {
+            decide(candidate.package, version: version, location: .decisionMaking)
         }
-        return nil
+
+        return candidate.package
     }
 
     // MARK: - Error Reporting
@@ -1334,6 +1290,81 @@ public final class PubgrubDependencyResolver<
             let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
             self._fetchedContainers[identifier] = Basic.Result(container)
             return container
+        }
+    }
+
+    /// Returns the best available version for a given term.
+    func getBestAvailableVersion(for term: Term<Identifier>) throws -> Version? {
+        let container = try! getContainer(for: term.package)
+        let availableVersions = Array(container.versions(filter: { term.isSatisfied(by: $0)} ))
+
+        // We have zero available versions.
+        guard !availableVersions.isEmpty else {
+            return nil
+        }
+
+        // FIXME: Clean this up.
+        for version in availableVersions {
+            // If there is an existing single-positive-term incompatibility
+            // that forbids this version, we should skip right to trying the
+            // next one.
+            let requirements = incompatibilities[term.package]?
+                .filter {
+                    $0.terms.count == 1 &&
+                        $0.terms.first?.package == term.package &&
+                        $0.terms.first?.isPositive == true
+                }
+                .map {
+                    $0.terms.first!.requirement
+            }
+
+            for forbidden in requirements ?? [] {
+                switch forbidden {
+                case .versionSet(let versionSet):
+                    switch versionSet {
+                    case .any:
+                        continue
+                    case .range(let forbidden):
+                        if forbidden.contains(version: version) {
+                            continue
+                        }
+                    case .exact(let forbidden):
+                        if forbidden == version {
+                            continue
+                        }
+                    case .empty:
+                        break
+                    }
+                default:
+                    break
+                }
+            }
+            return version
+        }
+
+        return nil
+    }
+
+    /// Returns the incompatibilities of a package at the given version.
+    func incompatibilites(
+        for package: Identifier,
+        at version: Version
+    ) throws -> [Incompatibility<Identifier>] {
+        let container = try getContainer(for: package)
+        return try container.getDependencies(at: version).map { dep -> Incompatibility<Identifier> in
+            var terms: OrderedSet<Term<Identifier>> = []
+
+            // FIXME:
+            //
+            // If the selected version is the latest version, Pubgrub
+            // represents the term as having an unbounded upper range.
+            // We can't represent that here (currently), so we're
+            // pretending that it goes to the next nonexistent major
+            // version.
+            let nextMajor = Version(version.major + 1, 0, 0)
+            terms.append(Term(container.identifier, .versionSet(.range(version..<nextMajor))))
+            terms.append(Term(not: dep.identifier, dep.requirement))
+            return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
         }
     }
 }
