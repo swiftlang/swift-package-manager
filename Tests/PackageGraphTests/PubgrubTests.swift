@@ -382,6 +382,15 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(s6.satisfies(Incompatibility("root@1.0.0", "b@0.2.0",
                                                     root: rootRef)),
                        .satisfied)
+
+        let joint = PartialSolution<PackageReference>()
+        joint.decide(rootRef, atExactVersion: "1.0.0")
+        joint.derive("target^2.0.0", cause: _cause)
+        joint.decide(PackageReference(identity: "target", path: ""), atExactVersion: "2.0.0")
+        joint.derive("shared-0.0.0-2.0.0", cause: _cause)
+        joint.derive("shared-1.0.0-2.0.0", cause: _cause)
+        XCTAssertEqual(joint.satisfies(Incompatibility("shared^1.0.0", "¬target^1.0.0", root: rootRef)),
+                       .satisfied)
     }
 
     func testSolutionAddAssignments() {
@@ -485,7 +494,7 @@ final class PubgrubTests: XCTestCase {
 
     func testResolverUnitPropagation() {
         let solver1 = PubgrubDependencyResolver(emptyProvider, delegate)
-        var changed: Set<PackageReference> = []
+        var changed: OrderedSet<PackageReference> = []
 
         // no known incompatibilities should result in no satisfaction checks
         XCTAssertNil(solver1.propagate("root", changed: &changed))

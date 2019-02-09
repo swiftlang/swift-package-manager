@@ -259,31 +259,8 @@ public struct Incompatibility<Identifier: PackageContainerIdentifier>: Equatable
             return
         }
 
-        // Normalize terms so that at most one term refers to one package/polarity
-        // combination. E.g. we don't want both a^1.0.0 and a^1.5.0 to be terms
-        // in the same incompatibility, but have these combined by intersecting
-        // their version requirements to a^1.5.0.
-
-        typealias Requirement = PackageRequirement
-        let dict = terms.reduce(into: [Identifier: (req: Requirement, polarity: Bool)]()) {
-            res, term in
-            let previous = res[term.package, default: (term.requirement, term.isPositive)]
-            let intersection = term.intersect(withRequirement: previous.req,
-                                              andPolarity: previous.polarity)
-            assert(intersection != nil, """
-                Attempting to create an incompatibility with terms for \(term.package) \
-                intersecting versions \(previous) and \(term.requirement). These are \
-                mutually exclusive and can't be intersected, making this incompatibility \
-                irrelevant.
-                """)
-            return res[term.package] = (intersection!.requirement, intersection!.isPositive)
-        }
-        let newTerms = dict.keys.map { pkg -> Term<Identifier> in
-            let req = dict[pkg]!
-            return Term(package: pkg, requirement: req.req, isPositive: req.polarity)
-        }
-
-        self.init(terms: OrderedSet(newTerms), cause: cause)
+        let normalizedTerms = normalize(terms: terms.contents)
+        self.init(terms: OrderedSet(normalizedTerms), cause: cause)
     }
 }
 
@@ -548,7 +525,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
         for (idx, assignment) in zip(0..., assignments) {
             // Remove *all* derivations and decisions above the specified level.
-            if !assignment.isDecision {
+            if !assignment.isDecision && assignment.decisionLevel >= decisionLevel {
                 toBeRemoved.append((idx, assignment))
                 continue
             }
@@ -614,10 +591,20 @@ fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(
         return .unsatisfied
     }
 
+    let decisions = array.filter { $0.isDecision }
+    let derivations = array.filter { !$0.isDecision }
+    let normalizedDerivations = normalize(terms: derivations.map { $0.term })
+
     // Gather all terms which are satisfied by the assignments in the current solution.
     let satisfiedTerms = incompatibility.terms.filter { term in
-        array.contains(where: { assignment in
-            assignment.term.satisfies(term)
+        if decisions.contains(where: { decision in
+            decision.term.satisfies(term)
+        }) {
+            return true
+        }
+
+        return normalizedDerivations.contains(where: { derivationTerm in
+            derivationTerm.satisfies(term)
         })
     }
 
@@ -630,6 +617,37 @@ fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(
     default:
         return .unsatisfied
     }
+}
+
+/// Normalize terms so that at most one term refers to one package/polarity
+/// combination. E.g. we don't want both a^1.0.0 and a^1.5.0 to be terms in the
+/// same incompatibility, but have these combined by intersecting their version
+/// requirements to a^1.5.0.
+fileprivate func normalize<Identifier: PackageContainerIdentifier>(
+    terms: [Term<Identifier>]) -> [Term<Identifier>] {
+    typealias Requirement = PackageRequirement
+    let dict = terms.reduce(into: [Identifier: (req: Requirement, polarity: Bool)]()) {
+        res, term in
+        let previous = res[term.package, default: (term.requirement, term.isPositive)]
+        let intersection = term.intersect(withRequirement: previous.req,
+                                          andPolarity: previous.polarity)
+        assert(intersection != nil, """
+            Attempting to create an incompatibility with terms for \(term.package) \
+            intersecting versions \(previous) and \(term.requirement). These are \
+            mutually exclusive and can't be intersected, making this incompatibility \
+            irrelevant.
+            """)
+        return res[term.package] = (intersection!.requirement, intersection!.isPositive)
+    }
+    // Sorting the values for deterministic test runs.
+    let sortedKeys = dict.keys.sorted(by: { lhs, rhs in
+        return String(describing: lhs) < String(describing: rhs)
+    })
+    let newTerms = sortedKeys.map { pkg -> Term<Identifier> in
+        let req = dict[pkg]!
+        return Term(package: pkg, requirement: req.req, isPositive: req.polarity)
+    }
+    return newTerms
 }
 
 enum Satisfaction<Identifier: PackageContainerIdentifier>: Equatable {
@@ -884,9 +902,10 @@ public final class PubgrubDependencyResolver<
     /// After this method returns `solution` is either populated with a list of
     /// final version assignments or an error is thrown.
     func run(propagating package: Identifier) throws {
-        var changed: Set<Identifier> = []
+        var changed: OrderedSet<Identifier> = []
 
         var next: Identifier? = root
+
         while let nxt = next {
             if let conflict = propagate(nxt, changed: &changed) {
                 guard let rootCause = resolve(conflict: conflict) else {
@@ -898,12 +917,12 @@ public final class PubgrubDependencyResolver<
                     fatalError("""
                         Expected root cause \(rootCause) to almost satisfy the \
                         current partial solution:
-                        \(solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))
+                        \(solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))\n
                         """)
                 }
 
-                changed.removeAll()
-                changed.insert(term.package)
+                changed.removeAll(keepingCapacity: false)
+                changed.append(term.package)
                 continue
             }
 
@@ -923,8 +942,8 @@ public final class PubgrubDependencyResolver<
     /// partial solution.
     /// If a conflict is found, the conflicting incompatibility is returned to
     /// resolve the conflict on.
-    func propagate(_ package: Identifier, changed: inout Set<Identifier>) -> Incompatibility<Identifier>? {
-        changed.insert(package)
+    func propagate(_ package: Identifier, changed: inout OrderedSet<Identifier>) -> Incompatibility<Identifier>? {
+        changed.append(package)
         while !changed.isEmpty {
             let package = changed.removeFirst()
             // According to the experience of pub developers, conflict
@@ -971,11 +990,7 @@ public final class PubgrubDependencyResolver<
 
             if previous == nil {
                 add(incompatibility, location: .conflictResolution)
-                if let previous = previous {
-                    solution.backtrack(toDecisionLevel: previous.decisionLevel - 1)
-                } else {
-                    solution.backtrack(toDecisionLevel: 0)
-                }
+                solution.backtrack(toDecisionLevel: 0)
                 return incompatibility
             }
 
@@ -1043,10 +1058,15 @@ public final class PubgrubDependencyResolver<
                 fatalError("failed to create version intersection for \(candidate.package)")
             }
 
-            let container = try! getContainer(for: term.package)
-
             var latestVersion: Version?
-            versionSelection: for version in container.versions(filter: { term.isSatisfied(by: $0) }) {
+
+            let container = try! getContainer(for: term.package)
+            let availableVersions = Array(container.versions(filter: { term.isSatisfied(by: $0)} ))
+            if availableVersions.isEmpty {
+                add(Incompatibility(term, root: root!), location: .decisionMaking)
+                return candidate.package
+            }
+            versionSelection: for version in availableVersions {
                 if latestVersion == nil { latestVersion = version }
                 latestConflict = nil
 
@@ -1103,14 +1123,15 @@ public final class PubgrubDependencyResolver<
                             terms.append(Term(not: dep.identifier, dep.requirement))
                         }
                         return Incompatibility(terms, root: root!, cause: .dependency(package: candidate.package))
-                }
+                    }
                 depIncompatibilities.forEach { add($0, location: .decisionMaking) }
 
+                let tmp = PartialSolution(assignments: solution.assignments)
+                tmp.decide(candidate.package, atExactVersion: version)
+                // Check if this decision would result in a conflict when added.
+                // If so, we try the next earlier version instead.
+                #warning("Why is this depIncompatibilities and not incompatibilities[candidate.package]?")
                 for incompat in depIncompatibilities {
-                    // Check if this decision would result in a conflict when
-                    // added. If so, we try the next earlier version instead.
-                    let tmp = PartialSolution(assignments: solution.assignments)
-                    tmp.decide(candidate.package, atExactVersion: version)
                     if case .satisfied = tmp.satisfies(incompat) {
                         latestConflict = candidate.package
                         continue versionSelection

@@ -70,6 +70,13 @@ public struct OrderedSet<E: Hashable>: Equatable, Collection {
         return inserted
     }
 
+    /// Remove and return the element at the beginning of the ordered set.
+    public mutating func removeFirst() -> Element {
+        let firstElement = array.removeFirst()
+        set.remove(firstElement)
+        return firstElement
+    }
+
     /// Remove and return the element at the end of the ordered set.
     public mutating func removeLast() -> Element {
         let lastElement = array.removeLast()
