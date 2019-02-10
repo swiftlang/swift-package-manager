@@ -380,16 +380,16 @@ final class PubgrubTests: XCTestCase {
             .derivation("b@2.0.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
-        let a1 = s1.positive.first { $0.key.identity == "a" }?.value
+        let a1 = s1._positive.first { $0.key.identity == "a" }?.value
         XCTAssertEqual(a1?.requirement, .versionSet(.range("1.5.0"..<"2.0.0")))
-        let b1 = s1.positive.first { $0.key.identity == "b" }?.value
+        let b1 = s1._positive.first { $0.key.identity == "b" }?.value
         XCTAssertEqual(b1?.requirement, .versionSet(.exact("2.0.0")))
 
         let s2 = PartialSolution<PackageReference>(assignments: [
             .derivation("¬a^1.5.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
-        let a2 = s2.positive.first { $0.key.identity == "a" }?.value
+        let a2 = s2._positive.first { $0.key.identity == "a" }?.value
         XCTAssertEqual(a2?.requirement, .versionSet(.range("1.0.0"..<"1.5.0")))
     }
 
