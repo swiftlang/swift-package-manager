@@ -176,6 +176,82 @@ public struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable 
         }
         return true
     }
+
+    func relation(with other: Term) -> SetRelation {
+        // From: https://github.com/dart-lang/pub/blob/master/lib/src/solver/term.dart
+
+        if self.package != other.package {
+            fatalError("attempting to compute relation between different packages \(self) \(other)")
+        }
+
+        if other.isPositive {
+            if self.isPositive {
+                // If the second requirement contains all the elements of
+                // the first requirement, then it is a subset relation.
+                if other.requirement.containsAll(self.requirement) {
+                    return .subset
+                }
+
+                // If second requirement contains any requirements of
+                // the first, then the relation is overlapping.
+                if other.requirement.containsAny(self.requirement) {
+                    return .overlap
+                }
+
+                // Otherwise it is disjoint.
+                return .disjoint
+            } else {
+                if self.requirement.containsAll(other.requirement) {
+                    return .disjoint
+                }
+                return .overlap
+            }
+        } else {
+            if self.isPositive {
+                if !other.requirement.containsAny(self.requirement) {
+                    return .subset
+                }
+                if other.requirement.containsAll(self.requirement) {
+                    return .disjoint
+                }
+                return .overlap
+            } else {
+                if self.requirement.containsAll(other.requirement) {
+                    return .subset
+                }
+                return .overlap
+            }
+        }
+    }
+
+    enum SetRelation: Equatable {
+        /// The sets have nothing in common.
+        case disjoint
+        /// The sets have elements in common but first set is not a subset of second.
+        case overlap
+        /// The second set contains all elements of the first set.
+        case subset
+    }
+}
+
+extension PackageRequirement {
+    func containsAll(_ other: PackageRequirement) -> Bool {
+        switch (self, other) {
+        case (.versionSet(let lhs), .versionSet(let rhs)):
+            return lhs.intersection(rhs) == rhs
+        default:
+            fatalError("unhandled \(self), \(other)")
+        }
+    }
+
+    func containsAny(_ other: PackageRequirement) -> Bool {
+        switch (self, other) {
+        case (.versionSet(let lhs), .versionSet(let rhs)):
+            return lhs.intersection(rhs) != .empty
+        default:
+            fatalError("unhandled \(self), \(other)")
+        }
+    }
 }
 
 extension Term: CustomStringConvertible {
@@ -407,6 +483,15 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     /// All known decisions.
     private(set) var decisions: [Identifier: Version] = [:]
 
+    /// The intersection of all positive assignments for each package, minus any
+    /// negative assignments that refer to that package.
+    private var _positive: [Identifier: Term<Identifier>] = [:]
+
+    /// Union of all negative assignments for a package.
+    ///
+    /// Only present if a package has no postive assignment.
+    private var _negative: [Identifier: Term<Identifier>] = [:]
+
     /// The current decision level.
     var decisionLevel: Int {
         return decisions.count - 1
@@ -414,6 +499,9 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
     init(assignments: [Assignment<Identifier>] = []) {
         self.assignments = assignments
+        for assignment in assignments {
+            register(assignment)
+        }
     }
 
     /// The intersection of all positive assignments for each package, minus any
@@ -438,7 +526,9 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         let decisionTerms = assignments
             .filter { $0.isDecision }
             .map { $0.term }
-        return positive.values.filter { !decisionTerms.contains($0) }
+
+        // FIXME: Should we sort this so we have a deterministic results?
+        return _positive.values.filter { !decisionTerms.contains($0) }
     }
 
     /// Create a new derivation assignment and add it to the partial solution's
@@ -446,6 +536,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     func derive(_ term: Term<Identifier>, cause: Incompatibility<Identifier>) {
         let derivation = Assignment.derivation(term, cause: cause, decisionLevel: decisionLevel)
         self.assignments.append(derivation)
+        register(derivation)
     }
 
     /// Create a new decision assignment and add it to the partial solution's
@@ -455,6 +546,27 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         let term = Term(package, .versionSet(.exact(version)))
         let decision = Assignment.decision(term, decisionLevel: decisionLevel)
         self.assignments.append(decision)
+        register(decision)
+    }
+
+    /// Populates the _positive and _negative poperties with the assignment.
+    private func register(_ assignment: Assignment<Identifier>) {
+        let term = assignment.term
+        let pkg = term.package
+
+        if let positive = _positive[pkg] {
+            _positive[term.package] = positive.intersect(with: term)
+            return
+        }
+
+        let newTerm = _negative[pkg].flatMap{ term.intersect(with: $0) } ?? term
+        
+        if newTerm.isPositive {
+            _negative[pkg] = nil
+            _positive[pkg] = newTerm
+        } else {
+            _negative[pkg] = newTerm
+        }
     }
 
     /// Returns how much a given incompatibility is satisfied by assignments in
@@ -534,18 +646,23 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
         for (idx, assignment) in zip(0..., assignments) {
             // Remove *all* derivations and decisions above the specified level.
-            if !assignment.isDecision && assignment.decisionLevel >= decisionLevel {
-                toBeRemoved.append((idx, assignment))
-                continue
-            }
             if assignment.decisionLevel > decisionLevel {
                 toBeRemoved.append((idx, assignment))
             }
         }
 
         for (idx, remove) in toBeRemoved.reversed() {
-            assignments.remove(at: idx)
-            decisions.removeValue(forKey: remove.term.package)
+            let assignment = assignments.remove(at: idx)
+            if assignment.isDecision {
+                decisions.removeValue(forKey: remove.term.package)
+            }
+        }
+
+        // FIXME: We can optimize this by recomputing only the removed things.
+        _negative.removeAll()
+        _positive.removeAll()
+        for assignment in assignments {
+            register(assignment)
         }
     }
 
@@ -589,6 +706,16 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         }
         return true
     }
+
+    func relation(with term: Term<Identifier>) -> Term<Identifier>.SetRelation {
+        let pkg = term.package
+        if let positive = _positive[pkg] {
+            return positive.relation(with: term)
+        } else if let negative = _negative[pkg] {
+            return negative.relation(with: term)
+        }
+        return .overlap
+    }
 }
 
 fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(
@@ -619,6 +746,8 @@ fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(
     }
 
     switch satisfiedTerms.count {
+    case 0:
+        return .unsatisfied
     case incompatibility.terms.count:
         return .satisfied
     case incompatibility.terms.count - 1:
@@ -871,8 +1000,9 @@ public final class PubgrubDependencyResolver<
         }
 
         // Handle root, e.g. add dependencies and root decision.
-        decide(root, version: "1.0.0", location: .topLevel)
-
+        //
+        // We add the dependencies before deciding on a version for root
+        // to avoid inserting the wrong decision level.
         let rootContainer = try getContainer(for: self.root!)
         for dependency in try rootContainer.getUnversionedDependencies() {
             let incompatibility = Incompatibility(
@@ -881,6 +1011,7 @@ public final class PubgrubDependencyResolver<
                 root: root, cause: .root)
             add(incompatibility, location: .topLevel)
         }
+        decide(root, version: "1.0.0", location: .topLevel)
 
         do {
             try run()
@@ -956,38 +1087,67 @@ public final class PubgrubDependencyResolver<
                 // FIXME: This needs to find set relation for each term in the incompatibility since
                 // that matters. For e.g., 1.1.0..<2.0.0 won't satisfy 1.0.0..<2.0.0 but they're
                 // overlapping.
-                switch solution.satisfies(incompatibility) {
-                case .unsatisfied:
-                    break
+                let result = propagate(incompatibility: incompatibility)
 
-                case .satisfied:
-                    // The incompatibility is satisfied so we need to go into conflict resolution.
+                switch result {
+                case .conflict:
                     guard let rootCause = resolve(conflict: incompatibility) else {
                         throw PubgrubError.unresolvable(incompatibility)
                     }
 
-                    let satisfaction = solution.satisfies(rootCause)
-                    guard case .almostSatisfied(except: let term) = satisfaction else {
+                    let rootCauseResult = propagate(incompatibility: rootCause)
+
+                    guard case .almostSatisfied(let pkg) = rootCauseResult else {
                         fatalError("""
                             Expected root cause \(rootCause) to almost satisfy the \
                             current partial solution:
                             \(solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))\n
                             """)
                     }
-                    // FIXME: This is causing a loop.
-                    // derive(term.inverse, cause: incompatibility, location: .unitPropagation)
 
                     changed.removeAll(keepingCapacity: false)
-                    changed.append(term.package)
+                    changed.append(pkg)
+                    
                     break loop
-
-                case .almostSatisfied(except: let term):
-                    derive(term.inverse, cause: incompatibility, location: .unitPropagation)
-                    // FIXME: This is causing a loop.
-                    // changed.append(term.package)
+                case .almostSatisfied(let package):
+                    changed.append(package)
+                case .none:
+                    break
                 }
             }
         }
+    }
+
+    func propagate(incompatibility: Incompatibility<Identifier>) -> PropagationResult {
+        var unsatisfied: Term<Identifier>?
+
+        for term in incompatibility.terms {
+            let relation = solution.relation(with: term)
+
+            if relation == .disjoint {
+                return .none
+            } else if relation == .overlap {
+                if unsatisfied != nil {
+                    return .none
+                }
+                unsatisfied = term
+            }
+        }
+
+        // We have a conflict if all the terms of the incompatibility were satisfied.
+        guard let unsatisfiedTerm = unsatisfied else {
+            return .conflict
+        }
+
+        derive(unsatisfiedTerm.inverse, cause: incompatibility, location: .unitPropagation)
+
+        return .almostSatisfied(package: unsatisfiedTerm.package)
+    }
+
+    enum PropagationResult {
+        case conflict
+        case almostSatisfied(package: Identifier)
+        case none
     }
 
     /// Perform conflict resolution to backtrack to the root cause of a
@@ -1015,7 +1175,6 @@ public final class PubgrubDependencyResolver<
             trace(incompatibility: incompatibility, term: term!, satisfier: satisfier)
 
             if previous == nil {
-                // FIXME: Shouldn't we add the incompatibility after backtracking?
                 add(incompatibility, location: .conflictResolution)
                 solution.backtrack(toDecisionLevel: 0)
                 return incompatibility
