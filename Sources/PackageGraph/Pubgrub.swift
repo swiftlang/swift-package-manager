@@ -569,17 +569,6 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         }
     }
 
-    /// Returns how much a given incompatibility is satisfied by assignments in
-    /// this solution.
-    ///
-    /// Three states are possible:
-    /// - Satisfied: The entire incompatibility is satisfied.
-    /// - Almost Satisfied: All but one term are satisfied.
-    /// - Unsatisfied: At least two terms are unsatisfied.
-    func satisfies(_ incompatibility: Incompatibility<Identifier>) -> Bool {
-        return arraySatisfies(self.assignments, incompatibility: incompatibility)
-    }
-
     /// Returns true if the given term satisfies the partial solution.
     func satisfies(_ term: Term<Identifier>) -> Bool {
         return self.relation(with: term) == .subset
@@ -715,7 +704,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     }
 }
 
-fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(
+func arraySatisfies<Identifier: PackageContainerIdentifier>(
     _ array: [Assignment<Identifier>], incompatibility: Incompatibility<Identifier>
 ) -> Bool {
     guard !array.isEmpty else {
