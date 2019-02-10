@@ -410,8 +410,8 @@ final class PubgrubTests: XCTestCase {
             .derivation(b, cause: _cause, decisionLevel: 1)
         ])
         XCTAssertEqual(solution.decisions, [
-            rootRef: .exact("1.0.0"),
-            aRef: .exact("1.0.0")
+            rootRef: "1.0.0",
+            aRef: "1.0.0",
         ])
     }
 

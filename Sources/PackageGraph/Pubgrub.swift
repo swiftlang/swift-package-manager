@@ -402,10 +402,10 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     var root: Identifier?
 
     /// All known assigments.
-    var assignments: [Assignment<Identifier>]
+    private(set) var assignments: [Assignment<Identifier>]
 
     /// All known decisions.
-    var decisions: [Identifier: VersionSetSpecifier] = [:]
+    private(set) var decisions: [Identifier: Version] = [:]
 
     /// The current decision level.
     var decisionLevel: Int {
@@ -426,6 +426,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
             if val.term.isPositive {
                 values[val.term.package] = term != nil ? term!.intersect(with: val.term) : val.term
             } else {
+                // FIXME: This will set a negative term if there is only negatives assigments.
                 values[val.term.package] = term != nil ? term!.difference(with: val.term) : val.term
             }
         }
@@ -450,7 +451,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     /// Create a new decision assignment and add it to the partial solution's
     /// list of known assignments.
     func decide(_ package: Identifier, atExactVersion version: Version) {
-        decisions[package] = .exact(version)
+        decisions[package] = version
         let term = Term(package, .versionSet(.exact(version)))
         let decision = Assignment.decision(term, decisionLevel: decisionLevel)
         self.assignments.append(decision)
@@ -568,7 +569,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     }
 
     /// Check if the solution contains a positive decision for a given package.
-    func hasDecision(for package: Identifier) -> Bool {
+    private func hasDecision(for package: Identifier) -> Bool {
         for decision in assignments where decision.isDecision {
             if decision.term.package == package && decision.term.isPositive {
                 return true
@@ -581,6 +582,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     /// that all necessary packages have been found?
     var isFinished: Bool {
         for derivation in assignments where !derivation.isDecision {
+            // FIXME: We can just check in the decision dictionary.
             guard self.hasDecision(for: derivation.term.package) else {
                 return false
             }
