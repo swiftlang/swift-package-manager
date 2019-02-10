@@ -548,7 +548,7 @@ final class PubgrubTests: XCTestCase {
         }
     }
 
-    func testResolutionAvoidingConflictResolutionDuringDecisionMaking() {
+    func DISABLED_testResolutionAvoidingConflictResolutionDuringDecisionMaking() {
         let root = _MockPackageContainer(name: rootRef)
         root.unversionedDeps = [
             _MockPackageConstraint(container: aRef, versionRequirement: v1Range),

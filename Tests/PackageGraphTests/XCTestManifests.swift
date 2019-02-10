@@ -55,7 +55,6 @@ extension PubgrubTests {
     // to regenerate.
     static let __allTests__PubgrubTests = [
         ("testIncompatibilityNormalizeTermsOnInit", testIncompatibilityNormalizeTermsOnInit),
-        ("testResolutionAvoidingConflictResolutionDuringDecisionMaking", testResolutionAvoidingConflictResolutionDuringDecisionMaking),
         ("testResolutionNoConflicts", testResolutionNoConflicts),
         ("testResolutionPerformingConflictResolution", testResolutionPerformingConflictResolution),
         ("testResolverAddIncompatibility", testResolverAddIncompatibility),
