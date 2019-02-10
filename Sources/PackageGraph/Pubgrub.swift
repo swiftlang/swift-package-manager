@@ -1322,12 +1322,7 @@ public final class PubgrubDependencyResolver<
     /// Returns the best available version for a given term.
     func getBestAvailableVersion(for term: Term<Identifier>) throws -> Version? {
         let container = try! getContainer(for: term.package)
-        let availableVersions = Array(container.versions(filter: { term.isSatisfied(by: $0)} ))
-
-        // We have zero available versions.
-        guard !availableVersions.isEmpty else {
-            return nil
-        }
+        let availableVersions = container.versions(filter: { term.isSatisfied(by: $0)} )
 
         // FIXME: Clean this up.
         for version in availableVersions {
