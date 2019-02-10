@@ -569,11 +569,6 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         }
     }
 
-    /// Returns true if the given term satisfies the partial solution.
-    func satisfies(_ term: Term<Identifier>) -> Bool {
-        return self.relation(with: term) == .subset
-    }
-
     /// Find a pair of assignments, a satisfier and a previous satisfier, for
     /// which the partial solution satisfies a given incompatibility up to and
     /// including the satisfier. The previous satisfier represents the first
@@ -671,28 +666,23 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         return intersection
     }
 
-    /// Check if the solution contains a positive decision for a given package.
-    private func hasDecision(for package: Identifier) -> Bool {
-        for decision in assignments where decision.isDecision {
-            if decision.term.package == package && decision.term.isPositive {
-                return true
-            }
-        }
-        return false
-    }
-
     /// Does the solution contain a decision for every derivation meaning
     /// that all necessary packages have been found?
     var isFinished: Bool {
         for derivation in assignments where !derivation.isDecision {
-            // FIXME: We can just check in the decision dictionary.
-            guard self.hasDecision(for: derivation.term.package) else {
+            if !self.decisions.keys.contains(derivation.term.package) {
                 return false
             }
         }
         return true
     }
 
+    /// Returns true if the given term satisfies the partial solution.
+    func satisfies(_ term: Term<Identifier>) -> Bool {
+        return self.relation(with: term) == .subset
+    }
+
+    /// Returns the set relation of the partial solution with the given term.
     func relation(with term: Term<Identifier>) -> Term<Identifier>.SetRelation {
         let pkg = term.package
         if let positive = _positive[pkg] {
