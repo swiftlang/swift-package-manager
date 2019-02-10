@@ -696,7 +696,7 @@ fileprivate func normalize<Identifier: PackageContainerIdentifier>(
             mutually exclusive and can't be intersected, making this incompatibility \
             irrelevant.
             """)
-        return res[term.package] = (intersection!.requirement, intersection!.isPositive)
+        res[term.package] = (intersection!.requirement, intersection!.isPositive)
     }
     // Sorting the values for deterministic test runs.
     let sortedKeys = dict.keys.sorted(by: { lhs, rhs in
