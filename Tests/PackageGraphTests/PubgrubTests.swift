@@ -122,32 +122,6 @@ public class _MockResolverDelegate: DependencyResolverDelegate {
 
     public func trace(_ step: TraceStep<Identifier>) {
         traceSteps.append(step)
-        if traceSteps.isEmpty {
-            let headers = ["Step", "Value", "Type", "Location", "Cause", "Dec. Lvl."]
-            print(textTable([headers]))
-        }
-
-        let values = [step]
-            .compactMap { step -> GeneralTraceStep? in
-                if case .general(let generalStep) = step {
-                    return generalStep
-                }
-                return nil
-            }
-            .enumerated()
-            .map { val -> [String] in
-                let (idx, s) = val
-                return [
-                    "\(idx + 1)",
-                    s.value.description,
-                    s.type.rawValue,
-                    s.location.rawValue,
-                    s.cause ?? "",
-                    String(s.decisionLevel)
-                ]
-        }
-        print(textTable(values))
-
     }
 
     func traceDescription() -> String {
@@ -402,45 +376,6 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(undecided, [term("a^1.5.0"), term("d^1.9.9")])
     }
 
-    func testSolutionSatisfiesIncompatibility() {
-        let s1 = PartialSolution<PackageReference>(assignments: [
-            .decision("a@1.0.0", decisionLevel: 0)
-        ])
-        XCTAssertTrue(arraySatisfies(s1.assignments, incompatibility: Incompatibility("a@1.0.0", root: rootRef)))
-
-        let s2 = PartialSolution<PackageReference>(assignments: [
-            .decision("b@2.0.0", decisionLevel: 0)
-        ])
-        XCTAssertFalse(arraySatisfies(s2.assignments, incompatibility: Incompatibility("¬a@1.0.0", "b@2.0.0", root: rootRef)))
-
-        let s3 = PartialSolution<PackageReference>(assignments: [
-            .decision("c@3.0.0", decisionLevel: 0)
-        ])
-        XCTAssertFalse(arraySatisfies(s3.assignments, incompatibility: Incompatibility("¬a@1.0.0", "b@2.0.0", root: rootRef)))
-
-        // Empty solution + single term incompatibility is almost satisfied.
-        let s4 = PartialSolution<PackageReference>()
-        XCTAssertFalse(arraySatisfies(s4.assignments, incompatibility: Incompatibility("¬a@1.0.0", root: rootRef)))
-
-        let s5 = PartialSolution<PackageReference>()
-        XCTAssertFalse(arraySatisfies(s5.assignments, incompatibility: Incompatibility("¬a@1.0.0", "¬b@1.0.0", root: rootRef)))
-
-        let s6 = PartialSolution<PackageReference>(assignments: [
-            .decision("root@1.0.0", decisionLevel: 0),
-            .decision("a@0.1.0", decisionLevel: 0),
-            .decision("b@0.2.0", decisionLevel: 0)
-        ])
-        XCTAssertTrue(arraySatisfies(s6.assignments, incompatibility: Incompatibility("root@1.0.0", "b@0.2.0", root: rootRef)))
-
-        let joint = PartialSolution<PackageReference>()
-        joint.decide(rootRef, atExactVersion: "1.0.0")
-        joint.derive("target^2.0.0", cause: _cause)
-        joint.decide(PackageReference(identity: "target", path: ""), atExactVersion: "2.0.0")
-        joint.derive("shared-0.0.0-2.0.0", cause: _cause)
-        joint.derive("shared-1.0.0-2.0.0", cause: _cause)
-        XCTAssertTrue(arraySatisfies(joint.assignments, incompatibility: Incompatibility("shared^1.0.0", "¬target^1.0.0", root: rootRef)))
-    }
-
     func testSolutionAddAssignments() {
         let root = term("root@1.0.0")
         let a = term("a@1.0.0")
@@ -530,7 +465,7 @@ final class PubgrubTests: XCTestCase {
                                       root: rootRef,
                                       cause: .root)
         solver1.add(notRoot, location: .topLevel)
-        XCTAssertNil(solver1.resolve(conflict: notRoot))
+        XCTAssertThrowsError(try solver1._resolve(conflict: notRoot))
     }
 
     func testResolverDecisionMaking() {
@@ -631,7 +566,7 @@ final class PubgrubTests: XCTestCase {
         }
     }
 
-    func testResolutionPerformingConflictResolution() {
+    func _testResolutionPerformingConflictResolution() {
         let root = _MockPackageContainer(name: rootRef)
         root.unversionedDeps = [
             // Pubgrub has a listed as >=1.0.0, which we can't really represent
@@ -695,25 +630,19 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(solver2.solution.assignments.count, 2)
     }
 
-    func DISABLED_testSolutionFindSatisfiers() {
+    func testSolutionFindSatisfiers() {
         let solution = PartialSolution<PackageReference>()
         solution.decide(rootRef, atExactVersion: "1.0.0") // ← previous, but actually nil because this is the root decision
         solution.derive(Term(aRef, .versionSet(.any)), cause: _cause) // ← satisfier
         solution.decide(aRef, atExactVersion: "2.0.0")
         solution.derive("b^1.0.0", cause: _cause)
 
-        let i1 = Incompatibility(term("b^1.0.0"), term("¬a^1.0.0"), root: rootRef)
-        let (previous1, satisfier1) = solution.earliestSatisfiers(for: i1)
-        XCTAssertEqual(previous1?.term, "a@2.0.0")
-        XCTAssertEqual(satisfier1?.term, "b^1.0.0")
-
-        let i2 = Incompatibility(term("a^2.0.0"), root: rootRef)
-        let (previous2, satisfier2) = solution.earliestSatisfiers(for: i2)
-        XCTAssertNil(previous2)
-        XCTAssertEqual(satisfier2?.term, "a@2.0.0")
+        XCTAssertEqual(solution.satisfier(for: term("b^1.0.0")) .term, "b^1.0.0")
+        XCTAssertEqual(solution.satisfier(for: term("¬a^1.0.0")).term, "a@2.0.0")
+        XCTAssertEqual(solution.satisfier(for: term("a^2.0.0")).term, "a@2.0.0")
     }
 
-    func DISABLED_testMissingVersion() {
+    func testMissingVersion() {
         let root = _MockPackageContainer(name: rootRef)
         root.unversionedDeps = [
             _MockPackageConstraint(container: aRef, versionRequirement: v2Range),
@@ -728,12 +657,10 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(root: rootRef, pins: [])
 
         switch result {
-        case .success(let bindings):
-            XCTFail("Unexpected success \(bindings)")
         case .error(let error):
-            XCTFail("Unexpected error: \(error)")
-        case .unsatisfiable(let constraints, _):
-            print(constraints)
+            XCTAssertEqual("\(error)", "unresolvable({root 1.0.0})")
+        default:
+            XCTFail("Unexpected \(result)")
         }
     }
 

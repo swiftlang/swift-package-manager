@@ -127,7 +127,7 @@ public struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable 
         }
     }
 
-    private func difference(with other: Term) -> Term? {
+    func difference(with other: Term) -> Term? {
         return self.intersect(with: other.inverse)
     }
 
@@ -526,55 +526,23 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         }
     }
 
-    /// Find a pair of assignments, a satisfier and a previous satisfier, for
-    /// which the partial solution satisfies a given incompatibility up to and
-    /// including the satisfier. The previous satisfier represents the first
-    /// assignment in the partial solution *before* the satisfier, for which
-    /// the partial solution also satisfies the given incompatibility if the
-    /// satisfier is also included.
-    ///
-    /// To summarize, assuming at least assignment A1, A2 and A4 are needed to
-    /// satisfy the assignment, (previous: A2, satisfier: A4) will be returned.
-    ///
-    /// In the case that the satisfier alone does not satisfy the
-    /// incompatibility, it is possible that `previous` and `satisifer` refer
-    /// to the same assignment.
-    func earliestSatisfiers(
-        for incompat: Incompatibility<Identifier>
-    ) -> (previous: Assignment<Identifier>?, satisfier: Assignment<Identifier>?) {
+    /// Returns the first Assignment in this solution such that the list of
+    /// assignments up to and including that entry satisfies term.
+    func satisfier(for term: Term<Identifier>) -> Assignment<Identifier> {
+        var assignedTerm: Term<Identifier>?
 
-        var firstSatisfier: Assignment<Identifier>?
-        for idx in assignments.indices {
-            let slice = assignments[...idx]
-            if arraySatisfies(Array(slice), incompatibility: incompat) {
-                firstSatisfier = assignments[idx]
-                break
+        for assignment in assignments {
+            guard assignment.term.package == term.package else {
+                continue
+            }
+            assignedTerm = assignedTerm.flatMap{ $0.intersect(with: assignment.term) } ?? assignment.term
+
+            if assignedTerm!.satisfies(term) {
+                return assignment
             }
         }
 
-        guard let satisfier = firstSatisfier else {
-            // The incompatibility is not (yet) satisfied by this solution's
-            // list of assignments.
-            return (nil, nil)
-        }
-
-        var previous: Assignment<Identifier>?
-        for idx in assignments.indices {
-            let slice = assignments[...idx] + [satisfier]
-            if arraySatisfies(Array(slice), incompatibility: incompat) {
-                previous = assignments[idx]
-                break
-            }
-        }
-
-        guard previous != assignments.first else {
-            // this is the root assignment, if this is the previous satisfier we
-            // want to return nil instead to signal to conflict resolution that
-            // we've hit the root incompatibility.
-            return (nil, satisfier)
-        }
-
-        return (previous, satisfier)
+        fatalError("term \(term) not satisfied")
     }
 
     /// Backtrack to a specific decision level by dropping all assignments with
@@ -649,33 +617,6 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         }
         return .overlap
     }
-}
-
-func arraySatisfies<Identifier: PackageContainerIdentifier>(
-    _ array: [Assignment<Identifier>], incompatibility: Incompatibility<Identifier>
-) -> Bool {
-    guard !array.isEmpty else {
-        return false
-    }
-
-    let decisions = array.filter { $0.isDecision }
-    let derivations = array.filter { !$0.isDecision }
-    let normalizedDerivations = normalize(terms: derivations.map { $0.term })
-
-    // Gather all terms which are satisfied by the assignments in the current solution.
-    let satisfiedTerms = incompatibility.terms.filter { term in
-        if decisions.contains(where: { decision in
-            decision.term.satisfies(term)
-        }) {
-            return true
-        }
-
-        return normalizedDerivations.contains(where: { derivationTerm in
-            derivationTerm.satisfies(term)
-        })
-    }
-
-    return satisfiedTerms.count == incompatibility.terms.count
 }
 
 /// Normalize terms so that at most one term refers to one package/polarity
@@ -897,7 +838,7 @@ public final class PubgrubDependencyResolver<
         return solve(root: root, pins: pins)
     }
 
-    public enum PubgrubError: Swift.Error {
+    public enum PubgrubError: Swift.Error, Equatable {
         case unresolvable(Incompatibility<Identifier>)
     }
 
@@ -932,7 +873,7 @@ public final class PubgrubDependencyResolver<
         } catch PubgrubError.unresolvable(let conflict) {
             let description = reportError(for: conflict)
             print(description)
-            return []
+            throw PubgrubError.unresolvable(conflict)
         } catch {
             fatalError("Unexpected error.")
         }
@@ -1005,10 +946,7 @@ public final class PubgrubDependencyResolver<
 
                 switch result {
                 case .conflict:
-                    guard let rootCause = resolve(conflict: incompatibility) else {
-                        throw PubgrubError.unresolvable(incompatibility)
-                    }
-
+                    let rootCause = try _resolve(conflict: incompatibility)
                     let rootCauseResult = propagate(incompatibility: rootCause)
 
                     guard case .almostSatisfied(let pkg) = rootCauseResult else {
@@ -1064,72 +1002,76 @@ public final class PubgrubDependencyResolver<
         case none
     }
 
-    /// Perform conflict resolution to backtrack to the root cause of a
-    /// satisfied incompatibility and create a new incompatibility that blocks
-    /// off the search path that led there.
-    /// Returns nil if version solving is unsuccessful.
-    func resolve(conflict: Incompatibility<Identifier>) -> Incompatibility<Identifier>? {
+    func _resolve(conflict: Incompatibility<Identifier>) throws -> Incompatibility<Identifier> {
+        // Based on:
+        // https://github.com/dart-lang/pub/tree/master/doc/solver.md#conflict-resolution
+        // https://github.com/dart-lang/pub/blob/master/lib/src/solver/version_solver.dart#L201
         var incompatibility = conflict
+        var createdIncompatibility = false
 
-        // As long as the incompatibility doesn't specify that version solving
-        // has failed entirely...
         while !isCompleteFailure(incompatibility) {
-            // Find the earliest assignment so that `incompatibility` is
-            // satisfied by the partial solution up to and including it.
-            // ↳ `possibleSatisfier`
-            // Also find the earliest assignment before `satisfier` which
-            // satisfies `incompatibility` up to and including it + `satisfier`.
-            // ↳ `previous`
-            let (previous, possibleSatisfier) = solution.earliestSatisfiers(for: incompatibility)
-            guard let satisfier = possibleSatisfier else { break }
+            var mostRecentTerm: Term<Identifier>?
+            var mostRecentSatisfier: Assignment<Identifier>?
+            var difference: Term<Identifier>?
+            var previousSatisfierLevel = 0
 
-            // `term` is incompatibility's term referring to the same term as satisfier.
-            let term = incompatibility.terms.first { $0.package == satisfier.term.package }
+            for term in incompatibility.terms {
+                let satisfier = solution.satisfier(for: term)
 
-            trace(incompatibility: incompatibility, term: term!, satisfier: satisfier)
+                if let _mostRecentSatisfier = mostRecentSatisfier {
+                    let mostRecentSatisfierIdx = solution.assignments.index(of: _mostRecentSatisfier)!
+                    let satisfierIdx = solution.assignments.index(of: satisfier)!
 
-            if previous == nil {
-                add(incompatibility, location: .conflictResolution)
-                solution.backtrack(toDecisionLevel: 0)
-                return incompatibility
-            }
-
-            // Decision level is where the root package was selected. According
-            // to PubGrub documentation it's also fine to fall back to 0, but
-            // choosing 1 tends to produce better error output.
-            let previousSatisfierLevel = previous?.decisionLevel ?? 1
-
-            if satisfier.isDecision || previousSatisfierLevel != satisfier.decisionLevel {
-                if incompatibility != conflict {
-                    add(incompatibility, location: .conflictResolution)
+                    if mostRecentSatisfierIdx < satisfierIdx {
+                        previousSatisfierLevel = max(previousSatisfierLevel, _mostRecentSatisfier.decisionLevel)
+                        mostRecentTerm = term
+                        mostRecentSatisfier = satisfier
+                        difference = nil
+                    } else {
+                        previousSatisfierLevel = max(previousSatisfierLevel, satisfier.decisionLevel)
+                    }
+                } else {
+                    mostRecentTerm = term
+                    mostRecentSatisfier = satisfier
                 }
-                solution.backtrack(toDecisionLevel: previousSatisfierLevel)
-                return incompatibility
-            } else {
-                // `priorCauseTerms` should be a union of the terms in
-                // `incompatibility` and the terms in `satisfier`'s cause, minus
-                // the terms referring to `satisfier`'s package.
-                let termSet = Set(incompatibility.terms)
-                let priorCauseTermsArr = Array(termSet.union(satisfier.cause?.terms ?? []))
-                    .filter { $0.package != satisfier.term.package }
-                var priorCauseTerms = OrderedSet(priorCauseTermsArr)
 
-                if !satisfier.term.satisfies(term!) {
-                    // add ¬(satisfier \ term) to priorCauseTerms
-                    if satisfier.term != term {
-                        priorCauseTerms.append(satisfier.term.inverse)
+                if mostRecentTerm == term {
+                    difference = mostRecentSatisfier?.term.difference(with: term)
+                    if let difference = difference {
+                        previousSatisfierLevel = max(previousSatisfierLevel, solution.satisfier(for: difference.inverse).decisionLevel)
                     }
                 }
-
-                incompatibility = Incompatibility(priorCauseTerms,
-                                                  root: root!,
-                                                  cause: .conflict(conflict: conflict,
-                                                                   other: incompatibility))
             }
+
+            guard let _mostRecentSatisfier = mostRecentSatisfier else {
+                fatalError()
+            }
+
+            if previousSatisfierLevel < _mostRecentSatisfier.decisionLevel || _mostRecentSatisfier.cause == nil {
+                solution.backtrack(toDecisionLevel: previousSatisfierLevel)
+                if createdIncompatibility {
+                    add(incompatibility, location: .conflictResolution)
+                }
+                return incompatibility
+            }
+
+            let priorCause = _mostRecentSatisfier.cause!
+
+            var newTerms = incompatibility.terms.filter{ $0 != mostRecentTerm }
+            newTerms += priorCause.terms.filter({ $0.package != _mostRecentSatisfier.term.package })
+
+            if let _difference = difference {
+                newTerms.append(_difference.inverse)
+            }
+
+            incompatibility = Incompatibility(
+                OrderedSet(newTerms),
+                root: root!,
+                cause: .conflict(conflict: incompatibility, other: priorCause))
+            createdIncompatibility = true
         }
 
-        // TODO: Report error with `incompatibility` as the root incompatibility.
-        return nil
+        throw PubgrubError.unresolvable(incompatibility)
     }
 
     /// Does a given incompatibility specify that version solving has entirely
