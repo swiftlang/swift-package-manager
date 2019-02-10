@@ -48,33 +48,7 @@ public struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable 
     func satisfies(_ other: Term) -> Bool {
         // TODO: This probably makes more sense as isSatisfied(by:) instead.
         guard self.package == other.package else { return false }
-
-        let samePolarity = self.isPositive == other.isPositive
-
-        switch (self.requirement, other.requirement) {
-        case (.versionSet(let lhs), .versionSet(let rhs)):
-            switch (lhs, rhs) {
-            case (.empty, _), (_, .empty):
-                return !samePolarity
-            case (.any, _), (_, .any):
-                return samePolarity
-            case (.exact(let lhs), .exact(let rhs)):
-                return lhs == rhs && samePolarity
-            case (.exact(let lhs), .range(let rhs)),
-                 (.range(let rhs), .exact(let lhs)):
-                return (rhs.contains(version: lhs) && samePolarity)
-                    || (!rhs.contains(version: lhs) && !samePolarity)
-            case (.range(let lhs), .range(let rhs)):
-                let equalsOrContains = lhs == rhs || (lhs.contains(rhs) || rhs.contains(lhs))
-                return (equalsOrContains && samePolarity) || (!equalsOrContains && !samePolarity)
-            }
-        case (.revision(let lhs), .revision(let rhs)):
-            return lhs == rhs
-        case (.unversioned, .unversioned):
-            return false
-        default:
-            return false
-        }
+        return self.relation(with: other) == .subset
     }
 
     func isSatisfied(by other: Version) -> Bool {
@@ -153,7 +127,7 @@ public struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable 
         }
     }
 
-    func difference(with other: Term) -> Term? {
+    private func difference(with other: Term) -> Term? {
         return self.intersect(with: other.inverse)
     }
 
@@ -503,7 +477,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
             register(assignment)
         }
     }
-    
+
     /// A list of all packages that have been assigned, but are not yet satisfied.
     var undecided: [Term<Identifier>] {
         let decisionTerms = assignments

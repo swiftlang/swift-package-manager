@@ -263,21 +263,17 @@ final class PubgrubTests: XCTestCase {
 
         XCTAssertFalse(a100.satisfies(Term(bRef, .unversioned)))
 
-        XCTAssertTrue(term("¬a@1.0.0").satisfies("¬a^1.0.0"))
-        XCTAssertTrue(term("¬a@1.0.0").satisfies("a^2.0.0"))
+        XCTAssertFalse(term("¬a@1.0.0").satisfies("¬a^1.0.0"))
+        XCTAssertFalse(term("¬a@1.0.0").satisfies("a^2.0.0"))
+        XCTAssertTrue(term("¬a^1.0.0").satisfies("¬a@1.0.0"))
+        XCTAssertTrue(term("a^2.0.0").satisfies("¬a@1.0.0"))
+
         XCTAssertTrue(term("a^1.0.0").satisfies("¬a@2.0.0"))
         XCTAssertTrue(term("a^1.0.0").satisfies("¬a^2.0.0"))
 
         XCTAssertTrue(term("a^1.0.0").satisfies(term("a^1.0.0")))
         XCTAssertTrue(term("a-1.0.0-1.1.0").satisfies(term("a^1.0.0")))
         XCTAssertFalse(term("a-1.0.0-1.1.0").satisfies(term("a^2.0.0")))
-
-        XCTAssertTrue(
-            Term(aRef, .revision("ab")).satisfies(
-            Term(aRef, .revision("ab"))))
-        XCTAssertFalse(
-            Term(aRef, .revision("ab")).satisfies(
-            Term(aRef, .revision("ba"))))
     }
 
     func testTermIntersection() {
