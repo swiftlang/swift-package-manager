@@ -122,6 +122,32 @@ public class _MockResolverDelegate: DependencyResolverDelegate {
 
     public func trace(_ step: TraceStep<Identifier>) {
         traceSteps.append(step)
+        if traceSteps.isEmpty {
+            let headers = ["Step", "Value", "Type", "Location", "Cause", "Dec. Lvl."]
+            print(textTable([headers]))
+        }
+
+        let values = [step]
+            .compactMap { step -> GeneralTraceStep? in
+                if case .general(let generalStep) = step {
+                    return generalStep
+                }
+                return nil
+            }
+            .enumerated()
+            .map { val -> [String] in
+                let (idx, s) = val
+                return [
+                    "\(idx + 1)",
+                    s.value.description,
+                    s.type.rawValue,
+                    s.location.rawValue,
+                    s.cause ?? "",
+                    String(s.decisionLevel)
+                ]
+        }
+        print(textTable(values))
+
     }
 
     func traceDescription() -> String {
@@ -289,6 +315,37 @@ final class PubgrubTests: XCTestCase {
             term("a^2.0.0"))
     }
 
+    func testTermRelation() {
+        // Both positive.
+        XCTAssertEqual(term("a^1.1.0").relation(with: "a^1.0.0"), .subset)
+        XCTAssertEqual(term("a^1.9.0").relation(with: "a^1.8.9"), .subset)
+        XCTAssertEqual(term("a^1.5.0").relation(with: "a^1.0.0"), .subset)
+        XCTAssertEqual(term("a^1.9.0").relation(with: "a@1.9.0"), .overlap)
+        XCTAssertEqual(term("a^1.9.0").relation(with: "a@1.9.1"), .overlap)
+        XCTAssertEqual(term("a^1.9.0").relation(with: "a@1.20.0"), .overlap)
+        XCTAssertEqual(term("a^2.0.0").relation(with: "a^2.9.0"), .overlap)
+        XCTAssertEqual(term("a^2.0.0").relation(with: "a^2.9.0"), .overlap)
+        XCTAssertEqual(term("a-1.5.0-3.0.0").relation(with: "a^1.0.0"), .overlap)
+        XCTAssertEqual(term("a^1.9.0").relation(with: "a@1.8.1"), .disjoint)
+        XCTAssertEqual(term("a^1.9.0").relation(with: "a@2.0.0"), .disjoint)
+        XCTAssertEqual(term("a^2.0.0").relation(with: "a@1.0.0"), .disjoint)
+
+        // First term is negative, second term is positive.
+        XCTAssertEqual(term("¬a^1.0.0").relation(with: "a@1.5.0"), .disjoint)
+        XCTAssertEqual(term("¬a^1.5.0").relation(with: "a^1.0.0"), .overlap)
+        XCTAssertEqual(term("¬a^2.0.0").relation(with: "a^1.5.0"), .overlap)
+
+        // First term is positive, second term is negative.
+        XCTAssertEqual(term("a^2.0.0").relation(with: "¬a^1.0.0"), .subset)
+        XCTAssertEqual(term("a^1.5.0").relation(with: "¬a^1.0.0"), .disjoint)
+        XCTAssertEqual(term("a^1.0.0").relation(with: "¬a^1.5.0"), .overlap)
+
+        // Both terms are negative.
+        XCTAssertEqual(term("¬a^1.0.0").relation(with: "¬a^1.5.0"), .subset)
+        XCTAssertEqual(term("¬a^2.0.0").relation(with: "¬a^1.0.0"), .overlap)
+        XCTAssertEqual(term("¬a^1.5.0").relation(with: "¬a^1.0.0"), .overlap)
+    }
+
     func testTermIsValidDecision() {
         let solution100_150 = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 1),
@@ -337,13 +394,16 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testSolutionUndecided() {
-        let solution = PartialSolution<PackageReference>(assignments: [
-            .derivation("a^1.5.0", cause: rootCause, decisionLevel: 0),
-            .decision("b@2.0.0", decisionLevel: 0),
-            .derivation("a^1.0.0", cause: rootCause, decisionLevel: 0)
-        ])
+        let solution = PartialSolution<PackageReference>()
+        solution.derive("a^1.0.0", cause: rootCause)
+        solution.decide("b", atExactVersion: "2.0.0")
+        solution.derive("a^1.5.0", cause: rootCause)
+        solution.derive("¬c^1.5.0", cause: rootCause)
+        solution.derive("d^1.9.0", cause: rootCause)
+        solution.derive("d^1.9.9", cause: rootCause)
 
-        XCTAssertEqual(solution.undecided, [term("a^1.5.0")])
+        let undecided = solution.undecided.sorted{ $0.package.identity < $1.package.identity }
+        XCTAssertEqual(undecided, [term("a^1.5.0"), term("d^1.9.9")])
     }
 
     func testSolutionSatisfiesIncompatibility() {
@@ -548,7 +608,7 @@ final class PubgrubTests: XCTestCase {
         }
     }
 
-    func DISABLED_testResolutionAvoidingConflictResolutionDuringDecisionMaking() {
+    func testResolutionAvoidingConflictResolutionDuringDecisionMaking() {
         let root = _MockPackageContainer(name: rootRef)
         root.unversionedDeps = [
             _MockPackageConstraint(container: aRef, versionRequirement: v1Range),
@@ -589,7 +649,9 @@ final class PubgrubTests: XCTestCase {
             // Pubgrub has a listed as >=1.0.0, which we can't really represent
             // here... It's either .any or 1.0.0..<n.0.0 with n>2. Both should
             // have the same effect though.
-            _MockPackageConstraint(container: aRef, versionRequirement: .any)
+            _MockPackageConstraint(container: aRef, versionRequirement: .range("1.0.0"..<"3.0.0"))
+            // FIXME: .any is not working probably because of a bad insersection computation.
+            // _MockPackageConstraint(container: aRef, versionRequirement: .any)
         ]
         let a = _MockPackageContainer(name: aRef, dependenciesByVersion: [
             v1: [],
@@ -626,8 +688,8 @@ final class PubgrubTests: XCTestCase {
         // even if incompatibilities are present
         solver1.add(Incompatibility(term("a@1.0.0"), root: rootRef), location: .topLevel)
         try solver1.propagate("a")
-        // FIXME: Propagating this again leads to fatal error.
-        // try solver1.propagate("a")
+        try solver1.propagate("a")
+        try solver1.propagate("a")
 
         // adding a satisfying term should result in a conflict
         solver1.solution.decide(aRef, atExactVersion: "1.0.0")
@@ -670,7 +732,7 @@ final class PubgrubTests: XCTestCase {
         ]
         let a = _MockPackageContainer(name: aRef, dependenciesByVersion: [
             v1_1: []
-            ])
+        ])
 
         let provider = _MockPackageProvider(containers: [root, a])
         let resolver = PubgrubDependencyResolver(provider, delegate)
@@ -687,7 +749,7 @@ final class PubgrubTests: XCTestCase {
         }
     }
 
-    func DISABLED_testResolutionConflictResolutionWithAPartialSatisfier() {
+    func testResolutionConflictResolutionWithAPartialSatisfier() {
         let root = _MockPackageContainer(name: rootRef)
         let fooRef = PackageReference(identity: "foo", path: "")
         let leftRef = PackageReference(identity: "left", path: "")
@@ -786,5 +848,9 @@ extension PackageReference: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
         let ref = PackageReference(identity: value.lowercased(), path: "")
         self = ref
+    }
+
+    init(_ name: String) {
+        self.init(identity: name, path: "")
     }
 }
