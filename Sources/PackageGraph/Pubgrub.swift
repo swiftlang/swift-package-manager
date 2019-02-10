@@ -485,12 +485,12 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
     /// The intersection of all positive assignments for each package, minus any
     /// negative assignments that refer to that package.
-    private var _positive: [Identifier: Term<Identifier>] = [:]
+    private(set) var _positive: [Identifier: Term<Identifier>] = [:]
 
     /// Union of all negative assignments for a package.
     ///
     /// Only present if a package has no postive assignment.
-    private var _negative: [Identifier: Term<Identifier>] = [:]
+    private(set) var _negative: [Identifier: Term<Identifier>] = [:]
 
     /// The current decision level.
     var decisionLevel: Int {
@@ -503,24 +503,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
             register(assignment)
         }
     }
-
-    /// The intersection of all positive assignments for each package, minus any
-    /// negative assignments that refer to that package.
-    var positive: [Identifier: Term<Identifier>] {
-        var values: [Identifier: Term<Identifier>] = [:]
-        for val in assignments {
-            let term = values[val.term.package]
-
-            if val.term.isPositive {
-                values[val.term.package] = term != nil ? term!.intersect(with: val.term) : val.term
-            } else {
-                // FIXME: This will set a negative term if there is only negatives assigments.
-                values[val.term.package] = term != nil ? term!.difference(with: val.term) : val.term
-            }
-        }
-        return values
-    }
-
+    
     /// A list of all packages that have been assigned, but are not yet satisfied.
     var undecided: [Term<Identifier>] {
         let decisionTerms = assignments
