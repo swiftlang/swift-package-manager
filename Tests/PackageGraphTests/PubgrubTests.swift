@@ -410,32 +410,31 @@ final class PubgrubTests: XCTestCase {
         let s1 = PartialSolution<PackageReference>(assignments: [
             .decision("a@1.0.0", decisionLevel: 0)
         ])
-        XCTAssertTrue(s1.satisfies(Incompatibility("a@1.0.0", root: rootRef)))
+        XCTAssertTrue(arraySatisfies(s1.assignments, incompatibility: Incompatibility("a@1.0.0", root: rootRef)))
 
         let s2 = PartialSolution<PackageReference>(assignments: [
             .decision("b@2.0.0", decisionLevel: 0)
         ])
-        XCTAssertFalse(s2.satisfies(Incompatibility("¬a@1.0.0", "b@2.0.0", root: rootRef)))
+        XCTAssertFalse(arraySatisfies(s2.assignments, incompatibility: Incompatibility("¬a@1.0.0", "b@2.0.0", root: rootRef)))
 
         let s3 = PartialSolution<PackageReference>(assignments: [
             .decision("c@3.0.0", decisionLevel: 0)
         ])
-        XCTAssertFalse(s3.satisfies(Incompatibility("¬a@1.0.0", "b@2.0.0", root: rootRef)))
+        XCTAssertFalse(arraySatisfies(s3.assignments, incompatibility: Incompatibility("¬a@1.0.0", "b@2.0.0", root: rootRef)))
 
         // Empty solution + single term incompatibility is almost satisfied.
         let s4 = PartialSolution<PackageReference>()
-        XCTAssertFalse(s4.satisfies(Incompatibility("a@1.0.0", root: rootRef)))
+        XCTAssertFalse(arraySatisfies(s4.assignments, incompatibility: Incompatibility("¬a@1.0.0", root: rootRef)))
 
         let s5 = PartialSolution<PackageReference>()
-        XCTAssertFalse(s5.satisfies(Incompatibility("a@1.0.0", "¬b@1.0.0", root: rootRef)))
+        XCTAssertFalse(arraySatisfies(s5.assignments, incompatibility: Incompatibility("¬a@1.0.0", "¬b@1.0.0", root: rootRef)))
 
         let s6 = PartialSolution<PackageReference>(assignments: [
             .decision("root@1.0.0", decisionLevel: 0),
             .decision("a@0.1.0", decisionLevel: 0),
             .decision("b@0.2.0", decisionLevel: 0)
         ])
-        XCTAssertTrue(s6.satisfies(Incompatibility("root@1.0.0", "b@0.2.0",
-                                                    root: rootRef)))
+        XCTAssertTrue(arraySatisfies(s6.assignments, incompatibility: Incompatibility("root@1.0.0", "b@0.2.0", root: rootRef)))
 
         let joint = PartialSolution<PackageReference>()
         joint.decide(rootRef, atExactVersion: "1.0.0")
@@ -443,7 +442,7 @@ final class PubgrubTests: XCTestCase {
         joint.decide(PackageReference(identity: "target", path: ""), atExactVersion: "2.0.0")
         joint.derive("shared-0.0.0-2.0.0", cause: _cause)
         joint.derive("shared-1.0.0-2.0.0", cause: _cause)
-        XCTAssertTrue(joint.satisfies(Incompatibility("shared^1.0.0", "¬target^1.0.0", root: rootRef)))
+        XCTAssertTrue(arraySatisfies(joint.assignments, incompatibility: Incompatibility("shared^1.0.0", "¬target^1.0.0", root: rootRef)))
     }
 
     func testSolutionAddAssignments() {
