@@ -582,10 +582,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
     /// Returns true if the given term satisfies the partial solution.
     func satisfies(_ term: Term<Identifier>) -> Bool {
-        // FIXME: Maybe we should implement this without having to convert the
-        // term to an incompatibility.
-        let incompatibility = Incompatibility(term, root: root!)
-        return arraySatisfies(self.assignments, incompatibility: incompatibility)
+        return self.relation(with: term) == .subset
     }
 
     /// Find a pair of assignments, a satisfier and a previous satisfier, for
