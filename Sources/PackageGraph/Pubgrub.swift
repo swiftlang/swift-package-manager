@@ -576,7 +576,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     /// - Satisfied: The entire incompatibility is satisfied.
     /// - Almost Satisfied: All but one term are satisfied.
     /// - Unsatisfied: At least two terms are unsatisfied.
-    func satisfies(_ incompatibility: Incompatibility<Identifier>) -> Satisfaction<Identifier> {
+    func satisfies(_ incompatibility: Incompatibility<Identifier>) -> Bool {
         return arraySatisfies(self.assignments, incompatibility: incompatibility)
     }
 
@@ -585,7 +585,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         // FIXME: Maybe we should implement this without having to convert the
         // term to an incompatibility.
         let incompatibility = Incompatibility(term, root: root!)
-        return arraySatisfies(self.assignments, incompatibility: incompatibility) == .satisfied
+        return arraySatisfies(self.assignments, incompatibility: incompatibility)
     }
 
     /// Find a pair of assignments, a satisfier and a previous satisfier, for
@@ -608,7 +608,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         var firstSatisfier: Assignment<Identifier>?
         for idx in assignments.indices {
             let slice = assignments[...idx]
-            if arraySatisfies(Array(slice), incompatibility: incompat) == .satisfied {
+            if arraySatisfies(Array(slice), incompatibility: incompat) {
                 firstSatisfier = assignments[idx]
                 break
             }
@@ -623,7 +623,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         var previous: Assignment<Identifier>?
         for idx in assignments.indices {
             let slice = assignments[...idx] + [satisfier]
-            if arraySatisfies(Array(slice), incompatibility: incompat) == .satisfied {
+            if arraySatisfies(Array(slice), incompatibility: incompat) {
                 previous = assignments[idx]
                 break
             }
@@ -720,12 +720,9 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
 fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(
     _ array: [Assignment<Identifier>], incompatibility: Incompatibility<Identifier>
-) -> Satisfaction<Identifier> {
+) -> Bool {
     guard !array.isEmpty else {
-        if incompatibility.terms.count == 1 {
-            return .almostSatisfied(except: incompatibility.terms.first!)
-        }
-        return .unsatisfied
+        return false
     }
 
     let decisions = array.filter { $0.isDecision }
@@ -745,17 +742,7 @@ fileprivate func arraySatisfies<Identifier: PackageContainerIdentifier>(
         })
     }
 
-    switch satisfiedTerms.count {
-    case 0:
-        return .unsatisfied
-    case incompatibility.terms.count:
-        return .satisfied
-    case incompatibility.terms.count - 1:
-        let unsatisfied = incompatibility.terms.first { !satisfiedTerms.contains($0) }
-        return .almostSatisfied(except: unsatisfied!)
-    default:
-        return .unsatisfied
-    }
+    return satisfiedTerms.count == incompatibility.terms.count
 }
 
 /// Normalize terms so that at most one term refers to one package/polarity
@@ -787,12 +774,6 @@ fileprivate func normalize<Identifier: PackageContainerIdentifier>(
         return Term(package: pkg, requirement: req.req, isPositive: req.polarity)
     }
     return newTerms
-}
-
-enum Satisfaction<Identifier: PackageContainerIdentifier>: Equatable {
-    case satisfied
-    case almostSatisfied(except: Term<Identifier>)
-    case unsatisfied
 }
 
 /// A step the resolver takes to advance its progress, e.g. deriving a new assignment
