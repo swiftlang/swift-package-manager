@@ -23,39 +23,53 @@
 /// and then convert to a `ByteString` when complete.
 public struct ByteString: ExpressibleByArrayLiteral, Hashable {
     /// The buffer contents.
-    fileprivate var _bytes: [UInt8]
+    @usableFromInline
+    internal var _bytes: [UInt8]
 
     /// Create an empty byte string.
+    @inlinable
     public init() {
         _bytes = []
     }
 
     /// Create a byte string from a byte array literal.
+    @inlinable
     public init(arrayLiteral contents: UInt8...) {
         _bytes = contents
     }
 
     /// Create a byte string from an array of bytes.
+    @inlinable
     public init(_ contents: [UInt8]) {
         _bytes = contents
     }
 
+    /// Create a byte string from an array slice.
+    @inlinable
+    public init(_ contents: ArraySlice<UInt8>) {
+        _bytes = Array(contents)
+    }
+
     /// Create a byte string from an byte buffer.
+    @inlinable
     public init<S: Sequence> (_ contents: S) where S.Iterator.Element == UInt8 {
         _bytes = [UInt8](contents)
     }
 
     /// Create a byte string from the UTF8 encoding of a string.
+    @inlinable
     public init(encodingAsUTF8 string: String) {
         _bytes = [UInt8](string.utf8)
     }
 
     /// Access the byte string contents as an array.
+    @inlinable
     public var contents: [UInt8] {
         return _bytes
     }
 
     /// Return the byte string size.
+    @inlinable
     public var count: Int {
         return _bytes.count
     }
@@ -73,6 +87,7 @@ extension ByteString: CustomStringConvertible {
     }
 
     /// Return the string decoded as a UTF8 sequence, if possible.
+    @inlinable
     public var validDescription: String? {
         // FIXME: This is very inefficient, we need a way to pass a buffer. It
         // is also wrong if the string contains embedded '\0' characters.
@@ -84,6 +99,7 @@ extension ByteString: CustomStringConvertible {
 
     /// Return the string decoded as a UTF8 sequence, substituting replacement
     /// characters for ill-formed UTF8 sequences.
+    @inlinable
     public var cString: String {
         // FIXME: This is very inefficient, we need a way to pass a buffer. It
         // is also wrong if the string contains embedded '\0' characters.
@@ -101,6 +117,7 @@ extension ByteString: CustomStringConvertible {
 
 /// ByteStreamable conformance for a ByteString.
 extension ByteString: ByteStreamable {
+    @inlinable
     public func write(to stream: OutputByteStream) {
         stream.write(_bytes)
     }
