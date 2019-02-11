@@ -13,9 +13,9 @@ import Basic
 import struct PackageModel.PackageReference
 
 /// A term represents a statement about a package that may be true or false.
-public struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
+public struct Term: Equatable, Hashable {
     typealias Requirement = PackageRequirement
-
+    typealias Identifier = PackageReference
     let package: Identifier
     let requirement: Requirement
     let isPositive: Bool
@@ -127,7 +127,7 @@ public struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable 
     /// - There has to exist a positive derivation for it.
     /// - There has to be no decision for it.
     /// - The package version has to match all assignments.
-    func isValidDecision(for solution: PartialSolution<Identifier>) -> Bool {
+    func isValidDecision(for solution: PartialSolution) -> Bool {
         for assignment in solution.assignments where assignment.term.package == package {
             assert(!assignment.isDecision, "Expected assignment to be a derivation.")
             guard satisfies(assignment.term) else { return false }
@@ -214,11 +214,7 @@ extension PackageRequirement {
 
 extension Term: CustomStringConvertible {
     public var description: String {
-        var pkg = "\(package)"
-        if let pkgRef = package as? PackageReference {
-            pkg = pkgRef.identity
-        }
-
+        let pkg = "\(package)"
         var req = ""
         switch requirement {
         case .unversioned:
@@ -255,21 +251,22 @@ private extension Range where Bound == Version {
 /// A set of terms that are incompatible with each other and can therefore not
 /// all be true at the same time. In dependency resolution, these are derived
 /// from version requirements and when running into unresolvable situations.
-public struct Incompatibility<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
-    let terms: OrderedSet<Term<Identifier>>
-    let cause: Cause<Identifier>
+public struct Incompatibility: Equatable, Hashable {
+    typealias Identifier = PackageReference
+    let terms: OrderedSet<Term>
+    let cause: Cause
 
-    init(terms: OrderedSet<Term<Identifier>>, cause: Cause<Identifier>) {
+    init(terms: OrderedSet<Term>, cause: Cause) {
         self.terms = terms
         self.cause = cause
     }
 
-    init(_ terms: Term<Identifier>..., root: Identifier, cause: Cause<Identifier> = .root) {
+    init(_ terms: Term..., root: Identifier, cause: Cause = .root) {
         let termSet = OrderedSet(terms)
         self.init(termSet, root: root, cause: cause)
     }
 
-    init(_ terms: OrderedSet<Term<Identifier>>, root: Identifier, cause: Cause<Identifier>) {
+    init(_ terms: OrderedSet<Term>, root: Identifier, cause: Cause) {
         assert(terms.count > 0, "An incompatibility must contain at least one term.")
 
         // Remove the root package from generated incompatibilities, since it will
@@ -333,11 +330,11 @@ extension Incompatibility {
     ///         │{root 1.0.0}│
     ///         └────────────┘
     /// ```
-    indirect enum Cause<Identifier: PackageContainerIdentifier>: Equatable, Hashable {
+    indirect enum Cause: Equatable, Hashable {
         /// represents the root incompatibility
         case root
         /// represents a package's dependency
-        case dependency(package: Identifier)
+        case dependency(package: PackageReference)
         /// represents an incompatibility derived from two others during
         /// conflict resolution
         case conflict(conflict: Incompatibility, other: Incompatibility)
@@ -376,16 +373,16 @@ extension Incompatibility {
 /// at or before it in the partial solution that caused it to be derived. This
 /// is later used during conflict resolution to figure out how far back to jump
 /// when a conflict is found.
-public struct Assignment<Identifier: PackageContainerIdentifier>: Equatable {
-    let term: Term<Identifier>
+public struct Assignment: Equatable {
+    let term: Term
     let decisionLevel: Int
-    let cause: Incompatibility<Identifier>?
+    let cause: Incompatibility?
     let isDecision: Bool
 
     private init(
-        term: Term<Identifier>,
+        term: Term,
         decisionLevel: Int,
-        cause: Incompatibility<Identifier>?,
+        cause: Incompatibility?,
         isDecision: Bool
     ) {
         self.term = term
@@ -395,7 +392,7 @@ public struct Assignment<Identifier: PackageContainerIdentifier>: Equatable {
     }
 
     /// An assignment made during decision making.
-    static func decision(_ term: Term<Identifier>, decisionLevel: Int) -> Assignment {
+    static func decision(_ term: Term, decisionLevel: Int) -> Assignment {
         assert(term.requirement.isExact, "Cannot create a decision assignment with a non-exact version selection.")
 
         return self.init(
@@ -408,8 +405,8 @@ public struct Assignment<Identifier: PackageContainerIdentifier>: Equatable {
     /// An assignment derived from previously known incompatibilities during
     /// unit propagation.
     static func derivation(
-        _ term: Term<Identifier>,
-        cause: Incompatibility<Identifier>,
+        _ term: Term,
+        cause: Incompatibility,
         decisionLevel: Int) -> Assignment {
         return self.init(
             term: term,
@@ -432,30 +429,31 @@ extension Assignment: CustomStringConvertible {
 
 /// The partial solution is a constantly updated solution used throughout the
 /// dependency resolution process, tracking know assignments.
-final class PartialSolution<Identifier: PackageContainerIdentifier> {
+final class PartialSolution {
+    typealias Identifier = PackageReference
     var root: Identifier?
 
     /// All known assigments.
-    private(set) var assignments: [Assignment<Identifier>]
+    private(set) var assignments: [Assignment]
 
     /// All known decisions.
     private(set) var decisions: [Identifier: Version] = [:]
 
     /// The intersection of all positive assignments for each package, minus any
     /// negative assignments that refer to that package.
-    private(set) var _positive: OrderedDictionary<Identifier, Term<Identifier>> = [:]
+    private(set) var _positive: OrderedDictionary<Identifier, Term> = [:]
 
     /// Union of all negative assignments for a package.
     ///
     /// Only present if a package has no postive assignment.
-    private(set) var _negative: [Identifier: Term<Identifier>] = [:]
+    private(set) var _negative: [Identifier: Term] = [:]
 
     /// The current decision level.
     var decisionLevel: Int {
         return decisions.count - 1
     }
 
-    init(assignments: [Assignment<Identifier>] = []) {
+    init(assignments: [Assignment] = []) {
         self.assignments = assignments
         for assignment in assignments {
             register(assignment)
@@ -463,13 +461,13 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     }
 
     /// A list of all packages that have been assigned, but are not yet satisfied.
-    var undecided: [Term<Identifier>] {
+    var undecided: [Term] {
         return _positive.values.filter { !decisions.keys.contains($0.package) }
     }
 
     /// Create a new derivation assignment and add it to the partial solution's
     /// list of known assignments.
-    func derive(_ term: Term<Identifier>, cause: Incompatibility<Identifier>) {
+    func derive(_ term: Term, cause: Incompatibility) {
         let derivation = Assignment.derivation(term, cause: cause, decisionLevel: decisionLevel)
         self.assignments.append(derivation)
         register(derivation)
@@ -486,7 +484,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     }
 
     /// Populates the _positive and _negative poperties with the assignment.
-    private func register(_ assignment: Assignment<Identifier>) {
+    private func register(_ assignment: Assignment) {
         let term = assignment.term
         let pkg = term.package
 
@@ -507,8 +505,8 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
     /// Returns the first Assignment in this solution such that the list of
     /// assignments up to and including that entry satisfies term.
-    func satisfier(for term: Term<Identifier>) -> Assignment<Identifier> {
-        var assignedTerm: Term<Identifier>?
+    func satisfier(for term: Term) -> Assignment {
+        var assignedTerm: Term?
 
         for assignment in assignments {
             guard assignment.term.package == term.package else {
@@ -527,7 +525,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     /// Backtrack to a specific decision level by dropping all assignments with
     /// a decision level which is greater.
     func backtrack(toDecisionLevel decisionLevel: Int) {
-        var toBeRemoved: [(Int, Assignment<Identifier>)] = []
+        var toBeRemoved: [(Int, Assignment)] = []
 
         for (idx, assignment) in zip(0..., assignments) {
             if assignment.decisionLevel > decisionLevel {
@@ -551,12 +549,12 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
     }
 
     /// Returns true if the given term satisfies the partial solution.
-    func satisfies(_ term: Term<Identifier>) -> Bool {
+    func satisfies(_ term: Term) -> Bool {
         return self.relation(with: term) == .subset
     }
 
     /// Returns the set relation of the partial solution with the given term.
-    func relation(with term: Term<Identifier>) -> Term<Identifier>.SetRelation {
+    func relation(with term: Term) -> Term.SetRelation {
         let pkg = term.package
         if let positive = _positive[pkg] {
             return positive.relation(with: term)
@@ -571,10 +569,10 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 /// combination. E.g. we don't want both a^1.0.0 and a^1.5.0 to be terms in the
 /// same incompatibility, but have these combined by intersecting their version
 /// requirements to a^1.5.0.
-fileprivate func normalize<Identifier: PackageContainerIdentifier>(
-    terms: [Term<Identifier>]) -> [Term<Identifier>] {
+fileprivate func normalize(
+    terms: [Term]) -> [Term] {
     typealias Requirement = PackageRequirement
-    let dict = terms.reduce(into: [Identifier: (req: Requirement, polarity: Bool)]()) {
+    let dict = terms.reduce(into: [PackageReference: (req: Requirement, polarity: Bool)]()) {
         res, term in
         let previous = res[term.package, default: (term.requirement, term.isPositive)]
         let intersection = term.intersect(withRequirement: previous.req,
@@ -591,7 +589,7 @@ fileprivate func normalize<Identifier: PackageContainerIdentifier>(
     let sortedKeys = dict.keys.sorted(by: { lhs, rhs in
         return String(describing: lhs) < String(describing: rhs)
     })
-    let newTerms = sortedKeys.map { pkg -> Term<Identifier> in
+    let newTerms = sortedKeys.map { pkg -> Term in
         let req = dict[pkg]!
         return Term(package: pkg, requirement: req.req, isPositive: req.polarity)
     }
@@ -630,17 +628,17 @@ public struct GeneralTraceStep {
 }
 
 /// A step the resolver takes during conflict resolution.
-public struct ConflictResolutionTraceStep<Identifier: PackageContainerIdentifier> {
+public struct ConflictResolutionTraceStep {
     /// The conflicted incompatibility.
-    public let incompatibility: Incompatibility<Identifier>
-    public let term: Term<Identifier>
+    public let incompatibility: Incompatibility
+    public let term: Term
     /// The satisfying assignment.
-    public let satisfier: Assignment<Identifier>
+    public let satisfier: Assignment
 }
 
-public enum TraceStep<Identifier: PackageContainerIdentifier> {
+public enum TraceStep {
     case general(GeneralTraceStep)
-    case conflictResolution(ConflictResolutionTraceStep<Identifier>)
+    case conflictResolution(ConflictResolutionTraceStep)
 }
 
 public protocol Traceable: CustomStringConvertible {}
@@ -650,30 +648,29 @@ extension Term: Traceable {}
 /// The solver that is able to transitively resolve a set of package constraints
 /// specified by a root package.
 public final class PubgrubDependencyResolver<
-    P: PackageContainerProvider,
-    D: DependencyResolverDelegate
-> where P.Container.Identifier == D.Identifier {
+    P: PackageContainerProvider
+> {
     public typealias Provider = P
-    public typealias Delegate = D
+    public typealias Delegate = DependencyResolverDelegate
     public typealias Container = Provider.Container
-    public typealias Identifier = Container.Identifier
+    public typealias Identifier = PackageReference
     public typealias Binding = (container: Identifier, binding: BoundVersion)
 
     /// The type of the constraints the resolver operates on.
     ///
     /// Technically this is a container constraint, but that is currently the
     /// only kind of constraints we operate on.
-    public typealias Constraint = PackageContainerConstraint<Identifier>
+    public typealias Constraint = PackageContainerConstraint
 
     /// The current best guess for a solution satisfying all requirements.
-    var solution = PartialSolution<Identifier>()
+    var solution = PartialSolution()
 
     /// A collection of all known incompatibilities matched to the packages they
     /// refer to. This means an incompatibility can occur several times.
-    var incompatibilities: [Identifier: [Incompatibility<Identifier>]] = [:]
+    var incompatibilities: [Identifier: [Incompatibility]] = [:]
 
     /// Find all incompatibilities containing a positive term for a given package.
-    func positiveIncompatibilities(for package: Identifier) -> [Incompatibility<Identifier>]? {
+    func positiveIncompatibilities(for package: Identifier) -> [Incompatibility]? {
         guard let all = incompatibilities[package] else {
             return nil
         }
@@ -716,9 +713,9 @@ public final class PubgrubDependencyResolver<
 
     /// Trace a conflict resolution step.
     func trace(
-        incompatibility: Incompatibility<Identifier>,
-        term: Term<Identifier>,
-        satisfier: Assignment<Identifier>
+        incompatibility: Incompatibility,
+        term: Term,
+        satisfier: Assignment
         ) {
         let step = ConflictResolutionTraceStep(incompatibility: incompatibility,
                                                term: term,
@@ -735,7 +732,7 @@ public final class PubgrubDependencyResolver<
         solution.decide(package, atExactVersion: version)
     }
 
-    func derive(_ term: Term<Identifier>, cause: Incompatibility<Identifier>, location: GeneralTraceStep.Location) {
+    func derive(_ term: Term, cause: Incompatibility, location: GeneralTraceStep.Location) {
         trace(value: term, type: .derivation, location: location, cause: nil)
         solution.derive(term, cause: cause)
     }
@@ -751,7 +748,7 @@ public final class PubgrubDependencyResolver<
     }
 
     /// Add a new incompatibility to the list of known incompatibilities.
-    func add(_ incompatibility: Incompatibility<Identifier>, location: GeneralTraceStep.Location) {
+    func add(_ incompatibility: Incompatibility, location: GeneralTraceStep.Location) {
         trace(value: incompatibility, type: .incompatibility, location: location, cause: nil)
         for package in incompatibility.terms.map({ $0.package }) {
             if incompatibilities[package] != nil {
@@ -764,7 +761,7 @@ public final class PubgrubDependencyResolver<
         }
     }
 
-    public typealias Result = DependencyResolver<P, D>.Result
+    public typealias Result = DependencyResolver<P>.Result
 
     // TODO: This should be the actual (and probably only) entrypoint to version solving.
     /// Run the resolution algorithm on a root package finding a valid assignment of versions.
@@ -787,7 +784,7 @@ public final class PubgrubDependencyResolver<
     }
 
     public enum PubgrubError: Swift.Error, Equatable {
-        case unresolvable(Incompatibility<Identifier>)
+        case unresolvable(Incompatibility)
     }
 
     /// Find a set of dependencies that fit the given constraints. If dependency
@@ -909,8 +906,8 @@ public final class PubgrubDependencyResolver<
         }
     }
 
-    func propagate(incompatibility: Incompatibility<Identifier>) -> PropagationResult {
-        var unsatisfied: Term<Identifier>?
+    func propagate(incompatibility: Incompatibility) -> PropagationResult {
+        var unsatisfied: Term?
 
         for term in incompatibility.terms {
             let relation = solution.relation(with: term)
@@ -941,7 +938,7 @@ public final class PubgrubDependencyResolver<
         case none
     }
 
-    func _resolve(conflict: Incompatibility<Identifier>) throws -> Incompatibility<Identifier> {
+    func _resolve(conflict: Incompatibility) throws -> Incompatibility {
         // Based on:
         // https://github.com/dart-lang/pub/tree/master/doc/solver.md#conflict-resolution
         // https://github.com/dart-lang/pub/blob/master/lib/src/solver/version_solver.dart#L201
@@ -949,9 +946,9 @@ public final class PubgrubDependencyResolver<
         var createdIncompatibility = false
 
         while !isCompleteFailure(incompatibility) {
-            var mostRecentTerm: Term<Identifier>?
-            var mostRecentSatisfier: Assignment<Identifier>?
-            var difference: Term<Identifier>?
+            var mostRecentTerm: Term?
+            var mostRecentSatisfier: Assignment?
+            var difference: Term?
             var previousSatisfierLevel = 0
 
             for term in incompatibility.terms {
@@ -1016,7 +1013,7 @@ public final class PubgrubDependencyResolver<
     /// Does a given incompatibility specify that version solving has entirely
     /// failed, meaning this incompatibility is either empty or only for the root
     /// package.
-    private func isCompleteFailure(_ incompatibility: Incompatibility<Identifier>) -> Bool {
+    private func isCompleteFailure(_ incompatibility: Incompatibility) -> Bool {
         guard !incompatibility.terms.isEmpty else { return true }
         return incompatibility.terms.count == 1 && incompatibility.terms.first?.package == root
     }
@@ -1068,11 +1065,11 @@ public final class PubgrubDependencyResolver<
 
     // MARK: - Error Reporting
 
-    private var derivations: [Incompatibility<Identifier>: Int] = [:]
+    private var derivations: [Incompatibility: Int] = [:]
 
-    func reportError(for incompatibility: Incompatibility<Identifier>) -> String {
+    func reportError(for incompatibility: Incompatibility) -> String {
         /// Populate `derivations`.
-        func countDerivations(_ i: Incompatibility<Identifier>) {
+        func countDerivations(_ i: Incompatibility) {
             derivations[i, default: 0] += 1
             if case .conflict(let lhs, let rhs) = i.cause {
                 countDerivations(lhs)
@@ -1089,7 +1086,7 @@ public final class PubgrubDependencyResolver<
     }
 
     private func visit(
-        _ incompatibility: Incompatibility<Identifier>,
+        _ incompatibility: Incompatibility,
         _ stream: BufferedOutputByteStream,
         isConclusion: Bool = false
     ) {
@@ -1154,8 +1151,8 @@ public final class PubgrubDependencyResolver<
 
             }
         case (.conflict, _), (_, .conflict):
-            var derived: Incompatibility<Identifier>
-            var external: Incompatibility<Identifier>
+            var derived: Incompatibility
+            var external: Incompatibility
             if case .conflict = lhs.cause {
                 derived = lhs
                 external = rhs
@@ -1196,14 +1193,14 @@ public final class PubgrubDependencyResolver<
         }
     }
 
-    private var lineNumbers: [Incompatibility<Identifier>: Int] = [:]
+    private var lineNumbers: [Incompatibility: Int] = [:]
 
     /// Write a given output message to a stream. The message should describe
     /// the incompatibility and how it as derived. If `isNumbered` is true, a
     /// line number will be assigned to this incompatibility so that it can be
     /// referred to again.
     private func write(
-        _ i: Incompatibility<Identifier>,
+        _ i: Incompatibility,
         message: String,
         isNumbered: Bool,
         toStream stream: BufferedOutputByteStream
@@ -1255,7 +1252,7 @@ public final class PubgrubDependencyResolver<
     }
 
     /// Returns the best available version for a given term.
-    func getBestAvailableVersion(for term: Term<Identifier>) throws -> Version? {
+    func getBestAvailableVersion(for term: Term) throws -> Version? {
         assert(term.isPositive, "Expected term to be positive")
         let container = try getContainer(for: term.package)
 
@@ -1274,10 +1271,10 @@ public final class PubgrubDependencyResolver<
     func incompatibilites(
         for package: Identifier,
         at version: Version
-    ) throws -> [Incompatibility<Identifier>] {
+    ) throws -> [Incompatibility] {
         let container = try getContainer(for: package)
-        return try container.getDependencies(at: version).map { dep -> Incompatibility<Identifier> in
-            var terms: OrderedSet<Term<Identifier>> = []
+        return try container.getDependencies(at: version).map { dep -> Incompatibility in
+            var terms: OrderedSet<Term> = []
 
             // FIXME:
             //

@@ -56,7 +56,6 @@ public extension WorkspaceDelegate {
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
-    typealias Identifier = RepositoryPackageContainer.Identifier
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
@@ -89,14 +88,14 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
 }
 
 fileprivate enum PackageResolver {
-    typealias _PubgrubResolver = PubgrubDependencyResolver<RepositoryPackageContainerProvider, WorkspaceResolverDelegate>
-    typealias _DependencyResolver = DependencyResolver<RepositoryPackageContainerProvider, WorkspaceResolverDelegate>
+    typealias _PubgrubResolver = PubgrubDependencyResolver<RepositoryPackageContainerProvider>
+    typealias _DependencyResolver = DependencyResolver<RepositoryPackageContainerProvider>
 
     case pubgrub(_PubgrubResolver)
     case legacy(_DependencyResolver)
 
     typealias Identifier = PackageReference
-    typealias Constraint = PackageContainerConstraint<Identifier>
+    typealias Constraint = PackageContainerConstraint
 
     func resolve(constraints: [Constraint], pins: [Constraint]) throws -> [(container: Identifier, binding: BoundVersion)] {
         switch self {
@@ -300,8 +299,8 @@ public class Workspace {
     fileprivate let skipUpdate: Bool
 
     /// Typealias for dependency resolver we use in the workspace.
-    fileprivate typealias PackageDependencyResolver = DependencyResolver<RepositoryPackageContainerProvider, WorkspaceResolverDelegate>
-    fileprivate typealias PubgrubResolver = PubgrubDependencyResolver<RepositoryPackageContainerProvider, WorkspaceResolverDelegate>
+    fileprivate typealias PackageDependencyResolver = DependencyResolver<RepositoryPackageContainerProvider>
+    fileprivate typealias PubgrubResolver = PubgrubDependencyResolver<RepositoryPackageContainerProvider>
 
     /// Create a new package workspace.
     ///
@@ -1596,7 +1595,7 @@ extension Workspace {
         dependencies: [RepositoryPackageConstraint],
         pins: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine
-    ) -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
+    ) -> [(container: PackageReference, binding: BoundVersion)] {
         let resolver = resolver ?? createResolver()
 
         let result = resolver.resolve(dependencies: dependencies, pins: pins)

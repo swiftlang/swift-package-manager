@@ -104,7 +104,7 @@ enum RepositoryPackageResolutionError: Swift.Error {
     case unavailableRepository
 }
 
-extension PackageReference: PackageContainerIdentifier {
+extension PackageReference {
     /// The repository of the package.
     ///
     /// This should only be accessed when the reference is not local.
@@ -114,7 +114,7 @@ extension PackageReference: PackageContainerIdentifier {
     }
 }
 
-public typealias RepositoryPackageConstraint = PackageContainerConstraint<PackageReference>
+public typealias RepositoryPackageConstraint = PackageContainerConstraint
 
 /// Base class for the package container.
 public class BasePackageContainer: PackageContainer {
@@ -137,15 +137,15 @@ public class BasePackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
-    public func getDependencies(at version: Version) throws -> [PackageContainerConstraint<Identifier>] {
+    public func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
 
-    public func getDependencies(at revision: String) throws -> [PackageContainerConstraint<Identifier>] {
+    public func getDependencies(at revision: String) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
 
-    public func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {
+    public func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
 
@@ -204,7 +204,7 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
         return _manifest!
     }
 
-    public override func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {
+    public override func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
         return try loadManifest().dependencyConstraints(config: config)
     }
 
@@ -419,7 +419,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         return (manifest, manifest.dependencyConstraints(config: config))
     }
 
-    public override func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>] {
+    public override func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
         // We just return an empty array if requested for unversioned dependencies.
         return []
     }

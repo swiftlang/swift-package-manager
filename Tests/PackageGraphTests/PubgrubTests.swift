@@ -16,7 +16,7 @@ import PackageModel
 @testable import PackageGraph
 import SourceControl
 
-public typealias _MockPackageConstraint = PackageContainerConstraint<PackageReference>
+public typealias _MockPackageConstraint = PackageContainerConstraint
 
 public class _MockPackageContainer: PackageContainer {
 
@@ -118,9 +118,9 @@ public class _MockResolverDelegate: DependencyResolverDelegate {
 
     public init() {}
 
-    var traceSteps: [TraceStep<Identifier>] = []
+    var traceSteps: [TraceStep] = []
 
-    public func trace(_ step: TraceStep<Identifier>) {
+    public func trace(_ step: TraceStep) {
         traceSteps.append(step)
     }
 
@@ -212,9 +212,9 @@ let cRef = PackageReference(identity: "c", path: "")
 
 let rootRef = PackageReference(identity: "root", path: "")
 let rootCause = Incompatibility(Term(rootRef, .versionSet(.exact("1.0.0"))), root: rootRef)
-let _cause = Incompatibility<PackageReference>("cause@0.0.0", root: rootRef)
+let _cause = Incompatibility("cause@0.0.0", root: rootRef)
 
-fileprivate func term(_ literal: String) -> Term<PackageReference> {
+fileprivate func term(_ literal: String) -> Term {
     return Term(stringLiteral: literal)
 }
 
@@ -355,7 +355,7 @@ final class PubgrubTests: XCTestCase {
         let b1 = s1._positive.first { $0.key.identity == "b" }?.value
         XCTAssertEqual(b1?.requirement, .versionSet(.exact("2.0.0")))
 
-        let s2 = PartialSolution<PackageReference>(assignments: [
+        let s2 = PartialSolution(assignments: [
             .derivation("¬a^1.5.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
@@ -364,7 +364,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testSolutionUndecided() {
-        let solution = PartialSolution<PackageReference>()
+        let solution = PartialSolution()
         solution.derive("a^1.0.0", cause: rootCause)
         solution.decide("b", atExactVersion: "2.0.0")
         solution.derive("a^1.5.0", cause: rootCause)
@@ -381,7 +381,7 @@ final class PubgrubTests: XCTestCase {
         let a = term("a@1.0.0")
         let b = term("b@2.0.0")
 
-        let solution = PartialSolution<PackageReference>(assignments: [])
+        let solution = PartialSolution(assignments: [])
         solution.decide(rootRef, atExactVersion: "1.0.0")
         solution.decide(aRef, atExactVersion: "1.0.0")
         solution.derive(b, cause: _cause)
@@ -400,7 +400,7 @@ final class PubgrubTests: XCTestCase {
 
     func testSolutionBacktrack() {
         // TODO: This should probably add derivations to cover that logic as well.
-        let solution = PartialSolution<PackageReference>()
+        let solution = PartialSolution()
         solution.decide(aRef, atExactVersion: "1.0.0")
         solution.decide(bRef, atExactVersion: "1.0.0")
         solution.decide(cRef, atExactVersion: "1.0.0")
@@ -478,7 +478,7 @@ final class PubgrubTests: XCTestCase {
 
         XCTAssertEqual(solver2.incompatibilities.count, 2)
         XCTAssertEqual(solver2.incompatibilities["a"], [
-            Incompatibility<PackageReference>("a^1.0.0", "¬b^1.0.0",
+            Incompatibility("a^1.0.0", "¬b^1.0.0",
                                               root: rootRef,
                                               cause: .dependency(package: "a"))
         ])
@@ -614,7 +614,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testSolutionFindSatisfiers() {
-        let solution = PartialSolution<PackageReference>()
+        let solution = PartialSolution()
         solution.decide(rootRef, atExactVersion: "1.0.0") // ← previous, but actually nil because this is the root decision
         solution.derive(Term(aRef, .versionSet(.any)), cause: _cause) // ← satisfier
         solution.decide(aRef, atExactVersion: "2.0.0")
@@ -792,7 +792,7 @@ extension Term: ExpressibleByStringLiteral {
             fatalError("Unrecognized format")
         }
 
-        let packageReference: Identifier = PackageReference(identity: components[0], path: "") as! Identifier
+        let packageReference = PackageReference(identity: components[0], path: "")
 
         self.init(package: packageReference,
                   requirement: requirement,

@@ -16,11 +16,20 @@ import SourceControl
 
 import struct SPMUtility.Version
 
-public typealias MockDependencyResolver = DependencyResolver<MockPackagesProvider, MockResolverDelegate>
+public typealias MockDependencyResolver = DependencyResolver<MockPackagesProvider>
+public typealias MockPackageConstraint = PackageContainerConstraint
 
-extension String: PackageContainerIdentifier { }
+extension MockPackageConstraint {
+    public init(container identifier: String, requirement: PackageRequirement) {
+        let ref = PackageReference(identity: identifier.lowercased(), path: "")
+        self.init(container: ref, requirement: requirement)
+    }
 
-public typealias MockPackageConstraint = PackageContainerConstraint<String>
+    public init(container identifier: String, versionRequirement: VersionSetSpecifier) {
+        let ref = PackageReference(identity: identifier.lowercased(), path: "")
+        self.init(container: ref, versionRequirement: versionRequirement)
+    }
+}
 
 extension VersionSetSpecifier {
     init(_ json: JSON) {
@@ -49,18 +58,19 @@ extension VersionSetSpecifier {
     }
 }
 
-extension PackageContainerConstraint where T == String {
+extension PackageContainerConstraint {
     public init(json: JSON) {
         guard case let .dictionary(dict) = json else { fatalError() }
         guard case let .string(identifier)? = dict["identifier"] else { fatalError() }
         guard let requirement = dict["requirement"] else { fatalError() }
-        self.init(container: identifier, versionRequirement: VersionSetSpecifier(requirement))
+        let id = PackageReference(identity: identifier.lowercased(), path: "")
+        self.init(container: id, versionRequirement: VersionSetSpecifier(requirement))
     }
 }
 
 extension PackageContainerProvider {
     public func getContainer(
-        for identifier: Container.Identifier,
+        for identifier: PackageReference,
         completion: @escaping (Result<Container, AnyError>) -> Void
     ) {
         getContainer(for: identifier, skipUpdate: false, completion: completion)
@@ -73,7 +83,7 @@ public enum MockLoadingError: Error {
 
 public class MockPackageContainer: PackageContainer {
 
-    public typealias Identifier = String
+    public typealias Identifier = PackageReference
 
     public typealias Dependency = (container: Identifier, requirement: PackageRequirement)
 
@@ -111,21 +121,23 @@ public class MockPackageContainer: PackageContainer {
         return unversionedDeps
     }
 
-    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> String {
+    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
         return name
     }
 
     public convenience init(
-        name: Identifier,
-        dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]
+        name: String,
+        dependenciesByVersion: [Version: [(container: String, versionRequirement: VersionSetSpecifier)]]
     ) {
         var dependencies: [String: [Dependency]] = [:]
         for (version, deps) in dependenciesByVersion {
             dependencies[version.description] = deps.map({
-                ($0.container, .versionSet($0.versionRequirement))
+                let ref = PackageReference(identity: $0.container.lowercased(), path: "")
+                return (ref, .versionSet($0.versionRequirement))
             })
         }
-        self.init(name: name, dependencies: dependencies)
+        let ref = PackageReference(identity: name.lowercased(), path: "")
+        self.init(name: ref, dependencies: dependencies)
     }
 
     public init(
@@ -140,8 +152,8 @@ public class MockPackageContainer: PackageContainer {
 }
 
 public class MockPackageContainer2: MockPackageContainer {
-    public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> String {
-        return name + "-name"
+    public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
+        return name.with(newName: name.identity + "-name")
     }
 }
 
@@ -151,7 +163,7 @@ extension MockPackageContainer {
         guard case let .string(identifier)? = dict["identifier"] else { fatalError() }
         guard case let .dictionary(versions)? = dict["versions"] else { fatalError() }
 
-        var depByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]] = [:]
+        var depByVersion: [Version: [(container: String, versionRequirement: VersionSetSpecifier)]] = [:]
         for (version, deps) in versions {
             guard case let .array(depArray) = deps else { fatalError() }
             depByVersion[Version(string: version)!] = depArray
@@ -159,7 +171,7 @@ extension MockPackageContainer {
                 .map({ constraint in
                     switch constraint.requirement {
                     case .versionSet(let versionSet):
-                        return (constraint.identifier, versionSet)
+                        return (constraint.identifier.identity, versionSet)
                     case .unversioned:
                         fatalError()
                     case .revision:
@@ -173,6 +185,7 @@ extension MockPackageContainer {
 }
 
 public struct MockPackagesProvider: PackageContainerProvider {
+
     public typealias Container = MockPackageContainer
 
     public let containers: [Container]
@@ -184,7 +197,7 @@ public struct MockPackagesProvider: PackageContainerProvider {
     }
 
     public func getContainer(
-        for identifier: Container.Identifier,
+        for identifier: PackageReference,
         skipUpdate: Bool,
         completion: @escaping (Result<Container, AnyError>
     ) -> Void) {
@@ -201,7 +214,7 @@ public class MockResolverDelegate: DependencyResolverDelegate {
     public init() {}
 }
 
-extension DependencyResolver where P == MockPackagesProvider, D == MockResolverDelegate {
+extension DependencyResolver where P == MockPackagesProvider {
     /// Helper method which returns all the version binding out of resolver and assert failure for non version bindings.
     public func resolveToVersion(
         constraints: [MockPackageConstraint],
@@ -213,7 +226,7 @@ extension DependencyResolver where P == MockPackagesProvider, D == MockResolverD
                 XCTFail("Unexpected non version binding \($0.binding)", file: file, line: line)
                 return nil
             }
-            return ($0.container, version)
+            return ($0.container.identity, version)
         })
     }
 }
@@ -258,11 +271,15 @@ public struct MockGraph {
     }
 }
 
-public func XCTAssertEqual<I: PackageContainerIdentifier>(
-    _ assignment: [(container: I, version: Version)],
-    _ expected: [I: Version],
-    file: StaticString = #file, line: UInt = #line) {
-    var actual = [I: Version]()
+import struct PackageModel.PackageReference
+
+public func XCTAssertEqual<T: CustomStringConvertible>(
+    _ assignment: [(container: T, version: Version)],
+    _ expected: [T: Version],
+    file: StaticString = #file, line: UInt = #line)
+    where T: Hashable
+{
+    var actual = [T: Version]()
     for (identifier, binding) in assignment {
         actual[identifier] = binding
     }

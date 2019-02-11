@@ -9,6 +9,7 @@
 */
 
 import Basic
+import struct PackageModel.PackageReference
 import struct SPMUtility.Version
 import class Foundation.NSDate
 
@@ -17,12 +18,12 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
     case unsatisfiable
 
     /// The resolver found a dependency cycle.
-    case cycle(AnyPackageContainerIdentifier)
+    case cycle(PackageReference)
 
     /// The resolver encountered a versioned container which has a revision dependency.
     case incompatibleConstraints(
-        dependency: (AnyPackageContainerIdentifier, String),
-        revisions: [(AnyPackageContainerIdentifier, String)])
+        dependency: (PackageReference, String),
+        revisions: [(PackageReference, String)])
 
     public static func == (lhs: DependencyResolverError, rhs: DependencyResolverError) -> Bool {
         switch (lhs, rhs) {
@@ -47,13 +48,13 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
         case .unsatisfiable:
             return "unable to resolve dependencies"
         case .cycle(let package):
-            return "the package \(package.identifier) depends on itself"
+            return "the package \(package) depends on itself"
         case let .incompatibleConstraints(dependency, revisions):
             let stream = BufferedOutputByteStream()
-            stream <<< "the package \(dependency.0.identifier) @ \(dependency.1) contains incompatible dependencies:\n"
+            stream <<< "the package \(dependency.0) @ \(dependency.1) contains incompatible dependencies:\n"
             for (i, revision) in revisions.enumerated() {
                 stream <<< "    "
-                stream <<< "\(revision.0.identifier)" <<< " @ " <<< revision.1
+                stream <<< "\(revision.0)" <<< " @ " <<< revision.1
                 if i != revisions.count - 1 {
                     stream  <<< "\n"
                 }
@@ -182,24 +183,6 @@ public enum PackageRequirement: Hashable {
     }
 }
 
-/// An identifier which unambiguously references a package container.
-///
-/// This identifier is used to abstractly refer to another container when
-/// encoding dependencies across packages.
-public protocol PackageContainerIdentifier: Hashable { }
-
-/// A type-erased package container identifier.
-public struct AnyPackageContainerIdentifier: PackageContainerIdentifier {
-
-    /// The underlying identifier, represented as AnyHashable.
-    public let identifier: AnyHashable
-
-    /// Creates a type-erased identifier that wraps up the given instance.
-    init<T: PackageContainerIdentifier>(_ identifier: T) {
-        self.identifier = AnyHashable(identifier)
-    }
-}
-
 /// A container of packages.
 ///
 /// This is the top-level unit of package resolution, i.e. the unit at which
@@ -220,11 +203,9 @@ public struct AnyPackageContainerIdentifier: PackageContainerIdentifier {
 /// being contained within a single repository, should we choose to support that
 /// later.
 public protocol PackageContainer {
-    /// The type of packages contained.
-    associatedtype Identifier: PackageContainerIdentifier
 
     /// The identifier for the package.
-    var identifier: Identifier { get }
+    var identifier: PackageReference { get }
 
     /// Get the list of versions which are available for the package.
     ///
@@ -244,7 +225,7 @@ public protocol PackageContainer {
     /// - Precondition: `versions.contains(version)`
     /// - Throws: If the version could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at version: Version) throws -> [PackageContainerConstraint<Identifier>]
+    func getDependencies(at version: Version) throws -> [PackageContainerConstraint]
 
     /// Fetch the declared dependencies for a particular revision.
     ///
@@ -253,19 +234,19 @@ public protocol PackageContainer {
     ///
     /// - Throws: If the revision could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at revision: String) throws -> [PackageContainerConstraint<Identifier>]
+    func getDependencies(at revision: String) throws -> [PackageContainerConstraint]
 
     /// Fetch the dependencies of an unversioned package container.
     ///
     /// NOTE: This method should not be called on a versioned container.
-    func getUnversionedDependencies() throws -> [PackageContainerConstraint<Identifier>]
+    func getUnversionedDependencies() throws -> [PackageContainerConstraint]
 
     /// Get the updated identifier at a bound version.
     ///
     /// This can be used by the containers to fill in the missing information that is obtained
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
-    func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier
+    func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference
 }
 
 /// An interface for resolving package containers.
@@ -274,18 +255,18 @@ public protocol PackageContainerProvider {
 
     /// Get the container for a particular identifier asynchronously.
     func getContainer(
-        for identifier: Container.Identifier,
+        for identifier: PackageReference,
         skipUpdate: Bool,
         completion: @escaping (Result<Container, AnyError>) -> Void
     )
 }
 
 /// An individual constraint onto a container.
-public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomStringConvertible, Equatable {
-    public typealias Identifier = T
+public struct PackageContainerConstraint: CustomStringConvertible, Equatable {
+    public typealias Identifier = PackageReference
 
     /// The identifier for the container the constraint is on.
-    public let identifier: Identifier
+    public let identifier: PackageReference
 
     /// The constraint requirement.
     public let requirement: PackageRequirement
@@ -310,14 +291,13 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
 
 /// Delegate interface for dependency resoler status.
 public protocol DependencyResolverDelegate {
-    associatedtype Identifier: PackageContainerIdentifier
 
     /// Collect diagnostic information for a step the resolver takes.
-    func trace(_ step: TraceStep<Identifier>)
+    func trace(_ step: TraceStep)
 }
 
 public extension DependencyResolverDelegate {
-    func trace(_ step: TraceStep<Identifier>) { }
+    func trace(_ step: TraceStep) { }
 }
 
 // FIXME: This should be nested, but cannot be currently.
@@ -366,7 +346,7 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
 /// constraint.
 public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Hashable {
     public typealias Container = C
-    public typealias Identifier = Container.Identifier
+    public typealias Identifier = PackageReference
     public typealias Requirement = PackageRequirement
 
     public typealias Index = Dictionary<Identifier, Requirement>.Index
@@ -390,7 +370,7 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
 
     /// The list of containers with entries in the set.
     var containerIdentifiers: AnySequence<Identifier> {
-        return AnySequence<C.Identifier>(constraints.keys)
+        return AnySequence(constraints.keys)
     }
 
     /// Get the version set specifier associated with the given package `identifier`.
@@ -454,7 +434,7 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
     /// Create a constraint set by merging `constraint`.
     ///
     /// - Returns: The new set, or nil the resulting set is unsatisfiable.
-    public func merging(_ constraint: PackageContainerConstraint<Identifier>) -> PackageContainerConstraintSet<C>? {
+    public func merging(_ constraint: PackageContainerConstraint) -> PackageContainerConstraintSet<C>? {
         return merging(requirement: constraint.requirement, for: constraint.identifier)
     }
 
@@ -509,7 +489,7 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
 /// `constraints`, but this invariant is not explicitly enforced.
 struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     typealias Container = C
-    typealias Identifier = Container.Identifier
+    typealias Identifier = PackageReference
 
     // FIXME: Does it really make sense to key on the identifier here. Should we
     // require referential equality of containers and use that to simplify?
@@ -591,7 +571,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
         var result = PackageContainerConstraintSet<Container>()
 
         /// Merge the provided constraints into result.
-        func merge(constraints: [PackageContainerConstraint<Identifier>]) {
+        func merge(constraints: [PackageContainerConstraint]) {
             for constraint in constraints {
                 guard let merged = result.merging(constraint) else {
                     preconditionFailure("unsatisfiable constraint set")
@@ -768,20 +748,19 @@ func == <C>(lhs: VersionAssignmentSet<C>, rhs: VersionAssignmentSet<C>) -> Bool 
 /// open-ended version constraint. The given input is satisfiable iff the input
 /// 3-SAT instance is.
 public class DependencyResolver<
-    P: PackageContainerProvider,
-    D: DependencyResolverDelegate
-> where P.Container.Identifier == D.Identifier {
+    P: PackageContainerProvider
+> {
     public typealias Provider = P
-    public typealias Delegate = D
     public typealias Container = Provider.Container
-    public typealias Identifier = Container.Identifier
+    public typealias Identifier = PackageReference
+    public typealias Delegate = DependencyResolverDelegate
     public typealias Binding = (container: Identifier, binding: BoundVersion)
 
     /// The type of the constraints the resolver operates on.
     ///
     /// Technically this is a container constraint, but that is currently the
     /// only kind of constraints we operate on.
-    public typealias Constraint = PackageContainerConstraint<Identifier>
+    public typealias Constraint = PackageContainerConstraint
 
     /// The type of constraint set  the resolver operates on.
     typealias ConstraintSet = PackageContainerConstraintSet<Container>
@@ -793,7 +772,7 @@ public class DependencyResolver<
     public let provider: Provider
 
     /// The resolver's delegate.
-    public let delegate: Delegate?
+    public let delegate: DependencyResolverDelegate?
 
     /// Should resolver prefetch the containers.
     private let isPrefetchingEnabled: Bool
@@ -1005,7 +984,7 @@ public class DependencyResolver<
 
             // Diagnose if this container depends on itself.
             if constraints.contains(where: { $0.identifier == container.identifier }) {
-                error = DependencyResolverError.cycle(AnyPackageContainerIdentifier(container.identifier))
+                error = DependencyResolverError.cycle(container.identifier)
                 return AnySequence([])
             }
 
@@ -1067,25 +1046,25 @@ public class DependencyResolver<
 
                     // Since this is a versioned container, none of its
                     // dependencies can have a revision constraints.
-                    let incompatibleConstraints: [(AnyPackageContainerIdentifier, String)]
+                    let incompatibleConstraints: [(PackageReference, String)]
                     incompatibleConstraints = constraints.compactMap({
                         switch $0.requirement {
                         case .versionSet:
                             return nil
                         case .revision(let revision):
-                            return (AnyPackageContainerIdentifier($0.identifier), revision)
+                            return ($0.identifier, revision)
                         case .unversioned:
                             // FIXME: Maybe we should have metadata inside unversion to signify
                             // if its a local or edited dependency. We add edited constraints
                             // as inputs so it shouldn't really matter because an edited
                             // requirement can't be specified in the manifest file.
-                            return (AnyPackageContainerIdentifier($0.identifier), "local")
+                            return ($0.identifier, "local")
                         }
                     })
                     // If we have any revision constraints, set the error and abort.
                     guard incompatibleConstraints.isEmpty else {
                         self.error = DependencyResolverError.incompatibleConstraints(
-                            dependency: (AnyPackageContainerIdentifier(container.identifier), version.description),
+                            dependency: (container.identifier, version.description),
                             revisions: incompatibleConstraints)
                         return AnySequence([])
                     }
@@ -1288,13 +1267,10 @@ public class DependencyResolver<
 /// The resolver debugger.
 ///
 /// Finds the constraints which results in graph being unresolvable.
-private struct ResolverDebugger<
-    Provider: PackageContainerProvider,
-    Delegate: DependencyResolverDelegate
-> where Provider.Container.Identifier == Delegate.Identifier {
-
-    typealias Identifier = Provider.Container.Identifier
-    typealias Constraint = PackageContainerConstraint<Identifier>
+private struct ResolverDebugger<P: PackageContainerProvider> {
+    typealias Provider = P
+    typealias Delegate = DependencyResolverDelegate
+    typealias Identifier = PackageReference
 
     enum Error: Swift.Error {
         /// Reached the time limit without completing the algorithm.
@@ -1302,10 +1278,10 @@ private struct ResolverDebugger<
     }
 
     /// Reference to the resolver.
-    unowned let resolver: DependencyResolver<Provider, Delegate>
+    unowned let resolver: DependencyResolver<Provider>
 
     /// Create a new debugger.
-    init(_ resolver: DependencyResolver<Provider, Delegate>) {
+    init(_ resolver: DependencyResolver<Provider>) {
         self.resolver = resolver
     }
 
@@ -1321,16 +1297,16 @@ private struct ResolverDebugger<
     ///
     /// This algorithm can be exponential, so we abort after the predefined time limit.
     func debug(
-        dependencies inputDependencies: [Constraint],
-        pins inputPins: [Constraint]
-    ) throws -> (dependencies: [Constraint], pins: [Constraint]) {
+        dependencies inputDependencies: [PackageContainerConstraint],
+        pins inputPins: [PackageContainerConstraint]
+    ) throws -> (dependencies: [PackageContainerConstraint], pins: [PackageContainerConstraint]) {
 
         // Form the dependencies array.
         //
 		// We iterate over the inputs and fetch all the dependencies for
 		// unversioned requirements as the unversioned requirements are not
 		// relevant to the dependency resolution.
-        var dependencies = [Constraint]()
+        var dependencies = [PackageContainerConstraint]()
         for constraint in inputDependencies {
             if constraint.requirement == .unversioned {
                 // Ignore the errors here.
@@ -1392,7 +1368,7 @@ private struct ResolverDebugger<
 
             // Set all disallowed packages to unversioned, so they stay out of resolution.
             constraints += disallowedPackages.map({
-                Constraint(container: $0, requirement: .unversioned)
+                PackageContainerConstraint(container: $0, requirement: .unversioned)
             })
 
             let allowedPins = Set(allowedChanges.compactMap({ $0.allowedPin }))
@@ -1419,7 +1395,7 @@ private struct ResolverDebugger<
     }
 
     /// Returns true if the constraints are satisfiable.
-    func satisfies(_ constraints: [Constraint]) throws -> Bool {
+    func satisfies(_ constraints: [PackageContainerConstraint]) throws -> Bool {
         do {
             _ = try resolver.resolve(constraints: constraints, pins: [])
             return true
