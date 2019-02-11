@@ -426,23 +426,6 @@ final class PubgrubTests: XCTestCase {
                        .versionSet(.range("1.5.0"..<"2.0.0")))
     }
 
-    func testSolutionIsFinished() {
-        let unfinished = PartialSolution<PackageReference>()
-        unfinished.decide(rootRef, atExactVersion: "1.0.0")
-        unfinished.derive("a^1.0.0", cause: _cause)
-        unfinished.decide(aRef, atExactVersion: "1.0.0")
-        unfinished.derive("b^2.0.0", cause: _cause)
-        XCTAssertFalse(unfinished.isFinished)
-
-        let finished = PartialSolution<PackageReference>()
-        finished.decide(rootRef, atExactVersion: "1.0.0")
-        finished.derive("a^1.0.0", cause: _cause)
-        finished.decide(aRef, atExactVersion: "1.0.0")
-        finished.derive("b^2.0.0", cause: _cause)
-        finished.decide(bRef, atExactVersion: "2.5.0")
-        XCTAssert(finished.isFinished)
-    }
-
     func testResolverAddIncompatibility() {
         let solver = PubgrubDependencyResolver(emptyProvider, delegate)
 
