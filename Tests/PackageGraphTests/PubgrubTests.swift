@@ -720,6 +720,64 @@ final class PubgrubTests: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         }
     }
+
+    func DISABLED_testCycle1() {
+        let root = _MockPackageContainer(name: rootRef)
+        let fooRef = PackageReference(identity: "foo", path: "")
+
+        root.unversionedDeps = [
+            _MockPackageConstraint(container: fooRef, versionRequirement: v1Range),
+        ]
+        let foo = _MockPackageContainer(name: fooRef, dependenciesByVersion: [
+            v1_1: [
+                (container: fooRef, versionRequirement: v1Range),
+            ]
+        ])
+
+        let provider = _MockPackageProvider(containers: [root, foo])
+        let resolver = PubgrubDependencyResolver(provider, delegate)
+
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        guard case .error = result else {
+            return XCTFail("Expected a cycle")
+        }
+    }
+
+    func DISABLED_testCycle2() {
+        let root = _MockPackageContainer(name: rootRef)
+        let fooRef = PackageReference(identity: "foo", path: "")
+        let barRef = PackageReference(identity: "bar", path: "")
+        let bazRef = PackageReference(identity: "baz", path: "")
+        let bamRef = PackageReference(identity: "bam", path: "")
+
+        root.unversionedDeps = [
+            _MockPackageConstraint(container: fooRef, versionRequirement: v1Range),
+        ]
+        let foo = _MockPackageContainer(name: fooRef, dependenciesByVersion: [
+            v1_1: [
+                (container: barRef, versionRequirement: v1Range),
+            ]
+            ])
+        let bar = _MockPackageContainer(name: barRef, dependenciesByVersion: [
+            v1: [(container: bazRef, versionRequirement: v1Range)]
+            ])
+        let baz = _MockPackageContainer(name: bazRef, dependenciesByVersion: [
+            v1: [(container: bamRef, versionRequirement: v1Range)]
+            ])
+        let bam = _MockPackageContainer(name: bamRef, dependenciesByVersion: [
+            v1: [(container: bazRef, versionRequirement: v1Range)]
+        ])
+
+        let provider = _MockPackageProvider(containers: [root, foo, bar, baz, bam])
+        let resolver = PubgrubDependencyResolver(provider, delegate)
+
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        guard case .error = result else {
+            return XCTFail("Expected a cycle")
+        }
+    }
 }
 
 extension Term: ExpressibleByStringLiteral {
