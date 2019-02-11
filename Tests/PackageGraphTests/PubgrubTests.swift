@@ -411,18 +411,18 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(solution.decisionLevel, 1)
     }
 
-    func testSolutionVersionIntersection() {
+    func testPositiveTerms() {
         let s1 = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0),
         ])
-        XCTAssertEqual(s1.versionIntersection(for: "a")?.requirement,
+        XCTAssertEqual(s1._positive["a"]?.requirement,
                        .versionSet(.range("1.0.0"..<"2.0.0")))
 
         let s2 = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.5.0", cause: _cause, decisionLevel: 0)
         ])
-        XCTAssertEqual(s2.versionIntersection(for: "a")?.requirement,
+        XCTAssertEqual(s2._positive["a"]?.requirement,
                        .versionSet(.range("1.5.0"..<"2.0.0")))
     }
 
