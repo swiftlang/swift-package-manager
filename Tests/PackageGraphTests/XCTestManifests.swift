@@ -56,6 +56,7 @@ extension PubgrubTests {
     static let __allTests__PubgrubTests = [
         ("testIncompatibilityNormalizeTermsOnInit", testIncompatibilityNormalizeTermsOnInit),
         ("testMissingVersion", testMissingVersion),
+        ("testPositiveTerms", testPositiveTerms),
         ("testResolutionAvoidingConflictResolutionDuringDecisionMaking", testResolutionAvoidingConflictResolutionDuringDecisionMaking),
         ("testResolutionConflictResolutionWithAPartialSatisfier", testResolutionConflictResolutionWithAPartialSatisfier),
         ("testResolutionNoConflicts", testResolutionNoConflicts),
@@ -69,7 +70,6 @@ extension PubgrubTests {
         ("testSolutionIsFinished", testSolutionIsFinished),
         ("testSolutionPositive", testSolutionPositive),
         ("testSolutionUndecided", testSolutionUndecided),
-        ("testSolutionVersionIntersection", testSolutionVersionIntersection),
         ("testTermIntersection", testTermIntersection),
         ("testTermInverse", testTermInverse),
         ("testTermIsValidDecision", testTermIsValidDecision),

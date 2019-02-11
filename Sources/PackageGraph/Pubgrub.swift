@@ -480,12 +480,8 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
     /// A list of all packages that have been assigned, but are not yet satisfied.
     var undecided: [Term<Identifier>] {
-        let decisionTerms = assignments
-            .filter { $0.isDecision }
-            .map { $0.term }
-
         // FIXME: Should we sort this so we have a deterministic results?
-        return _positive.values.filter { !decisionTerms.contains($0) }
+        return _positive.values.filter { !decisions.keys.contains($0.package) }
     }
 
     /// Create a new derivation assignment and add it to the partial solution's
@@ -570,25 +566,6 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         for assignment in assignments {
             register(assignment)
         }
-    }
-
-    /// Create an intersection of the versions of all assignments referring to
-    /// a given package.
-    /// - Returns: nil if no assignments exist or intersection of versions is
-    ///            invalid.
-    func versionIntersection(for package: Identifier) -> Term<Identifier>? {
-        let packageAssignments = assignments.filter { $0.term.package == package }
-        let firstTerm = packageAssignments.first?.term
-        guard let intersection = packageAssignments.reduce(firstTerm, { result, assignment in
-                guard let res = result?.intersect(with: assignment.term) else {
-                    return nil
-                }
-                return res
-            })
-            else {
-                return nil
-        }
-        return intersection
     }
 
     /// Does the solution contain a decision for every derivation meaning
@@ -1092,11 +1069,7 @@ public final class PubgrubDependencyResolver<
 
         // FIXME: We should choose a package with least available versions for the
         // constraints that we have so far on the package.
-        let candidate = undecided.first!
-
-        guard let pkgTerm = solution.versionIntersection(for: candidate.package) else {
-            fatalError("failed to create version intersection for \(candidate.package)")
-        }
+        let pkgTerm = undecided.first!
 
         // Get the best available version for this package.
         guard let version = try getBestAvailableVersion(for: pkgTerm) else {
@@ -1125,10 +1098,10 @@ public final class PubgrubDependencyResolver<
 
         // Decide this version if there was no conflict with its dependencies.
         if !haveConflict {
-            decide(candidate.package, version: version, location: .decisionMaking)
+            decide(pkgTerm.package, version: version, location: .decisionMaking)
         }
 
-        return candidate.package
+        return pkgTerm.package
     }
 
     // MARK: - Error Reporting
