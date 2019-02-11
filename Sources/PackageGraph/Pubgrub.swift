@@ -1294,49 +1294,10 @@ public final class PubgrubDependencyResolver<
 
     /// Returns the best available version for a given term.
     func getBestAvailableVersion(for term: Term<Identifier>) throws -> Version? {
-        let container = try! getContainer(for: term.package)
-        let availableVersions = container.versions(filter: { term.isSatisfied(by: $0)} )
-
-        // FIXME: Clean this up.
-        for version in availableVersions {
-            // If there is an existing single-positive-term incompatibility
-            // that forbids this version, we should skip right to trying the
-            // next one.
-            let requirements = incompatibilities[term.package]?
-                .filter {
-                    $0.terms.count == 1 &&
-                        $0.terms.first?.package == term.package &&
-                        $0.terms.first?.isPositive == true
-                }
-                .map {
-                    $0.terms.first!.requirement
-            }
-
-            for forbidden in requirements ?? [] {
-                switch forbidden {
-                case .versionSet(let versionSet):
-                    switch versionSet {
-                    case .any:
-                        continue
-                    case .range(let forbidden):
-                        if forbidden.contains(version: version) {
-                            continue
-                        }
-                    case .exact(let forbidden):
-                        if forbidden == version {
-                            continue
-                        }
-                    case .empty:
-                        break
-                    }
-                default:
-                    break
-                }
-            }
-            return version
-        }
-
-        return nil
+        assert(term.isPositive, "Expected term to be positive")
+        let container = try getContainer(for: term.package)
+        let availableVersions = container.versions(filter: { term.isSatisfied(by: $0) } )
+        return availableVersions.first{ _ in true }
     }
 
     /// Returns the incompatibilities of a package at the given version.
