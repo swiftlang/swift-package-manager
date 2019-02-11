@@ -51,22 +51,6 @@ public struct Term<Identifier: PackageContainerIdentifier>: Equatable, Hashable 
         return self.relation(with: other) == .subset
     }
 
-    func isSatisfied(by other: Version) -> Bool {
-        let isSatisfied: Bool
-        switch requirement {
-        case .versionSet(.exact(let version)):
-            isSatisfied = version == other
-        case .versionSet(.range(let range)):
-            isSatisfied = range.contains(version: other)
-        case .versionSet(.any):
-            isSatisfied = true
-        default:
-            isSatisfied = false
-        }
-
-        return isPositive ? isSatisfied : !isSatisfied
-    }
-
     /// Create an intersection with another term.
     func intersect(with other: Term) -> Term? {
         guard self.package == other.package else { return nil }
@@ -1296,8 +1280,16 @@ public final class PubgrubDependencyResolver<
     func getBestAvailableVersion(for term: Term<Identifier>) throws -> Version? {
         assert(term.isPositive, "Expected term to be positive")
         let container = try getContainer(for: term.package)
-        let availableVersions = container.versions(filter: { term.isSatisfied(by: $0) } )
-        return availableVersions.first{ _ in true }
+
+        switch term.requirement {
+        case .versionSet(let versionSet):
+            let availableVersions = container.versions(filter: { versionSet.contains($0) } )
+            return availableVersions.first{ _ in true }
+        case .revision:
+            fatalError()
+        case .unversioned:
+            fatalError()
+        }
     }
 
     /// Returns the incompatibilities of a package at the given version.
