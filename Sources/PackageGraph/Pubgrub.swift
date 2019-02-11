@@ -552,17 +552,6 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         }
     }
 
-    /// Does the solution contain a decision for every derivation meaning
-    /// that all necessary packages have been found?
-    var isFinished: Bool {
-        for derivation in assignments where !derivation.isDecision {
-            if !self.decisions.keys.contains(derivation.term.package) {
-                return false
-            }
-        }
-        return true
-    }
-
     /// Returns true if the given term satisfies the partial solution.
     func satisfies(_ term: Term<Identifier>) -> Bool {
         return self.relation(with: term) == .subset
@@ -870,15 +859,6 @@ public final class PubgrubDependencyResolver<
         var next: Identifier? = root
         while let nxt = next {
             try propagate(nxt)
-
-            // FIXME: Is this really needed here because next should return nil
-            // once version solving has finished.
-            //
-            // If the solution contains a decision for every derivation version
-            // solving is finished.
-            if solution.isFinished {
-                return
-            }
 
             // If decision making determines that no more decisions are to be
             // made, it returns nil to signal that version solving is done.
