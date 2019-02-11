@@ -67,7 +67,6 @@ extension PubgrubTests {
         ("testSolutionAddAssignments", testSolutionAddAssignments),
         ("testSolutionBacktrack", testSolutionBacktrack),
         ("testSolutionFindSatisfiers", testSolutionFindSatisfiers),
-        ("testSolutionIsFinished", testSolutionIsFinished),
         ("testSolutionPositive", testSolutionPositive),
         ("testSolutionUndecided", testSolutionUndecided),
         ("testTermIntersection", testTermIntersection),
