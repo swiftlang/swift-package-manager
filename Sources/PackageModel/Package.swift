@@ -115,7 +115,7 @@ extension Package: ObjectIdentifierProtocol {
 /// A package reference.
 ///
 /// This represents a reference to a package containing its identity and location.
-public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConvertible {
+public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConvertible, Equatable, Hashable {
 
     /// Compute identity of a package given its URL.
     public static func computeIdentity(packageURL: String) -> String {
@@ -184,6 +184,6 @@ public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConv
     }
 
     public var description: String {
-        return identity + "[\(path)]"
+        return identity + (path.isEmpty ? "" : "[\(path)]")
     }
 }
