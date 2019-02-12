@@ -81,7 +81,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
 
     /// An array containing just the values of the ordered dictionary.
     public var values: [Value] {
-        return self.array.compactMap { self.dict[$0] }
+        return self.array.map { self.dict[$0]! }
     }
 
     /// Remove all key-value pairs from the ordered dictionary.
