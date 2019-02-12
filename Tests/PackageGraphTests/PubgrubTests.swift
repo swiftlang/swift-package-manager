@@ -764,7 +764,7 @@ extension Term: ExpressibleByStringLiteral {
         }
 
         var components: [String] = []
-        var requirement: Requirement
+        var requirement: PackageRequirement
 
         if value.contains("@") {
             components = value.split(separator: "@").map(String.init)

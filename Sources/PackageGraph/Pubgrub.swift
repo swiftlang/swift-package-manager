@@ -14,24 +14,22 @@ import struct PackageModel.PackageReference
 
 /// A term represents a statement about a package that may be true or false.
 public struct Term: Equatable, Hashable {
-    typealias Requirement = PackageRequirement
-    typealias Identifier = PackageReference
-    let package: Identifier
-    let requirement: Requirement
+    let package: PackageReference
+    let requirement: PackageRequirement
     let isPositive: Bool
 
-    init(package: Identifier, requirement: Requirement, isPositive: Bool) {
+    init(package: PackageReference, requirement: PackageRequirement, isPositive: Bool) {
         self.package = package
         self.requirement = requirement
         self.isPositive = isPositive
     }
 
-    init(_ package: Identifier, _ requirement: Requirement) {
+    init(_ package: PackageReference, _ requirement: PackageRequirement) {
         self.init(package: package, requirement: requirement, isPositive: true)
     }
 
     /// Create a new negative term.
-    init(not package: Identifier, _ requirement: Requirement) {
+    init(not package: PackageReference, _ requirement: PackageRequirement) {
         self.init(package: package, requirement: requirement, isPositive: false)
     }
 
@@ -62,7 +60,7 @@ public struct Term: Equatable, Hashable {
     /// and given term.
     /// Returns `nil` if an intersection is not possible (possibly due to being
     /// constrained on branches, revisions, local, etc. or entirely different packages).
-    func intersect(withRequirement requirement: Requirement, andPolarity isPositive: Bool) -> Term? {
+    func intersect(withRequirement requirement: PackageRequirement, andPolarity isPositive: Bool) -> Term? {
         // TODO: This needs more tests.
         guard case .versionSet(let lhs) = self.requirement, case .versionSet(let rhs) = requirement else { return nil }
 
@@ -115,7 +113,7 @@ public struct Term: Equatable, Hashable {
         return self.intersect(with: other.inverse)
     }
 
-    private func with(_ requirement: Requirement) -> Term {
+    private func with(_ requirement: PackageRequirement) -> Term {
         return Term(
             package: self.package,
             requirement: requirement,
@@ -252,7 +250,6 @@ private extension Range where Bound == Version {
 /// all be true at the same time. In dependency resolution, these are derived
 /// from version requirements and when running into unresolvable situations.
 public struct Incompatibility: Equatable, Hashable {
-    typealias Identifier = PackageReference
     let terms: OrderedSet<Term>
     let cause: Cause
 
@@ -261,12 +258,12 @@ public struct Incompatibility: Equatable, Hashable {
         self.cause = cause
     }
 
-    init(_ terms: Term..., root: Identifier, cause: Cause = .root) {
+    init(_ terms: Term..., root: PackageReference, cause: Cause = .root) {
         let termSet = OrderedSet(terms)
         self.init(termSet, root: root, cause: cause)
     }
 
-    init(_ terms: OrderedSet<Term>, root: Identifier, cause: Cause) {
+    init(_ terms: OrderedSet<Term>, root: PackageReference, cause: Cause) {
         assert(terms.count > 0, "An incompatibility must contain at least one term.")
 
         // Remove the root package from generated incompatibilities, since it will
@@ -430,23 +427,22 @@ extension Assignment: CustomStringConvertible {
 /// The partial solution is a constantly updated solution used throughout the
 /// dependency resolution process, tracking know assignments.
 final class PartialSolution {
-    typealias Identifier = PackageReference
-    var root: Identifier?
+    var root: PackageReference?
 
     /// All known assigments.
     private(set) var assignments: [Assignment]
 
     /// All known decisions.
-    private(set) var decisions: [Identifier: Version] = [:]
+    private(set) var decisions: [PackageReference: Version] = [:]
 
     /// The intersection of all positive assignments for each package, minus any
     /// negative assignments that refer to that package.
-    private(set) var _positive: OrderedDictionary<Identifier, Term> = [:]
+    private(set) var _positive: OrderedDictionary<PackageReference, Term> = [:]
 
     /// Union of all negative assignments for a package.
     ///
     /// Only present if a package has no postive assignment.
-    private(set) var _negative: [Identifier: Term] = [:]
+    private(set) var _negative: [PackageReference: Term] = [:]
 
     /// The current decision level.
     var decisionLevel: Int {
@@ -475,7 +471,7 @@ final class PartialSolution {
 
     /// Create a new decision assignment and add it to the partial solution's
     /// list of known assignments.
-    func decide(_ package: Identifier, atExactVersion version: Version) {
+    func decide(_ package: PackageReference, atExactVersion version: Version) {
         decisions[package] = version
         let term = Term(package, .versionSet(.exact(version)))
         let decision = Assignment.decision(term, decisionLevel: decisionLevel)
@@ -571,8 +567,7 @@ final class PartialSolution {
 /// requirements to a^1.5.0.
 fileprivate func normalize(
     terms: [Term]) -> [Term] {
-    typealias Requirement = PackageRequirement
-    let dict = terms.reduce(into: [PackageReference: (req: Requirement, polarity: Bool)]()) {
+    let dict = terms.reduce(into: [PackageReference: (req: PackageRequirement, polarity: Bool)]()) {
         res, term in
         let previous = res[term.package, default: (term.requirement, term.isPositive)]
         let intersection = term.intersect(withRequirement: previous.req,
@@ -648,13 +643,8 @@ extension Term: Traceable {}
 /// The solver that is able to transitively resolve a set of package constraints
 /// specified by a root package.
 public final class PubgrubDependencyResolver<
-    P: PackageContainerProvider
+    Provider: PackageContainerProvider
 > {
-    public typealias Provider = P
-    public typealias Delegate = DependencyResolverDelegate
-    public typealias Container = Provider.Container
-    public typealias Identifier = PackageReference
-    public typealias Binding = (container: Identifier, binding: BoundVersion)
 
     /// The type of the constraints the resolver operates on.
     ///
@@ -667,10 +657,10 @@ public final class PubgrubDependencyResolver<
 
     /// A collection of all known incompatibilities matched to the packages they
     /// refer to. This means an incompatibility can occur several times.
-    var incompatibilities: [Identifier: [Incompatibility]] = [:]
+    var incompatibilities: [PackageReference: [Incompatibility]] = [:]
 
     /// Find all incompatibilities containing a positive term for a given package.
-    func positiveIncompatibilities(for package: Identifier) -> [Incompatibility]? {
+    func positiveIncompatibilities(for package: PackageReference) -> [Incompatibility]? {
         guard let all = incompatibilities[package] else {
             return nil
         }
@@ -680,19 +670,19 @@ public final class PubgrubDependencyResolver<
     }
 
     /// The root package reference.
-    private(set) var root: Identifier?
+    private(set) var root: PackageReference?
 
     /// The container provider used to load package containers.
     let provider: Provider
 
     /// The resolver's delegate.
-    let delegate: Delegate?
+    let delegate: DependencyResolverDelegate?
 
     /// Skip updating containers while fetching them.
     private let skipUpdate: Bool
 
     /// Set the package root.
-    func set(_ root: Identifier) {
+    func set(_ root: PackageReference) {
         self.root = root
         self.solution.root = root
     }
@@ -723,7 +713,7 @@ public final class PubgrubDependencyResolver<
         delegate?.trace(.conflictResolution(step))
     }
 
-    func decide(_ package: Identifier, version: Version, location: GeneralTraceStep.Location) {
+    func decide(_ package: PackageReference, version: Version, location: GeneralTraceStep.Location) {
         let term = Term(package, .versionSet(.exact(version)))
         // FIXME: Shouldn't we check this _before_ making a decision?
         assert(term.isValidDecision(for: solution))
@@ -739,7 +729,7 @@ public final class PubgrubDependencyResolver<
 
     public init(
         _ provider: Provider,
-        _ delegate: Delegate? = nil,
+        _ delegate: DependencyResolverDelegate? = nil,
         skipUpdate: Bool = false
         ) {
         self.provider = provider
@@ -761,11 +751,11 @@ public final class PubgrubDependencyResolver<
         }
     }
 
-    public typealias Result = DependencyResolver<P>.Result
+    public typealias Result = DependencyResolver<Provider>.Result
 
     // TODO: This should be the actual (and probably only) entrypoint to version solving.
     /// Run the resolution algorithm on a root package finding a valid assignment of versions.
-    public func solve(root: Identifier, pins: [Constraint]) -> Result {
+    public func solve(root: PackageReference, pins: [Constraint]) -> Result {
         self.set(root)
         do {
             return try .success(solve(constraints: [], pins: pins))
@@ -793,7 +783,7 @@ public final class PubgrubDependencyResolver<
     ///            before this is called.
     public func solve(
         constraints: [Constraint], pins: [Constraint]
-    ) throws -> [(container: Identifier, binding: BoundVersion)] {
+    ) throws -> [(container: PackageReference, binding: BoundVersion)] {
         // TODO: Handle pins
         guard let root = self.root else {
             fatalError("Expected resolver root reference to be set.")
@@ -824,7 +814,7 @@ public final class PubgrubDependencyResolver<
         }
 
         let decisions = solution.assignments.filter { $0.isDecision }
-        let finalAssignments: [(container: Identifier, binding: BoundVersion)] = decisions.map { assignment in
+        let finalAssignments: [(container: PackageReference, binding: BoundVersion)] = decisions.map { assignment in
             var boundVersion: BoundVersion
             switch assignment.term.requirement {
             case .versionSet(.exact(let version)):
@@ -851,7 +841,7 @@ public final class PubgrubDependencyResolver<
     /// After this method returns `solution` is either populated with a list of
     /// final version assignments or an error is thrown.
     func run() throws {
-        var next: Identifier? = root
+        var next: PackageReference? = root
         while let nxt = next {
             try propagate(nxt)
 
@@ -865,8 +855,8 @@ public final class PubgrubDependencyResolver<
     /// partial solution.
     /// If a conflict is found, the conflicting incompatibility is returned to
     /// resolve the conflict on.
-    func propagate(_ package: Identifier) throws {
-        var changed: OrderedSet<Identifier> = [package]
+    func propagate(_ package: PackageReference) throws {
+        var changed: OrderedSet<PackageReference> = [package]
 
         while !changed.isEmpty {
             let package = changed.removeFirst()
@@ -934,7 +924,7 @@ public final class PubgrubDependencyResolver<
 
     enum PropagationResult {
         case conflict
-        case almostSatisfied(package: Identifier)
+        case almostSatisfied(package: PackageReference)
         case none
     }
 
@@ -1018,7 +1008,7 @@ public final class PubgrubDependencyResolver<
         return incompatibility.terms.count == 1 && incompatibility.terms.first?.package == root
     }
 
-    func makeDecision() throws -> Identifier? {
+    func makeDecision() throws -> PackageReference? {
         let undecided = solution.undecided
 
         // If there are no more undecided terms, version solving is complete.
@@ -1221,13 +1211,13 @@ public final class PubgrubDependencyResolver<
     private let fetchCondition = Condition()
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [Identifier: Basic.Result<Container, AnyError>] = [:]
+    private var _fetchedContainers: [PackageReference: Basic.Result<Provider.Container, AnyError>] = [:]
 
     /// The set of containers requested so far.
-    private var _prefetchingContainers: Set<Identifier> = []
+    private var _prefetchingContainers: Set<PackageReference> = []
 
     /// Get the container for the given identifier, loading it if necessary.
-    fileprivate func getContainer(for identifier: Identifier) throws -> Container {
+    fileprivate func getContainer(for identifier: PackageReference) throws -> Provider.Container {
         return try fetchCondition.whileLocked {
             // Return the cached container, if available.
             if let container = _fetchedContainers[identifier] {
@@ -1269,7 +1259,7 @@ public final class PubgrubDependencyResolver<
 
     /// Returns the incompatibilities of a package at the given version.
     func incompatibilites(
-        for package: Identifier,
+        for package: PackageReference,
         at version: Version
     ) throws -> [Incompatibility] {
         let container = try getContainer(for: package)
