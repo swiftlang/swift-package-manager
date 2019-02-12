@@ -175,6 +175,7 @@ extension Manifest {
         try container.encode(dependencies, forKey: .dependencies)
         try container.encode(products, forKey: .products)
         try container.encode(targets, forKey: .targets)
+        try container.encode(platforms, forKey: .platforms)
     }
 }
 
