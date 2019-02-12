@@ -443,7 +443,7 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
     /// The intersection of all positive assignments for each package, minus any
     /// negative assignments that refer to that package.
-    private(set) var _positive: [Identifier: Term<Identifier>] = [:]
+    private(set) var _positive: OrderedDictionary<Identifier, Term<Identifier>> = [:]
 
     /// Union of all negative assignments for a package.
     ///
@@ -464,7 +464,6 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
 
     /// A list of all packages that have been assigned, but are not yet satisfied.
     var undecided: [Term<Identifier>] {
-        // FIXME: Should we sort this so we have a deterministic results?
         return _positive.values.filter { !decisions.keys.contains($0.package) }
     }
 
@@ -531,7 +530,6 @@ final class PartialSolution<Identifier: PackageContainerIdentifier> {
         var toBeRemoved: [(Int, Assignment<Identifier>)] = []
 
         for (idx, assignment) in zip(0..., assignments) {
-            // Remove *all* derivations and decisions above the specified level.
             if assignment.decisionLevel > decisionLevel {
                 toBeRemoved.append((idx, assignment))
             }

@@ -78,6 +78,17 @@ public struct OrderedDictionary<Key: Hashable, Value> {
         array.remove(at: array.index(of: key)!)
         return value
     }
+
+    /// An array containing just the values of the ordered dictionary.
+    public var values: [Value] {
+        return self.array.map { self.dict[$0]! }
+    }
+
+    /// Remove all key-value pairs from the ordered dictionary.
+    public mutating func removeAll() {
+        self.array.removeAll()
+        self.dict.removeAll()
+    }
 }
 
 extension OrderedDictionary: ExpressibleByDictionaryLiteral {
