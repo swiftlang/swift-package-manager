@@ -18,7 +18,7 @@ import SourceControl
 
 public typealias _MockPackageConstraint = PackageContainerConstraint
 
-public class _MockPackageContainer: PackageContainer {
+public class MockContainer: PackageContainer {
 
     public typealias Identifier = PackageReference
 
@@ -64,18 +64,27 @@ public class _MockPackageContainer: PackageContainer {
 
     public convenience init(
         name: Identifier,
-        dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]
+        unversionedDependencies: [(package: Identifier, requirement: VersionSetSpecifier)]
+        ) {
+        self.init(name: name)
+        self.unversionedDeps = unversionedDependencies
+            .map { _MockPackageConstraint(container: $0.package, versionRequirement: $0.requirement) }
+    }
+
+    public convenience init(
+        name: Identifier,
+        dependenciesByVersion: [Version: [(package: Identifier, requirement: VersionSetSpecifier)]]
         ) {
         var dependencies: [String: [Dependency]] = [:]
         for (version, deps) in dependenciesByVersion {
             dependencies[version.description] = deps.map({
-                ($0.container, .versionSet($0.versionRequirement))
+                ($0.package, .versionSet($0.requirement))
             })
         }
         self.init(name: name, dependencies: dependencies)
     }
 
-    public init(
+    private init(
         name: Identifier,
         dependencies: [String: [Dependency]] = [:]
         ) {
@@ -90,13 +99,13 @@ public enum _MockLoadingError: Error {
     case unknownModule
 }
 
-public struct _MockPackageProvider: PackageContainerProvider {
-    public typealias Container = _MockPackageContainer
+public struct MockProvider: PackageContainerProvider {
+    public typealias Container = MockContainer
 
     public let containers: [Container]
     public let containersByIdentifier: [Container.Identifier: Container]
 
-    public init(containers: [_MockPackageContainer]) {
+    public init(containers: [MockContainer]) {
         self.containers = containers
         self.containersByIdentifier = Dictionary(items: containers.map({ ($0.identifier, $0) }))
     }
@@ -113,8 +122,14 @@ public struct _MockPackageProvider: PackageContainerProvider {
     }
 }
 
+func createResolver(providing containers: MockContainer...) -> PubgrubDependencyResolver<MockProvider> {
+    let provider = MockProvider(containers: containers)
+    return PubgrubDependencyResolver(provider, delegate)
+}
+
+
 public class _MockResolverDelegate: DependencyResolverDelegate {
-    public typealias Identifier = _MockPackageContainer.Identifier
+    public typealias Identifier = MockContainer.Identifier
 
     public init() {}
 
@@ -189,7 +204,7 @@ public class _MockResolverDelegate: DependencyResolverDelegate {
 
 
 
-private let emptyProvider = _MockPackageProvider(containers: [])
+private let emptyProvider = MockProvider(containers: [])
 private let delegate = _MockResolverDelegate()
 
 private let v1: Version = "1.0.0"
@@ -458,13 +473,11 @@ final class PubgrubTests: XCTestCase {
         // No decision can be made if no unsatisfied terms are available.
         XCTAssertNil(try solver1.makeDecision())
 
-
-        let a = _MockPackageContainer(name: aRef, dependenciesByVersion: [
-            v1: [(container: bRef, versionRequirement: v1Range)]
+        let a = MockContainer(name: aRef, dependenciesByVersion: [
+            v1: [(package: bRef, requirement: v1Range)]
         ])
-        let provider = _MockPackageProvider(containers: [a])
-        let solver2 = PubgrubDependencyResolver(provider, delegate)
 
+        let solver2 = createResolver(providing: a)
         let solution = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: rootCause, decisionLevel: 0)
         ])
@@ -485,19 +498,18 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionNoConflicts() {
-        let root = _MockPackageContainer(name: rootRef)
-        root.unversionedDeps = [_MockPackageConstraint(container: aRef, versionRequirement: v1Range)]
-        let a = _MockPackageContainer(name: aRef, dependenciesByVersion: [
-            v1: [(container: bRef, versionRequirement: v1Range)]
+        let root = MockContainer(name: rootRef, unversionedDependencies: [
+            (package: aRef, requirement: v1Range)
         ])
-        let b = _MockPackageContainer(name: bRef, dependenciesByVersion: [
+        let a = MockContainer(name: aRef, dependenciesByVersion: [
+            v1: [(package: bRef, requirement: v1Range)]
+        ])
+        let b = MockContainer(name: bRef, dependenciesByVersion: [
             v1: [],
             v2: []
         ])
 
-        let provider = _MockPackageProvider(containers: [root, a, b])
-        let resolver = PubgrubDependencyResolver(provider, delegate)
-
+        let resolver = createResolver(providing: root, a, b)
         let result = resolver.solve(root: rootRef, pins: [])
 
         switch result {
@@ -515,24 +527,21 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionAvoidingConflictResolutionDuringDecisionMaking() {
-        let root = _MockPackageContainer(name: rootRef)
-        root.unversionedDeps = [
-            _MockPackageConstraint(container: aRef, versionRequirement: v1Range),
-            _MockPackageConstraint(container: bRef, versionRequirement: v1Range)
-        ]
-        let a = _MockPackageContainer(name: aRef, dependenciesByVersion: [
-            v1: [],
-            v1_1: [(container: bRef, versionRequirement: v2Range)]
+        let root = MockContainer(name: rootRef, unversionedDependencies: [
+            (package: aRef, requirement: v1Range),
+            (package: bRef, requirement: v1Range)
         ])
-        let b = _MockPackageContainer(name: bRef, dependenciesByVersion: [
+        let a = MockContainer(name: aRef, dependenciesByVersion: [
+            v1: [],
+            v1_1: [(package: bRef, requirement: v2Range)]
+        ])
+        let b = MockContainer(name: bRef, dependenciesByVersion: [
             v1: [],
             v1_1: [],
             v2: []
         ])
 
-        let provider = _MockPackageProvider(containers: [root, a, b])
-        let resolver = PubgrubDependencyResolver(provider, delegate)
-
+        let resolver = createResolver(providing: root, a, b)
         let result = resolver.solve(root: rootRef, pins: [])
 
         switch result {
@@ -550,26 +559,21 @@ final class PubgrubTests: XCTestCase {
     }
 
     func _testResolutionPerformingConflictResolution() {
-        let root = _MockPackageContainer(name: rootRef)
-        root.unversionedDeps = [
+        let root = MockContainer(name: rootRef, unversionedDependencies: [
             // Pubgrub has a listed as >=1.0.0, which we can't really represent
             // here... It's either .any or 1.0.0..<n.0.0 with n>2. Both should
             // have the same effect though.
-            _MockPackageConstraint(container: aRef, versionRequirement: .range("1.0.0"..<"3.0.0"))
-            // FIXME: .any is not working probably because of a bad insersection computation.
-            // _MockPackageConstraint(container: aRef, versionRequirement: .any)
-        ]
-        let a = _MockPackageContainer(name: aRef, dependenciesByVersion: [
+            (package: aRef, requirement: .range("1.0.0"..<"3.0.0"))
+        ])
+        let a = MockContainer(name: aRef, dependenciesByVersion: [
             v1: [],
-            v2: [(container: bRef, versionRequirement: v1Range)]
+            v2: [(package: bRef, requirement: v1Range)]
         ])
-        let b = _MockPackageContainer(name: bRef, dependenciesByVersion: [
-            v1: [(container: aRef, versionRequirement: v1Range)]
+        let b = MockContainer(name: bRef, dependenciesByVersion: [
+            v1: [(package: aRef, requirement: v1Range)]
         ])
 
-        let provider = _MockPackageProvider(containers: [root, a, b])
-        let resolver = PubgrubDependencyResolver(provider, delegate)
-
+        let resolver = createResolver(providing: root, a, b)
         let result = resolver.solve(root: rootRef, pins: [])
 
         switch result {
@@ -626,17 +630,14 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testMissingVersion() {
-        let root = _MockPackageContainer(name: rootRef)
-        root.unversionedDeps = [
-            _MockPackageConstraint(container: aRef, versionRequirement: v2Range),
-        ]
-        let a = _MockPackageContainer(name: aRef, dependenciesByVersion: [
+        let root = MockContainer(name: rootRef, unversionedDependencies: [
+            (package: aRef, requirement: v2Range)
+        ])
+        let a = MockContainer(name: aRef, dependenciesByVersion: [
             v1_1: []
         ])
 
-        let provider = _MockPackageProvider(containers: [root, a])
-        let resolver = PubgrubDependencyResolver(provider, delegate)
-
+        let resolver = createResolver(providing: root, a)
         let result = resolver.solve(root: rootRef, pins: [])
 
         switch result {
@@ -648,35 +649,34 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionConflictResolutionWithAPartialSatisfier() {
-        let root = _MockPackageContainer(name: rootRef)
         let fooRef = PackageReference(identity: "foo", path: "")
         let leftRef = PackageReference(identity: "left", path: "")
         let rightRef = PackageReference(identity: "right", path: "")
         let sharedRef = PackageReference(identity: "shared", path: "")
         let targetRef = PackageReference(identity: "target", path: "")
 
-        root.unversionedDeps = [
-            _MockPackageConstraint(container: fooRef, versionRequirement: v1Range),
-            _MockPackageConstraint(container: targetRef, versionRequirement: v2Range)
-        ]
-        let foo = _MockPackageContainer(name: fooRef, dependenciesByVersion: [
+        let root = MockContainer(name: rootRef, unversionedDependencies: [
+            (package: fooRef, requirement: v1Range),
+            (package: targetRef, requirement: v2Range)
+        ])
+        let foo = MockContainer(name: fooRef, dependenciesByVersion: [
             v1: [],
             v1_1: [
-                (container: leftRef, versionRequirement: v1Range),
-                (container: rightRef, versionRequirement: v1Range)
+                (package: leftRef, requirement: v1Range),
+                (package: rightRef, requirement: v1Range)
             ]
         ])
-        let left = _MockPackageContainer(name: leftRef, dependenciesByVersion: [
-            v1: [(container: sharedRef, versionRequirement: v1Range)]
+        let left = MockContainer(name: leftRef, dependenciesByVersion: [
+            v1: [(package: sharedRef, requirement: v1Range)]
         ])
-        let right = _MockPackageContainer(name: rightRef, dependenciesByVersion: [
-            v1: [(container: sharedRef, versionRequirement: v1Range)]
+        let right = MockContainer(name: rightRef, dependenciesByVersion: [
+            v1: [(package: sharedRef, requirement: v1Range)]
         ])
-        let shared = _MockPackageContainer(name: sharedRef, dependenciesByVersion: [
-            v1: [(container: targetRef, versionRequirement: v1Range)],
+        let shared = MockContainer(name: sharedRef, dependenciesByVersion: [
+            v1: [(package: targetRef, requirement: v1Range)],
             v2: []
         ])
-        let target = _MockPackageContainer(name: targetRef, dependenciesByVersion: [
+        let target = MockContainer(name: targetRef, dependenciesByVersion: [
             v1: [],
             v2: []
         ])
@@ -685,9 +685,7 @@ final class PubgrubTests: XCTestCase {
         // with root's constraint. This dependency only exists because of left
         // *and* right, choosing only one of these would be fine.
 
-        let provider = _MockPackageProvider(containers: [root, foo, left, right, shared, target])
-        let resolver = PubgrubDependencyResolver(provider, delegate)
-
+        let resolver = createResolver(providing: root, foo, left, right, shared, target)
         let result = resolver.solve(root: rootRef, pins: [])
 
         switch result {
@@ -705,21 +703,16 @@ final class PubgrubTests: XCTestCase {
     }
 
     func DISABLED_testCycle1() {
-        let root = _MockPackageContainer(name: rootRef)
         let fooRef = PackageReference(identity: "foo", path: "")
 
-        root.unversionedDeps = [
-            _MockPackageConstraint(container: fooRef, versionRequirement: v1Range),
-        ]
-        let foo = _MockPackageContainer(name: fooRef, dependenciesByVersion: [
-            v1_1: [
-                (container: fooRef, versionRequirement: v1Range),
-            ]
+        let root = MockContainer(name: rootRef, unversionedDependencies: [
+            (package: fooRef, requirement: v1Range)
+        ])
+        let foo = MockContainer(name: fooRef, dependenciesByVersion: [
+            v1_1: [(package: fooRef, requirement: v1Range)]
         ])
 
-        let provider = _MockPackageProvider(containers: [root, foo])
-        let resolver = PubgrubDependencyResolver(provider, delegate)
-
+        let resolver = createResolver(providing: root, foo)
         let result = resolver.solve(root: rootRef, pins: [])
 
         guard case .error = result else {
@@ -728,33 +721,30 @@ final class PubgrubTests: XCTestCase {
     }
 
     func DISABLED_testCycle2() {
-        let root = _MockPackageContainer(name: rootRef)
         let fooRef = PackageReference(identity: "foo", path: "")
         let barRef = PackageReference(identity: "bar", path: "")
         let bazRef = PackageReference(identity: "baz", path: "")
         let bamRef = PackageReference(identity: "bam", path: "")
 
-        root.unversionedDeps = [
-            _MockPackageConstraint(container: fooRef, versionRequirement: v1Range),
-        ]
-        let foo = _MockPackageContainer(name: fooRef, dependenciesByVersion: [
+        let root = MockContainer(name: rootRef, unversionedDependencies: [
+            (package: fooRef, requirement: v1Range)
+        ])
+        let foo = MockContainer(name: fooRef, dependenciesByVersion: [
             v1_1: [
-                (container: barRef, versionRequirement: v1Range),
+                (package: barRef, requirement: v1Range),
             ]
-            ])
-        let bar = _MockPackageContainer(name: barRef, dependenciesByVersion: [
-            v1: [(container: bazRef, versionRequirement: v1Range)]
-            ])
-        let baz = _MockPackageContainer(name: bazRef, dependenciesByVersion: [
-            v1: [(container: bamRef, versionRequirement: v1Range)]
-            ])
-        let bam = _MockPackageContainer(name: bamRef, dependenciesByVersion: [
-            v1: [(container: bazRef, versionRequirement: v1Range)]
+        ])
+        let bar = MockContainer(name: barRef, dependenciesByVersion: [
+            v1: [(package: bazRef, requirement: v1Range)]
+        ])
+        let baz = MockContainer(name: bazRef, dependenciesByVersion: [
+            v1: [(package: bamRef, requirement: v1Range)]
+        ])
+        let bam = MockContainer(name: bamRef, dependenciesByVersion: [
+            v1: [(package: bazRef, requirement: v1Range)]
         ])
 
-        let provider = _MockPackageProvider(containers: [root, foo, bar, baz, bam])
-        let resolver = PubgrubDependencyResolver(provider, delegate)
-
+        let resolver = createResolver(providing: root, foo, bar, baz, bam)
         let result = resolver.solve(root: rootRef, pins: [])
 
         guard case .error = result else {
