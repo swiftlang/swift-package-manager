@@ -110,6 +110,38 @@ public enum VersionSetSpecifier: Hashable, CustomStringConvertible {
         }
     }
 
+    /// Compute the intersection of two set specifiers with differing polarities.
+    ///
+    /// - Warning: It is assumed that `self` is positive and the passed set
+    ///            specifier `rhs` is negative.
+    public func intersection(withInverse rhs: VersionSetSpecifier) -> VersionSetSpecifier? {
+        switch (self, rhs) {
+        case (.any, _), (_, .any):
+            return nil
+        case (.empty, _), (_, .empty):
+            return nil
+        case (.exact(let lhs), .exact(let rhs)):
+            return lhs == rhs ? self : nil
+        case (.exact(let exact), .range(let range)), (.range(let range), .exact(let exact)):
+            if range.contains(version: exact) {
+                return .range(range.lowerBound..<exact)
+            }
+            return nil
+        case (.range(let lhs), .range(let rhs)):
+            guard lhs != rhs else {
+                return nil
+            }
+            guard lhs.overlaps(rhs) else {
+                return .range(lhs)
+            }
+            if lhs.lowerBound < rhs.lowerBound {
+                return .range(lhs.lowerBound..<rhs.lowerBound)
+            } else {
+                return .range(rhs.upperBound..<lhs.upperBound)
+            }
+        }
+    }
+
     /// Check if the set contains a version.
     public func contains(_ version: Version) -> Bool {
         switch self {
