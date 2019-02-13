@@ -109,7 +109,24 @@ final class PackageToolTests: XCTestCase {
             guard case let .string(name)? = contents["name"] else { XCTFail("unexpected result"); return }
             guard case let .array(platforms)? = contents["platforms"] else { XCTFail("unexpected result"); return }
             XCTAssertEqual(name, "Dealer")
-            XCTAssertEqual(platforms, [])
+            XCTAssertEqual(platforms, [
+                .dictionary([
+                    "platformName": .string("macos"),
+                    "version": .string("10.12")
+                ]),
+                .dictionary([
+                    "platformName": .string("ios"),
+                    "version": .string("10.0")
+                ]),
+                .dictionary([
+                    "platformName": .string("tvos"),
+                    "version": .string("11.0")
+                ]),
+                .dictionary([
+                    "platformName": .string("watchos"),
+                    "version": .string("5.0")
+                ]),
+            ])
         }
     }
 
