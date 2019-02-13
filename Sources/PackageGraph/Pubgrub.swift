@@ -60,53 +60,38 @@ public struct Term: Equatable, Hashable {
     /// and given term.
     /// Returns `nil` if an intersection is not possible (possibly due to being
     /// constrained on branches, revisions, local, etc. or entirely different packages).
-    func intersect(withRequirement requirement: PackageRequirement, andPolarity isPositive: Bool) -> Term? {
-        // TODO: This needs more tests.
-        guard case .versionSet(let lhs) = self.requirement, case .versionSet(let rhs) = requirement else { return nil }
-
-        let samePolarity = self.isPositive == isPositive
-
-        if samePolarity {
-            if case .range(let lhs) = lhs, case .range(let rhs) = rhs {
-                let bothNegative = !self.isPositive && !isPositive
-                if bothNegative {
-                    let lower = min(lhs.lowerBound, rhs.lowerBound)
-                    let upper = max(lhs.upperBound, rhs.upperBound)
-                    return self.with(.versionSet(.range(lower..<upper)))
-                }
-            }
-
-            let intersection = lhs.intersection(rhs)
-            return Term(package, .versionSet(intersection))
-        } else {
-            switch (lhs, rhs) {
-            case (.exact(let lhs), .exact(let rhs)):
-                return lhs == rhs ? self : nil
-            case (.exact(let exact), .range(let range)), (.range(let range), .exact(let exact)):
-                if range.contains(version: exact) {
-                    return self.with(.versionSet(.range(range.lowerBound..<exact)))
-                }
-                return nil
-            case (.range(let lhs), .range(let rhs)):
-                let positive = self.isPositive ? lhs : rhs
-                let negative = self.isPositive ? rhs : lhs
-                let positiveTerm = Term(self.package, self.requirement)
-                guard lhs != rhs else {
-                    return nil
-                }
-                guard lhs.overlaps(rhs) else {
-                    return positiveTerm.with(.versionSet(.range(positive)))
-                }
-                if positive.lowerBound < negative.lowerBound {
-                    return positiveTerm.with(.versionSet(.range(positive.lowerBound..<negative.lowerBound)))
-                } else {
-                    return positiveTerm.with(.versionSet(.range(negative.upperBound..<positive.upperBound)))
-                }
-            default:
-                // This covers any combinations including .empty or .any.
-                return nil
-            }
+    func intersect(withRequirement requirement: PackageRequirement,
+                   andPolarity otherIsPositive: Bool) -> Term? {
+        // Intersections can only be calculated if both sides have version-based
+        // requirements. 
+        guard
+            case .versionSet(let lhs) = self.requirement,
+            case .versionSet(let rhs) = requirement else
+        {
+            return nil
         }
+
+        let intersection: VersionSetSpecifier?
+        switch (self.isPositive, otherIsPositive) {
+        case (false, false):
+            if case .range(let lhs) = lhs, case .range(let rhs) = rhs {
+                let lower = min(lhs.lowerBound, rhs.lowerBound)
+                let upper = max(lhs.upperBound, rhs.upperBound)
+                return self.with(.versionSet(.range(lower..<upper)))
+            }
+            intersection = lhs.intersection(rhs)
+        case (true, true):
+            intersection = lhs.intersection(rhs)
+        case (true, false):
+            intersection = lhs.intersection(withInverse: rhs)
+        case (false, true):
+            intersection = rhs.intersection(withInverse: lhs)
+        }
+
+        guard let versionIntersection = intersection else {
+            return nil
+        }
+        return Term(package, .versionSet(versionIntersection))
     }
 
     func difference(with other: Term) -> Term? {
