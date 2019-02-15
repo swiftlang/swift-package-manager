@@ -19,25 +19,22 @@ import SourceControl
 public typealias _MockPackageConstraint = PackageContainerConstraint
 
 public class MockContainer: PackageContainer {
+    public typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
 
-    public typealias Identifier = PackageReference
+    let name: PackageReference
 
-    public typealias Dependency = (container: Identifier, requirement: PackageRequirement)
-
-    let name: Identifier
-
-    let dependencies: [String: [Dependency]]
+    var dependencies: [String: [Dependency]]
 
     public var unversionedDeps: [_MockPackageConstraint] = []
 
     /// Contains the versions for which the dependencies were requested by resolver using getDependencies().
     public var requestedVersions: Set<Version> = []
 
-    public var identifier: Identifier {
+    public var identifier: PackageReference {
         return name
     }
 
-    public let _versions: [Version]
+    public var _versions: [Version]
     public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
         return AnySequence(_versions.filter(isIncluded))
     }
@@ -63,8 +60,8 @@ public class MockContainer: PackageContainer {
     }
 
     public convenience init(
-        name: Identifier,
-        unversionedDependencies: [(package: Identifier, requirement: VersionSetSpecifier)]
+        name: PackageReference,
+        unversionedDependencies: [(package: PackageReference, requirement: VersionSetSpecifier)]
         ) {
         self.init(name: name)
         self.unversionedDeps = unversionedDependencies
@@ -72,8 +69,8 @@ public class MockContainer: PackageContainer {
     }
 
     public convenience init(
-        name: Identifier,
-        dependenciesByVersion: [Version: [(package: Identifier, requirement: VersionSetSpecifier)]]
+        name: PackageReference,
+        dependenciesByVersion: [Version: [(package: PackageReference, requirement: VersionSetSpecifier)]]
         ) {
         var dependencies: [String: [Dependency]] = [:]
         for (version, deps) in dependenciesByVersion {
@@ -84,8 +81,8 @@ public class MockContainer: PackageContainer {
         self.init(name: name, dependencies: dependencies)
     }
 
-    private init(
-        name: Identifier,
+    public init(
+        name: PackageReference,
         dependencies: [String: [Dependency]] = [:]
         ) {
         self.name = name
@@ -103,7 +100,7 @@ public struct MockProvider: PackageContainerProvider {
     public typealias Container = MockContainer
 
     public let containers: [Container]
-    public let containersByIdentifier: [Container.Identifier: Container]
+    public let containersByIdentifier: [PackageReference: Container]
 
     public init(containers: [MockContainer]) {
         self.containers = containers
@@ -111,7 +108,7 @@ public struct MockProvider: PackageContainerProvider {
     }
 
     public func getContainer(
-        for identifier: Container.Identifier,
+        for identifier: PackageReference,
         skipUpdate: Bool,
         completion: @escaping (Result<Container, AnyError>
         ) -> Void) {
@@ -122,14 +119,57 @@ public struct MockProvider: PackageContainerProvider {
     }
 }
 
-func createResolver(providing containers: MockContainer...) -> PubgrubDependencyResolver<MockProvider> {
-    let provider = MockProvider(containers: containers)
-    return PubgrubDependencyResolver(provider, delegate)
+class DependencyGraphBuilder {
+    private var containers: [String: MockContainer] = [:]
+    private var references: [String: PackageReference] = [:]
+
+    private func reference(for packageName: String) -> PackageReference {
+        if let reference = self.references[packageName] {
+            return reference
+        }
+        let newReference = PackageReference(identity: packageName, path: "")
+        self.references[packageName] = newReference
+        return newReference
+    }
+
+    func serve(root: String, with dependencies: [String: VersionSetSpecifier]) {
+        let rootDependencies = dependencies.map {
+            (package: reference(for: $0), requirement: $1)
+        }
+
+        let rootContainer = MockContainer(name: reference(for: root),
+                                          unversionedDependencies: rootDependencies)
+        self.containers[root] = rootContainer
+    }
+
+    func serve(_ package: String, at version: Version, with dependencies: [String: VersionSetSpecifier] = [:]) {
+        let packageReference = reference(for: package)
+        let container = self.containers[package] ?? MockContainer(name: packageReference)
+        container._versions.append(version)
+        container._versions = container._versions.sorted().reversed()
+
+        let packageDependencies = dependencies.map {
+            (container: reference(for: $0), requirement: PackageRequirement.versionSet($1))
+        }
+        container.dependencies[version.description] = packageDependencies
+        self.containers[package] = container
+    }
+
+    func create() -> PubgrubDependencyResolver<MockProvider> {
+        defer {
+            self.containers = [:]
+            self.references = [:]
+        }
+        let provider = MockProvider(containers: self.containers.values.map { $0 })
+        return PubgrubDependencyResolver(provider, delegate)
+    }
 }
+
+let builder = DependencyGraphBuilder()
 
 
 public class _MockResolverDelegate: DependencyResolverDelegate {
-    public typealias Identifier = MockContainer.Identifier
+    public typealias Identifier = PackageReference
 
     public init() {}
 
@@ -477,7 +517,8 @@ final class PubgrubTests: XCTestCase {
             v1: [(package: bRef, requirement: v1Range)]
         ])
 
-        let solver2 = createResolver(providing: a)
+        let provider = MockProvider(containers: [a])
+        let solver2 = PubgrubDependencyResolver(provider, delegate)
         let solution = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: rootCause, decisionLevel: 0)
         ])
@@ -498,18 +539,12 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionNoConflicts() {
-        let root = MockContainer(name: rootRef, unversionedDependencies: [
-            (package: aRef, requirement: v1Range)
-        ])
-        let a = MockContainer(name: aRef, dependenciesByVersion: [
-            v1: [(package: bRef, requirement: v1Range)]
-        ])
-        let b = MockContainer(name: bRef, dependenciesByVersion: [
-            v1: [],
-            v2: []
-        ])
+        builder.serve(root: "root", with: ["a": v1Range])
+        builder.serve("a", at: v1, with: ["b": v1Range])
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v2)
 
-        let resolver = createResolver(providing: root, a, b)
+        let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
         switch result {
@@ -527,21 +562,14 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionAvoidingConflictResolutionDuringDecisionMaking() {
-        let root = MockContainer(name: rootRef, unversionedDependencies: [
-            (package: aRef, requirement: v1Range),
-            (package: bRef, requirement: v1Range)
-        ])
-        let a = MockContainer(name: aRef, dependenciesByVersion: [
-            v1: [],
-            v1_1: [(package: bRef, requirement: v2Range)]
-        ])
-        let b = MockContainer(name: bRef, dependenciesByVersion: [
-            v1: [],
-            v1_1: [],
-            v2: []
-        ])
+        builder.serve(root: "root", with: ["a": v1Range, "b": v1Range])
+        builder.serve("a", at: v1)
+        builder.serve("a", at: v1_1, with: ["b": v2Range])
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v1_1)
+        builder.serve("b", at: v2)
 
-        let resolver = createResolver(providing: root, a, b)
+        let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
         switch result {
@@ -558,22 +586,16 @@ final class PubgrubTests: XCTestCase {
         }
     }
 
-    func _testResolutionPerformingConflictResolution() {
-        let root = MockContainer(name: rootRef, unversionedDependencies: [
-            // Pubgrub has a listed as >=1.0.0, which we can't really represent
-            // here... It's either .any or 1.0.0..<n.0.0 with n>2. Both should
-            // have the same effect though.
-            (package: aRef, requirement: .range("1.0.0"..<"3.0.0"))
-        ])
-        let a = MockContainer(name: aRef, dependenciesByVersion: [
-            v1: [],
-            v2: [(package: bRef, requirement: v1Range)]
-        ])
-        let b = MockContainer(name: bRef, dependenciesByVersion: [
-            v1: [(package: aRef, requirement: v1Range)]
-        ])
+    func testResolutionPerformingConflictResolution() {
+        // Pubgrub has a listed as >=1.0.0, which we can't really represent here.
+        // It's either .any or 1.0.0..<n.0.0 with n>2. Both should have the same
+        // effect though.
+        builder.serve(root: "root", with: ["a": .range("1.0.0"..<"3.0.0")])
+        builder.serve("a", at: v1)
+        builder.serve("a", at: v2, with: ["b": v1Range])
+        builder.serve("b", at: v1, with: ["a": v1Range])
 
-        let resolver = createResolver(providing: root, a, b)
+        let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
         switch result {
@@ -630,14 +652,10 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testMissingVersion() {
-        let root = MockContainer(name: rootRef, unversionedDependencies: [
-            (package: aRef, requirement: v2Range)
-        ])
-        let a = MockContainer(name: aRef, dependenciesByVersion: [
-            v1_1: []
-        ])
+        builder.serve(root: "root", with: ["a": v2Range])
+        builder.serve("a", at: v1_1)
 
-        let resolver = createResolver(providing: root, a)
+        let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
         switch result {
@@ -649,43 +667,21 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionConflictResolutionWithAPartialSatisfier() {
-        let fooRef = PackageReference(identity: "foo", path: "")
-        let leftRef = PackageReference(identity: "left", path: "")
-        let rightRef = PackageReference(identity: "right", path: "")
-        let sharedRef = PackageReference(identity: "shared", path: "")
-        let targetRef = PackageReference(identity: "target", path: "")
-
-        let root = MockContainer(name: rootRef, unversionedDependencies: [
-            (package: fooRef, requirement: v1Range),
-            (package: targetRef, requirement: v2Range)
-        ])
-        let foo = MockContainer(name: fooRef, dependenciesByVersion: [
-            v1: [],
-            v1_1: [
-                (package: leftRef, requirement: v1Range),
-                (package: rightRef, requirement: v1Range)
-            ]
-        ])
-        let left = MockContainer(name: leftRef, dependenciesByVersion: [
-            v1: [(package: sharedRef, requirement: v1Range)]
-        ])
-        let right = MockContainer(name: rightRef, dependenciesByVersion: [
-            v1: [(package: sharedRef, requirement: v1Range)]
-        ])
-        let shared = MockContainer(name: sharedRef, dependenciesByVersion: [
-            v1: [(package: targetRef, requirement: v1Range)],
-            v2: []
-        ])
-        let target = MockContainer(name: targetRef, dependenciesByVersion: [
-            v1: [],
-            v2: []
-        ])
+        builder.serve(root: "root", with: ["foo": v1Range, "target": v2Range])
+        builder.serve("foo", at: v1)
+        builder.serve("foo", at: v1_1, with: ["left": v1Range, "right": v1Range])
+        builder.serve("left", at: v1, with: ["shared": v1Range])
+        builder.serve("right", at: v1, with: ["shared": v1Range])
+        builder.serve("shared", at: v1, with: ["target": v1Range])
+        builder.serve("shared", at: v2)
+        builder.serve("target", at: v1)
+        builder.serve("target", at: v2)
 
         // foo 1.1.0 transitively depends on a version of target that's not compatible
         // with root's constraint. This dependency only exists because of left
         // *and* right, choosing only one of these would be fine.
 
-        let resolver = createResolver(providing: root, foo, left, right, shared, target)
+        let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
         switch result {
@@ -703,16 +699,10 @@ final class PubgrubTests: XCTestCase {
     }
 
     func DISABLED_testCycle1() {
-        let fooRef = PackageReference(identity: "foo", path: "")
+        builder.serve(root: "root", with: ["foo": v1Range])
+        builder.serve("foo", at: v1_1, with: ["foo": v1Range])
 
-        let root = MockContainer(name: rootRef, unversionedDependencies: [
-            (package: fooRef, requirement: v1Range)
-        ])
-        let foo = MockContainer(name: fooRef, dependenciesByVersion: [
-            v1_1: [(package: fooRef, requirement: v1Range)]
-        ])
-
-        let resolver = createResolver(providing: root, foo)
+        let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
         guard case .error = result else {
@@ -721,30 +711,13 @@ final class PubgrubTests: XCTestCase {
     }
 
     func DISABLED_testCycle2() {
-        let fooRef = PackageReference(identity: "foo", path: "")
-        let barRef = PackageReference(identity: "bar", path: "")
-        let bazRef = PackageReference(identity: "baz", path: "")
-        let bamRef = PackageReference(identity: "bam", path: "")
+        builder.serve(root: "root", with: ["foo": v1Range])
+        builder.serve("foo", at: v1_1, with: ["bar": v1Range])
+        builder.serve("bar", at: v1, with: ["baz": v1Range])
+        builder.serve("baz", at: v1, with: ["bam": v1Range])
+        builder.serve("bam", at: v1, with: ["baz": v1Range])
 
-        let root = MockContainer(name: rootRef, unversionedDependencies: [
-            (package: fooRef, requirement: v1Range)
-        ])
-        let foo = MockContainer(name: fooRef, dependenciesByVersion: [
-            v1_1: [
-                (package: barRef, requirement: v1Range),
-            ]
-        ])
-        let bar = MockContainer(name: barRef, dependenciesByVersion: [
-            v1: [(package: bazRef, requirement: v1Range)]
-        ])
-        let baz = MockContainer(name: bazRef, dependenciesByVersion: [
-            v1: [(package: bamRef, requirement: v1Range)]
-        ])
-        let bam = MockContainer(name: bamRef, dependenciesByVersion: [
-            v1: [(package: bazRef, requirement: v1Range)]
-        ])
-
-        let resolver = createResolver(providing: root, foo, bar, baz, bam)
+        let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
         guard case .error = result else {
