@@ -1228,7 +1228,7 @@ extension Workspace {
 
         // Perform dependency resolution.
         let resolverDiagnostics = DiagnosticsEngine()
-        let resolver = createResolver()
+        var resolver = createResolver()
         var result = resolveDependencies(
             resolver: resolver, dependencies: constraints, pins: validPins, diagnostics: resolverDiagnostics)
 
@@ -1241,6 +1241,12 @@ extension Workspace {
             if validPins.isEmpty {
                 diagnostics.merge(resolverDiagnostics)
                 return currentManifests
+            }
+
+            // Re-using an instance of the new resolver will likely cause some
+            // unexpected side effects.
+            if case .pubgrub = resolver {
+                resolver = createResolver()
             }
 
             // Run using the same resolver so we don't re-add the containers, we already have.
