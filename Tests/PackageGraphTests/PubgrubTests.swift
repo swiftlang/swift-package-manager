@@ -768,12 +768,13 @@ final class PubgrubTests: XCTestCase {
         guard
             case .error(let error) = result,
             let pubgrubError = error as? PGError,
-            case .unresolvable(let rootCause) = pubgrubError
+            case .unresolvable(let incompatibility) = pubgrubError,
+            case .conflict(let unavailable, _) = incompatibility.cause
         else {
             return XCTFail("Expected unresolvable graph.")
         }
 
-        XCTAssertEqual(rootCause.description, "{root 1.0.0}")
+        XCTAssertEqual(unavailable.description, "{package 1.0.0}")
     }
 }
 
