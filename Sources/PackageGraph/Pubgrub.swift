@@ -793,8 +793,6 @@ public final class PubgrubDependencyResolver<
         do {
             try run()
         } catch PubgrubError.unresolvable(let conflict) {
-//            let description = reportError(for: conflict)
-//            print(description)
             throw PubgrubError.unresolvable(conflict)
         } catch {
             fatalError("Unexpected error.")
