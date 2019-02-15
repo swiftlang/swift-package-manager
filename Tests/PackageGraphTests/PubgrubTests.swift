@@ -17,6 +17,7 @@ import PackageModel
 import SourceControl
 
 public typealias _MockPackageConstraint = PackageContainerConstraint
+typealias PGError = PubgrubDependencyResolver<MockProvider>.PubgrubError
 
 public class MockContainer: PackageContainer {
 
@@ -764,9 +765,15 @@ final class PubgrubTests: XCTestCase {
         let resolver = createResolver(providing: root, package)
         let result = resolver.solve(root: rootRef, pins: [])
 
-        guard case .error = result else {
+        guard
+            case .error(let error) = result,
+            let pubgrubError = error as? PGError,
+            case .unresolvable(let rootCause) = pubgrubError
+        else {
             return XCTFail("Expected unresolvable graph.")
         }
+
+        XCTAssertEqual(rootCause.description, "{root 1.0.0}")
     }
 }
 
