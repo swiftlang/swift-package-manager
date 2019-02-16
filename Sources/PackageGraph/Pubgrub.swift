@@ -72,26 +72,32 @@ public struct Term: Equatable, Hashable {
         }
 
         let intersection: VersionSetSpecifier?
+        let isPositive: Bool
         switch (self.isPositive, otherIsPositive) {
         case (false, false):
             if case .range(let lhs) = lhs, case .range(let rhs) = rhs {
                 let lower = min(lhs.lowerBound, rhs.lowerBound)
                 let upper = max(lhs.upperBound, rhs.upperBound)
-                return self.with(.versionSet(.range(lower..<upper)))
+                intersection = .range(lower..<upper)
+            } else {
+                intersection = lhs.intersection(rhs)
             }
-            intersection = lhs.intersection(rhs)
+            isPositive = false
         case (true, true):
             intersection = lhs.intersection(rhs)
+            isPositive = true
         case (true, false):
             intersection = lhs.intersection(withInverse: rhs)
+            isPositive = true
         case (false, true):
             intersection = rhs.intersection(withInverse: lhs)
+            isPositive = true
         }
 
         guard let versionIntersection = intersection else {
             return nil
         }
-        return Term(package, .versionSet(versionIntersection))
+        return Term(package: package, requirement: .versionSet(versionIntersection), isPositive: isPositive)
     }
 
     func difference(with other: Term) -> Term? {
