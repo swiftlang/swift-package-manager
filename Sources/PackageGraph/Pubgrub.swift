@@ -629,9 +629,7 @@ extension Term: Traceable {}
 
 /// The solver that is able to transitively resolve a set of package constraints
 /// specified by a root package.
-public final class PubgrubDependencyResolver<
-    Provider: PackageContainerProvider
-> {
+public final class PubgrubDependencyResolver {
 
     /// The type of the constraints the resolver operates on.
     ///
@@ -660,7 +658,7 @@ public final class PubgrubDependencyResolver<
     private(set) var root: PackageReference?
 
     /// The container provider used to load package containers.
-    let provider: Provider
+    let provider: PackageContainerProvider
 
     /// The resolver's delegate.
     let delegate: DependencyResolverDelegate?
@@ -718,7 +716,7 @@ public final class PubgrubDependencyResolver<
     }
 
     public init(
-        _ provider: Provider,
+        _ provider: PackageContainerProvider,
         _ delegate: DependencyResolverDelegate? = nil,
         isPrefetchingEnabled: Bool = false,
         skipUpdate: Bool = false
@@ -743,7 +741,7 @@ public final class PubgrubDependencyResolver<
         }
     }
 
-    public typealias Result = DependencyResolver<Provider>.Result
+    public typealias Result = DependencyResolver.Result
 
     // TODO: This should be the actual (and probably only) entrypoint to version solving.
     /// Run the resolution algorithm on a root package finding a valid assignment of versions.

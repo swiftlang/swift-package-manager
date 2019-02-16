@@ -775,14 +775,12 @@ func ==(lhs: VersionAssignmentSet, rhs: VersionAssignmentSet) -> Bool {
 /// list including a dependency on each clause package `P(C_n)` and an
 /// open-ended version constraint. The given input is satisfiable iff the input
 /// 3-SAT instance is.
-public class DependencyResolver<
-    Provider: PackageContainerProvider
-> {
+public class DependencyResolver {
     public typealias Container = PackageContainer
     public typealias Binding = (container: PackageReference, binding: BoundVersion)
 
     /// The container provider used to load package containers.
-    public let provider: Provider
+    public let provider: PackageContainerProvider
 
     /// The resolver's delegate.
     public let delegate: DependencyResolverDelegate?
@@ -827,7 +825,7 @@ public class DependencyResolver<
     public var isInIncompleteMode = false
 
     public init(
-        _ provider: Provider,
+        _ provider: PackageContainerProvider,
         _ delegate: DependencyResolverDelegate? = nil,
         isPrefetchingEnabled: Bool = false,
         skipUpdate: Bool = false
@@ -1286,7 +1284,7 @@ public class DependencyResolver<
 /// The resolver debugger.
 ///
 /// Finds the constraints which results in graph being unresolvable.
-private struct ResolverDebugger<Provider: PackageContainerProvider> {
+private struct ResolverDebugger {
 
     enum Error: Swift.Error {
         /// Reached the time limit without completing the algorithm.
@@ -1294,10 +1292,10 @@ private struct ResolverDebugger<Provider: PackageContainerProvider> {
     }
 
     /// Reference to the resolver.
-    unowned let resolver: DependencyResolver<Provider>
+    unowned let resolver: DependencyResolver
 
     /// Create a new debugger.
-    init(_ resolver: DependencyResolver<Provider>) {
+    init(_ resolver: DependencyResolver) {
         self.resolver = resolver
     }
 

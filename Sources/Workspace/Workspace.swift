@@ -88,8 +88,8 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
 }
 
 fileprivate enum PackageResolver {
-    typealias _PubgrubResolver = PubgrubDependencyResolver<RepositoryPackageContainerProvider>
-    typealias _DependencyResolver = DependencyResolver<RepositoryPackageContainerProvider>
+    typealias _PubgrubResolver = PubgrubDependencyResolver
+    typealias _DependencyResolver = DependencyResolver
 
     case pubgrub(_PubgrubResolver)
     case legacy(_DependencyResolver)
@@ -299,8 +299,8 @@ public class Workspace {
     fileprivate let skipUpdate: Bool
 
     /// Typealias for dependency resolver we use in the workspace.
-    fileprivate typealias PackageDependencyResolver = DependencyResolver<RepositoryPackageContainerProvider>
-    fileprivate typealias PubgrubResolver = PubgrubDependencyResolver<RepositoryPackageContainerProvider>
+    fileprivate typealias PackageDependencyResolver = DependencyResolver
+    fileprivate typealias PubgrubResolver = PubgrubDependencyResolver
 
     /// Create a new package workspace.
     ///
