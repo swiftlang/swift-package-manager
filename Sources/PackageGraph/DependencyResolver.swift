@@ -117,11 +117,15 @@ public enum VersionSetSpecifier: Hashable, CustomStringConvertible {
     public func intersection(withInverse rhs: VersionSetSpecifier) -> VersionSetSpecifier? {
         switch (self, rhs) {
         case (.any, _), (_, .any):
+            assertionFailure("constraints on .any are currently unexpected here")
+            // TODO: Check if this is this correct.
             return nil
         case (.empty, _), (_, .empty):
+            assertionFailure("constraints on .empty are currently unexpected here")
+            // TODO: Check if this is this correct.
             return nil
         case (.exact(let lhs), .exact(let rhs)):
-            return lhs == rhs ? self : nil
+            return lhs == rhs ? nil : self
         case (.exact(let exact), .range(let range)), (.range(let range), .exact(let exact)):
             if range.contains(version: exact) {
                 return .range(range.lowerBound..<exact)

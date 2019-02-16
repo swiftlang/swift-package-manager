@@ -313,16 +313,18 @@ extension Incompatibility {
     ///         └────────────┘
     /// ```
     indirect enum Cause: Equatable, Hashable {
-        /// represents the root incompatibility
+        /// The root incompatibility.
         case root
-        /// represents a package's dependency
+        /// The incompatibility represents a package's dependency on another
+        /// package.
         case dependency(package: PackageReference)
-        /// represents an incompatibility derived from two others during
-        /// conflict resolution
+        /// The incompatibility was derived from two others during conflict
+        /// resolution.
         case conflict(conflict: Incompatibility, other: Incompatibility)
+        /// There exists no version to fulfill the specified requirement.
+        case noAvailableVersion
         // TODO: Figure out what other cases should be represented here.
         // - SDK requirements
-        // - no available versions
         // - package not found
 
         var isConflict: Bool {
@@ -791,8 +793,6 @@ public final class PubgrubDependencyResolver<
         do {
             try run()
         } catch PubgrubError.unresolvable(let conflict) {
-            let description = reportError(for: conflict)
-            print(description)
             throw PubgrubError.unresolvable(conflict)
         } catch {
             fatalError("Unexpected error.")
@@ -1007,8 +1007,7 @@ public final class PubgrubDependencyResolver<
 
         // Get the best available version for this package.
         guard let version = try getBestAvailableVersion(for: pkgTerm) else {
-            // FIXME: It seems wrong to add the incompatibility with cause root here.
-            add(Incompatibility(pkgTerm, root: root!), location: .decisionMaking)
+            add(Incompatibility(pkgTerm, root: root!, cause: .noAvailableVersion), location: .decisionMaking)
             return pkgTerm.package
         }
 

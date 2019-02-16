@@ -17,6 +17,7 @@ import PackageModel
 import SourceControl
 
 public typealias _MockPackageConstraint = PackageContainerConstraint
+typealias PGError = PubgrubDependencyResolver<MockProvider>.PubgrubError
 
 public class MockContainer: PackageContainer {
     public typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
@@ -330,6 +331,7 @@ final class PubgrubTests: XCTestCase {
             term("¬a^1.0.0"))
 
         XCTAssertNil(term("a^1.0.0").intersect(with: term("¬a^1.0.0")))
+        XCTAssertNil(term("a@1.0.0").difference(with: term("a@1.0.0")))
 
         XCTAssertEqual(
             term("¬a^1.0.0").intersect(with: term("a^2.0.0")),
@@ -723,6 +725,29 @@ final class PubgrubTests: XCTestCase {
         guard case .error = result else {
             return XCTFail("Expected a cycle")
         }
+    }
+
+    func testResolutionNonExistentVersion() {
+        let packageRef = PackageReference(identity: "package", path: "")
+
+        let root = MockContainer(name: "root", unversionedDependencies: [
+            (package: packageRef, requirement: .exact(v1))
+        ])
+        let package = MockContainer(name: "package", dependenciesByVersion: [:])
+
+        let resolver = createResolver(providing: root, package)
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        guard
+            case .error(let error) = result,
+            let pubgrubError = error as? PGError,
+            case .unresolvable(let incompatibility) = pubgrubError,
+            case .conflict(let unavailable, _) = incompatibility.cause
+        else {
+            return XCTFail("Expected unresolvable graph.")
+        }
+
+        XCTAssertEqual(unavailable.description, "{package 1.0.0}")
     }
 }
 
