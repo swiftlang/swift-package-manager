@@ -666,6 +666,9 @@ public final class PubgrubDependencyResolver<
     /// Skip updating containers while fetching them.
     private let skipUpdate: Bool
 
+    /// Should resolver prefetch the containers.
+    private let isPrefetchingEnabled: Bool
+
     /// Set the package root.
     func set(_ root: PackageReference) {
         self.root = root
@@ -715,10 +718,12 @@ public final class PubgrubDependencyResolver<
     public init(
         _ provider: Provider,
         _ delegate: DependencyResolverDelegate? = nil,
+        isPrefetchingEnabled: Bool = false,
         skipUpdate: Bool = false
         ) {
         self.provider = provider
         self.delegate = delegate
+        self.isPrefetchingEnabled = isPrefetchingEnabled
         self.skipUpdate = skipUpdate
     }
 
@@ -741,6 +746,11 @@ public final class PubgrubDependencyResolver<
     // TODO: This should be the actual (and probably only) entrypoint to version solving.
     /// Run the resolution algorithm on a root package finding a valid assignment of versions.
     public func solve(root: PackageReference, pins: [Constraint]) -> Result {
+        // Prefetch the pins.
+        if isPrefetchingEnabled {
+            prefetch(containers: pins.map({ $0.identifier }))
+        }
+
         self.set(root)
         do {
             return try .success(solve(constraints: [], pins: pins))
@@ -1262,6 +1272,33 @@ public final class PubgrubDependencyResolver<
             terms.append(Term(container.identifier, .versionSet(.range(version..<nextMajor))))
             terms.append(Term(not: dep.identifier, dep.requirement))
             return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
+        }
+    }
+
+    /// Starts prefetching the given containers.
+    private func prefetch(containers identifiers: [PackageReference]) {
+        fetchCondition.whileLocked {
+            // Process each container.
+            for identifier in identifiers {
+                // Skip if we're already have this container or are pre-fetching it.
+                guard _fetchedContainers[identifier] == nil,
+                    !_prefetchingContainers.contains(identifier) else {
+                        continue
+                }
+
+                // Otherwise, record that we're prefetching this container.
+                _prefetchingContainers.insert(identifier)
+
+                provider.getContainer(for: identifier, skipUpdate: skipUpdate) { container in
+                    self.fetchCondition.whileLocked {
+                        // Update the structures and signal any thread waiting
+                        // on prefetching to finish.
+                        self._fetchedContainers[identifier] = container
+                        self._prefetchingContainers.remove(identifier)
+                        self.fetchCondition.signal()
+                    }
+                }
+            }
         }
     }
 }

@@ -1579,6 +1579,7 @@ extension Workspace {
         let resolverDelegate = WorkspaceResolverDelegate()
         if enablePubgrubResolver {
             let resolver = PubgrubResolver(containerProvider, resolverDelegate,
+                                           isPrefetchingEnabled: isResolverPrefetchingEnabled,
                                            skipUpdate: skipUpdate)
             return .pubgrub(resolver)
         } else {
