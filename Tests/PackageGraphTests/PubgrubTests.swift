@@ -745,6 +745,13 @@ final class PubgrubTests: XCTestCase {
 
         XCTAssertEqual(unavailable.description, "{package 1.0.0}")
     }
+
+    func DISABLED_testNonExistentPackage() {
+        builder.serve(root: "root", with: ["package": .exact(v1)])
+
+        let resolver = builder.create()
+        _ = resolver.solve(root: rootRef, pins: [])
+    }
 }
 
 extension Term: ExpressibleByStringLiteral {
