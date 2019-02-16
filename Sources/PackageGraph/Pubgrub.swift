@@ -94,9 +94,10 @@ public struct Term: Equatable, Hashable {
             isPositive = true
         }
 
-        guard let versionIntersection = intersection else {
+        guard let versionIntersection = intersection, versionIntersection != .empty else {
             return nil
         }
+
         return Term(package: package, requirement: .versionSet(versionIntersection), isPositive: isPositive)
     }
 
@@ -571,25 +572,10 @@ fileprivate func normalize(
     let sortedKeys = dict.keys.sorted(by: { lhs, rhs in
         return String(describing: lhs) < String(describing: rhs)
     })
-    var newTerms: [Term] = sortedKeys.map { pkg in
+    return sortedKeys.map { pkg in
         let req = dict[pkg]!
         return Term(package: pkg, requirement: req.req, isPositive: req.polarity)
     }
-
-    // Normalize (¬foo empty) to (foo any).
-    newTerms = newTerms.map {
-        guard !$0.isPositive else {
-            return $0
-        }
-
-        switch $0.requirement {
-        case .versionSet(.empty):
-            return Term($0.package, .versionSet(.any))
-        default: return $0
-        }
-    }
-
-    return newTerms
 }
 
 /// A step the resolver takes to advance its progress, e.g. deriving a new assignment
