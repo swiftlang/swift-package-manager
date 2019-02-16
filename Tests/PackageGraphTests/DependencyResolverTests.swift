@@ -867,7 +867,7 @@ private func checkResolution(_ resolver: MockDependencyResolver, constraints: [M
 
         return true
     }
-    let validSolutions = allPossibleAssignments(for: resolver.provider).filter(isValidSolution)
+    let validSolutions = allPossibleAssignments(for: resolver.provider as! MockPackagesProvider).filter(isValidSolution)
 
     // Compute the list of maximal solutions.
     var maximalSolutions = [MockVersionAssignmentSet]()
@@ -1072,8 +1072,8 @@ private func XCTAssertEqual(
     }
 }
 
-private func XCTAssertEqual<D>(
-    _ result: DependencyResolver<D>.Result,
+private func XCTAssertEqual(
+    _ result: DependencyResolver.Result,
     constraints: [PackageContainerConstraint] = [],
     pins: [PackageContainerConstraint] = [],
     file: StaticString = #file, line: UInt = #line

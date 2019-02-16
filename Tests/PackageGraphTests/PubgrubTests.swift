@@ -17,7 +17,7 @@ import PackageModel
 import SourceControl
 
 public typealias _MockPackageConstraint = PackageContainerConstraint
-typealias PGError = PubgrubDependencyResolver<MockProvider>.PubgrubError
+typealias PGError = PubgrubDependencyResolver.PubgrubError
 
 public class MockContainer: PackageContainer {
     public typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
@@ -165,7 +165,7 @@ class DependencyGraphBuilder {
         self.containers[package] = container
     }
 
-    func create() -> PubgrubDependencyResolver<MockProvider> {
+    func create() -> PubgrubDependencyResolver {
         defer {
             self.containers = [:]
             self.references = [:]

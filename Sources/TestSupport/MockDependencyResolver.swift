@@ -16,7 +16,7 @@ import SourceControl
 
 import struct SPMUtility.Version
 
-public typealias MockDependencyResolver = DependencyResolver<MockPackagesProvider>
+public typealias MockDependencyResolver = DependencyResolver
 public typealias MockPackageConstraint = PackageContainerConstraint
 
 extension MockPackageConstraint {
@@ -212,7 +212,7 @@ public class MockResolverDelegate: DependencyResolverDelegate {
     public init() {}
 }
 
-extension DependencyResolver where Provider == MockPackagesProvider {
+extension DependencyResolver {
     /// Helper method which returns all the version binding out of resolver and assert failure for non version bindings.
     public func resolveToVersion(
         constraints: [MockPackageConstraint],
