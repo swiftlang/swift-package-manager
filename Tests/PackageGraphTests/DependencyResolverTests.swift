@@ -24,7 +24,7 @@ import PackageModel
 
 private typealias MockPackageConstraint = PackageContainerConstraint
 
-private typealias MockVersionAssignmentSet = VersionAssignmentSet<MockPackageContainer>
+private typealias MockVersionAssignmentSet = VersionAssignmentSet
 
 // Some handy ranges.
 //
@@ -1030,8 +1030,8 @@ private func XCTAssertEqual(
     XCTAssertEqual(actual, expected, file: file, line: line)
 }
 
-private func XCTAssertEqual<C>(
-    _ assignment: VersionAssignmentSet<C>?,
+private func XCTAssertEqual(
+    _ assignment: VersionAssignmentSet?,
     _ expected: [String: Version],
     file: StaticString = #file, line: UInt = #line)
 {
@@ -1049,8 +1049,8 @@ private func XCTAssertEqual<C>(
     }
 }
 
-private func XCTAssertEqual<C>(
-    _ assignments: AnySequence<VersionAssignmentSet<C>>,
+private func XCTAssertEqual(
+    _ assignments: AnySequence<VersionAssignmentSet>,
     _ expected: [[String: Version]],
     file: StaticString = #file, line: UInt = #line)
 {
