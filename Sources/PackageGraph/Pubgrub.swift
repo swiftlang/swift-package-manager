@@ -632,9 +632,6 @@ extension Term: Traceable {}
 public final class PubgrubDependencyResolver {
 
     /// The type of the constraints the resolver operates on.
-    ///
-    /// Technically this is a container constraint, but that is currently the
-    /// only kind of constraints we operate on.
     public typealias Constraint = PackageContainerConstraint
 
     /// The current best guess for a solution satisfying all requirements.
