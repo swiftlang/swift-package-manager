@@ -287,13 +287,11 @@ public protocol PackageContainer {
 
 /// An interface for resolving package containers.
 public protocol PackageContainerProvider {
-    associatedtype Container: PackageContainer
-
     /// Get the container for a particular identifier asynchronously.
     func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
-        completion: @escaping (Result<Container, AnyError>) -> Void
+        completion: @escaping (Result<PackageContainer, AnyError>) -> Void
     )
 }
 
@@ -780,7 +778,7 @@ func ==(lhs: VersionAssignmentSet, rhs: VersionAssignmentSet) -> Bool {
 public class DependencyResolver<
     Provider: PackageContainerProvider
 > {
-    public typealias Container = Provider.Container
+    public typealias Container = PackageContainer
     public typealias Binding = (container: PackageReference, binding: BoundVersion)
 
     /// The container provider used to load package containers.

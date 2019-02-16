@@ -71,7 +71,7 @@ extension PackageContainerConstraint {
 extension PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
-        completion: @escaping (Result<Container, AnyError>) -> Void
+        completion: @escaping (Result<PackageContainer, AnyError>) -> Void
     ) {
         getContainer(for: identifier, skipUpdate: false, completion: completion)
     }
@@ -186,10 +186,8 @@ extension MockPackageContainer {
 
 public struct MockPackagesProvider: PackageContainerProvider {
 
-    public typealias Container = MockPackageContainer
-
-    public let containers: [Container]
-    public let containersByIdentifier: [Container.Identifier: Container]
+    public let containers: [MockPackageContainer]
+    public let containersByIdentifier: [PackageReference: MockPackageContainer]
 
     public init(containers: [MockPackageContainer]) {
         self.containers = containers
@@ -199,7 +197,7 @@ public struct MockPackagesProvider: PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
-        completion: @escaping (Result<Container, AnyError>
+        completion: @escaping (Result<PackageContainer, AnyError>
     ) -> Void) {
         DispatchQueue.global().async {
             completion(self.containersByIdentifier[identifier].map(Result.init) ??
