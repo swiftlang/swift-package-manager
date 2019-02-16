@@ -98,10 +98,9 @@ public enum _MockLoadingError: Error {
 }
 
 public struct MockProvider: PackageContainerProvider {
-    public typealias Container = MockContainer
 
-    public let containers: [Container]
-    public let containersByIdentifier: [PackageReference: Container]
+    public let containers: [MockContainer]
+    public let containersByIdentifier: [PackageReference: MockContainer]
 
     public init(containers: [MockContainer]) {
         self.containers = containers
@@ -111,7 +110,7 @@ public struct MockProvider: PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
-        completion: @escaping (Result<Container, AnyError>
+        completion: @escaping (Result<PackageContainer, AnyError>
         ) -> Void) {
         DispatchQueue.global().async {
             completion(self.containersByIdentifier[identifier].map(Result.init) ??

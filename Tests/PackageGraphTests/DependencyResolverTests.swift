@@ -857,7 +857,7 @@ private func checkResolution(_ resolver: MockDependencyResolver, constraints: [M
                     fatalError("unexpected assignment")
                 }
                 let container = try! await { resolver.provider.getContainer(for: identifier, completion: $0) }
-                return [identifier] + container.getDependencies(at: version).map{ $0.identifier }
+                return [identifier] + (try! container.getDependencies(at: version).map{ $0.identifier })
             })
         for (container, _) in assignment {
             if !requiredContainers.contains(container.identifier) {

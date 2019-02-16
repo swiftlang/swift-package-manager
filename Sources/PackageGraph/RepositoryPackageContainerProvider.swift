@@ -21,8 +21,6 @@ import SPMUtility
 /// This is the root class for bridging the manifest & SCM systems into the
 /// interfaces used by the `DependencyResolver` algorithm.
 public class RepositoryPackageContainerProvider: PackageContainerProvider {
-    public typealias Container = BasePackageContainer
-
     let repositoryManager: RepositoryManager
     let manifestLoader: ManifestLoaderProtocol
     let config: SwiftPMConfig
@@ -59,9 +57,9 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     }
 
     public func getContainer(
-        for identifier: Container.Identifier,
+        for identifier: PackageReference,
         skipUpdate: Bool,
-        completion: @escaping (Result<Container, AnyError>) -> Void
+        completion: @escaping (Result<PackageContainer, AnyError>) -> Void
     ) {
         // If the container is local, just create and return a local package container.
         if identifier.isLocal {
@@ -80,7 +78,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         // Resolve the container using the repository manager.
         repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate) { result in
             // Create the container wrapper.
-            let container = result.mapAny { handle -> Container in
+            let container = result.mapAny { handle -> PackageContainer in
                 // Open the repository.
                 //
                 // FIXME: Do we care about holding this open for the lifetime of the container.

@@ -1206,13 +1206,13 @@ public final class PubgrubDependencyResolver<
     private let fetchCondition = Condition()
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [PackageReference: Basic.Result<Provider.Container, AnyError>] = [:]
+    private var _fetchedContainers: [PackageReference: Basic.Result<PackageContainer, AnyError>] = [:]
 
     /// The set of containers requested so far.
     private var _prefetchingContainers: Set<PackageReference> = []
 
     /// Get the container for the given identifier, loading it if necessary.
-    fileprivate func getContainer(for identifier: PackageReference) throws -> Provider.Container {
+    fileprivate func getContainer(for identifier: PackageReference) throws -> PackageContainer {
         return try fetchCondition.whileLocked {
             // Return the cached container, if available.
             if let container = _fetchedContainers[identifier] {
