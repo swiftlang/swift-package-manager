@@ -116,10 +116,14 @@ public enum VersionSetSpecifier: Hashable, CustomStringConvertible {
     ///            specifier `rhs` is negative.
     public func intersection(withInverse rhs: VersionSetSpecifier) -> VersionSetSpecifier? {
         switch (self, rhs) {
-        case (.any, _), (_, .any):
-            assertionFailure("constraints on .any are currently unexpected here")
-            // TODO: Check if this is this correct.
+        case (_, .any):
             return nil
+        case (.any, _):
+            assertionFailure("constraints on .any are currently unexpected here")
+            // FIXME: This is incorrect, we need to return the difference here (.any - rhs),
+            // which basically means inverse of rhs but we can't return polarity from this
+            // method yet.
+            return .any
         case (.empty, _), (_, .empty):
             assertionFailure("constraints on .empty are currently unexpected here")
             // TODO: Check if this is this correct.

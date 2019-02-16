@@ -267,17 +267,6 @@ public struct Incompatibility: Equatable, Hashable {
             terms = OrderedSet(terms.filter { !$0.isPositive || $0.package != root })
         }
 
-        let termsArray = Array(terms)
-
-        // If there is only one term or two terms referring to the same package
-        // we can skip the extra work of trying to normalize these.
-        if termsArray.count == 1 ||
-            (termsArray.count == 2 && termsArray.first?.package != termsArray.last?.package)
-        {
-            self.init(terms: terms, cause: cause)
-            return
-        }
-
         let normalizedTerms = normalize(terms: terms.contents)
         self.init(terms: OrderedSet(normalizedTerms), cause: cause)
     }
@@ -562,7 +551,12 @@ fileprivate func normalize(
     terms: [Term]) -> [Term] {
     let dict = terms.reduce(into: [PackageReference: (req: PackageRequirement, polarity: Bool)]()) {
         res, term in
-        let previous = res[term.package, default: (term.requirement, term.isPositive)]
+        // Don't try to intersect if this is the first time we're seeing this package.
+        guard let previous = res[term.package] else {
+            res[term.package] = (term.requirement, term.isPositive)
+            return
+        }
+
         let intersection = term.intersect(withRequirement: previous.req,
                                           andPolarity: previous.polarity)
         assert(intersection != nil, """
@@ -577,10 +571,24 @@ fileprivate func normalize(
     let sortedKeys = dict.keys.sorted(by: { lhs, rhs in
         return String(describing: lhs) < String(describing: rhs)
     })
-    let newTerms = sortedKeys.map { pkg -> Term in
+    var newTerms: [Term] = sortedKeys.map { pkg in
         let req = dict[pkg]!
         return Term(package: pkg, requirement: req.req, isPositive: req.polarity)
     }
+
+    // Normalize (¬foo empty) to (foo any).
+    newTerms = newTerms.map {
+        guard !$0.isPositive else {
+            return $0
+        }
+
+        switch $0.requirement {
+        case .versionSet(.empty):
+            return Term($0.package, .versionSet(.any))
+        default: return $0
+        }
+    }
+
     return newTerms
 }
 

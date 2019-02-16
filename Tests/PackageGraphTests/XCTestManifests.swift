@@ -54,7 +54,9 @@ extension PubgrubTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__PubgrubTests = [
-        ("testConflict4", testConflict4),
+        ("testConflict1", testConflict1),
+        ("testConflict2", testConflict2),
+        ("testConflict3", testConflict3),
         ("testIncompatibilityNormalizeTermsOnInit", testIncompatibilityNormalizeTermsOnInit),
         ("testMissingVersion", testMissingVersion),
         ("testPositiveTerms", testPositiveTerms),
