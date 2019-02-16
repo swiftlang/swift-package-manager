@@ -357,6 +357,13 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(
             term("¬a@1.0.0").intersect(with: term("¬a@1.0.0")),
             term("¬a@1.0.0"))
+
+        // Check difference.
+        let anyA = Term("a", .versionSet(.any))
+        XCTAssertNil(term("a^1.0.0").difference(with: anyA))
+
+        let notEmptyA = Term(not: "a", .versionSet(.empty))
+        XCTAssertNil(term("a^1.0.0").difference(with: notEmptyA))
     }
 
     func testTermRelation() {
