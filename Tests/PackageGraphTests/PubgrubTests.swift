@@ -783,6 +783,19 @@ final class PubgrubTests: XCTestCase {
         let resolver = builder.create()
         _ = resolver.solve(root: rootRef, pins: [])
     }
+
+    func DISABLED_testConflict3() {
+        builder.serve(root: "root", with: [
+            ("foo", v1Range),
+            ("config", v2Range),
+        ])
+        builder.serve("foo", at: v1, with: ["config": v1Range])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v2)
+
+        let resolver = builder.create()
+        _ = resolver.solve(root: rootRef, pins: [])
+    }
 }
 
 extension Term: ExpressibleByStringLiteral {
