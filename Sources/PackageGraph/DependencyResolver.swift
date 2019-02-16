@@ -519,15 +519,13 @@ public struct PackageContainerConstraintSet: Collection, Hashable {
 /// The set itself is designed to only ever contain a consistent set of
 /// assignments, i.e. each assignment should satisfy the induced
 /// `constraints`, but this invariant is not explicitly enforced.
-struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
-    typealias Container = C
-    typealias Identifier = PackageReference
+struct VersionAssignmentSet: Equatable, Sequence {
 
     // FIXME: Does it really make sense to key on the identifier here. Should we
     // require referential equality of containers and use that to simplify?
     //
     /// The assignment records.
-    fileprivate var assignments: OrderedDictionary<Identifier, (container: Container, binding: BoundVersion)>
+    fileprivate var assignments: OrderedDictionary<PackageReference, (container: PackageContainer, binding: BoundVersion)>
 
     /// Create an empty assignment.
     init() {
@@ -535,14 +533,14 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     }
 
     /// The assignment for the given container `identifier.
-    subscript(identifier: Identifier) -> BoundVersion? {
+    subscript(identifier: PackageReference) -> BoundVersion? {
         get {
             return assignments[identifier]?.binding
         }
     }
 
     /// The assignment for the given `container`.
-    subscript(container: Container) -> BoundVersion? {
+    subscript(container: PackageContainer) -> BoundVersion? {
         get {
             return self[container.identifier]
         }
@@ -561,7 +559,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     ///
     /// - Returns: The new assignment, or nil if the merge cannot be made (the
     /// assignments contain incompatible versions).
-    func merging(_ assignment: VersionAssignmentSet<Container>) -> VersionAssignmentSet<Container>? {
+    func merging(_ assignment: VersionAssignmentSet) -> VersionAssignmentSet? {
         // In order to protect the assignment set, we first have to test whether
         // the merged constraint sets are satisfiable.
         //
@@ -639,7 +637,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     // FIXME: This is currently very inefficient.
     //
     /// Check if the given `binding` for `container` is valid within the assignment.
-    func isValid(binding: BoundVersion, for container: Container) -> Bool {
+    func isValid(binding: BoundVersion, for container: PackageContainer) -> Bool {
         switch binding {
         case .excluded:
             // A package can be excluded if there are no constraints on the
@@ -699,7 +697,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     // FIXME: This should really be a collection, but that takes significantly
     // more work given our current backing collection.
 
-    typealias Iterator = AnyIterator<(Container, BoundVersion)>
+    typealias Iterator = AnyIterator<(PackageContainer, BoundVersion)>
 
     func makeIterator() -> Iterator {
         var it = assignments.makeIterator()
@@ -713,7 +711,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     }
 }
 
-func == <C>(lhs: VersionAssignmentSet<C>, rhs: VersionAssignmentSet<C>) -> Bool {
+func ==(lhs: VersionAssignmentSet, rhs: VersionAssignmentSet) -> Bool {
     if lhs.assignments.count != rhs.assignments.count { return false }
     for (container, lhsBinding) in lhs {
         switch rhs[container] {
@@ -798,7 +796,7 @@ public class DependencyResolver<
     typealias ConstraintSet = PackageContainerConstraintSet
 
     /// The type of assignment the resolver operates on.
-    typealias AssignmentSet = VersionAssignmentSet<Container>
+    typealias AssignmentSet = VersionAssignmentSet
 
     /// The container provider used to load package containers.
     public let provider: Provider
