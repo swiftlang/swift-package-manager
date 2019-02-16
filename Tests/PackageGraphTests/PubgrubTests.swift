@@ -143,6 +143,16 @@ class DependencyGraphBuilder {
         self.containers[root] = rootContainer
     }
 
+    func serve(root: String, with dependencies: [(String, VersionSetSpecifier)]) {
+        let rootDependencies = dependencies.map {
+            (package: reference(for: $0), requirement: $1)
+        }
+
+        let rootContainer = MockContainer(name: reference(for: root),
+                                          unversionedDependencies: rootDependencies)
+        self.containers[root] = rootContainer
+    }
+
     func serve(_ package: String, at version: Version, with dependencies: [String: VersionSetSpecifier] = [:]) {
         let packageReference = reference(for: package)
         let container = self.containers[package] ?? MockContainer(name: packageReference)
@@ -748,6 +758,27 @@ final class PubgrubTests: XCTestCase {
 
     func DISABLED_testNonExistentPackage() {
         builder.serve(root: "root", with: ["package": .exact(v1)])
+
+        let resolver = builder.create()
+        _ = resolver.solve(root: rootRef, pins: [])
+    }
+
+    func DISABLED_testConflict1() {
+        builder.serve(root: "root", with: ["foo": v1Range, "bar": v1Range])
+        builder.serve("foo", at: v1, with: ["config": v1Range])
+        builder.serve("bar", at: v1, with: ["config": v2Range])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v2)
+
+        let resolver = builder.create()
+        _ = resolver.solve(root: rootRef, pins: [])
+    }
+
+    func DISABLED_testConflict2() {
+        builder.serve(root: "root", with: [
+            ("config", v1Range),
+            ("config", v2Range),
+        ])
 
         let resolver = builder.create()
         _ = resolver.solve(root: rootRef, pins: [])
