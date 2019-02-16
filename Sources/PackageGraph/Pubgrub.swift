@@ -795,7 +795,8 @@ public final class PubgrubDependencyResolver<
         } catch PubgrubError.unresolvable(let conflict) {
             throw PubgrubError.unresolvable(conflict)
         } catch {
-            fatalError("Unexpected error.")
+            assertionFailure("Unexpected error \(error)")
+            throw error
         }
 
         let decisions = solution.assignments.filter { $0.isDecision }
