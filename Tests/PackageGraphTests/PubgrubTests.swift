@@ -728,14 +728,10 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionNonExistentVersion() {
-        let packageRef = PackageReference(identity: "package", path: "")
+        builder.serve(root: "root", with: ["package": .exact(v1)])
+        builder.serve("package", at: "2.0.0")
 
-        let root = MockContainer(name: "root", unversionedDependencies: [
-            (package: packageRef, requirement: .exact(v1))
-        ])
-        let package = MockContainer(name: "package", dependenciesByVersion: [:])
-
-        let resolver = createResolver(providing: root, package)
+        let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
         guard
