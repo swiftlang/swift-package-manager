@@ -770,7 +770,7 @@ final class PubgrubTests: XCTestCase {
         _ = resolver.solve(root: rootRef, pins: [])
     }
 
-    func DISABLED_testConflict1() {
+    func testConflict1() {
         builder.serve(root: "root", with: ["foo": v1Range, "bar": v1Range])
         builder.serve("foo", at: v1, with: ["config": v1Range])
         builder.serve("bar", at: v1, with: ["config": v2Range])
@@ -778,33 +778,48 @@ final class PubgrubTests: XCTestCase {
         builder.serve("config", at: v2)
 
         let resolver = builder.create()
-        _ = resolver.solve(root: rootRef, pins: [])
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        guard
+            case .error(let error) = result,
+            let pubgrubError = error as? PGError,
+            case .unresolvable(let incompatibility) = pubgrubError,
+            case .conflict(let cause, _) = incompatibility.cause
+        else {
+            return XCTFail("Expected unresolvable graph.")
+        }
+
+        // FIXME: This is non-deterministic.
+        var foundCause = cause.description == "{foo 1.0.0..<2.0.0}"
+        foundCause = foundCause || cause.description == "{bar 1.0.0..<2.0.0}"
+        XCTAssertTrue(foundCause, "\(cause)")
     }
 
-    func DISABLED_testConflict2() {
+    func testConflict2() {
+        func addDeps() {
+            builder.serve("foo", at: v1, with: ["config": v1Range])
+            builder.serve("config", at: v1)
+            builder.serve("config", at: v2)
+        }
+
         builder.serve(root: "root", with: [
-            ("config", v1Range),
             ("config", v2Range),
+            ("foo", v1Range),
         ])
+        addDeps()
+        let resolver1 = builder.create()
+        _ = resolver1.solve(root: rootRef, pins: [])
 
-        let resolver = builder.create()
-        _ = resolver.solve(root: rootRef, pins: [])
-    }
-
-    func DISABLED_testConflict3() {
         builder.serve(root: "root", with: [
             ("foo", v1Range),
             ("config", v2Range),
         ])
-        builder.serve("foo", at: v1, with: ["config": v1Range])
-        builder.serve("config", at: v1)
-        builder.serve("config", at: v2)
-
-        let resolver = builder.create()
-        _ = resolver.solve(root: rootRef, pins: [])
+        addDeps()
+        let resolver2 = builder.create()
+        _ = resolver2.solve(root: rootRef, pins: [])
     }
 
-    func testConflict4() {
+    func testConflict3() {
         builder.serve(root: "root", with: [
             ("foo", v1Range),
             ("config", v2Range),
@@ -820,7 +835,7 @@ final class PubgrubTests: XCTestCase {
             case .unresolvable(let incompatibility) = pubgrubError,
             case .conflict(let cause, _) = incompatibility.cause
         else {
-                return XCTFail("Expected unresolvable graph.")
+            return XCTFail("Expected unresolvable graph.")
         }
 
         XCTAssertEqual(cause.description, "{config 2.0.0..<3.0.0}")
