@@ -795,6 +795,28 @@ final class PubgrubTests: XCTestCase {
         let resolver = builder.create()
         _ = resolver.solve(root: rootRef, pins: [])
     }
+
+    func testConflict4() {
+        builder.serve(root: "root", with: [
+            ("foo", v1Range),
+            ("config", v2Range),
+        ])
+        builder.serve("foo", at: v1, with: ["config": v1Range])
+        builder.serve("config", at: v1)
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+        guard
+            case .error(let error) = result,
+            let pubgrubError = error as? PGError,
+            case .unresolvable(let incompatibility) = pubgrubError,
+            case .conflict(let cause, _) = incompatibility.cause
+        else {
+                return XCTFail("Expected unresolvable graph.")
+        }
+
+        XCTAssertEqual(cause.description, "{config 2.0.0..<3.0.0}")
+    }
 }
 
 extension Term: ExpressibleByStringLiteral {
