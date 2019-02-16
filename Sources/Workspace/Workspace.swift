@@ -1319,7 +1319,7 @@ extension Workspace {
         let pinConstraints = pinsStore.createConstraints()
 
         // Create a constraint set to check constraints are mergable.
-        var constraintSet = PackageContainerConstraintSet<RepositoryPackageContainer>()
+        var constraintSet = PackageContainerConstraintSet()
 
         // The input dependencies should be mergable, otherwise we have bigger problems.
         for constraint in dependencies {

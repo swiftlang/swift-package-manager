@@ -88,7 +88,7 @@ class DependencyResolverTests: XCTestCase {
     }
 
     func testContainerConstraintSet() {
-        typealias ConstraintSet = PackageContainerConstraintSet<MockPackageContainer>
+        typealias ConstraintSet = PackageContainerConstraintSet
 
         var set = ConstraintSet()
         XCTAssertEqual(set.containerIdentifiers.map{ $0 }, [])
@@ -1011,8 +1011,8 @@ private func ==(_ lhs: [String: VersionSetSpecifier], _ rhs: [String: VersionSet
     return true
 }
 
-private func XCTAssertEqual<C>(
-    _ constraints: PackageContainerConstraintSet<C>,
+private func XCTAssertEqual(
+    _ constraints: PackageContainerConstraintSet,
     _ expected: [String: VersionSetSpecifier],
     file: StaticString = #file, line: UInt = #line)
 {
