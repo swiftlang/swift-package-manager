@@ -299,7 +299,6 @@ public protocol PackageContainerProvider {
 
 /// An individual constraint onto a container.
 public struct PackageContainerConstraint: CustomStringConvertible, Equatable {
-    public typealias Identifier = PackageReference
 
     /// The identifier for the container the constraint is on.
     public let identifier: PackageReference
@@ -309,14 +308,14 @@ public struct PackageContainerConstraint: CustomStringConvertible, Equatable {
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `requirement`.
-    public init(container identifier: Identifier, requirement: PackageRequirement) {
+    public init(container identifier: PackageReference, requirement: PackageRequirement) {
         self.identifier = identifier
         self.requirement = requirement
     }
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
-    public init(container identifier: Identifier, versionRequirement: VersionSetSpecifier) {
+    public init(container identifier: PackageReference, versionRequirement: VersionSetSpecifier) {
         self.init(container: identifier, requirement: .versionSet(versionRequirement))
     }
 
@@ -380,16 +379,13 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
 /// This data structure is only designed to represent satisfiable constraint
 /// sets, it cannot represent sets including containers which have an empty
 /// constraint.
-public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Hashable {
-    public typealias Container = C
-    public typealias Identifier = PackageReference
-    public typealias Requirement = PackageRequirement
+public struct PackageContainerConstraintSet: Collection, Hashable {
 
-    public typealias Index = Dictionary<Identifier, Requirement>.Index
-    public typealias Element = Dictionary<Identifier, Requirement>.Element
+    public typealias Index = Dictionary<PackageReference, PackageRequirement>.Index
+    public typealias Element = Dictionary<PackageReference, PackageRequirement>.Element
 
     /// The set of constraints.
-    private var constraints: [Identifier: Requirement]
+    private var constraints: [PackageReference: PackageRequirement]
 
     /// Create an empty constraint set.
     public init() {
@@ -399,18 +395,18 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
     /// Create an constraint set from known values.
     ///
     /// The initial constraints should never be unsatisfiable.
-    init(_ constraints: [Identifier: Requirement]) {
+    init(_ constraints: [PackageReference: PackageRequirement]) {
         assert(constraints.values.filter({ $0 == .versionSet(.empty) }).isEmpty)
         self.constraints = constraints
     }
 
     /// The list of containers with entries in the set.
-    var containerIdentifiers: AnySequence<Identifier> {
+    var containerIdentifiers: AnySequence<PackageReference> {
         return AnySequence(constraints.keys)
     }
 
     /// Get the version set specifier associated with the given package `identifier`.
-    public subscript(identifier: Identifier) -> Requirement {
+    public subscript(identifier: PackageReference) -> PackageRequirement {
         return constraints[identifier] ?? .versionSet(.any)
     }
 
@@ -418,8 +414,8 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
     ///
     /// - Returns: The new set, or nil the resulting set is unsatisfiable.
     private func merging(
-        requirement: Requirement, for identifier: Identifier
-    ) -> PackageContainerConstraintSet<C>? {
+        requirement: PackageRequirement, for identifier: PackageReference
+    ) -> PackageContainerConstraintSet? {
         switch (requirement, self[identifier]) {
         case (.versionSet(let newSet), .versionSet(let currentSet)):
             // Try to intersect two version set requirements.
@@ -470,7 +466,7 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
     /// Create a constraint set by merging `constraint`.
     ///
     /// - Returns: The new set, or nil the resulting set is unsatisfiable.
-    public func merging(_ constraint: PackageContainerConstraint) -> PackageContainerConstraintSet<C>? {
+    public func merging(_ constraint: PackageContainerConstraint) -> PackageContainerConstraintSet? {
         return merging(requirement: constraint.requirement, for: constraint.identifier)
     }
 
@@ -479,8 +475,8 @@ public struct PackageContainerConstraintSet<C: PackageContainer>: Collection, Ha
     /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
     /// when the resulting set is satisfiable, if it was already so.
     func merging(
-        _ constraints: PackageContainerConstraintSet<Container>
-    ) -> PackageContainerConstraintSet<C>? {
+        _ constraints: PackageContainerConstraintSet
+    ) -> PackageContainerConstraintSet? {
         var result = self
         for (key, requirement) in constraints {
             guard let merged = result.merging(requirement: requirement, for: key) else {
@@ -602,9 +598,9 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     ///
     /// The resulting constraint set is guaranteed to be non-empty for each
     /// mapping, assuming the invariants on the set are followed.
-    var constraints: PackageContainerConstraintSet<Container> {
+    var constraints: PackageContainerConstraintSet {
         // Collect all of the constraints.
-        var result = PackageContainerConstraintSet<Container>()
+        var result = PackageContainerConstraintSet()
 
         /// Merge the provided constraints into result.
         func merge(constraints: [PackageContainerConstraint]) {
@@ -799,7 +795,7 @@ public class DependencyResolver<
     public typealias Constraint = PackageContainerConstraint
 
     /// The type of constraint set  the resolver operates on.
-    typealias ConstraintSet = PackageContainerConstraintSet<Container>
+    typealias ConstraintSet = PackageContainerConstraintSet
 
     /// The type of assignment the resolver operates on.
     typealias AssignmentSet = VersionAssignmentSet<Container>
