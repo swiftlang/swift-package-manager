@@ -88,9 +88,7 @@ class DependencyResolverTests: XCTestCase {
     }
 
     func testContainerConstraintSet() {
-        typealias ConstraintSet = PackageContainerConstraintSet
-
-        var set = ConstraintSet()
+        var set = PackageContainerConstraintSet()
         XCTAssertEqual(set.containerIdentifiers.map{ $0 }, [])
 
         // Check basics.
@@ -104,11 +102,11 @@ class DependencyResolverTests: XCTestCase {
         XCTAssert(set.merging(MockPackageConstraint(container: "A", versionRequirement: v2Range)) == nil)
 
         // Check merging other sets.
-        var set2 = ConstraintSet()
+        var set2 = PackageContainerConstraintSet()
         set2 = set2.merging(MockPackageConstraint(container: "C", versionRequirement: v1Range))!
         set = set.merging(set2)!
         XCTAssertEqual(set.containerIdentifiers.map{ $0 }.sorted(), ["A", "B", "C"])
-        var set3 = ConstraintSet()
+        var set3 = PackageContainerConstraintSet()
         set3 = set3.merging(MockPackageConstraint(container: "C", versionRequirement: v2Range))!
         set3 = set3.merging(MockPackageConstraint(container: "D", versionRequirement: v1Range))!
         set3 = set3.merging(MockPackageConstraint(container: "E", versionRequirement: v1Range))!
@@ -187,8 +185,6 @@ class DependencyResolverTests: XCTestCase {
 
     /// Check the basic situations for resolving a subtree.
     func testResolveSubtree() throws {
-        typealias ConstraintSet = MockDependencyResolver.ConstraintSet
-
         // Check respect for the input constraints on version selection.
         do {
             let a = MockPackageContainer(name: "A", dependenciesByVersion: [
@@ -202,7 +198,7 @@ class DependencyResolverTests: XCTestCase {
 
             // Check the unconstrained solution.
             XCTAssertEqual(
-                resolver.resolveSubtree(a, subjectTo: ConstraintSet(), excluding: [:]),
+                resolver.resolveSubtree(a, subjectTo: PackageContainerConstraintSet(), excluding: [:]),
                 [
                     ["a": v2, "b": v1],
                     ["a": v1, "b": v1],
@@ -306,8 +302,6 @@ class DependencyResolverTests: XCTestCase {
     ///
     /// This is primarily tested via `resolveSubtree`.
     func testResolve() throws {
-        typealias ConstraintSet = MockDependencyResolver.ConstraintSet
-
         // Check respect for the input constraints on version selection.
         do {
             let a = MockPackageContainer(name: "A", dependenciesByVersion: [
@@ -334,8 +328,6 @@ class DependencyResolverTests: XCTestCase {
 
     /// Check completeness on a variety of synthetic graphs.
     func testCompleteness() throws {
-        typealias ConstraintSet = MockDependencyResolver.ConstraintSet
-
         // We check correctness by comparing the result to an oracle which implements a trivial brute force solver.
 
         // Check respect for the input constraints on version selection.
@@ -990,11 +982,11 @@ extension VersionAssignmentSet {
 private extension DependencyResolver {
     func resolveSubtree(
         _ container: Container,
-        subjectTo allConstraints: [Identifier: VersionSetSpecifier] = [:],
-        excluding exclusions: [Identifier: Set<Version>] = [:]
-    ) -> AnySequence<AssignmentSet> {
+        subjectTo allConstraints: [PackageReference: VersionSetSpecifier] = [:],
+        excluding exclusions: [PackageReference: Set<Version>] = [:]
+    ) -> AnySequence<VersionAssignmentSet> {
         let constraints = Dictionary(items: allConstraints.map{ ($0.0, PackageRequirement.versionSet($0.1)) })
-        return resolveSubtree(container, subjectTo: ConstraintSet(constraints), excluding: exclusions)
+        return resolveSubtree(container, subjectTo: PackageContainerConstraintSet(constraints), excluding: exclusions)
     }
 }
 

@@ -778,25 +778,10 @@ func ==(lhs: VersionAssignmentSet, rhs: VersionAssignmentSet) -> Bool {
 /// open-ended version constraint. The given input is satisfiable iff the input
 /// 3-SAT instance is.
 public class DependencyResolver<
-    P: PackageContainerProvider
+    Provider: PackageContainerProvider
 > {
-    public typealias Provider = P
     public typealias Container = Provider.Container
-    public typealias Identifier = PackageReference
-    public typealias Delegate = DependencyResolverDelegate
-    public typealias Binding = (container: Identifier, binding: BoundVersion)
-
-    /// The type of the constraints the resolver operates on.
-    ///
-    /// Technically this is a container constraint, but that is currently the
-    /// only kind of constraints we operate on.
-    public typealias Constraint = PackageContainerConstraint
-
-    /// The type of constraint set  the resolver operates on.
-    typealias ConstraintSet = PackageContainerConstraintSet
-
-    /// The type of assignment the resolver operates on.
-    typealias AssignmentSet = VersionAssignmentSet
+    public typealias Binding = (container: PackageReference, binding: BoundVersion)
 
     /// The container provider used to load package containers.
     public let provider: Provider
@@ -818,7 +803,7 @@ public class DependencyResolver<
     /// Key used to cache a resolved subtree.
     private struct ResolveSubtreeCacheKey: Hashable {
         let container: Container
-        let allConstraints: ConstraintSet
+        let allConstraints: PackageContainerConstraintSet
 
         func hash(into hasher: inout Hasher) {
             hasher.combine(container.identifier)
@@ -831,7 +816,7 @@ public class DependencyResolver<
     }
 
     /// Cache for subtree resolutions.
-    private var _resolveSubtreeCache: [ResolveSubtreeCacheKey: AnySequence<AssignmentSet>] = [:]
+    private var _resolveSubtreeCache: [ResolveSubtreeCacheKey: AnySequence<VersionAssignmentSet>] = [:]
     
     /// Puts the resolver in incomplete mode.
     ///
@@ -845,7 +830,7 @@ public class DependencyResolver<
 
     public init(
         _ provider: Provider,
-        _ delegate: Delegate? = nil,
+        _ delegate: DependencyResolverDelegate? = nil,
         isPrefetchingEnabled: Bool = false,
         skipUpdate: Bool = false
     ) {
@@ -867,7 +852,7 @@ public class DependencyResolver<
         /// - parameters:
         ///     - dependencies: The package dependencies which make the graph unsatisfiable.
         ///     - pins: The pins which make the graph unsatisfiable.
-        case unsatisfiable(dependencies: [Constraint], pins: [Constraint])
+        case unsatisfiable(dependencies: [PackageContainerConstraint], pins: [PackageContainerConstraint])
 
         /// The resolver encountered an error during resolution.
         case error(Swift.Error)
@@ -878,8 +863,8 @@ public class DependencyResolver<
     /// If a valid assignment is not found, the resolver will go into incomplete
     /// mode and try to find the conflicting constraints.
     public func resolve(
-        dependencies: [Constraint],
-        pins: [Constraint]
+        dependencies: [PackageContainerConstraint],
+        pins: [PackageContainerConstraint]
     ) -> Result {
         do {
             // Reset the incomplete mode and run the resolver.
@@ -908,7 +893,10 @@ public class DependencyResolver<
     ///                  constraints for the same container identifier.
     /// - Returns: A satisfying assignment of containers and their version binding.
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
-    public func resolve(constraints: [Constraint], pins: [Constraint] = []) throws -> [(container: Identifier, binding: BoundVersion)] {
+    public func resolve(
+        constraints: [PackageContainerConstraint],
+        pins: [PackageContainerConstraint] = []
+    ) throws -> [(container: PackageReference, binding: BoundVersion)] {
         return try resolveAssignment(constraints: constraints, pins: pins).map({ assignment in
             let (container, binding) = assignment
             let identifier = try self.isInIncompleteMode ? container.identifier : container.getUpdatedIdentifier(at: binding)
@@ -924,10 +912,13 @@ public class DependencyResolver<
     ///                  constraints for the same container identifier.
     /// - Returns: A satisfying assignment of containers and versions.
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
-    func resolveAssignment(constraints: [Constraint], pins: [Constraint] = []) throws -> AssignmentSet {
+    func resolveAssignment(
+        constraints: [PackageContainerConstraint],
+        pins: [PackageContainerConstraint] = []
+    ) throws -> VersionAssignmentSet {
 
         // Create a constraint set with the input pins.
-        var allConstraints = ConstraintSet()
+        var allConstraints = PackageContainerConstraintSet()
         for constraint in pins {
             if let merged = allConstraints.merging(constraint) {
                 allConstraints = merged
@@ -940,7 +931,7 @@ public class DependencyResolver<
         // Create an assignment for the input constraints.
         let mergedConstraints = merge(
             constraints: constraints,
-            into: AssignmentSet(),
+            into: VersionAssignmentSet(),
             subjectTo: allConstraints,
             excluding: [:])
 
@@ -982,9 +973,9 @@ public class DependencyResolver<
     /// - Returns: A sequence of feasible solutions, starting with the most preferable.
     func resolveSubtree(
         _ container: Container,
-        subjectTo allConstraints: ConstraintSet,
-        excluding allExclusions: [Identifier: Set<Version>]
-    ) -> AnySequence<AssignmentSet> {
+        subjectTo allConstraints: PackageContainerConstraintSet,
+        excluding allExclusions: [PackageReference: Set<Version>]
+    ) -> AnySequence<VersionAssignmentSet> {
         // The key that is used to cache this assignement set.
         let cacheKey = ResolveSubtreeCacheKey(container: container, allConstraints: allConstraints)
 
@@ -1010,7 +1001,7 @@ public class DependencyResolver<
         // Helper method to abstract passing common parameters to merge().
         //
         // FIXME: We must detect recursion here.
-        func merge(constraints: [Constraint], binding: BoundVersion) -> AnySequence<AssignmentSet> {
+        func merge(constraints: [PackageContainerConstraint], binding: BoundVersion) -> AnySequence<VersionAssignmentSet> {
 
             // Diagnose if this container depends on itself.
             if constraints.contains(where: { $0.identifier == container.identifier }) {
@@ -1019,7 +1010,7 @@ public class DependencyResolver<
             }
 
             // Create an assignment for the container.
-            var assignment = AssignmentSet()
+            var assignment = VersionAssignmentSet()
             assignment[container] = binding
 
             return AnySequence(self.merge(
@@ -1033,7 +1024,7 @@ public class DependencyResolver<
             }))
         }
 
-        var result: AnySequence<AssignmentSet>
+        var result: AnySequence<VersionAssignmentSet>
         switch allConstraints[container.identifier] {
         case .unversioned:
             guard let constraints = self.safely({ try container.getUnversionedDependencies() }) else {
@@ -1054,7 +1045,7 @@ public class DependencyResolver<
 
             // Attempt to select each valid version in the preferred order.
             result = AnySequence(validVersions(container, in: versionSet).lazy
-                .flatMap({ version -> AnySequence<AssignmentSet> in
+                .flatMap({ version -> AnySequence<VersionAssignmentSet> in
                     assert(previousVersion != nil ? previousVersion! > version : true,
                            "container versions are improperly ordered")
                     previousVersion = version
@@ -1120,11 +1111,11 @@ public class DependencyResolver<
     ///   - allExclusions: A set of package assignments to exclude from consideration.
     /// - Returns: A sequence of all valid satisfying assignment, in order of preference.
     private func merge(
-        constraints: [Constraint],
-        into assignment: AssignmentSet,
-        subjectTo allConstraints: ConstraintSet,
-        excluding allExclusions: [Identifier: Set<Version>]
-    ) -> AnySequence<AssignmentSet> {
+        constraints: [PackageContainerConstraint],
+        into assignment: VersionAssignmentSet,
+        subjectTo allConstraints: PackageContainerConstraintSet,
+        excluding allExclusions: [PackageReference: Set<Version>]
+    ) -> AnySequence<VersionAssignmentSet> {
         var allConstraints = allConstraints
 
         // Never prefetch when running in incomplete mode.
@@ -1157,7 +1148,7 @@ public class DependencyResolver<
         return AnySequence(constraints
             .map({ $0.identifier })
             .reduce(AnySequence([(assignment, allConstraints)]), {
-                (possibleAssignments, identifier) -> AnySequence<(AssignmentSet, ConstraintSet)> in
+                (possibleAssignments, identifier) -> AnySequence<(VersionAssignmentSet, PackageContainerConstraintSet)> in
                 // If we had encountered any error, return early.
                 guard self.error == nil else { return AnySequence([]) }
 
@@ -1175,10 +1166,10 @@ public class DependencyResolver<
 
                 // Return a new lazy sequence merging all possible subtree solutions into all possible incoming
                 //  assignments.
-                return AnySequence(possibleAssignments.lazy.flatMap({ value -> AnySequence<(AssignmentSet, ConstraintSet)> in
+                return AnySequence(possibleAssignments.lazy.flatMap({ value -> AnySequence<(VersionAssignmentSet, PackageContainerConstraintSet)> in
                     let (assignment, allConstraints) = value
                     let subtree = self.resolveSubtree(container, subjectTo: allConstraints, excluding: allExclusions)
-                    return AnySequence(subtree.lazy.compactMap({ subtreeAssignment -> (AssignmentSet, ConstraintSet)? in
+                    return AnySequence(subtree.lazy.compactMap({ subtreeAssignment -> (VersionAssignmentSet, PackageContainerConstraintSet)? in
                             // We found a valid subtree assignment, attempt to merge it with the
                             // current solution.
                             guard let newAssignment = assignment.merging(subtreeAssignment) else {
@@ -1227,7 +1218,7 @@ public class DependencyResolver<
     private let fetchCondition = Condition()
 
     /// The active set of managed containers.
-    public var containers: [Identifier: Container] {
+    public var containers: [PackageReference: Container] {
         return fetchCondition.whileLocked({
             _fetchedContainers.spm_flatMapValues({
                 try? $0.dematerialize()
@@ -1236,13 +1227,13 @@ public class DependencyResolver<
     }
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [Identifier: Basic.Result<Container, AnyError>] = [:]
+    private var _fetchedContainers: [PackageReference: Basic.Result<Container, AnyError>] = [:]
 
     /// The set of containers requested so far.
-    private var _prefetchingContainers: Set<Identifier> = []
+    private var _prefetchingContainers: Set<PackageReference> = []
 
     /// Get the container for the given identifier, loading it if necessary.
-    fileprivate func getContainer(for identifier: Identifier) throws -> Container {
+    fileprivate func getContainer(for identifier: PackageReference) throws -> Container {
         return try fetchCondition.whileLocked {
             // Return the cached container, if available.
             if let container = _fetchedContainers[identifier] {
@@ -1267,7 +1258,7 @@ public class DependencyResolver<
     }
 
     /// Starts prefetching the given containers.
-    private func prefetch(containers identifiers: [Identifier]) {
+    private func prefetch(containers identifiers: [PackageReference]) {
         fetchCondition.whileLocked {
             // Process each container.
             for identifier in identifiers {
@@ -1297,10 +1288,7 @@ public class DependencyResolver<
 /// The resolver debugger.
 ///
 /// Finds the constraints which results in graph being unresolvable.
-private struct ResolverDebugger<P: PackageContainerProvider> {
-    typealias Provider = P
-    typealias Delegate = DependencyResolverDelegate
-    typealias Identifier = PackageReference
+private struct ResolverDebugger<Provider: PackageContainerProvider> {
 
     enum Error: Swift.Error {
         /// Reached the time limit without completing the algorithm.
@@ -1438,13 +1426,13 @@ private struct ResolverDebugger<P: PackageContainerProvider> {
     enum ResolverChange: Hashable {
 
         /// Allow the package with the given identifier.
-        case allowPackage(Identifier)
+        case allowPackage(PackageReference)
 
         /// Allow the pins with the given identifier.
-        case allowPin(Identifier)
+        case allowPin(PackageReference)
 
         /// Returns the allowed pin identifier.
-        var allowedPin: Identifier? {
+        var allowedPin: PackageReference? {
             if case let .allowPin(identifier) = self {
                 return identifier
             }
@@ -1452,7 +1440,7 @@ private struct ResolverDebugger<P: PackageContainerProvider> {
         }
 
         // Returns the allowed package identifier.
-        var allowedPackage: Identifier? {
+        var allowedPackage: PackageReference? {
             if case let .allowPackage(identifier) = self {
                 return identifier
             }
