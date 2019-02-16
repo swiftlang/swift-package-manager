@@ -214,7 +214,7 @@ public class MockResolverDelegate: DependencyResolverDelegate {
     public init() {}
 }
 
-extension DependencyResolver where P == MockPackagesProvider {
+extension DependencyResolver where Provider == MockPackagesProvider {
     /// Helper method which returns all the version binding out of resolver and assert failure for non version bindings.
     public func resolveToVersion(
         constraints: [MockPackageConstraint],
