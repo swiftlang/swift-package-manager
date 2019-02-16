@@ -349,6 +349,14 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(
             term("a^2.0.0").intersect(with: term("¬a^1.0.0")),
             term("a^2.0.0"))
+
+        XCTAssertEqual(
+            term("¬a^1.0.0").intersect(with: term("¬a^1.0.0")),
+            term("¬a^1.0.0"))
+
+        XCTAssertEqual(
+            term("¬a@1.0.0").intersect(with: term("¬a@1.0.0")),
+            term("¬a@1.0.0"))
     }
 
     func testTermRelation() {
