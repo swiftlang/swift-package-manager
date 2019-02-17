@@ -25,6 +25,9 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
         dependency: (PackageReference, String),
         revisions: [(PackageReference, String)])
 
+    /// The resolver found missing versions for the given constraints.
+    case missingVersions([PackageContainerConstraint])
+
     public static func == (lhs: DependencyResolverError, rhs: DependencyResolverError) -> Bool {
         switch (lhs, rhs) {
         case (.unsatisfiable, .unsatisfiable):
@@ -39,6 +42,10 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
               .incompatibleConstraints(let rDependency, let rRevisions)):
             return lDependency == rDependency && lRevisions == rRevisions
         case (.incompatibleConstraints, _):
+            return false
+        case (.missingVersions(let lhs), .missingVersions(let rhs)):
+            return lhs == rhs
+        case (.missingVersions, _):
             return false
         }
     }
@@ -56,6 +63,25 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
                 stream <<< "    "
                 stream <<< "\(revision.0)" <<< " @ " <<< revision.1
                 if i != revisions.count - 1 {
+                    stream  <<< "\n"
+                }
+            }
+            return stream.bytes.description
+
+        case let .missingVersions(constraints):
+            let stream = BufferedOutputByteStream()
+            stream <<< "the package dependency graph is unresolvable; unable find any available tag for the following requirements:\n"
+            for (i, constraint) in constraints.enumerated() {
+                stream <<< "    "
+                stream <<< "\(constraint.identifier.path)" <<< " @ "
+                switch constraint.requirement {
+                case .versionSet(let set):
+                    stream <<< "\(set)"
+                case .revision, .unversioned:
+                    assertionFailure("Unexpected requirement type")
+                    break
+                }
+                if i != constraints.count - 1 {
                     stream  <<< "\n"
                 }
             }
@@ -946,10 +972,29 @@ public class DependencyResolver {
                 throw error
             }
 
+            // Diagnose any missing versions for the constraints.
+            try diagnoseMissingVersions(for: constraints)
+
             throw DependencyResolverError.unsatisfiable
         }
 
         return assignment
+    }
+
+    /// Diagnoses missing versions for the given constraints.
+    private func diagnoseMissingVersions(for constraints: [RepositoryPackageConstraint]) throws {
+        let constraintsWithNoAvailableVersions = constraints.filter { constraint in
+            if case .versionSet(let versions) = constraint.requirement,
+            let container = try? getContainer(for: constraint.identifier),
+            !container.versions(filter: versions.contains).contains(where: { _ in true }) {
+                return true
+            }
+            return false
+        }
+
+        if !constraintsWithNoAvailableVersions.isEmpty {
+            throw DependencyResolverError.missingVersions(constraintsWithNoAvailableVersions)
+        }
     }
 
     // FIXME: This needs to a way to return information on the failure, or we
