@@ -26,7 +26,7 @@ public enum StringCheck: ExpressibleByStringLiteral {
         case .equal(let str):
             XCTAssertEqual(str, input, file: file, line: line)
         case .contains(let str):
-            XCTAssert(input.contains(str), "\(str) does not contain \(input)", file: file, line: line)
+            XCTAssert(input.contains(str), "\(input) does not contain \(str)", file: file, line: line)
         }
     }
 

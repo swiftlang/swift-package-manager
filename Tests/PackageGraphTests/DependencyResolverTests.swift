@@ -598,7 +598,7 @@ class DependencyResolverTests: XCTestCase {
         ])
 
         // Unsatisfiable unversioned constraint.
-        XCTAssertThrows(DependencyResolverError.unsatisfiable) {
+        XCTAssertThrows(DependencyResolverError.missingVersions([a_v2_constraint])) {
             resolver = createResolver()
             _ = try resolver.resolve(constraints: [
                 MockPackageConstraint(container: "B", requirement: .unversioned),
@@ -662,7 +662,8 @@ class DependencyResolverTests: XCTestCase {
 
         var resolver = createResolver()
         // First, try to resolve to a non-existant version.
-        XCTAssertThrows(DependencyResolverError.unsatisfiable) {
+        XCTAssertThrows(DependencyResolverError.missingVersions([
+            MockPackageConstraint(container: "A", versionRequirement: .exact("1.1.0"))])) {
             _ = try resolver.resolve(constraints: [
                 MockPackageConstraint(container: "A", versionRequirement: .exact("1.1.0")),
             ])
@@ -704,7 +705,7 @@ class DependencyResolverTests: XCTestCase {
         }
 
         // Invalid requirement of known containers should still be errors.
-        XCTAssertThrows(DependencyResolverError.unsatisfiable) {
+        XCTAssertThrows(DependencyResolverError.missingVersions([MockPackageConstraint(container: "A", versionRequirement: .exact(v2))])) {
             _ = try resolver.resolve(constraints: [
                 MockPackageConstraint(container: "A", versionRequirement: .exact(v2))
             ])
@@ -737,7 +738,7 @@ class DependencyResolverTests: XCTestCase {
             let result = resolver.resolve(dependencies: [
                 MockPackageConstraint(container: "A", versionRequirement: .exact("1.9.0")),
             ], pins: [])
-            XCTAssertEqual(result, constraints: [
+            assertMissingVersions(result, constraints: [
                 MockPackageConstraint(container: "A", versionRequirement: .exact("1.9.0")),
             ])
         }
@@ -1069,6 +1070,19 @@ private func XCTAssertEqual(
                 "unexpected binding for \(container). Expected: \(expectedBinding.debugDescription) got: \(binding)",
                 file: file, line: line)
         }
+    }
+}
+
+private func assertMissingVersions(
+    _ result: DependencyResolver.Result,
+    constraints: [PackageContainerConstraint],
+    file: StaticString = #file, line: UInt = #line
+) {
+    if case .error(let error as DependencyResolverError) = result,
+        case .missingVersions(let versions) = error {
+        XCTAssertEqual(versions, constraints, file: file, line: line)
+    } else {
+        XCTFail(file: file, line: line)
     }
 }
 
