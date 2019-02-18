@@ -797,14 +797,7 @@ public final class PubgrubDependencyResolver {
         }
         decide(root, version: "1.0.0", location: .topLevel)
 
-        do {
-            try run()
-        } catch PubgrubError.unresolvable(let conflict) {
-            throw PubgrubError.unresolvable(conflict)
-        } catch {
-            assertionFailure("Unexpected error \(error)")
-            throw error
-        }
+        try run()
 
         let decisions = solution.assignments.filter { $0.isDecision }
         let finalAssignments: [(container: PackageReference, binding: BoundVersion)] = decisions.map { assignment in
