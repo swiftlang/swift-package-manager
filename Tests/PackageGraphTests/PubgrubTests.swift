@@ -770,11 +770,20 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(unavailable.description, "{package 1.0.0}")
     }
 
-    func DISABLED_testNonExistentPackage() {
+    func testNonExistentPackage() {
         builder.serve(root: "root", with: ["package": .exact(v1)])
 
         let resolver = builder.create()
-        _ = resolver.solve(root: rootRef, pins: [])
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        guard
+            case .error(let error) = result,
+            let anyError = error as? AnyError,
+            let mockError = anyError.underlyingError as? _MockLoadingError,
+            case .unknownModule = mockError
+        else {
+            return XCTFail("Expected unknown module error.")
+        }
     }
 
     func testConflict1() {
