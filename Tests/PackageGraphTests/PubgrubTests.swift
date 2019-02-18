@@ -133,8 +133,8 @@ class DependencyGraphBuilder {
     }
 
     func serve(root: String, with dependencies: [String: VersionSetSpecifier]) {
-        let rootDependencies = dependencies.map {
-            (package: reference(for: $0), requirement: $1)
+        let rootDependencies = dependencies.keys.sorted().map {
+            (package: reference(for: $0), requirement: dependencies[$0]!)
         }
 
         let rootContainer = MockContainer(name: reference(for: root),
@@ -796,10 +796,7 @@ final class PubgrubTests: XCTestCase {
             return XCTFail("Expected unresolvable graph.")
         }
 
-        // FIXME: This is non-deterministic.
-        var foundCause = cause.description == "{foo 1.0.0..<2.0.0}"
-        foundCause = foundCause || cause.description == "{bar 1.0.0..<2.0.0}"
-        XCTAssertTrue(foundCause, "\(cause)")
+        XCTAssertEqual(cause.description, "{foo 1.0.0..<2.0.0}")
     }
 
     func testConflict2() {
