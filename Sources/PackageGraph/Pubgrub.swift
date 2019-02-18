@@ -269,6 +269,8 @@ public struct Incompatibility: Equatable, Hashable {
         }
 
         let normalizedTerms = normalize(terms: terms.contents)
+        assert(normalizedTerms.count > 0,
+               "An incompatibility must contain at least one term after normalization.")
         self.init(terms: OrderedSet(normalizedTerms), cause: cause)
     }
 }
@@ -995,7 +997,6 @@ public final class PubgrubDependencyResolver {
     /// failed, meaning this incompatibility is either empty or only for the root
     /// package.
     private func isCompleteFailure(_ incompatibility: Incompatibility) -> Bool {
-        guard !incompatibility.terms.isEmpty else { return true }
         return incompatibility.terms.count == 1 && incompatibility.terms.first?.package == root
     }
 
