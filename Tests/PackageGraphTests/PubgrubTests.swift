@@ -142,16 +142,6 @@ class DependencyGraphBuilder {
         self.containers[root] = rootContainer
     }
 
-    func serve(root: String, with dependencies: [(String, VersionSetSpecifier)]) {
-        let rootDependencies = dependencies.map {
-            (package: reference(for: $0), requirement: $1)
-        }
-
-        let rootContainer = MockContainer(name: reference(for: root),
-                                          unversionedDependencies: rootDependencies)
-        self.containers[root] = rootContainer
-    }
-
     func serve(_ package: String, at version: Version, with dependencies: [String: VersionSetSpecifier] = [:]) {
         let packageReference = reference(for: package)
         let container = self.containers[package] ?? MockContainer(name: packageReference)
@@ -816,16 +806,16 @@ final class PubgrubTests: XCTestCase {
         }
 
         builder.serve(root: "root", with: [
-            ("config", v2Range),
-            ("foo", v1Range),
+            "config": v2Range,
+            "foo": v1Range,
         ])
         addDeps()
         let resolver1 = builder.create()
         _ = resolver1.solve(root: rootRef, pins: [])
 
         builder.serve(root: "root", with: [
-            ("foo", v1Range),
-            ("config", v2Range),
+            "foo": v1Range,
+            "config": v2Range,
         ])
         addDeps()
         let resolver2 = builder.create()
@@ -834,8 +824,8 @@ final class PubgrubTests: XCTestCase {
 
     func testConflict3() {
         builder.serve(root: "root", with: [
-            ("foo", v1Range),
-            ("config", v2Range),
+            "foo": v1Range,
+            "config": v2Range,
         ])
         builder.serve("foo", at: v1, with: ["config": v1Range])
         builder.serve("config", at: v1)
@@ -851,7 +841,7 @@ final class PubgrubTests: XCTestCase {
             return XCTFail("Expected unresolvable graph.")
         }
 
-        XCTAssertEqual(cause.description, "{config 2.0.0..<3.0.0}")
+        XCTAssertEqual(cause.description, "{foo 1.0.0..<2.0.0}")
     }
 }
 
