@@ -59,6 +59,7 @@ extension PubgrubTests {
         ("testConflict3", testConflict3),
         ("testIncompatibilityNormalizeTermsOnInit", testIncompatibilityNormalizeTermsOnInit),
         ("testMissingVersion", testMissingVersion),
+        ("testNonExistentPackage", testNonExistentPackage),
         ("testPositiveTerms", testPositiveTerms),
         ("testResolutionAvoidingConflictResolutionDuringDecisionMaking", testResolutionAvoidingConflictResolutionDuringDecisionMaking),
         ("testResolutionConflictResolutionWithAPartialSatisfier", testResolutionConflictResolutionWithAPartialSatisfier),
