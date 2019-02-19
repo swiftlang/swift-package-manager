@@ -49,7 +49,7 @@ class DependencyResolverPerfTests: XCTestCasePerf {
         measure {
             for _ in 0..<N {
                 let result = try! resolver.resolveToVersion(constraints: [MockPackageConstraint(container: "A", versionRequirement: v1Range)])
-                XCTAssertEqual(result, ["A": v1, "B": v1, "C": v1, "D": v1])
+                XCTAssertEqual(result, ["a": v1, "b": v1, "c": v1, "d": v1])
             }
         }
     }

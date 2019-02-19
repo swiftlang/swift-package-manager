@@ -246,7 +246,7 @@ public struct MockGraph {
         self.result = Dictionary(items: result.map({ value in
             let (container, version) = value
             guard case let .string(str) = version else { fatalError() }
-            return (container, Version(string: str)!)
+            return (container.lowercased(), Version(string: str)!)
         }))
         self.name = name
         self.constraints = constraints.map(PackageContainerConstraint.init(json:))
