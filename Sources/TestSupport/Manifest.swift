@@ -86,3 +86,24 @@ extension ProductDescription {
         self.init(name: name, type: .library(.automatic), targets: targets)
     }
 }
+
+extension Manifest {
+    public func with(url: String) -> Manifest {
+        return Manifest(
+            name: name,
+            platforms: platforms,
+            path: path,
+            url: url,
+            version: version,
+            manifestVersion: manifestVersion,
+            pkgConfig: pkgConfig,
+            providers: providers,
+            cLanguageStandard: cLanguageStandard,
+            cxxLanguageStandard: cxxLanguageStandard,
+            swiftLanguageVersions: swiftLanguageVersions,
+            dependencies: dependencies,
+            products: products,
+            targets: targets
+        )
+    }
+}

@@ -380,6 +380,15 @@ public final class TestWorkspace {
                 XCTFail("Unimplemented", file: file, line: line)
             }
         }
+
+        public func check(dependency package: String, url: String, file: StaticString = #file, line: UInt = #line) {
+            guard let pin = store.pinsMap[package] else {
+                XCTFail("Pin for \(package) not found", file: file, line: line)
+                return
+            }
+
+            XCTAssertEqual(pin.packageRef.path, url, file: file, line: line)
+        }
     }
 
     public func checkResolved(file: StaticString = #file, line: UInt = #line, _ result: (ResolvedResult) throws -> ()) {
