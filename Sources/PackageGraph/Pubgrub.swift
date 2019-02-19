@@ -787,7 +787,7 @@ public final class PubgrubDependencyResolver {
         //
         // We add the dependencies before deciding on a version for root
         // to avoid inserting the wrong decision level.
-        let rootContainer = try getContainer(for: self.root!)
+        let rootContainer = try getContainer(for: root)
         for dependency in try rootContainer.getUnversionedDependencies() {
             let incompatibility = Incompatibility(
                 Term(root, .versionSet(.exact("1.0.0"))),
@@ -800,7 +800,11 @@ public final class PubgrubDependencyResolver {
         try run()
 
         let decisions = solution.assignments.filter { $0.isDecision }
-        let finalAssignments: [(container: PackageReference, binding: BoundVersion)] = decisions.map { assignment in
+        let finalAssignments: [(container: PackageReference, binding: BoundVersion)] = try decisions.compactMap { assignment in
+            guard assignment.term.package != root else {
+                return nil
+            }
+
             var boundVersion: BoundVersion
             switch assignment.term.requirement {
             case .versionSet(.exact(let version)):
@@ -816,10 +820,13 @@ public final class PubgrubDependencyResolver {
                 fatalError("Solution should not contain empty versionSet requirement.")
             }
 
-            return (assignment.term.package, boundVersion)
+            let container = try getContainer(for: assignment.term.package)
+            let identifier = try container.getUpdatedIdentifier(at: boundVersion)
+
+            return (identifier, boundVersion)
         }
 
-        return finalAssignments.filter { $0.container != root }
+        return finalAssignments
     }
 
     /// Perform unit propagation, resolving conflicts if necessary and making
