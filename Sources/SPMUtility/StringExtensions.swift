@@ -82,4 +82,16 @@ extension String {
             return (head, nil)
         }
     }
+
+    /// Drops the given suffix from the string, if present.
+    public func spm_dropSuffix(_ suffix: String) -> String {
+        if hasSuffix(suffix) {
+           return String(dropLast(suffix.count))
+        }
+        return self
+    }
+
+    public func spm_dropGitSuffix() -> String {
+        return spm_dropSuffix(".git")
+    }
 }
