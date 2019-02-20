@@ -78,7 +78,7 @@ class PackageBuilderTests: XCTestCase {
             )
 
             PackageBuilderTester(manifest, path: path, in: fs) { result in
-                result.checkDiagnostic("ignoring broken symlink \(linkPath.pathString)")
+                result.checkDiagnostic("ignoring broken symlink \(linkPath)")
                 result.checkModule("foo")
             }
         }
