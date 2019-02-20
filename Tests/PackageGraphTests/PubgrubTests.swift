@@ -22,7 +22,7 @@ typealias PGError = PubgrubDependencyResolver.PubgrubError
 public class MockContainer: PackageContainer {
     public typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
 
-    let name: PackageReference
+    var name: PackageReference
     var manifestName: PackageReference?
 
     var dependencies: [String: [Dependency]]
@@ -58,7 +58,10 @@ public class MockContainer: PackageContainer {
     }
 
     public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
-        return manifestName ?? name
+        if let manifestName = manifestName {
+            name = name.with(newName: manifestName.identity)
+        }
+        return name
     }
 
     public convenience init(
@@ -515,7 +518,7 @@ final class PubgrubTests: XCTestCase {
     func testUpdatePackageIdentifierAfterResolution() {
         let fooRef = PackageReference(identity: "foo", path: "https://some.url/FooBar")
         let foo = MockContainer(name: fooRef, dependenciesByVersion: [v1: []])
-        foo.manifestName = "foobar"
+        foo.manifestName = "bar"
 
         let root = MockContainer(name: "root", unversionedDependencies: [(package: fooRef, requirement: v1Range)])
         let provider = MockProvider(containers: [root, foo])
@@ -529,7 +532,7 @@ final class PubgrubTests: XCTestCase {
         case .success(let bindings):
             XCTAssertEqual(bindings.count, 1)
             let foo = bindings.first
-            XCTAssertEqual(foo?.container.identity, "foobar")
+            XCTAssertEqual(foo?.container.name, "bar")
         }
     }
 
