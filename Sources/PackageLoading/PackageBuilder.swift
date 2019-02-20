@@ -17,8 +17,8 @@ public enum ModuleError: Swift.Error {
 
     /// Describes a way in which a package layout is invalid.
     public enum InvalidLayoutType {
-        case multipleSourceRoots([String])
-        case modulemapInSources(String)
+        case multipleSourceRoots([AbsolutePath])
+        case modulemapInSources(AbsolutePath)
     }
 
     /// Indicates two targets with the same name and their corresponding packages.
@@ -82,10 +82,10 @@ extension ModuleError: CustomStringConvertible {
             return "public headers directory path for '\(name)' is invalid or not contained in the target"
         case .overlappingSources(let target, let sources):
             return "target '\(target)' has sources overlapping sources: " +
-                sources.map({ $0.pathString }).joined(separator: ", ")
+                sources.map({ $0.description }).joined(separator: ", ")
         case .multipleLinuxMainFound(let package, let linuxMainFiles):
             return "package '\(package)' has multiple linux main files: " +
-                linuxMainFiles.map({ $0.pathString }).sorted().joined(separator: ", ")
+                linuxMainFiles.map({ $0.description }).sorted().joined(separator: ", ")
         case .incompatibleToolsVersions(let package, let required, let current):
             if required.isEmpty {
                 return "package '\(package)' supported Swift language versions is empty"
@@ -107,7 +107,7 @@ extension ModuleError.InvalidLayoutType: CustomStringConvertible {
     public var description: String {
         switch self {
         case .multipleSourceRoots(let paths):
-            return "multiple source roots found: " + paths.sorted().joined(separator: ", ")
+          return "multiple source roots found: " + paths.map({ $0.description }).sorted().joined(separator: ", ")
         case .modulemapInSources(let path):
             return "modulemap '\(path)' should be inside the 'include' directory"
         }
@@ -120,14 +120,14 @@ extension Target {
     enum Error: Swift.Error {
 
         /// The target's name is invalid.
-        case invalidName(path: String, problem: ModuleNameProblem)
+        case invalidName(path: RelativePath, problem: ModuleNameProblem)
         enum ModuleNameProblem {
             /// Empty target name.
             case emptyName
         }
 
         /// The target contains an invalid mix of languages (e.g. both Swift and C).
-        case mixedSources(String)
+        case mixedSources(AbsolutePath)
 
         /// The manifest contains duplicate targets.
         case duplicateTargets([String])
@@ -297,7 +297,7 @@ public final class PackageBuilder {
             // Diagnose broken symlinks.
             if fileSystem.isSymlink(path) {
                 diagnostics.emit(
-                    data: PackageBuilderDiagnostics.BorkenSymlinkDiagnostic(path: path.pathString),
+                    data: PackageBuilderDiagnostics.BrokenSymlinkDiagnostic(path: path),
                     location: diagnosticLocation()
                 )
             }
@@ -573,7 +573,7 @@ public final class PackageBuilder {
     private func validateModuleName(_ path: AbsolutePath, _ name: String, isTest: Bool) throws {
         if name.isEmpty {
             throw Target.Error.invalidName(
-                path: path.relative(to: packagePath).pathString,
+                path: path.relative(to: packagePath),
                 problem: .emptyName)
         }
     }
@@ -671,7 +671,7 @@ public final class PackageBuilder {
 
         // Make sure there is no modulemap mixed with the sources.
         if let path = walked.first(where: { $0.basename == moduleMapFilename }) {
-            throw ModuleError.invalidLayout(.modulemapInSources(path.pathString))
+            throw ModuleError.invalidLayout(.modulemapInSources(path))
         }
         // Select any source files for the C-based languages and for Swift.
         let sources = walked.filter(isValidSource).filter({ !targetExcludedPaths.contains($0) })
@@ -700,7 +700,7 @@ public final class PackageBuilder {
             )
         } else {
             // No Swift sources, so we expect to have C sources, and we create a C target.
-            guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path.pathString) }
+            guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path) }
             let cSources = Array(clangSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: cSources)
 

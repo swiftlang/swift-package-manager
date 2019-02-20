@@ -228,7 +228,7 @@ struct PkgConfigParser {
                 variables[name.spm_chuzzle() ?? ""] = try resolveVariables(value)
             } else {
                 // Unexpected thing in the pc file, abort.
-                throw PkgConfigError.parsingError("Unexpected line: \(line) in \(pcFile.pathString)")
+                throw PkgConfigError.parsingError("Unexpected line: \(line) in \(pcFile)")
             }
         }
     }
@@ -295,7 +295,7 @@ struct PkgConfigParser {
                 guard it.next() != nil else {
                     throw PkgConfigError.parsingError("""
                         Expected version number after \(deps.last.debugDescription) \(arg) in \"\(depString)\" in \
-                        \(pcFile.pathString)
+                        \(pcFile)
                         """)
                 }
             } else {
