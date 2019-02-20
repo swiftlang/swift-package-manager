@@ -23,6 +23,7 @@ public class MockContainer: PackageContainer {
     public typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
 
     let name: PackageReference
+    var manifestName: PackageReference?
 
     var dependencies: [String: [Dependency]]
 
@@ -57,7 +58,7 @@ public class MockContainer: PackageContainer {
     }
 
     public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
-        return name
+        return manifestName ?? name
     }
 
     public convenience init(
@@ -509,6 +510,27 @@ final class PubgrubTests: XCTestCase {
             "a": [a, ab],
             "b": [ab],
         ])
+    }
+
+    func testUpdatePackageIdentifierAfterResolution() {
+        let fooRef = PackageReference(identity: "foo", path: "https://some.url/FooBar")
+        let foo = MockContainer(name: fooRef, dependenciesByVersion: [v1: []])
+        foo.manifestName = "foobar"
+
+        let root = MockContainer(name: "root", unversionedDependencies: [(package: fooRef, requirement: v1Range)])
+        let provider = MockProvider(containers: [root, foo])
+
+        let resolver = PubgrubDependencyResolver(provider, delegate)
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        switch result {
+        case .error, .unsatisfiable:
+            XCTFail("Unexpected error")
+        case .success(let bindings):
+            XCTAssertEqual(bindings.count, 1)
+            let foo = bindings.first
+            XCTAssertEqual(foo?.container.identity, "foobar")
+        }
     }
 
     func testResolverConflictResolution() {
