@@ -270,7 +270,7 @@ public final class Process: ObjectIdentifierProtocol {
         }
 
         // Initialize the spawn attributes.
-      #if os(macOS)
+      #if canImport(Darwin)
         var attributes: posix_spawnattr_t? = nil
       #else
         var attributes = posix_spawnattr_t()
@@ -315,7 +315,7 @@ public final class Process: ObjectIdentifierProtocol {
         posix_spawnattr_setflags(&attributes, Int16(flags))
 
         // Setup the file actions.
-      #if os(macOS)
+      #if canImport(Darwin)
         var fileActions: posix_spawn_file_actions_t? = nil
       #else
         var fileActions = posix_spawn_file_actions_t()

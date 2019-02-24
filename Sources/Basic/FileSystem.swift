@@ -275,11 +275,7 @@ private class LocalFileSystem: FileSystem {
     }
 
     var homeDirectory: AbsolutePath {
-        if #available(macOS 10.12, *) {
-            return AbsolutePath(FileManager.default.homeDirectoryForCurrentUser.path)
-        } else {
-            return AbsolutePath(NSHomeDirectory())
-        }
+        return AbsolutePath(NSHomeDirectory())
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
