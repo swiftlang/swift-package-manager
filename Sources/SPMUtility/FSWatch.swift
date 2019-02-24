@@ -76,7 +76,7 @@ public class FSWatch {
         }
 
         self._watcher = Inotify(paths: ipaths, latency: latency, delegate: _WatcherDelegate(self))
-      #elseif canImport(Darwin)
+      #elseif os(macOS)
         self._watcher = FSEventStream(paths: paths, latency: latency, delegate: _WatcherDelegate(self))
       #else
         fatalError("Unsupported platform")
@@ -109,7 +109,7 @@ private protocol _FileWatcher {
 #if canImport(Glibc)
 extension FSWatch._WatcherDelegate: InotifyDelegate {}
 extension Inotify: _FileWatcher{}
-#else
+#elseif os(macOS)
 extension FSWatch._WatcherDelegate: FSEventStreamDelegate {}
 extension FSEventStream: _FileWatcher{}
 #endif
@@ -498,7 +498,7 @@ private func FD_ISSET(_ fd: Int32, _ set: inout fd_set) -> Bool {
 
 // MARK:- FSEventStream
 
-#if canImport(Darwin)
+#if os(macOS)
 
 private func callback(
     streamRef: ConstFSEventStreamRef,

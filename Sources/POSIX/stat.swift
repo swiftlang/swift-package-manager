@@ -63,7 +63,7 @@ public struct FileInfo: Equatable, Codable {
         self.mode = UInt64(buf.st_mode)
         self.size = UInt64(buf.st_size)
 
-      #if os(macOS)
+      #if canImport(Darwin)
         let seconds = buf.st_mtimespec.tv_sec
         let nanoseconds = buf.st_mtimespec.tv_nsec
       #else

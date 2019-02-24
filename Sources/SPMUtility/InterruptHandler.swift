@@ -38,7 +38,7 @@ public final class InterruptHandler {
             write(signalWatchingPipe[1], &byte, 1)
         }
         var action = sigaction()
-      #if os(macOS)
+      #if canImport(Darwin)
         action.__sigaction_u.__sa_handler = signalHandler
       #else
         action.__sigaction_handler = unsafeBitCast(
