@@ -19,23 +19,9 @@ import PackageLoading
 @testable import Build
 
 #if os(macOS)
-    let defaultTargetTriple: String =  "x86_64-apple-macosx10.10"
-#elseif os(Windows)
-    let defaultTargetTriple: String =  "x86_64-unknown-windows-msvc"
-#elseif os(Linux)
-    #if arch(x86_64)
-      let defaultTargetTriple: String = "x86_64-unknown-linux"
-    #elseif arch(i386)
-      let defaultTargetTriple: String = "i386-unknown-linux"
-    #elseif arch(powerpc64le)
-      let defaultTargetTriple: String = "ppc64le-unknown-linux"
-    #elseif arch(s390x)
-      let defaultTargetTriple: String = "s390x-unknown-linux"
-    #elseif arch(arm64)
-      let defaultTargetTriple: String = "aarch64-unknown-linux"
-    #elseif arch(arm)
-      let defaultTargetTriple: String = "armv7-unknown-linux-gnueabihf"
-    #endif
+    let defaultTargetTriple: String = Triple.hostTriple.tripleString(forPlatformVersion: "10.10")
+#else
+    let defaultTargetTriple: String = Triple.hostTriple.tripleString
 #endif
 
 private struct MockToolchain: Toolchain {
