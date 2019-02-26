@@ -16,6 +16,50 @@ import PackageModel
 @testable import PackageGraph
 import SourceControl
 
+/// Asserts that the listed packages are present in the bindings with their
+/// specified versions.
+private func AssertBindings(_ bindings: [DependencyResolver.Binding],
+                            _ packages: [(identity: String, version: BoundVersion)],
+                            file: StaticString = #file,
+                            line: UInt = #line) {
+    if bindings.count > packages.count {
+        let unexpectedBindings = bindings
+            .filter { binding in
+                packages.contains(where: { pkg in
+                    pkg.0 != binding.container.identity
+                })
+            }
+            .map { $0.container.identity }
+
+        XCTFail("Unexpected binding(s) found for \(unexpectedBindings.joined(separator: ", ")).", file: file, line: line)
+    }
+    for package in packages {
+        guard let binding = bindings.first(where: { $0.container.identity == package.identity }) else {
+            XCTFail("No binding found for \(package.identity).", file: file, line: line)
+            continue
+        }
+
+        if binding.binding != package.version {
+            XCTFail("Expected \(package.version) for \(package.identity), found \(binding.binding) instead.", file: file, line: line)
+        }
+    }
+}
+
+/// Asserts that a result succeeded and contains the specified bindings.
+private func AssertResult(_ result: PubgrubDependencyResolver.Result,
+                          _ packages: [(identity: String, version: BoundVersion)],
+                          file: StaticString = #file,
+                          line: UInt = #line) {
+    switch result {
+    case .success(let bindings):
+        AssertBindings(bindings, packages, file: file, line: line)
+    case .unsatisfiable(dependencies: let constraints, pins: let pins):
+        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
+    case .error(let error):
+        XCTFail("Unexpected error: \(error)", file: file, line: line)
+    }
+}
+
 public typealias _MockPackageConstraint = PackageContainerConstraint
 typealias PGError = PubgrubDependencyResolver.PubgrubError
 
