@@ -418,7 +418,7 @@ final class PartialSolution {
     private(set) var assignments: [Assignment]
 
     /// All known decisions.
-    private(set) var decisions: [PackageReference: Version] = [:]
+    private(set) var decisions: [PackageReference: BoundVersion] = [:]
 
     /// The intersection of all positive assignments for each package, minus any
     /// negative assignments that refer to that package.
@@ -456,9 +456,9 @@ final class PartialSolution {
 
     /// Create a new decision assignment and add it to the partial solution's
     /// list of known assignments.
-    func decide(_ package: PackageReference, atExactVersion version: Version) {
+    func decide(_ package: PackageReference, at version: BoundVersion) {
         decisions[package] = version
-        let term = Term(package, .versionSet(.exact(version)))
+        let term = Term(package, version.toRequirement())
         let decision = Assignment.decision(term, decisionLevel: decisionLevel)
         self.assignments.append(decision)
         register(decision)
@@ -700,13 +700,13 @@ public final class PubgrubDependencyResolver {
         delegate?.trace(.conflictResolution(step))
     }
 
-    func decide(_ package: PackageReference, version: Version, location: GeneralTraceStep.Location) {
-        let term = Term(package, .versionSet(.exact(version)))
+    func decide(_ package: PackageReference, version: BoundVersion, location: GeneralTraceStep.Location) {
+        let term = Term(package, version.toRequirement())
         // FIXME: Shouldn't we check this _before_ making a decision?
         assert(term.isValidDecision(for: solution))
 
         trace(value: term, type: .decision, location: location, cause: nil)
-        solution.decide(package, atExactVersion: version)
+        solution.decide(package, at: version)
     }
 
     func derive(_ term: Term, cause: Incompatibility, location: GeneralTraceStep.Location) {
@@ -795,7 +795,7 @@ public final class PubgrubDependencyResolver {
                 root: root, cause: .root)
             add(incompatibility, location: .topLevel)
         }
-        decide(root, version: "1.0.0", location: .topLevel)
+        decide(root, version: .version("1.0.0"), location: .topLevel)
 
         try run()
 
@@ -1233,41 +1233,52 @@ public final class PubgrubDependencyResolver {
     }
 
     /// Returns the best available version for a given term.
-    func getBestAvailableVersion(for term: Term) throws -> Version? {
+    func getBestAvailableVersion(for term: Term) throws -> BoundVersion? {
         assert(term.isPositive, "Expected term to be positive")
         let container = try getContainer(for: term.package)
 
         switch term.requirement {
         case .versionSet(let versionSet):
             let availableVersions = container.versions(filter: { versionSet.contains($0) } )
-            return availableVersions.first{ _ in true }
-        case .revision:
-            fatalError()
+            let version = availableVersions.first { _ in true }
+            return version.map(BoundVersion.version)
+        case .revision(let rev):
+            return .revision(rev)
         case .unversioned:
-            fatalError()
+            return .unversioned
         }
     }
 
     /// Returns the incompatibilities of a package at the given version.
     func incompatibilites(
         for package: PackageReference,
-        at version: Version
+        at version: BoundVersion
     ) throws -> [Incompatibility] {
         let container = try getContainer(for: package)
-        return try container.getDependencies(at: version).map { dep -> Incompatibility in
-            var terms: OrderedSet<Term> = []
 
-            // FIXME:
-            //
-            // If the selected version is the latest version, Pubgrub
-            // represents the term as having an unbounded upper range.
-            // We can't represent that here (currently), so we're
-            // pretending that it goes to the next nonexistent major
-            // version.
-            let nextMajor = Version(version.major + 1, 0, 0)
-            terms.append(Term(container.identifier, .versionSet(.range(version..<nextMajor))))
-            terms.append(Term(not: dep.identifier, dep.requirement))
-            return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
+        switch version {
+        case .version(let version):
+            return try container.getDependencies(at: version).map { dep -> Incompatibility in
+                var terms: OrderedSet<Term> = []
+
+                // FIXME:
+                //
+                // If the selected version is the latest version, Pubgrub
+                // represents the term as having an unbounded upper range.
+                // We can't represent that here (currently), so we're
+                // pretending that it goes to the next nonexistent major
+                // version.
+                let nextMajor = Version(version.major + 1, 0, 0)
+                terms.append(Term(container.identifier, .versionSet(.range(version..<nextMajor))))
+                terms.append(Term(not: dep.identifier, dep.requirement))
+                return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
+            }
+        case .unversioned:
+            fatalError("Generating incompatibilities for an unversioned dependency is currently unsupported.")
+        case .revision:
+            fatalError("Generating incompatibilities for a revision is currently unsupported.")
+        case .excluded:
+            fatalError("Generating incompatibilities for an excluded version is unsupported.")
         }
     }
 
@@ -1295,6 +1306,21 @@ public final class PubgrubDependencyResolver {
                     }
                 }
             }
+        }
+    }
+}
+
+extension BoundVersion {
+    fileprivate func toRequirement() -> PackageRequirement {
+        switch self {
+        case .version(let version):
+            return .versionSet(.exact(version))
+        case .excluded:
+            fatalError("Cannot create package requirement from excluded version.")
+        case .unversioned:
+            return .unversioned
+        case .revision(let revision):
+            return .revision(revision)
         }
     }
 }

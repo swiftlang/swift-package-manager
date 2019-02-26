@@ -36,9 +36,17 @@ public class MockContainer: PackageContainer {
         return name
     }
 
-    public var _versions: [Version]
+    public var _versions: [BoundVersion]
+
     public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
-        return AnySequence(_versions.filter(isIncluded))
+        var versions: [Version] = []
+        for version in self._versions {
+            guard case .version(let v) = version else { continue }
+            if isIncluded(v) {
+                versions.append(v)
+            }
+        }
+        return AnySequence(versions)
     }
 
     public func getDependencies(at version: Version) -> [_MockPackageConstraint] {
@@ -91,9 +99,12 @@ public class MockContainer: PackageContainer {
         dependencies: [String: [Dependency]] = [:]
         ) {
         self.name = name
-        let versions = dependencies.keys.compactMap(Version.init(string:))
-        self._versions = versions.sorted().reversed()
         self.dependencies = dependencies
+        let versions = dependencies.keys.compactMap(Version.init(string:))
+        self._versions = versions
+            .sorted()
+            .reversed()
+            .map(BoundVersion.version)
     }
 }
 
@@ -147,10 +158,22 @@ class DependencyGraphBuilder {
     }
 
     func serve(_ package: String, at version: Version, with dependencies: [String: VersionSetSpecifier] = [:]) {
+        serve(package, at: .version(version), with: dependencies)
+    }
+
+    func serve(_ package: String, at version: BoundVersion, with dependencies: [String: VersionSetSpecifier] = [:]) {
         let packageReference = reference(for: package)
         let container = self.containers[package] ?? MockContainer(name: packageReference)
+
         container._versions.append(version)
-        container._versions = container._versions.sorted().reversed()
+        container._versions = container._versions
+            .sorted(by: { lhs, rhs -> Bool in
+                guard case .version(let lv) = lhs, case .version(let rv) = rhs else {
+                    fatalError("Cannot sort BoundVersion's with non-version requirements.")
+                }
+                return lv < rv
+            })
+            .reversed()
 
         let packageDependencies = dependencies.map {
             (container: reference(for: $0), requirement: PackageRequirement.versionSet($1))
@@ -441,7 +464,7 @@ final class PubgrubTests: XCTestCase {
     func testSolutionUndecided() {
         let solution = PartialSolution()
         solution.derive("a^1.0.0", cause: rootCause)
-        solution.decide("b", atExactVersion: "2.0.0")
+        solution.decide("b", at: .version("2.0.0"))
         solution.derive("a^1.5.0", cause: rootCause)
         solution.derive("¬c^1.5.0", cause: rootCause)
         solution.derive("d^1.9.0", cause: rootCause)
@@ -457,8 +480,8 @@ final class PubgrubTests: XCTestCase {
         let b = term("b@2.0.0")
 
         let solution = PartialSolution(assignments: [])
-        solution.decide(rootRef, atExactVersion: "1.0.0")
-        solution.decide(aRef, atExactVersion: "1.0.0")
+        solution.decide(rootRef, at: .version("1.0.0"))
+        solution.decide(aRef, at: .version("1.0.0"))
         solution.derive(b, cause: _cause)
         XCTAssertEqual(solution.decisionLevel, 1)
 
@@ -468,17 +491,17 @@ final class PubgrubTests: XCTestCase {
             .derivation(b, cause: _cause, decisionLevel: 1)
         ])
         XCTAssertEqual(solution.decisions, [
-            rootRef: "1.0.0",
-            aRef: "1.0.0",
+            rootRef: .version("1.0.0"),
+            aRef: .version("1.0.0"),
         ])
     }
 
     func testSolutionBacktrack() {
         // TODO: This should probably add derivations to cover that logic as well.
         let solution = PartialSolution()
-        solution.decide(aRef, atExactVersion: "1.0.0")
-        solution.decide(bRef, atExactVersion: "1.0.0")
-        solution.decide(cRef, atExactVersion: "1.0.0")
+        solution.decide(aRef, at: .version("1.0.0"))
+        solution.decide(bRef, at: .version("1.0.0"))
+        solution.decide(cRef, at: .version("1.0.0"))
 
         XCTAssertEqual(solution.decisionLevel, 2)
         solution.backtrack(toDecisionLevel: 1)
@@ -665,7 +688,7 @@ final class PubgrubTests: XCTestCase {
         try solver1.propagate("a")
 
         // adding a satisfying term should result in a conflict
-        solver1.solution.decide(aRef, atExactVersion: "1.0.0")
+        solver1.solution.decide(aRef, at: .version("1.0.0"))
         // FIXME: This leads to fatal error.
         // try solver1.propagate(aRef)
 
@@ -674,7 +697,7 @@ final class PubgrubTests: XCTestCase {
         solver2.add(Incompatibility(Term("root", .versionSet(.any)),
                                     term("¬a@1.0.0"),
                                     root: rootRef), location: .topLevel)
-        solver2.solution.decide(rootRef, atExactVersion: "1.0.0")
+        solver2.solution.decide(rootRef, at: .version("1.0.0"))
         XCTAssertEqual(solver2.solution.assignments.count, 1)
         try solver2.propagate(PackageReference(identity: "root", path: ""))
         XCTAssertEqual(solver2.solution.assignments.count, 2)
@@ -682,9 +705,9 @@ final class PubgrubTests: XCTestCase {
 
     func testSolutionFindSatisfiers() {
         let solution = PartialSolution()
-        solution.decide(rootRef, atExactVersion: "1.0.0") // ← previous, but actually nil because this is the root decision
+        solution.decide(rootRef, at: .version("1.0.0")) // ← previous, but actually nil because this is the root decision
         solution.derive(Term(aRef, .versionSet(.any)), cause: _cause) // ← satisfier
-        solution.decide(aRef, atExactVersion: "2.0.0")
+        solution.decide(aRef, at: .version("2.0.0"))
         solution.derive("b^1.0.0", cause: _cause)
 
         XCTAssertEqual(solution.satisfier(for: term("b^1.0.0")) .term, "b^1.0.0")
