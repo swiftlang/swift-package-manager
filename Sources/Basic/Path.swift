@@ -526,6 +526,28 @@ extension AbsolutePath {
 // for whether it's relative or absolute.  Possibly we can do both by clever
 // use of generics that abstract away the differences.
 
+/// Fast check for if a string might need normalization.
+///
+/// This assumes that paths containing dotfiles are rare:
+private func mayNeedNormalization(absolute string: String) -> Bool {
+    var last = UInt8(ascii: "0")
+    for c in string.utf8 {
+        switch c {
+        case UInt8(ascii: "/") where last == UInt8(ascii: "/"):
+            return true
+        case UInt8(ascii: ".") where last == UInt8(ascii: "/"):
+            return true
+        default:
+            break
+        }
+        last = c
+    }
+    if last == UInt8(ascii: "/") {
+        return true
+    }
+    return false
+}
+
 /// Private function that normalizes and returns an absolute string.  Asserts
 /// that `string` starts with a path separator.
 ///
@@ -536,8 +558,10 @@ private func normalize(absolute string: String) -> String {
     // At this point we expect to have a path separator as first character.
     assert(string.first == "/")
 
-    // FIXME: Here we should also keep track of whether anything actually has
-    // to be changed in the string, and if not, just return the existing one.
+    // Fast path.
+    if !mayNeedNormalization(absolute: string) {
+        return string
+    }
 
     // Split the character array into parts, folding components as we go.
     // As we do so, we count the number of characters we'll end up with in
