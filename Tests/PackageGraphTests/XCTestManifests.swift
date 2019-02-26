@@ -66,6 +66,7 @@ extension PubgrubTests {
         ("testResolutionNoConflicts", testResolutionNoConflicts),
         ("testResolutionNonExistentVersion", testResolutionNonExistentVersion),
         ("testResolutionPerformingConflictResolution", testResolutionPerformingConflictResolution),
+        ("testResolutionWithBranchBasedDependency", testResolutionWithBranchBasedDependency),
         ("testResolverAddIncompatibility", testResolverAddIncompatibility),
         ("testResolverConflictResolution", testResolverConflictResolution),
         ("testResolverDecisionMaking", testResolverDecisionMaking),

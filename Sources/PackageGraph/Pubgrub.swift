@@ -132,6 +132,19 @@ public struct Term: Equatable, Hashable {
             fatalError("attempting to compute relation between different packages \(self) \(other)")
         }
 
+        // In the case that we're dealing with revisions, we can fast-track this.
+        switch (self.requirement, other.requirement) {
+        case (.revision(let lhs), .revision(let rhs)):
+            if lhs == rhs && self.isPositive == other.isPositive {
+                return .subset
+            }
+            return .disjoint
+        case (.revision, _), (_, .revision):
+            return .disjoint
+        default:
+            break
+        }
+
         if other.isPositive {
             if self.isPositive {
                 // If the second requirement contains all the elements of
@@ -187,6 +200,10 @@ extension PackageRequirement {
         switch (self, other) {
         case (.versionSet(let lhs), .versionSet(let rhs)):
             return lhs.intersection(rhs) == rhs
+        case (.revision(let lhs), .revision(let rhs)):
+            return lhs == rhs
+        case (.revision, _), (_, .revision):
+            return false
         default:
             fatalError("unhandled \(self), \(other)")
         }
@@ -196,6 +213,10 @@ extension PackageRequirement {
         switch (self, other) {
         case (.versionSet(let lhs), .versionSet(let rhs)):
             return lhs.intersection(rhs) != .empty
+        case (.revision(let lhs), .revision(let rhs)):
+            return lhs == rhs
+        case (.revision, _), (_, .revision):
+            return false
         default:
             fatalError("unhandled \(self), \(other)")
         }
@@ -1270,6 +1291,10 @@ public final class PubgrubDependencyResolver {
             return try container.getDependencies(at: version).map { dep -> Incompatibility in
                 var terms: OrderedSet<Term> = []
 
+                guard case .versionSet = dep.requirement else {
+                    fatalError("Expected \(dep) to be pinned to a version set, not \(dep.requirement).")
+                }
+
                 // FIXME:
                 //
                 // If the selected version is the latest version, Pubgrub
@@ -1284,8 +1309,13 @@ public final class PubgrubDependencyResolver {
             }
         case .unversioned:
             fatalError("Generating incompatibilities for an unversioned dependency is currently unsupported.")
-        case .revision:
-            fatalError("Generating incompatibilities for a revision is currently unsupported.")
+        case .revision(let revision):
+            return try container.getDependencies(at: revision).map { dep -> Incompatibility in
+                var terms: OrderedSet<Term> = []
+                terms.append(Term(container.identifier, .revision(revision)))
+                terms.append(Term(not: dep.identifier, dep.requirement))
+                return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
+            }
         case .excluded:
             fatalError("Generating incompatibilities for an excluded version is unsupported.")
         }
