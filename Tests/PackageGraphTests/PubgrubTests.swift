@@ -118,11 +118,11 @@ public class MockContainer: PackageContainer {
 
     public convenience init(
         name: PackageReference,
-        unversionedDependencies: [(package: PackageReference, requirement: VersionSetSpecifier)]
+        unversionedDependencies: [(package: PackageReference, requirement: PackageRequirement)]
         ) {
         self.init(name: name)
         self.unversionedDeps = unversionedDependencies
-            .map { _MockPackageConstraint(container: $0.package, versionRequirement: $0.requirement) }
+            .map { _MockPackageConstraint(container: $0.package, requirement: $0.requirement) }
     }
 
     public convenience init(
@@ -192,6 +192,10 @@ class DependencyGraphBuilder {
     }
 
     func serve(root: String, with dependencies: [String: VersionSetSpecifier]) {
+        serve(root: root, with: dependencies.mapValues { .versionSet($0) })
+    }
+
+    func serve(root: String, with dependencies: [String: PackageRequirement]) {
         let rootDependencies = dependencies.keys.sorted().map {
             (package: reference(for: $0), requirement: dependencies[$0]!)
         }
@@ -425,6 +429,10 @@ final class PubgrubTests: XCTestCase {
 
         let notEmptyA = Term(not: "a", .versionSet(.empty))
         XCTAssertNil(term("a^1.0.0").difference(with: notEmptyA))
+
+        // Any intersection including a revision should return nil.
+        XCTAssertNil(term("a@1.0.0").intersect(with: term("a@master")))
+        XCTAssertNil(term("a@master").intersect(with: term("a@master")))
     }
 
     func testTermRelation() {
@@ -441,21 +449,37 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(term("a^1.9.0").relation(with: "a@1.8.1"), .disjoint)
         XCTAssertEqual(term("a^1.9.0").relation(with: "a@2.0.0"), .disjoint)
         XCTAssertEqual(term("a^2.0.0").relation(with: "a@1.0.0"), .disjoint)
+        XCTAssertEqual(term("a@1.0.0").relation(with: "a@master"), .disjoint)
+        XCTAssertEqual(term("a@master").relation(with: "a^1.0.0"), .disjoint)
+        XCTAssertEqual(term("a@master").relation(with: "a@master"), .subset)
+        XCTAssertEqual(term("a@master").relation(with: "a@develop"), .disjoint)
 
         // First term is negative, second term is positive.
         XCTAssertEqual(term("¬a^1.0.0").relation(with: "a@1.5.0"), .disjoint)
         XCTAssertEqual(term("¬a^1.5.0").relation(with: "a^1.0.0"), .overlap)
         XCTAssertEqual(term("¬a^2.0.0").relation(with: "a^1.5.0"), .overlap)
+        XCTAssertEqual(term("¬a@1.0.0").relation(with: "a@master"), .disjoint)
+        XCTAssertEqual(term("¬a@master").relation(with: "a^1.0.0"), .disjoint)
+        XCTAssertEqual(term("¬a@master").relation(with: "a@master"), .disjoint)
+        XCTAssertEqual(term("¬a@master").relation(with: "a@develop"), .disjoint)
 
         // First term is positive, second term is negative.
         XCTAssertEqual(term("a^2.0.0").relation(with: "¬a^1.0.0"), .subset)
         XCTAssertEqual(term("a^1.5.0").relation(with: "¬a^1.0.0"), .disjoint)
         XCTAssertEqual(term("a^1.0.0").relation(with: "¬a^1.5.0"), .overlap)
+        XCTAssertEqual(term("a@1.0.0").relation(with: "¬a@master"), .disjoint)
+        XCTAssertEqual(term("a@master").relation(with: "¬a^1.0.0"), .disjoint)
+        XCTAssertEqual(term("a@master").relation(with: "¬a@master"), .disjoint)
+        XCTAssertEqual(term("a@master").relation(with: "¬a@develop"), .disjoint)
 
         // Both terms are negative.
         XCTAssertEqual(term("¬a^1.0.0").relation(with: "¬a^1.5.0"), .subset)
         XCTAssertEqual(term("¬a^2.0.0").relation(with: "¬a^1.0.0"), .overlap)
         XCTAssertEqual(term("¬a^1.5.0").relation(with: "¬a^1.0.0"), .overlap)
+        XCTAssertEqual(term("¬a@1.0.0").relation(with: "¬a@master"), .disjoint)
+        XCTAssertEqual(term("¬a@master").relation(with: "¬a^1.0.0"), .disjoint)
+        XCTAssertEqual(term("¬a@master").relation(with: "¬a@master"), .subset)
+        XCTAssertEqual(term("¬a@master").relation(with: "¬a@develop"), .disjoint)
     }
 
     func testTermIsValidDecision() {
@@ -587,7 +611,7 @@ final class PubgrubTests: XCTestCase {
         let foo = MockContainer(name: fooRef, dependenciesByVersion: [v1: []])
         foo.manifestName = "bar"
 
-        let root = MockContainer(name: "root", unversionedDependencies: [(package: fooRef, requirement: v1Range)])
+        let root = MockContainer(name: "root", unversionedDependencies: [(package: fooRef, requirement: .versionSet(v1Range))])
         let provider = MockProvider(containers: [root, foo])
 
         let resolver = PubgrubDependencyResolver(provider, delegate)
@@ -836,6 +860,40 @@ final class PubgrubTests: XCTestCase {
         }
     }
 
+    func testResolutionWithSimpleBranchBasedDependency() {
+        builder.serve(root: "root", with: [
+            "foo": .revision("master"),
+            "bar": .versionSet(v1Range)
+        ])
+        builder.serve("foo", at: .revision("master"), with: ["bar": v1Range])
+        builder.serve("bar", at: v1)
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertResult(result, [
+            ("foo", .revision("master")),
+            ("bar", .version(v1))
+        ])
+    }
+
+    func testResolutionWithOverridingBranchBasedDependency() {
+        builder.serve(root: "root", with: [
+            "foo": .revision("master"),
+            "bar": .versionSet(.exact(v1))
+        ])
+        builder.serve("foo", at: .revision("master"))
+        builder.serve("bar", at: v1, with: ["foo": v1Range])
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertResult(result, [
+            ("foo", .revision("master")),
+            ("bar", .version(v1))
+        ])
+    }
+
     func testConflict1() {
         builder.serve(root: "root", with: ["foo": v1Range, "bar": v1Range])
         builder.serve("foo", at: v1, with: ["config": v1Range])
@@ -920,7 +978,11 @@ extension Term: ExpressibleByStringLiteral {
 
         if value.contains("@") {
             components = value.split(separator: "@").map(String.init)
-            requirement = .versionSet(.exact(Version(stringLiteral: components[1])))
+            if components[1].contains(".") {
+                requirement = .versionSet(.exact(Version(stringLiteral: components[1])))
+            } else {
+                requirement = .revision(components[1])
+            }
         } else if value.contains("^") {
             components = value.split(separator: "^").map(String.init)
             let upperMajor = Int(String(components[1].split(separator: ".").first!))! + 1
