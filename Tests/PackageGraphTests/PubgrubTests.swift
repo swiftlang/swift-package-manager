@@ -646,79 +646,6 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testResolutionNoConflicts() {
-        builder.serve(root: "root", with: ["a": v1Range])
-        builder.serve("a", at: v1, with: ["b": v1Range])
-        builder.serve("b", at: v1)
-        builder.serve("b", at: v2)
-
-        let resolver = builder.create()
-        let result = resolver.solve(root: rootRef, pins: [])
-
-        switch result {
-        case .success(let bindings):
-            XCTAssertEqual(bindings.count, 2)
-            let a = bindings.first { $0.container.identity == "a" }
-            let b = bindings.first { $0.container.identity == "b" }
-            XCTAssertEqual(a?.binding, .version("1.0.0"))
-            XCTAssertEqual(b?.binding, .version("1.0.0"))
-        case .error(let error):
-            XCTFail("Unexpected error: \(error)")
-        case .unsatisfiable(dependencies: let constraints, pins: let pins):
-            XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)")
-        }
-    }
-
-    func testResolutionAvoidingConflictResolutionDuringDecisionMaking() {
-        builder.serve(root: "root", with: ["a": v1Range, "b": v1Range])
-        builder.serve("a", at: v1)
-        builder.serve("a", at: v1_1, with: ["b": v2Range])
-        builder.serve("b", at: v1)
-        builder.serve("b", at: v1_1)
-        builder.serve("b", at: v2)
-
-        let resolver = builder.create()
-        let result = resolver.solve(root: rootRef, pins: [])
-
-        switch result {
-        case .success(let bindings):
-            XCTAssertEqual(bindings.count, 2)
-            let a = bindings.first { $0.container.identity == "a" }
-            let b = bindings.first { $0.container.identity == "b" }
-            XCTAssertEqual(a?.binding, .version("1.0.0"))
-            XCTAssertEqual(b?.binding, .version("1.1.0"))
-        case .error(let error):
-            XCTFail("Unexpected error: \(error)")
-        case .unsatisfiable(dependencies: let constraints, pins: let pins):
-            XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)")
-        }
-    }
-
-    func testResolutionPerformingConflictResolution() {
-        // Pubgrub has a listed as >=1.0.0, which we can't really represent here.
-        // It's either .any or 1.0.0..<n.0.0 with n>2. Both should have the same
-        // effect though.
-        builder.serve(root: "root", with: ["a": .range("1.0.0"..<"3.0.0")])
-        builder.serve("a", at: v1)
-        builder.serve("a", at: v2, with: ["b": v1Range])
-        builder.serve("b", at: v1, with: ["a": v1Range])
-
-        let resolver = builder.create()
-        let result = resolver.solve(root: rootRef, pins: [])
-
-        switch result {
-        case .success(let bindings):
-            XCTAssertEqual(bindings.count, 1)
-            let a = bindings.first
-            XCTAssertEqual(a?.container, "a")
-            XCTAssertEqual(a?.binding, .version("1.0.0"))
-        case .error(let error):
-            XCTFail("Unexpected error: \(error)")
-        case .unsatisfiable(dependencies: let constraints, pins: let pins):
-            XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)")
-        }
-    }
-
     func testResolverUnitPropagation() throws {
         let solver1 = PubgrubDependencyResolver(emptyProvider, delegate)
 
@@ -774,6 +701,55 @@ final class PubgrubTests: XCTestCase {
         }
     }
 
+    func testResolutionNoConflicts() {
+        builder.serve(root: "root", with: ["a": v1Range])
+        builder.serve("a", at: v1, with: ["b": v1Range])
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v2)
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version(v1))
+        ])
+    }
+
+    func testResolutionAvoidingConflictResolutionDuringDecisionMaking() {
+        builder.serve(root: "root", with: ["a": v1Range, "b": v1Range])
+        builder.serve("a", at: v1)
+        builder.serve("a", at: v1_1, with: ["b": v2Range])
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v1_1)
+        builder.serve("b", at: v2)
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version("1.1.0"))
+        ])
+    }
+
+    func testResolutionPerformingConflictResolution() {
+        // Pubgrub has a listed as >=1.0.0, which we can't really represent here.
+        // It's either .any or 1.0.0..<n.0.0 with n>2. Both should have the same
+        // effect though.
+        builder.serve(root: "root", with: ["a": .range("1.0.0"..<"3.0.0")])
+        builder.serve("a", at: v1)
+        builder.serve("a", at: v2, with: ["b": v1Range])
+        builder.serve("b", at: v1, with: ["a": v1Range])
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertResult(result, [
+            ("a", .version(v1))
+        ])
+    }
+
     func testResolutionConflictResolutionWithAPartialSatisfier() {
         builder.serve(root: "root", with: ["foo": v1Range, "target": v2Range])
         builder.serve("foo", at: v1)
@@ -792,18 +768,10 @@ final class PubgrubTests: XCTestCase {
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
-        switch result {
-        case .success(let bindings):
-            XCTAssertEqual(bindings.count, 2)
-            let foo = bindings.first { $0.container == "foo" }
-            let target = bindings.first { $0.container == "target" }
-            XCTAssertEqual(foo?.binding, .version("1.0.0"))
-            XCTAssertEqual(target?.binding, .version("2.0.0"))
-        case .unsatisfiable(dependencies: let constraints, pins: let pins):
-            XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)")
-        case .error(let error):
-            XCTFail("Unexpected error: \(error)")
-        }
+        AssertResult(result, [
+            ("foo", .version(v1)),
+            ("target", .version(v2))
+        ])
     }
 
     func DISABLED_testCycle1() {
