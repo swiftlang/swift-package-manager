@@ -398,13 +398,13 @@ extension PropertyListDictionaryConvertible {
                 preconditionFailure("unnamed build settings are not supported")
             }
             switch child.value {
-              case Optional<Any>.none:
+            case Optional<Any>.none:
                 continue
-              case let value as String:
+            case let value as String:
                 dict[name] = .string(value)
-              case let value as [String]:
+            case let value as [String]:
                 dict[name] = .array(value.map({ .string($0) }))
-              default:
+            default:
                 preconditionFailure("unexpected build setting value of type `\(type(of: child.value))`")
             }
         }
