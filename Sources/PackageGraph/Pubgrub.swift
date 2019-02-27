@@ -802,7 +802,7 @@ public final class PubgrubDependencyResolver {
         } catch {
             if let pubgrubError = error as? PubgrubError,
                 case .unresolvable(let incompatibility) = pubgrubError,
-                case .conflict(var cause, let other) = incompatibility.cause {
+                case .conflict(let cause, let other) = incompatibility.cause {
                 print("Root cause: \(cause) \(cause.cause) because of \(other) \(other.cause)")
             }
             throw error
