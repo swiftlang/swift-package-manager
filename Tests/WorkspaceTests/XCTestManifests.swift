@@ -50,6 +50,7 @@ extension WorkspaceTests {
         ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory),
         ("testDependencyManifestLoading", testDependencyManifestLoading),
         ("testDependencyManifestsOrder", testDependencyManifestsOrder),
+        ("testDependencyRefsAreIteratedInStableOrder", testDependencyRefsAreIteratedInStableOrder),
         ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
         ("testDependencySwitchWithSameIdentity", testDependencySwitchWithSameIdentity),
         ("testDuplicateRootPackages", testDuplicateRootPackages),

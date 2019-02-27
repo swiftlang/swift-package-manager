@@ -181,7 +181,8 @@ public class Workspace {
                     return PackageReference(identity: identity, path: url)
                 })
             }
-            requiredIdentities.formUnion(inputIdentities)
+            // FIXME: This should be an ordered set.
+            requiredIdentities = Set(inputIdentities).union(requiredIdentities)
 
             let availableIdentities: Set<PackageReference> = Set(manifestsMap.map({
                 let url = workspace.config.mirroredURL(forURL: $0.1.url)

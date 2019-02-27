@@ -80,6 +80,7 @@ extension PubgrubTests {
         ("testTermIsValidDecision", testTermIsValidDecision),
         ("testTermRelation", testTermRelation),
         ("testTermSatisfies", testTermSatisfies),
+        ("testUpdatePackageIdentifierAfterResolution", testUpdatePackageIdentifierAfterResolution),
     ]
 }
 

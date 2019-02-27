@@ -225,6 +225,84 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testDependencyRefsAreIteratedInStableOrder() throws {
+        // This graph has two references to Bar, one with .git suffix and one without.
+        // The test ensures that we use the URL which appears first (i.e. the one with .git suffix).
+
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let dependencies: [PackageGraphRootInput.PackageDependency] = [
+            .init(
+                url: workspace.packagesDir.appending(component: "Foo").pathString,
+                requirement: .upToNextMajor(from: "1.0.0"),
+                location: ""
+            ),
+            .init(
+                url: workspace.packagesDir.appending(component: "Bar").pathString + ".git",
+                requirement: .upToNextMajor(from: "1.0.0"),
+                location: ""
+            ),
+        ]
+
+        // Add entry for the Bar.git package.
+        do {
+            let barKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Bar", version: "1.0.0")
+            let barGitKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Bar.git", version: "1.0.0")
+            let manifest = workspace.manifestLoader.manifests[barKey]!
+            workspace.manifestLoader.manifests[barGitKey] = manifest.with(url: "/tmp/ws/pkgs/Bar.git")
+        }
+
+        workspace.checkPackageGraph(dependencies: dependencies) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(packages: "Bar", "Foo")
+                result.check(targets: "Bar", "Foo")
+                result.check(dependencies: "Bar", target: "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", url: "/tmp/ws/pkgs/Bar.git")
+        }
+    }
+
 	func testDuplicateRootPackages() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
