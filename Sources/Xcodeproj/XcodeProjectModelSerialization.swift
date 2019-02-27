@@ -398,23 +398,14 @@ extension PropertyListDictionaryConvertible {
                 preconditionFailure("unnamed build settings are not supported")
             }
             switch child.value {
-              case nil:
+              case Optional<Any>.none:
                 continue
               case let value as String:
                 dict[name] = .string(value)
               case let value as [String]:
                 dict[name] = .array(value.map({ .string($0) }))
               default:
-                // FIXME: I haven't found a way of distinguishing a value of an
-                // unexpected type from a value that is nil; they all seem to go
-                // throught the `default` case instead of the `nil` case above.
-                // Hopefully someone reading this will clue me in about what I
-                // did wrong.  But currently we will silently fail to serialize
-                // any struct field that isn't a `String` or a `[String]` (or
-                // an optional of either of those two).
-                // This would only come up if a field were to be added of a type
-                // other than `String` or `[String]`.
-                continue
+                preconditionFailure("unexpected build setting value of type `\(type(of: child.value))`")
             }
         }
         return .dictionary(dict)
