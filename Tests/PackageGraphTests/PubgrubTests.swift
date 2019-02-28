@@ -428,7 +428,9 @@ final class PubgrubTests: XCTestCase {
 
         // Any intersection including a revision should return nil.
         XCTAssertNil(term("a@1.0.0").intersect(with: term("a@master")))
+        XCTAssertNil(term("a^1.0.0").intersect(with: term("a@master")))
         XCTAssertNil(term("a@master").intersect(with: term("a@master")))
+        XCTAssertNil(term("a@master").intersect(with: term("a@develop")))
     }
 
     func testTermRelation() {
@@ -446,6 +448,8 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(term("a^1.9.0").relation(with: "a@2.0.0"), .disjoint)
         XCTAssertEqual(term("a^2.0.0").relation(with: "a@1.0.0"), .disjoint)
         XCTAssertEqual(term("a@1.0.0").relation(with: "a@master"), .disjoint)
+        XCTAssertEqual(term("a^1.0.0").relation(with: "a@master"), .disjoint)
+        XCTAssertEqual(term("a@master").relation(with: "a@1.0.0"), .disjoint)
         XCTAssertEqual(term("a@master").relation(with: "a^1.0.0"), .disjoint)
         XCTAssertEqual(term("a@master").relation(with: "a@master"), .subset)
         XCTAssertEqual(term("a@master").relation(with: "a@develop"), .disjoint)
@@ -455,6 +459,8 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(term("¬a^1.5.0").relation(with: "a^1.0.0"), .overlap)
         XCTAssertEqual(term("¬a^2.0.0").relation(with: "a^1.5.0"), .overlap)
         XCTAssertEqual(term("¬a@1.0.0").relation(with: "a@master"), .disjoint)
+        XCTAssertEqual(term("¬a^1.0.0").relation(with: "a@master"), .disjoint)
+        XCTAssertEqual(term("¬a@master").relation(with: "a@1.0.0"), .disjoint)
         XCTAssertEqual(term("¬a@master").relation(with: "a^1.0.0"), .disjoint)
         XCTAssertEqual(term("¬a@master").relation(with: "a@master"), .disjoint)
         XCTAssertEqual(term("¬a@master").relation(with: "a@develop"), .disjoint)
@@ -464,6 +470,8 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(term("a^1.5.0").relation(with: "¬a^1.0.0"), .disjoint)
         XCTAssertEqual(term("a^1.0.0").relation(with: "¬a^1.5.0"), .overlap)
         XCTAssertEqual(term("a@1.0.0").relation(with: "¬a@master"), .disjoint)
+        XCTAssertEqual(term("a^1.0.0").relation(with: "¬a@master"), .disjoint)
+        XCTAssertEqual(term("a@master").relation(with: "¬a@1.0.0"), .disjoint)
         XCTAssertEqual(term("a@master").relation(with: "¬a^1.0.0"), .disjoint)
         XCTAssertEqual(term("a@master").relation(with: "¬a@master"), .disjoint)
         XCTAssertEqual(term("a@master").relation(with: "¬a@develop"), .disjoint)
@@ -473,6 +481,8 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(term("¬a^2.0.0").relation(with: "¬a^1.0.0"), .overlap)
         XCTAssertEqual(term("¬a^1.5.0").relation(with: "¬a^1.0.0"), .overlap)
         XCTAssertEqual(term("¬a@1.0.0").relation(with: "¬a@master"), .disjoint)
+        XCTAssertEqual(term("¬a^1.0.0").relation(with: "¬a@master"), .disjoint)
+        XCTAssertEqual(term("¬a@master").relation(with: "¬a@1.0.0"), .disjoint)
         XCTAssertEqual(term("¬a@master").relation(with: "¬a^1.0.0"), .disjoint)
         XCTAssertEqual(term("¬a@master").relation(with: "¬a@master"), .subset)
         XCTAssertEqual(term("¬a@master").relation(with: "¬a@develop"), .disjoint)
