@@ -10,6 +10,7 @@
 
 import Basic
 import Build
+import POSIX
 import PackageModel
 import PackageLoading
 import PackageGraph
@@ -128,6 +129,49 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 print(message)
             }
             try initPackage.writePackageStructure()
+
+        case .format:
+            // Look for swift-format binary.
+            // FIXME: This should be moved to user toolchain.
+            guard let swiftFormat = lookupExecutablePath(filename: getenv("SWIFT_FORMAT_EXEC")) else {
+                print("Couldn't find swift-format tool in env variable SWIFT_FORMAT_EXEC")
+                throw Diagnostics.fatalError
+            }
+
+            // Get the root package.
+            let workspace = try getActiveWorkspace()
+            let root = try getWorkspaceRoot()
+            let manifest = workspace.loadRootManifests(
+                packages: root.packages, diagnostics: diagnostics)[0]
+
+            let builder = PackageBuilder(
+                manifest: manifest,
+                path: try getPackageRoot(),
+                diagnostics: diagnostics,
+                isRootPackage: true
+            )
+            let package = try builder.construct()
+
+            // Process each target in the root package.
+            for target in package.targets {
+                for file in target.sources.paths {
+                    // Only process Swift sources.
+                    guard let ext = file.extension, ext == SupportedLanguageExtension.swift.rawValue else {
+                        continue
+                    }
+
+                    print("Formatting: \(file)")
+                    let result = try Process.popen(arguments: [
+                        swiftFormat.pathString,
+                        "-m",
+                        "format",
+                        "-i",
+                        file.pathString
+                    ])
+                    let output = try (result.utf8Output() + result.utf8stderrOutput())
+                    print("Done: \(result.exitStatus)", output)
+                }
+            }
 
         case .clean:
             try getActiveWorkspace().clean(with: diagnostics)
@@ -353,6 +397,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             to: { $0.editOptions.path = $1.path })
 
         parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
+        parser.add(subparser: PackageMode.format.rawValue, overview: "Format the sources of the package using swift-format")
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
         parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
@@ -617,6 +662,7 @@ public class PackageToolOptions: ToolOptions {
 public enum PackageMode: String, StringEnumArgument {
     case clean
     case config
+    case format 
     case describe
     case dumpPackage = "dump-package"
     case edit
