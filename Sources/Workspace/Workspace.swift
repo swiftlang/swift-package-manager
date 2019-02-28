@@ -471,7 +471,7 @@ extension Workspace {
         version: Version? = nil,
         branch: String? = nil,
         revision: String? = nil,
-        shouldResolveMissingDependencies: Bool = true,
+        resolution: ResolutionKind = .automaticResolution,
         diagnostics: DiagnosticsEngine
     ) {
         // Look up the dependency and check if we can pin it.
@@ -497,7 +497,7 @@ extension Workspace {
                 container: dependency.packageRef, requirement: requirement)
 
         // Run the resolution.
-        _resolve(root: root, extraConstraints: [constraint], diagnostics: diagnostics, shouldResolveMissingDependencies: shouldResolveMissingDependencies)
+        _resolve(root: root, extraConstraints: [constraint], diagnostics: diagnostics, resolution: resolution)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -634,7 +634,7 @@ extension Workspace {
         if resolution == .forceResolvedVersions {
             manifests = self._resolveToResolvedVersion(root: root, shouldResolveMissingDependencies: true, diagnostics: diagnostics)
         } else {
-            manifests = self._resolve(root: root, diagnostics: diagnostics, shouldResolveMissingDependencies: resolution == .automaticResolution)
+            manifests = self._resolve(root: root, diagnostics: diagnostics, resolution: resolution)
         }
         let externalManifests = manifests.allManifests()
 
@@ -672,10 +672,10 @@ extension Workspace {
     /// checkout will be restored according to its pin.
     public func resolve(
         root: PackageGraphRootInput,
-        shouldResolveMissingDependencies: Bool = true,
+        resolution: ResolutionKind = .automaticResolution,
         diagnostics: DiagnosticsEngine
     ) {
-        _resolve(root: root, diagnostics: diagnostics, shouldResolveMissingDependencies: shouldResolveMissingDependencies)
+        _resolve(root: root, diagnostics: diagnostics, resolution: resolution)
     }
 
     /// Loads and returns manifests at the given paths.
@@ -1185,7 +1185,7 @@ extension Workspace {
         extraConstraints: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine,
         retryOnPackagePathMismatch: Bool = true,
-        shouldResolveMissingDependencies: Bool = true
+        resolution: ResolutionKind = .automaticResolution
     ) -> DependencyManifests {
 
         // Ensure the cache path exists and validate that edited dependencies.
@@ -1212,7 +1212,7 @@ extension Workspace {
         }
 
         // Skip further checks and return what we got locally
-        guard shouldResolveMissingDependencies else {
+        guard resolution == .automaticResolution else {
             return currentManifests
         }
 
@@ -1316,7 +1316,7 @@ extension Workspace {
                     extraConstraints: extraConstraints,
                     diagnostics: diagnostics,
                     retryOnPackagePathMismatch: false,
-                    shouldResolveMissingDependencies: shouldResolveMissingDependencies
+                    resolution: resolution
                 )
             } else {
                 // If we weren't able to resolve properly even after a retry, it
