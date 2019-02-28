@@ -129,6 +129,55 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             }
             try initPackage.writePackageStructure()
 
+        case .format:
+            // Look for swift-format binary.
+            // FIXME: This should be moved to user toolchain.
+            let swiftFormatInEnv = lookupExecutablePath(filename: ProcessEnv.vars["SWIFT_FORMAT"])
+            guard let swiftFormat = swiftFormatInEnv ?? Process.findExecutable("swift-format") else {
+                print("error: Could not find swift-format in PATH or SWIFT_FORMAT")
+                throw Diagnostics.fatalError
+            }
+
+            // Get the root package.
+            let workspace = try getActiveWorkspace()
+            let root = try getWorkspaceRoot()
+            let manifest = workspace.loadRootManifests(
+                packages: root.packages, diagnostics: diagnostics)[0]
+
+            let builder = PackageBuilder(
+                manifest: manifest,
+                path: try getPackageRoot(),
+                diagnostics: diagnostics,
+                isRootPackage: true
+            )
+            let package = try builder.construct()
+
+            // Use the user provided flags or default to formatting mode.
+            let formatOptions = options.swiftFormatFlags ?? ["--mode", "format", "--in-place"]
+
+            // Process each target in the root package.
+            for target in package.targets {
+                for file in target.sources.paths {
+                    // Only process Swift sources.
+                    guard let ext = file.extension, ext == SupportedLanguageExtension.swift.rawValue else {
+                        continue
+                    }
+
+                    let args = [swiftFormat.pathString] + formatOptions + [file.pathString]
+                    print("Running:", args.map{ $0.spm_shellEscaped() }.joined(separator: " "))
+
+                    let result = try Process.popen(arguments: args)
+                    let output = try (result.utf8Output() + result.utf8stderrOutput())
+
+                    if result.exitStatus != .terminated(code: 0) {
+                        print("Non-zero exit", result.exitStatus)
+                    }
+                    if !output.isEmpty {
+                        print(output)
+                    }
+                }
+            }
+
         case .clean:
             try getActiveWorkspace().clean(with: diagnostics)
 
@@ -358,6 +407,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
         parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
+
+        let formatParser = parser.add(subparser: PackageMode.format.rawValue, overview: "")
+        binder.bindArray(
+            option: formatParser.add(
+                option: "--", kind: [String].self, strategy: .remaining,
+                usage: "Pass flag through to the swift-format tool"),
+            to: { $0.swiftFormatFlags = $1 })
 
         let initPackageParser = parser.add(
             subparser: PackageMode.initPackage.rawValue,
@@ -614,11 +670,15 @@ public class PackageToolOptions: ToolOptions {
         var mirrorURL: String?
     }
     var configOptions = ConfigOptions()
+
+    /// Custom flags for swift-format tool.
+    var swiftFormatFlags: [String]? = nil
 }
 
 public enum PackageMode: String, StringEnumArgument {
     case clean
     case config
+    case format = "_format"
     case describe
     case dumpPackage = "dump-package"
     case edit
