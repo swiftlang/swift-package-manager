@@ -191,10 +191,6 @@ class DependencyGraphBuilder {
         return newReference
     }
 
-    func serve(root: String, with dependencies: [String: VersionSetSpecifier]) {
-        serve(root: root, with: dependencies.mapValues { .versionSet($0) })
-    }
-
     func serve(root: String, with dependencies: [String: PackageRequirement]) {
         let rootDependencies = dependencies.keys.sorted().map {
             (package: reference(for: $0), requirement: dependencies[$0]!)
@@ -205,11 +201,11 @@ class DependencyGraphBuilder {
         self.containers[root] = rootContainer
     }
 
-    func serve(_ package: String, at version: Version, with dependencies: [String: VersionSetSpecifier] = [:]) {
+    func serve(_ package: String, at version: Version, with dependencies: [String: PackageRequirement] = [:]) {
         serve(package, at: .version(version), with: dependencies)
     }
 
-    func serve(_ package: String, at version: BoundVersion, with dependencies: [String: VersionSetSpecifier] = [:]) {
+    func serve(_ package: String, at version: BoundVersion, with dependencies: [String: PackageRequirement] = [:]) {
         let packageReference = reference(for: package)
         let container = self.containers[package] ?? MockContainer(name: packageReference)
 
@@ -224,7 +220,7 @@ class DependencyGraphBuilder {
             .reversed()
 
         let packageDependencies = dependencies.map {
-            (container: reference(for: $0), requirement: PackageRequirement.versionSet($1))
+            (container: reference(for: $0), requirement: $1)
         }
         container.dependencies[version.description] = packageDependencies
         self.containers[package] = container
@@ -711,7 +707,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testMissingVersion() {
-        builder.serve(root: "root", with: ["a": v2Range])
+        builder.serve(root: "root", with: ["a": .versionSet(v2Range)])
         builder.serve("a", at: v1_1)
 
         let resolver = builder.create()
@@ -726,8 +722,8 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionNoConflicts() {
-        builder.serve(root: "root", with: ["a": v1Range])
-        builder.serve("a", at: v1, with: ["b": v1Range])
+        builder.serve(root: "root", with: ["a": .versionSet(v1Range)])
+        builder.serve("a", at: v1, with: ["b": .versionSet(v1Range)])
         builder.serve("b", at: v1)
         builder.serve("b", at: v2)
 
@@ -741,9 +737,12 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionAvoidingConflictResolutionDuringDecisionMaking() {
-        builder.serve(root: "root", with: ["a": v1Range, "b": v1Range])
+        builder.serve(root: "root", with: [
+            "a": .versionSet(v1Range),
+            "b": .versionSet(v1Range)
+        ])
         builder.serve("a", at: v1)
-        builder.serve("a", at: v1_1, with: ["b": v2Range])
+        builder.serve("a", at: v1_1, with: ["b": .versionSet(v2Range)])
         builder.serve("b", at: v1)
         builder.serve("b", at: v1_1)
         builder.serve("b", at: v2)
@@ -761,10 +760,10 @@ final class PubgrubTests: XCTestCase {
         // Pubgrub has a listed as >=1.0.0, which we can't really represent here.
         // It's either .any or 1.0.0..<n.0.0 with n>2. Both should have the same
         // effect though.
-        builder.serve(root: "root", with: ["a": .range("1.0.0"..<"3.0.0")])
+        builder.serve(root: "root", with: ["a": .versionSet(.range("1.0.0"..<"3.0.0"))])
         builder.serve("a", at: v1)
-        builder.serve("a", at: v2, with: ["b": v1Range])
-        builder.serve("b", at: v1, with: ["a": v1Range])
+        builder.serve("a", at: v2, with: ["b": .versionSet(v1Range)])
+        builder.serve("b", at: v1, with: ["a": .versionSet(v1Range)])
 
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
@@ -775,12 +774,18 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionConflictResolutionWithAPartialSatisfier() {
-        builder.serve(root: "root", with: ["foo": v1Range, "target": v2Range])
+        builder.serve(root: "root", with: [
+            "foo": .versionSet(v1Range),
+            "target": .versionSet(v2Range)
+        ])
         builder.serve("foo", at: v1)
-        builder.serve("foo", at: v1_1, with: ["left": v1Range, "right": v1Range])
-        builder.serve("left", at: v1, with: ["shared": v1Range])
-        builder.serve("right", at: v1, with: ["shared": v1Range])
-        builder.serve("shared", at: v1, with: ["target": v1Range])
+        builder.serve("foo", at: v1_1, with: [
+            "left": .versionSet(v1Range),
+            "right": .versionSet(v1Range)
+        ])
+        builder.serve("left", at: v1, with: ["shared": .versionSet(v1Range)])
+        builder.serve("right", at: v1, with: ["shared": .versionSet(v1Range)])
+        builder.serve("shared", at: v1, with: ["target": .versionSet(v1Range)])
         builder.serve("shared", at: v2)
         builder.serve("target", at: v1)
         builder.serve("target", at: v2)
@@ -799,8 +804,8 @@ final class PubgrubTests: XCTestCase {
     }
 
     func DISABLED_testCycle1() {
-        builder.serve(root: "root", with: ["foo": v1Range])
-        builder.serve("foo", at: v1_1, with: ["foo": v1Range])
+        builder.serve(root: "root", with: ["foo": .versionSet(v1Range)])
+        builder.serve("foo", at: v1_1, with: ["foo": .versionSet(v1Range)])
 
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
@@ -811,11 +816,11 @@ final class PubgrubTests: XCTestCase {
     }
 
     func DISABLED_testCycle2() {
-        builder.serve(root: "root", with: ["foo": v1Range])
-        builder.serve("foo", at: v1_1, with: ["bar": v1Range])
-        builder.serve("bar", at: v1, with: ["baz": v1Range])
-        builder.serve("baz", at: v1, with: ["bam": v1Range])
-        builder.serve("bam", at: v1, with: ["baz": v1Range])
+        builder.serve(root: "root", with: ["foo": .versionSet(v1Range)])
+        builder.serve("foo", at: v1_1, with: ["bar": .versionSet(v1Range)])
+        builder.serve("bar", at: v1, with: ["baz": .versionSet(v1Range)])
+        builder.serve("baz", at: v1, with: ["bam": .versionSet(v1Range)])
+        builder.serve("bam", at: v1, with: ["baz": .versionSet(v1Range)])
 
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
@@ -826,7 +831,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionNonExistentVersion() {
-        builder.serve(root: "root", with: ["package": .exact(v1)])
+        builder.serve(root: "root", with: ["package": .versionSet(.exact(v1))])
         builder.serve("package", at: "2.0.0")
 
         let resolver = builder.create()
@@ -845,7 +850,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testNonExistentPackage() {
-        builder.serve(root: "root", with: ["package": .exact(v1)])
+        builder.serve(root: "root", with: ["package": .versionSet(.exact(v1))])
 
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
@@ -865,7 +870,7 @@ final class PubgrubTests: XCTestCase {
             "foo": .revision("master"),
             "bar": .versionSet(v1Range)
         ])
-        builder.serve("foo", at: .revision("master"), with: ["bar": v1Range])
+        builder.serve("foo", at: .revision("master"), with: ["bar": .versionSet(v1Range)])
         builder.serve("bar", at: v1)
 
         let resolver = builder.create()
@@ -883,7 +888,7 @@ final class PubgrubTests: XCTestCase {
             "bar": .versionSet(.exact(v1))
         ])
         builder.serve("foo", at: .revision("master"))
-        builder.serve("bar", at: v1, with: ["foo": v1Range])
+        builder.serve("bar", at: v1, with: ["foo": .versionSet(v1Range)])
 
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
@@ -895,9 +900,12 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testConflict1() {
-        builder.serve(root: "root", with: ["foo": v1Range, "bar": v1Range])
-        builder.serve("foo", at: v1, with: ["config": v1Range])
-        builder.serve("bar", at: v1, with: ["config": v2Range])
+        builder.serve(root: "root", with: [
+            "foo": .versionSet(v1Range),
+            "bar": .versionSet(v1Range)
+        ])
+        builder.serve("foo", at: v1, with: ["config": .versionSet(v1Range)])
+        builder.serve("bar", at: v1, with: ["config": .versionSet(v2Range)])
         builder.serve("config", at: v1)
         builder.serve("config", at: v2)
 
@@ -918,22 +926,22 @@ final class PubgrubTests: XCTestCase {
 
     func testConflict2() {
         func addDeps() {
-            builder.serve("foo", at: v1, with: ["config": v1Range])
+            builder.serve("foo", at: v1, with: ["config": .versionSet(v1Range)])
             builder.serve("config", at: v1)
             builder.serve("config", at: v2)
         }
 
         builder.serve(root: "root", with: [
-            "config": v2Range,
-            "foo": v1Range,
+            "config": .versionSet(v2Range),
+            "foo": .versionSet(v1Range),
         ])
         addDeps()
         let resolver1 = builder.create()
         _ = resolver1.solve(root: rootRef, pins: [])
 
         builder.serve(root: "root", with: [
-            "foo": v1Range,
-            "config": v2Range,
+            "foo": .versionSet(v1Range),
+            "config": .versionSet(v2Range),
         ])
         addDeps()
         let resolver2 = builder.create()
@@ -942,10 +950,10 @@ final class PubgrubTests: XCTestCase {
 
     func testConflict3() {
         builder.serve(root: "root", with: [
-            "foo": v1Range,
-            "config": v2Range,
+            "foo": .versionSet(v1Range),
+            "config": .versionSet(v2Range),
         ])
-        builder.serve("foo", at: v1, with: ["config": v1Range])
+        builder.serve("foo", at: v1, with: ["config": .versionSet(v1Range)])
         builder.serve("config", at: v1)
 
         let resolver = builder.create()
