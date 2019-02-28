@@ -258,7 +258,7 @@ public final class TestWorkspace {
     public func checkPackageGraph(
         roots: [String] = [],
         dependencies: [PackageGraphRootInput.PackageDependency] = [],
-        forceResolvedVersions: Bool = false,
+        resolution: Workspace.ResolutionKind = .automaticResolution,
         _ result: (PackageGraph, DiagnosticsEngine) -> ()
     ) {
         let diagnostics = DiagnosticsEngine()
@@ -266,7 +266,7 @@ public final class TestWorkspace {
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies)
         let graph = workspace.loadPackageGraph(
-            root: rootInput, resolution: .forceResolvedVersions, diagnostics: diagnostics)
+            root: rootInput, resolution: resolution, diagnostics: diagnostics)
         result(graph, diagnostics)
     }
 

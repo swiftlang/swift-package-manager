@@ -2829,7 +2829,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check force resolve. This should produce an error because the resolved file is out-of-date.
-        workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { (graph, diagnostics) in
+        workspace.checkPackageGraph(roots: ["Root"], resolution: .forceResolvedVersions) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: "cannot update Package.resolved file because automatic resolution is disabled", checkContains: true, behavior: .error)
             }
@@ -2857,7 +2857,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // This force resolution should succeed.
-        workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { (graph, diagnostics) in
+        workspace.checkPackageGraph(roots: ["Root"], resolution: .forceResolvedVersions) { (graph, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
