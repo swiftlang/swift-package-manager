@@ -214,7 +214,7 @@ public final class TestWorkspace {
         let diagnostics = DiagnosticsEngine()
         let workspace = createWorkspace()
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
-        workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, diagnostics: diagnostics)
+        workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, resolution: .automaticResolution, diagnostics: diagnostics)
         result(diagnostics)
     }
 

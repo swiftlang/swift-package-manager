@@ -882,7 +882,7 @@ extension Workspace {
         // Resolve the dependencies if workspace root is provided. We do this to
         // ensure the unedited version of this dependency is resolved properly.
         if let root = root {
-            resolve(root: root, diagnostics: diagnostics)
+            resolve(root: root, resolution: .automaticResolution, diagnostics: diagnostics)
         }
     }
 

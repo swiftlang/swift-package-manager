@@ -541,7 +541,7 @@ public class SwiftTool<Options: ToolOptions> {
         if options.forceResolvedVersions {
             workspace.resolveToResolvedVersion(root: root, diagnostics: diagnostics)
         } else {
-            workspace.resolve(root: root, diagnostics: diagnostics)
+            workspace.resolve(root: root, resolution: .automaticResolution, diagnostics: diagnostics)
         }
 
         // Throw if there were errors when loading the graph.
