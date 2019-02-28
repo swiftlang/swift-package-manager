@@ -471,7 +471,7 @@ extension Workspace {
         version: Version? = nil,
         branch: String? = nil,
         revision: String? = nil,
-        shouldResolveMissingDepenencies: Bool = true,
+        shouldResolveMissingDependencies: Bool = true,
         diagnostics: DiagnosticsEngine
     ) {
         // Look up the dependency and check if we can pin it.
@@ -497,7 +497,7 @@ extension Workspace {
                 container: dependency.packageRef, requirement: requirement)
 
         // Run the resolution.
-        _resolve(root: root, extraConstraints: [constraint], diagnostics: diagnostics, shouldResolveMissingDepenencies: shouldResolveMissingDepenencies)
+        _resolve(root: root, extraConstraints: [constraint], diagnostics: diagnostics, shouldResolveMissingDependencies: shouldResolveMissingDependencies)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -632,9 +632,9 @@ extension Workspace {
         // Perform dependency resolution, if required.
         let manifests: DependencyManifests
         if resolution == .forceResolvedVersions {
-            manifests = self._resolveToResolvedVersion(root: root, shouldResolveMissingDepenencies: true, diagnostics: diagnostics)
+            manifests = self._resolveToResolvedVersion(root: root, shouldResolveMissingDependencies: true, diagnostics: diagnostics)
         } else {
-            manifests = self._resolve(root: root, diagnostics: diagnostics, shouldResolveMissingDepenencies: resolution == .automaticResolution)
+            manifests = self._resolve(root: root, diagnostics: diagnostics, shouldResolveMissingDependencies: resolution == .automaticResolution)
         }
         let externalManifests = manifests.allManifests()
 
@@ -672,10 +672,10 @@ extension Workspace {
     /// checkout will be restored according to its pin.
     public func resolve(
         root: PackageGraphRootInput,
-        shouldResolveMissingDepenencies: Bool = true,
+        shouldResolveMissingDependencies: Bool = true,
         diagnostics: DiagnosticsEngine
     ) {
-        _resolve(root: root, diagnostics: diagnostics, shouldResolveMissingDepenencies: shouldResolveMissingDepenencies)
+        _resolve(root: root, diagnostics: diagnostics, shouldResolveMissingDependencies: shouldResolveMissingDependencies)
     }
 
     /// Loads and returns manifests at the given paths.
@@ -1100,7 +1100,7 @@ extension Workspace {
     @discardableResult
     fileprivate func _resolveToResolvedVersion(
         root: PackageGraphRootInput,
-        shouldResolveMissingDepenencies: Bool = true,
+        shouldResolveMissingDependencies: Bool = true,
         diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
         // Ensure the cache path exists.
@@ -1113,7 +1113,7 @@ extension Workspace {
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
 
         // Skip further checks and return what we got locally
-        guard shouldResolveMissingDepenencies else {
+        guard shouldResolveMissingDependencies else {
             return loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
         }
 
@@ -1185,7 +1185,7 @@ extension Workspace {
         extraConstraints: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine,
         retryOnPackagePathMismatch: Bool = true,
-        shouldResolveMissingDepenencies: Bool = true
+        shouldResolveMissingDependencies: Bool = true
     ) -> DependencyManifests {
 
         // Ensure the cache path exists and validate that edited dependencies.
@@ -1212,7 +1212,7 @@ extension Workspace {
         }
 
         // Skip further checks and return what we got locally
-        guard shouldResolveMissingDepenencies else {
+        guard shouldResolveMissingDependencies else {
             return currentManifests
         }
 
@@ -1316,7 +1316,7 @@ extension Workspace {
                     extraConstraints: extraConstraints,
                     diagnostics: diagnostics,
                     retryOnPackagePathMismatch: false,
-                    shouldResolveMissingDepenencies: shouldResolveMissingDepenencies
+                    shouldResolveMissingDependencies: shouldResolveMissingDependencies
                 )
             } else {
                 // If we weren't able to resolve properly even after a retry, it

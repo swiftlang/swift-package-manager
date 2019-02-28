@@ -158,7 +158,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                     version: resolveOptions.version.flatMap(Version.init(string:)),
                     branch: resolveOptions.branch,
                     revision: resolveOptions.revision,
-                    shouldResolveMissingDepenencies: true,
+                    shouldResolveMissingDependencies: true,
                     diagnostics: diagnostics)
             }
 
