@@ -37,7 +37,7 @@ class GenerateXcodeprojTests: XCTestCase {
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: "/",
-                        url: "/",
+                        url: "/foo",
                         targets: [
                             TargetDescription(name: "DummyModuleName"),
                         ])

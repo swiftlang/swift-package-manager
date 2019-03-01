@@ -161,12 +161,13 @@ public class Workspace {
         }
 
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
-            let manifestsMap = Dictionary(items:
-                root.manifests.map({ ($0.name.lowercased(), $0) }) +
+            let manifestsMap: [String: Manifest] = Dictionary(items:
+                root.manifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) }) +
                 dependencies.map({ (PackageReference.computeIdentity(packageURL: $0.manifest.url), $0.manifest) }))
 
-            let inputIdentities = root.manifests.map({
-                PackageReference(identity: $0.name.lowercased(), path: $0.url)
+            let inputIdentities: [PackageReference] = root.manifests.map({
+                let identity = PackageReference.computeIdentity(packageURL: $0.url)
+                return PackageReference(identity: identity, path: $0.url)
             }) + root.dependencies.map({
                 let url = workspace.config.mirroredURL(forURL: $0.url)
                 let identity = PackageReference.computeIdentity(packageURL: url)

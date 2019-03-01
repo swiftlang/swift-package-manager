@@ -95,7 +95,8 @@ public struct PackageGraphRoot {
     /// Create a package graph root.
     public init(input: PackageGraphRootInput, manifests: [Manifest]) {
         self.packageRefs = zip(input.packages, manifests).map { (path, manifest) in
-            PackageReference(identity: manifest.name.lowercased(), path: path.pathString, isLocal: true)
+            let identity = PackageReference.computeIdentity(packageURL: manifest.url)
+            return PackageReference(identity: identity, path: path.pathString, isLocal: true)
         }
         self.manifests = manifests
         self.dependencies = input.dependencies

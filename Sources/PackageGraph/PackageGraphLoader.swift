@@ -129,8 +129,7 @@ public struct PackageGraphLoader {
         // the URL but that shouldn't be needed after <rdar://problem/33693433>
         // Ensure that identity and package name are the same once we have an
         // API to specify identity in the manifest file
-        let manifestMapSequence = root.manifests.map({ ($0.name.lowercased(), $0) }) +
-            externalManifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
+        let manifestMapSequence = (root.manifests + externalManifests).map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (Manifest) -> [Manifest] = { manifest in
             manifest.dependencies.compactMap({
@@ -269,7 +268,7 @@ private func createResolvedPackages(
     // Create a map of package builders keyed by the package identity.
     let packageMap: [String: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary({
         // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
-        let identity = rootManifestSet.contains($0.package.manifest) ? $0.package.name.lowercased() : PackageReference.computeIdentity(packageURL: $0.package.manifest.url)
+        let identity = PackageReference.computeIdentity(packageURL: $0.package.manifest.url)
         return (identity, $0)
     })
 
