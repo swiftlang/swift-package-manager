@@ -132,19 +132,6 @@ public struct Term: Equatable, Hashable {
             fatalError("attempting to compute relation between different packages \(self) \(other)")
         }
 
-        // In the case that we're dealing with revisions, we can fast-track this.
-        switch (self.requirement, other.requirement) {
-        case (.revision(let lhs), .revision(let rhs)):
-            if lhs == rhs && self.isPositive == other.isPositive {
-                return .subset
-            }
-            return .disjoint
-        case (.revision, _), (_, .revision):
-            return .disjoint
-        default:
-            break
-        }
-
         if other.isPositive {
             if self.isPositive {
                 // If the second requirement contains all the elements of

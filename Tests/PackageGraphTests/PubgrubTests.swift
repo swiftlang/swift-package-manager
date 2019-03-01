@@ -60,6 +60,45 @@ private func AssertResult(_ result: PubgrubDependencyResolver.Result,
     }
 }
 
+/// Asserts that a result failed with a conflict incompatibility containing the
+/// specified terms.
+private func AssertRootCause(_ result: PubgrubDependencyResolver.Result,
+                             _ rootCauseTerms: [Term],
+                             file: StaticString = #file,
+                             line: UInt = #line) {
+    switch result {
+    case .success(let bindings):
+        let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
+        XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
+    case .unsatisfiable(dependencies: let constraints, pins: let pins):
+        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
+    case .error(let error):
+        guard let pubgrubError = error as? PubgrubDependencyResolver.PubgrubError,
+            case .unresolvable(let incompatibility) = pubgrubError,
+            case .conflict(let unavailable, _) = incompatibility.cause else {
+                XCTFail("Unexpected error: \(error)", file: file, line: line)
+                return
+        }
+        XCTAssertEqual(Array(unavailable.terms), rootCauseTerms, file: file, line: line)
+    }
+}
+
+/// Asserts that a result failed with specified error.
+private func AssertError(_ result: PubgrubDependencyResolver.Result,
+                         _ expectedError: Error,
+                         file: StaticString = #file,
+                         line: UInt = #line) {
+    switch result {
+    case .success(let bindings):
+        let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
+        XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
+    case .unsatisfiable(dependencies: let constraints, pins: let pins):
+        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
+    case .error(let foundError):
+        XCTAssertEqual(String(describing: foundError), String(describing: expectedError))
+    }
+}
+
 public typealias _MockPackageConstraint = PackageContainerConstraint
 typealias PGError = PubgrubDependencyResolver.PubgrubError
 
@@ -93,13 +132,16 @@ public class MockContainer: PackageContainer {
         return AnySequence(versions)
     }
 
-    public func getDependencies(at version: Version) -> [_MockPackageConstraint] {
+    public func getDependencies(at version: Version) throws -> [_MockPackageConstraint] {
         requestedVersions.insert(version)
-        return getDependencies(at: version.description)
+        return try getDependencies(at: version.description)
     }
 
-    public func getDependencies(at revision: String) -> [_MockPackageConstraint] {
-        return dependencies[revision]!.map({ value in
+    public func getDependencies(at revision: String) throws -> [_MockPackageConstraint] {
+        guard let revisionDependencies = dependencies[revision] else {
+            throw _MockLoadingError.unknownRevision
+        }
+        return revisionDependencies.map({ value in
             let (name, requirement) = value
             return _MockPackageConstraint(container: name, requirement: requirement)
         })
@@ -154,6 +196,7 @@ public class MockContainer: PackageContainer {
 
 public enum _MockLoadingError: Error {
     case unknownModule
+    case unknownRevision
 }
 
 public struct MockProvider: PackageContainerProvider {
@@ -213,7 +256,7 @@ class DependencyGraphBuilder {
         container._versions = container._versions
             .sorted(by: { lhs, rhs -> Bool in
                 guard case .version(let lv) = lhs, case .version(let rv) = rhs else {
-                    fatalError("Cannot sort BoundVersion's with non-version requirements.")
+                    return true
                 }
                 return lv < rv
             })
@@ -458,34 +501,34 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(term("¬a^1.0.0").relation(with: "a@1.5.0"), .disjoint)
         XCTAssertEqual(term("¬a^1.5.0").relation(with: "a^1.0.0"), .overlap)
         XCTAssertEqual(term("¬a^2.0.0").relation(with: "a^1.5.0"), .overlap)
-        XCTAssertEqual(term("¬a@1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(term("¬a^1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(term("¬a@master").relation(with: "a@1.0.0"), .disjoint)
-        XCTAssertEqual(term("¬a@master").relation(with: "a^1.0.0"), .disjoint)
+        XCTAssertEqual(term("¬a@1.0.0").relation(with: "a@master"), .overlap)
+        XCTAssertEqual(term("¬a^1.0.0").relation(with: "a@master"), .overlap)
+        XCTAssertEqual(term("¬a@master").relation(with: "a@1.0.0"), .overlap)
+        XCTAssertEqual(term("¬a@master").relation(with: "a^1.0.0"), .overlap)
         XCTAssertEqual(term("¬a@master").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(term("¬a@master").relation(with: "a@develop"), .disjoint)
+        XCTAssertEqual(term("¬a@master").relation(with: "a@develop"), .overlap)
 
         // First term is positive, second term is negative.
         XCTAssertEqual(term("a^2.0.0").relation(with: "¬a^1.0.0"), .subset)
         XCTAssertEqual(term("a^1.5.0").relation(with: "¬a^1.0.0"), .disjoint)
         XCTAssertEqual(term("a^1.0.0").relation(with: "¬a^1.5.0"), .overlap)
-        XCTAssertEqual(term("a@1.0.0").relation(with: "¬a@master"), .disjoint)
-        XCTAssertEqual(term("a^1.0.0").relation(with: "¬a@master"), .disjoint)
-        XCTAssertEqual(term("a@master").relation(with: "¬a@1.0.0"), .disjoint)
-        XCTAssertEqual(term("a@master").relation(with: "¬a^1.0.0"), .disjoint)
+        XCTAssertEqual(term("a@1.0.0").relation(with: "¬a@master"), .subset)
+        XCTAssertEqual(term("a^1.0.0").relation(with: "¬a@master"), .subset)
+        XCTAssertEqual(term("a@master").relation(with: "¬a@1.0.0"), .subset)
+        XCTAssertEqual(term("a@master").relation(with: "¬a^1.0.0"), .subset)
         XCTAssertEqual(term("a@master").relation(with: "¬a@master"), .disjoint)
-        XCTAssertEqual(term("a@master").relation(with: "¬a@develop"), .disjoint)
+        XCTAssertEqual(term("a@master").relation(with: "¬a@develop"), .subset)
 
         // Both terms are negative.
         XCTAssertEqual(term("¬a^1.0.0").relation(with: "¬a^1.5.0"), .subset)
         XCTAssertEqual(term("¬a^2.0.0").relation(with: "¬a^1.0.0"), .overlap)
         XCTAssertEqual(term("¬a^1.5.0").relation(with: "¬a^1.0.0"), .overlap)
-        XCTAssertEqual(term("¬a@1.0.0").relation(with: "¬a@master"), .disjoint)
-        XCTAssertEqual(term("¬a^1.0.0").relation(with: "¬a@master"), .disjoint)
-        XCTAssertEqual(term("¬a@master").relation(with: "¬a@1.0.0"), .disjoint)
-        XCTAssertEqual(term("¬a@master").relation(with: "¬a^1.0.0"), .disjoint)
+        XCTAssertEqual(term("¬a@1.0.0").relation(with: "¬a@master"), .overlap)
+        XCTAssertEqual(term("¬a^1.0.0").relation(with: "¬a@master"), .overlap)
+        XCTAssertEqual(term("¬a@master").relation(with: "¬a@1.0.0"), .overlap)
+        XCTAssertEqual(term("¬a@master").relation(with: "¬a^1.0.0"), .overlap)
         XCTAssertEqual(term("¬a@master").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(term("¬a@master").relation(with: "¬a@develop"), .disjoint)
+        XCTAssertEqual(term("¬a@master").relation(with: "¬a@develop"), .overlap)
     }
 
     func testTermIsValidDecision() {
@@ -907,6 +950,30 @@ final class PubgrubTests: XCTestCase {
             ("foo", .revision("master")),
             ("bar", .version(v1))
         ])
+    }
+
+    func testResolutionWithUnavailableRevision() {
+        builder.serve(root: "root", with: ["foo": .revision("master")])
+        builder.serve("foo", at: .version(v1))
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertError(result, _MockLoadingError.unknownRevision)
+    }
+
+    func testResolutionWithRevisionConflict() {
+        builder.serve(root: "root", with: [
+            "foo": .revision("master"),
+            "bar": .versionSet(v1Range)
+        ])
+        builder.serve("foo", at: .revision("master"), with: ["bar": .revision("master")])
+        builder.serve("bar", at: .version(v1))
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertRootCause(result, [term("foo@master")])
     }
 
     func testConflict1() {
