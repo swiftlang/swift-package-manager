@@ -30,7 +30,7 @@ class PackageDescription5LoadingTests: XCTestCase {
         try fs.writeFileContents(manifestPath, bytes: contents)
         let m = try manifestLoader.load(
             package: AbsolutePath.root,
-            baseURL: AbsolutePath.root.pathString,
+            baseURL: "/foo",
             manifestVersion: .v5,
             fileSystem: fs)
         guard m.manifestVersion == .v5 else {
@@ -273,6 +273,74 @@ class PackageDescription5LoadingTests: XCTestCase {
 
             XCTAssertEqual(settings[7], .init(tool: .linker, name: .linkedLibrary, value: ["libz"]))
             XCTAssertEqual(settings[8], .init(tool: .linker, name: .linkedFramework, value: ["CoreData"], condition: .init(platformNames: ["macos", "tvos"])))
+        }
+    }
+
+    func testSerializedDiagnostics() throws {
+        mktmpdir { path in
+            let fs = localFileSystem
+
+            let manifestPath = path.appending(components: "pkg", "Package.swift")
+            try fs.writeFileContents(manifestPath) { stream in
+                stream <<< """
+                import PackageDescription
+                let package = Package(
+                name: "Trivial",
+                    targets: [
+                        .target(
+                            name: "foo",
+                            dependencies: []),
+
+                )
+                """
+            }
+
+            let loader = ManifestLoader(
+                manifestResources: Resources.default,
+                serializedDiagnostics: true, cacheDir: path)
+
+            do {
+                _ = try loader.load(
+                    package: manifestPath.parentDirectory,
+                    baseURL: manifestPath.pathString,
+                    manifestVersion: .v5)
+            } catch ManifestParseError.invalidManifestFormat(let error, let diagnosticFile) {
+                XCTAssertMatch(error, .contains("expected \')\' in expression list"))
+                let contents = try localFileSystem.readFileContents(diagnosticFile!)
+                XCTAssertNotNil(contents)
+            }
+
+            try fs.writeFileContents(manifestPath) { stream in
+                stream <<< """
+                import PackageDescription
+                func foo() {
+                    let a = 5
+                }
+                let package = Package(
+                    name: "Trivial",
+                    targets: [
+                        .target(
+                            name: "foo",
+                            dependencies: []),
+                    ]
+                )
+                """
+            }
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loader.load(
+                package: manifestPath.parentDirectory,
+                baseURL: manifestPath.pathString,
+                manifestVersion: .v5,
+                diagnostics: diagnostics
+            )
+
+            guard let diag = diagnostics.diagnostics.first?.data as? ManifestLoadingDiagnostic else {
+                return XCTFail("Expected a diagnostic")
+            }
+            XCTAssertMatch(diag.output, .contains("warning: initialization of immutable value"))
+            let contents = try localFileSystem.readFileContents(diag.diagnosticFile!)
+            XCTAssertNotNil(contents)
         }
     }
 }

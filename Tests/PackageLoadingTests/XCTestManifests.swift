@@ -109,6 +109,7 @@ extension PackageDescription5LoadingTests {
         ("testBasics", testBasics),
         ("testBuildSettings", testBuildSettings),
         ("testPlatforms", testPlatforms),
+        ("testSerializedDiagnostics", testSerializedDiagnostics),
         ("testSwiftLanguageVersion", testSwiftLanguageVersion),
     ]
 }

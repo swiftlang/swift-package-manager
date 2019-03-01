@@ -175,4 +175,5 @@ public struct ManifestLoadingDiagnostic: DiagnosticData {
     )
 
     public let output: String
+    public let diagnosticFile: AbsolutePath?
 }

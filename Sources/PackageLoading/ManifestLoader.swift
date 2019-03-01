@@ -18,7 +18,7 @@ public typealias FileSystem = Basic.FileSystem
 
 public enum ManifestParseError: Swift.Error {
     /// The manifest contains invalid format.
-    case invalidManifestFormat(String)
+    case invalidManifestFormat(String, diagnosticFile: AbsolutePath?)
 
     /// The manifest was successfully loaded by swift interpreter but there were runtime issues.
     case runtimeManifestErrors([String])
@@ -143,6 +143,7 @@ public protocol ManifestLoaderDelegate {
 public final class ManifestLoader: ManifestLoaderProtocol {
 
     let resources: ManifestResourceProvider
+    let serializedDiagnostics: Bool
     let isManifestSandboxEnabled: Bool
     var isManifestCachingEnabled: Bool {
         return cacheDir != nil
@@ -152,14 +153,18 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     public init(
         manifestResources: ManifestResourceProvider,
+        serializedDiagnostics: Bool = false,
         isManifestSandboxEnabled: Bool = true,
         cacheDir: AbsolutePath? = nil,
         delegate: ManifestLoaderDelegate? = nil
     ) {
         self.resources = manifestResources
+        self.serializedDiagnostics = serializedDiagnostics
         self.isManifestSandboxEnabled = isManifestSandboxEnabled
         self.delegate = delegate
-        self.cacheDir = cacheDir
+
+        // Resolve symlinks since we can't use them in sandbox profiles.
+        self.cacheDir = cacheDir.map(resolveSymlinks)
     }
 
     @available(*, deprecated)
@@ -217,14 +222,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         // Get the JSON string for the manifest.
-        let jsonString: String
-        do {
-            jsonString = try loadJSONString(
-                path: inputPath, manifestVersion: manifestVersion,
-                fs: fileSystem, diagnostics: diagnostics)
-        } catch let error as StringError {
-            throw ManifestParseError.invalidManifestFormat(error.description)
-        }
+        let identity = PackageReference.computeIdentity(packageURL: baseURL)
+        let jsonString = try loadJSONString(
+            path: inputPath,
+            manifestVersion: manifestVersion,
+            packageIdentity: identity,
+            fs: fileSystem,
+            diagnostics: diagnostics
+        )
 
         // Load the manifest from JSON.
         let json = try JSON(string: jsonString)
@@ -271,95 +276,173 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     /// Load the JSON string for the given manifest.
-    func loadJSONString(
+    private func loadJSONString(
         path inputPath: AbsolutePath,
         manifestVersion: ManifestVersion,
+        packageIdentity: String,
         fs: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> String {
+        let result: ManifestParseResult
+
         // If we were given a filesystem, load via a temporary file.
+        //
+        // This is currently used when doing dependency resolution as we
+        // get the manifest file from GitFileSystem. We should cache these
+        // by using the hash of the contents as the key.
         if let fs = fs {
             let contents = try fs.readFileContents(inputPath)
             let tmpFile = try TemporaryFile(suffix: ".swift")
             try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
-            return try parse(path: tmpFile.path, manifestVersion: manifestVersion, diagnostics: diagnostics)
+            result = parse(packageIdentity: packageIdentity, path: tmpFile.path, manifestVersion: manifestVersion)
+        } else if !self.isManifestCachingEnabled {
+            // Load directly if manifest caching is not enabled.
+            result = parse(packageIdentity: packageIdentity, path: inputPath, manifestVersion: manifestVersion)
+        } else {
+            // Otherwise load via llbuild.
+            let key = ManifestLoadRule.RuleKey(
+                packageIdentity: packageIdentity,
+                path: inputPath, manifestVersion: manifestVersion)
+            result = try getEngine().build(key: key)
         }
 
-        // Load directly if manifest caching is not enabled.
-        if !self.isManifestCachingEnabled {
-            return try parse(path: inputPath, manifestVersion: manifestVersion, diagnostics: diagnostics)
+        // Throw now if we weren't able to parse the manifest.
+        guard let parsedManifest = result.parsedManifest else {
+            let errors = result.errorOutput ?? result.compilerOutput ?? "<unknown>"
+            throw ManifestParseError.invalidManifestFormat(errors, diagnosticFile: result.diagnosticFile)
         }
 
-        // Otherwise load via llbuild.
-        let key = ManifestLoadRule.RuleKey(
-            path: inputPath, manifestVersion: manifestVersion)
-        let value = try getEngine().build(key: key)
+        // We should not have any fatal error at this point.
+        assert(result.errorOutput == nil)
 
-        return try value.dematerialize()
+        // We might have some non-fatal output (warnings/notes) from the compiler even when
+        // we were able to parse the manifest successfully.
+        if let compilerOutput = result.compilerOutput {
+            diagnostics?.emit(data: ManifestLoadingDiagnostic(
+                output: compilerOutput, diagnosticFile: result.diagnosticFile))
+        }
+
+        return parsedManifest
+    }
+
+    fileprivate struct ManifestParseResult: LLBuildValue {
+        var hasErrors: Bool {
+            return parsedManifest == nil
+        }
+
+        /// The path to the diagnostics file (.dia).
+        ///
+        /// This is only present if serialized diagnostics are enabled.
+        var diagnosticFile: AbsolutePath?
+
+        /// The output from compiler, if any.
+        ///
+        /// This would contain the errors and warnings produced when loading the manifest file.
+        var compilerOutput: String?
+
+        /// The parsed manifest in JSON format.
+        var parsedManifest: String?
+
+        /// Any non-compiler error that might have occurred during manifest loading.
+        ///
+        /// For e.g., we could have failed to spawn the process or create temporary file.
+        var errorOutput: String? {
+            didSet {
+                assert(parsedManifest == nil && compilerOutput == nil)
+            }
+        }
     }
 
     /// Parse the manifest at the given path to JSON.
-    func parse(
+    fileprivate func parse(
+        packageIdentity: String,
         path manifestPath: AbsolutePath,
-        manifestVersion: ManifestVersion,
-        diagnostics: DiagnosticsEngine? = nil
-    ) throws -> String {
-        self.delegate?.willParse(manifest: manifestPath)
+        manifestVersion: ManifestVersion
+    ) -> ManifestParseResult {
 
-        // The compiler has special meaning for files with extensions like .ll, .bc etc.
-        // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
-        assert(manifestPath.extension == "swift",
-               "Manifest files must contain .swift suffix in their name, given: \(manifestPath).")
+        /// Helper method for parsing the manifest.
+        func _parse(
+            path manifestPath: AbsolutePath,
+            manifestVersion: ManifestVersion,
+            manifestParseResult: inout ManifestParseResult
+        ) throws {
+            self.delegate?.willParse(manifest: manifestPath)
 
-        // For now, we load the manifest by having Swift interpret it directly.
-        // Eventually, we should have two loading processes, one that loads only
-        // the declarative package specification using the Swift compiler directly
-        // and validates it.
+            // The compiler has special meaning for files with extensions like .ll, .bc etc.
+            // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
+            assert(manifestPath.extension == "swift",
+                   "Manifest files must contain .swift suffix in their name, given: \(manifestPath).")
 
-        // Compute the path to runtime we need to load.
-        let runtimePath = self.runtimePath(for: manifestVersion).pathString
-        let interpreterFlags = self.interpreterFlags(for: manifestVersion)
+            // For now, we load the manifest by having Swift interpret it directly.
+            // Eventually, we should have two loading processes, one that loads only
+            // the declarative package specification using the Swift compiler directly
+            // and validates it.
 
-        var cmd = [String]()
-      #if os(macOS)
-        // If enabled, use sandbox-exec on macOS. This provides some safety against
-        // arbitrary code execution when parsing manifest files. We only allow
-        // the permissions which are absolutely necessary for manifest parsing.
-        if isManifestSandboxEnabled {
-            cmd += ["sandbox-exec", "-p", sandboxProfile()]
+            // Compute the path to runtime we need to load.
+            let runtimePath = self.runtimePath(for: manifestVersion).pathString
+            let interpreterFlags = self.interpreterFlags(for: manifestVersion)
+
+            var cmd = [String]()
+          #if os(macOS)
+            // If enabled, use sandbox-exec on macOS. This provides some safety against
+            // arbitrary code execution when parsing manifest files. We only allow
+            // the permissions which are absolutely necessary for manifest parsing.
+            if isManifestSandboxEnabled {
+                cmd += ["sandbox-exec", "-p", sandboxProfile(cacheDir)]
+            }
+          #endif
+            cmd += [resources.swiftCompiler.pathString]
+            cmd += ["--driver-mode=swift"]
+            cmd += bootstrapArgs()
+            cmd += verbosity.ccArgs
+            cmd += ["-L", runtimePath, "-lPackageDescription"]
+            cmd += interpreterFlags
+
+            // Add the arguments for emitting serialized diagnostics, if requested.
+            if serializedDiagnostics, cacheDir != nil {
+                let diaDir = cacheDir.appending(component: "ManifestLoading")
+                let diagnosticFile = diaDir.appending(component: packageIdentity + ".dia")
+                try localFileSystem.createDirectory(diaDir, recursive: true)
+                cmd += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagnosticFile.pathString]
+                manifestParseResult.diagnosticFile = diagnosticFile
+            }
+
+            cmd += [manifestPath.pathString]
+
+            // Create and open a temporary file to write json to.
+            let file = try TemporaryFile()
+            // Pass the fd in arguments.
+            cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
+
+            // Run the command.
+            let result = try Process.popen(arguments: cmd)
+            let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle()
+            manifestParseResult.compilerOutput = output
+
+            // Return now if there was an error.
+            if result.exitStatus != .terminated(code: 0) {
+                return
+            }
+
+            guard let json = try localFileSystem.readFileContents(file.path).validDescription else {
+                throw StringError("the manifest has invalid encoding")
+            }
+            manifestParseResult.parsedManifest = json
         }
-      #endif
-        cmd += [resources.swiftCompiler.pathString]
-        cmd += ["--driver-mode=swift"]
-        cmd += bootstrapArgs()
-        cmd += verbosity.ccArgs
-        cmd += ["-L", runtimePath, "-lPackageDescription"]
-        cmd += interpreterFlags
-        cmd += [manifestPath.pathString]
 
-        // Create and open a temporary file to write json to.
-        let file = try TemporaryFile()
-        // Pass the fd in arguments.
-        cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
-
-        // Run the command.
-        let result = try Process.popen(arguments: cmd)
-        let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle()
-
-        // Throw an error if there was a non-zero exit or emit the output
-        // produced by the process. A process output will usually mean there
-        // was a warning emitted by the Swift compiler.
-        if result.exitStatus != .terminated(code: 0) {
-            throw StringError(output ?? "<unknown>")
-        } else if let output = output {
-            diagnostics?.emit(data: ManifestLoadingDiagnostic(output: output))
+        var manifestParseResult = ManifestParseResult()
+        do {
+            try _parse(
+                path: manifestPath,
+                manifestVersion: manifestVersion,
+                manifestParseResult: &manifestParseResult
+            )
+        } catch {
+            assert(manifestParseResult.parsedManifest == nil)
+            manifestParseResult.errorOutput = error.localizedDescription
         }
 
-        guard let json = try localFileSystem.readFileContents(file.path).validDescription else {
-            throw StringError("the manifest has invalid encoding")
-        }
-
-        return json
+        return manifestParseResult
     }
 
     /// Returns the extra manifest args required during SwiftPM's own bootstrap.
@@ -456,7 +539,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.
-private func sandboxProfile() -> String {
+private func sandboxProfile(_ cacheDir: AbsolutePath? = nil) -> String {
     let stream = BufferedOutputByteStream()
     stream <<< "(version 1)" <<< "\n"
     // Deny everything by default.
@@ -473,21 +556,11 @@ private func sandboxProfile() -> String {
     for directory in Platform.darwinCacheDirectories() {
         stream <<< "    (regex #\"^\(directory.pathString)/org\\.llvm\\.clang.*\")" <<< "\n"
     }
+    if let cacheDir = cacheDir {
+        stream <<< "    (subpath \"\(cacheDir.pathString)\")" <<< "\n"
+    }
     stream <<< ")" <<< "\n"
     return stream.bytes.description
-}
-
-// FIXME: We should probably just remove this and make all Manifest errors Codable.
-/// Represents a string error.
-struct StringError: Equatable, Codable, CustomStringConvertible, Error {
-
-    /// The description of the error.
-    public let description: String
-
-    /// Create an instance of StringError.
-    public init(_ description: String) {
-        self.description = description
-    }
 }
 
 extension Result where ErrorType == StringError {
@@ -535,15 +608,14 @@ final class ManifestCacheDelegate: LLBuildEngineDelegate {
 /// the local file system. The rule will re-run if the manifest is modified.
 final class ManifestLoadRule: LLBuildRule {
 
-    struct RuleKey: LLBuildKey {
-        typealias BuildValue = RuleValue
+    fileprivate struct RuleKey: LLBuildKey {
+        typealias BuildValue = ManifestLoader.ManifestParseResult
         typealias BuildRule = ManifestLoadRule
 
+        let packageIdentity: String
         let path: AbsolutePath
         let manifestVersion: ManifestVersion
     }
-
-    typealias RuleValue = Result<String, StringError>
 
     override class var ruleName: String { return "\(ManifestLoadRule.self)" }
 
@@ -566,9 +638,9 @@ final class ManifestLoadRule: LLBuildRule {
     }
 
     override func inputsAvailable(_ engine: LLTaskBuildEngine) {
-        let value = RuleValue(string: {
-            try loader.parse(path: key.path, manifestVersion: key.manifestVersion)
-        })
+        let value = loader.parse(
+            packageIdentity: key.packageIdentity,
+            path: key.path, manifestVersion: key.manifestVersion)
         engine.taskIsComplete(value)
     }
 }

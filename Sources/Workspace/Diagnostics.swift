@@ -25,8 +25,10 @@ public struct ManifestParseDiagnostic: DiagnosticData {
     )
 
     public let errors: [String]
-    public init(_ errors: [String]) {
+    public let diagnosticFile: AbsolutePath?
+    public init(_ errors: [String], diagnosticFile: AbsolutePath?) {
         self.errors = errors
+        self.diagnosticFile = diagnosticFile
     }
 }
 
@@ -63,16 +65,16 @@ public struct ManifestDuplicateDeclDiagnostic: DiagnosticData {
 extension ManifestParseError: DiagnosticDataConvertible {
     public var diagnosticData: DiagnosticData {
         switch self {
-        case .invalidManifestFormat(let error):
-            return ManifestParseDiagnostic([error])
+        case .invalidManifestFormat(let error, let diagnisticFile):
+            return ManifestParseDiagnostic([error], diagnosticFile: diagnisticFile)
         case .runtimeManifestErrors(let errors):
-            return ManifestParseDiagnostic(errors)
+            return ManifestParseDiagnostic(errors, diagnosticFile: nil)
         case .duplicateDependencyDecl(let duplicates):
             return ManifestDuplicateDeclDiagnostic(duplicates)
         case .unsupportedAPI(let api, let supportedVersions):
             var error = "'\(api)' is only supported by manifest version(s): "
             error += supportedVersions.map({ $0.description }).joined(separator: ", ")
-            return ManifestParseDiagnostic([error])
+            return ManifestParseDiagnostic([error], diagnosticFile: nil)
         }
     }
 }
