@@ -210,11 +210,11 @@ public final class TestWorkspace {
         result(diagnostics)
     }
 
-    public func checkResolve(pkg: String, roots: [String], version: SPMUtility.Version, _ result: (DiagnosticsEngine) -> ()) {
+    public func checkResolve(pkg: String, roots: [String], version: SPMUtility.Version, resolution: Workspace.ResolutionKind, _ result: (DiagnosticsEngine) -> ()) {
         let diagnostics = DiagnosticsEngine()
         let workspace = createWorkspace()
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
-        workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, resolution: .automaticResolution, diagnostics: diagnostics)
+        workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, resolution: resolution, diagnostics: diagnostics)
         result(diagnostics)
     }
 

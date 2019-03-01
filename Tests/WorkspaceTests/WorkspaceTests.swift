@@ -1239,7 +1239,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Load initial version.
-        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+        workspace.checkPackageGraph(roots: ["Root"], resolution: .automaticResolution) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
@@ -1254,7 +1254,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Resolve to an older version.
-        workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.0.0") { diagnostics in
+        workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.0.0", resolution: .automaticResolution) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
@@ -1265,7 +1265,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check failure.
-        workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.3.0") { diagnostics in
+        workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.3.0", resolution: .automaticResolution) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("tmp/ws/pkgs/Foo @ 1.3.0"), behavior: .error)
             }
@@ -1739,7 +1739,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Now, resolve foo at a different version.
-        workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.2.0") { diagnostics in
+        workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.2.0", resolution: .automaticResolution) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
@@ -1775,6 +1775,54 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testWorkspaceResolutionKind() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let testWorkspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Baz"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let workspace = testWorkspace.createWorkspace()
+        let rootInput = PackageGraphRootInput(packages: [AbsolutePath("/tmp/ws/roots/Foo")])
+
+        workspace.loadPackageGraph(root: rootInput, resolution: .automaticResolution, diagnostics: diagnostics)
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let graph = workspace.loadPackageGraph(root: rootInput, resolution: .none, diagnostics: diagnostics)
+        XCTAssertNoDiagnostics(diagnostics)
+
+        PackageGraphTester(graph) { result in
+            result.check(dependencies: "Baz", target: "Foo")
         }
     }
 
@@ -2050,7 +2098,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(diagnostic: .contains("local dependency 'Bar' can't be edited"), behavior: .error)
             }
         }
-        workspace.checkResolve(pkg: "Bar", roots: ["Foo"], version: "1.0.0") { diagnostics in
+        workspace.checkResolve(pkg: "Bar", roots: ["Foo"], version: "1.0.0", resolution: .automaticResolution) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("local dependency 'Bar' can't be edited"), behavior: .error)
             }
