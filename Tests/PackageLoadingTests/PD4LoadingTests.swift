@@ -31,7 +31,7 @@ class PackageDescription4LoadingTests: XCTestCase {
         try fs.writeFileContents(manifestPath, bytes: contents)
         let m = try manifestLoader.load(
             package: AbsolutePath.root,
-            baseURL: AbsolutePath.root.pathString,
+            baseURL: "/foo",
             manifestVersion: .v4,
             fileSystem: fs)
         guard m.manifestVersion == .v4 else {
@@ -346,7 +346,7 @@ class PackageDescription4LoadingTests: XCTestCase {
                 XCTFail("this package should not load succesfully")
             }
             XCTFail("this package should not load succesfully")
-        } catch ManifestParseError.invalidManifestFormat(let error) {
+        } catch ManifestParseError.invalidManifestFormat(let error, _) {
             XCTAssert(error.contains("error: 'package(url:version:)' is unavailable: use package(url:_:) with the .exact(Version) initializer instead\n"))
             XCTAssert(error.contains("error: 'package(url:branch:)' is unavailable: use package(url:_:) with the .branch(String) initializer instead\n"))
             XCTAssert(error.contains("error: 'package(url:revision:)' is unavailable: use package(url:_:) with the .revision(String) initializer instead\n"))
@@ -393,7 +393,7 @@ class PackageDescription4LoadingTests: XCTestCase {
 
         let diagnostics = DiagnosticsEngine()
         let manifest = try manifestLoader.load(
-            package: .root, baseURL: AbsolutePath.root.pathString,
+            package: .root, baseURL: "/foo",
             manifestVersion: .v4, fileSystem: fs,
             diagnostics: diagnostics
         )

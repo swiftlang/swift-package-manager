@@ -30,7 +30,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         try fs.writeFileContents(manifestPath, bytes: contents)
         let m = try manifestLoader.load(
             package: AbsolutePath.root,
-            baseURL: AbsolutePath.root.pathString,
+            baseURL: "/foo",
             manifestVersion: .v4_2,
             fileSystem: fs)
         guard m.manifestVersion == .v4_2 else {
@@ -128,7 +128,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail()
         } catch {
-            guard case let ManifestParseError.invalidManifestFormat(output) = error else {
+            guard case let ManifestParseError.invalidManifestFormat(output, _) = error else {
                 return XCTFail()
             }
             XCTAssertMatch(output, .and(.contains("expected element type"), .contains("SwiftVersion")))
@@ -296,14 +296,14 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             XCTAssertEqual(deps["\(homeDir)/path/to/foo10"]?.url, "\(homeDir)/path/to/foo10")
             XCTAssertEqual(deps["\(homeDir)/path/to/foo10"]?.requirement, .localPackage)
 
-            XCTAssertEqual(deps["/~foo11"]?.url, "/~foo11")
-            XCTAssertEqual(deps["/~foo11"]?.requirement, .localPackage)
+            XCTAssertEqual(deps["/foo/~foo11"]?.url, "/foo/~foo11")
+            XCTAssertEqual(deps["/foo/~foo11"]?.requirement, .localPackage)
 
             XCTAssertEqual(deps["\(homeDir)/path/to/~/foo12"]?.url, "\(homeDir)/path/to/~/foo12")
             XCTAssertEqual(deps["\(homeDir)/path/to/~/foo12"]?.requirement, .localPackage)
 
-            XCTAssertEqual(deps["/~"]?.url, "/~")
-            XCTAssertEqual(deps["/~"]?.requirement, .localPackage)
+            XCTAssertEqual(deps["/foo/~"]?.url, "/foo/~")
+            XCTAssertEqual(deps["/foo/~"]?.requirement, .localPackage)
         }
     }
 
@@ -377,7 +377,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                     bytes: bogusManifest)
             }
             // Check we can load the repository.
-            let manifest = try manifestLoader.load(package: root, baseURL: root.pathString, manifestVersion: .v4_2, fileSystem: fs)
+            let manifest = try manifestLoader.load(package: root, baseURL: "/foo", manifestVersion: .v4_2, fileSystem: fs)
             XCTAssertEqual(manifest.name, "Trivial")
         }
     }
@@ -443,7 +443,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         } catch ManifestParseError.duplicateDependencyDecl(let duplicates) {
             XCTAssertEqual(duplicates.count, 2)
             let urls = duplicates.flatMap({$0}).map({ $0.url }).sorted()
-            XCTAssertEqual(urls, ["/foo1", "/foo1.git", "/foo2.git", "/foo2.git", "/path/to/foo1"])
+            XCTAssertEqual(urls, ["/foo/path/to/foo1", "/foo1", "/foo1.git", "/foo2.git", "/foo2.git"])
         }
     }
 
