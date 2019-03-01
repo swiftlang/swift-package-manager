@@ -225,6 +225,67 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+	func testRootPackagesOverride() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Baz"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "bazzz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: []
+                ),
+                TestPackage(
+                    name: "Baz",
+                    path: "Overridden/bazzz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Baz",
+                    path: "bazzz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.0.1", "1.0.3", "1.0.5", "1.0.8"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo", "Bar", "Overridden/bazzz"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Bar", "Foo", "Baz")
+                result.check(packages: "Bar", "Baz", "Foo")
+                result.check(dependencies: "Baz", target: "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
     func testDependencyRefsAreIteratedInStableOrder() throws {
         // This graph has two references to Bar, one with .git suffix and one without.
         // The test ensures that we use the URL which appears first (i.e. the one with .git suffix).

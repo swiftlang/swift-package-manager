@@ -76,6 +76,7 @@ extension WorkspaceTests {
         ("testRevisionVersionSwitch", testRevisionVersionSwitch),
         ("testRootAsDependency1", testRootAsDependency1),
         ("testRootAsDependency2", testRootAsDependency2),
+        ("testRootPackagesOverride", testRootPackagesOverride),
         ("testSkipUpdate", testSkipUpdate),
         ("testToolsVersionRootPackages", testToolsVersionRootPackages),
         ("testTransitiveDependencySwitchWithSameIdentity", testTransitiveDependencySwitchWithSameIdentity),
