@@ -101,12 +101,7 @@ extension ByteString: CustomStringConvertible {
     /// characters for ill-formed UTF8 sequences.
     @inlinable
     public var cString: String {
-        // FIXME: This is very inefficient, we need a way to pass a buffer. It
-        // is also wrong if the string contains embedded '\0' characters.
-        let tmp = _bytes + [UInt8(0)]
-        return tmp.withUnsafeBufferPointer { ptr in
-            return String(cString: unsafeBitCast(ptr.baseAddress, to: UnsafePointer<CChar>.self))
-        }
+        return String(decoding: _bytes, as: Unicode.UTF8.self)
     }
 
     @available(*, deprecated, message: "use description or validDescription instead")
