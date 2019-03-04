@@ -71,18 +71,28 @@ public final class SingleLinePercentProgressAnimation: ProgressAnimationProtocol
 
 /// A multi-line ninja-like progress animation.
 public final class MultiLineNinjaProgressAnimation: ProgressAnimationProtocol {
-    private let stream: OutputByteStream
+    private struct Info: Equatable {
+        let step: Int
+        let total: Int
+        let text: String
+    }
 
-    init(stream: OutputByteStream) {
+    private let stream: OutputByteStream
+    private var lastDisplayedText: String? = nil
+
+    public init(stream: OutputByteStream) {
         self.stream = stream
     }
 
     public func update(step: Int, total: Int, text: String) {
         assert(step <= total)
 
+        guard text != lastDisplayedText else { return }
+
         stream <<< "[\(step)/\(total)] " <<< text
         stream <<< "\n"
         stream.flush()
+        lastDisplayedText = text
     }
 
     public func complete(success: Bool) {
@@ -142,9 +152,15 @@ public final class NinjaProgressAnimation: DynamicProgressAnimation {
 
 /// A multi-line percent-based progress animation.
 public final class MultiLinePercentProgressAnimation: ProgressAnimationProtocol {
+    private struct Info: Equatable {
+        let percentage: Int
+        let text: String
+    }
+
     private let stream: OutputByteStream
     private let header: String
     private var hasDisplayedHeader = false
+    private var lastDisplayedText: String? = nil
 
     init(stream: OutputByteStream, header: String) {
         self.stream = stream
@@ -165,6 +181,7 @@ public final class MultiLinePercentProgressAnimation: ProgressAnimationProtocol 
         stream <<< "\(percentage)%: " <<< text
         stream <<< "\n"
         stream.flush()
+        lastDisplayedText = text
     }
 
     public func complete(success: Bool) {

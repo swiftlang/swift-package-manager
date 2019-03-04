@@ -19,17 +19,26 @@ struct SwiftCompilerMessage {
             let path: String
         }
 
-        struct CommandInfo {
+        struct BeganInfo {
+            let pid: Int
+            let inputs: [String]
+            let outputs: [Output]
+            let commandExecutable: String
+            let commandArguments: [String]
+        }
+
+        struct SkippedInfo {
             let inputs: [String]
             let outputs: [Output]
         }
 
         struct OutputInfo {
+            let pid: Int
             let output: String?
         }
 
-        case began(CommandInfo)
-        case skipped(CommandInfo)
+        case began(BeganInfo)
+        case skipped(SkippedInfo)
         case finished(OutputInfo)
         case signalled(OutputInfo)
     }
@@ -58,7 +67,7 @@ final class SwiftCompilerOutputParser {
     }
 
     /// Delegate to notify of parsing events.
-    public var delegate: SwiftCompilerOutputParserDelegate
+    public weak var delegate: SwiftCompilerOutputParserDelegate?
 
     /// Buffer containing the bytes until a full message can be parsed.
     private var buffer: [UInt8] = []
@@ -70,11 +79,14 @@ final class SwiftCompilerOutputParser {
     private var hasFailed = false
 
     /// The JSON decoder to parse messages.
-    private let decoder = JSONDecoder()
+    private let decoder: JSONDecoder
 
     /// Initializes the parser with a delegate to notify of parsing events.
     init(delegate: SwiftCompilerOutputParserDelegate) {
         self.delegate = delegate
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        self.decoder = decoder
     }
 
     /// Parse the next bytes of the Swift compiler JSON output.
@@ -87,7 +99,7 @@ final class SwiftCompilerOutputParser {
             try parseImpl(bytes: bytes)
         } catch {
             hasFailed = true
-            delegate.swiftCompilerOutputParserDidFail(withError: error)
+            delegate?.swiftCompilerOutputParserDidFail(withError: error)
         }
     }
 }
@@ -123,7 +135,7 @@ private extension SwiftCompilerOutputParser {
                 buffer.append(contentsOf: bytes.prefix(remainingBytes))
 
                 let message = try parseMessage()
-                delegate.swiftCompilerDidOutputMessage(message)
+                delegate?.swiftCompilerDidOutputMessage(message)
 
                 if case .signalled = message.kind {
                     hasFailed = true
@@ -194,9 +206,9 @@ extension SwiftCompilerMessage.Kind: Decodable, Equatable {
         let kind = try container.decode(String.self, forKey: .kind)
         switch kind {
         case "began":
-            self = try .began(CommandInfo(from: decoder))
+            self = try .began(BeganInfo(from: decoder))
         case "skipped":
-            self = try .skipped(CommandInfo(from: decoder))
+            self = try .skipped(SkippedInfo(from: decoder))
         case "finished":
             self = try .finished(OutputInfo(from: decoder))
         case "signalled":
@@ -208,7 +220,8 @@ extension SwiftCompilerMessage.Kind: Decodable, Equatable {
 }
 
 extension SwiftCompilerMessage.Kind.Output: Decodable, Equatable {}
-extension SwiftCompilerMessage.Kind.CommandInfo: Decodable, Equatable {}
+extension SwiftCompilerMessage.Kind.BeganInfo: Decodable, Equatable {}
+extension SwiftCompilerMessage.Kind.SkippedInfo: Decodable, Equatable {}
 extension SwiftCompilerMessage.Kind.OutputInfo: Decodable, Equatable {}
 
 private let newline = UInt8(ascii: "\n")
