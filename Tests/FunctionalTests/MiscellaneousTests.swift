@@ -28,12 +28,8 @@ class MiscellaneousTestCase: XCTestCase {
 
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let output = try executeSwiftBuild(prefix.appending(component: "Bar"))
-            XCTAssertMatch(output, .regex("Resolving .* at 1\\.2\\.3"))
-            XCTAssertMatch(output, .regex("Compiling .*Foo.swift"))
-            XCTAssertMatch(output, .regex("Merging module .*Foo\\.swiftmodule"))
-            XCTAssertMatch(output, .contains("Compiling main.swift"))
-            XCTAssertMatch(output, .regex("Merging module .*Bar\\.swiftmodule"))
-            XCTAssertMatch(output, .regex("Linking .*Bar"))
+            XCTAssertTrue(output.contains("Resolving"))
+            XCTAssertTrue(output.contains("at 1.2.3"))
         }
     }
 
@@ -85,22 +81,23 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testCompileFailureExitsGracefully() {
         fixture(name: "Miscellaneous/CompileFails") { prefix in
+            var foo = false
             do {
                 try executeSwiftBuild(prefix)
-                XCTFail()
-            } catch SwiftPMProductError.executionFailure(let error, let output, _) {
-                XCTAssertMatch(output, .contains("Compiling Foo.swift"))
-                XCTAssertMatch(output, .regex("error: .*\n.*compile_failure"))
-
-                if case ProcessResult.Error.nonZeroExit(let result) = error {
+            } catch SwiftPMProductError.executionFailure(let error, _, _) {
+                switch error {
+                case ProcessResult.Error.nonZeroExit(let result):
                     // if our code crashes we'll get an exit code of 256
                     XCTAssertEqual(result.exitStatus, .terminated(code: 1))
-                } else {
+                    foo = true
+                default:
                     XCTFail()
                 }
             } catch {
                 XCTFail()
             }
+
+            XCTAssertTrue(foo)
         }
     }
 
