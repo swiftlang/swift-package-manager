@@ -164,6 +164,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.delegate = delegate
 
         // Resolve symlinks since we can't use them in sandbox profiles.
+        if let cacheDir = cacheDir {
+            try? localFileSystem.createDirectory(cacheDir, recursive: true)
+        }
         self.cacheDir = cacheDir.map(resolveSymlinks)
     }
 
