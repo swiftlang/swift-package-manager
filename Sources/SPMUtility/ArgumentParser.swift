@@ -660,7 +660,7 @@ public final class ArgumentParser {
     public func add<T: ArgumentKind>(
         option: String,
         shortName: String? = nil,
-        kind: T.Type,
+        kind: T.Type = T.self,
         usage: String? = nil,
         completion: ShellCompletion? = nil
     ) -> OptionArgument<T> {
@@ -675,7 +675,7 @@ public final class ArgumentParser {
     public func add<T: ArgumentKind>(
         option: String,
         shortName: String? = nil,
-        kind: [T].Type,
+        kind: [T].Type = [T].self,
         strategy: ArrayParsingStrategy = .upToNextOption,
         usage: String? = nil,
         completion: ShellCompletion? = nil
@@ -692,7 +692,7 @@ public final class ArgumentParser {
     /// Note: Only one positional argument is allowed if optional setting is enabled.
     public func add<T: ArgumentKind>(
         positional: String,
-        kind: T.Type,
+        kind: T.Type = T.self,
         optional: Bool = false,
         usage: String? = nil,
         completion: ShellCompletion? = nil
@@ -714,7 +714,7 @@ public final class ArgumentParser {
     /// Note: Only one multiple-value positional argument is allowed.
     public func add<T: ArgumentKind>(
         positional: String,
-        kind: [T].Type,
+        kind: [T].Type = [T].self,
         optional: Bool = false,
         strategy: ArrayParsingStrategy = .upToNextOption,
         usage: String? = nil,
