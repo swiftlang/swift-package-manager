@@ -406,20 +406,16 @@ let rootRef = PackageReference(identity: "root", path: "")
 let rootCause = Incompatibility(Term(rootRef, .versionSet(.exact("1.0.0"))), root: rootRef)
 let _cause = Incompatibility("cause@0.0.0", root: rootRef)
 
-fileprivate func term(_ literal: String) -> Term {
-    return Term(stringLiteral: literal)
-}
-
 
 final class PubgrubTests: XCTestCase {
     func testTermInverse() {
-        let a = term("a@1.0.0")
+        let a = Term("a@1.0.0")
         XCTAssertFalse(a.inverse.isPositive)
         XCTAssertTrue(a.inverse.inverse.isPositive)
     }
 
     func testTermSatisfies() {
-        let a100 = term("a@1.0.0")
+        let a100 = Term("a@1.0.0")
 
         XCTAssertTrue(a100.satisfies(a100))
         XCTAssertFalse(a100.satisfies("¬a@1.0.0"))
@@ -429,129 +425,129 @@ final class PubgrubTests: XCTestCase {
 
         XCTAssertFalse(a100.satisfies(Term(bRef, .unversioned)))
 
-        XCTAssertFalse(term("¬a@1.0.0").satisfies("¬a^1.0.0"))
-        XCTAssertFalse(term("¬a@1.0.0").satisfies("a^2.0.0"))
-        XCTAssertTrue(term("¬a^1.0.0").satisfies("¬a@1.0.0"))
-        XCTAssertTrue(term("a^2.0.0").satisfies("¬a@1.0.0"))
+        XCTAssertFalse(Term("¬a@1.0.0").satisfies("¬a^1.0.0"))
+        XCTAssertFalse(Term("¬a@1.0.0").satisfies("a^2.0.0"))
+        XCTAssertTrue(Term("¬a^1.0.0").satisfies("¬a@1.0.0"))
+        XCTAssertTrue(Term("a^2.0.0").satisfies("¬a@1.0.0"))
 
-        XCTAssertTrue(term("a^1.0.0").satisfies("¬a@2.0.0"))
-        XCTAssertTrue(term("a^1.0.0").satisfies("¬a^2.0.0"))
+        XCTAssertTrue(Term("a^1.0.0").satisfies("¬a@2.0.0"))
+        XCTAssertTrue(Term("a^1.0.0").satisfies("¬a^2.0.0"))
 
-        XCTAssertTrue(term("a^1.0.0").satisfies(term("a^1.0.0")))
-        XCTAssertTrue(term("a-1.0.0-1.1.0").satisfies(term("a^1.0.0")))
-        XCTAssertFalse(term("a-1.0.0-1.1.0").satisfies(term("a^2.0.0")))
+        XCTAssertTrue(Term("a^1.0.0").satisfies(Term("a^1.0.0")))
+        XCTAssertTrue(Term("a-1.0.0-1.1.0").satisfies(Term("a^1.0.0")))
+        XCTAssertFalse(Term("a-1.0.0-1.1.0").satisfies(Term("a^2.0.0")))
     }
 
     func testTermIntersection() {
         // a^1.0.0 ∩ ¬a@1.5.0 → a >=1.0.0 <1.5.0
         XCTAssertEqual(
-            term("a^1.0.0").intersect(with: term("¬a@1.5.0")),
-            term("a-1.0.0-1.5.0"))
+            Term("a^1.0.0").intersect(with: Term("¬a@1.5.0")),
+            Term("a-1.0.0-1.5.0"))
 
         // a^1.0.0 ∩ a >=1.5.0 <3.0.0 → a^1.5.0
         XCTAssertEqual(
-            term("a^1.0.0").intersect(with: term("a-1.5.0-3.0.0")),
-            term("a^1.5.0"))
+            Term("a^1.0.0").intersect(with: Term("a-1.5.0-3.0.0")),
+            Term("a^1.5.0"))
 
         // ¬a^1.0.0 ∩ ¬a >=1.5.0 <3.0.0 → ¬a >=1.0.0 <3.0.0
         XCTAssertEqual(
-            term("¬a^1.0.0").intersect(with: term("¬a-1.5.0-3.0.0")),
-            term("¬a-1.0.0-3.0.0"))
+            Term("¬a^1.0.0").intersect(with: Term("¬a-1.5.0-3.0.0")),
+            Term("¬a-1.0.0-3.0.0"))
 
         XCTAssertEqual(
-            term("a^1.0.0").intersect(with: term("a^1.0.0")),
-            term("a^1.0.0"))
+            Term("a^1.0.0").intersect(with: Term("a^1.0.0")),
+            Term("a^1.0.0"))
 
         XCTAssertEqual(
-            term("¬a^1.0.0").intersect(with: term("¬a^1.0.0")),
-            term("¬a^1.0.0"))
+            Term("¬a^1.0.0").intersect(with: Term("¬a^1.0.0")),
+            Term("¬a^1.0.0"))
 
-        XCTAssertNil(term("a^1.0.0").intersect(with: term("¬a^1.0.0")))
-        XCTAssertNil(term("a@1.0.0").difference(with: term("a@1.0.0")))
-
-        XCTAssertEqual(
-            term("¬a^1.0.0").intersect(with: term("a^2.0.0")),
-            term("a^2.0.0"))
+        XCTAssertNil(Term("a^1.0.0").intersect(with: Term("¬a^1.0.0")))
+        XCTAssertNil(Term("a@1.0.0").difference(with: Term("a@1.0.0")))
 
         XCTAssertEqual(
-            term("a^2.0.0").intersect(with: term("¬a^1.0.0")),
-            term("a^2.0.0"))
+            Term("¬a^1.0.0").intersect(with: Term("a^2.0.0")),
+            Term("a^2.0.0"))
 
         XCTAssertEqual(
-            term("¬a^1.0.0").intersect(with: term("¬a^1.0.0")),
-            term("¬a^1.0.0"))
+            Term("a^2.0.0").intersect(with: Term("¬a^1.0.0")),
+            Term("a^2.0.0"))
 
         XCTAssertEqual(
-            term("¬a@1.0.0").intersect(with: term("¬a@1.0.0")),
-            term("¬a@1.0.0"))
+            Term("¬a^1.0.0").intersect(with: Term("¬a^1.0.0")),
+            Term("¬a^1.0.0"))
+
+        XCTAssertEqual(
+            Term("¬a@1.0.0").intersect(with: Term("¬a@1.0.0")),
+            Term("¬a@1.0.0"))
 
         // Check difference.
         let anyA = Term("a", .versionSet(.any))
-        XCTAssertNil(term("a^1.0.0").difference(with: anyA))
+        XCTAssertNil(Term("a^1.0.0").difference(with: anyA))
 
         let notEmptyA = Term(not: "a", .versionSet(.empty))
-        XCTAssertNil(term("a^1.0.0").difference(with: notEmptyA))
+        XCTAssertNil(Term("a^1.0.0").difference(with: notEmptyA))
 
         // Any intersection including a revision should return nil.
-        XCTAssertNil(term("a@1.0.0").intersect(with: term("a@master")))
-        XCTAssertNil(term("a^1.0.0").intersect(with: term("a@master")))
-        XCTAssertNil(term("a@master").intersect(with: term("a@master")))
-        XCTAssertNil(term("a@master").intersect(with: term("a@develop")))
+        XCTAssertNil(Term("a@1.0.0").intersect(with: Term("a@master")))
+        XCTAssertNil(Term("a^1.0.0").intersect(with: Term("a@master")))
+        XCTAssertNil(Term("a@master").intersect(with: Term("a@master")))
+        XCTAssertNil(Term("a@master").intersect(with: Term("a@develop")))
     }
 
     func testTermRelation() {
         // Both positive.
-        XCTAssertEqual(term("a^1.1.0").relation(with: "a^1.0.0"), .subset)
-        XCTAssertEqual(term("a^1.9.0").relation(with: "a^1.8.9"), .subset)
-        XCTAssertEqual(term("a^1.5.0").relation(with: "a^1.0.0"), .subset)
-        XCTAssertEqual(term("a^1.9.0").relation(with: "a@1.9.0"), .overlap)
-        XCTAssertEqual(term("a^1.9.0").relation(with: "a@1.9.1"), .overlap)
-        XCTAssertEqual(term("a^1.9.0").relation(with: "a@1.20.0"), .overlap)
-        XCTAssertEqual(term("a^2.0.0").relation(with: "a^2.9.0"), .overlap)
-        XCTAssertEqual(term("a^2.0.0").relation(with: "a^2.9.0"), .overlap)
-        XCTAssertEqual(term("a-1.5.0-3.0.0").relation(with: "a^1.0.0"), .overlap)
-        XCTAssertEqual(term("a^1.9.0").relation(with: "a@1.8.1"), .disjoint)
-        XCTAssertEqual(term("a^1.9.0").relation(with: "a@2.0.0"), .disjoint)
-        XCTAssertEqual(term("a^2.0.0").relation(with: "a@1.0.0"), .disjoint)
-        XCTAssertEqual(term("a@1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(term("a^1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(term("a@master").relation(with: "a@1.0.0"), .disjoint)
-        XCTAssertEqual(term("a@master").relation(with: "a^1.0.0"), .disjoint)
-        XCTAssertEqual(term("a@master").relation(with: "a@master"), .subset)
-        XCTAssertEqual(term("a@master").relation(with: "a@develop"), .disjoint)
+        XCTAssertEqual(Term("a^1.1.0").relation(with: "a^1.0.0"), .subset)
+        XCTAssertEqual(Term("a^1.9.0").relation(with: "a^1.8.9"), .subset)
+        XCTAssertEqual(Term("a^1.5.0").relation(with: "a^1.0.0"), .subset)
+        XCTAssertEqual(Term("a^1.9.0").relation(with: "a@1.9.0"), .overlap)
+        XCTAssertEqual(Term("a^1.9.0").relation(with: "a@1.9.1"), .overlap)
+        XCTAssertEqual(Term("a^1.9.0").relation(with: "a@1.20.0"), .overlap)
+        XCTAssertEqual(Term("a^2.0.0").relation(with: "a^2.9.0"), .overlap)
+        XCTAssertEqual(Term("a^2.0.0").relation(with: "a^2.9.0"), .overlap)
+        XCTAssertEqual(Term("a-1.5.0-3.0.0").relation(with: "a^1.0.0"), .overlap)
+        XCTAssertEqual(Term("a^1.9.0").relation(with: "a@1.8.1"), .disjoint)
+        XCTAssertEqual(Term("a^1.9.0").relation(with: "a@2.0.0"), .disjoint)
+        XCTAssertEqual(Term("a^2.0.0").relation(with: "a@1.0.0"), .disjoint)
+        XCTAssertEqual(Term("a@1.0.0").relation(with: "a@master"), .disjoint)
+        XCTAssertEqual(Term("a^1.0.0").relation(with: "a@master"), .disjoint)
+        XCTAssertEqual(Term("a@master").relation(with: "a@1.0.0"), .disjoint)
+        XCTAssertEqual(Term("a@master").relation(with: "a^1.0.0"), .disjoint)
+        XCTAssertEqual(Term("a@master").relation(with: "a@master"), .subset)
+        XCTAssertEqual(Term("a@master").relation(with: "a@develop"), .disjoint)
 
         // First term is negative, second term is positive.
-        XCTAssertEqual(term("¬a^1.0.0").relation(with: "a@1.5.0"), .disjoint)
-        XCTAssertEqual(term("¬a^1.5.0").relation(with: "a^1.0.0"), .overlap)
-        XCTAssertEqual(term("¬a^2.0.0").relation(with: "a^1.5.0"), .overlap)
-        XCTAssertEqual(term("¬a@1.0.0").relation(with: "a@master"), .overlap)
-        XCTAssertEqual(term("¬a^1.0.0").relation(with: "a@master"), .overlap)
-        XCTAssertEqual(term("¬a@master").relation(with: "a@1.0.0"), .overlap)
-        XCTAssertEqual(term("¬a@master").relation(with: "a^1.0.0"), .overlap)
-        XCTAssertEqual(term("¬a@master").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(term("¬a@master").relation(with: "a@develop"), .overlap)
+        XCTAssertEqual(Term("¬a^1.0.0").relation(with: "a@1.5.0"), .disjoint)
+        XCTAssertEqual(Term("¬a^1.5.0").relation(with: "a^1.0.0"), .overlap)
+        XCTAssertEqual(Term("¬a^2.0.0").relation(with: "a^1.5.0"), .overlap)
+        XCTAssertEqual(Term("¬a@1.0.0").relation(with: "a@master"), .overlap)
+        XCTAssertEqual(Term("¬a^1.0.0").relation(with: "a@master"), .overlap)
+        XCTAssertEqual(Term("¬a@master").relation(with: "a@1.0.0"), .overlap)
+        XCTAssertEqual(Term("¬a@master").relation(with: "a^1.0.0"), .overlap)
+        XCTAssertEqual(Term("¬a@master").relation(with: "a@master"), .disjoint)
+        XCTAssertEqual(Term("¬a@master").relation(with: "a@develop"), .overlap)
 
         // First term is positive, second term is negative.
-        XCTAssertEqual(term("a^2.0.0").relation(with: "¬a^1.0.0"), .subset)
-        XCTAssertEqual(term("a^1.5.0").relation(with: "¬a^1.0.0"), .disjoint)
-        XCTAssertEqual(term("a^1.0.0").relation(with: "¬a^1.5.0"), .overlap)
-        XCTAssertEqual(term("a@1.0.0").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(term("a^1.0.0").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(term("a@master").relation(with: "¬a@1.0.0"), .subset)
-        XCTAssertEqual(term("a@master").relation(with: "¬a^1.0.0"), .subset)
-        XCTAssertEqual(term("a@master").relation(with: "¬a@master"), .disjoint)
-        XCTAssertEqual(term("a@master").relation(with: "¬a@develop"), .subset)
+        XCTAssertEqual(Term("a^2.0.0").relation(with: "¬a^1.0.0"), .subset)
+        XCTAssertEqual(Term("a^1.5.0").relation(with: "¬a^1.0.0"), .disjoint)
+        XCTAssertEqual(Term("a^1.0.0").relation(with: "¬a^1.5.0"), .overlap)
+        XCTAssertEqual(Term("a@1.0.0").relation(with: "¬a@master"), .subset)
+        XCTAssertEqual(Term("a^1.0.0").relation(with: "¬a@master"), .subset)
+        XCTAssertEqual(Term("a@master").relation(with: "¬a@1.0.0"), .subset)
+        XCTAssertEqual(Term("a@master").relation(with: "¬a^1.0.0"), .subset)
+        XCTAssertEqual(Term("a@master").relation(with: "¬a@master"), .disjoint)
+        XCTAssertEqual(Term("a@master").relation(with: "¬a@develop"), .subset)
 
         // Both terms are negative.
-        XCTAssertEqual(term("¬a^1.0.0").relation(with: "¬a^1.5.0"), .subset)
-        XCTAssertEqual(term("¬a^2.0.0").relation(with: "¬a^1.0.0"), .overlap)
-        XCTAssertEqual(term("¬a^1.5.0").relation(with: "¬a^1.0.0"), .overlap)
-        XCTAssertEqual(term("¬a@1.0.0").relation(with: "¬a@master"), .overlap)
-        XCTAssertEqual(term("¬a^1.0.0").relation(with: "¬a@master"), .overlap)
-        XCTAssertEqual(term("¬a@master").relation(with: "¬a@1.0.0"), .overlap)
-        XCTAssertEqual(term("¬a@master").relation(with: "¬a^1.0.0"), .overlap)
-        XCTAssertEqual(term("¬a@master").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(term("¬a@master").relation(with: "¬a@develop"), .overlap)
+        XCTAssertEqual(Term("¬a^1.0.0").relation(with: "¬a^1.5.0"), .subset)
+        XCTAssertEqual(Term("¬a^2.0.0").relation(with: "¬a^1.0.0"), .overlap)
+        XCTAssertEqual(Term("¬a^1.5.0").relation(with: "¬a^1.0.0"), .overlap)
+        XCTAssertEqual(Term("¬a@1.0.0").relation(with: "¬a@master"), .overlap)
+        XCTAssertEqual(Term("¬a^1.0.0").relation(with: "¬a@master"), .overlap)
+        XCTAssertEqual(Term("¬a@master").relation(with: "¬a@1.0.0"), .overlap)
+        XCTAssertEqual(Term("¬a@master").relation(with: "¬a^1.0.0"), .overlap)
+        XCTAssertEqual(Term("¬a@master").relation(with: "¬a@master"), .subset)
+        XCTAssertEqual(Term("¬a@master").relation(with: "¬a@develop"), .overlap)
     }
 
     func testTermIsValidDecision() {
@@ -560,14 +556,14 @@ final class PubgrubTests: XCTestCase {
             .derivation("a^1.5.0", cause: _cause, decisionLevel: 2)
         ])
 
-        let allSatisfied = term("a@1.6.0")
+        let allSatisfied = Term("a@1.6.0")
         XCTAssertTrue(allSatisfied.isValidDecision(for: solution100_150))
-        let partiallySatisfied = term("a@1.2.0")
+        let partiallySatisfied = Term("a@1.2.0")
         XCTAssertFalse(partiallySatisfied.isValidDecision(for: solution100_150))
     }
 
     func testIncompatibilityNormalizeTermsOnInit() {
-        let i1 = Incompatibility(term("a^1.0.0"), term("a^1.5.0"), term("¬b@1.0.0"),
+        let i1 = Incompatibility(Term("a^1.0.0"), Term("a^1.5.0"), Term("¬b@1.0.0"),
                                  root: rootRef)
         XCTAssertEqual(i1.terms.count, 2)
         let a1 = i1.terms.first { $0.package == "a" }
@@ -575,7 +571,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(a1?.requirement, .versionSet(.range("1.5.0"..<"2.0.0")))
         XCTAssertEqual(b1?.requirement, .versionSet(.exact("1.0.0")))
 
-        let i2 = Incompatibility(term("¬a^1.0.0"), term("a^2.0.0"),
+        let i2 = Incompatibility(Term("¬a^1.0.0"), Term("a^2.0.0"),
                                  root: rootRef)
         XCTAssertEqual(i2.terms.count, 1)
         let a2 = i2.terms.first
@@ -611,13 +607,13 @@ final class PubgrubTests: XCTestCase {
         solution.derive("d^1.9.9", cause: rootCause)
 
         let undecided = solution.undecided.sorted{ $0.package.identity < $1.package.identity }
-        XCTAssertEqual(undecided, [term("a^1.5.0"), term("d^1.9.9")])
+        XCTAssertEqual(undecided, [Term("a^1.5.0"), Term("d^1.9.9")])
     }
 
     func testSolutionAddAssignments() {
-        let root = term("root@1.0.0")
-        let a = term("a@1.0.0")
-        let b = term("b@2.0.0")
+        let root = Term("root@1.0.0")
+        let a = Term("a@1.0.0")
+        let b = Term("b@2.0.0")
 
         let solution = PartialSolution(assignments: [])
         solution.decide(rootRef, at: .version("1.0.0"))
@@ -667,9 +663,9 @@ final class PubgrubTests: XCTestCase {
     func testResolverAddIncompatibility() {
         let solver = PubgrubDependencyResolver(emptyProvider, delegate)
 
-        let a = Incompatibility(term("a@1.0.0"), root: rootRef)
+        let a = Incompatibility(Term("a@1.0.0"), root: rootRef)
         solver.add(a, location: .topLevel)
-        let ab = Incompatibility(term("a@1.0.0"), term("b@2.0.0"), root: rootRef)
+        let ab = Incompatibility(Term("a@1.0.0"), Term("b@2.0.0"), root: rootRef)
         solver.add(ab, location: .topLevel)
 
         XCTAssertEqual(solver.incompatibilities, [
@@ -749,7 +745,7 @@ final class PubgrubTests: XCTestCase {
         try solver1.propagate("root")
 
         // even if incompatibilities are present
-        solver1.add(Incompatibility(term("a@1.0.0"), root: rootRef), location: .topLevel)
+        solver1.add(Incompatibility(Term("a@1.0.0"), root: rootRef), location: .topLevel)
         try solver1.propagate("a")
         try solver1.propagate("a")
         try solver1.propagate("a")
@@ -762,7 +758,7 @@ final class PubgrubTests: XCTestCase {
         // Unit propagation should derive a new assignment from almost satisfied incompatibilities.
         let solver2 = PubgrubDependencyResolver(emptyProvider, delegate)
         solver2.add(Incompatibility(Term("root", .versionSet(.any)),
-                                    term("¬a@1.0.0"),
+                                    Term("¬a@1.0.0"),
                                     root: rootRef), location: .topLevel)
         solver2.solution.decide(rootRef, at: .version("1.0.0"))
         XCTAssertEqual(solver2.solution.assignments.count, 1)
@@ -777,9 +773,9 @@ final class PubgrubTests: XCTestCase {
         solution.decide(aRef, at: .version("2.0.0"))
         solution.derive("b^1.0.0", cause: _cause)
 
-        XCTAssertEqual(solution.satisfier(for: term("b^1.0.0")) .term, "b^1.0.0")
-        XCTAssertEqual(solution.satisfier(for: term("¬a^1.0.0")).term, "a@2.0.0")
-        XCTAssertEqual(solution.satisfier(for: term("a^2.0.0")).term, "a@2.0.0")
+        XCTAssertEqual(solution.satisfier(for: Term("b^1.0.0")) .term, "b^1.0.0")
+        XCTAssertEqual(solution.satisfier(for: Term("¬a^1.0.0")).term, "a@2.0.0")
+        XCTAssertEqual(solution.satisfier(for: Term("a^2.0.0")).term, "a@2.0.0")
     }
 
     func testMissingVersion() {
@@ -980,7 +976,7 @@ final class PubgrubTests: XCTestCase {
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
-        AssertRootCause(result, [term("foo@master")])
+        AssertRootCause(result, [Term("foo@master")])
     }
 
     func testConflict1() {
@@ -1039,6 +1035,10 @@ final class PubgrubTests: XCTestCase {
 }
 
 extension Term: ExpressibleByStringLiteral {
+    init(_ value: String) {
+        self.init(stringLiteral: value)
+    }
+
     public init(stringLiteral value: String) {
         var value = value
 
