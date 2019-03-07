@@ -73,7 +73,7 @@ final class WorkspaceTests: XCTestCase {
             .init(name: "Quix", requirement: .upToNextMajor(from: "1.0.0")),
             .init(name: "Baz", requirement: .exact("1.0.0")),
         ]
-        workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo", "Quix")
@@ -102,7 +102,7 @@ final class WorkspaceTests: XCTestCase {
         // Remove state file and check we can get the state back automatically.
         try fs.removeFileTree(stateFile)
 
-        workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { _, _ in }
+        try workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { _, _ in }
         XCTAssertTrue(fs.exists(stateFile))
 
         // Remove state file and check we get back to a clean state.
@@ -211,7 +211,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Bar", "Foo")
                 result.check(packages: "Bar", "Baz", "Foo")
@@ -276,7 +276,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Foo", "Bar", "Overridden/bazzz"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo", "Bar", "Overridden/bazzz"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Bar", "Foo", "Baz")
                 result.check(packages: "Bar", "Baz", "Foo")
@@ -345,7 +345,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.manifestLoader.manifests[barGitKey] = manifest.with(url: "/tmp/ws/pkgs/Bar.git")
         }
 
-        workspace.checkPackageGraph(dependencies: dependencies) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(dependencies: dependencies) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(packages: "Bar", "Foo")
                 result.check(targets: "Bar", "Foo")
@@ -393,7 +393,7 @@ final class WorkspaceTests: XCTestCase {
             packages: []
         )
 
-        workspace.checkPackageGraph(roots: ["Foo", "Nested/Foo"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo", "Nested/Foo"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .equal("found multiple top-level packages named 'Foo'"), behavior: .error)
             }
@@ -444,7 +444,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Baz", "Foo")
                 result.check(packages: "Baz", "Foo")
@@ -505,7 +505,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Load only Foo right now so Baz is loaded from remote.
-        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo")
@@ -522,7 +522,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Now load with Baz as a root package.
         workspace.delegate.events = []
-        workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Baz", "Foo")
                 result.check(packages: "Baz", "Foo")
@@ -587,7 +587,7 @@ final class WorkspaceTests: XCTestCase {
             ),
         ]
 
-        workspace.checkPackageGraph(dependencies: dependencies) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(dependencies: dependencies) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(packages: "Bar", "Foo")
                 result.check(targets: "Bar", "Foo")
@@ -650,7 +650,7 @@ final class WorkspaceTests: XCTestCase {
             let deps: [TestWorkspace.PackageDependency] = [
                 .init(name: "A", requirement: .exact("1.0.0"))
             ]
-            workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
+            try workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
                 PackageGraphTester(graph) { result in
                     result.check(packages: "A", "AA")
                     result.check(targets: "A", "AA")
@@ -673,7 +673,7 @@ final class WorkspaceTests: XCTestCase {
             let deps: [TestWorkspace.PackageDependency] = [
                 .init(name: "A", requirement: .exact("1.0.1"))
             ]
-            workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
+            try workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
                 PackageGraphTester(graph) { result in
                     result.check(dependencies: "AA", target: "A")
                 }
@@ -741,7 +741,7 @@ final class WorkspaceTests: XCTestCase {
             .init(name: "A", requirement: .exact("1.0.0")),
             .init(name: "B", requirement: .exact("1.0.0")),
         ]
-        workspace.checkPackageGraph(deps: deps) { (_, diagnostics) in
+        try workspace.checkPackageGraph(deps: deps) { (_, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("dependency graph is unresolvable;"), behavior: .error)
             }
@@ -880,7 +880,7 @@ final class WorkspaceTests: XCTestCase {
             packages: []
         )
 
-        workspace.checkPackageGraph(roots: ["A", "B", "C"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["A", "B", "C"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(packages: "A", "B", "C")
                 result.check(targets: "A", "B", "C")
@@ -951,7 +951,7 @@ final class WorkspaceTests: XCTestCase {
         let deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Foo", requirement: .exact("1.0.0")),
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
@@ -967,7 +967,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkUpdate(roots: ["Root"]) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
-        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
@@ -1023,7 +1023,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Load package graph.
-        workspace.checkPackageGraph(roots: ["Root"]) { (_, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"]) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
 
@@ -1108,7 +1108,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Load the graph with one root.
-        workspace.checkPackageGraph(roots: ["Root1"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root1"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(packages: "Foo", "Root1")
             }
@@ -1122,7 +1122,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Load the graph with both roots.
-        workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(packages: "Bar", "Foo", "Root1", "Root2")
             }
@@ -1191,7 +1191,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Root1"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root1"]) { (graph, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
 
@@ -1253,7 +1253,7 @@ final class WorkspaceTests: XCTestCase {
         let deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Bar", requirement: .revision(barRevision))
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
@@ -1300,7 +1300,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Load initial version.
-        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
@@ -1364,7 +1364,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Load the graph.
-        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
@@ -1374,7 +1374,7 @@ final class WorkspaceTests: XCTestCase {
 
         try fs.removeFileTree(workspace.createWorkspace().checkoutsPath)
 
-        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
@@ -1419,7 +1419,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("/tmp/ws/pkgs/Foo @ 1.0.0..<2.0.0"), behavior: .error)
             }
@@ -1466,20 +1466,20 @@ final class WorkspaceTests: XCTestCase {
         try fs.writeFileContents(roots[1], bytes: "// swift-tools-version:4.1.0")
         try fs.writeFileContents(roots[2], bytes: "// swift-tools-version:3.1")
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
-        workspace.checkPackageGraph(roots: ["Bar"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Bar"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .equal("package at '/tmp/ws/roots/Bar' is using Swift tools version 4.1.0 but the installed version is 4.0.0"), behavior: .error, location: "/tmp/ws/roots/Bar")
             }
         }
-        workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .equal("package at '/tmp/ws/roots/Bar' is using Swift tools version 4.1.0 but the installed version is 4.0.0"), behavior: .error, location: "/tmp/ws/roots/Bar")
             }
         }
-        workspace.checkPackageGraph(roots: ["Baz"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Baz"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .equal("package at '/tmp/ws/roots/Baz' is using Swift tools version 3.1.0 which is no longer supported; use 4.0.0 or newer instead"), behavior: .error, location: "/tmp/ws/roots/Baz")
             }
@@ -1531,7 +1531,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Load the graph.
-        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
@@ -1628,7 +1628,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Load the graph.
-        workspace.checkPackageGraph(roots: ["Root"]) { _, _ in }
+        try workspace.checkPackageGraph(roots: ["Root"]) { _, _ in }
 
         // Edit foo.
         let fooPath = workspace.createWorkspace().editablesPath.appending(component: "Foo")
@@ -1642,7 +1642,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Remove the edited package.
         try fs.removeFileTree(fooPath)
-        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .equal("dependency 'foo' was being edited but is missing; falling back to original checkout"), behavior: .warning)
             }
@@ -1680,7 +1680,7 @@ final class WorkspaceTests: XCTestCase {
         let ws = workspace.createWorkspace()
 
         // Load the graph and edit foo.
-        workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(packages: "Foo")
             }
@@ -1698,7 +1698,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
         XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Foo")])
-        workspace.checkPackageGraph(deps: []) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(deps: []) { (graph, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
 
@@ -1766,7 +1766,7 @@ final class WorkspaceTests: XCTestCase {
             .init(name: "Foo", requirement: .exact("1.0.0")),
         ]
         // Load the graph.
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
@@ -1876,7 +1876,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Initial resolution.
-        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Bar", "Foo")
@@ -1903,7 +1903,7 @@ final class WorkspaceTests: XCTestCase {
             targets: manifest.targets
         )
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { (_, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo"]) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
@@ -1955,7 +1955,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Load the graph.
-        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
@@ -1984,7 +1984,7 @@ final class WorkspaceTests: XCTestCase {
         let deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Bar", requirement: .exact("1.1.0")),
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("/tmp/ws/pkgs/Bar @ 1.1.0"), behavior: .error)
             }
@@ -2088,7 +2088,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Bar", "Baz", "Foo")
@@ -2165,7 +2165,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Foo")
@@ -2210,7 +2210,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Bar", "Foo")
@@ -2278,7 +2278,7 @@ final class WorkspaceTests: XCTestCase {
         var deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Foo", requirement: .branch("develop"))
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
@@ -2292,7 +2292,7 @@ final class WorkspaceTests: XCTestCase {
         deps = [
             .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
@@ -2302,7 +2302,7 @@ final class WorkspaceTests: XCTestCase {
         deps = [
             .init(name: "Foo", requirement: .branch("develop"))
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
@@ -2347,7 +2347,7 @@ final class WorkspaceTests: XCTestCase {
         var deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Foo", requirement: .localPackage),
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
@@ -2361,7 +2361,7 @@ final class WorkspaceTests: XCTestCase {
         deps = [
             .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
@@ -2371,7 +2371,7 @@ final class WorkspaceTests: XCTestCase {
         deps = [
             .init(name: "Foo", requirement: .localPackage),
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
@@ -2427,7 +2427,7 @@ final class WorkspaceTests: XCTestCase {
         var deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Foo", requirement: .localPackage),
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
@@ -2441,7 +2441,7 @@ final class WorkspaceTests: XCTestCase {
         deps = [
             .init(name: "Foo2", requirement: .localPackage),
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
@@ -2497,7 +2497,7 @@ final class WorkspaceTests: XCTestCase {
          var deps: [TestWorkspace.PackageDependency] = [
              .init(name: "Foo", requirement: .localPackage),
          ]
-         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
              PackageGraphTester(graph) { result in
                  result.check(roots: "Root")
                  result.check(packages: "Foo", "Root")
@@ -2515,7 +2515,7 @@ final class WorkspaceTests: XCTestCase {
          deps = [
              .init(name: "Nested/Foo", requirement: .localPackage),
          ]
-         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
              XCTAssertNoDiagnostics(diagnostics)
          }
          workspace.checkManagedDependencies() { result in
@@ -2561,7 +2561,7 @@ final class WorkspaceTests: XCTestCase {
         let deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
@@ -2571,7 +2571,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
 
-        workspace.checkPackageGraph(roots: ["Root"], deps: []) { (_, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: []) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
@@ -2650,7 +2650,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Foo", "Dep", "Bar")
@@ -2671,7 +2671,7 @@ final class WorkspaceTests: XCTestCase {
             .init(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
         ]
 
-        workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { (graph, diagnostics) in
              PackageGraphTester(graph) { result in
                  result.check(roots: "Foo")
                  result.check(packages: "Foo", "Dep", "Baz")
@@ -2773,7 +2773,7 @@ final class WorkspaceTests: XCTestCase {
          var deps: [TestWorkspace.PackageDependency] = [
              .init(name: "Bar", requirement: .exact("1.0.0")),
          ]
-         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
              PackageGraphTester(graph) { result in
                  result.check(roots: "Root")
                  result.check(packages: "Bar", "Foo", "Root")
@@ -2797,7 +2797,7 @@ final class WorkspaceTests: XCTestCase {
          deps = [
              .init(name: "Bar", requirement: .exact("1.1.0")),
          ]
-         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
              PackageGraphTester(graph) { result in
                  result.check(roots: "Root")
                  result.check(packages: "Bar", "Foo", "Root")
@@ -2863,7 +2863,7 @@ final class WorkspaceTests: XCTestCase {
         let deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Bar", requirement: .revision("develop")),
         ]
-        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
@@ -2890,7 +2890,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check force resolve. This should produce an error because the resolved file is out-of-date.
-        workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: "cannot update Package.resolved file because automatic resolution is disabled", checkContains: true, behavior: .error)
             }
@@ -2905,7 +2905,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // A normal resolution.
-        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
@@ -2918,7 +2918,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // This force resolution should succeed.
-        workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { (graph, diagnostics) in
+        try workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { (graph, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in

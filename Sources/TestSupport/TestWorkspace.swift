@@ -250,9 +250,9 @@ public final class TestWorkspace {
         roots: [String] = [],
         deps: [TestWorkspace.PackageDependency],
         _ result: (PackageGraph, DiagnosticsEngine) -> ()
-    ) {
+    ) throws {
         let dependencies = deps.map({ $0.convert(packagesDir) })
-        checkPackageGraph(roots: roots, dependencies: dependencies, result)
+        try checkPackageGraph(roots: roots, dependencies: dependencies, result)
     }
 
     public func checkPackageGraph(
@@ -260,12 +260,12 @@ public final class TestWorkspace {
         dependencies: [PackageGraphRootInput.PackageDependency] = [],
         forceResolvedVersions: Bool = false,
         _ result: (PackageGraph, DiagnosticsEngine) -> ()
-    ) {
+    ) throws {
         let diagnostics = DiagnosticsEngine()
         let workspace = createWorkspace()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies)
-        let graph = workspace.loadPackageGraph(
+        let graph = try workspace.loadPackageGraph(
             root: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics)
         result(graph, diagnostics)
     }

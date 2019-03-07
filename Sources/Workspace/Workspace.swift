@@ -300,6 +300,9 @@ public class Workspace {
     /// Skip updating containers while fetching them.
     fileprivate let skipUpdate: Bool
 
+    /// Workspace lock. Available for local file system only.
+    private let workspaceFileLock: FileLock?
+
     /// Typealias for dependency resolver we use in the workspace.
     fileprivate typealias PackageDependencyResolver = DependencyResolver
     fileprivate typealias PubgrubResolver = PubgrubDependencyResolver
@@ -363,6 +366,13 @@ public class Workspace {
             try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem)
         }
         self.managedDependencies = ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
+
+        // FileLock uses local filesystem internally, hence won't work with any FileSystem
+        if fileSystem === localFileSystem {
+            self.workspaceFileLock = FileLock(name: "workspace.lock", in: dataPath)
+        } else {
+            self.workspaceFileLock = nil
+        }
     }
 
     /// A convenience method for creating a workspace for the given root
@@ -406,6 +416,9 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) {
         do {
+            try workspaceFileLock?.lock()
+            defer { workspaceFileLock?.unlock() }
+
             try _edit(
                 packageName: packageName,
                 path: path,
@@ -435,8 +448,11 @@ extension Workspace {
         root: PackageGraphRootInput,
         diagnostics: DiagnosticsEngine
     ) throws {
+        try workspaceFileLock?.lock()
+        defer { workspaceFileLock?.unlock() }
+
         let dependency = try managedDependencies.dependency(forNameOrIdentity: packageName)
-        try unedit(dependency: dependency, forceRemove: forceRemove, root: root, diagnostics: diagnostics)
+        try _unedit(dependency: dependency, forceRemove: forceRemove, root: root, diagnostics: diagnostics)
     }
 
     /// Resolve a package at the given state.
@@ -461,6 +477,9 @@ extension Workspace {
         revision: String? = nil,
         diagnostics: DiagnosticsEngine
     ) {
+        guard diagnostics.wrap({ try workspaceFileLock?.lock() }) else { return }
+        defer { workspaceFileLock?.unlock() }
+
         // Look up the dependency and check if we can pin it.
         guard let dependency = diagnostics.wrap({ try managedDependencies.dependency(forNameOrIdentity: packageName) }) else {
             return
@@ -493,6 +512,8 @@ extension Workspace {
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
     public func clean(with diagnostics: DiagnosticsEngine) {
+        guard diagnostics.wrap({ try workspaceFileLock?.lock() }) else { return }
+        defer { workspaceFileLock?.unlock() }
 
         // These are the things we don't want to remove while cleaning.
         let protectedAssets = Set<String>([
@@ -527,6 +548,9 @@ extension Workspace {
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
     public func reset(with diagnostics: DiagnosticsEngine) {
+        guard diagnostics.wrap({ try workspaceFileLock?.lock() }) else { return }
+        defer { workspaceFileLock?.unlock() }
+
         let removed = diagnostics.wrap({
             try fileSystem.chmod(.userWritable, path: checkoutsPath, options: [.recursive, .onlyFiles])
             // Reset manaked dependencies.
@@ -548,6 +572,9 @@ extension Workspace {
         root: PackageGraphRootInput,
         diagnostics: DiagnosticsEngine
     ) {
+        guard diagnostics.wrap({ try workspaceFileLock?.lock() }) else { return }
+        defer { workspaceFileLock?.unlock() }
+
         // Create cache directories.
         createCacheDirectories(with: diagnostics)
 
@@ -595,7 +622,7 @@ extension Workspace {
         guard !diagnostics.hasErrors else { return }
 
         // Update the pins store.
-        return pinAll(
+        return _pinAll(
             dependencyManifests: updatedDependencyManifests,
             pinsStore: pinsStore,
             diagnostics: diagnostics)
@@ -614,7 +641,9 @@ extension Workspace {
         createREPLProduct: Bool = false,
         forceResolvedVersions: Bool = false,
         diagnostics: DiagnosticsEngine
-    ) -> PackageGraph {
+    ) throws -> PackageGraph {
+        try self.workspaceFileLock?.lock()
+        defer { self.workspaceFileLock?.unlock() }
 
         // Perform dependency resolution, if required.
         let manifests: DependencyManifests
@@ -642,8 +671,8 @@ extension Workspace {
     public func loadPackageGraph(
         root: AbsolutePath,
         diagnostics: DiagnosticsEngine
-    ) -> PackageGraph {
-        return self.loadPackageGraph(
+    ) throws -> PackageGraph {
+        return try self.loadPackageGraph(
             root: PackageGraphRootInput(packages: [root]),
             diagnostics: diagnostics
         )
@@ -659,6 +688,9 @@ extension Workspace {
         root: PackageGraphRootInput,
         diagnostics: DiagnosticsEngine
     ) {
+        guard diagnostics.wrap({ try workspaceFileLock?.lock() }) else { return }
+        defer { workspaceFileLock?.unlock() }
+
         _resolve(root: root, diagnostics: diagnostics)
     }
 
@@ -667,6 +699,9 @@ extension Workspace {
         packages: [AbsolutePath],
         diagnostics: DiagnosticsEngine
     ) -> [Manifest] {
+        diagnostics.wrap({ try workspaceFileLock?.lock() })
+        defer { workspaceFileLock?.unlock() }
+
         let rootManifests = packages.compactMap({ package -> Manifest? in
             loadManifest(packagePath: package, url: package.pathString, diagnostics: diagnostics)
         })
@@ -679,6 +714,21 @@ extension Workspace {
         }
 
         return rootManifests
+    }
+
+    @discardableResult
+    public func lockWorkspace() -> Bool {
+        do {
+            guard let workspaceFileLock = self.workspaceFileLock else { return false }
+            try workspaceFileLock.lock()
+            return true
+        } catch {
+            return false
+    }
+}
+
+    public func unlockWorkspace() {
+        self.workspaceFileLock?.unlock()
     }
 }
 
@@ -807,7 +857,7 @@ extension Workspace {
     }
 
     /// Unedit a managed dependency. See public API unedit(packageName:forceRemove:).
-    fileprivate func unedit(
+    fileprivate func _unedit(
         dependency: ManagedDependency,
         forceRemove: Bool,
         root: PackageGraphRootInput? = nil,
@@ -877,7 +927,7 @@ extension Workspace {
 extension Workspace {
 
     /// Pins all of the current managed dependencies at their checkout state.
-    fileprivate func pinAll(
+    fileprivate func _pinAll(
         dependencyManifests: DependencyManifests,
         pinsStore: PinsStore,
         diagnostics: DiagnosticsEngine
@@ -1074,6 +1124,9 @@ extension Workspace {
         root: PackageGraphRootInput,
         diagnostics: DiagnosticsEngine
     ) {
+        guard diagnostics.wrap({ try workspaceFileLock?.lock() }) else { return }
+        defer { workspaceFileLock?.unlock() }
+
         _resolveToResolvedVersion(root: root, diagnostics: diagnostics)
     }
 
@@ -1300,7 +1353,7 @@ extension Workspace {
             }
         }
 
-        self.pinAll(dependencyManifests: updatedDependencyManifests, pinsStore: pinsStore, diagnostics: diagnostics)
+        self._pinAll(dependencyManifests: updatedDependencyManifests, pinsStore: pinsStore, diagnostics: diagnostics)
 
         return updatedDependencyManifests
     }
@@ -1414,7 +1467,7 @@ extension Workspace {
                 continue
             }
 
-            return self.pinAll(dependencyManifests: dependencyManifests, pinsStore: pinsStore, diagnostics: diagnostics)
+            return self._pinAll(dependencyManifests: dependencyManifests, pinsStore: pinsStore, diagnostics: diagnostics)
         }
     }
 
@@ -1663,7 +1716,7 @@ extension Workspace {
                     // Note: We don't resolve the dependencies when unediting
                     // here because we expect this method to be called as part
                     // of some other resolve operation (i.e. resolve, update, etc).
-                    try unedit(dependency: dependency, forceRemove: true, diagnostics: diagnostics)
+                    try _unedit(dependency: dependency, forceRemove: true, diagnostics: diagnostics)
 
                     diagnostics.emit(WorkspaceDiagnostics.EditedDependencyMissing(packageName: dependency.packageRef.identity))
 
