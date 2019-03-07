@@ -124,7 +124,6 @@ private func AssertError(_ result: PubgrubDependencyResolver.Result,
 }
 
 public typealias _MockPackageConstraint = PackageContainerConstraint
-typealias PGError = PubgrubDependencyResolver.PubgrubError
 
 public class MockContainer: PackageContainer {
     public typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
@@ -914,16 +913,7 @@ final class PubgrubTests: XCTestCase {
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
-        guard
-            case .error(let error) = result,
-            let pubgrubError = error as? PGError,
-            case .unresolvable(let incompatibility) = pubgrubError,
-            case .conflict(let unavailable, _) = incompatibility.cause
-        else {
-            return XCTFail("Expected unresolvable graph.")
-        }
-
-        XCTAssertEqual(unavailable.description, "{package 1.0.0}")
+        AssertRootCause(result, ["package@1.0.0"])
     }
 
     func testNonExistentPackage() {
@@ -932,14 +922,7 @@ final class PubgrubTests: XCTestCase {
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
-        guard
-            case .error(let error) = result,
-            let anyError = error as? AnyError,
-            let mockError = anyError.underlyingError as? _MockLoadingError,
-            case .unknownModule = mockError
-        else {
-            return XCTFail("Expected unknown module error.")
-        }
+        AssertError(result, _MockLoadingError.unknownModule)
     }
 
     func testResolutionWithSimpleBranchBasedDependency() {
@@ -1013,16 +996,7 @@ final class PubgrubTests: XCTestCase {
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
-        guard
-            case .error(let error) = result,
-            let pubgrubError = error as? PGError,
-            case .unresolvable(let incompatibility) = pubgrubError,
-            case .conflict(let cause, _) = incompatibility.cause
-        else {
-            return XCTFail("Expected unresolvable graph.")
-        }
-
-        XCTAssertEqual(cause.description, "{foo 1.0.0..<2.0.0}")
+        AssertRootCause(result, ["foo-1.0.0-2.0.0"])
     }
 
     func testConflict2() {
@@ -1059,16 +1033,8 @@ final class PubgrubTests: XCTestCase {
 
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
-        guard
-            case .error(let error) = result,
-            let pubgrubError = error as? PGError,
-            case .unresolvable(let incompatibility) = pubgrubError,
-            case .conflict(let cause, _) = incompatibility.cause
-        else {
-            return XCTFail("Expected unresolvable graph.")
-        }
 
-        XCTAssertEqual(cause.description, "{foo 1.0.0..<2.0.0}")
+        AssertRootCause(result, ["foo-1.0.0-2.0.0"])
     }
 }
 
