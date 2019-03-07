@@ -13,8 +13,9 @@ import XCTest
 import Basic
 import PackageLoading
 import PackageModel
-@testable import PackageGraph
 import SourceControl
+
+@testable import PackageGraph
 
 // There's some useful helper utilities defined below for easier testing:
 //
@@ -39,345 +40,7 @@ import SourceControl
 // having to manually pull the bindings or errors out of the results. They also
 // offer useful failure messages.
 
-
-/// Asserts that the listed packages are present in the bindings with their
-/// specified versions.
-private func AssertBindings(_ bindings: [DependencyResolver.Binding],
-                            _ packages: [(identity: String, version: BoundVersion)],
-                            file: StaticString = #file,
-                            line: UInt = #line) {
-    if bindings.count > packages.count {
-        let unexpectedBindings = bindings
-            .filter { binding in
-                packages.contains(where: { pkg in
-                    pkg.0 != binding.container.identity
-                })
-            }
-            .map { $0.container.identity }
-
-        XCTFail("Unexpected binding(s) found for \(unexpectedBindings.joined(separator: ", ")).", file: file, line: line)
-    }
-    for package in packages {
-        guard let binding = bindings.first(where: { $0.container.identity == package.identity }) else {
-            XCTFail("No binding found for \(package.identity).", file: file, line: line)
-            continue
-        }
-
-        if binding.binding != package.version {
-            XCTFail("Expected \(package.version) for \(package.identity), found \(binding.binding) instead.", file: file, line: line)
-        }
-    }
-}
-
-/// Asserts that a result succeeded and contains the specified bindings.
-private func AssertResult(_ result: PubgrubDependencyResolver.Result,
-                          _ packages: [(identity: String, version: BoundVersion)],
-                          file: StaticString = #file,
-                          line: UInt = #line) {
-    switch result {
-    case .success(let bindings):
-        AssertBindings(bindings, packages, file: file, line: line)
-    case .unsatisfiable(dependencies: let constraints, pins: let pins):
-        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
-    case .error(let error):
-        XCTFail("Unexpected error: \(error)", file: file, line: line)
-    }
-}
-
-/// Asserts that a result failed with a conflict incompatibility containing the
-/// specified terms.
-private func AssertRootCause(_ result: PubgrubDependencyResolver.Result,
-                             _ rootCauseTerms: [Term],
-                             file: StaticString = #file,
-                             line: UInt = #line) {
-    switch result {
-    case .success(let bindings):
-        let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
-        XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
-    case .unsatisfiable(dependencies: let constraints, pins: let pins):
-        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
-    case .error(let error):
-        guard let pubgrubError = error as? PubgrubDependencyResolver.PubgrubError,
-            case .unresolvable(let incompatibility) = pubgrubError,
-            case .conflict(let unavailable, _) = incompatibility.cause else {
-                XCTFail("Unexpected error: \(error)", file: file, line: line)
-                return
-        }
-        XCTAssertEqual(Array(unavailable.terms), rootCauseTerms, file: file, line: line)
-    }
-}
-
-/// Asserts that a result failed with specified error.
-private func AssertError(_ result: PubgrubDependencyResolver.Result,
-                         _ expectedError: Error,
-                         file: StaticString = #file,
-                         line: UInt = #line) {
-    switch result {
-    case .success(let bindings):
-        let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
-        XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
-    case .unsatisfiable(dependencies: let constraints, pins: let pins):
-        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
-    case .error(let foundError):
-        XCTAssertEqual(String(describing: foundError), String(describing: expectedError))
-    }
-}
-
-public class MockContainer: PackageContainer {
-    public typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
-
-    var name: PackageReference
-    var manifestName: PackageReference?
-
-    var dependencies: [String: [Dependency]]
-
-    public var unversionedDeps: [PackageContainerConstraint] = []
-
-    /// Contains the versions for which the dependencies were requested by resolver using getDependencies().
-    public var requestedVersions: Set<Version> = []
-
-    public var identifier: PackageReference {
-        return name
-    }
-
-    public var _versions: [BoundVersion]
-
-    public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
-        var versions: [Version] = []
-        for version in self._versions {
-            guard case .version(let v) = version else { continue }
-            if isIncluded(v) {
-                versions.append(v)
-            }
-        }
-        return AnySequence(versions)
-    }
-
-    public func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
-        requestedVersions.insert(version)
-        return try getDependencies(at: version.description)
-    }
-
-    public func getDependencies(at revision: String) throws -> [PackageContainerConstraint] {
-        guard let revisionDependencies = dependencies[revision] else {
-            throw _MockLoadingError.unknownRevision
-        }
-        return revisionDependencies.map({ value in
-            let (name, requirement) = value
-            return PackageContainerConstraint(container: name, requirement: requirement)
-        })
-    }
-
-    public func getUnversionedDependencies() -> [PackageContainerConstraint] {
-        return unversionedDeps
-    }
-
-    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
-        if let manifestName = manifestName {
-            name = name.with(newName: manifestName.identity)
-        }
-        return name
-    }
-
-    public convenience init(
-        name: PackageReference,
-        unversionedDependencies: [(package: PackageReference, requirement: PackageRequirement)]
-        ) {
-        self.init(name: name)
-        self.unversionedDeps = unversionedDependencies
-            .map { PackageContainerConstraint(container: $0.package, requirement: $0.requirement) }
-    }
-
-    public convenience init(
-        name: PackageReference,
-        dependenciesByVersion: [Version: [(package: PackageReference, requirement: VersionSetSpecifier)]]
-        ) {
-        var dependencies: [String: [Dependency]] = [:]
-        for (version, deps) in dependenciesByVersion {
-            dependencies[version.description] = deps.map({
-                ($0.package, .versionSet($0.requirement))
-            })
-        }
-        self.init(name: name, dependencies: dependencies)
-    }
-
-    public init(
-        name: PackageReference,
-        dependencies: [String: [Dependency]] = [:]
-        ) {
-        self.name = name
-        self.dependencies = dependencies
-        let versions = dependencies.keys.compactMap(Version.init(string:))
-        self._versions = versions
-            .sorted()
-            .reversed()
-            .map(BoundVersion.version)
-    }
-}
-
-public enum _MockLoadingError: Error {
-    case unknownModule
-    case unknownRevision
-}
-
-public struct MockProvider: PackageContainerProvider {
-
-    public let containers: [MockContainer]
-    public let containersByIdentifier: [PackageReference: MockContainer]
-
-    public init(containers: [MockContainer]) {
-        self.containers = containers
-        self.containersByIdentifier = Dictionary(items: containers.map({ ($0.identifier, $0) }))
-    }
-
-    public func getContainer(
-        for identifier: PackageReference,
-        skipUpdate: Bool,
-        completion: @escaping (Result<PackageContainer, AnyError>
-        ) -> Void) {
-        DispatchQueue.global().async {
-            completion(self.containersByIdentifier[identifier].map(Result.init) ??
-                Result(_MockLoadingError.unknownModule))
-        }
-    }
-}
-
-class DependencyGraphBuilder {
-    private var containers: [String: MockContainer] = [:]
-    private var references: [String: PackageReference] = [:]
-
-    private func reference(for packageName: String) -> PackageReference {
-        if let reference = self.references[packageName] {
-            return reference
-        }
-        let newReference = PackageReference(identity: packageName, path: "")
-        self.references[packageName] = newReference
-        return newReference
-    }
-
-    func serve(root: String, with dependencies: [String: PackageRequirement]) {
-        let rootDependencies = dependencies.keys.sorted().map {
-            (package: reference(for: $0), requirement: dependencies[$0]!)
-        }
-
-        let rootContainer = MockContainer(name: reference(for: root),
-                                          unversionedDependencies: rootDependencies)
-        self.containers[root] = rootContainer
-    }
-
-    func serve(_ package: String, at version: Version, with dependencies: [String: PackageRequirement] = [:]) {
-        serve(package, at: .version(version), with: dependencies)
-    }
-
-    func serve(_ package: String, at version: BoundVersion, with dependencies: [String: PackageRequirement] = [:]) {
-        let packageReference = reference(for: package)
-        let container = self.containers[package] ?? MockContainer(name: packageReference)
-
-        container._versions.append(version)
-        container._versions = container._versions
-            .sorted(by: { lhs, rhs -> Bool in
-                guard case .version(let lv) = lhs, case .version(let rv) = rhs else {
-                    return true
-                }
-                return lv < rv
-            })
-            .reversed()
-
-        let packageDependencies = dependencies.map {
-            (container: reference(for: $0), requirement: $1)
-        }
-        container.dependencies[version.description] = packageDependencies
-        self.containers[package] = container
-    }
-
-    func create() -> PubgrubDependencyResolver {
-        defer {
-            self.containers = [:]
-            self.references = [:]
-        }
-        let provider = MockProvider(containers: self.containers.values.map { $0 })
-        return PubgrubDependencyResolver(provider, delegate)
-    }
-}
-
 let builder = DependencyGraphBuilder()
-
-
-public class _MockResolverDelegate: DependencyResolverDelegate {
-    public typealias Identifier = PackageReference
-
-    public init() {}
-
-    var traceSteps: [TraceStep] = []
-
-    public func trace(_ step: TraceStep) {
-        traceSteps.append(step)
-    }
-
-    func traceDescription() -> String {
-        let headers = ["Step", "Value", "Type", "Location", "Cause", "Dec. Lvl."]
-        let values = traceSteps
-            .compactMap { step -> GeneralTraceStep? in
-                if case .general(let generalStep) = step {
-                    return generalStep
-                }
-                return nil
-            }
-            .enumerated()
-            .map { val -> [String] in
-                let (idx, s) = val
-                return [
-                    "\(idx + 1)",
-                    s.value.description,
-                    s.type.rawValue,
-                    s.location.rawValue,
-                    s.cause ?? "",
-                    String(s.decisionLevel)
-                ]
-            }
-        return textTable([headers] + values)
-    }
-
-    func textTable(_ data: [[String]]) -> String {
-        guard let firstRow = data.first, !firstRow.isEmpty else {
-            return ""
-        }
-
-        func maxWidth(_ array: [String]) -> Int {
-            guard let maxElement = array.max(by: { $0.count < $1.count }) else {
-                return 0
-            }
-            return maxElement.count
-        }
-
-        func pad(_ string: String, _ padding: Int) -> String {
-            let padding = padding - (string.count - 1)
-            guard padding >= 0 else {
-                return string
-            }
-            return " " + string + Array(repeating: " ", count: padding).joined()
-        }
-
-        var columns = [[String]]()
-        for i in 0..<firstRow.count {
-            columns.append(data.map { $0[i] })
-        }
-
-        let dividerLine = columns
-            .map { Array(repeating: "-", count: maxWidth($0) + 2).joined() }
-            .reduce("+") { $0 + $1 + "+" }
-
-        return data
-            .reduce([dividerLine]) { result, row -> [String] in
-                let rowString = zip(row, columns)
-                    .map { pad(String(describing: $0), maxWidth($1)) }
-                    .reduce("|") { $0 + $1 + "|" }
-                return result + [rowString, dividerLine]}
-            .joined(separator: "\n")
-    }
-}
-
-
 
 private let emptyProvider = MockProvider(containers: [])
 private let delegate = _MockResolverDelegate()
@@ -403,7 +66,6 @@ let cRef = PackageReference(identity: "c", path: "")
 let rootRef = PackageReference(identity: "root", path: "")
 let rootCause = Incompatibility(Term(rootRef, .versionSet(.exact("1.0.0"))), root: rootRef)
 let _cause = Incompatibility("cause@0.0.0", root: rootRef)
-
 
 final class PubgrubTests: XCTestCase {
     func testTermInverse() {
@@ -1029,6 +691,340 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(root: rootRef, pins: [])
 
         AssertRootCause(result, ["foo-1.0.0-2.0.0"])
+    }
+}
+
+/// Asserts that the listed packages are present in the bindings with their
+/// specified versions.
+private func AssertBindings(_ bindings: [DependencyResolver.Binding],
+                            _ packages: [(identity: String, version: BoundVersion)],
+                            file: StaticString = #file,
+                            line: UInt = #line) {
+    if bindings.count > packages.count {
+        let unexpectedBindings = bindings
+            .filter { binding in
+                packages.contains(where: { pkg in
+                    pkg.0 != binding.container.identity
+                })
+            }
+            .map { $0.container.identity }
+
+        XCTFail("Unexpected binding(s) found for \(unexpectedBindings.joined(separator: ", ")).", file: file, line: line)
+    }
+    for package in packages {
+        guard let binding = bindings.first(where: { $0.container.identity == package.identity }) else {
+            XCTFail("No binding found for \(package.identity).", file: file, line: line)
+            continue
+        }
+
+        if binding.binding != package.version {
+            XCTFail("Expected \(package.version) for \(package.identity), found \(binding.binding) instead.", file: file, line: line)
+        }
+    }
+}
+
+/// Asserts that a result succeeded and contains the specified bindings.
+private func AssertResult(_ result: PubgrubDependencyResolver.Result,
+                          _ packages: [(identity: String, version: BoundVersion)],
+                          file: StaticString = #file,
+                          line: UInt = #line) {
+    switch result {
+    case .success(let bindings):
+        AssertBindings(bindings, packages, file: file, line: line)
+    case .unsatisfiable(dependencies: let constraints, pins: let pins):
+        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
+    case .error(let error):
+        XCTFail("Unexpected error: \(error)", file: file, line: line)
+    }
+}
+
+/// Asserts that a result failed with a conflict incompatibility containing the
+/// specified terms.
+private func AssertRootCause(_ result: PubgrubDependencyResolver.Result,
+                             _ rootCauseTerms: [Term],
+                             file: StaticString = #file,
+                             line: UInt = #line) {
+    switch result {
+    case .success(let bindings):
+        let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
+        XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
+    case .unsatisfiable(dependencies: let constraints, pins: let pins):
+        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
+    case .error(let error):
+        guard let pubgrubError = error as? PubgrubDependencyResolver.PubgrubError,
+            case .unresolvable(let incompatibility) = pubgrubError,
+            case .conflict(let unavailable, _) = incompatibility.cause else {
+                XCTFail("Unexpected error: \(error)", file: file, line: line)
+                return
+        }
+        XCTAssertEqual(Array(unavailable.terms), rootCauseTerms, file: file, line: line)
+    }
+}
+
+/// Asserts that a result failed with specified error.
+private func AssertError(_ result: PubgrubDependencyResolver.Result,
+                         _ expectedError: Error,
+                         file: StaticString = #file,
+                         line: UInt = #line) {
+    switch result {
+    case .success(let bindings):
+        let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
+        XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
+    case .unsatisfiable(dependencies: let constraints, pins: let pins):
+        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
+    case .error(let foundError):
+        XCTAssertEqual(String(describing: foundError), String(describing: expectedError))
+    }
+}
+
+public class MockContainer: PackageContainer {
+    public typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
+
+    var name: PackageReference
+    var manifestName: PackageReference?
+
+    var dependencies: [String: [Dependency]]
+
+    public var unversionedDeps: [PackageContainerConstraint] = []
+
+    /// Contains the versions for which the dependencies were requested by resolver using getDependencies().
+    public var requestedVersions: Set<Version> = []
+
+    public var identifier: PackageReference {
+        return name
+    }
+
+    public var _versions: [BoundVersion]
+
+    public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
+        var versions: [Version] = []
+        for version in self._versions {
+            guard case .version(let v) = version else { continue }
+            if isIncluded(v) {
+                versions.append(v)
+            }
+        }
+        return AnySequence(versions)
+    }
+
+    public func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
+        requestedVersions.insert(version)
+        return try getDependencies(at: version.description)
+    }
+
+    public func getDependencies(at revision: String) throws -> [PackageContainerConstraint] {
+        guard let revisionDependencies = dependencies[revision] else {
+            throw _MockLoadingError.unknownRevision
+        }
+        return revisionDependencies.map({ value in
+            let (name, requirement) = value
+            return PackageContainerConstraint(container: name, requirement: requirement)
+        })
+    }
+
+    public func getUnversionedDependencies() -> [PackageContainerConstraint] {
+        return unversionedDeps
+    }
+
+    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
+        if let manifestName = manifestName {
+            name = name.with(newName: manifestName.identity)
+        }
+        return name
+    }
+
+    public convenience init(
+        name: PackageReference,
+        unversionedDependencies: [(package: PackageReference, requirement: PackageRequirement)]
+        ) {
+        self.init(name: name)
+        self.unversionedDeps = unversionedDependencies
+            .map { PackageContainerConstraint(container: $0.package, requirement: $0.requirement) }
+    }
+
+    public convenience init(
+        name: PackageReference,
+        dependenciesByVersion: [Version: [(package: PackageReference, requirement: VersionSetSpecifier)]]
+        ) {
+        var dependencies: [String: [Dependency]] = [:]
+        for (version, deps) in dependenciesByVersion {
+            dependencies[version.description] = deps.map({
+                ($0.package, .versionSet($0.requirement))
+            })
+        }
+        self.init(name: name, dependencies: dependencies)
+    }
+
+    public init(
+        name: PackageReference,
+        dependencies: [String: [Dependency]] = [:]
+        ) {
+        self.name = name
+        self.dependencies = dependencies
+        let versions = dependencies.keys.compactMap(Version.init(string:))
+        self._versions = versions
+            .sorted()
+            .reversed()
+            .map(BoundVersion.version)
+    }
+}
+
+public enum _MockLoadingError: Error {
+    case unknownModule
+    case unknownRevision
+}
+
+public struct MockProvider: PackageContainerProvider {
+
+    public let containers: [MockContainer]
+    public let containersByIdentifier: [PackageReference: MockContainer]
+
+    public init(containers: [MockContainer]) {
+        self.containers = containers
+        self.containersByIdentifier = Dictionary(items: containers.map({ ($0.identifier, $0) }))
+    }
+
+    public func getContainer(
+        for identifier: PackageReference,
+        skipUpdate: Bool,
+        completion: @escaping (Result<PackageContainer, AnyError>
+        ) -> Void) {
+        DispatchQueue.global().async {
+            completion(self.containersByIdentifier[identifier].map(Result.init) ??
+                Result(_MockLoadingError.unknownModule))
+        }
+    }
+}
+
+public class _MockResolverDelegate: DependencyResolverDelegate {
+    public typealias Identifier = PackageReference
+
+    public init() {}
+
+    var traceSteps: [TraceStep] = []
+
+    public func trace(_ step: TraceStep) {
+        traceSteps.append(step)
+    }
+
+    func traceDescription() -> String {
+        let headers = ["Step", "Value", "Type", "Location", "Cause", "Dec. Lvl."]
+        let values = traceSteps
+            .compactMap { step -> GeneralTraceStep? in
+                if case .general(let generalStep) = step {
+                    return generalStep
+                }
+                return nil
+            }
+            .enumerated()
+            .map { val -> [String] in
+                let (idx, s) = val
+                return [
+                    "\(idx + 1)",
+                    s.value.description,
+                    s.type.rawValue,
+                    s.location.rawValue,
+                    s.cause ?? "",
+                    String(s.decisionLevel)
+                ]
+        }
+        return textTable([headers] + values)
+    }
+
+    func textTable(_ data: [[String]]) -> String {
+        guard let firstRow = data.first, !firstRow.isEmpty else {
+            return ""
+        }
+
+        func maxWidth(_ array: [String]) -> Int {
+            guard let maxElement = array.max(by: { $0.count < $1.count }) else {
+                return 0
+            }
+            return maxElement.count
+        }
+
+        func pad(_ string: String, _ padding: Int) -> String {
+            let padding = padding - (string.count - 1)
+            guard padding >= 0 else {
+                return string
+            }
+            return " " + string + Array(repeating: " ", count: padding).joined()
+        }
+
+        var columns = [[String]]()
+        for i in 0..<firstRow.count {
+            columns.append(data.map { $0[i] })
+        }
+
+        let dividerLine = columns
+            .map { Array(repeating: "-", count: maxWidth($0) + 2).joined() }
+            .reduce("+") { $0 + $1 + "+" }
+
+        return data
+            .reduce([dividerLine]) { result, row -> [String] in
+                let rowString = zip(row, columns)
+                    .map { pad(String(describing: $0), maxWidth($1)) }
+                    .reduce("|") { $0 + $1 + "|" }
+                return result + [rowString, dividerLine]}
+            .joined(separator: "\n")
+    }
+}
+
+class DependencyGraphBuilder {
+    private var containers: [String: MockContainer] = [:]
+    private var references: [String: PackageReference] = [:]
+
+    private func reference(for packageName: String) -> PackageReference {
+        if let reference = self.references[packageName] {
+            return reference
+        }
+        let newReference = PackageReference(identity: packageName, path: "")
+        self.references[packageName] = newReference
+        return newReference
+    }
+
+    func serve(root: String, with dependencies: [String: PackageRequirement]) {
+        let rootDependencies = dependencies.keys.sorted().map {
+            (package: reference(for: $0), requirement: dependencies[$0]!)
+        }
+
+        let rootContainer = MockContainer(name: reference(for: root),
+                                          unversionedDependencies: rootDependencies)
+        self.containers[root] = rootContainer
+    }
+
+    func serve(_ package: String, at version: Version, with dependencies: [String: PackageRequirement] = [:]) {
+        serve(package, at: .version(version), with: dependencies)
+    }
+
+    func serve(_ package: String, at version: BoundVersion, with dependencies: [String: PackageRequirement] = [:]) {
+        let packageReference = reference(for: package)
+        let container = self.containers[package] ?? MockContainer(name: packageReference)
+
+        container._versions.append(version)
+        container._versions = container._versions
+            .sorted(by: { lhs, rhs -> Bool in
+                guard case .version(let lv) = lhs, case .version(let rv) = rhs else {
+                    return true
+                }
+                return lv < rv
+            })
+            .reversed()
+
+        let packageDependencies = dependencies.map {
+            (container: reference(for: $0), requirement: $1)
+        }
+        container.dependencies[version.description] = packageDependencies
+        self.containers[package] = container
+    }
+
+    func create() -> PubgrubDependencyResolver {
+        defer {
+            self.containers = [:]
+            self.references = [:]
+        }
+        let provider = MockProvider(containers: self.containers.values.map { $0 })
+        return PubgrubDependencyResolver(provider, delegate)
     }
 }
 
