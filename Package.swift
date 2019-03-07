@@ -258,9 +258,17 @@ import Darwin.C
 #endif
 
 if getenv("SWIFTPM_BOOTSTRAP") == nil {
-    package.dependencies += [
-        .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
-    ]
+    if getenv("SWIFTCI_USE_LOCAL_DEPS") == nil {
+        package.dependencies += [
+            .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
+        ]
+    } else {
+        // In Swift CI, use a local path to llbuild to interoperate with tools
+        // like `update-checkout`, which control the sources externally.
+        package.dependencies += [
+            .package(path: "../llbuild"),
+        ]
+    }
     package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += ["llbuildSwift"]
 }
 
