@@ -47,24 +47,20 @@ private let delegate = _MockResolverDelegate()
 
 private let v1: Version = "1.0.0"
 private let v1_1: Version = "1.1.0"
+private let v1_5: Version = "1.5.0"
 private let v2: Version = "2.0.0"
-private let v0_0_0Range: VersionSetSpecifier = .range("0.0.0" ..< "0.0.1")
-private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
-private let v1to3Range: VersionSetSpecifier = .range("1.0.0" ..< "3.0.0")
-private let v2Range: VersionSetSpecifier = .range("2.0.0" ..< "3.0.0")
-private let v1_to_3Range: VersionSetSpecifier = .range("1.0.0" ..< "3.0.0")
-private let v2_to_4Range: VersionSetSpecifier = .range("2.0.0" ..< "4.0.0")
-private let v1_0Range: VersionSetSpecifier = .range("1.0.0" ..< "1.1.0")
-private let v1_1Range: VersionSetSpecifier = .range("1.1.0" ..< "1.2.0")
-private let v1_1_0Range: VersionSetSpecifier = .range("1.1.0" ..< "1.1.1")
-private let v2_0_0Range: VersionSetSpecifier = .range("2.0.0" ..< "2.0.1")
+private let v3: Version = "3.0.0"
+private let v1Range: VersionSetSpecifier = .range(v1..<v2)
+private let v1_5Range: VersionSetSpecifier = .range(v1_5..<v2)
+private let v1to3Range: VersionSetSpecifier = .range(v1..<v3)
+private let v2Range: VersionSetSpecifier = .range(v2..<v3)
 
 let aRef = PackageReference(identity: "a", path: "")
 let bRef = PackageReference(identity: "b", path: "")
 let cRef = PackageReference(identity: "c", path: "")
 
 let rootRef = PackageReference(identity: "root", path: "")
-let rootCause = Incompatibility(Term(rootRef, .versionSet(.exact("1.0.0"))), root: rootRef)
+let rootCause = Incompatibility(Term(rootRef, .versionSet(.exact(v1))), root: rootRef)
 let _cause = Incompatibility("cause@0.0.0", root: rootRef)
 
 final class PubgrubTests: XCTestCase {
@@ -228,14 +224,14 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(i1.terms.count, 2)
         let a1 = i1.terms.first { $0.package == "a" }
         let b1 = i1.terms.first { $0.package == "b" }
-        XCTAssertEqual(a1?.requirement, .versionSet(.range("1.5.0"..<"2.0.0")))
-        XCTAssertEqual(b1?.requirement, .versionSet(.exact("1.0.0")))
+        XCTAssertEqual(a1?.requirement, .versionSet(v1_5Range))
+        XCTAssertEqual(b1?.requirement, .versionSet(.exact(v1)))
 
         let i2 = Incompatibility(Term("¬a^1.0.0"), Term("a^2.0.0"),
                                  root: rootRef)
         XCTAssertEqual(i2.terms.count, 1)
         let a2 = i2.terms.first
-        XCTAssertEqual(a2?.requirement, .versionSet(.range("2.0.0"..<"3.0.0")))
+        XCTAssertEqual(a2?.requirement, .versionSet(v2Range))
     }
 
     func testSolutionPositive() {
@@ -245,22 +241,22 @@ final class PubgrubTests: XCTestCase {
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
         let a1 = s1._positive.first { $0.key.identity == "a" }?.value
-        XCTAssertEqual(a1?.requirement, .versionSet(.range("1.5.0"..<"2.0.0")))
+        XCTAssertEqual(a1?.requirement, .versionSet(v1_5Range))
         let b1 = s1._positive.first { $0.key.identity == "b" }?.value
-        XCTAssertEqual(b1?.requirement, .versionSet(.exact("2.0.0")))
+        XCTAssertEqual(b1?.requirement, .versionSet(.exact(v2)))
 
         let s2 = PartialSolution(assignments: [
             .derivation("¬a^1.5.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
         let a2 = s2._positive.first { $0.key.identity == "a" }?.value
-        XCTAssertEqual(a2?.requirement, .versionSet(.range("1.0.0"..<"1.5.0")))
+        XCTAssertEqual(a2?.requirement, .versionSet(.range(v1..<v1_5)))
     }
 
     func testSolutionUndecided() {
         let solution = PartialSolution()
         solution.derive("a^1.0.0", cause: rootCause)
-        solution.decide("b", at: .version("2.0.0"))
+        solution.decide("b", at: .version(v2))
         solution.derive("a^1.5.0", cause: rootCause)
         solution.derive("¬c^1.5.0", cause: rootCause)
         solution.derive("d^1.9.0", cause: rootCause)
@@ -276,8 +272,8 @@ final class PubgrubTests: XCTestCase {
         let b = Term("b@2.0.0")
 
         let solution = PartialSolution(assignments: [])
-        solution.decide(rootRef, at: .version("1.0.0"))
-        solution.decide(aRef, at: .version("1.0.0"))
+        solution.decide(rootRef, at: .version(v1))
+        solution.decide(aRef, at: .version(v1))
         solution.derive(b, cause: _cause)
         XCTAssertEqual(solution.decisionLevel, 1)
 
@@ -287,17 +283,17 @@ final class PubgrubTests: XCTestCase {
             .derivation(b, cause: _cause, decisionLevel: 1)
         ])
         XCTAssertEqual(solution.decisions, [
-            rootRef: .version("1.0.0"),
-            aRef: .version("1.0.0"),
+            rootRef: .version(v1),
+            aRef: .version(v1),
         ])
     }
 
     func testSolutionBacktrack() {
         // TODO: This should probably add derivations to cover that logic as well.
         let solution = PartialSolution()
-        solution.decide(aRef, at: .version("1.0.0"))
-        solution.decide(bRef, at: .version("1.0.0"))
-        solution.decide(cRef, at: .version("1.0.0"))
+        solution.decide(aRef, at: .version(v1))
+        solution.decide(bRef, at: .version(v1))
+        solution.decide(cRef, at: .version(v1))
 
         XCTAssertEqual(solution.decisionLevel, 2)
         solution.backtrack(toDecisionLevel: 1)
@@ -310,14 +306,14 @@ final class PubgrubTests: XCTestCase {
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0),
         ])
         XCTAssertEqual(s1._positive["a"]?.requirement,
-                       .versionSet(.range("1.0.0"..<"2.0.0")))
+                       .versionSet(v1Range))
 
         let s2 = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.5.0", cause: _cause, decisionLevel: 0)
         ])
         XCTAssertEqual(s2._positive["a"]?.requirement,
-                       .versionSet(.range("1.5.0"..<"2.0.0")))
+                       .versionSet(v1_5Range))
     }
 
     func testResolverAddIncompatibility() {
@@ -411,7 +407,7 @@ final class PubgrubTests: XCTestCase {
         try solver1.propagate("a")
 
         // adding a satisfying term should result in a conflict
-        solver1.solution.decide(aRef, at: .version("1.0.0"))
+        solver1.solution.decide(aRef, at: .version(v1))
         // FIXME: This leads to fatal error.
         // try solver1.propagate(aRef)
 
@@ -420,7 +416,7 @@ final class PubgrubTests: XCTestCase {
         solver2.add(Incompatibility(Term("root", .versionSet(.any)),
                                     Term("¬a@1.0.0"),
                                     root: rootRef), location: .topLevel)
-        solver2.solution.decide(rootRef, at: .version("1.0.0"))
+        solver2.solution.decide(rootRef, at: .version(v1))
         XCTAssertEqual(solver2.solution.assignments.count, 1)
         try solver2.propagate(PackageReference(identity: "root", path: ""))
         XCTAssertEqual(solver2.solution.assignments.count, 2)
@@ -428,9 +424,9 @@ final class PubgrubTests: XCTestCase {
 
     func testSolutionFindSatisfiers() {
         let solution = PartialSolution()
-        solution.decide(rootRef, at: .version("1.0.0")) // ← previous, but actually nil because this is the root decision
+        solution.decide(rootRef, at: .version(v1)) // ← previous, but actually nil because this is the root decision
         solution.derive(Term(aRef, .versionSet(.any)), cause: _cause) // ← satisfier
-        solution.decide(aRef, at: .version("2.0.0"))
+        solution.decide(aRef, at: .version(v2))
         solution.derive("b^1.0.0", cause: _cause)
 
         XCTAssertEqual(solution.satisfier(for: Term("b^1.0.0")) .term, "b^1.0.0")
@@ -492,7 +488,7 @@ final class PubgrubTests: XCTestCase {
         // Pubgrub has a listed as >=1.0.0, which we can't really represent here.
         // It's either .any or 1.0.0..<n.0.0 with n>2. Both should have the same
         // effect though.
-        builder.serve(root: "root", with: ["a": .versionSet(.range("1.0.0"..<"3.0.0"))])
+        builder.serve(root: "root", with: ["a": .versionSet(v1to3Range)])
         builder.serve("a", at: v1)
         builder.serve("a", at: v2, with: ["b": .versionSet(v1Range)])
         builder.serve("b", at: v1, with: ["a": .versionSet(v1Range)])
@@ -564,7 +560,7 @@ final class PubgrubTests: XCTestCase {
 
     func testResolutionNonExistentVersion() {
         builder.serve(root: "root", with: ["package": .versionSet(.exact(v1))])
-        builder.serve("package", at: "2.0.0")
+        builder.serve("package", at: v2)
 
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
