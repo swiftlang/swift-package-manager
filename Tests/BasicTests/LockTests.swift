@@ -47,4 +47,14 @@ class LockTests: XCTestCase {
 
         XCTAssertEqual(try localFileSystem.readFileContents(sharedResource.path).description, String((N * (N + 1) / 2 )))
     }
+
+    func testFileLockTry() throws {
+        let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
+        let fileLock = FileLock(name: "lock", in: tempDir.path)
+
+        try fileLock.lock()
+        XCTAssertTrue(fileLock.try())
+        fileLock.unlock()
+        XCTAssertTrue(fileLock.try())
+    }
 }

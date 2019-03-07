@@ -13,7 +13,7 @@ import SPMUtility
 ///   - path: Path to a file which will be mutated.
 ///   - content: Integer that should be added in that file.
 func fileLockTest(cacheDir: AbsolutePath, path: AbsolutePath, content: Int) throws {
-    let lock = FileLock(name: "TestLock", cachePath: cacheDir)
+    let lock = FileLock(name: "TestLock.lock", in: cacheDir)
     try lock.withLock {
         // Get thr current contents of the file if any.
         let currentData: Int
