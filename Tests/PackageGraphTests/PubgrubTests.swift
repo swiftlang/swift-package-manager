@@ -16,6 +16,30 @@ import PackageModel
 @testable import PackageGraph
 import SourceControl
 
+// There's some useful helper utilities defined below for easier testing:
+//
+// Terms conform to ExpressibleByStringLiteral in this test module and their
+// version requirements can be created with a few options:
+//   - "package@1.0.0": equivalent to .exact("1.0.0")
+//   - "package^1.0.0": equivalent to .upToNextMajor("1.0.0")
+//   - "package-1.0.0-3.0.0": equivalent to .range("1.0.0"..<"3.0.0")
+//   - "package@branch": equivalent to .revision("branch")
+//
+// Mocking a dependency graph is easily achieved by using the builder API. It's
+// a global object in this module.
+//   builder.serve(root: "rootPackageName", with: dependencies...)
+// or for dependencies
+//   builder.serve("packageName", at: someVersion, with: dependencies...)
+// Calling builder.create() returns a resolver which can then be used to start
+// the resolution by calling .solve() on it and passing a reference to the root
+// package.
+//
+// The functions AssertBindings, AssertResult, AssertRootCause & AssertError can
+// be used for checking the success or error outcomes of the resolver without
+// having to manually pull the bindings or errors out of the results. They also
+// offer useful failure messages.
+
+
 /// Asserts that the listed packages are present in the bindings with their
 /// specified versions.
 private func AssertBindings(_ bindings: [DependencyResolver.Binding],
