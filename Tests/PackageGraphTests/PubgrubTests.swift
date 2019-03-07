@@ -123,8 +123,6 @@ private func AssertError(_ result: PubgrubDependencyResolver.Result,
     }
 }
 
-public typealias _MockPackageConstraint = PackageContainerConstraint
-
 public class MockContainer: PackageContainer {
     public typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
 
@@ -133,7 +131,7 @@ public class MockContainer: PackageContainer {
 
     var dependencies: [String: [Dependency]]
 
-    public var unversionedDeps: [_MockPackageConstraint] = []
+    public var unversionedDeps: [PackageContainerConstraint] = []
 
     /// Contains the versions for which the dependencies were requested by resolver using getDependencies().
     public var requestedVersions: Set<Version> = []
@@ -155,22 +153,22 @@ public class MockContainer: PackageContainer {
         return AnySequence(versions)
     }
 
-    public func getDependencies(at version: Version) throws -> [_MockPackageConstraint] {
+    public func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
         requestedVersions.insert(version)
         return try getDependencies(at: version.description)
     }
 
-    public func getDependencies(at revision: String) throws -> [_MockPackageConstraint] {
+    public func getDependencies(at revision: String) throws -> [PackageContainerConstraint] {
         guard let revisionDependencies = dependencies[revision] else {
             throw _MockLoadingError.unknownRevision
         }
         return revisionDependencies.map({ value in
             let (name, requirement) = value
-            return _MockPackageConstraint(container: name, requirement: requirement)
+            return PackageContainerConstraint(container: name, requirement: requirement)
         })
     }
 
-    public func getUnversionedDependencies() -> [_MockPackageConstraint] {
+    public func getUnversionedDependencies() -> [PackageContainerConstraint] {
         return unversionedDeps
     }
 
@@ -187,7 +185,7 @@ public class MockContainer: PackageContainer {
         ) {
         self.init(name: name)
         self.unversionedDeps = unversionedDependencies
-            .map { _MockPackageConstraint(container: $0.package, requirement: $0.requirement) }
+            .map { PackageContainerConstraint(container: $0.package, requirement: $0.requirement) }
     }
 
     public convenience init(
