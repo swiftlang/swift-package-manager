@@ -81,6 +81,7 @@ extension WorkspaceTests {
         ("testToolsVersionRootPackages", testToolsVersionRootPackages),
         ("testTransitiveDependencySwitchWithSameIdentity", testTransitiveDependencySwitchWithSameIdentity),
         ("testUpdate", testUpdate),
+        ("testWorkspaceResolutionKind", testWorkspaceResolutionKind),
     ]
 }
 

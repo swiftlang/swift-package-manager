@@ -12,19 +12,26 @@ import SPMUtility
 ///   - cacheDir: The cache directory where lock file should be created.
 ///   - path: Path to a file which will be mutated.
 ///   - content: Integer that should be added in that file.
-func fileLockTest(cacheDir: AbsolutePath, path: AbsolutePath, content: Int) throws {
-    let lock = FileLock(name: "TestLock.lock", in: cacheDir)
+func fileLockTest(name: String, lockDirectory: AbsolutePath, contentPath: AbsolutePath, content: Int) throws {
+    let lock = FileLock(name: name, in: lockDirectory)
     try lock.withLock {
         // Get thr current contents of the file if any.
         let currentData: Int
-        if localFileSystem.exists(path) {
-            currentData = Int(try localFileSystem.readFileContents(path).description) ?? 0
+        if localFileSystem.exists(contentPath) {
+            currentData = Int(try localFileSystem.readFileContents(contentPath).description) ?? 0
         } else {
             currentData = 0
         }
         // Sum and write back to file.
-        try localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: String(currentData + content)))
+        try localFileSystem.writeFileContents(contentPath, bytes: ByteString(encodingAsUTF8: String(currentData + content)))
     }
+}
+
+func fileLockLock(name: String, in directory: AbsolutePath, duration sleepValue: Int) throws {
+    let lock = FileLock(name: name, in: directory)
+    try lock.lock()
+    SPMLibc.sleep(UInt32(sleepValue))
+    lock.unlock()
 }
 
 class HandlerTest {
@@ -48,6 +55,7 @@ class HandlerTest {
 
 enum Mode: String {
     case fileLockTest
+    case fileLockLock
     case interruptHandlerTest
     case pathArgumentTest
     case help
@@ -55,11 +63,12 @@ enum Mode: String {
 
 struct Options {
     struct FileLockOptions {
-        let cacheDir: AbsolutePath
-        let path: AbsolutePath
-        let content: Int
+        var name: String?
+        var lockDirectory: AbsolutePath?
+        var contentPath: AbsolutePath?
+        var value: Int?
     }
-    var fileLockOptions: FileLockOptions?
+    var fileLockOptions = FileLockOptions()
     var temporaryFile: AbsolutePath?
     var absolutePath: AbsolutePath?
     var mode = Mode.help
@@ -72,18 +81,30 @@ do {
         usage: "subcommand",
         overview: "Test support executable")
 
-    let fileLockParser = parser.add(subparser: Mode.fileLockTest.rawValue, overview: "Execute the file lock test")
+    let fileLockTestParser = parser.add(subparser: Mode.fileLockTest.rawValue, overview: "Execute the file lock test")
+    binder.bind(positional: fileLockTestParser.add(positional: "lock name", kind: String.self, usage: "File lock name"), to: { (options, value) in
+        options.fileLockOptions.name = value
+    })
+    binder.bind(positional: fileLockTestParser.add(positional: "lock directory", kind: String.self, usage: "Path to lock directory"), to: { (options, value) in
+        options.fileLockOptions.lockDirectory = AbsolutePath(value)
+    })
+    binder.bind(positional: fileLockTestParser.add(positional: "file path", kind: String.self, usage: "Path of the file to mutate"), to: { (options, value) in
+        options.fileLockOptions.contentPath = AbsolutePath(value)
+    })
+    binder.bind(positional: fileLockTestParser.add(positional: "content", kind: Int.self, usage: "Contents to write in the file"), to: { (options, value) in
+        options.fileLockOptions.value = value
+    })
 
-    binder.bindPositional(
-        fileLockParser.add(positional: "cache directory", kind: String.self, usage: "Path to cache directory"),
-        fileLockParser.add(positional: "file path", kind: String.self, usage: "Path of the file to mutate"),
-        fileLockParser.add(positional: "contents", kind: Int.self, usage: "Contents to write in the file"),
-        to: {
-            $0.fileLockOptions = Options.FileLockOptions(
-                cacheDir: AbsolutePath($1),
-                path: AbsolutePath($2),
-                content: $3)
-        })
+    let fileLockLockParser = parser.add(subparser: Mode.fileLockLock.rawValue, overview: "Execute the file lock test")
+    binder.bind(positional: fileLockLockParser.add(positional: "lock name", kind: String.self, usage: "File lock name"), to: { (options, value) in
+        options.fileLockOptions.name = value
+    })
+    binder.bind(positional: fileLockLockParser.add(positional: "lock directory", kind: String.self, usage: "Path to lock directory"), to: { (options, value) in
+        options.fileLockOptions.lockDirectory = AbsolutePath(value)
+    })
+    binder.bind(positional: fileLockLockParser.add(positional: "duration", kind: Int.self, usage: "Lock duration"), to: { (options, value) in
+        options.fileLockOptions.value = value
+    })
 
     let intHandlerParser = parser.add(
         subparser: Mode.interruptHandlerTest.rawValue,
@@ -112,11 +133,21 @@ do {
 
     switch options.mode {
     case .fileLockTest:
-        guard let fileLockOptions = options.fileLockOptions else { break }
+        let fileLockOptions = options.fileLockOptions
+        guard let name = fileLockOptions.name, let lockDirectory = fileLockOptions.lockDirectory,
+            let contentPath = fileLockOptions.contentPath, let value = fileLockOptions.value else { break }
         try fileLockTest(
-            cacheDir: fileLockOptions.cacheDir,
-            path: fileLockOptions.path,
-            content: fileLockOptions.content)
+            name: name,
+            lockDirectory: lockDirectory,
+            contentPath: contentPath,
+            content: value)
+    case .fileLockLock:
+        let fileLockOptions = options.fileLockOptions
+        guard let name = fileLockOptions.name, let lockDirectory = fileLockOptions.lockDirectory,
+            let value = fileLockOptions.value else { break }
+        try fileLockLock(name: name,
+                         in: lockDirectory,
+                         duration: value)
     case .interruptHandlerTest:
         let handlerTest = try HandlerTest(options.temporaryFile!)
         handlerTest.run()

@@ -198,6 +198,7 @@ extension LockTests {
     static let __allTests__LockTests = [
         ("testBasics", testBasics),
         ("testFileLock", testFileLock),
+        ("testFileLockTry", testFileLockTry),
     ]
 }
 
