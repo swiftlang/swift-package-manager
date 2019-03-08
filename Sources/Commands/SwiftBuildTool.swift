@@ -55,7 +55,11 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
 
            // Create the build plan and build.
            let plan = try BuildPlan(buildParameters: buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
+
+           let workspace = try getActiveWorkspace()
+           workspace.lockWorkspace()
            try build(plan: plan, subset: subset)
+           workspace.unlockWorkspace()
 
         case .binPath:
             try print(buildParameters().buildPath.description)

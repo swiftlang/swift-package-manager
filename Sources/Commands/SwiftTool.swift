@@ -556,7 +556,6 @@ public class SwiftTool<Options: ToolOptions> {
     func loadPackageGraph(
         createREPLProduct: Bool = false
     ) throws -> PackageGraph {
-        do {
             let workspace = try getActiveWorkspace()
 
             // Fetch and load the package graph.
@@ -573,9 +572,6 @@ public class SwiftTool<Options: ToolOptions> {
                 throw Diagnostics.fatalError
             }
             return graph
-        } catch {
-            throw error
-        }
     }
 
     /// Returns the user toolchain to compile the actual product.
