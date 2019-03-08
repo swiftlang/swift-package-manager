@@ -612,6 +612,9 @@ public final class ProductBuildDescription {
     /// The build parameters.
     let buildParameters: BuildParameters
 
+    /// The file system reference.
+    let fs: FileSystem
+
     /// The path to the product binary produced.
     public var binary: AbsolutePath {
         return buildParameters.buildPath.appending(outname)
@@ -670,10 +673,11 @@ public final class ProductBuildDescription {
     }
 
     /// Create a build description for a product.
-    init(product: ResolvedProduct, buildParameters: BuildParameters) {
+    init(product: ResolvedProduct, buildParameters: BuildParameters, fs: FileSystem) {
         assert(product.type != .library(.automatic), "Automatic type libraries should not be described.")
         self.product = product
         self.buildParameters = buildParameters
+        self.fs = fs
     }
 
     /// Strips the arguments which should *never* be passed to Swift compiler
@@ -759,6 +763,15 @@ public final class ProductBuildDescription {
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.linkerFlags
         args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
+
+        // Add toolchain's libdir at the very end (even after the user -Xlinker arguments).
+        //
+        // This will allow linking to libraries shipped in the toolchain.
+        let toolchainLibDir = buildParameters.toolchain.toolchainLibDir
+        if fs.isDirectory(toolchainLibDir) {
+            args += ["-L", toolchainLibDir.pathString]
+        }
+
         return args
     }
 
@@ -921,7 +934,9 @@ public class BuildPlan {
         // for automatic libraries because they don't produce any output.
         for product in graph.allProducts where product.type != .library(.automatic) {
             productMap[product] = ProductBuildDescription(
-                product: product, buildParameters: buildParameters)
+                product: product, buildParameters: buildParameters,
+                fs: fileSystem
+            )
         }
 
         self.productMap = productMap

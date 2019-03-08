@@ -44,4 +44,9 @@ extension Toolchain {
     public var macosSwiftStdlib: AbsolutePath { 
         return resolveSymlinks(swiftCompiler).appending(RelativePath("../../lib/swift/macosx"))
     }
+
+    var toolchainLibDir: AbsolutePath {
+        // FIXME: Not sure if it's better to base this off of Swift compiler or our own binary.
+        return resolveSymlinks(swiftCompiler).appending(RelativePath("../../lib"))
+    }
 }

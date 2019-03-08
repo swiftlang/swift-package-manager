@@ -1360,6 +1360,7 @@ final class BuildPlanTests: XCTestCase {
     func testExtraBuildFlags() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/A/Sources/exe/main.swift",
+            "/fake/path/lib/libSomething.dylib",
             "<end>"
         )
 
@@ -1388,7 +1389,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let exe = try result.buildProduct(for: "exe").linkArguments()
-        XCTAssertMatch(exe, [.anySequence, "-L", "/path/to/foo", "-L/path/to/foo", "-Xlinker", "-rpath=foo", "-Xlinker", "-rpath", "-Xlinker", "foo", .anySequence])
+        XCTAssertMatch(exe, [.anySequence, "-L", "/path/to/foo", "-L/path/to/foo", "-Xlinker", "-rpath=foo", "-Xlinker", "-rpath", "-Xlinker", "foo", "-L", "/fake/path/lib"])
     }
 }
 
