@@ -331,7 +331,7 @@ class ArgumentParserTests: XCTestCase {
         usage = stream.bytes.description
 
         XCTAssert(usage.contains("OVERVIEW: B!"))
-        XCTAssert(usage.contains("USAGE:"))
+        XCTAssert(usage.contains("USAGE: b"))
         XCTAssert(usage.contains("OPTIONS:"))
         XCTAssert(usage.contains("  --no-fly"))
     }

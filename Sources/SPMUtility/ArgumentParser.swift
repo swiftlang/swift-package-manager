@@ -648,9 +648,9 @@ public final class ArgumentParser {
     }
 
     /// Create a subparser with its help text.
-    private init(subparser overview: String, usage: String = "") {
+    private init(subparser commandName: String, usage: String, overview: String) {
         self.isSubparser = true
-        self.commandName = nil
+        self.commandName = commandName
         self.usage = usage
         self.overview = overview
         self.seeAlso = nil
@@ -736,7 +736,7 @@ public final class ArgumentParser {
     @discardableResult
     public func add(subparser command: String, overview: String, usage: String = "") -> ArgumentParser {
         precondition(positionalArguments.isEmpty, "Subparsers are not supported with positional arguments")
-        let parser = ArgumentParser(subparser: overview, usage: usage)
+        let parser = ArgumentParser(subparser: command, usage: usage, overview: overview)
         subparsers[command] = parser
         return parser
     }
