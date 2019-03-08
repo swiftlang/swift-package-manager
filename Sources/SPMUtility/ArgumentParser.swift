@@ -734,7 +734,7 @@ public final class ArgumentParser {
 
     /// Add a parser with a subcommand name and its corresponding overview.
     @discardableResult
-    public func add(subparser command: String, overview: String, usage: String = "") -> ArgumentParser {
+    public func add(subparser command: String, usage: String = "", overview: String) -> ArgumentParser {
         precondition(positionalArguments.isEmpty, "Subparsers are not supported with positional arguments")
         let parser = ArgumentParser(subparser: command, usage: usage, overview: overview)
         subparsers[command] = parser

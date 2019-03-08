@@ -258,7 +258,7 @@ class ArgumentParserTests: XCTestCase {
         let parserA = parser.add(subparser: "a", overview: "A!")
         let branchOption = parserA.add(option: "--branch", kind: String.self, usage: "The branch to use")
 
-        let parserB = parser.add(subparser: "b", overview: "B!", usage: "usage")
+        let parserB = parser.add(subparser: "b", usage: "usage", overview: "B!")
         let noFlyOption = parserB.add(option: "--no-fly", kind: Bool.self, usage: "Should you fly?")
 
         var args = try parser.parse(["--foo", "foo", "--bar", "bar", "a", "--branch", "bugfix"])
