@@ -648,10 +648,10 @@ public final class ArgumentParser {
     }
 
     /// Create a subparser with its help text.
-    private init(subparser overview: String) {
+    private init(subparser overview: String, usage: String = "") {
         self.isSubparser = true
         self.commandName = nil
-        self.usage = ""
+        self.usage = usage
         self.overview = overview
         self.seeAlso = nil
     }
@@ -734,9 +734,9 @@ public final class ArgumentParser {
 
     /// Add a parser with a subcommand name and its corresponding overview.
     @discardableResult
-    public func add(subparser command: String, overview: String) -> ArgumentParser {
+    public func add(subparser command: String, overview: String, usage: String = "") -> ArgumentParser {
         precondition(positionalArguments.isEmpty, "Subparsers are not supported with positional arguments")
-        let parser = ArgumentParser(subparser: overview)
+        let parser = ArgumentParser(subparser: overview, usage: usage)
         subparsers[command] = parser
         return parser
     }
@@ -889,7 +889,7 @@ public final class ArgumentParser {
         stream <<< "OVERVIEW: " <<< overview
 
         // We only print command usage for top level parsers.
-        if !isSubparser {
+        if !usage.isEmpty {
             stream <<< "\n\n"
             // Get the binary name from command line arguments.
             let defaultCommandName = CommandLine.arguments[0].components(separatedBy: "/").last!
