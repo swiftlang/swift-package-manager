@@ -379,7 +379,7 @@ final class BuildPlanTests: XCTestCase {
 
         mktmpdir { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestGenerator(plan, client: "swift-build", resolvedFile: path.appending(component: "Package.resolved"))
+            let llbuild = LLBuildManifestGenerator(plan, client: "swift-build")
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertTrue(contents.contains("-std=gnu99\",\"-c\",\"/Pkg/Sources/lib/lib.c"))
