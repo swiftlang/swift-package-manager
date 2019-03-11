@@ -301,7 +301,7 @@ public class Workspace {
     fileprivate let skipUpdate: Bool
 
     /// Workspace lock. Available for local file system only.
-    private let workspaceFileLock: FileLock?
+    private var workspaceFileLock: FileLock?
 
     /// Typealias for dependency resolver we use in the workspace.
     fileprivate typealias PackageDependencyResolver = DependencyResolver
@@ -368,10 +368,11 @@ public class Workspace {
         self.managedDependencies = ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
 
         // FileLock uses local filesystem internally, hence won't work with any FileSystem
+        self.workspaceFileLock = nil
         if fileSystem === localFileSystem {
-            self.workspaceFileLock = FileLock(name: "workspace.lock", in: dataPath)
-        } else {
-            self.workspaceFileLock = nil
+            if let _ = try? localFileSystem.createDirectory(dataPath, recursive: true) {
+                self.workspaceFileLock = FileLock(name: "workspace.lock", in: dataPath)
+            }
         }
     }
 
