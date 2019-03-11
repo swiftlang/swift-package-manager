@@ -888,7 +888,6 @@ public final class ArgumentParser {
 
         stream <<< "OVERVIEW: " <<< overview
 
-        // We only print command usage for top level parsers.
         if !usage.isEmpty {
             stream <<< "\n\n"
             // Get the binary name from command line arguments.
