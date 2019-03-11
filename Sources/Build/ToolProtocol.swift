@@ -138,7 +138,7 @@ struct SwiftCompilerTool: ToolProtocol {
         stream <<< "    sources: "
             <<< Format.asJSON(target.target.sources.paths.map{$0.pathString}) <<< "\n"
         stream <<< "    is-library: "
-            <<< Format.asJSON(target.target.type == .library || target.target.type == .test) <<< "\n"
+            <<< Format.asJSON(target.target.type.isLibrary || target.target.type == .test) <<< "\n"
         stream <<< "    enable-whole-module-optimization: "
             <<< Format.asJSON(target.buildParameters.configuration == .release) <<< "\n"
         stream <<< "    num-threads: "

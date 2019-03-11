@@ -88,7 +88,7 @@ final class PackageToolTests: XCTestCase {
             }
 
             XCTAssertEqual(targets?[0]["name"]?.stringValue, "CExec")
-            XCTAssertEqual(targets?[2]["type"]?.stringValue, "library")
+            XCTAssertEqual(targets?[2]["type"]?.stringValue, "automatic")
             XCTAssertEqual(targets?[1]["sources"]?.array?.map{$0.stringValue} ?? [], ["main.swift"])
 
             let textOutput = try execute(["describe"], packagePath: prefix)

@@ -33,7 +33,7 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { result in
             result.checkModule("foo") { moduleResult in
-                moduleResult.check(c99name: "foo", type: .library)
+                moduleResult.check(c99name: "foo", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/foo", paths: "Foo.swift")
             }
         }
@@ -159,7 +159,7 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .library)
+                moduleResult.check(c99name: name, type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Package.swift", "Package@swift-1.swift")
             }
         }
@@ -179,7 +179,7 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { result in
             result.checkModule("clib") { moduleResult in
-                moduleResult.check(c99name: "clib", type: .library)
+                moduleResult.check(c99name: "clib", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/clib", paths: "clib.c")
             }
         }
@@ -292,7 +292,7 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { result in
             result.checkModule("exe") { moduleResult in
-                moduleResult.check(c99name: "exe", type: .library)
+                moduleResult.check(c99name: "exe", type: .library(.automatic))
                 moduleResult.checkSources(root: "/swift/exe", paths: "foo.swift")
             }
 
@@ -408,17 +408,17 @@ class PackageBuilderTests: XCTestCase {
             }
 
             result.checkModule("clib") { moduleResult in
-                moduleResult.check(c99name: "clib", type: .library)
+                moduleResult.check(c99name: "clib", type: .library(.automatic))
                 moduleResult.checkSources(root: "/mah/target/exe", paths: "foo.c")
             }
 
             result.checkModule("foo") { moduleResult in
-                moduleResult.check(c99name: "foo", type: .library)
+                moduleResult.check(c99name: "foo", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/foo", paths: "foo.swift")
             }
 
             result.checkModule("bar") { moduleResult in
-                moduleResult.check(c99name: "bar", type: .library)
+                moduleResult.check(c99name: "bar", type: .library(.automatic))
                 moduleResult.checkSources(root: "/bar", paths: "bar/foo.swift")
             }
 
@@ -466,7 +466,7 @@ class PackageBuilderTests: XCTestCase {
             result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
 
             result.checkModule("bar") { moduleResult in
-                moduleResult.check(c99name: "bar", type: .library)
+                moduleResult.check(c99name: "bar", type: .library(.automatic))
                 moduleResult.checkSources(root: "/target/bar", paths: "bar.swift")
             }
 
@@ -505,13 +505,13 @@ class PackageBuilderTests: XCTestCase {
             result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
 
             result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library)
+                moduleResult.check(c99name: "Foo", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.c")
                 moduleResult.check(includeDir: "/Sources/Foo/inc")
             }
 
             result.checkModule("Bar") { moduleResult in
-                moduleResult.check(c99name: "Bar", type: .library)
+                moduleResult.check(c99name: "Bar", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.c")
                 moduleResult.check(includeDir: "/Sources/Bar/include")
             }
@@ -621,14 +621,14 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { result in
             result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library)
+                moduleResult.check(c99name: "Foo", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
                 moduleResult.check(dependencies: ["Bar"])
             }
 
             for target in ["Bar", "Baz"] {
                 result.checkModule(target) { moduleResult in
-                    moduleResult.check(c99name: target, type: .library)
+                    moduleResult.check(c99name: target, type: .library(.automatic))
                     moduleResult.checkSources(root: "/Sources/\(target)", paths: "\(target).swift")
                 }
             }
@@ -645,19 +645,19 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { result in
             result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library)
+                moduleResult.check(c99name: "Foo", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
                 moduleResult.check(dependencies: ["Bar"])
             }
 
             result.checkModule("Bar") { moduleResult in
-                moduleResult.check(c99name: "Bar", type: .library)
+                moduleResult.check(c99name: "Bar", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
                 moduleResult.check(dependencies: ["Baz"])
             }
 
             result.checkModule("Baz") { moduleResult in
-                moduleResult.check(c99name: "Baz", type: .library)
+                moduleResult.check(c99name: "Baz", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/Baz", paths: "Baz.swift")
             }
         }
@@ -706,7 +706,7 @@ class PackageBuilderTests: XCTestCase {
             result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
 
             result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library)
+                moduleResult.check(c99name: "Foo", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
                 moduleResult.check(dependencies: ["Bar", "Baz"])
                 moduleResult.check(productDeps: [(name: "Bam", package: nil)])
@@ -714,7 +714,7 @@ class PackageBuilderTests: XCTestCase {
 
             for target in ["Bar", "Baz"] {
                 result.checkModule(target) { moduleResult in
-                    moduleResult.check(c99name: target, type: .library)
+                    moduleResult.check(c99name: target, type: .library(.automatic))
                     moduleResult.checkSources(root: "/Sources/\(target)", paths: "\(target).swift")
                 }
             }
@@ -831,7 +831,7 @@ class PackageBuilderTests: XCTestCase {
             PackageBuilderTester(manifest, in: fs) { result in
                 result.checkDiagnostic("target 'pkg2' in package 'pkg' contains no valid source files")
                 result.checkModule("pkg1") { moduleResult in
-                    moduleResult.check(c99name: "pkg1", type: .library)
+                    moduleResult.check(c99name: "pkg1", type: .library(.automatic))
                     moduleResult.checkSources(root: "/Sources/pkg1", paths: "Foo.swift")
                 }
             }
@@ -932,7 +932,7 @@ class PackageBuilderTests: XCTestCase {
             }
 
             result.checkModule("lib") { moduleResult in
-                moduleResult.check(c99name: "lib", type: .library)
+                moduleResult.check(c99name: "lib", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/lib", paths: "lib.swift")
             }
 
@@ -1134,7 +1134,7 @@ class PackageBuilderTests: XCTestCase {
             result.checkPredefinedPaths(target: "/src", testTarget: "/src")
 
             result.checkModule("A") { moduleResult in
-                moduleResult.check(c99name: "A", type: .library)
+                moduleResult.check(c99name: "A", type: .library(.automatic))
             }
             result.checkModule("ATests") { moduleResult in
                 moduleResult.check(c99name: "ATests", type: .test)
@@ -1163,7 +1163,7 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { result in
             result.checkModule("bar") { moduleResult in
-                moduleResult.check(c99name: "bar", type: .library)
+                moduleResult.check(c99name: "bar", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/bar", paths: "bar.swift")
             }
         }
@@ -1246,7 +1246,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.checkSources(root: "/Sources/foo")
             }
             result.checkModule("bar") { moduleResult in
-                moduleResult.check(c99name: "bar", type: .library)
+                moduleResult.check(c99name: "bar", type: .library(.automatic))
                 moduleResult.checkSources(root: "/Sources/bar", paths: "bar.swift")
                 moduleResult.check(dependencies: ["foo"])
             }

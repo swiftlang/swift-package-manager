@@ -298,7 +298,7 @@ public final class ClangTargetBuildDescription {
         self.target = target
         self.buildParameters = buildParameters
         // Try computing modulemap path for a C library.
-        if target.type == .library {
+        if target.type.isLibrary {
             self.moduleMap = try computeModulemapPath()
         }
     }
@@ -1097,7 +1097,7 @@ public class BuildPlan {
     private func plan(clangTarget: ClangTargetBuildDescription) {
         for dependency in clangTarget.target.recursiveDependencies() {
             switch dependency.underlyingTarget {
-            case let target as ClangTarget where target.type == .library:
+            case let target as ClangTarget where target.type.isLibrary:
                 // Setup search paths for C dependencies:
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
             case let target as SystemLibraryTarget:
@@ -1114,7 +1114,7 @@ public class BuildPlan {
         // depends on.
         for dependency in swiftTarget.target.recursiveDependencies() {
             switch dependency.underlyingTarget {
-            case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
+            case let underlyingTarget as ClangTarget where underlyingTarget.type.isLibrary:
                 guard case let .clang(target)? = targetMap[dependency] else {
                     fatalError("unexpected clang target \(underlyingTarget)")
                 }

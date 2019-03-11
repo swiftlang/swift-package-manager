@@ -401,7 +401,7 @@ func xcodeProject(
         }
 
         // Warn if the target name is invalid.
-        if target.type == .library && invalidXcodeModuleNames.contains(target.c99name) {
+        if target.type.isLibrary && invalidXcodeModuleNames.contains(target.c99name) {
             warningStream <<< ("warning: Target '\(target.name)' conflicts with required framework filenames, rename " +
                 "this target to avoid conflicts.\n")
             warningStream.flush()
@@ -462,7 +462,7 @@ func xcodeProject(
             // Note that this means that the built binaries are not suitable for
             // distribution, among other things.
             targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["$(inherited)", "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"]
-            if target.type == .library {
+            if target.type.isLibrary {
                 targetSettings.common.ENABLE_TESTABILITY = "YES"
                 targetSettings.common.PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)"
                 targetSettings.common.PRODUCT_MODULE_NAME = "$(TARGET_NAME:c99extidentifier)"
@@ -563,7 +563,7 @@ func xcodeProject(
 
         // Add the `include` group for a libary C language target.
         if case let clangTarget as ClangTarget = target.underlyingTarget,
-            clangTarget.type == .library,
+            clangTarget.type.isLibrary,
             fileSystem.isDirectory(clangTarget.includeDir) {
             let includeDir = clangTarget.includeDir
             let includeGroup = makeGroup(for: includeDir)
@@ -660,7 +660,7 @@ func xcodeProject(
             xcodeTarget.addDependency(on: otherTarget)
 
             // If it's a library, we also add want to link against its product.
-            if dependency.type == .library {
+            if dependency.type.isLibrary {
                 _ = linkPhase.addBuildFile(fileRef: otherTarget.productReference!)
             }
             // For swift targets, if a clang dependency has a modulemap, add it via -fmodule-map-file.

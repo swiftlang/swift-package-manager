@@ -11,12 +11,53 @@
 import Basic
 
 public class Target: ObjectIdentifierProtocol {
+
+    /// The type of library.
+    public enum LibraryType: String, Codable {
+
+        /// Static library.
+        case `static`
+
+        /// Dynamic library.
+        case `dynamic`
+
+        /// The type of library is unspecified and should be decided by package manager.
+        case automatic
+    }
+
     /// The target kind.
-    public enum Kind: String {
+    public enum Kind: Equatable {
         case executable
-        case library
-        case systemModule = "system-target"
+        case library(LibraryType)
+        case systemModule
         case test
+        public var rawValue: String {
+            switch self {
+            case .executable:
+                return "executable"
+            case .test:
+                return "test"
+            case .library(let type):
+                switch type {
+                case .automatic:
+                    return "automatic"
+                case .dynamic:
+                    return "dynamic"
+                case .static:
+                    return "static"
+                }
+            case .systemModule:
+                return "system-target"
+            }
+        }
+        public var isLibrary: Bool {
+            switch self {
+            case.library:
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     /// The name of the target.
@@ -237,6 +278,6 @@ extension Sources {
             // Look for a main.xxx file avoiding cases like main.xxx.xxx
             return file.hasPrefix("main.") && String(file.filter({$0 == "."})).count == 1
         }
-        return isLibrary ? .library : .executable
+        return isLibrary ? .library(.automatic) : .executable
     }
 }

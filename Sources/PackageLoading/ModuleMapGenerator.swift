@@ -84,7 +84,7 @@ public struct ModuleMapGenerator {
     /// Create the synthesized modulemap, if necessary.
     /// Note: modulemap is not generated for test targets.
     public mutating func generateModuleMap(inDir wd: AbsolutePath) throws {
-        assert(target.type == .library)
+        assert(target.type.isLibrary)
 
         // Return if modulemap is already present.
         guard !fileSystem.isFile(target.moduleMapPath) else {

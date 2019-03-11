@@ -39,6 +39,8 @@ extension ResolvedTarget {
         switch type {
         case .test:
             return "com.apple.product-type.bundle.unit-test"
+        case .library(.static):
+            return "com.apple.product-type.library.static"
         case .library:
             return "com.apple.product-type.framework"
         case .executable:

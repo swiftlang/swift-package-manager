@@ -1064,7 +1064,7 @@ public final class PackageBuilder {
 
         // Create a special REPL product that contains all the library targets.
         if createREPLProduct {
-            let libraryTargets = targets.filter({ $0.type == .library })
+            let libraryTargets = targets.filter({ $0.type.isLibrary })
             if libraryTargets.isEmpty {
                 diagnostics.emit(
                     data: PackageBuilderDiagnostics.ZeroLibraryProducts(),
