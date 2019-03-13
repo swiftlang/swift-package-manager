@@ -58,44 +58,45 @@ public func transitiveClosure<T>(
 public func topologicalSort<T: Hashable>(
     _ nodes: [T], successors: (T) throws -> [T]
 ) throws -> [T] {
-    // Implements a topological sort via recursion and reverse postorder DFS.
-    func visit(_ node: T,
-               _ stack: inout OrderedSet<T>, _ visited: inout Set<T>, _ result: inout [T],
-               _ successors: (T) throws -> [T]) throws {
-        // Mark this node as visited -- we are done if it already was.
-        if !visited.insert(node).inserted {
-            return
-        }
-
-        // Otherwise, visit each adjacent node.
-        for succ in try successors(node) {
-            guard stack.append(succ) else {
-                // If the successor is already in this current stack, we have found a cycle.
-                //
-                // FIXME: We could easily include information on the cycle we found here.
-                throw GraphError.unexpectedCycle
-            }
-            try visit(succ, &stack, &visited, &result, successors)
-            let popped = stack.removeLast()
-            assert(popped == succ)
-        }
-
-        // Add to the result.
-        result.append(node)
-    }
-
-    // FIXME: This should use a stack not recursion.
-    var visited = Set<T>()
-    var result = [T]()
-    var stack = OrderedSet<T>()
+    // Stack represented as stackframes consisting from node-successors key-value pairs that
+    // are being traversed.
+    var stack: OrderedDictionary<T, ArraySlice<T>> = [:]
+    // A set of already visited.
+    var visited: Set<T> = []
+    var result: [T] = []
+    
+    // Implements a topological sort via iteration and reverse postorder DFS.
     for node in nodes {
-        precondition(stack.isEmpty)
-        stack.append(node)
-        try visit(node, &stack, &visited, &result, successors)
-        let popped = stack.removeLast()
-        assert(popped == node)
+        stack[node] = try successors(node).dropFirst(0)
+        visited.insert(node)
+        
+        // Peek the top of the stack
+        while let (node, children) = stack.last {
+            // Take the next successor for the given node.
+            if let succ = children.first {
+                // Drop the first successor from the children list and update the stack frame
+                stack[node] = children.dropFirst()
+                
+                if let _ = stack[succ] {
+                    // If the successor is already in this current stack, we have found a cycle.
+                    //
+                    // FIXME: We could easily include information on the cycle we found here.
+                    throw GraphError.unexpectedCycle
+                }
+                // Mark this node as visited -- we are done if it already was.
+                guard visited.insert(succ).inserted else { continue }
+                // Push it to the top of the stack
+                stack[succ] = try successors(succ).dropFirst(0)
+            } else {
+                // Pop the node from the stack if all successors traversed.
+                stack.removeValue(forKey: node)
+                // Add to the result.
+                result.append(node)
+            }
+        }
     }
-
+    // Make sure we popped all of the stack frames.
+    assert(stack.isEmpty)
     return result.reversed()
 }
 
