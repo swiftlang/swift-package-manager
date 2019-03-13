@@ -35,6 +35,7 @@ import codecs
 import copy
 import errno
 import json
+import multiprocessing
 import os
 import pipes
 import platform
@@ -45,6 +46,27 @@ import shutil
 import subprocess
 import sys
 import tempfile
+
+kTargetTriple = {
+    'Darwin': {
+        'x86_64': 'x86_64-apple-macosx10.10',
+    },
+    'Linux': {
+        'aarch64': 'aarch64-unknown-linux-gnu',
+        # TODO(compnerd) support soft float
+        'armv7': 'armv7-unknown-linux-gnueabihf',
+        'i686': 'i686-unknown-linux-gnu',
+        'ppc64le': 'powerpc64le-unknown-linux-gnu',
+        's390x': 's390x-unknown-linux-gnu',
+        'x86_64': 'x86_64-unknown-linux-gnu',
+    },
+    'Windows': {
+        'ARM64': 'aarch64-unknown-windows-msvc',
+        'ARM': 'thumbv7-unknown-windows-msvc',
+        'X86': 'i686-unknown-windows-msvc',
+        'AMD64': 'x86_64-unknown-windows-msvc',
+    }
+}
 
 def note(message):
     print("--- %s: note: %s" % (os.path.basename(sys.argv[0]), message))
@@ -117,7 +139,7 @@ def get_current_sha(project_root):
     except:
         return None
 
-g_num_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
+g_num_cpus = multiprocessing.cpu_count()
 g_default_sysroot = None
 if platform.system() == 'Darwin':
     g_platform_path = subprocess.check_output(
@@ -127,11 +149,12 @@ if platform.system() == 'Darwin':
         ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
         universal_newlines=True).strip()
 
-if platform.system() == 'Linux':
-    g_shared_lib_ext = ".so"
-else:
+elif platform.system() == 'Darwin':
     g_shared_lib_ext = ".dylib"
-
+elif platform.system() == 'Windows':
+    g_shared_lib_ext = ".dll"
+else:
+    g_shared_lib_ext = ".so"
 
 # Represents a target definition extracted from the SwiftPM package manifest.
 class Target(object):
@@ -220,8 +243,7 @@ class Target(object):
         else:
             other_args.extend(["-Onone", "-g"])
         other_args.extend(['-j%d' % g_num_cpus] + self.swiftflags)
-        if platform.system() == 'Darwin':
-            other_args.extend(["-target", "x86_64-apple-macosx10.10"])
+        other_args.extend(["-target", kTargetTriple[platform.system()][platform.machine()]])
         if args.sysroot:
             other_args.extend(["-sdk", args.sysroot])
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
@@ -261,6 +283,12 @@ class Target(object):
             import_paths.append(os.path.join(args.libdispatch_build_dir, "src", "swift"))
         if args.libdispatch_source_dir:
             import_paths.append(args.libdispatch_source_dir)
+            if platform.system() == 'Darwin':
+                other_args.extend(["-Xcc", "-DDEPLOYMENT_TARGET_MACOSX"])
+            elif platform.system() == 'Linux':
+                other_args.extend(["-Xcc", "-DDEPLOYMENT_TARGET_LINUX"])
+            elif platform.system() == 'Windows':
+                other_args.extend(["-Xcc", "-DDEPLOYMENT_TARGET_WINDOWS"])
         if args.xctest_path:
             import_paths.append(args.xctest_path)
 
@@ -285,12 +313,9 @@ class Target(object):
                                      link_input_nodes, predecessor_node):
 
         common_args = ["-fobjc-arc", "-fmodule-name=%s" % self.module_name()]
-        if platform.system() == 'Darwin':
-            common_args.extend(["-arch", "x86_64", "-mmacosx-version-min=10.10"])
-
+        common_args.extend(["-target", kTargetTriple[platform.system()][platform.machine()]])
         if args.sysroot:
             common_args.extend(["-isysroot", args.sysroot])
-
         common_args.extend(["-g", "-O0", "-MD", "-MT", "dependencies", "-MF"])
 
         for source in self.sources:
@@ -354,9 +379,8 @@ def parse_manifest():
         re.DOTALL | re.MULTILINE)
 
     # Load the manifest as a string (we always assume UTF-8 encoding).
-    manifest_data = codecs.open(os.path.join(g_project_root,
-                                "Package.swift"), encoding='utf-8',
-                                errors='strict').read()
+    manifest_data = codecs.open(os.path.join(g_project_root, "Package.swift"),
+                                encoding='utf-8', errors='strict').read()
 
     # Extract the target definitions.
     def make_target(match):
@@ -550,10 +574,9 @@ class llbuild(object):
     
                 link_command = [self.args.swiftc_path,
                                 '-o', link_output_path]
+                link_command.extend(["-target", kTargetTriple[platform.system()][platform.machine()]])
                 if self.args.sysroot:
                     link_command.extend(["-sdk", self.args.sysroot])
-                if platform.system() == 'Darwin':
-                    link_command.extend(["-target", "x86_64-apple-macosx10.10"])
                 link_command.extend(objects)
                 for dependency in target.dependencies:
                     dep_target = self.target_map[dependency]
@@ -563,18 +586,21 @@ class llbuild(object):
                 if platform.system() == 'Darwin':
                     link_command.extend(["-Xlinker", "-all_load"])
                     link_command.extend(["-Xlinker", "-rpath", "-Xlinker", self.args.swift_stdlib_path])
+                elif platform.system() == 'Linux':
+                    link_command.extend(["-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../lib/swift/linux"])
+                elif platform.system() == 'Windows':
+                    link_command.extend([])
 
                 for lib in target.extra_libs:
-                    link_command.extend(["-Xlinker", "-l%s" % (lib,)])
-                if platform.system() == 'Linux':
-                    link_command.extend(
-                        ["-Xlinker", "-rpath=$ORIGIN/../lib/swift/linux"])
+                    link_command.extend(["-l{}".format(lib)])
                 if self.args.foundation_path:
-                    link_command.extend(["-L", self.args.foundation_path])
+                    link_command.extend(["-L{}".format(self.args.foundation_path)])
                 if self.args.libdispatch_build_dir:
-                    link_command.extend(['-L', self.args.libdispatch_build_dir,
-                                         '-Xlinker', '-lBlocksRuntime'])
-                    link_command.extend(["-L", os.path.join(self.args.libdispatch_build_dir, "src")])
+                    link_command.extend(['-L{}'.format(self.args.libdispatch_build_dir),
+                                         '-lBlocksRuntime'])
+                    link_command.extend(["-L{}".format(os.path.join(self.args.libdispatch_build_dir, "src"))])
+                if self.args.sqlite_build_dir:
+                    link_command.extend(["-L{}".format(self.args.sqlite_build_dir)])
 
                 # Add llbuild link flags.
                 link_command.extend(llbuild_link_args(self.args))
@@ -652,27 +678,30 @@ def process_runtime_libraries(build, args, lib_path):
     runtime_swiftdoc_path = os.path.join(
         lib_path, "PackageDescription.swiftdoc")
 
-    cmd = ["rsync", "-a", module_input_path, runtime_module_path]
-    subprocess.check_call(cmd)
-    cmd = ["rsync", "-a", swiftdoc_input_path, runtime_swiftdoc_path]
-    subprocess.check_call(cmd)
+    shutil.copyfile(module_input_path, runtime_module_path)
+    shutil.copyfile(swiftdoc_input_path, runtime_swiftdoc_path)
 
     if platform.system() == 'Darwin':
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.dylib")
-        cmd = [args.swiftc_path, "-Xlinker", "-dylib", "-o",
-               runtime_lib_path,
-               "-Xlinker", "-all_load",
-               input_lib_path,
-               "-target", "x86_64-apple-macosx10.10"]
-    else:
+        cmd = [args.swiftc_path, "-target", kTargetTriple[platform.system()][platform.machine()],
+               "-emit-library", "-o", runtime_lib_path,
+               "-Xlinker", "-all_load", input_lib_path,]
+    elif platform.system() == 'Linux':
         # We include an RPATH entry so that the Swift libraries can be found
         # relative to where it will be installed (in 'lib/swift/pm/<version>/...').
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.so")
-        cmd = [args.swiftc_path, "-emit-library", "-o", runtime_lib_path,
+        cmd = [args.swiftc_path, "-target", kTargetTriple[platform.system()][platform.machine()],
+               "-emit-library", "-o", runtime_lib_path,
                "-Xlinker", "--whole-archive",
                "-Xlinker", input_lib_path,
-               "-Xlinker", "--no-whole-archive", "-lswiftGlibc",
+               "-Xlinker", "--no-whole-archive",
+               "-lswiftGlibc",
                "-Xlinker", "-rpath=$ORIGIN/../../linux"]
+    elif platform.system() == 'Windows':
+        runtime_lib_path = os.path.join(lib_path, "PackageDescription.dll")
+        cmd = [args.swiftc_path, "-target", kTargetTriple[platform.system()][platform.machine()],
+               "-emit-library", "-o", runtime_lib_path,
+               "-Xlinker", input_lib_path]
 
         # We need to pass one swift file here to bypass the "no input files"
         # error.
@@ -681,6 +710,17 @@ def process_runtime_libraries(build, args, lib_path):
 
     subprocess.check_call(cmd)
     return (runtime_module_path, runtime_swiftdoc_path, runtime_lib_path)
+
+
+def locate(name):
+    try:
+        if platform.system() == 'Windows':
+            return subprocess.check_output(["where", name]).strip()
+        else:
+            return subprocess.check_output(["which", name],
+                                           univeral_newlines=True).strip()
+    except:
+        return None
 
 
 def get_swift_build_tool_path():
@@ -712,11 +752,9 @@ def get_swift_build_tool_path():
             pass
     else:
         # Otherwise, search for it in PATH.
-        try:
-            return subprocess.check_output(["which", "swift-build-tool"],
-                                           universal_newlines=True).strip()
-        except:
-            pass
+        path = locate("swift-build-tool")
+
+    if path: return path
 
     # If all else failed, report an error.
     error("unable to find 'swift-build-tool' tool for bootstrap build")
@@ -739,10 +777,14 @@ def get_swiftc_path():
             return subprocess.check_output(["xcrun", "--find", "swiftc"],
                 stderr=subprocess.PIPE, universal_newlines=True).strip()
         else:
-            return subprocess.check_output(["which", "swiftc"],
-            universal_newlines=True).strip()
+            path = locate("swiftc")
     except:
-        error("unable to find 'swiftc' tool for bootstrap build")
+        pass
+
+    if path: return path
+
+    # If all else failed, report an error.
+    error("unable to find 'swiftc' tool for bootstrap build")
 
 def delete_rpath(rpath, binary, allowFailing=False):
     if platform.system() == 'Darwin':
@@ -770,13 +812,9 @@ def add_rpath(rpath, binary):
 #
 # This method removes the hardcoded stdlib path from the binary.
 def installBinary(binary_path, install_path, args, add_rpaths=[], delete_rpaths=[]):
+    note("installing %s: %s" % (os.path.basename(binary_path), ' '.join(cmd)))
     mkdir_p(install_path)
-    cmd = ["rsync", "-a", binary_path, install_path]
-    note("installing %s: %s" % (
-        os.path.basename(binary_path), ' '.join(cmd)))
-    result = subprocess.call(cmd)
-    if result != 0:
-        error("install failed with exit status %d" % (result,))
+    shutil.copy(binary_path, install_path)
 
     # Remove the hard-coded stdlib RPATHs that `swiftc` bakes in on
     # Darwin.
@@ -784,8 +822,7 @@ def installBinary(binary_path, install_path, args, add_rpaths=[], delete_rpaths=
     # FIXME: We need a way to control this, instead of having to rip it
     # out after the fact. https://bugs.swift.org/browse/SR-1967
     if platform.system() == 'Darwin':
-        installed_path = os.path.join(
-            install_path, os.path.basename(binary_path))
+        installed_path = os.path.join(install_path, os.path.basename(binary_path))
         delete_rpath(args.swift_stdlib_path, installed_path, True)
 
         # Remove additional RPATHs, if requested.
@@ -822,8 +859,9 @@ def llbuild_link_args(args):
     if args.llbuild_link_framework:
         build_flags.extend(["-Xlinker", "-F%s" % llbuild_libdir])
     else: 
-        build_flags.extend(["-Xlinker", "-L%s" % llbuild_libdir])
-    build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libdir])
+        build_flags.extend(["-L{}".format(llbuild_libdir)])
+    if not platform.system() == 'Windows':
+        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libdir])
     return build_flags
 
 def write_self_hosting_script(path, args):
@@ -839,6 +877,7 @@ def write_self_hosting_script(path, args):
     # Construct the string from the build flags.
     swiftpm_flags_str = ' '.join(('"%s"' % flag) for flag in swiftpm_flags)
 
+    # TODO(compnerd) make this python
     script_contents = """#!/usr/bin/env bash
 
 # Helper script for self-hosting SwiftPM tools.
@@ -886,7 +925,37 @@ def build_llbuild(args):
     cmake_cache_path = os.path.join(llbuild_build_dir, "CMakeCache.txt")
     if not os.path.isfile(cmake_cache_path) or not args.swiftc_path in open(cmake_cache_path).read():
         mkdir_p(llbuild_build_dir)
-        cmd = ["cmake", "-G", "Ninja", "-DCMAKE_BUILD_TYPE:=Debug", "-DCMAKE_C_COMPILER:=clang", "-DCMAKE_CXX_COMPILER:=clang++", "-DLLBUILD_SUPPORT_BINDINGS:=Swift", "-DSWIFTC_EXECUTABLE:=%s" % (args.swiftc_path), llbuild_source_dir]
+
+        if platform.system() == 'Windows':
+            # FIXME(compnerd) make llbuild build with clang-cl - this currently
+            # is broken for cross-compiling from Linux to Windows, but, the rest
+            # of this script is not setup for cross-compilation either.
+            CC = 'cl'
+            CXX = 'cl'
+        else:
+            # NOTE(compnerd) ideally, we should use the Unix command 'cc' which
+            # would allow users to use the C compiler of their choice
+            CC = os.environ.get('CC', 'clang')
+            # NOTE(compnerd) ideally, we would use the Unix command 'c++' which
+            # would allow users to use the C++ compiler of their choice
+            CXX = os.environ.get('CXX', 'clang++')
+
+        cmd = ["cmake", "-G", "Ninja",
+               # TODO(compnerd) allow building in Release mode
+               "-DCMAKE_BUILD_TYPE=Debug",
+               "-DCMAKE_C_COMPILER={}".format(CC),
+               "-DCMAKE_CXX_COMPILER={}".format(CXX),
+               "-DLLBUILD_SUPPORT_BINDINGS=Swift",
+               "-DSWIFTC_EXECUTABLE={}".format(args.swiftc_path)]
+        if args.foundation_path:
+            cmd.extend(["-DFOUNDATION_BUILD_DIR={}".format(args.foundation_path),])
+        if args.libdispatch_build_dir and args.libdispatch_source_dir:
+            cmd.extend(["-DLIBDISPATCH_SOURCE_DIR={}".format(args.libdispatch_source_dir),
+                        "-DLIBDISPATCH_BUILD_DIR={}".format(args.libdispatch_build_dir),])
+        if args.sqlite_build_dir and args.sqlite_source_dir:
+            cmd.extend(["-DLLBUILD_PATH_TO_SQLITE_SOURCE={}".format(args.sqlite_source_dir),
+                        "-DLLBUILD_PATH_TO_SQLITE_BUILD={}".format(args.sqlite_build_dir),])
+        cmd.extend([llbuild_source_dir])
         subprocess.check_call(cmd, cwd=llbuild_build_dir)
 
     # Build.
@@ -967,6 +1036,10 @@ def main():
                         help="Skip installing C headers in libSwiftPM install directory")
     parser.add_argument("--stdlib-rpath", dest="stdlib_rpath",
                         help="The rpath of swift standard libraries relative to the executables")
+    parser.add_argument("--sqlite-build-dir", dest="sqlite_build_dir",
+                        help="Path to sqlite build directory")
+    parser.add_argument("--sqlite-source-dir", dest="sqlite_source_dir",
+                        help="Path to sqlite source directory")
     args = parser.parse_args()
 
     if not args.swiftc_path:
@@ -1004,25 +1077,9 @@ def main():
             raise SystemExit("unknown build action: %r" % (action,))
 
     # Compute the build paths.
-    if platform.system() == 'Darwin':
-        build_target = "x86_64-apple-macosx"
-    elif platform.system() == 'Linux':              
-        if platform.machine() == 'x86_64':
-            build_target = "x86_64-unknown-linux"
-        elif platform.machine() == "i686":
-            build_target = "i686-unknown-linux"
-        elif platform.machine() == 's390x':
-            build_target = "s390x-unknown-linux"
-        elif platform.machine() == 'ppc64le':
-            build_target = 'powerpc64le-unknown-linux'
-        elif platform.machine().startswith("armv7"):
-            build_target = 'armv7-unknown-linux-gnueabihf'
-        elif platform.machine() == 'aarch64':
-            build_target = 'aarch64-unknown-linux'
-        else:
-            raise SystemExit("ERROR: unsupported machine:",platform.machine())
-    else:
-        raise SystemExit("ERROR: unsupported system:",platform.system())
+    build_target = kTargetTriple.get(platform.system(), {}).get(platform.machine(), None)
+    if not build_target:
+        raise SystemExit("ERROR: unsupported system/machine:", platform.system(), platform.machine())
 
     build_path = os.path.join(g_project_root, args.build_path)
     sandbox_path = os.path.join(build_path, ".bootstrap")
@@ -1037,17 +1094,12 @@ def main():
     
     # If the action is "clean", just remove the bootstrap and build directories.
     if "clean" in build_actions:
-        cmd = ["rm", "-rf", sandbox_path]
-        note("cleaning stage1: %s" % (' '.join(cmd),))
-        result = subprocess.call(cmd)
-        if result != 0:
-            error("build failed with exit status %d" % (result,))
+        note("cleaning stage1")
+        shutil.rmtree(sandbox_path, ignore_errors=True)
 
-        cmd = ["rm", "-rf", build_path]
-        note("cleaning self-hosted: %s" % (' '.join(cmd),))
-        result = subprocess.call(cmd)
-        if result != 0:
-            error("build failed with exit status %d" % (result,))
+        note("cleaning self-hosted")
+        shutil.rmtree(build_path, ignore_errors=True)
+
         raise SystemExit(0)
 
     # All other actions build.
@@ -1056,8 +1108,7 @@ def main():
     mkdir_p(sandbox_path)
 
     # Determine the swift-build-tool to use.
-    args.sbt_path = os.path.abspath(
-        args.sbt_path or get_swift_build_tool_path())
+    args.sbt_path = os.path.abspath(args.sbt_path or get_swift_build_tool_path())
 
     # Build runtime libraries.
     built_runtimes = build_runtimes(targets, sandbox_path, args)
@@ -1133,6 +1184,7 @@ def main():
         mkdir_p(usrdir)
         symlink_force(os.path.join(sandbox_path, "lib"), usrdir)
 
+        # FIXME(compnerd) why is this assuming Linux?
         if args.foundation_path and args.libdispatch_build_dir and args.xctest_path:
             libswiftdir = os.path.join(sandbox_path, "lib", "swift", "linux")
             libincludedir = os.path.join(libswiftdir, "x86_64")
@@ -1183,13 +1235,17 @@ def main():
     # We need to embed an RPATH so swift-{build,test} can find the core
     # libraries.
     if args.stdlib_rpath:
+        assert(not platform.system() == 'Windows')
         embed_rpath = args.stdlib_rpath
     else:
-        if platform.system() == 'Linux':
-            embed_rpath = "$ORIGIN/../lib/swift/linux"
-        else:
+        if platform.system() == 'Darwin':
             embed_rpath = "@executable_path/../lib/swift/macosx"
-    build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
+        elif platform.system() == 'Linux':
+            embed_rpath = "$ORIGIN/../lib/swift/linux"
+        elif platform.system() == 'Windows':
+            pass
+    if platform.system() == 'Darwin' or platform.system() == 'Linux':
+        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
     if args.verbose:
         build_flags.append("-v")
 
@@ -1206,8 +1262,20 @@ def main():
         # Pass -I for underlying Dispatch module.
         build_flags.extend(["-Xswiftc", "-I{}".format(os.path.join(faketoolchain_includedir, "dispatch"))])
 
+        # Pass the correct deployment target
+        if platform.system() == 'Darwin':
+            build_flags.extend(['-Xcc', '-DDEPLOYMENT_TARGET_MACOSX'])
+        elif platform.system() == 'Linux':
+            build_flags.extend(['-Xcc', '-DDEPLOYMENT_TARGET_LINUX'])
+        elif platform.system() == 'Windows':
+            build_flags.extend(['-Xcc', '-DDEPLOYMENT_TARGET_WINDOWS'])
+        elif platform.system() == 'FreeBSD':
+            build_flags.extend(['-Xcc', '-DDEPLOYMENT_TARGET_FREEBSD'])
+        else:
+            error("unknown platform")
+
         # Library search path.
-        build_flags.extend(["-Xlinker", "-L{}".format(faketoolchain_libdir)])
+        build_flags.extend(["-L{}".format(faketoolchain_libdir)])
 
         # Add an RPATH, so that the tests can be run directly.
         build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", faketoolchain_libdir])
@@ -1220,13 +1288,18 @@ def main():
 
     # Embed rpath to find llbuild library or framework at runtime.
     if args.llbuild_link_framework:
+        assert(not platform.system() == 'Windows')
         llbuild_libs_rpath = "@executable_path/../../../../../SharedFrameworks"
     else:
         if platform.system() == 'Darwin':
             llbuild_libs_rpath = "@executable_path/../lib/swift/pm/llbuild"
+        elif platform.system() == 'Windows':
+            pass
         else:
             llbuild_libs_rpath = "$ORIGIN/../lib/swift/pm/llbuild"
-    build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libs_rpath])
+
+    if not platform.system() == 'Windows':
+        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libs_rpath])
 
     # Add llbuild link flags.
     build_flags.extend(llbuild_link_args(args))
@@ -1245,6 +1318,8 @@ def main():
     if args.sysroot:
         if platform.system() == 'Darwin':
             env_cmd.append("SDKROOT=" + args.sysroot)
+        elif platform.system() == 'Windows':
+            pass
         else:
             env_cmd.append("SYSROOT=" + args.sysroot)
     cmd = env_cmd + [bootstrapped_product] + build_flags
@@ -1252,8 +1327,7 @@ def main():
     # Always build tests in stage2.
     cmd.extend(["--build-tests"])
 
-    note("building self-hosted 'swift-build': %s" % (
-        ' '.join(cmd),))
+    note("building self-hosted 'swift-build': %s" % (' '.join(cmd),))
     result = subprocess.call(cmd, cwd=g_project_root)
     if result != 0:
         error("build failed with exit status %d" % (result,))
@@ -1325,6 +1399,7 @@ def main():
                 installBinary(runtime_lib_path, install_path, args)
 
                 # Install module.
+                # TODO(compnerd) avoid install here
                 cmd = ["install", "-m", "0644",
                        runtime_module_path, install_path]
                 note("installing %s: %s" % (
@@ -1334,6 +1409,7 @@ def main():
                     error("module install failed with exit status %d" % (result,))
 
                 # Install swiftdoc.
+                # TODO(compnerd) avoid install here
                 cmd = ["install", "-m", "0644",
                        runtime_swiftdoc_path, install_path]
                 note("installing %s: %s" % (
