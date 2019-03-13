@@ -114,34 +114,41 @@ public func findCycle<T: Hashable>(
     _ nodes: [T],
     successors: (T) throws -> [T]
 ) rethrows -> (path: [T], cycle: [T])? {
-    // Ordered set to hold the current traversed path.
-    var path = OrderedSet<T>()
-
-    // Function to visit nodes recursively.
-    // FIXME: Convert to stack.
-    func visit(_ node: T, _ successors: (T) throws -> [T]) rethrows -> (path: [T], cycle: [T])? {
-        // If this node is already in the current path then we have found a cycle.
-        if !path.append(node) {
-            let index = path.firstIndex(of: node)!
-            return (Array(path[path.startIndex..<index]), Array(path[index..<path.endIndex]))
-        }
-
-        for succ in try successors(node) {
-            if let cycle = try visit(succ, successors) {
-                return cycle
+    // Stack represented as stackframes consisting from node-successors key-value pairs that
+    // are being traversed.
+    var stack: OrderedDictionary<T, ArraySlice<T>> = [:]
+    // A set of already visited
+    var visited: Set<T> = []
+    
+    // Implements a topological sort via iteration and reverse postorder DFS.
+    for node in nodes {
+        stack[node] = try successors(node).dropFirst(0)
+        visited.insert(node)
+        
+        // Peek the top of the stack
+        while let (node, children) = stack.last {
+            // Take the next successor for the given node.
+            if let succ = children.first {
+                // Drop the first successor from the children list and update the stack frame
+                stack[node] = children.dropFirst()
+                
+                if let _ = stack[succ] {
+                    let index = stack.firstIndex { $0.key == succ }!
+                    return (
+                        Array(stack[stack.startIndex..<index]).map { $0.key },
+                        Array(stack[index..<stack.endIndex]).map { $0.key })
+                }
+                // Mark this node as visited -- we are done if it already was.
+                guard visited.insert(succ).inserted else { continue }
+                // Push it to the top of the stack
+                stack[succ] = try successors(succ).dropFirst(0)
+            } else {
+                // Pop the node from the stack if all successors traversed.
+                stack.removeValue(forKey: node)
             }
         }
-        // No cycle found for this node, remove it from the path.
-        let item = path.removeLast()
-        assert(item == node)
-        return nil
     }
-
-    for node in nodes {
-        if let cycle = try visit(node, successors) {
-            return cycle
-        }
-    }
-    // Couldn't find any cycle in the graph.
+    // Make sure we popped all of the stack frames.
+    assert(stack.isEmpty)
     return nil
 }
