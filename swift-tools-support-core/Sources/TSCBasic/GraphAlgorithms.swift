@@ -67,8 +67,8 @@ public func topologicalSort<T: Hashable>(
     
     // Implements a topological sort via iteration and reverse postorder DFS.
     for node in nodes {
+        guard visited.insert(node).inserted else { continue }
         stack[node] = try successors(node).dropFirst(0)
-        visited.insert(node)
         
         // Peek the top of the stack
         while let (node, children) = stack.last {
@@ -120,10 +120,9 @@ public func findCycle<T: Hashable>(
     // A set of already visited
     var visited: Set<T> = []
     
-    // Implements a topological sort via iteration and reverse postorder DFS.
     for node in nodes {
+        guard visited.insert(node).inserted else { continue }
         stack[node] = try successors(node).dropFirst(0)
-        visited.insert(node)
         
         // Peek the top of the stack
         while let (node, children) = stack.last {
@@ -150,5 +149,6 @@ public func findCycle<T: Hashable>(
     }
     // Make sure we popped all of the stack frames.
     assert(stack.isEmpty)
+    // Couldn't find any cycle in the graph.
     return nil
 }
