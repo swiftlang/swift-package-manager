@@ -10,8 +10,10 @@
 
 #if os(Linux)
 import Glibc
-#else
+#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
 import Darwin.C
+#elseif os(Windows)
+import ucrt
 #endif
 import Foundation
 
