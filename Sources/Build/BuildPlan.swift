@@ -149,10 +149,6 @@ public struct BuildParameters {
         return TerminalController.isTTY(stream)
     }()
 
-    public var regenerateManifestToken: AbsolutePath {
-        return dataPath.appending(components: "..", "regenerate-token")
-    }
-
     public var llbuildManifest: AbsolutePath {
         return dataPath.appending(components: "..", configuration.dirname + ".yaml")
     }
