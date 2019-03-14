@@ -154,7 +154,7 @@ public struct BuildParameters {
     }
 
     public var llbuildManifest: AbsolutePath {
-        return dataPath.appending(components: "..", configuration.dirname + ".yaml")
+        return dataPath.appending(components: "..", configuration.dirname + "-" + triple.tripleString + ".yaml")
     }
 
     public init(
