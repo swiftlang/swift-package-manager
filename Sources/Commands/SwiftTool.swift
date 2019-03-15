@@ -615,7 +615,7 @@ public class SwiftTool<Options: ToolOptions> {
         let yaml = plan.buildParameters.llbuildManifest
         // Generate the llbuild manifest.
         let client = options.shouldEnableLLBuildLibrary ? "basic" : "swift-build"
-        let llbuild = LLBuildManifestGenerator(plan, client: client, resolvedFile: try resolvedFilePath())
+        let llbuild = LLBuildManifestGenerator(plan, client: client)
         try llbuild.generateManifest(at: yaml)
 
         // Run llbuild.

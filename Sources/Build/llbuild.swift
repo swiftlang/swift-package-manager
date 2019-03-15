@@ -28,14 +28,10 @@ public struct LLBuildManifestGenerator {
     /// The manifest client name.
     public let client: String
 
-    /// Path to the resolved file.
-    let resolvedFile: AbsolutePath
-
     /// Create a new generator with a build plan.
-    public init(_ plan: BuildPlan, client: String, resolvedFile: AbsolutePath) {
+    public init(_ plan: BuildPlan, client: String) {
         self.plan = plan
         self.client = client
-        self.resolvedFile = resolvedFile
     }
 
     /// A structure for targets in the manifest.
