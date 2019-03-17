@@ -270,7 +270,7 @@ public func waitForFile(_ path: AbsolutePath) -> Bool {
     let endTime = NSDate().timeIntervalSince1970 + 2
     while NSDate().timeIntervalSince1970 < endTime {
         // Sleep for a bit so we don't burn a lot of CPU.
-        try? usleep(microSeconds: 10000)
+        Thread.sleep(for: .01)
         if localFileSystem.exists(path) {
             return true
         }
