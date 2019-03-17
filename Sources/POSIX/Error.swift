@@ -21,7 +21,6 @@ public enum SystemError: Swift.Error {
     case posix_spawn(Int32, [String])
     case read(Int32)
     case readdir(Int32, String)
-    case realpath(Int32, String)
     case rename(Int32, old: String, new: String)
     case rmdir(Int32, String)
     case setenv(Int32, String)
@@ -86,8 +85,6 @@ extension SystemError: CustomStringConvertible {
             return "read error: \(strerror(errno))"
         case .readdir(let errno, _):
             return "readdir error: \(strerror(errno))"
-        case .realpath(let errno, let path):
-            return "realpath error: \(strerror(errno)): \(path)"
         case .rename(let errno, let old, let new):
             return "rename error: \(strerror(errno)): \(old) -> \(new)"
         case .rmdir(let errno, let path):

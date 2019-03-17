@@ -78,7 +78,7 @@ public func isSymlink(_ path: AbsolutePath) -> Bool {
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     let pathStr = path.pathString
-    guard let resolvedPathStr = try? POSIX.realpath(pathStr) else { return path }
+    guard let resolvedPathStr = try? FileManager.default.destinationOfSymbolicLink(atPath: pathStr) else { return path }
     // FIXME: We should measure if it's really more efficient to compare the strings first.
     return (resolvedPathStr == pathStr) ? path : AbsolutePath(resolvedPathStr)
 }
