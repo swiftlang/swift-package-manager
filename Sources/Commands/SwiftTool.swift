@@ -391,7 +391,7 @@ public class SwiftTool<Options: ToolOptions> {
             if let packagePath = options.packagePath ?? options.chdir {
                 // FIXME: This should be an API which takes AbsolutePath and maybe
                 // should be moved to file system APIs with currentWorkingDirectory.
-                try POSIX.chdir(packagePath.pathString)
+                FileManager.default.changeCurrentDirectoryPath(packagePath.pathString)
             }
 
             let processSet = ProcessSet()
