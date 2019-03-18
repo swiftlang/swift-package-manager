@@ -242,31 +242,48 @@ public extension FileSystem {
 private class LocalFileSystem: FileSystem {
 
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
-        guard let filestat = try? POSIX.stat(path.pathString) else {
-            return false
-        }
-        return filestat.st_mode & SPMLibc.S_IXUSR != 0 && filestat.st_mode & S_IFREG != 0
+        return FileManager.default.isExecutableFile(atPath: path.pathString)
     }
 
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
-        return Basic.exists(path, followSymlink: followSymlink)
+        if followSymlink {
+            return FileManager.default.fileExists(atPath: path.pathString)
+        }
+
+        do {
+            _ = try FileManager.default.attributesOfItem(atPath: path.pathString)
+            return true
+        } catch {
+            return false
+        }
     }
 
     func isDirectory(_ path: AbsolutePath) -> Bool {
-        return Basic.isDirectory(path)
+        var isDirectory: ObjCBool = false
+        let exists: Bool = FileManager.default.fileExists(atPath: path.pathString, isDirectory: &isDirectory)
+        return exists && isDirectory.boolValue
     }
 
     func isFile(_ path: AbsolutePath) -> Bool {
-        return Basic.isFile(path)
+        var isDirectory: ObjCBool = false
+        let exists: Bool = FileManager.default.fileExists(atPath: path.pathString, isDirectory: &isDirectory)
+        return exists && !isDirectory.boolValue
     }
 
     func isSymlink(_ path: AbsolutePath) -> Bool {
-        return Basic.isSymlink(path)
+        do {
+            return try FileManager.default.attributesOfItem(atPath: path.pathString)[.type] as? FileAttributeType == .typeSymbolicLink
+        } catch {
+            return false
+        }
     }
 
     func getFileInfo(_ path: AbsolutePath, followSymlink: Bool = true) throws -> FileInfo {
-        let statBuf = try stat(path, followSymlink: followSymlink)
-        return FileInfo(statBuf)
+        var target = path.pathString
+        if followSymlink {
+            target = try FileManager.default.destinationOfSymbolicLink(atPath: path.pathString)
+        }
+        return FileInfo(attributes: try FileManager.default.attributesOfItem(atPath: target))
     }
 
     var currentWorkingDirectory: AbsolutePath? {
@@ -283,26 +300,9 @@ private class LocalFileSystem: FileSystem {
     }
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
-        // Try to create the directory.
-        let result = mkdir(path.pathString, SPMLibc.S_IRWXU | SPMLibc.S_IRWXG)
-
-        // If it succeeded, we are done.
-        if result == 0 { return }
-
-        // If the failure was because the directory exists, everything is ok.
-        if errno == EEXIST && isDirectory(path) { return }
-
-        // If it failed due to ENOENT (e.g., a missing parent), and we are
-        // recursive, then attempt to create the parent and retry.
-        if errno == ENOENT && recursive &&
-           path != path.parentDirectory /* FIXME: Need Path.isRoot */ {
-            // Attempt to create the parent.
-            try createDirectory(path.parentDirectory, recursive: true)
-
-            // Re-attempt creation, non-recursively.
-            try createDirectory(path, recursive: false)
-        } else {
-            // Otherwise, we failed due to some other error. Report it.
+        do {
+            try FileManager.default.createDirectory(atPath: path.pathString, withIntermediateDirectories: recursive)
+        } catch {
             throw FileSystemError(errno: errno)
         }
     }
