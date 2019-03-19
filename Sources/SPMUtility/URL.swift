@@ -30,7 +30,7 @@ public struct URL {
         }
 
         for delim in ["://", "@"] {
-            if let found = prefixOfSplitBy(delim) {
+            if let found = prefixOfSplitBy(delim), !found.contains("/") {
                 return found
             }
         }

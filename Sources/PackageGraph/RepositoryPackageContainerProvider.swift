@@ -220,7 +220,7 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
         currentToolsVersion: ToolsVersion,
         fs: FileSystem = localFileSystem
     ) {
-        assert(URL.scheme(identifier.path) == nil)
+        assert(URL.scheme(identifier.path) == nil, "unexpected scheme \(URL.scheme(identifier.path)!) in \(identifier.path)")
         self.fs = fs
         super.init(
             identifier,
