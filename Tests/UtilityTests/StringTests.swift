@@ -65,5 +65,6 @@ class URLTests: XCTestCase {
         XCTAssertEqual(SPMUtility.URL.scheme("ssh@github.com/foo/bar"), "ssh")
         XCTAssertNil(SPMUtility.URL.scheme("github.com/foo/bar"))
         XCTAssertNil(SPMUtility.URL.scheme("user:/github.com/foo/bar"))
+        XCTAssertNil(SPMUtility.URL.scheme("/path/to/something@2/hello"))
     }
 }
