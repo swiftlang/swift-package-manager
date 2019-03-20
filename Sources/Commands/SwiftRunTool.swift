@@ -185,14 +185,11 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
 
     /// Executes the executable at the specified path.
     private func run(_ excutablePath: AbsolutePath, arguments: [String]) throws {
-        // Make sure we are running from the original working directory.
-        let cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
-        if cwd == nil || originalWorkingDirectory != cwd {
-            FileManager.default.changeCurrentDirectoryPath(originalWorkingDirectory.pathString)
-        }
-
-        let pathRelativeToWorkingDirectory = excutablePath.relative(to: originalWorkingDirectory)
-        try exec(path: excutablePath.pathString, args: [pathRelativeToWorkingDirectory.pathString] + arguments)
+        var process: Process = Process()
+        process.executableURL = executablePath.pathString
+        process.args = [excutablePath.relative(to: originalWorkingDirectory).pathString + arguments]
+        process.currentDirectoryURL = originalWorkingDirectory.pathString
+        try process.run()
     }
 
     /// Determines if a path points to a valid swift file.

@@ -18,9 +18,13 @@ import Foundation
 ///   - path: Absolute path to the executable.
 ///   - args: The executable arguments.
 public func exec(path: String, args: [String]) throws {
-    let cArgs = CStringArray(args)
-    guard execv(path, cArgs.cArray) != -1 else {
-        throw POSIX.SystemError.exec(errno, path: path, args: args)
+    var process: Process = Process()
+    process.executableURL = path
+    process.arguments = args
+    do {
+        try process.run()
+    } catch let error as NSError {
+        throw POSIX.SystemError.exec(Int32(error.code), path: path, args: args)
     }
 }
 

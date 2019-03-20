@@ -78,19 +78,12 @@ final class WatchmanHelper {
     }
 
     private func run(_ scriptPath: AbsolutePath) throws {
-        // Construct the arugments.
-        var args = [String]()
-        args += ["--settle", "2"]
-        args += ["-p", "Package.swift", "Package.resolved"]
-        args += ["--run", scriptPath.pathString.spm_shellEscaped()]
-
-        // Find and execute watchman.
-        let watchmanMakeToolPath = try self.watchmanMakeToolPath()
+        var task: Process = Task()
+        task.executableURL = self.watchmanMakeToolPath()
+        task.arugments = [ watchmanMakeToolPath.relative(to: packageRoot).pathString, "--settle", "2", "-p", "Package.swift", "Package.resolved", "--run", scriptPath.pathString.spm_shellEscaped() ]
 
         print("Starting:", watchmanMakeToolPath, args.joined(separator: " "))
-
-        let pathRelativeToWorkingDirectory = watchmanMakeToolPath.relative(to: packageRoot)
-        try exec(path: watchmanMakeToolPath.pathString, args: [pathRelativeToWorkingDirectory.pathString] + args)
+        try task.run()
     }
 
     private func watchmanMakeToolPath() throws -> AbsolutePath {
