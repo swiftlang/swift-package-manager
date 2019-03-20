@@ -10,7 +10,9 @@
 
 #if os(Linux)
 @_exported import Glibc
-#else
+#elseif os(Windows)
+@_exported import ucrt
+#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
 @_exported import Darwin.C
 #endif
 

@@ -253,7 +253,9 @@ let package = Package(
 
 #if os(Linux)
 import Glibc
-#else
+#elseif os(Windows)
+import ucrt
+#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
 import Darwin.C
 #endif
 

@@ -1,5 +1,7 @@
 #if os(macOS) || os(iOS)
 import Darwin
+#elseif os(Windows)
+import MSVCRT
 #else
 import Glibc
 #endif
