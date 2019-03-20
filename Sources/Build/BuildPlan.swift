@@ -13,7 +13,6 @@ import SPMUtility
 import PackageModel
 import PackageGraph
 import PackageLoading
-import func POSIX.getenv
 
 public struct BuildParameters {
 
@@ -37,7 +36,7 @@ public struct BuildParameters {
         let base: AbsolutePath
         // FIXME: We use this hack to let swiftpm's functional test use shared
         // cache so it doesn't become painfully slow.
-        if getenv("IS_SWIFTPM_TEST") != nil {
+        if ProcessInfo.environment["IS_SWIFTPM_TEST"] != nil {
             base = BuildParameters.swiftpmTestCache
         } else {
             base = buildPath

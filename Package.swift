@@ -257,8 +257,8 @@ import Glibc
 import Darwin.C
 #endif
 
-if getenv("SWIFTPM_BOOTSTRAP") == nil {
-    if getenv("SWIFTCI_USE_LOCAL_DEPS") == nil {
+if ProcessInfo.environment["SWIFTPM_BOOTSTRAP"] == nil {
+    if ProcessInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
             .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
         ]
@@ -272,7 +272,7 @@ if getenv("SWIFTPM_BOOTSTRAP") == nil {
     package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += ["llbuildSwift"]
 }
 
-if getenv("SWIFTPM_BUILD_PACKAGE_EDITOR") != nil {
+if ProcessInfo.environment["SWIFTPM_BUILD_PACKAGE_EDITOR"] != nil {
     package.targets += [
         .target(name: "SPMPackageEditor", dependencies: ["Workspace", "SwiftSyntax"]),
         .target(name: "swiftpm-manifest-tool", dependencies: ["SPMPackageEditor"]),

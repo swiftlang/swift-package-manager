@@ -242,7 +242,7 @@ public func loadPackageGraph(
 /// - throws: errors thrown in `body`, POSIX.SystemError.setenv and
 ///           POSIX.SystemError.unsetenv
 public func withCustomEnv(_ env: [String: String], body: () throws -> Void) throws {
-    let state = Array(env.keys).map({ ($0, getenv($0)) })
+    let state = Array(env.keys).map({ ($0, ProcessInfo.environment[$0]) })
     let restore = {
         for (key, value) in state {
             if let value = value {

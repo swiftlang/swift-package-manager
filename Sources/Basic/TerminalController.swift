@@ -9,7 +9,6 @@
 */
 
 import SPMLibc
-import func POSIX.getenv
 
 /// A class to have better control on tty output streams: standard output and standard error.
 /// Allows operations like cursor movement and colored text output on tty.
@@ -20,7 +19,7 @@ public final class TerminalController {
         /// The terminal is a TTY.
         case tty
 
-        /// TERM enviornment variable is set to "dumb".
+        /// TERM environment variable is set to "dumb".
         case dumb
 
         /// The terminal is a file stream.
@@ -95,9 +94,7 @@ public final class TerminalController {
 
     /// Computes the terminal type of the stream.
     public static func terminalType(_ stream: LocalFileOutputByteStream) -> TerminalType {
-        if POSIX.getenv("TERM") == "dumb" {
-            return .dumb
-        }
+        if ProcessInfo.environment["TERM"] == "dumb" { return .dumb }
         let isTTY = isatty(fileno(stream.filePointer)) != 0
         return isTTY ? .tty : .file
     }
@@ -108,7 +105,7 @@ public final class TerminalController {
     /// - Returns: Current width of terminal if it was determinable.
     public static func terminalWidth() -> Int? {
         // Try to get from environment.
-        if let columns = POSIX.getenv("COLUMNS"), let width = Int(columns) {
+        if let columns = ProcessInfo.environment["COLUMNS"], let width = Int(columns) {}
             return width
         }
 

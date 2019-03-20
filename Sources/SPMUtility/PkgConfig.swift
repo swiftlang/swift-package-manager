@@ -10,7 +10,6 @@
 
 import Basic
 import Foundation
-import func POSIX.getenv
 
 public enum PkgConfigError: Swift.Error, CustomStringConvertible {
     case couldNotFindConfigFile
@@ -173,7 +172,7 @@ public struct PkgConfig {
     }
 
     private static var envSearchPaths: [AbsolutePath] {
-        if let configPath = POSIX.getenv("PKG_CONFIG_PATH") {
+        if let configPath = ProcessInfo.environment["PKG_CONFIG_PATH"] {
             return configPath.split(separator: ":").map({ AbsolutePath(String($0)) })
         }
         return []

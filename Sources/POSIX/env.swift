@@ -8,15 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func SPMLibc.getenv
 import func SPMLibc.setenv
 import func SPMLibc.unsetenv
 import var SPMLibc.errno
-
-public func getenv(_ key: String) -> String? {
-    let out = SPMLibc.getenv(key)
-    return out == nil ? nil : String(validatingUTF8: out!)  //FIXME locale may not be UTF8
-}
 
 public func setenv(_ key: String, value: String) throws {
     guard SPMLibc.setenv(key, value, 1) == 0 else {

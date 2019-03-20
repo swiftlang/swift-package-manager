@@ -19,36 +19,36 @@ class EnvTests: XCTestCase {
     }
 
     func testGet() throws {
-        XCTAssertNotNil(POSIX.getenv("PATH"))
+        XCTAssertNotNil(ProcessInfo.environment["PATH"])
     }
 
     func testSet() throws {
         let key = "XCTEST_TEST"
         let value = "TEST"
-        XCTAssertNil(POSIX.getenv(key))
+        XCTAssertNil(ProcessInfo.environment[key])
         try POSIX.setenv(key, value: value)
-        XCTAssertEqual(value, POSIX.getenv(key))
+        XCTAssertEqual(value, ProcessInfo.environment[key])
         try POSIX.unsetenv(key)
-        XCTAssertNil(POSIX.getenv(key))
+        XCTAssertNil(ProcessInfo.environment[key])
     }
 
     func testWithCustomEnv() throws {
         let key = "XCTEST_TEST"
         let value = "TEST"
-        XCTAssertNil(POSIX.getenv(key))
+        XCTAssertNil(ProcessInfo.environment[key])
         try withCustomEnv([key: value]) {
-            XCTAssertEqual(value, POSIX.getenv(key))
+            XCTAssertEqual(value, ProcessInfo.environment[key])
         }
-        XCTAssertNil(POSIX.getenv(key))
+        XCTAssertNil(ProcessInfo.environment[key])
         do {
             try withCustomEnv([key: value]) {
-                XCTAssertEqual(value, POSIX.getenv(key))
+                XCTAssertEqual(value, ProcessInfo.environment[key])
                 throw CustomEnvError.someError
             }
         } catch CustomEnvError.someError {
         } catch {
             XCTFail("Incorrect error thrown")
         }
-        XCTAssertNil(POSIX.getenv(key))
+        XCTAssertNil(ProcessInfo.environment[key])
     }
 }
