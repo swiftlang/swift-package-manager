@@ -21,11 +21,7 @@ public func exec(path: String, args: [String]) throws {
     var process: Process = Process()
     process.executableURL = path
     process.arguments = args
-    do {
-        try process.run()
-    } catch let error as NSError {
-        throw POSIX.SystemError.exec(Int32(error.code), path: path, args: args)
-    }
+    try process.run()
 }
 
 // MARK: Utility function for searching for executables

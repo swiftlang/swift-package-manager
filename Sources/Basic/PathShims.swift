@@ -39,15 +39,7 @@ public func makeDirectories(_ path: AbsolutePath) throws {
 /// be a relative path, otherwise it will be absolute.
 public func createSymlink(_ path: AbsolutePath, pointingAt dest: AbsolutePath, relative: Bool = true) throws {
     let destString = relative ? dest.relative(to: path.parentDirectory).pathString : dest.pathString
-    do {
-        try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString.pathString)
-    } catch {
-        #if os(Windows)
-        var errno: Int32
-        _get_errno(&errno)
-        #endif
-        throw SystemError.symlink(errno, path.pathString, dest: destString)
-    }
+    try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString.pathString)
 }
 
 /// The current working directory of the processs.

@@ -10,12 +10,10 @@
 
 public enum SystemError: Swift.Error {
     case close(Int32)
-    case exec(Int32, path: String, args: [String])
     case pipe(Int32)
     case posix_spawn(Int32, [String])
     case read(Int32)
     case setenv(Int32, String)
-    case symlink(Int32, String, dest: String)
     case unsetenv(Int32, String)
 }
 
@@ -48,9 +46,6 @@ extension SystemError: CustomStringConvertible {
         switch self {
         case .close(let errno):
             return "close error: \(strerror(errno))"
-        case .exec(let errno, let path, let args):
-            let joinedArgs = args.joined(separator: " ")
-            return "exec error: \(strerror(errno)): \(path) \(joinedArgs)"
         case .pipe(let errno):
             return "pipe error: \(strerror(errno))"
         case .posix_spawn(let errno, let args):
@@ -59,8 +54,6 @@ extension SystemError: CustomStringConvertible {
             return "read error: \(strerror(errno))"
         case .setenv(let errno, let key):
             return "setenv error: \(strerror(errno)): \(key)"
-        case .symlink(let errno, let path, let dest):
-            return "symlink error: \(strerror(errno)): \(path) -> \(dest)"
         case .unsetenv(let errno, let key):
             return "unsetenv error: \(strerror(errno)): \(key)"
         }
