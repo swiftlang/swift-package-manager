@@ -80,4 +80,26 @@ final class TestToolTests: XCTestCase {
         }
         #endif
     }
+    
+    func testGenerateLinuxMain() throws {
+        #if os(macOS)
+        fixture(name: "Miscellaneous/GenerateLinuxMain") { app in
+            do {
+                let manifests = app.appending(components: "Tests", "GenerateLinuxMainTests", "XCTestManifests.swift")
+                XCTAssertFalse(FileManager.default.fileExists(atPath: manifests.asURL.path))
+                _ = try SwiftPMProduct.SwiftTest.executeProcess(["--generate-linuxmain"], packagePath: app)
+                let content = try String(contentsOf: manifests.asURL)
+                // generated tests are ordered by alphabetical
+                XCTAssertTrue(content.contains("""
+    static let __allTests__GenerateLinuxMainTests = [
+        ("testAddition", testAddition),
+        ("testExample", testExample),
+    ]
+"""))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
+        }
+        #endif
+    }
 }
