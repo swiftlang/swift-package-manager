@@ -31,6 +31,12 @@ public enum ArgumentParserError: Swift.Error {
     case expectedArguments(ArgumentParser, [String])
 }
 
+extension ArgumentParserError: LocalizedError {
+    public var errorDescription: String? {
+        return description
+    }
+}
+
 extension ArgumentParserError: CustomStringConvertible {
     public var description: String {
         switch self {
