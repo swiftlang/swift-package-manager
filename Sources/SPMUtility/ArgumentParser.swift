@@ -68,6 +68,12 @@ public enum ArgumentConversionError: Swift.Error {
     case custom(String)
 }
 
+extension ArgumentConversionError: LocalizedError {
+    public var errorDescription: String? {
+        return description
+    }
+}
+
 extension ArgumentConversionError: CustomStringConvertible {
     public var description: String {
         switch self {
