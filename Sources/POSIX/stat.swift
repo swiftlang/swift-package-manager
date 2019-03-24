@@ -82,10 +82,3 @@ public func stat(_ path: String) throws -> SPMLibc.stat {
     guard rv == 0 else { throw SystemError.stat(errno, path) }
     return sbuf
 }
-
-public func lstat(_ path: String) throws -> SPMLibc.stat {
-    var sbuf = SPMLibc.stat()
-    let rv = lstat(path, &sbuf)
-    guard rv == 0 else { throw SystemError.stat(errno, path) }
-    return sbuf
-}

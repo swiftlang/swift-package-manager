@@ -21,21 +21,6 @@ import SPMLibc
 import POSIX
 import Foundation
 
-/// Returns a structure containing information about the file system entity at `path`, or nil
-/// if that path doesn't exist in the file system.  Read, write or execute permission of the
-/// file system entity at `path` itself is not required, but all ancestor directories must be searchable.
-/// If they are not, or if any other file system error occurs, this function throws a SystemError.
-/// If `followSymlink` is true and the file system entity at `path` is a symbolic link, it is traversed;
-/// otherwise it is not (any symbolic links in path components other than the last one are always traversed).
-/// If symbolic links are followed and the file system entity at `path` is a symbolic link that points to a
-/// non-existent path, then this function returns nil.
-func stat(_ path: AbsolutePath, followSymlink: Bool = true) throws -> SPMLibc.stat {
-    if followSymlink {
-        return try stat(path.pathString)
-    }
-    return try lstat(path.pathString)
-}
-
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     let pathStr = path.pathString
