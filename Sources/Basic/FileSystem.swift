@@ -279,44 +279,21 @@ private class LocalFileSystem: FileSystem {
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
-        guard let dir = SPMLibc.opendir(path.pathString) else {
-            throw FileSystemError(errno: errno)
+      #if canImport(Darwin)
+        return try FileManager.default.contentsOfDirectory(atPath: path.pathString)
+      #else
+        do {
+            return try FileManager.default.contentsOfDirectory(atPath: path.pathString)
+        } catch let error as NSError {
+            // Fixup error from corelibs-foundation.
+            if error.code == CocoaError.fileReadNoSuchFile.rawValue, !error.userInfo.keys.contains(NSLocalizedDescriptionKey) {
+                var userInfo = error.userInfo
+                userInfo[NSLocalizedDescriptionKey] = "The folder “\(path.basename)” doesn’t exist."
+                throw NSError(domain: error.domain, code: error.code, userInfo: userInfo)
+            }
+            throw error
         }
-        defer { _ = SPMLibc.closedir(dir) }
-
-        var result: [String] = []
-        var entry = dirent()
-
-        while true {
-            var entryPtr: UnsafeMutablePointer<dirent>? = nil
-
-            let readdir_rErrno = readdir_r(dir, &entry, &entryPtr)
-            if  readdir_rErrno != 0 {
-                throw FileSystemError(errno: readdir_rErrno)
-            }
-
-            // If the entry pointer is null, we reached the end of the directory.
-            if entryPtr == nil {
-                break
-            }
-
-            // Otherwise, the entry pointer should point at the storage we provided.
-            assert(entryPtr == &entry)
-
-            // Add the entry to the result.
-            guard let name = entry.name else {
-                throw FileSystemError.invalidEncoding
-            }
-
-            // Ignore the pseudo-entries.
-            if name == "." || name == ".." {
-                continue
-            }
-
-            result.append(name)
-        }
-
-        return result
+      #endif
     }
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {

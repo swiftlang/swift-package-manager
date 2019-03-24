@@ -19,7 +19,7 @@ class FileSystemTests: XCTestCase {
 
     // MARK: LocalFS Tests
 
-    func testLocalBasics() {
+    func testLocalBasics() throws {
         let fs = Basic.localFileSystem
 
         // exists()
@@ -68,9 +68,13 @@ class FileSystemTests: XCTestCase {
         XCTAssert(!fs.isDirectory(AbsolutePath("/does-not-exist")))
 
         // getDirectoryContents()
-        XCTAssertThrows(FileSystemError.noEntry) {
+        do {
             _ = try fs.getDirectoryContents(AbsolutePath("/does-not-exist"))
+            XCTFail("Unexpected success")
+        } catch {
+            XCTAssertEqual(error.localizedDescription, "The folder “does-not-exist” doesn’t exist.")
         }
+
         let thisDirectoryContents = try! fs.getDirectoryContents(AbsolutePath(#file).parentDirectory)
         XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == "." }))
         XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == ".." }))
