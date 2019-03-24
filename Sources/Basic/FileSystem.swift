@@ -258,10 +258,9 @@ private class LocalFileSystem: FileSystem {
     }
 
     func isFile(_ path: AbsolutePath) -> Bool {
-        guard let status = try? stat(path, followSymlink: true), status.st_mode & S_IFMT == S_IFREG else {
-            return false
-        }
-        return true
+        let path = resolveSymlinks(path)
+        let attrs = try? FileManager.default.attributesOfItem(atPath: path.pathString)
+        return attrs?[.type] as? FileAttributeType == .typeRegular
     }
 
     func isSymlink(_ path: AbsolutePath) -> Bool {
