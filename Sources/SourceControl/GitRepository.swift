@@ -33,7 +33,7 @@ public class GitRepositoryProvider: RepositoryProvider {
         // expected cost of iterative updates on a full clone is less than on a
         // shallow clone.
 
-        precondition(!exists(path))
+        precondition(!localFileSystem.exists(path))
 
         // FIXME: We need infrastructure in this subsystem for reporting
         // status information.
@@ -93,7 +93,7 @@ public class GitRepositoryProvider: RepositoryProvider {
     }
 
     public func checkoutExists(at path: AbsolutePath) throws -> Bool {
-        precondition(exists(path))
+        precondition(localFileSystem.exists(path))
 
         let result = try Process.popen(args: Git.tool, "-C", path.pathString, "rev-parse", "--is-bare-repository")
         return try result.exitStatus == .terminated(code: 0) && result.utf8Output().spm_chomp() == "false"

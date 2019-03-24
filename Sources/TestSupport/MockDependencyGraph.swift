@@ -120,7 +120,7 @@ public struct MockManifestGraph {
                 }
             } else {
                 // Don't recreate repo if it is already there.
-                if !exists(repoPath) {
+                if !localFileSystem.exists(repoPath) {
                     try makeDirectories(repoPath)
                     initGitRepo(repoPath, tag: package.version?.description ?? "initial")
                 }

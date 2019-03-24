@@ -272,7 +272,7 @@ final class PackageToolTests: XCTestCase {
             // Test editing with a path i.e. ToT development.
             let bazTot = prefix.appending(component: "tot")
             try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
-            XCTAssertTrue(exists(bazTot))
+            XCTAssertTrue(localFileSystem.exists(bazTot))
             XCTAssertTrue(localFileSystem.isSymlink(bazEditsPath))
 
             // Edit a file in baz ToT checkout.
@@ -283,7 +283,7 @@ final class PackageToolTests: XCTestCase {
 
             // Unediting baz will remove the symlink but not the checked out package.
             try SwiftPMProduct.SwiftPackage.execute(["unedit", "baz"], packagePath: fooPath)
-            XCTAssertTrue(exists(bazTot))
+            XCTAssertTrue(localFileSystem.exists(bazTot))
             XCTAssertFalse(localFileSystem.isSymlink(bazEditsPath))
 
             // Check that on re-editing with path, we don't make a new clone.
@@ -306,7 +306,7 @@ final class PackageToolTests: XCTestCase {
 
             // Clean, and check for removal of the build directory but not Packages.
             _ = try execute(["clean"], packagePath: packageRoot)
-            XCTAssert(!exists(binFile))
+            XCTAssert(!localFileSystem.exists(binFile))
             // Clean again to ensure we get no error.
             _ = try execute(["clean"], packagePath: packageRoot)
         }
@@ -325,7 +325,7 @@ final class PackageToolTests: XCTestCase {
             // Clean, and check for removal of the build directory but not Packages.
 
             _ = try execute(["clean"], packagePath: packageRoot)
-            XCTAssert(!exists(binFile))
+            XCTAssert(!localFileSystem.exists(binFile))
             XCTAssertFalse(try localFileSystem.getDirectoryContents(buildPath.appending(component: "repositories")).isEmpty)
 
             // Fully clean.
@@ -349,7 +349,7 @@ final class PackageToolTests: XCTestCase {
             try execute("update")
 
             let pinsFile = fooPath.appending(component: "Package.resolved")
-            XCTAssert(exists(pinsFile))
+            XCTAssert(localFileSystem.exists(pinsFile))
 
             // Update bar repo.
             let barPath = prefix.appending(component: "bar")
@@ -405,7 +405,7 @@ final class PackageToolTests: XCTestCase {
 
             // We should see a pin file now.
             let pinsFile = fooPath.appending(component: "Package.resolved")
-            XCTAssert(exists(pinsFile))
+            XCTAssert(localFileSystem.exists(pinsFile))
 
             // Test pins file.
             do {
