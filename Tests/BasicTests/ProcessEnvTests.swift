@@ -31,4 +31,28 @@ class ProcessEnvTests: XCTestCase {
             XCTAssertEqual(ProcessEnv.cwd, path)
         }
     }
+
+    func testWithCustomEnv() throws {
+        enum CustomEnvError: Swift.Error {
+            case someError
+        }
+
+        let key = "XCTEST_TEST"
+        let value = "TEST"
+        XCTAssertNil(ProcessEnv.vars[key])
+        try withCustomEnv([key: value]) {
+            XCTAssertEqual(value, ProcessEnv.vars[key])
+        }
+        XCTAssertNil(ProcessEnv.vars[key])
+        do {
+            try withCustomEnv([key: value]) {
+                XCTAssertEqual(value, ProcessEnv.vars[key])
+                throw CustomEnvError.someError
+            }
+        } catch CustomEnvError.someError {
+        } catch {
+            XCTFail("Incorrect error thrown")
+        }
+        XCTAssertNil(ProcessEnv.vars[key])
+    }
 }

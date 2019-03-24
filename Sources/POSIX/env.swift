@@ -19,12 +19,14 @@ public func getenv(_ key: String) -> String? {
     return out == nil ? nil : String(validatingUTF8: out!)  //FIXME locale may not be UTF8
 }
 
+@available(*, deprecated, message: "Use Basic.ProcessEnv instead.")
 public func setenv(_ key: String, value: String) throws {
     guard SPMLibc.setenv(key, value, 1) == 0 else {
         throw SystemError.setenv(errno, key)
     }
 }
 
+@available(*, deprecated, message: "Use Basic.ProcessEnv instead.")
 public func unsetenv(_ key: String) throws {
     guard SPMLibc.unsetenv(key) == 0 else {
         throw SystemError.unsetenv(errno, key)

@@ -298,6 +298,7 @@ extension ProcessEnvTests {
     static let __allTests__ProcessEnvTests = [
         ("testChdir", testChdir),
         ("testEnvVars", testEnvVars),
+        ("testWithCustomEnv", testWithCustomEnv),
     ]
 }
 
