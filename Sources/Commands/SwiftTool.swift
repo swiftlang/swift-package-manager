@@ -376,9 +376,7 @@ public class SwiftTool<Options: ToolOptions> {
             self.options = options
             // Honor package-path option is provided.
             if let packagePath = options.packagePath ?? options.chdir {
-                // FIXME: This should be an API which takes AbsolutePath and maybe
-                // should be moved to file system APIs with currentWorkingDirectory.
-                try POSIX.chdir(packagePath.pathString)
+                try ProcessEnv.chdir(packagePath)
             }
 
             let processSet = ProcessSet()
