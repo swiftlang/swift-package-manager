@@ -12,7 +12,6 @@ import Basic
 import PackageModel
 import SPMUtility
 import SPMLLBuild
-import struct POSIX.FileInfo
 import class Foundation.ProcessInfo
 public typealias FileSystem = Basic.FileSystem
 
@@ -687,7 +686,7 @@ final class FileInfoRule: LLBuildRule {
         let path: AbsolutePath
     }
 
-    typealias RuleValue = Result<FileInfo, StringError>
+    typealias RuleValue = Result<Basic.FileInfo, StringError>
 
     override class var ruleName: String { return "\(FileInfoRule.self)" }
 
