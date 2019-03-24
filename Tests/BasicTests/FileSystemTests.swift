@@ -48,6 +48,8 @@ class FileSystemTests: XCTestCase {
 
         // isExecutableFile
         let executable = tempDir.path.appending(component: "exec-foo")
+        let executableSym = tempDir.path.appending(component: "exec-sym")
+        try! createSymlink(executableSym, pointingAt: executable)
         let stream = BufferedOutputByteStream()
         stream <<< """
             #!/bin/sh
@@ -58,6 +60,8 @@ class FileSystemTests: XCTestCase {
         try! localFileSystem.writeFileContents(executable, bytes: stream.bytes)
         try! Process.checkNonZeroExit(args: "chmod", "+x", executable.pathString)
         XCTAssertTrue(fs.isExecutableFile(executable))
+        XCTAssertTrue(fs.isExecutableFile(executableSym))
+        XCTAssertTrue(fs.isSymlink(executableSym))
         XCTAssertFalse(fs.isExecutableFile(sym))
         XCTAssertFalse(fs.isExecutableFile(file.path))
         XCTAssertFalse(fs.isExecutableFile(AbsolutePath("/does-not-exist")))
