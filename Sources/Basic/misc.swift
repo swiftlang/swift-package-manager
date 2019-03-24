@@ -9,8 +9,8 @@
 */
 
 import SPMLibc
-import POSIX
 import Foundation
+import enum POSIX.SystemError
 
 /// Replace the current process image with a new process image.
 ///

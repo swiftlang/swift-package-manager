@@ -13,7 +13,6 @@ import XCTest
 import TestSupport
 import Commands
 import Basic
-import POSIX
 
 final class RunToolTests: XCTestCase {
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {

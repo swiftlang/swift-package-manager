@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import POSIX
 import SPMLibc
 import Foundation
+import enum POSIX.SystemError
 
 public enum FileSystemError: Swift.Error {
     /// Access to the path is denied.

@@ -11,7 +11,6 @@
 import func XCTest.XCTFail
 
 import Basic
-import POSIX
 import SPMUtility
 
 #if os(macOS)

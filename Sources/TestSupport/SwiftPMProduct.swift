@@ -12,7 +12,6 @@ import func XCTest.XCTFail
 import class Foundation.ProcessInfo
 
 import Basic
-import POSIX
 import SPMUtility
 
 #if os(macOS)

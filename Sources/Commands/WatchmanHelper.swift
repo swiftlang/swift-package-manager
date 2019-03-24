@@ -10,7 +10,6 @@
 
 import Basic
 import SPMUtility
-import POSIX
 import Xcodeproj
 
 struct WatchmanMissingDiagnostic: DiagnosticData {

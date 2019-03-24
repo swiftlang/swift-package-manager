@@ -13,7 +13,6 @@ import Build
 import PackageLoading
 import PackageGraph
 import PackageModel
-import POSIX
 import SourceControl
 import SPMUtility
 import Workspace

@@ -15,7 +15,6 @@ import class Foundation.Thread
 import Basic
 import PackageGraph
 import PackageModel
-import POSIX
 import SourceControl
 import SPMUtility
 import Workspace
