@@ -6,7 +6,6 @@ extension EnvTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__EnvTests = [
-        ("testGet", testGet),
         ("testSet", testSet),
         ("testWithCustomEnv", testWithCustomEnv),
     ]

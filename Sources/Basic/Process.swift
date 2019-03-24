@@ -11,7 +11,6 @@
 import class Foundation.ProcessInfo
 
 import enum POSIX.SystemError
-import func POSIX.getenv
 import SPMLibc
 import Dispatch
 
@@ -239,7 +238,7 @@ public final class Process: ObjectIdentifierProtocol {
             }
             // FIXME: This can be cached.
             let envSearchPaths = getEnvSearchPaths(
-                pathString: getenv("PATH"),
+                pathString: Process.env["PATH"],
                 currentWorkingDirectory: localFileSystem.currentWorkingDirectory
             )
             // Lookup and cache the executable path.
