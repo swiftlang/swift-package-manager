@@ -254,10 +254,9 @@ private class LocalFileSystem: FileSystem {
     }
 
     func isDirectory(_ path: AbsolutePath) -> Bool {
-        guard let status = try? stat(path, followSymlink: true), status.st_mode & S_IFMT == S_IFDIR else {
-            return false
-        }
-        return true
+        var isDirectory: ObjCBool = false
+        let exists: Bool = FileManager.default.fileExists(atPath: path.pathString, isDirectory: &isDirectory)
+        return exists && isDirectory.boolValue
     }
 
     func isFile(_ path: AbsolutePath) -> Bool {
