@@ -13,7 +13,6 @@ import SPMUtility
 import SPMLLBuild
 import Dispatch
 import Foundation
-import POSIX
 
 /// Diagnostic error when a llbuild command encounters an error.
 struct LLBuildCommandErrorDiagnostic: DiagnosticData {

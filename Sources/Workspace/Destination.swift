@@ -1,7 +1,6 @@
 import Basic
 import Build
 import SPMUtility
-import POSIX
 
 public enum DestinationError: Swift.Error {
     /// Couldn't find the Xcode installation.

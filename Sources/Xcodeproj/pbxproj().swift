@@ -9,7 +9,6 @@
 */
 
 import Basic
-import POSIX
 import PackageGraph
 import PackageModel
 import PackageLoading

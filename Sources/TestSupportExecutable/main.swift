@@ -2,7 +2,6 @@ import Dispatch
 import Foundation
 
 import Basic
-import POSIX
 import SPMLibc
 import SPMUtility
 

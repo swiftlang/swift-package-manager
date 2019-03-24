@@ -12,7 +12,6 @@ import XCTest
 import Foundation
 
 import Basic
-import POSIX
 
 class PathTests: XCTestCase {
     
