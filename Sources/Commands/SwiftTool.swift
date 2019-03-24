@@ -500,8 +500,8 @@ public class SwiftTool<Options: ToolOptions> {
     /// Exit the tool with the given execution status.
     private static func exit(with status: ExecutionStatus) -> Never {
         switch status {
-        case .success: POSIX.exit(0)
-        case .failure: POSIX.exit(1)
+        case .success: SPMLibc.exit(0)
+        case .failure: SPMLibc.exit(1)
         }
     }
 

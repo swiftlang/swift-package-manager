@@ -16,7 +16,7 @@ import SPMUtility
 import PackageGraph
 import Workspace
 
-import func POSIX.exit
+import func SPMLibc.exit
 
 
 /// Diagnostics info for deprecated `--specifier` option.

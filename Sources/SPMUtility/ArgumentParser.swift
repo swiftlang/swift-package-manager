@@ -10,7 +10,7 @@
 
 import Basic
 import Foundation
-import func POSIX.exit
+import func SPMLibc.exit
 
 /// Errors which may be encountered when running argument parser.
 public enum ArgumentParserError: Swift.Error {

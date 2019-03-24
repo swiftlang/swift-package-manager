@@ -128,5 +128,5 @@ do {
 } catch {
     stderrStream <<< String(describing: error) <<< "\n"
     stderrStream.flush()
-    POSIX.exit(1)
+    exit(1)
 }
