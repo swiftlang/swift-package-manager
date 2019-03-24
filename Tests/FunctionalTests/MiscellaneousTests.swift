@@ -15,6 +15,7 @@ import PackageModel
 import SPMUtility
 import SPMLibc
 import class Foundation.ProcessInfo
+import class Foundation.Thread
 import Workspace
 
 typealias ProcessID = Basic.Process.ProcessID
@@ -125,7 +126,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // we need to sleep at least one second otherwise
             // llbuild does not realize the file has changed
-            sleep(1)
+            Thread.sleep(forTimeInterval: 1)
 
             try localFileSystem.writeFileContents(prefix.appending(components: "Bar", "Bar.swift"), bytes: "public let bar = \"Goodbye\"\n")
 
@@ -150,7 +151,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // we need to sleep at least one second otherwise
             // llbuild does not realize the file has changed
-            sleep(1)
+            Thread.sleep(forTimeInterval: 1)
 
             let path = try SwiftPMProduct.packagePath(for: "FisherYates", packageRoot: packageRoot)
             try localFileSystem.chmod(.userWritable, path: path, options: [.recursive])
@@ -177,7 +178,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // we need to sleep at least one second otherwise
             // llbuild does not realize the file has changed
-            sleep(1)
+            Thread.sleep(forTimeInterval: 1)
 
             let path = try SwiftPMProduct.packagePath(for: "dep1", packageRoot: packageRoot)
             try localFileSystem.chmod(.userWritable, path: path, options: [.recursive])
