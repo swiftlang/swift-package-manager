@@ -239,23 +239,20 @@ public func loadPackageGraph(
 /// between threads. This means that when this method is called simultaneously
 /// from different threads, the environment will neither be setup nor restored
 /// correctly.
-///
-/// - throws: errors thrown in `body`, POSIX.SystemError.setenv and
-///           POSIX.SystemError.unsetenv
 public func withCustomEnv(_ env: [String: String], body: () throws -> Void) throws {
     let state = Array(env.keys).map({ ($0, Process.env[$0]) })
     let restore = {
         for (key, value) in state {
             if let value = value {
-                try setenv(key, value: value)
+                try ProcessEnv.setVar(key, value: value)
             } else {
-                try unsetenv(key)
+                try ProcessEnv.unsetVar(key)
             }
         }
     }
     do {
         for (key, value) in env {
-            try setenv(key, value: value)
+            try ProcessEnv.setVar(key, value: value)
         }
         try body()
     } catch {
