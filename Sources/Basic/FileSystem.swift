@@ -242,10 +242,8 @@ public extension FileSystem {
 private class LocalFileSystem: FileSystem {
 
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
-        guard let filestat = try? POSIX.stat(path.pathString) else {
-            return false
-        }
-        return filestat.st_mode & SPMLibc.S_IXUSR != 0 && filestat.st_mode & S_IFREG != 0
+        // Our semantics doesn't consider directories.
+        return self.isFile(path) && FileManager.default.isExecutableFile(atPath: path.pathString)
     }
 
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
