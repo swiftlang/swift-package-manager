@@ -17,29 +17,25 @@ class POSIXTests : XCTestCase {
     func testFileStatus() throws {
         let file = try TemporaryFile()
         XCTAssertTrue(localFileSystem.exists(file.path))
-        XCTAssertTrue(isFile(file.path))
+        XCTAssertTrue(localFileSystem.isFile(file.path))
         XCTAssertFalse(isDirectory(file.path))
 
         let dir = try TemporaryDirectory(removeTreeOnDeinit: true)
         XCTAssertTrue(localFileSystem.exists(dir.path))
-        XCTAssertFalse(isFile(dir.path))
-        XCTAssertTrue(isDirectory(dir.path))
+        XCTAssertFalse(localFileSystem.isFile(dir.path))
+        XCTAssertTrue(localFileSystem.isDirectory(dir.path))
 
         let sym = dir.path.appending(component: "hello")
         try createSymlink(sym, pointingAt: file.path)
         XCTAssertTrue(localFileSystem.exists(sym))
-        XCTAssertFalse(isFile(sym, followSymlink: false))
-        XCTAssertTrue(isFile(sym, followSymlink: true))
-        XCTAssertFalse(isDirectory(sym, followSymlink: false))
-        XCTAssertFalse(isDirectory(sym, followSymlink: true))
+        XCTAssertTrue(localFileSystem.isFile(sym))
+        XCTAssertFalse(localFileSystem.isDirectory(sym))
 
         let dir2 = try TemporaryDirectory(removeTreeOnDeinit: true)
         let dirSym = dir.path.appending(component: "dir2")
         try createSymlink(dirSym, pointingAt: dir2.path)
         XCTAssertTrue(localFileSystem.exists(dirSym))
-        XCTAssertFalse(isFile(dirSym, followSymlink: false))
-        XCTAssertFalse(isFile(dirSym, followSymlink: true))
-        XCTAssertFalse(isDirectory(dirSym, followSymlink: false))
-        XCTAssertTrue(isDirectory(dirSym, followSymlink: true))
+        XCTAssertFalse(localFileSystem.isFile(dirSym))
+        XCTAssertTrue(localFileSystem.isDirectory(dirSym))
     }
 }

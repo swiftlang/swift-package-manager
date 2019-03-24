@@ -94,7 +94,7 @@ public func XCTAssertBuildFails(
 }
 
 public func XCTAssertFileExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
-    if !isFile(path) {
+    if !localFileSystem.isFile(path) {
         XCTFail("Expected file doesn't exist: \(path)", file: file, line: line)
     }
 }
