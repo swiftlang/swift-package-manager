@@ -21,12 +21,6 @@ public enum FileSystemError: Swift.Error {
     /// Used in situations that correspond to the POSIX EACCES error code.
     case invalidAccess
 
-    /// Invalid encoding
-    ///
-    /// This is used when an operation cannot be completed because a path could
-    /// not be decoded correctly.
-    case invalidEncoding
-
     /// IO Error encoding
     ///
     /// This is used when an operation cannot be completed due to an otherwise
