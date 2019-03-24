@@ -247,7 +247,10 @@ private class LocalFileSystem: FileSystem {
     }
 
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
-        return (try? stat(path, followSymlink: followSymlink)) != nil
+        if followSymlink {
+            return FileManager.default.fileExists(atPath: path.pathString)
+        }
+        return (try? FileManager.default.attributesOfItem(atPath: path.pathString)) != nil
     }
 
     func isDirectory(_ path: AbsolutePath) -> Bool {
