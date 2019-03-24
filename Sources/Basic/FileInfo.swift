@@ -6,9 +6,11 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
+import POSIX
 import SPMLibc
+import Foundation
 
 /// File system information for a particular file.
 public struct FileInfo: Equatable, Codable {
@@ -25,12 +27,12 @@ public struct FileInfo: Equatable, Codable {
 
         fileprivate init(mode: mode_t) {
             switch mode {
-                case S_IFREG:  self = .file
-                case S_IFDIR:  self = .directory
-                case S_IFLNK:  self = .symlink
-                case S_IFBLK:  self = .blockdev
-                case S_IFCHR:  self = .chardev
-                case S_IFSOCK: self = .socket
+            case S_IFREG:  self = .file
+            case S_IFDIR:  self = .directory
+            case S_IFLNK:  self = .symlink
+            case S_IFBLK:  self = .blockdev
+            case S_IFCHR:  self = .chardev
+            case S_IFSOCK: self = .socket
             default:
                 self = .unknown
             }
@@ -63,22 +65,15 @@ public struct FileInfo: Equatable, Codable {
         self.mode = UInt64(buf.st_mode)
         self.size = UInt64(buf.st_size)
 
-      #if canImport(Darwin)
+        #if canImport(Darwin)
         let seconds = buf.st_mtimespec.tv_sec
         let nanoseconds = buf.st_mtimespec.tv_nsec
-      #else
+        #else
         let seconds = buf.st_mtim.tv_sec
         let nanoseconds = buf.st_mtim.tv_nsec
-      #endif
+        #endif
 
         self.modTime = FileTimestamp(
             seconds: UInt64(seconds), nanoseconds: UInt64(nanoseconds))
     }
-}
-
-public func stat(_ path: String) throws -> SPMLibc.stat {
-    var sbuf = SPMLibc.stat()
-    let rv = stat(path, &sbuf)
-    guard rv == 0 else { throw SystemError.stat(errno, path) }
-    return sbuf
 }

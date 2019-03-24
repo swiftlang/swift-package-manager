@@ -264,7 +264,10 @@ private class LocalFileSystem: FileSystem {
     }
 
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
-        let statBuf = try stat(path.pathString)
+        let path = path.pathString
+        var statBuf = SPMLibc.stat()
+        let rv = stat(path, &statBuf)
+        guard rv == 0 else { throw SystemError.stat(errno, path) }
         return FileInfo(statBuf)
     }
 
