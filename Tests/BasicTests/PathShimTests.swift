@@ -101,7 +101,7 @@ class WalkTests : XCTestCase {
         try! makeDirectories(tmpDirPath.appending(components: "bar", "baz", "goo"))
         try! createSymlink(tmpDirPath.appending(components: "foo", "symlink"), pointingAt: tmpDirPath.appending(component: "bar"), relative: true)
 
-        XCTAssertTrue(isSymlink(tmpDirPath.appending(components: "foo", "symlink")))
+        XCTAssertTrue(localFileSystem.isSymlink(tmpDirPath.appending(components: "foo", "symlink")))
         XCTAssertEqual(resolveSymlinks(tmpDirPath.appending(components: "foo", "symlink")), tmpDirPath.appending(component: "bar"))
         XCTAssertTrue(isDirectory(resolveSymlinks(tmpDirPath.appending(components: "foo", "symlink", "baz"))))
 
@@ -119,7 +119,7 @@ class WalkTests : XCTestCase {
         try! createSymlink(tmpDirPath.appending(component: "symlink"), pointingAt: tmpDirPath.appending(component: "foo"), relative: true)
         try! createSymlink(tmpDirPath.appending(components: "foo", "baz"), pointingAt: tmpDirPath.appending(component: "abc"), relative: true)
 
-        XCTAssertTrue(isSymlink(tmpDirPath.appending(component: "symlink")))
+        XCTAssertTrue(localFileSystem.isSymlink(tmpDirPath.appending(component: "symlink")))
 
         let results = try! walk(tmpDirPath.appending(component: "symlink")).map{ $0 }.sorted()
 

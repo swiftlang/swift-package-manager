@@ -66,15 +66,6 @@ public func isDirectory(_ path: AbsolutePath, followSymlink: Bool = true) -> Boo
     return true
 }
 
-/// Returns true if and only if `path` refers to an existent file system entity and that entity is a symbolic link.
-/// If any file system error other than non-existence occurs, this function throws an error.
-public func isSymlink(_ path: AbsolutePath) -> Bool {
-    guard let status = try? stat(path, followSymlink: false), status.st_mode & S_IFMT == S_IFLNK else {
-        return false
-    }
-    return true
-}
-
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     let pathStr = path.pathString

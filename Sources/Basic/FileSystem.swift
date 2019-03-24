@@ -259,7 +259,8 @@ private class LocalFileSystem: FileSystem {
     }
 
     func isSymlink(_ path: AbsolutePath) -> Bool {
-        return Basic.isSymlink(path)
+        let attrs = try? FileManager.default.attributesOfItem(atPath: path.pathString)
+        return attrs?[.type] as? FileAttributeType == .typeSymbolicLink
     }
 
     func getFileInfo(_ path: AbsolutePath, followSymlink: Bool = true) throws -> FileInfo {
