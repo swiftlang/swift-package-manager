@@ -45,7 +45,7 @@ class GitRepositoryTests: XCTestCase {
             try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
 
             // Verify the checkout was made.
-            XCTAssert(exists(testCheckoutPath))
+            XCTAssert(localFileSystem.exists(testCheckoutPath))
 
             // Test the repository interface.
             let repository = provider.open(repository: repoSpec, at: testCheckoutPath)
@@ -528,7 +528,7 @@ class GitRepositoryTests: XCTestCase {
 
             // Checkout the first tag which doesn't has submodule.
             try fooWorkingRepo.checkout(tag: "1.0.0")
-            XCTAssertFalse(exists(fooWorkingPath.appending(component: "bar")))
+            XCTAssertFalse(localFileSystem.exists(fooWorkingPath.appending(component: "bar")))
 
             // Add submodule to foo and tag it as 1.0.1
             try foo.checkout(newBranch: "submodule")
@@ -542,10 +542,10 @@ class GitRepositoryTests: XCTestCase {
             try fooWorkingRepo.fetch()
             // Checkout the tag with submodule and expect submodules files to be present.
             try fooWorkingRepo.checkout(tag: "1.0.1")
-            XCTAssertTrue(exists(fooWorkingPath.appending(components: "bar", "hello.txt")))
+            XCTAssertTrue(localFileSystem.exists(fooWorkingPath.appending(components: "bar", "hello.txt")))
             // Checkout the tag without submodule and ensure that the submodule files are gone.
             try fooWorkingRepo.checkout(tag: "1.0.0")
-            XCTAssertFalse(exists(fooWorkingPath.appending(components: "bar")))
+            XCTAssertFalse(localFileSystem.exists(fooWorkingPath.appending(components: "bar")))
 
             // Add something to bar.
             try localFileSystem.writeFileContents(barPath.appending(component: "bar.txt"), bytes: "hello")
@@ -564,13 +564,13 @@ class GitRepositoryTests: XCTestCase {
             try fooWorkingRepo.fetch()
             // We should see the new file we added in the submodule.
             try fooWorkingRepo.checkout(tag: "1.0.2")
-            XCTAssertTrue(exists(fooWorkingPath.appending(components: "bar", "hello.txt")))
-            XCTAssertTrue(exists(fooWorkingPath.appending(components: "bar", "bar.txt")))
-            XCTAssertTrue(exists(fooWorkingPath.appending(components: "bar", "baz", "hello.txt")))
+            XCTAssertTrue(localFileSystem.exists(fooWorkingPath.appending(components: "bar", "hello.txt")))
+            XCTAssertTrue(localFileSystem.exists(fooWorkingPath.appending(components: "bar", "bar.txt")))
+            XCTAssertTrue(localFileSystem.exists(fooWorkingPath.appending(components: "bar", "baz", "hello.txt")))
 
             // Sanity check.
             try fooWorkingRepo.checkout(tag: "1.0.0")
-            XCTAssertFalse(exists(fooWorkingPath.appending(components: "bar")))
+            XCTAssertFalse(localFileSystem.exists(fooWorkingPath.appending(components: "bar")))
         }
     }
 

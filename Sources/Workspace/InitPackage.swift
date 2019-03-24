@@ -77,7 +77,7 @@ public final class InitPackage {
 
     private func writeManifestFile() throws {
         let manifest = destinationPath.appending(component: Manifest.filename)
-        guard exists(manifest) == false else {
+        guard localFileSystem.exists(manifest) == false else {
             throw InitError.manifestAlreadyExists
         }
 
@@ -144,7 +144,7 @@ public final class InitPackage {
 
     private func writeREADMEFile() throws {
         let readme = destinationPath.appending(component: "README.md")
-        guard exists(readme) == false else {
+        guard localFileSystem.exists(readme) == false else {
             return
         }
 
@@ -160,7 +160,7 @@ public final class InitPackage {
 
     private func writeGitIgnore() throws {
         let gitignore = destinationPath.appending(component: ".gitignore")
-        guard exists(gitignore) == false else {
+        guard localFileSystem.exists(gitignore) == false else {
             return
         }
 
@@ -180,7 +180,7 @@ public final class InitPackage {
             return
         }
         let sources = destinationPath.appending(component: "Sources")
-        guard exists(sources) == false else {
+        guard localFileSystem.exists(sources) == false else {
             return
         }
         progressReporter?("Creating \(sources.relative(to: destinationPath))/")
@@ -221,7 +221,7 @@ public final class InitPackage {
             return
         }
         let modulemap = destinationPath.appending(component: "module.modulemap")
-        guard exists(modulemap) == false else {
+        guard localFileSystem.exists(modulemap) == false else {
             return
         }
 
@@ -242,7 +242,7 @@ public final class InitPackage {
             return
         }
         let tests = destinationPath.appending(component: "Tests")
-        guard exists(tests) == false else {
+        guard localFileSystem.exists(tests) == false else {
             return
         }
         progressReporter?("Creating \(tests.relative(to: destinationPath))/")
