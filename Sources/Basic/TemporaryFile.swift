@@ -9,7 +9,6 @@
 */
 
 import SPMLibc
-import func POSIX.getenv
 import class Foundation.FileHandle
 import class Foundation.FileManager
 
@@ -56,7 +55,7 @@ public func determineTempDirectory(_ dir: AbsolutePath? = nil) throws -> Absolut
 /// Returns temporary directory location by searching relevant env variables.
 /// Evaluates once per execution.
 private var cachedTempDirectory: AbsolutePath = {
-    return AbsolutePath(getenv("TMPDIR") ?? getenv("TEMP") ?? getenv("TMP") ?? "/tmp/")
+    return AbsolutePath(Process.env["TMPDIR"] ?? Process.env["TEMP"] ?? Process.env["TMP"] ?? "/tmp/")
 }()
 
 /// This class is basically a wrapper over posix's mkstemps() function to creates disposable files.

@@ -129,7 +129,7 @@ public final class UserToolchain: Toolchain {
     }
 
     private static func lookup(variable: String, searchPaths: [AbsolutePath]) -> AbsolutePath? {
-        return lookupExecutablePath(filename: getenv(variable), searchPaths: searchPaths)
+        return lookupExecutablePath(filename: Process.env[variable], searchPaths: searchPaths)
     }
 
     /// Environment to use when looking up tools.
@@ -198,7 +198,7 @@ public final class UserToolchain: Toolchain {
 
         // Get the search paths from PATH.
         let searchPaths = getEnvSearchPaths(
-            pathString: getenv("PATH"), currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+            pathString: Process.env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
 
         self.envSearchPaths = searchPaths
 
@@ -236,7 +236,7 @@ public final class UserToolchain: Toolchain {
         var pdLibDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
 
         // Look for an override in the env.
-        if let pdLibDirEnvStr = getenv("SWIFTPM_PD_LIBS") {
+        if let pdLibDirEnvStr = Process.env["SWIFTPM_PD_LIBS"] {
             // We pick the first path which exists in a colon seperated list.
             let paths = pdLibDirEnvStr.split(separator: ":").map(String.init)
             for pathString in paths {

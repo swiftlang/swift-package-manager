@@ -13,6 +13,7 @@ import func SPMLibc.setenv
 import func SPMLibc.unsetenv
 import var SPMLibc.errno
 
+@available(*, deprecated, message: "Use Foundation.ProcessInfo instead.")
 public func getenv(_ key: String) -> String? {
     let out = SPMLibc.getenv(key)
     return out == nil ? nil : String(validatingUTF8: out!)  //FIXME locale may not be UTF8

@@ -91,7 +91,7 @@ public struct Destination {
       #if os(macOS)
         // Get the SDK.
         let sdkPath: AbsolutePath
-        if let value = lookupExecutablePath(filename: getenv("SDKROOT")) {
+        if let value = lookupExecutablePath(filename: Process.env["SDKROOT"]) {
             sdkPath = value
         } else {
             // No value in env, so search for it.
