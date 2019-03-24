@@ -18,7 +18,7 @@ class POSIXTests : XCTestCase {
         let file = try TemporaryFile()
         XCTAssertTrue(localFileSystem.exists(file.path))
         XCTAssertTrue(localFileSystem.isFile(file.path))
-        XCTAssertFalse(isDirectory(file.path))
+        XCTAssertFalse(localFileSystem.isDirectory(file.path))
 
         let dir = try TemporaryDirectory(removeTreeOnDeinit: true)
         XCTAssertTrue(localFileSystem.exists(dir.path))

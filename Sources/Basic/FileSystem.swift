@@ -254,7 +254,10 @@ private class LocalFileSystem: FileSystem {
     }
 
     func isDirectory(_ path: AbsolutePath) -> Bool {
-        return Basic.isDirectory(path)
+        guard let status = try? stat(path, followSymlink: true), status.st_mode & S_IFMT == S_IFDIR else {
+            return false
+        }
+        return true
     }
 
     func isFile(_ path: AbsolutePath) -> Bool {
