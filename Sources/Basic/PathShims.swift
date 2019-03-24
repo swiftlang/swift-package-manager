@@ -78,9 +78,16 @@ public func isSymlink(_ path: AbsolutePath) -> Bool {
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     let pathStr = path.pathString
-    guard let resolvedPathStr = try? POSIX.realpath(pathStr) else { return path }
-    // FIXME: We should measure if it's really more efficient to compare the strings first.
-    return (resolvedPathStr == pathStr) ? path : AbsolutePath(resolvedPathStr)
+
+    // FIXME: We can't use FileManager's destinationOfSymbolicLink because
+    // that implements readlink and not realpath.
+    if let resultPtr = SPMLibc.realpath(pathStr, nil) {
+        let result = String(cString: resultPtr)
+        // FIXME: We should measure if it's really more efficient to compare the strings first.
+        return result == pathStr ? path : AbsolutePath(result)
+    }
+
+    return path
 }
 
 /// Creates a new, empty directory at `path`.  If needed, any non-existent ancestor paths are also created.  If there is
