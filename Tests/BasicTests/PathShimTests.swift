@@ -54,7 +54,7 @@ class PathShimTests : XCTestCase {
         try! makeDirectories(dirPath)
 
         // Check that we were able to actually create the directory.
-        XCTAssertTrue(isDirectory(dirPath))
+        XCTAssertTrue(localFileSystem.isDirectory(dirPath))
 
         // Check that there's no error if we try to create the directory again.
         try! makeDirectories(dirPath)
@@ -103,7 +103,7 @@ class WalkTests : XCTestCase {
 
         XCTAssertTrue(localFileSystem.isSymlink(tmpDirPath.appending(components: "foo", "symlink")))
         XCTAssertEqual(resolveSymlinks(tmpDirPath.appending(components: "foo", "symlink")), tmpDirPath.appending(component: "bar"))
-        XCTAssertTrue(isDirectory(resolveSymlinks(tmpDirPath.appending(components: "foo", "symlink", "baz"))))
+        XCTAssertTrue(localFileSystem.isDirectory(resolveSymlinks(tmpDirPath.appending(components: "foo", "symlink", "baz"))))
 
         let results = try! walk(tmpDirPath.appending(component: "foo")).map{ $0 }
 

@@ -193,7 +193,7 @@ func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
         if $0.suffix == ".playground" { return false }
         if $0.basename.hasPrefix(".") { return false }
         if PackageBuilder.predefinedTestDirectories.contains($0.basename) { return false }
-        return isDirectory($0)
+        return localFileSystem.isDirectory($0)
     })
 }
 

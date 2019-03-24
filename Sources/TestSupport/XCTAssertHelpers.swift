@@ -100,7 +100,7 @@ public func XCTAssertFileExists(_ path: AbsolutePath, file: StaticString = #file
 }
 
 public func XCTAssertDirectoryExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
-    if !isDirectory(path) {
+    if !localFileSystem.isDirectory(path) {
         XCTFail("Expected directory doesn't exist: \(path)", file: file, line: line)
     }
 }

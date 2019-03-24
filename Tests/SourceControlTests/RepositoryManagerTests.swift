@@ -250,7 +250,7 @@ class RepositoryManagerTests: XCTestCase {
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             manager.reset()
-            XCTAssertTrue(!isDirectory(repos))
+            XCTAssertTrue(!localFileSystem.isDirectory(repos))
             try localFileSystem.createDirectory(repos, recursive: true)
             _ = try manager.lookupSynchronously(repository: dummyRepo)
             XCTAssertEqual(delegate.willFetch.count, 2)

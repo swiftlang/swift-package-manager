@@ -36,17 +36,6 @@ func stat(_ path: AbsolutePath, followSymlink: Bool = true) throws -> SPMLibc.st
     return try lstat(path.pathString)
 }
 
-/// Returns true if and only if `path` refers to an existent file system entity and that entity is a directory.
-/// If `followSymlink` is true, and the last path component is a symbolic link, the result pertains to the destination
-/// of the symlink; otherwise it pertains to the symlink itself.  If any file system error other than non-existence
-/// occurs, this function throws an error.
-public func isDirectory(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
-    guard let status = try? stat(path, followSymlink: followSymlink), status.st_mode & S_IFMT == S_IFDIR else {
-        return false
-    }
-    return true
-}
-
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     let pathStr = path.pathString

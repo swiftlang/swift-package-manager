@@ -56,7 +56,7 @@ public func fixture(
         let fixtureDir = AbsolutePath(#file).appending(RelativePath("../../../Fixtures")).appending(fixtureSubpath)
 
         // Check that the fixture is really there.
-        guard isDirectory(fixtureDir) else {
+        guard localFileSystem.isDirectory(fixtureDir) else {
             XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
             return
         }
@@ -73,7 +73,7 @@ public func fixture(
             // Copy each of the package directories and construct a git repo in it.
             for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {
                 let srcDir = fixtureDir.appending(component: fileName)
-                guard isDirectory(srcDir) else { continue }
+                guard localFileSystem.isDirectory(srcDir) else { continue }
                 let dstDir = tmpDir.path.appending(component: fileName)
                 try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
                 initGitRepo(dstDir, tag: "1.2.3", addFile: false)

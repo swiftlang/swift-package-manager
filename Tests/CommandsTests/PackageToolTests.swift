@@ -230,10 +230,10 @@ final class PackageToolTests: XCTestCase {
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
-            XCTAssert(isDirectory(editsPath))
+            XCTAssert(localFileSystem.isDirectory(editsPath))
 
             let bazEditsPath = fooPath.appending(components: "Packages", "baz")
-            XCTAssert(isDirectory(bazEditsPath))
+            XCTAssert(localFileSystem.isDirectory(bazEditsPath))
             // Removing baz externally should just emit an warning and not a build failure.
             try localFileSystem.removeFileTree(bazEditsPath)
 
@@ -302,7 +302,7 @@ final class PackageToolTests: XCTestCase {
             let buildPath = packageRoot.appending(component: ".build")
             let binFile = buildPath.appending(components: Destination.host.target.tripleString, "debug", "Bar")
             XCTAssertFileExists(binFile)
-            XCTAssert(isDirectory(buildPath))
+            XCTAssert(localFileSystem.isDirectory(buildPath))
 
             // Clean, and check for removal of the build directory but not Packages.
             _ = try execute(["clean"], packagePath: packageRoot)
@@ -321,7 +321,7 @@ final class PackageToolTests: XCTestCase {
             let buildPath = packageRoot.appending(component: ".build")
             let binFile = buildPath.appending(components: Destination.host.target.tripleString, "debug", "Bar")
             XCTAssertFileExists(binFile)
-            XCTAssert(isDirectory(buildPath))
+            XCTAssert(localFileSystem.isDirectory(buildPath))
             // Clean, and check for removal of the build directory but not Packages.
 
             _ = try execute(["clean"], packagePath: packageRoot)
@@ -330,7 +330,7 @@ final class PackageToolTests: XCTestCase {
 
             // Fully clean.
             _ = try execute(["reset"], packagePath: packageRoot)
-            XCTAssertFalse(isDirectory(buildPath))
+            XCTAssertFalse(localFileSystem.isDirectory(buildPath))
 
             // Test that we can successfully run reset again.
             _ = try execute(["reset"], packagePath: packageRoot)
