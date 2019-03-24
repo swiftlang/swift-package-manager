@@ -84,8 +84,9 @@ final class RunToolTests: XCTestCase {
     func testFileDeprecation() throws {
         fixture(name: "Miscellaneous/EchoExecutable") { path in
             let filePath = AbsolutePath(path, "Sources/secho/main.swift").pathString
+            let cwd = localFileSystem.currentWorkingDirectory!
             XCTAssertEqual(try execute([filePath, "1", "2"], packagePath: path), """
-                "\(getcwd())" "1" "2"
+                "\(cwd)" "1" "2"
                 warning: 'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead
                 
                 """)
