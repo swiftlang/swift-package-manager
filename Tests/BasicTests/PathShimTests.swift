@@ -59,12 +59,6 @@ class PathShimTests : XCTestCase {
         // Check that there's no error if we try to create the directory again.
         try! makeDirectories(dirPath)
     }
-
-    func testCurrentWorkingDirectory() {
-        // Test against what POSIX returns, at least for now.
-        let cwd = localFileSystem.currentWorkingDirectory!
-        XCTAssertEqual(cwd, AbsolutePath(getcwd()))
-    }
 }
 
 class WalkTests : XCTestCase {

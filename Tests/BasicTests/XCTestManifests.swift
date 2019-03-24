@@ -258,7 +258,6 @@ extension PathShimTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__PathShimTests = [
-        ("testCurrentWorkingDirectory", testCurrentWorkingDirectory),
         ("testRescursiveDirectoryCreation", testRescursiveDirectoryCreation),
         ("testResolvingSymlinks", testResolvingSymlinks),
     ]

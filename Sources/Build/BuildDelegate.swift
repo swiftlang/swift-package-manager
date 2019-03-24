@@ -485,7 +485,8 @@ extension SwiftCompilerMessage {
     }
 
     private func generateProgressText(prefix: String, file: String) -> String {
-        let relativePath = AbsolutePath(file).relative(to: AbsolutePath(getcwd()))
+        // FIXME: Eliminate cwd from here.
+        let relativePath = AbsolutePath(file).relative(to: localFileSystem.currentWorkingDirectory!)
         return "\(prefix) \(relativePath)"
     }
 }
