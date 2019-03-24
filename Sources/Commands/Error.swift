@@ -13,7 +13,7 @@ import PackageLoading
 import PackageModel
 import SourceControl
 import SPMUtility
-import func POSIX.exit
+import func SPMLibc.exit
 import Workspace
 
 enum Error: Swift.Error {
