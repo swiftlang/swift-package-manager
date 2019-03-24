@@ -43,7 +43,6 @@ class FileSystemTests: XCTestCase {
         XCTAssertTrue(fs.isSymlink(sym))
         XCTAssertTrue(fs.isFile(sym))
         XCTAssertEqual(try fs.getFileInfo(sym).kind, .file)
-        XCTAssertEqual(try fs.getFileInfo(sym, followSymlink: false).kind, .symlink)
         XCTAssertFalse(fs.isDirectory(sym))
 
         // isExecutableFile

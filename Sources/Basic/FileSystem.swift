@@ -187,11 +187,8 @@ public protocol FileSystem: class {
 
     /// Returns the file info of the given path.
     ///
-    /// If `followSymlink` is true and the file system entity at `path` is a symbolic link, it is traversed;
-    /// otherwise it is not (any symbolic links in path components other than the last one are always traversed).
-    ///
     /// The method throws if the underlying stat call fails.
-    func getFileInfo(_ path: AbsolutePath, followSymlink: Bool) throws -> FileInfo
+    func getFileInfo(_ path: AbsolutePath) throws -> FileInfo
 }
 
 /// Convenience implementations (default arguments aren't permitted in protocol
@@ -230,10 +227,6 @@ public extension FileSystem {
     }
 
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
-        return try getFileInfo(path, followSymlink: true)
-    }
-
-    func getFileInfo(_ path: AbsolutePath, followSymlink: Bool) throws -> FileInfo {
         fatalError("This file system currently doesn't support this method")
     }
 }
@@ -270,8 +263,8 @@ private class LocalFileSystem: FileSystem {
         return attrs?[.type] as? FileAttributeType == .typeSymbolicLink
     }
 
-    func getFileInfo(_ path: AbsolutePath, followSymlink: Bool = true) throws -> FileInfo {
-        let statBuf = try stat(path, followSymlink: followSymlink)
+    func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
+        let statBuf = try stat(path.pathString)
         return FileInfo(statBuf)
     }
 
