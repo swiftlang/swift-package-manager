@@ -404,7 +404,7 @@ private class LocalFileSystem: FileSystem {
         let temp = try TemporaryFile(dir: path.parentDirectory, deleteOnClose: false)
         do {
             try writeFileContents(temp.path, bytes: bytes)
-            try POSIX.rename(old: temp.path.pathString, new: path.pathString)
+            try FileManager.default.moveItem(atPath: temp.path.pathString, toPath: path.pathString)
         } catch {
             // Write or rename failed, delete the temporary file.
             // Rethrow the original error, however, as that's the
