@@ -295,28 +295,7 @@ private class LocalFileSystem: FileSystem {
     }
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
-        // Try to create the directory.
-        let result = mkdir(path.pathString, SPMLibc.S_IRWXU | SPMLibc.S_IRWXG)
-
-        // If it succeeded, we are done.
-        if result == 0 { return }
-
-        // If the failure was because the directory exists, everything is ok.
-        if errno == EEXIST && isDirectory(path) { return }
-
-        // If it failed due to ENOENT (e.g., a missing parent), and we are
-        // recursive, then attempt to create the parent and retry.
-        if errno == ENOENT && recursive &&
-           path != path.parentDirectory /* FIXME: Need Path.isRoot */ {
-            // Attempt to create the parent.
-            try createDirectory(path.parentDirectory, recursive: true)
-
-            // Re-attempt creation, non-recursively.
-            try createDirectory(path, recursive: false)
-        } else {
-            // Otherwise, we failed due to some other error. Report it.
-            throw FileSystemError(errno: errno)
-        }
+        try FileManager.default.createDirectory(atPath: path.pathString, withIntermediateDirectories: recursive, attributes: [:])
     }
 
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
