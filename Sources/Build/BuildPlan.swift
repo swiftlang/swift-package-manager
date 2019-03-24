@@ -511,6 +511,7 @@ public final class SwiftTargetBuildDescription {
         args += additionalFlags
         args += moduleCacheArgs
         args += buildParameters.sanitizers.compileSwiftFlags()
+        args += ["-parseable-output"]
 
         // Add arguments needed for code coverage if it is enabled.
         if buildParameters.enableCodeCoverage {

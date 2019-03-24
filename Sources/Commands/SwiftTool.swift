@@ -207,12 +207,6 @@ public class SwiftTool<Options: ToolOptions> {
     let diagnostics: DiagnosticsEngine = DiagnosticsEngine(
         handlers: [DiagnosticsEngineHandler.default.diagnosticsHandler])
 
-    /// The llbuild Build System delegate.
-    private(set) var buildDelegate: BuildDelegate
-
-    /// The building progress animation.
-    private(set) var buildingProgressAnimation: ProgressAnimationProtocol
-
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
 
@@ -233,13 +227,6 @@ public class SwiftTool<Options: ToolOptions> {
             SwiftTool.exit(with: .failure)
         }
         originalWorkingDirectory = cwd
-
-        // Setup the build delegate.
-        buildingProgressAnimation = NinjaProgressAnimation(stream: stdoutStream)
-        buildDelegate = BuildDelegate(
-            diagnostics: diagnostics,
-            outputStream: stdoutStream,
-            progressAnimation: buildingProgressAnimation)
 
         // Create the parser.
         parser = ArgumentParser(
@@ -528,9 +515,6 @@ public class SwiftTool<Options: ToolOptions> {
         self.shouldRedirectStdoutToStderr = true
         self.stdoutStream = Basic.stderrStream
         DiagnosticsEngineHandler.default.stdoutStream = Basic.stderrStream
-        buildDelegate.outputStream = Basic.stderrStream
-        buildingProgressAnimation = NinjaProgressAnimation(stream: Basic.stderrStream)
-        buildDelegate.progressAnimation = buildingProgressAnimation
     }
 
     /// Resolve the dependencies.
@@ -598,12 +582,12 @@ public class SwiftTool<Options: ToolOptions> {
             return try subset.llbuildTargetName(for: loadPackageGraph(), diagnostics: diagnostics, config: buildParameters.configuration.dirname)
         }
     }
-
-    func build(parameters: BuildParameters, subset: BuildSubset) throws {
+    
+    func build(plan: BuildPlan, parameters: BuildParameters, subset: BuildSubset) throws {
         guard let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: parameters) else {
             return
         }
-        try runLLBuild(manifest: parameters.llbuildManifest, llbuildTarget: llbuildTargetName)
+        try runLLBuild(plan: plan, manifest: parameters.llbuildManifest, llbuildTarget: llbuildTargetName)
     }
 
     /// Build a subset of products and targets using swift-build-tool.
@@ -619,7 +603,7 @@ public class SwiftTool<Options: ToolOptions> {
         try llbuild.generateManifest(at: yaml)
 
         // Run llbuild.
-        try runLLBuild(manifest: yaml, llbuildTarget: llbuildTargetName)
+        try runLLBuild(plan: plan, manifest: yaml, llbuildTarget: llbuildTargetName)
 
         // Create backwards-compatibilty symlink to old build path.
         let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
@@ -629,23 +613,34 @@ public class SwiftTool<Options: ToolOptions> {
         try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
     }
 
-    func runLLBuild(manifest: AbsolutePath, llbuildTarget: String) throws {
+    func runLLBuild(plan: BuildPlan, manifest: AbsolutePath, llbuildTarget: String) throws {
         assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest)")
         if options.shouldEnableLLBuildLibrary {
-            try runLLBuildAsLibrary(manifest: manifest, llbuildTarget: llbuildTarget)
+            try runLLBuildAsLibrary(plan: plan, manifest: manifest, llbuildTarget: llbuildTarget)
         } else {
             try runLLBuildAsExecutable(manifest: manifest, llbuildTarget: llbuildTarget)
         }
     }
 
-    func runLLBuildAsLibrary(manifest: AbsolutePath, llbuildTarget: String) throws {
+    func runLLBuildAsLibrary(plan: BuildPlan, manifest: AbsolutePath, llbuildTarget: String) throws {
+        // Setup the build delegate.
+        let isVerbose = verbosity != .concise
+        let progressAnimation: ProgressAnimationProtocol = isVerbose ?
+            MultiLineNinjaProgressAnimation(stream: stdoutStream) :
+            NinjaProgressAnimation(stream: stdoutStream)
+        let buildDelegate = BuildDelegate(
+            plan: plan,
+            diagnostics: diagnostics,
+            outputStream: stdoutStream,
+            progressAnimation: progressAnimation)
+        buildDelegate.isVerbose = isVerbose
+
         let databasePath = buildPath.appending(component: "build.db").pathString
         let buildSystem = BuildSystem(buildFile: manifest.pathString, databaseFile: databasePath, delegate: buildDelegate)
-        buildDelegate.isVerbose = verbosity != .concise
-        buildDelegate.onCommmandFailure = { [weak buildSystem] in buildSystem?.cancel() }
+        buildDelegate.onCommmandFailure = { buildSystem.cancel() }
 
         let success = buildSystem.build(target: llbuildTarget)
-        buildingProgressAnimation.complete(success: success)
+        progressAnimation.complete(success: success)
         guard success else { throw Diagnostics.fatalError }
     }
 

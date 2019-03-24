@@ -42,14 +42,14 @@ class SwiftCompilerOutputParserTests: XCTestCase {
         let delegate = MockSwiftCompilerOutputParserDelegate()
         let parser = SwiftCompilerOutputParser(delegate: delegate)
 
-        parser.parse(bytes: "22".utf8)
+        parser.parse(bytes: "33".utf8)
         delegate.assert(messages: [], errorDescription: nil)
 
         parser.parse(bytes: "".utf8)
         delegate.assert(messages: [], errorDescription: nil)
 
         parser.parse(bytes: """
-            9
+            8
             {
               "kind": "began",
               "name": "compile",
@@ -70,7 +70,9 @@ class SwiftCompilerOutputParserTests: XCTestCase {
                   "path": "/var/folders/yc/rgflx8m11p5d71k1ydy0l_pr0000gn/T/test-77d991.o"
                 }
               ],
-              "pid": 22698
+              "pid": 22698,
+              "command_executable": "swift",
+              "command_arguments" : ["-frontend", "-c", "-primary-file", "test.swift"]
             }
             117
 
@@ -79,10 +81,13 @@ class SwiftCompilerOutputParserTests: XCTestCase {
             SwiftCompilerMessage(
                 name: "compile",
                 kind: .began(.init(
+                    pid: 22698,
                     inputs: ["test.swift"],
                     outputs: [.init(
                         type: "object",
-                        path: "/var/folders/yc/rgflx8m11p5d71k1ydy0l_pr0000gn/T/test-77d991.o")])))
+                        path: "/var/folders/yc/rgflx8m11p5d71k1ydy0l_pr0000gn/T/test-77d991.o")],
+                    commandExecutable: "swift",
+                    commandArguments: ["-frontend", "-c", "-primary-file", "test.swift"])))
         ], errorDescription: nil)
 
         parser.parse(bytes: """
@@ -97,7 +102,9 @@ class SwiftCompilerOutputParserTests: XCTestCase {
         delegate.assert(messages: [
             SwiftCompilerMessage(
                 name: "compile",
-                kind: .finished(.init(output: "error: it failed :-(")))
+                kind: .finished(.init(
+                    pid: 22698,
+                    output: "error: it failed :-(")))
         ], errorDescription: nil)
 
         parser.parse(bytes: """
@@ -117,7 +124,7 @@ class SwiftCompilerOutputParserTests: XCTestCase {
               ],
               "pid": 58776
             }
-            219
+            299
             {
               "kind": "began",
               "name": "link",
@@ -130,7 +137,9 @@ class SwiftCompilerOutputParserTests: XCTestCase {
                   "path": "test"
                 }
               ],
-              "pid": 22699
+              "pid": 22699,
+              "command_executable": "ld",
+              "command_arguments" : ["-o", "option", "test"]
             }
             119
             """.utf8)
@@ -145,10 +154,13 @@ class SwiftCompilerOutputParserTests: XCTestCase {
             SwiftCompilerMessage(
                 name: "link",
                 kind: .began(.init(
+                    pid: 22699,
                     inputs: ["/var/folders/yc/rgflx8m11p5d71k1ydy0l_pr0000gn/T/test-77d991.o"],
                     outputs: [.init(
                         type: "image",
-                        path: "test")])))
+                        path: "test")],
+                    commandExecutable: "ld",
+                    commandArguments: ["-o", "option", "test"])))
         ], errorDescription: nil)
 
         parser.parse(bytes: """
@@ -165,7 +177,9 @@ class SwiftCompilerOutputParserTests: XCTestCase {
         delegate.assert(messages: [
             SwiftCompilerMessage(
                 name: "link",
-                kind: .signalled(.init(output: nil)))
+                kind: .signalled(.init(
+                    pid: 22699,
+                    output: nil)))
         ], errorDescription: nil)
     }
 
