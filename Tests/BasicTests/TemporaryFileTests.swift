@@ -24,7 +24,7 @@ class TemporaryFileTests: XCTestCase {
             XCTAssertTrue(file.path.basename.hasSuffix("mysuffix"))
 
             // Check if file is created.
-            XCTAssertTrue(isFile(file.path))
+            XCTAssertTrue(localFileSystem.isFile(file.path))
 
             // Try writing some data to the file.
             let stream = BufferedOutputByteStream()
@@ -42,7 +42,7 @@ class TemporaryFileTests: XCTestCase {
             filePath = file.path
         }
         // File should be deleted now.
-        XCTAssertFalse(isFile(filePath))
+        XCTAssertFalse(localFileSystem.isFile(filePath))
     }
     
     func testNoCleanupTemporaryFile() throws {
@@ -51,7 +51,7 @@ class TemporaryFileTests: XCTestCase {
             let file = try TemporaryFile(deleteOnClose: false)
             
             // Check if file is created.
-            XCTAssertTrue(isFile(file.path))
+            XCTAssertTrue(localFileSystem.isFile(file.path))
             
             // Try writing some data to the file.
             let stream = BufferedOutputByteStream()
@@ -69,7 +69,7 @@ class TemporaryFileTests: XCTestCase {
             filePath = file.path
         }
         // File should not be deleted.
-        XCTAssertTrue(isFile(filePath))
+        XCTAssertTrue(localFileSystem.isFile(filePath))
         // Delete the file now
         try localFileSystem.removeFileTree(filePath)
     }
@@ -81,16 +81,16 @@ class TemporaryFileTests: XCTestCase {
             let fileOne = try TemporaryFile()
             let fileTwo = try TemporaryFile()
             // Check files exists.
-            XCTAssertTrue(isFile(fileOne.path))
-            XCTAssertTrue(isFile(fileTwo.path))
+            XCTAssertTrue(localFileSystem.isFile(fileOne.path))
+            XCTAssertTrue(localFileSystem.isFile(fileTwo.path))
             // Their paths should be different.
             XCTAssertTrue(fileOne.path != fileTwo.path)
 
             filePathOne = fileOne.path
             filePathTwo = fileTwo.path
         }
-        XCTAssertFalse(isFile(filePathOne))
-        XCTAssertFalse(isFile(filePathTwo))
+        XCTAssertFalse(localFileSystem.isFile(filePathOne))
+        XCTAssertFalse(localFileSystem.isFile(filePathTwo))
     }
 
     func testBasicTemporaryDirectory() throws {

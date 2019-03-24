@@ -447,13 +447,13 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             relativeTo: localFileSystem.currentWorkingDirectory!).parentDirectory
         // XCTestHelper tool is installed in libexec.
         let maybePath = binDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", xctestHelperBin)
-        if isFile(maybePath) {
+        if localFileSystem.isFile(maybePath) {
             return maybePath
         }
         // This will be true during swiftpm development.
         // FIXME: Factor all of the development-time resource location stuff into a common place.
         let path = binDirectory.appending(component: xctestHelperBin)
-        if isFile(path) {
+        if localFileSystem.isFile(path) {
             return path
         }
         fatalError("XCTestHelper binary not found.")

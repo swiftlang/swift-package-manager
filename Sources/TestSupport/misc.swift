@@ -62,7 +62,7 @@ public func fixture(
         }
 
         // The fixture contains either a checkout or just a Git directory.
-        if isFile(fixtureDir.appending(component: "Package.swift")) {
+        if localFileSystem.isFile(fixtureDir.appending(component: "Package.swift")) {
             // It's a single package, so copy the whole directory as-is.
             let dstDir = tmpDir.path.appending(component: copyName)
             try systemQuietly("cp", "-R", "-H", fixtureDir.pathString, dstDir.pathString)

@@ -275,7 +275,7 @@ func findNonSourceFiles(path: AbsolutePath, manifestVersion: ManifestVersion, re
     let filesFromPath = try walk(path, recursively: recursively)
 
     return filesFromPath.filter({
-        if !isFile($0) { return false }
+        if !localFileSystem.isFile($0) { return false }
         if $0.basename.hasPrefix(".") { return false }
         if $0.basename == "Package.resolved" { return false }
         if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions(manifestVersion: manifestVersion).contains(`extension`) {

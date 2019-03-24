@@ -811,7 +811,7 @@ private func findPackageRoot() -> AbsolutePath? {
     }
     // FIXME: It would be nice to move this to a generalized method which takes path and predicate and
     // finds the lowest path for which the predicate is true.
-    while !isFile(root.appending(component: Manifest.filename)) {
+    while !localFileSystem.isFile(root.appending(component: Manifest.filename)) {
         root = root.parentDirectory
         guard !root.isRoot else {
             return nil
