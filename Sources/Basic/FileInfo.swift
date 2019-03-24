@@ -22,7 +22,7 @@ public struct FileInfo: Equatable, Codable {
     }
 
     /// File system entity kind.
-    public enum Kind {
+    public enum Kind: String, Codable {
         case file, directory, symlink, blockdev, chardev, socket, unknown
 
         fileprivate init(mode: mode_t) {
@@ -55,15 +55,14 @@ public struct FileInfo: Equatable, Codable {
     public let modTime: FileTimestamp
 
     /// Kind of file system entity.
-    public var kind: Kind {
-        return Kind(mode: mode_t(mode) & S_IFMT)
-    }
+    public let kind: Kind
 
     public init(_ buf: SPMLibc.stat) {
         self.device = UInt64(buf.st_dev)
         self.inode = UInt64(buf.st_ino)
         self.mode = UInt64(buf.st_mode)
         self.size = UInt64(buf.st_size)
+        self.kind = Kind(mode: mode_t(mode) & S_IFMT)
 
         #if canImport(Darwin)
         let seconds = buf.st_mtimespec.tv_sec
