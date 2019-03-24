@@ -15,7 +15,6 @@ public enum SystemError: Swift.Error {
     case pipe(Int32)
     case posix_spawn(Int32, [String])
     case read(Int32)
-    case realpath(Int32, String)
     case setenv(Int32, String)
     case stat(Int32, String)
     case symlink(Int32, String, dest: String)
@@ -63,8 +62,6 @@ extension SystemError: CustomStringConvertible {
             return "posix_spawn error: \(strerror(errno)), `\(args)`"
         case .read(let errno):
             return "read error: \(strerror(errno))"
-        case .realpath(let errno, let path):
-            return "realpath error: \(strerror(errno)): \(path)"
         case .setenv(let errno, let key):
             return "setenv error: \(strerror(errno)): \(key)"
         case .stat(let errno, _):
