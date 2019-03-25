@@ -10,7 +10,6 @@
 
 import Foundation
 import SPMLibc
-import enum POSIX.SystemError
 
 /// Provides functionality related a process's enviorment.
 public enum ProcessEnv {

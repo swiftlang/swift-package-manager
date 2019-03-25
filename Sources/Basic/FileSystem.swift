@@ -10,7 +10,6 @@
 
 import SPMLibc
 import Foundation
-import enum POSIX.SystemError
 
 public enum FileSystemError: Swift.Error {
     /// Access to the path is denied.
