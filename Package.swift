@@ -25,7 +25,6 @@ let package = Package(
             targets: [
                 "clibc",
                 "SPMLibc",
-                "POSIX",
                 "Basic",
                 "SPMUtility",
                 "SourceControl",
@@ -43,7 +42,6 @@ let package = Package(
             targets: [
                 "clibc",
                 "SPMLibc",
-                "POSIX",
                 "Basic",
                 "SPMUtility",
                 "SourceControl",
@@ -67,7 +65,6 @@ let package = Package(
             targets: [
                 "clibc",
                 "SPMLibc",
-                "POSIX",
                 "Basic",
                 "SPMUtility",
             ]
@@ -92,17 +89,13 @@ let package = Package(
             name: "SPMLibc",
             dependencies: ["clibc"]),
         .target(
-            /** “Swifty” POSIX functions from libc */
-            name: "POSIX",
-            dependencies: ["SPMLibc"]),
-        .target(
             /** Basic support library */
             name: "Basic",
-            dependencies: ["SPMLibc", "POSIX"]),
+            dependencies: ["SPMLibc"]),
         .target(
             /** Abstractions for common operations, should migrate to Basic */
             name: "SPMUtility",
-            dependencies: ["POSIX", "Basic"]),
+            dependencies: ["Basic"]),
         .target(
             /** Source control operations */
             name: "SourceControl",
@@ -177,11 +170,11 @@ let package = Package(
         .target(
             /** Test support library */
             name: "TestSupport",
-            dependencies: ["Basic", "POSIX", "PackageGraph", "PackageLoading", "SourceControl", "SPMUtility", "Commands"]),
+            dependencies: ["Basic", "PackageGraph", "PackageLoading", "SourceControl", "SPMUtility", "Commands"]),
         .target(
             /** Test support executable */
             name: "TestSupportExecutable",
-            dependencies: ["Basic", "POSIX", "SPMUtility"]),
+            dependencies: ["Basic", "SPMUtility"]),
 
         .testTarget(
             name: "BasicTests",
@@ -223,9 +216,6 @@ let package = Package(
         .testTarget(
             name: "PackageGraphPerformanceTests",
             dependencies: ["PackageGraph", "TestSupport"]),
-        .testTarget(
-            name: "POSIXTests",
-            dependencies: ["POSIX", "TestSupport"]),
         .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "TestSupport"]),

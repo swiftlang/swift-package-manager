@@ -9,7 +9,6 @@
 */
 
 import SPMLibc
-import enum POSIX.SystemError
 import Basic
 
 /// Interrupt signal handling global variables

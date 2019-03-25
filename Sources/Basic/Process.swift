@@ -10,7 +10,6 @@
 
 import class Foundation.ProcessInfo
 
-import enum POSIX.SystemError
 import SPMLibc
 import Dispatch
 

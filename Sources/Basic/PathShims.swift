@@ -19,7 +19,6 @@
 
 import SPMLibc
 import Foundation
-import enum POSIX.SystemError
 
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
