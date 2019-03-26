@@ -93,6 +93,34 @@ public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable {
     public static func < (lhs: ToolsVersion, rhs: ToolsVersion) -> Bool {
         return lhs._version < rhs._version
     }
+
+    /// Returns true if the tools version is valid and can be used by this
+    /// version of the package manager.
+    public func validateToolsVersion(
+        _ currentToolsVersion: ToolsVersion,
+        version: String? = nil,
+        packagePath: String
+    ) throws {
+        // Make sure the package has the right minimum tools version.
+        guard self >= .minimumRequired else {
+            throw UnsupportedToolsVersion(
+                packagePath: packagePath,
+                version: version,
+                minimumRequiredToolsVersion: .minimumRequired,
+                packageToolsVersion: self
+            )
+        }
+
+        // Make sure the package isn't newer than the current tools version.
+        guard currentToolsVersion >= self else {
+            throw RequireNewerTools(
+                packagePath: packagePath,
+                version: version,
+                installedToolsVersion: currentToolsVersion,
+                packageToolsVersion: self
+            )
+        }
+    }
 }
 
 /// Represents a Swift language version.
@@ -189,5 +217,94 @@ extension SwiftLanguageVersion: Codable {
         let container = try decoder.singleValueContainer()
         let rawValue = try container.decode(String.self)
         self.init(uncheckedString: rawValue)
+    }
+}
+
+// MARK:- Diagnostics
+
+/// The diagnostic triggered when the package has a newer tools version than the installed tools.
+public struct RequireNewerTools: DiagnosticData, Swift.Error {
+    public static var id = DiagnosticID(
+        type: RequireNewerTools.self,
+        name: "org.swift.diags.workspace.\(RequireNewerTools.self)",
+        description: {
+            $0 <<< .substitution({
+                let `self` = $0 as! RequireNewerTools
+                var text = "package at '\(self.packagePath)'"
+                if let version = self.version {
+                    text += " @ \(version)"
+                }
+                return text
+            }, preference: .default)
+            $0 <<< "is using Swift tools version" <<< { $0.packageToolsVersion.description }
+            $0 <<< "but the installed version is" <<< { "\($0.installedToolsVersion.description)" }
+    })
+
+    /// The path of the package.
+    public let packagePath: String
+
+    /// The version of the package.
+    public let version: String?
+
+    /// The installed tools version.
+    public let installedToolsVersion: ToolsVersion
+
+    /// The tools version of the package.
+    public let packageToolsVersion: ToolsVersion
+
+    public init(
+        packagePath: String,
+        version: String? = nil,
+        installedToolsVersion: ToolsVersion,
+        packageToolsVersion: ToolsVersion
+    ) {
+        self.packagePath = packagePath
+        self.version = version
+        self.installedToolsVersion = installedToolsVersion
+        self.packageToolsVersion = packageToolsVersion
+    }
+}
+
+/// The diagnostic triggered when the package has an unsupported tools version.
+public struct UnsupportedToolsVersion: DiagnosticData, Swift.Error {
+    public static var id = DiagnosticID(
+        type: UnsupportedToolsVersion.self,
+        name: "org.swift.diags.workspace.\(UnsupportedToolsVersion.self)",
+        description: {
+            $0 <<< .substitution({
+                let `self` = $0 as! UnsupportedToolsVersion
+                var text = "package at '\(self.packagePath)'"
+                if let version = self.version {
+                    text += " @ \(version)"
+                }
+                return text
+            }, preference: .default)
+            $0 <<< "is using Swift tools version" <<< { $0.packageToolsVersion.description }
+            $0 <<< "which is no longer supported; use" <<< { $0.minimumRequiredToolsVersion.description }
+            $0 <<< "or newer instead"
+    })
+
+    /// The path of the package.
+    public let packagePath: String
+
+    /// The version of the package.
+    public let version: String?
+
+    /// The tools version required by the package.
+    public let minimumRequiredToolsVersion: ToolsVersion
+
+    /// The current tools version.
+    public let packageToolsVersion: ToolsVersion
+
+    public init(
+        packagePath: String,
+        version: String? = nil,
+        minimumRequiredToolsVersion: ToolsVersion,
+        packageToolsVersion: ToolsVersion
+    ) {
+        self.packagePath = packagePath
+        self.version = version
+        self.minimumRequiredToolsVersion = minimumRequiredToolsVersion
+        self.packageToolsVersion = packageToolsVersion
     }
 }

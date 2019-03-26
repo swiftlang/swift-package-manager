@@ -1031,23 +1031,9 @@ extension Workspace {
             let toolsVersion = try toolsVersionLoader.load(
                 at: packagePath, fileSystem: fileSystem)
 
-            // Make sure the package has the right minimum tools version.
-            guard toolsVersion >= ToolsVersion.minimumRequired else {
-                throw WorkspaceDiagnostics.UnsupportedToolsVersion(
-                    packagePath: packagePath,
-                    minimumRequiredToolsVersion: .minimumRequired,
-                    packageToolsVersion: toolsVersion
-                )
-            }
-
-            // Make sure the package isn't newer than the current tools version.
-            guard currentToolsVersion >= toolsVersion else {
-                throw WorkspaceDiagnostics.RequireNewerTools(
-                    packagePath: packagePath,
-                    installedToolsVersion: currentToolsVersion,
-                    packageToolsVersion: toolsVersion
-                )
-            }
+            // Validate the tools version.
+            try toolsVersion.validateToolsVersion(
+                currentToolsVersion, packagePath: packagePath.pathString)
 
             // Load the manifest.
             // FIXME: We should have a cache for this.
