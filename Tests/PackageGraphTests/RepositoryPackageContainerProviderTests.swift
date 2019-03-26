@@ -337,6 +337,20 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let v = container.versions(filter: { _ in true }).map{$0}
             XCTAssertEqual(v, [])
         }
+
+        // Test that getting dependencies on a revision that has unsupported tools version is diganosed properly.
+        do {
+            let provider = createProvider(ToolsVersion(version: "4.0.0"))
+            let ref = PackageReference(identity: "foo", path: specifier.url)
+            let container = try await { provider.getContainer(for: ref, completion: $0) } as! RepositoryPackageContainer
+            let revision = try container.getRevision(forTag: "1.0.0")
+            do {
+                _ = try container.getDependencies(at: revision.identifier)
+            } catch let error as RepositoryPackageContainer.GetDependenciesErrorWrapper {
+                let error = error.underlyingError as! UnsupportedToolsVersion
+                XCTAssertMatch(error.description, .and(.prefix("package at '/some-repo' @"), .suffix("is using Swift tools version 3.1.0 which is no longer supported; use 4.0.0 or newer instead")))
+            }
+        }
     }
     
     func testPrereleaseVersions() throws {

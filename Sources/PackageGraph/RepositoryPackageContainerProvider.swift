@@ -266,22 +266,12 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             }
 
             // Otherwise, compute and cache the result.
-            let isValid = (try? self.toolsVersion(for: $0)).flatMap({
-                guard $0 >= ToolsVersion.minimumRequired else {
-                    return false
-                }
-
-                guard self.currentToolsVersion >= $0 else {
-                    return false
-                }
-
-                return true
-            }) ?? false
+            let isValid = (try? self.toolsVersion(for: $0)).flatMap(self.isValidToolsVersion(_:)) ?? false
             self.validToolsVersionsCache[$0] = isValid
-
             return isValid
         }))
     }
+    
     /// The opened repository.
     let repository: Repository
 
@@ -403,13 +393,19 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     ) throws -> (Manifest, [RepositoryPackageConstraint]) {
         let fs = try repository.openFileView(revision: revision)
 
+        let packageURL = identifier.repository.url
+
         // Load the tools version.
         let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)
+
+        // Validate the tools version.
+        try toolsVersion.validateToolsVersion(
+            self.currentToolsVersion, version: revision.identifier, packagePath: packageURL)
 
         // Load the manifest.
         let manifest = try manifestLoader.load(
             package: AbsolutePath.root,
-            baseURL: identifier.repository.url,
+            baseURL: packageURL,
             version: version,
             manifestVersion: toolsVersion.manifestVersion,
             fileSystem: fs)
@@ -442,5 +438,16 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             return self.identifier
         }
         return self.identifier.with(newName: manifest.name)
+    }
+
+    /// Returns true if the tools version is valid and can be used by this
+    /// version of the package manager.
+    private func isValidToolsVersion(_ toolsVersion: ToolsVersion) -> Bool {
+        do {
+            try toolsVersion.validateToolsVersion(currentToolsVersion, packagePath: "")
+            return true
+        } catch {
+            return false
+        }
     }
 }
