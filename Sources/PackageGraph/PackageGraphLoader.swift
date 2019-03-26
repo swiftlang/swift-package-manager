@@ -26,26 +26,6 @@ struct UnusedDependencyDiagnostic: DiagnosticData {
     public let dependencyName: String
 }
 
-struct ProductHasNoSupportedPlatform: DiagnosticData {
-    static let id = DiagnosticID(
-        type: ProductHasNoSupportedPlatform.self,
-        name: "org.swift.diags.\(ProductHasNoSupportedPlatform.self)",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "the product" <<< { "'\($0.productDependency)'" }
-            $0 <<< "doesn't support any of the platform required by"
-            $0 <<< "the target" <<< { "'\($0.target)'" }
-        })
-
-    public let productDependency: String
-    public let target: String
-
-    init(product: String, target: String) {
-        self.productDependency = product
-        self.target = target
-    }
-}
-
 struct ProductUsesUnsafeFlags: DiagnosticData {
     static let id = DiagnosticID(
         type: ProductUsesUnsafeFlags.self,
