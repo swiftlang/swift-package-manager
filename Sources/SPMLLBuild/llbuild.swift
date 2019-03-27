@@ -173,7 +173,17 @@ public extension LLBuildKey {
     }
 
     init(_ data: [UInt8]) {
-        self = try! fromBytes(data)
+        do {
+            self = try fromBytes(data)
+        } catch {
+            let stringValue: String
+            if let str = String(bytes: data, encoding: .utf8) {
+                stringValue = str
+            } else {
+                stringValue = String(describing: data)
+            }
+            fatalError("Please file a bug at https://bugs.swift.org with this info -- LLBuildKey: ###\(error)### ----- ###\(stringValue)###")
+        }
     }
 
     func toKey() -> Key {
@@ -183,7 +193,17 @@ public extension LLBuildKey {
 
 public extension LLBuildValue {
     init(_ value: Value) {
-        self = try! fromBytes(value.data)
+        do {
+            self = try fromBytes(value.data)
+        } catch {
+            let stringValue: String
+            if let str = String(bytes: value.data, encoding: .utf8) {
+                stringValue = str
+            } else {
+                stringValue = String(describing: value.data)
+            }
+            fatalError("Please file a bug at https://bugs.swift.org with this info -- LLBuildValue: ###\(error)### ----- ###\(stringValue)###")
+        }
     }
 
     func toValue() -> Value {
