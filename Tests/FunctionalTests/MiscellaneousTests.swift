@@ -30,11 +30,11 @@ class MiscellaneousTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let output = try executeSwiftBuild(prefix.appending(component: "Bar"))
             XCTAssertMatch(output, .regex("Resolving .* at 1\\.2\\.3"))
-            XCTAssertMatch(output, .regex("Compiling .*Foo.swift"))
-            XCTAssertMatch(output, .regex("Merging module .*Foo\\.swiftmodule"))
-            XCTAssertMatch(output, .contains("Compiling main.swift"))
-            XCTAssertMatch(output, .regex("Merging module .*Bar\\.swiftmodule"))
-            XCTAssertMatch(output, .regex("Linking .*Bar"))
+            XCTAssertMatch(output, .contains("Compiling Foo Foo.swift"))
+            XCTAssertMatch(output, .contains("Merging module Foo"))
+            XCTAssertMatch(output, .contains("Compiling Bar main.swift"))
+            XCTAssertMatch(output, .contains("Merging module Bar"))
+            XCTAssertMatch(output, .contains("Linking Bar"))
         }
     }
 
@@ -90,7 +90,7 @@ class MiscellaneousTestCase: XCTestCase {
                 try executeSwiftBuild(prefix)
                 XCTFail()
             } catch SwiftPMProductError.executionFailure(let error, let output, _) {
-                XCTAssertMatch(output, .contains("Compiling Foo.swift"))
+                XCTAssertMatch(output, .contains("Compiling CompileFails Foo.swift"))
                 XCTAssertMatch(output, .regex("error: .*\n.*compile_failure"))
 
                 if case ProcessResult.Error.nonZeroExit(let result) = error {

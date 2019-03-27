@@ -15,11 +15,11 @@ class MockSwiftCompilerOutputParserDelegate: SwiftCompilerOutputParserDelegate {
     private var messages: [SwiftCompilerMessage] = []
     private var error: Error?
 
-    func swiftCompilerDidOutputMessage(_ message: SwiftCompilerMessage) {
+    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
         messages.append(message)
     }
 
-    func swiftCompilerOutputParserDidFail(withError error: Error) {
+    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
         self.error = error
     }
 
@@ -40,7 +40,7 @@ class MockSwiftCompilerOutputParserDelegate: SwiftCompilerOutputParserDelegate {
 class SwiftCompilerOutputParserTests: XCTestCase {
     func testParse() throws {
         let delegate = MockSwiftCompilerOutputParserDelegate()
-        let parser = SwiftCompilerOutputParser(delegate: delegate)
+        let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
 
         parser.parse(bytes: "33".utf8)
         delegate.assert(messages: [], errorDescription: nil)
@@ -185,7 +185,7 @@ class SwiftCompilerOutputParserTests: XCTestCase {
 
     func testInvalidMessageSizeBytes() {
         let delegate = MockSwiftCompilerOutputParserDelegate()
-        let parser = SwiftCompilerOutputParser(delegate: delegate)
+        let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
 
         parser.parse(bytes: [65, 66, 200, 67, UInt8(ascii: "\n")])
         delegate.assert(messages: [], errorDescription: "invalid UTF8 bytes")
@@ -205,7 +205,7 @@ class SwiftCompilerOutputParserTests: XCTestCase {
 
     func testInvalidMessageSizeValue() {
         let delegate = MockSwiftCompilerOutputParserDelegate()
-        let parser = SwiftCompilerOutputParser(delegate: delegate)
+        let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
 
         parser.parse(bytes: """
             2A
@@ -228,7 +228,7 @@ class SwiftCompilerOutputParserTests: XCTestCase {
 
     func testInvalidMessageBytes() {
         let delegate = MockSwiftCompilerOutputParserDelegate()
-        let parser = SwiftCompilerOutputParser(delegate: delegate)
+        let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
 
         parser.parse(bytes: """
             4
@@ -253,7 +253,7 @@ class SwiftCompilerOutputParserTests: XCTestCase {
 
     func testInvalidMessageMissingField() {
         let delegate = MockSwiftCompilerOutputParserDelegate()
-        let parser = SwiftCompilerOutputParser(delegate: delegate)
+        let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
 
         parser.parse(bytes: """
             23
@@ -278,7 +278,7 @@ class SwiftCompilerOutputParserTests: XCTestCase {
 
     func testInvalidMessageInvalidValue() {
         let delegate = MockSwiftCompilerOutputParserDelegate()
-        let parser = SwiftCompilerOutputParser(delegate: delegate)
+        let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
 
         parser.parse(bytes: """
             23

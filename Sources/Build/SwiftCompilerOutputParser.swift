@@ -50,10 +50,10 @@ struct SwiftCompilerMessage {
 /// Protocol for the parser delegate to get notified of parsing events.
 protocol SwiftCompilerOutputParserDelegate: class {
     /// Called for each message parsed.
-    func swiftCompilerDidOutputMessage(_ message: SwiftCompilerMessage)
+    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage)
 
     /// Called on an un-expected parsing error. No more events will be received after that.
-    func swiftCompilerOutputParserDidFail(withError error: Error)
+    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error)
 }
 
 /// Parser for the Swift compiler JSON output mode.
@@ -65,6 +65,9 @@ final class SwiftCompilerOutputParser {
         case parsingMessage(size: Int)
         case parsingNewlineAfterMessage
     }
+
+    /// Name of the target the compiler is compiling.
+    public let targetName: String
 
     /// Delegate to notify of parsing events.
     public weak var delegate: SwiftCompilerOutputParserDelegate?
@@ -82,7 +85,8 @@ final class SwiftCompilerOutputParser {
     private let decoder: JSONDecoder
 
     /// Initializes the parser with a delegate to notify of parsing events.
-    init(delegate: SwiftCompilerOutputParserDelegate) {
+    init(targetName: String, delegate: SwiftCompilerOutputParserDelegate) {
+        self.targetName = targetName
         self.delegate = delegate
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -99,7 +103,7 @@ final class SwiftCompilerOutputParser {
             try parseImpl(bytes: bytes)
         } catch {
             hasFailed = true
-            delegate?.swiftCompilerOutputParserDidFail(withError: error)
+            delegate?.swiftCompilerOutputParser(self, didFailWith: error)
         }
     }
 }
@@ -135,7 +139,7 @@ private extension SwiftCompilerOutputParser {
                 buffer.append(contentsOf: bytes.prefix(remainingBytes))
 
                 let message = try parseMessage()
-                delegate?.swiftCompilerDidOutputMessage(message)
+                delegate?.swiftCompilerOutputParser(self, didParse: message)
 
                 if case .signalled = message.kind {
                     hasFailed = true
