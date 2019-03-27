@@ -28,6 +28,9 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
     /// The resolver found missing versions for the given constraints.
     case missingVersions([PackageContainerConstraint])
 
+    /// The resolution was cancelled.
+    case cancelled
+
     public static func == (lhs: DependencyResolverError, rhs: DependencyResolverError) -> Bool {
         switch (lhs, rhs) {
         case (.unsatisfiable, .unsatisfiable):
@@ -47,11 +50,17 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
             return lhs == rhs
         case (.missingVersions, _):
             return false
+        case (.cancelled, .cancelled):
+            return true
+        case (.cancelled, _):
+            return false
         }
     }
 
     public var description: String {
         switch self {
+        case .cancelled:
+            return "the dependency resolution was cancelled"
         case .unsatisfiable:
             return "unable to resolve dependencies"
         case .cycle(let package):
@@ -821,10 +830,20 @@ public class DependencyResolver {
     /// Skip updating containers while fetching them.
     private let skipUpdate: Bool
 
+    /// Lock used to get and set the error variable.
+    private let errorLock: Lock = Lock()
+
     // FIXME: @testable private
     //
     /// Contains any error encountered during dependency resolution.
-    var error: Swift.Error?
+    var error: Swift.Error? {
+        get {
+            return errorLock.withLock { self.__error }
+        } set {
+            errorLock.withLock { self.__error = newValue }
+        }
+    }
+    var __error: Swift.Error?
 
     /// Key used to cache a resolved subtree.
     private struct ResolveSubtreeCacheKey: Hashable {
@@ -882,6 +901,13 @@ public class DependencyResolver {
 
         /// The resolver encountered an error during resolution.
         case error(Swift.Error)
+    }
+
+    /// Cancel the dependency resolution operation.
+    ///
+    /// This method is thread-safe.
+    public func cancel() {
+        self.error = DependencyResolverError.cancelled
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.

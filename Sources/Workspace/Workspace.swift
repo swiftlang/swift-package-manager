@@ -300,6 +300,9 @@ public class Workspace {
     /// Skip updating containers while fetching them.
     fileprivate let skipUpdate: Bool
 
+    /// The active package resolver. This is set during a dependency resolution operation.
+    fileprivate var activeResolver: PackageResolver?
+
     /// Typealias for dependency resolver we use in the workspace.
     fileprivate typealias PackageDependencyResolver = DependencyResolver
     fileprivate typealias PubgrubResolver = PubgrubDependencyResolver
@@ -539,6 +542,17 @@ extension Workspace {
         try? fileSystem.removeFileTree(dataPath)
     }
 
+    /// Cancel the active dependency resolution operation.
+    ///
+    /// Only legacy resolver is supported right now. This method is thread-safe.
+    public func cancelActiveResolverOperation() {
+        switch activeResolver {
+        case .legacy(let resolver)?:
+            resolver.cancel()
+        default: break
+        }
+    }
+
     /// Updates the current dependencies.
     ///
     /// - Parameters:
@@ -579,7 +593,14 @@ extension Workspace {
         let resolutionStartTime = Date()
 
         // Resolve the dependencies.
-        let updateResults = resolveDependencies(dependencies: updateConstraints, diagnostics: diagnostics)
+        let resolver = createResolver()
+        activeResolver = resolver
+
+        let updateResults = resolveDependencies(resolver: resolver, dependencies: updateConstraints, diagnostics: diagnostics)
+
+        // Reset the active resolver.
+        activeResolver = nil
+
         guard !diagnostics.hasErrors else { return }
 
         // Emit the time taken to perform dependency resolution.
@@ -1217,8 +1238,11 @@ extension Workspace {
         // Perform dependency resolution.
         let resolverDiagnostics = DiagnosticsEngine()
         var resolver = createResolver()
+        activeResolver = resolver
+
         var result = resolveDependencies(
             resolver: resolver, dependencies: constraints, pins: validPins, diagnostics: resolverDiagnostics)
+        activeResolver = nil
 
         // If we fail, we just try again without any pins because the pins might
         // be completely incompatible.
@@ -1586,13 +1610,11 @@ extension Workspace {
 
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(
-        resolver: PackageResolver? = nil,
+        resolver: PackageResolver,
         dependencies: [RepositoryPackageConstraint],
         pins: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine
     ) -> [(container: PackageReference, binding: BoundVersion)] {
-        let resolver = resolver ?? createResolver()
-
         let result = resolver.resolve(dependencies: dependencies, pins: pins)
 
         // Take an action based on the result.
