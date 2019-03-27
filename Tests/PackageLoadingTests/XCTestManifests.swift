@@ -92,6 +92,7 @@ extension PackageDescription4_2LoadingTests {
         ("testCacheInvalidationOnEnv", testCacheInvalidationOnEnv),
         ("testCaching", testCaching),
         ("testDuplicateDependencyDecl", testDuplicateDependencyDecl),
+        ("testLLBuildEngineErrors", testLLBuildEngineErrors),
         ("testPackageDependencies", testPackageDependencies),
         ("testPlatforms", testPlatforms),
         ("testRuntimeManifestErrors", testRuntimeManifestErrors),
