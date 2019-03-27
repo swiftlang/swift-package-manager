@@ -37,8 +37,20 @@ public protocol LLBuildEngineDelegate {
 
 public final class LLBuildEngine {
 
+    enum Error: Swift.Error, CustomStringConvertible {
+        case failed(errors: [String])
+
+        var description: String {
+            switch self {
+            case .failed(let errors):
+                return errors.joined(separator: "\n")
+            }
+        }
+    }
+
     private final class Delegate: BuildEngineDelegate {
         let delegate: LLBuildEngineDelegate
+        var errors: [String] = []
 
         init(_ delegate: LLBuildEngineDelegate) {
             self.delegate = delegate
@@ -49,22 +61,37 @@ public final class LLBuildEngine {
             return delegate.lookupRule(
                 rule: ruleKey.rule, key: Key(ruleKey.data))
         }
+
+        func error(_ message: String) {
+            errors.append(message)
+        }
     }
 
     private let engine: BuildEngine
+    private let delegate: Delegate
 
     public init(delegate: LLBuildEngineDelegate) {
-        engine = BuildEngine(delegate: Delegate(delegate))
+        self.delegate = Delegate(delegate)
+        engine = BuildEngine(delegate: self.delegate)
     }
 
     deinit {
         engine.close()
     }
 
-    public func build<T: LLBuildKey>(key: T) -> T.BuildValue {
+    public func build<T: LLBuildKey>(key: T) throws -> T.BuildValue {
+        // Clear out any errors from the previous build.
+        delegate.errors.removeAll()
+
         let encodedKey = RuleKey(
             rule: T.BuildRule.ruleName, data: key.toKey().data).toKey()
         let value = engine.build(key: encodedKey)
+
+        // Throw if the engine encountered any fatal error during the build.
+        if !delegate.errors.isEmpty || value.data.isEmpty {
+            throw Error.failed(errors: delegate.errors)
+        }
+
         return T.BuildValue(value)
     }
 
