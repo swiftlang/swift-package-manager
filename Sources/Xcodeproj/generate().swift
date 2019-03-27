@@ -250,17 +250,20 @@ func generateSchemes(
 // as a reference to the project.
 func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheckout) throws -> [AbsolutePath] {
     let srcroot = package.path
-    var extraFiles = try findNonSourceFiles(path: srcroot, manifestVersion: package.manifest.manifestVersion)
+    var extraFiles = findNonSourceFiles(path: srcroot, manifestVersion: package.manifest.manifestVersion, recursively: false)
 
     for target in package.targets {
         let sourcesDirectory = target.sources.root
         if localFileSystem.isDirectory(sourcesDirectory) {
-            let sourcesExtraFiles = try findNonSourceFiles(path: sourcesDirectory, manifestVersion: package.manifest.manifestVersion, recursively: true)
+            let sourcesExtraFiles = findNonSourceFiles(path: sourcesDirectory, manifestVersion: package.manifest.manifestVersion, recursively: true)
             extraFiles.append(contentsOf: sourcesExtraFiles)
         }
     }
 
-    let isIgnored = try workingCheckout.areIgnored(extraFiles)
+    // Return if we can't determine if the files are git ignored.
+    guard let isIgnored = try? workingCheckout.areIgnored(extraFiles) else {
+        return []
+    }
     extraFiles = extraFiles.enumerated().filter({ !isIgnored[$0.offset] }).map({ $0.element })
 
     return extraFiles
@@ -270,10 +273,23 @@ func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheck
 /// - parameters:
 ///   - path: The path of the directory to get the files from
 ///   - recursively: Specifies if the directory at `path` should be searched recursively
-func findNonSourceFiles(path: AbsolutePath, manifestVersion: ManifestVersion, recursively: Bool = false) throws -> [AbsolutePath] {
-    let filesFromPath = try walk(path, recursively: recursively)
+func findNonSourceFiles(path: AbsolutePath, manifestVersion: ManifestVersion, recursively: Bool) -> [AbsolutePath] {
+    let filesFromPath: RecursibleDirectoryContentsGenerator?
 
-    return filesFromPath.filter({
+    if recursively {
+        filesFromPath = try? walk(path, recursing: { path in
+            // Ignore any git submodule that we might encounter.
+            let gitPath = path.appending(component: ".git")
+            if localFileSystem.exists(gitPath) {
+                return false
+            }
+            return recursively
+        })
+    } else {
+        filesFromPath = try? walk(path, recursively: recursively)
+    }
+
+    return filesFromPath?.filter({
         if !localFileSystem.isFile($0) { return false }
         if $0.basename.hasPrefix(".") { return false }
         if $0.basename == "Package.resolved" { return false }
@@ -281,5 +297,5 @@ func findNonSourceFiles(path: AbsolutePath, manifestVersion: ManifestVersion, re
             return false
         }
         return true
-    })
+    }) ?? []
 }
