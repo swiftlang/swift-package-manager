@@ -805,16 +805,7 @@ public final class PubgrubDependencyResolver {
         }
         decide(root, version: .version("1.0.0"), location: .topLevel)
 
-        do {
-            try run()
-        } catch {
-            if let pubgrubError = error as? PubgrubError,
-                case .unresolvable(let incompatibility) = pubgrubError,
-                case .conflict(let cause, let other) = incompatibility.cause {
-                print("Root cause: \(cause) \(cause.cause) because of \(other) \(other.cause)")
-            }
-            throw error
-        }
+        try run()
 
         let decisions = solution.assignments.filter { $0.isDecision }
         let finalAssignments: [(container: PackageReference, binding: BoundVersion)] = try decisions.compactMap { assignment in
