@@ -442,8 +442,10 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(root: rootRef, pins: [])
 
         AssertUnresolvable(result, resolver,
-                           diagnostic: "Because no versions of a match the requirement 2.0.0..<3.0.0, version solving has failed.",
-                           skipDiagnosticAssert: true)
+                           diagnostic: """
+        Because no versions of a match the requirement 2.0.0..<3.0.0,
+        version solving has failed.
+        """, skipDiagnosticAssert: true)
     }
 
     func testResolutionNoConflicts() {
