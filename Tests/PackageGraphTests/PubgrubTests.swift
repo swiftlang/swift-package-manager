@@ -562,7 +562,13 @@ final class PubgrubTests: XCTestCase {
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
-        AssertRootCause(result, ["package@1.0.0"])
+        guard let rootCause = AssertRootCause(result, ["package@1.0.0"]) else {
+            XCTFail("Expected to find rootCause.")
+            return
+        }
+        XCTAssertEqual(resolver.diagnosticBuilder.reportError(for: rootCause), """
+        No versions of package match the requirement 1.0.0. Package is a dependency of root.
+        """)
     }
 
     func testNonExistentPackage() {
@@ -629,7 +635,13 @@ final class PubgrubTests: XCTestCase {
         let resolver = builder.create()
         let result = resolver.solve(root: rootRef, pins: [])
 
-        AssertRootCause(result, [Term("foo@master")])
+        guard let rootCause = AssertRootCause(result, [Term("foo@master")]) else {
+            XCTFail("Expected to find rootCause.")
+            return
+        }
+        XCTAssertEqual(resolver.diagnosticBuilder.reportError(for: rootCause), """
+        Because foo at master depends on bar at master and root depends on bar from 1.0.0, version solving has failed.
+        """)
     }
 
     func testResolutionLinearErrorReporting() {
