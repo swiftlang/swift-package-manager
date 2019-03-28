@@ -827,8 +827,11 @@ private func AssertUnresolvable(_ result: PubgrubDependencyResolver.Result,
         }
         XCTAssertEqual(Array(incompatibility.terms), [Term("\(rootPackageName)@1.0.0")], file: file, line: line)
         if !skipDiagnosticAssert {
-            // TODO: Ignore additional whitespace.
-            XCTAssertEqual(resolver.reportError(for: rootCause), expectedDiagnostic, file: file, line: line)
+            // Remove all internal newlines and extra outside whitespace.
+            let trimmedDiagnostic = expectedDiagnostic
+                .replacingOccurrences(of: "\n", with: "")
+                .trimmingCharacters(in: .whitespaces)
+            XCTAssertEqual(resolver.diagnosticBuilder.reportError(for: rootCause), trimmedDiagnostic, file: file, line: line)
         }
     }
 }
