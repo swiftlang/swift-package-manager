@@ -1054,154 +1054,9 @@ public final class PubgrubDependencyResolver {
 
     // MARK: - Error Reporting
 
-    private var derivations: [Incompatibility: Int] = [:]
-
-    func reportError(for incompatibility: Incompatibility) -> String {
-        /// Populate `derivations`.
-        func countDerivations(_ i: Incompatibility) {
-            derivations[i, default: 0] += 1
-            if case .conflict(let lhs, let rhs) = i.cause {
-                countDerivations(lhs)
-                countDerivations(rhs)
-            }
-        }
-
-        countDerivations(incompatibility)
-
-        let stream = BufferedOutputByteStream()
-        visit(incompatibility, stream)
-
-        return stream.bytes.description
-    }
-
-    private func visit(
-        _ incompatibility: Incompatibility,
-        _ stream: BufferedOutputByteStream,
-        isConclusion: Bool = false
-    ) {
-
-        let isNumbered = isConclusion || derivations[incompatibility]! > 1
-
-        guard case .conflict(let lhs, let rhs) = incompatibility.cause else {
-            // TODO: Do nothing else here?
-            return
-        }
-
-        switch (lhs.cause, rhs.cause) {
-        case (.conflict, .conflict):
-            let lhsLine = lineNumbers[lhs]
-            let rhsLine = lineNumbers[rhs]
-
-            switch (lhsLine, rhsLine) {
-            case (.some(let lhsLine), .some(let rhsLine)):
-                write(incompatibility,
-                      message: "Because \(lhs) (\(lhsLine)) and \(rhs) (\(rhsLine), \(incompatibility).",
-                      isNumbered: isNumbered,
-                      toStream: stream)
-            case (.some(let lhsLine), .none):
-                visit(incompatibility, stream)
-                write(incompatibility,
-                      message: "And because \(lhs) (\(lhsLine)), \(incompatibility).",
-                      isNumbered: isNumbered,
-                      toStream: stream)
-            case (.none, .some(let rhsLine)):
-                visit(incompatibility, stream)
-                write(incompatibility,
-                      message: "And because \(rhs) (\(rhsLine)), \(incompatibility).",
-                      isNumbered: isNumbered,
-                      toStream: stream)
-            case (.none, .none):
-                let singleLineConflict = lhs.cause.isSingleLine
-                let singleLineOther = rhs.cause.isSingleLine
-
-                if singleLineOther || singleLineConflict {
-                    let simple = singleLineOther ? lhs : rhs
-                    let complex = singleLineOther ? rhs : lhs
-                    visit(simple, stream)
-                    visit(complex, stream)
-                    write(incompatibility,
-                        message: "Thus, \(incompatibility)",
-                        isNumbered: isNumbered,
-                        toStream: stream)
-                } else {
-                    visit(lhs, stream, isConclusion: true)
-                    write(incompatibility,
-                        message: "\n",
-                        isNumbered: isNumbered,
-                        toStream: stream)
-
-                    visit(rhs, stream)
-                    // TODO: lhsLine will always be nil here...
-                    write(incompatibility,
-                        message: "And because \(lhs) (\(lhsLine ?? -1)), \(incompatibility).",
-                        isNumbered: isNumbered,
-                        toStream: stream)
-                }
-
-            }
-        case (.conflict, _), (_, .conflict):
-            var derived: Incompatibility
-            var external: Incompatibility
-            if case .conflict = lhs.cause {
-                derived = lhs
-                external = rhs
-            } else {
-                derived = rhs
-                external = lhs
-            }
-
-            if let derivedLine = lineNumbers[derived] {
-                write(incompatibility,
-                    message: "Because \(external) and \(derived) (\(derivedLine)), \(incompatibility).",
-                    isNumbered: isNumbered,
-                    toStream: stream)
-            } else if derivations[incompatibility]! <= 1 {
-                guard case .conflict(let lhs, let rhs) = derived.cause else {
-                    // FIXME
-                    fatalError("unexpected non-conflict")
-                }
-                let collapsedDerived = lhs.cause.isConflict ? rhs : lhs
-                let collapsedExternal = lhs.cause.isConflict ? rhs : lhs
-                visit(collapsedDerived, stream)
-                write(incompatibility,
-                    message: "And because \(collapsedExternal) and \(external), \(incompatibility).",
-                    isNumbered: isNumbered,
-                    toStream: stream)
-            } else {
-                visit(derived, stream)
-                write(incompatibility,
-                    message: "And because \(external), \(incompatibility).",
-                    isNumbered: isNumbered,
-                    toStream: stream)
-            }
-        default:
-            write(incompatibility,
-                message: "Because \(lhs) and \(rhs), \(incompatibility).",
-                isNumbered: isNumbered,
-                toStream: stream)
-        }
-    }
-
-    private var lineNumbers: [Incompatibility: Int] = [:]
-
-    /// Write a given output message to a stream. The message should describe
-    /// the incompatibility and how it as derived. If `isNumbered` is true, a
-    /// line number will be assigned to this incompatibility so that it can be
-    /// referred to again.
-    private func write(
-        _ i: Incompatibility,
-        message: String,
-        isNumbered: Bool,
-        toStream stream: BufferedOutputByteStream
-    ) {
-        if isNumbered {
-            let number = lineNumbers.count + 1
-            lineNumbers[i] = number
-            // TODO: Handle `number`
-            stream <<< message
-        } else {
-            stream <<< message
-        }
+    var diagnosticBuilder: DiagnosticReportBuilder {
+        return DiagnosticReportBuilder(root: root!,
+                                       incompatibilities: incompatibilities)
     }
 
     // MARK: - Container Management
@@ -1324,6 +1179,251 @@ public final class PubgrubDependencyResolver {
                 }
             }
         }
+    }
+}
+
+class DiagnosticReportBuilder {
+    let rootPackage: PackageReference
+    let incompatibilities: [PackageReference: [Incompatibility]]
+
+    private var derivations: [Incompatibility: Int] = [:]
+    private var lineNumbers: [Incompatibility: Int] = [:]
+
+    init(root: PackageReference,
+         incompatibilities: [PackageReference: [Incompatibility]]) {
+        self.rootPackage = root
+        self.incompatibilities = incompatibilities
+    }
+
+    func reportError(for incompatibility: Incompatibility) -> String {
+        /// Populate `derivations`.
+        func countDerivations(_ i: Incompatibility) {
+            derivations[i, default: 0] += 1
+            if case .conflict(let lhs, let rhs) = i.cause {
+                countDerivations(lhs)
+                countDerivations(rhs)
+            }
+        }
+
+        countDerivations(incompatibility)
+
+        let stream = BufferedOutputByteStream()
+        visit(incompatibility, stream)
+
+        return stream.bytes.description
+    }
+
+    private func visit(
+        _ incompatibility: Incompatibility,
+        _ stream: BufferedOutputByteStream,
+        isConclusion: Bool = false
+    ) {
+
+        let isNumbered = isConclusion || derivations[incompatibility]! > 1
+//        let conjunction = isConclusion || incompatibility.cause == .root ? "So," : "And"
+
+//        let incompatibilityDescription: String = incompatibility.toString(with: details)
+
+        guard case .conflict(let lhs, let rhs) = incompatibility.cause else {
+            if incompatibility.cause == .noAvailableVersion {
+                // This *should* always be the origin of the package as it's the first time we've seen it.
+                let origin = self.incompatibilities[incompatibility.terms.first!.package]!.first!
+                let thisPackage = origin.terms.first!.package
+                let originPackage = origin.terms.last!.package
+                stream <<< "\(capitalize(description(for: incompatibility))). \(thisPackage.identity.capitalized) is a dependency of \(originPackage.identity)."
+            } else {
+                stream <<< "\(capitalize(description(for: incompatibility)))"
+            }
+
+            return
+        }
+
+        let lhsDesc = description(for: lhs)
+        let rhsDesc = description(for: rhs)
+
+        let incompatibilityDesc = description(for: incompatibility)
+
+        switch (lhs.cause, rhs.cause) {
+        case (.conflict, .conflict):
+            let lhsLine = lineNumbers[lhs]
+            let rhsLine = lineNumbers[rhs]
+
+            switch (lhsLine, rhsLine) {
+            case (.some(let lhsLine), .some(let rhsLine)):
+                write(incompatibility,
+                      message: "Because \(lhsDesc) (\(lhsLine)) and \(rhsDesc) (\(rhsLine), \(incompatibilityDesc).",
+                      isNumbered: isNumbered,
+                      toStream: stream)
+            case (.some(let lhsLine), .none):
+                visit(incompatibility, stream)
+                write(incompatibility,
+                      message: "And because \(lhsDesc) (\(lhsLine)), \(incompatibilityDesc).",
+                      isNumbered: isNumbered,
+                      toStream: stream)
+            case (.none, .some(let rhsLine)):
+                visit(incompatibility, stream)
+                write(incompatibility,
+                      message: "And because \(lhsDesc) (\(rhsLine)), \(incompatibilityDesc).",
+                      isNumbered: isNumbered,
+                      toStream: stream)
+            case (.none, .none):
+                let singleLineConflict = lhs.cause.isSingleLine
+                let singleLineOther = rhs.cause.isSingleLine
+
+                if singleLineOther || singleLineConflict {
+                    let simple = singleLineOther ? lhs : rhs
+                    let complex = singleLineOther ? rhs : lhs
+                    visit(simple, stream)
+                    visit(complex, stream)
+                    write(incompatibility,
+                          message: "Thus, \(incompatibilityDesc)",
+                          isNumbered: isNumbered,
+                          toStream: stream)
+                } else {
+                    visit(lhs, stream, isConclusion: true)
+                    write(incompatibility,
+                          message: "\n",
+                          isNumbered: isNumbered,
+                          toStream: stream)
+
+                    visit(rhs, stream)
+                    // TODO: lhsLine will always be nil here...
+                    write(incompatibility,
+                          message: "And because \(lhsDesc) (\(lhsLine ?? -1)), \(incompatibilityDesc).",
+                          isNumbered: isNumbered,
+                          toStream: stream)
+                }
+
+            }
+        case (.conflict, _), (_, .conflict):
+            var derived: Incompatibility
+            var external: Incompatibility
+            if case .conflict = lhs.cause {
+                derived = lhs
+                external = rhs
+            } else {
+                derived = rhs
+                external = lhs
+            }
+
+            let derivedDesc = description(for: derived)
+            let externalDesc = description(for: external)
+
+            if let derivedLine = lineNumbers[derived] {
+                write(incompatibility,
+                      message: "Because \(externalDesc) and \(derivedDesc) (\(derivedLine)), \(incompatibilityDesc).",
+                      isNumbered: isNumbered,
+                      toStream: stream)
+            } else if derivations[incompatibility]! <= 1 {
+                guard case .conflict(let lhs, let rhs) = derived.cause else {
+                    // FIXME
+                    fatalError("unexpected non-conflict")
+                }
+                let collapsedDerived = lhs.cause.isConflict ? rhs : lhs
+                let collapsedExternal = lhs.cause.isConflict ? rhs : lhs
+                visit(collapsedDerived, stream)
+                write(incompatibility,
+                      message: ", and because \(description(for: collapsedExternal)) and \(externalDesc), \(incompatibilityDesc).",
+                      isNumbered: isNumbered,
+                      toStream: stream)
+            } else {
+                visit(derived, stream)
+                write(incompatibility,
+                      message: ", and because \(externalDesc), \(incompatibilityDesc).",
+                      isNumbered: isNumbered,
+                      toStream: stream)
+            }
+        default:
+            write(incompatibility,
+//                  message: "Because \(lhs) and \(rhs), \(incompatibility) isn't valid and version solving has failed.",
+                  message: "Because \(lhsDesc) and \(rhsDesc), version solving has failed.",
+                  isNumbered: isNumbered,
+                  toStream: stream)
+        }
+    }
+
+    private func description(for incompatibility: Incompatibility) -> String {
+        switch incompatibility.cause {
+        case .dependency(package: _):
+            assert(incompatibility.terms.count == 2)
+            // Shouldn't these be the other way around?
+//            let depender = incompatibility.terms.first!
+//            let dependee = incompatibility.terms.last!
+            let depender = incompatibility.terms.last!
+            let dependee = incompatibility.terms.first!
+            assert(depender.isPositive)
+            assert(!dependee.isPositive)
+
+            let dependerDesc = description(for: depender)
+            let dependeeDesc = description(for: dependee)
+            return "\(dependerDesc) depends on \(dependeeDesc)"
+        case .noAvailableVersion:
+            assert(incompatibility.terms.count == 1)
+            let package = incompatibility.terms.first!
+            assert(package.isPositive)
+            return "no versions of \(package.package) match the requirement \(package.requirement)"
+        case .root:
+            assert(incompatibility.terms.count == 1)
+            let package = incompatibility.terms.first!
+            assert(package.isPositive)
+            return "\(package.package) is \(package.requirement)"
+        case .conflict:
+            return "version solving failed"
+        }
+    }
+
+    private func description(for term: Term) -> String {
+        let identity = term.package.identity
+
+        switch term.requirement {
+        case .versionSet(let vs):
+            switch vs {
+            case .any: return "any version of \(identity)"
+            case .empty: return "no version of \(identity)"
+            case .exact(let version):
+                // For the root package, don't output the useless version 1.0.0.
+                if identity == rootPackage.identity {
+                    return "\(identity)"
+                }
+                return "\(identity) \(version)"
+            case .range(let range):
+                let upper = range.upperBound
+                let nextMajor = Version(range.lowerBound.major + 1, 0, 0)
+                if upper == nextMajor {
+                    return "\(identity) from \(range.lowerBound)"
+                } else {
+                    return range.description
+                }
+            }
+        case .revision(let rev): return "\(identity) at \(rev)"
+        case .unversioned: return "unversioned \(identity)"
+        }
+    }
+
+    /// Write a given output message to a stream. The message should describe
+    /// the incompatibility and how it as derived. If `isNumbered` is true, a
+    /// line number will be assigned to this incompatibility so that it can be
+    /// referred to again.
+    private func write(
+        _ i: Incompatibility,
+        message: String,
+        isNumbered: Bool,
+        toStream stream: BufferedOutputByteStream
+    ) {
+        if isNumbered {
+            let number = lineNumbers.count + 1
+            lineNumbers[i] = number
+            // TODO: Handle `number`
+            stream <<< message
+        } else {
+            stream <<< message
+        }
+    }
+
+    private func capitalize(_ string: String) -> String {
+        var copy = string
+        let first = copy.removeFirst().uppercased()
+        return first + copy
     }
 }
 
