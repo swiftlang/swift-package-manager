@@ -800,7 +800,7 @@ public final class PubgrubDependencyResolver {
             let incompatibility = Incompatibility(
                 Term(root, .versionSet(.exact("1.0.0"))),
                 Term(not: dependency.identifier, dependency.requirement),
-                root: root, cause: .root)
+                root: root, cause: .dependency(package: root))
             add(incompatibility, location: .topLevel)
         }
         decide(root, version: .version("1.0.0"), location: .topLevel)
