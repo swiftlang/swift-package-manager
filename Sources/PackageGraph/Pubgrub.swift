@@ -198,6 +198,8 @@ extension PackageRequirement {
         case (.unversioned, .unversioned):
             return true
         case (_, .unversioned):
+            return true
+        case (.unversioned, _):
             // FIXME: What is the answer here?
             return false
         case (.versionSet(let lhs), .versionSet(let rhs)):
@@ -218,6 +220,8 @@ extension PackageRequirement {
         // Unversioned should be handled first.
         case (_, .unversioned):
             return true
+        case (.unversioned, _):
+            return false
         case (.versionSet(let lhs), .versionSet(let rhs)):
             return lhs.intersection(rhs) != .empty
         case (.revision(let lhs), .revision(let rhs)):

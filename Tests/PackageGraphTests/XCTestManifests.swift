@@ -93,6 +93,8 @@ extension PubgrubTests {
         ("testUnversioned4", testUnversioned4),
         ("testUnversioned5", testUnversioned5),
         ("testUnversioned6", testUnversioned6),
+        ("testUnversioned7", testUnversioned7),
+        ("testUnversioned8", testUnversioned8),
         ("testUpdatePackageIdentifierAfterResolution", testUpdatePackageIdentifierAfterResolution),
     ]
 }
