@@ -590,7 +590,7 @@ fileprivate func normalize(
 
 /// A step the resolver takes to advance its progress, e.g. deriving a new assignment
 /// or creating a new incompatibility based on a package's dependencies.
-public struct GeneralTraceStep {
+public struct GeneralTraceStep: CustomStringConvertible {
     /// The traced value, e.g. an incompatibility or term.
     public let value: Traceable
     /// How this value came to be.
@@ -617,15 +617,23 @@ public struct GeneralTraceStep {
         case decisionMaking = "decision making"
         case conflictResolution = "conflict resolution"
     }
+
+    public var description: String {
+        return "\(value) \(type) \(location) \(cause ?? "<nocause>") \(decisionLevel)"
+    }
 }
 
 /// A step the resolver takes during conflict resolution.
-public struct ConflictResolutionTraceStep {
+public struct ConflictResolutionTraceStep: CustomStringConvertible {
     /// The conflicted incompatibility.
     public let incompatibility: Incompatibility
     public let term: Term
     /// The satisfying assignment.
     public let satisfier: Assignment
+
+    public var description: String {
+        return "Conflict: \(incompatibility) \(term) \(satisfier)"
+    }
 }
 
 public enum TraceStep {
@@ -676,6 +684,15 @@ public final class PubgrubDependencyResolver {
     /// Should resolver prefetch the containers.
     private let isPrefetchingEnabled: Bool
 
+    /// Path to the trace file.
+    fileprivate let traceFile: AbsolutePath?
+
+    fileprivate lazy var traceStream: OutputByteStream? = {
+        guard let traceFile = self.traceFile else { return nil }
+        // FIXME: Emit a warning if this fails.
+        return try? LocalFileOutputByteStream(traceFile, closeOnDeinit: true, buffered: false)
+    }()
+
     /// Set the package root.
     func set(_ root: PackageReference) {
         self.root = root
@@ -694,6 +711,10 @@ public final class PubgrubDependencyResolver {
                              cause: cause,
                              decisionLevel: solution.decisionLevel)
         delegate?.trace(.general(step))
+
+        if let traceStream = traceStream {
+            traceStream <<< step <<< "\n"
+        }
     }
 
     /// Trace a conflict resolution step.
@@ -706,6 +727,10 @@ public final class PubgrubDependencyResolver {
                                                term: term,
                                                satisfier: satisfier)
         delegate?.trace(.conflictResolution(step))
+
+        if let traceStream = traceStream {
+            traceStream <<< step <<< "\n"
+        }
     }
 
     func decide(_ package: PackageReference, version: BoundVersion, location: GeneralTraceStep.Location) {
@@ -726,12 +751,14 @@ public final class PubgrubDependencyResolver {
         _ provider: PackageContainerProvider,
         _ delegate: DependencyResolverDelegate? = nil,
         isPrefetchingEnabled: Bool = false,
-        skipUpdate: Bool = false
-        ) {
+        skipUpdate: Bool = false,
+        traceFile: AbsolutePath? = nil
+    ) {
         self.provider = provider
         self.delegate = delegate
         self.isPrefetchingEnabled = isPrefetchingEnabled
         self.skipUpdate = skipUpdate
+        self.traceFile = traceFile
     }
 
     /// Add a new incompatibility to the list of known incompatibilities.

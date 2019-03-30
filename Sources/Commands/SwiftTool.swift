@@ -362,6 +362,10 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--enable-parseable-module-interfaces", kind: Bool.self),
             to: { $0.shouldEnableParseableModuleInterfaces = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--trace-resolver", kind: Bool.self),
+            to: { $0.enableResolverTrace = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -469,7 +473,8 @@ public class SwiftTool<Options: ToolOptions> {
             repositoryProvider: provider,
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             enablePubgrubResolver: options.enablePubgrubResolver,
-            skipUpdate: options.skipDependencyUpdate
+            skipUpdate: options.skipDependencyUpdate,
+            enableResolverTrace: options.enableResolverTrace
         )
         _workspace = workspace
         return workspace
