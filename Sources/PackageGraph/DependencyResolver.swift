@@ -258,6 +258,16 @@ public enum PackageRequirement: Hashable {
     }
 }
 
+extension PackageRequirement: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .versionSet(let versionSet): return versionSet.description
+        case .revision(let revision): return revision
+        case .unversioned: return "unversioned"
+        }
+    }
+}
+
 /// A container of packages.
 ///
 /// This is the top-level unit of package resolution, i.e. the unit at which
