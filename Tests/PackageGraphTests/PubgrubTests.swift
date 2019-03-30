@@ -214,7 +214,7 @@ final class PubgrubTests: XCTestCase {
         // Check exact.
         XCTAssertEqual(Term("a").relation(with: Term("a")), .subset)
         XCTAssertEqual(Term("¬a").relation(with: Term("a")), .disjoint)
-        XCTAssertEqual(Term("a").relation(with: "a^1.5.0"), .overlap)
+        XCTAssertEqual(Term("a").relation(with: "a^1.5.0"), .subset)
     }
 
     func testTermIsValidDecision() {
@@ -712,6 +712,50 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
+    func testUnversioned7() {
+        builder.serve("local", at: .unversioned, with: [
+            "remote": .unversioned
+        ])
+        builder.serve("remote", at: .unversioned)
+        builder.serve("remote", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "local": .unversioned,
+            "remote": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertUnresolvable(result, resolver,
+                           diagnostic: "",
+                           skipDiagnosticAssert: true)
+    }
+
+    func testUnversioned8() {
+        // FIXME: This fails when you change the order.
+        builder.serve("entry", at: .unversioned, with: [
+            "local": .unversioned,
+            "remote": .versionSet(v1Range),
+        ])
+        builder.serve("local", at: .unversioned, with: [
+            "remote": .unversioned
+        ])
+        builder.serve("remote", at: .unversioned)
+        builder.serve("remote", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "entry": .unversioned,
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("entry", .unversioned),
+            ("local", .unversioned),
+            ("remote", .unversioned),
+        ])
+    }
+
     func testResolutionWithSimpleBranchBasedDependency() {
         builder.serve(root: "root", with: [
             "foo": .revision("master"),
@@ -746,9 +790,10 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolutionWithOverridingBranchBasedDependency() {
+        // FIXME: This fails if you change the order.
         builder.serve(root: "root", with: [
+            "bar": .versionSet(.exact(v1)),
             "foo": .revision("master"),
-            "bar": .versionSet(.exact(v1))
         ])
         builder.serve("foo", at: .revision("master"))
         builder.serve("bar", at: v1, with: ["foo": .versionSet(v1Range)])
@@ -1235,9 +1280,9 @@ class DependencyGraphBuilder {
         return newReference
     }
 
-    func serve(root: String, with dependencies: [String: PackageRequirement]) {
-        let rootDependencies = dependencies.keys.sorted().map {
-            (package: reference(for: $0), requirement: dependencies[$0]!)
+    func serve(root: String, with dependencies: OrderedDictionary<String, PackageRequirement>) {
+        let rootDependencies = dependencies.map {
+            (package: reference(for: $0.key), requirement: $0.value)
         }
 
         let rootContainer = MockContainer(name: reference(for: root),
@@ -1245,17 +1290,17 @@ class DependencyGraphBuilder {
         self.containers[root] = rootContainer
     }
 
-    func create(dependencies: [String: PackageRequirement]) -> [PackageContainerConstraint] {
+    func create(dependencies: OrderedDictionary<String, PackageRequirement>) -> [PackageContainerConstraint] {
         return dependencies.map {
             PackageContainerConstraint(container: reference(for: $0), requirement: $1)
         }
     }
 
-    func serve(_ package: String, at version: Version, with dependencies: [String: PackageRequirement] = [:]) {
+    func serve(_ package: String, at version: Version, with dependencies: OrderedDictionary<String, PackageRequirement> = [:]) {
         serve(package, at: .version(version), with: dependencies)
     }
 
-    func serve(_ package: String, at version: BoundVersion, with dependencies: [String: PackageRequirement] = [:]) {
+    func serve(_ package: String, at version: BoundVersion, with dependencies: OrderedDictionary<String, PackageRequirement> = [:]) {
         let packageReference = reference(for: package)
         let container = self.containers[package] ?? MockContainer(name: packageReference)
 
