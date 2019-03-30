@@ -819,21 +819,20 @@ public final class PubgrubDependencyResolver {
             prefetch(containers: pins.map({ $0.identifier }))
         }
 
-        self.set(root)
         do {
-            return try .success(solve(constraints: [], pins: pins))
+            return try .success(solve(constraints: [Constraint(container: root, requirement: .unversioned)], pins: pins))
         } catch {
             return .error(error)
         }
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(dependencies: [Constraint], pins: [Constraint]) -> Result {
-        guard let root = dependencies.first?.identifier else {
-            fatalError("expected a root package")
+    public func solve(dependencies: [Constraint], pins: [Constraint] = []) -> Result {
+        do {
+            return try .success(solve(constraints: dependencies, pins: pins))
+        } catch {
+            return .error(error)
         }
-        self.root = root
-        return solve(root: root, pins: pins)
     }
 
     /// Find a set of dependencies that fit the given constraints. If dependency
@@ -841,20 +840,16 @@ public final class PubgrubDependencyResolver {
     /// - Warning: It is expected that the root package reference has been set
     ///            before this is called.
     private func solve(
-        constraints: [Constraint], pins: [Constraint]
+        constraints: [Constraint], pins: [Constraint] = []
     ) throws -> [(container: PackageReference, binding: BoundVersion)] {
-        // TODO: Handle pins
-        guard let root = self.root else {
-            fatalError("Expected resolver root reference to be set.")
-        }
+        let root = PackageReference(identity: "<synthesized-root>", path: "<synthesized-root-path>", name: nil, isLocal: true)
+        self.root = root
 
         // Handle root, e.g. add dependencies and root decision.
         //
         // We add the dependencies before deciding on a version for root
         // to avoid inserting the wrong decision level.
-        let rootContainer = try getContainer(for: root)
-        let rootDependencies = try rootContainer.getUnversionedDependencies()
-        for dependency in pins + rootDependencies {
+        for dependency in pins + constraints {
             let incompatibility = Incompatibility(
                 Term(root, .versionSet(.exact("1.0.0"))),
                 Term(not: dependency.identifier, dependency.requirement),
