@@ -71,6 +71,7 @@ extension PubgrubTests {
         ("testResolutionWithOverridingBranchBasedDependency", testResolutionWithOverridingBranchBasedDependency),
         ("testResolutionWithRevisionConflict", testResolutionWithRevisionConflict),
         ("testResolutionWithSimpleBranchBasedDependency", testResolutionWithSimpleBranchBasedDependency),
+        ("testResolutionWithSimpleBranchBasedDependency2", testResolutionWithSimpleBranchBasedDependency2),
         ("testResolutionWithUnavailableRevision", testResolutionWithUnavailableRevision),
         ("testResolverAddIncompatibility", testResolverAddIncompatibility),
         ("testResolverConflictResolution", testResolverConflictResolution),
@@ -86,6 +87,12 @@ extension PubgrubTests {
         ("testTermIsValidDecision", testTermIsValidDecision),
         ("testTermRelation", testTermRelation),
         ("testTermSatisfies", testTermSatisfies),
+        ("testUnversioned1", testUnversioned1),
+        ("testUnversioned2", testUnversioned2),
+        ("testUnversioned3", testUnversioned3),
+        ("testUnversioned4", testUnversioned4),
+        ("testUnversioned5", testUnversioned5),
+        ("testUnversioned6", testUnversioned6),
         ("testUpdatePackageIdentifierAfterResolution", testUpdatePackageIdentifierAfterResolution),
     ]
 }
