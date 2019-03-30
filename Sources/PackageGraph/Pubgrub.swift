@@ -62,6 +62,15 @@ public struct Term: Equatable, Hashable {
     /// constrained on branches, revisions, local, etc. or entirely different packages).
     func intersect(withRequirement requirement: PackageRequirement,
                    andPolarity otherIsPositive: Bool) -> Term? {
+
+        switch (self.requirement, requirement) {
+        case (.unversioned, .unversioned):
+            return self.isPositive == otherIsPositive ? self : nil
+        case (.revision(let lhs), .revision(let rhs)):
+            return self.isPositive == otherIsPositive && lhs == rhs ? self : nil
+        default: break
+        }
+
         // Intersections can only be calculated if both sides have version-based
         // requirements. 
         guard
@@ -185,11 +194,19 @@ public struct Term: Equatable, Hashable {
 extension PackageRequirement {
     func containsAll(_ other: PackageRequirement) -> Bool {
         switch (self, other) {
+        // Unversioned should be handled first.
+        case (.unversioned, .unversioned):
+            return true
+        case (_, .unversioned):
+            // FIXME: What is the answer here?
+            return false
         case (.versionSet(let lhs), .versionSet(let rhs)):
             return lhs.intersection(rhs) == rhs
         case (.revision(let lhs), .revision(let rhs)):
             return lhs == rhs
-        case (.revision, _), (_, .revision):
+        case (.revision, _):
+            return false
+        case (_, .revision):
             return false
         default:
             fatalError("unhandled \(self), \(other)")
@@ -198,12 +215,17 @@ extension PackageRequirement {
 
     func containsAny(_ other: PackageRequirement) -> Bool {
         switch (self, other) {
+        // Unversioned should be handled first.
+        case (_, .unversioned):
+            return true
         case (.versionSet(let lhs), .versionSet(let rhs)):
             return lhs.intersection(rhs) != .empty
         case (.revision(let lhs), .revision(let rhs)):
             return lhs == rhs
-        case (.revision, _), (_, .revision):
+        case (.revision, _):
             return false
+        case (_, .revision):
+            return true
         default:
             fatalError("unhandled \(self), \(other)")
         }
@@ -383,7 +405,14 @@ public struct Assignment: Equatable {
 
     /// An assignment made during decision making.
     static func decision(_ term: Term, decisionLevel: Int) -> Assignment {
-        assert(term.requirement.isExact, "Cannot create a decision assignment with a non-exact version selection.")
+        switch term.requirement {
+        case .revision, .unversioned: break
+        case .versionSet(let vs):
+            if case .exact = vs {
+                break
+            }
+            assertionFailure("Cannot create a decision assignment with a non-exact version selection: \(vs)")
+        }
 
         return self.init(
             term: term,
@@ -759,6 +788,7 @@ public final class PubgrubDependencyResolver {
         self.isPrefetchingEnabled = isPrefetchingEnabled
         self.skipUpdate = skipUpdate
         self.traceFile = traceFile
+//        self.traceFile = AbsolutePath("/tmp/resolver.trace")
     }
 
     /// Add a new incompatibility to the list of known incompatibilities.
@@ -1168,7 +1198,12 @@ public final class PubgrubDependencyResolver {
                 return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
             }
         case .unversioned:
-            fatalError("Generating incompatibilities for an unversioned dependency is currently unsupported.")
+            return try container.getUnversionedDependencies().map { dep -> Incompatibility in
+                var terms: OrderedSet<Term> = []
+                terms.append(Term(container.identifier, .unversioned))
+                terms.append(Term(not: dep.identifier, dep.requirement))
+                return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
+            }
         case .revision(let revision):
             return try container.getDependencies(at: revision).map { dep -> Incompatibility in
                 var terms: OrderedSet<Term> = []

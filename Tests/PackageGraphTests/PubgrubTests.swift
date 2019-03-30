@@ -25,6 +25,7 @@ import SourceControl
 //   - "package^1.0.0": equivalent to .upToNextMajor("1.0.0")
 //   - "package-1.0.0-3.0.0": equivalent to .range("1.0.0"..<"3.0.0")
 //   - "package@branch": equivalent to .revision("branch")
+//   - "package": equivalent to .unversioned
 //
 // Mocking a dependency graph is easily achieved by using the builder API. It's
 // a global object in this module.
@@ -147,8 +148,12 @@ final class PubgrubTests: XCTestCase {
         // Any intersection including a revision should return nil.
         XCTAssertNil(Term("a@1.0.0").intersect(with: Term("a@master")))
         XCTAssertNil(Term("a^1.0.0").intersect(with: Term("a@master")))
-        XCTAssertNil(Term("a@master").intersect(with: Term("a@master")))
         XCTAssertNil(Term("a@master").intersect(with: Term("a@develop")))
+
+        XCTAssertEqual(Term("a@master").intersect(with: Term("a@master")), Term("a@master"))
+
+        XCTAssertEqual(Term("a").intersect(with: Term("a")), Term("a"))
+        XCTAssertEqual(Term("a").intersect(with: Term("¬a")), nil)
     }
 
     func testTermRelation() {
@@ -167,8 +172,8 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(Term("a^2.0.0").relation(with: "a@1.0.0"), .disjoint)
         XCTAssertEqual(Term("a@1.0.0").relation(with: "a@master"), .disjoint)
         XCTAssertEqual(Term("a^1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(Term("a@master").relation(with: "a@1.0.0"), .disjoint)
-        XCTAssertEqual(Term("a@master").relation(with: "a^1.0.0"), .disjoint)
+        XCTAssertEqual(Term("a@master").relation(with: "a@1.0.0"), .overlap)
+        XCTAssertEqual(Term("a@master").relation(with: "a^1.0.0"), .overlap)
         XCTAssertEqual(Term("a@master").relation(with: "a@master"), .subset)
         XCTAssertEqual(Term("a@master").relation(with: "a@develop"), .disjoint)
 
@@ -189,10 +194,11 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(Term("a^1.0.0").relation(with: "¬a^1.5.0"), .overlap)
         XCTAssertEqual(Term("a@1.0.0").relation(with: "¬a@master"), .subset)
         XCTAssertEqual(Term("a^1.0.0").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(Term("a@master").relation(with: "¬a@1.0.0"), .subset)
-        XCTAssertEqual(Term("a@master").relation(with: "¬a^1.0.0"), .subset)
+        XCTAssertEqual(Term("a@master").relation(with: "¬a@1.0.0"), .overlap)
+        XCTAssertEqual(Term("a@master").relation(with: "¬a^1.0.0"), .overlap)
         XCTAssertEqual(Term("a@master").relation(with: "¬a@master"), .disjoint)
         XCTAssertEqual(Term("a@master").relation(with: "¬a@develop"), .subset)
+        XCTAssertEqual(Term("a-1.0.0-2.0.0").relation(with: "¬a-1.0.0-1.2.0"), .overlap)
 
         // Both terms are negative.
         XCTAssertEqual(Term("¬a^1.0.0").relation(with: "¬a^1.5.0"), .subset)
@@ -204,6 +210,11 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(Term("¬a@master").relation(with: "¬a^1.0.0"), .overlap)
         XCTAssertEqual(Term("¬a@master").relation(with: "¬a@master"), .subset)
         XCTAssertEqual(Term("¬a@master").relation(with: "¬a@develop"), .overlap)
+
+        // Check exact.
+        XCTAssertEqual(Term("a").relation(with: Term("a")), .subset)
+        XCTAssertEqual(Term("¬a").relation(with: Term("a")), .disjoint)
+        XCTAssertEqual(Term("a").relation(with: "a^1.5.0"), .overlap)
     }
 
     func testTermIsValidDecision() {
@@ -582,10 +593,142 @@ final class PubgrubTests: XCTestCase {
         AssertError(result, _MockLoadingError.unknownModule)
     }
 
+    func testUnversioned1() {
+        builder.serve(root: "root", with: [
+            "foo": .unversioned,
+            "bar": .versionSet(v1Range)
+        ])
+        builder.serve("foo", at: .unversioned)
+        builder.serve("bar", at: v1_5)
+        builder.serve("bar", at: v2)
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertResult(result, [
+            ("foo", .unversioned),
+            ("bar", .version(v1_5))
+        ])
+    }
+
+    func testUnversioned2() {
+        builder.serve(root: "root", with: [
+            "foo": .unversioned,
+            "bar": .versionSet(v1Range)
+        ])
+        builder.serve("foo", at: .unversioned, with: [
+            "bar": .versionSet(.range(v1..<"1.2.0"))
+        ])
+        builder.serve("bar", at: v1)
+        builder.serve("bar", at: v1_1)
+        builder.serve("bar", at: v1_5)
+        builder.serve("bar", at: v2)
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertResult(result, [
+            ("foo", .unversioned),
+            ("bar", .version(v1_1))
+        ])
+    }
+
+    func testUnversioned3() {
+        builder.serve(root: "root", with: [
+            "foo": .unversioned,
+            "bar": .versionSet(v1Range)
+        ])
+        builder.serve("foo", at: .unversioned)
+        builder.serve("bar", at: v1, with: [
+            "foo": .versionSet(v1Range)
+        ])
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertResult(result, [
+            ("foo", .unversioned),
+            ("bar", .version(v1))
+        ])
+    }
+
+    func testUnversioned4() {
+        builder.serve(root: "root", with: [
+            "foo": .unversioned,
+            "bar": .revision("master")
+        ])
+        builder.serve("foo", at: .unversioned)
+        builder.serve("bar", at: .revision("master"), with: [
+            "foo": .versionSet(v1Range)
+        ])
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertResult(result, [
+            ("foo", .unversioned),
+            ("bar", .revision("master"))
+        ])
+    }
+
+    func testUnversioned5() {
+        builder.serve(root: "root", with: [
+            "foo": .unversioned,
+            "bar": .revision("master")
+        ])
+        builder.serve("foo", at: .unversioned)
+        builder.serve("foo", at: .revision("master"))
+        builder.serve("bar", at: .revision("master"), with: [
+            "foo": .revision("master")
+        ])
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertResult(result, [
+            ("foo", .unversioned),
+            ("bar", .revision("master"))
+        ])
+    }
+
+    func testUnversioned6() {
+        builder.serve(root: "root", with: [
+            "bar": .revision("master")
+        ])
+        builder.serve("foo", at: .unversioned)
+        builder.serve("bar", at: .revision("master"), with: [
+            "foo": .unversioned
+        ])
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertResult(result, [
+            ("foo", .unversioned),
+            ("bar", .revision("master"))
+        ])
+    }
+
     func testResolutionWithSimpleBranchBasedDependency() {
         builder.serve(root: "root", with: [
             "foo": .revision("master"),
             "bar": .versionSet(v1Range)
+        ])
+        builder.serve("foo", at: .revision("master"), with: ["bar": .versionSet(v1Range)])
+        builder.serve("bar", at: v1)
+
+        let resolver = builder.create()
+        let result = resolver.solve(root: rootRef, pins: [])
+
+        AssertResult(result, [
+            ("foo", .revision("master")),
+            ("bar", .version(v1))
+        ])
+    }
+
+    func testResolutionWithSimpleBranchBasedDependency2() {
+        builder.serve(root: "root", with: [
+            "foo": .revision("master"),
         ])
         builder.serve("foo", at: .revision("master"), with: ["bar": .versionSet(v1Range)])
         builder.serve("bar", at: v1)
@@ -911,8 +1054,12 @@ public class MockContainer: PackageContainer {
         })
     }
 
-    public func getUnversionedDependencies() -> [PackageContainerConstraint] {
-        return unversionedDeps
+    public func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
+        // FIXME: This is messy, remove unversionedDeps property.
+        if !unversionedDeps.isEmpty {
+            return unversionedDeps
+        }
+        return try getDependencies(at: PackageRequirement.unversioned.description)
     }
 
     public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
@@ -1151,7 +1298,8 @@ extension Term: ExpressibleByStringLiteral {
             let (lowerBound, upperBound) = (components[1], components[2])
             requirement = .versionSet(.range(Version(stringLiteral: lowerBound)..<Version(stringLiteral: upperBound)))
         } else {
-            fatalError("Unrecognized format")
+            components = [value]
+            requirement = .unversioned
         }
 
         let packageReference = PackageReference(identity: components[0], path: "")
