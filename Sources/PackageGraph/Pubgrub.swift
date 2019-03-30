@@ -853,7 +853,8 @@ public final class PubgrubDependencyResolver {
         // We add the dependencies before deciding on a version for root
         // to avoid inserting the wrong decision level.
         let rootContainer = try getContainer(for: root)
-        for dependency in try rootContainer.getUnversionedDependencies() {
+        let rootDependencies = try rootContainer.getUnversionedDependencies()
+        for dependency in pins + rootDependencies {
             let incompatibility = Incompatibility(
                 Term(root, .versionSet(.exact("1.0.0"))),
                 Term(not: dependency.identifier, dependency.requirement),
