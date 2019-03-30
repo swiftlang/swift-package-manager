@@ -807,9 +807,13 @@ public final class PubgrubDependencyResolver {
 
     public typealias Result = DependencyResolver.Result
 
+    public enum PubgrubError: Swift.Error, Equatable {
+        case unresolvable(Incompatibility)
+    }
+
     // TODO: This should be the actual (and probably only) entrypoint to version solving.
     /// Run the resolution algorithm on a root package finding a valid assignment of versions.
-    public func solve(root: PackageReference, pins: [Constraint]) -> Result {
+    func solve(root: PackageReference, pins: [Constraint]) -> Result {
         // Prefetch the pins.
         if isPrefetchingEnabled {
             prefetch(containers: pins.map({ $0.identifier }))
@@ -832,15 +836,11 @@ public final class PubgrubDependencyResolver {
         return solve(root: root, pins: pins)
     }
 
-    public enum PubgrubError: Swift.Error, Equatable {
-        case unresolvable(Incompatibility)
-    }
-
     /// Find a set of dependencies that fit the given constraints. If dependency
     /// resolution is unable to provide a result, an error is thrown.
     /// - Warning: It is expected that the root package reference has been set
     ///            before this is called.
-    public func solve(
+    private func solve(
         constraints: [Constraint], pins: [Constraint]
     ) throws -> [(container: PackageReference, binding: BoundVersion)] {
         // TODO: Handle pins
