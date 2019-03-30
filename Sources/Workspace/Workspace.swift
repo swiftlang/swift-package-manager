@@ -88,25 +88,10 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
 }
 
 fileprivate enum PackageResolver {
-    typealias _PubgrubResolver = PubgrubDependencyResolver
-    typealias _DependencyResolver = DependencyResolver
+    case pubgrub(PubgrubDependencyResolver)
+    case legacy(DependencyResolver)
 
-    case pubgrub(_PubgrubResolver)
-    case legacy(_DependencyResolver)
-
-    typealias Identifier = PackageReference
-    typealias Constraint = PackageContainerConstraint
-
-    func resolve(constraints: [Constraint], pins: [Constraint]) throws -> [(container: Identifier, binding: BoundVersion)] {
-        switch self {
-        case .pubgrub(let resolver):
-            return try resolver.solve(constraints: constraints, pins: pins)
-        case .legacy(let resolver):
-            return try resolver.resolve(constraints: constraints, pins: pins)
-        }
-    }
-
-    func resolve(dependencies: [Constraint], pins: [Constraint]) -> _DependencyResolver.Result {
+    func resolve(dependencies: [PackageContainerConstraint], pins: [PackageContainerConstraint]) -> DependencyResolver.Result {
         switch self {
         case .pubgrub(let resolver):
             return resolver.solve(dependencies: dependencies, pins: pins)
