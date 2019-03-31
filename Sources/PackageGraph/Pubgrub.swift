@@ -60,8 +60,10 @@ public struct Term: Equatable, Hashable {
     /// and given term.
     /// Returns `nil` if an intersection is not possible (possibly due to being
     /// constrained on branches, revisions, local, etc. or entirely different packages).
-    func intersect(withRequirement requirement: PackageRequirement,
-                   andPolarity otherIsPositive: Bool) -> Term? {
+    func intersect(
+        withRequirement requirement: PackageRequirement,
+        andPolarity otherIsPositive: Bool
+    ) -> Term? {
 
         switch (self.requirement, requirement) {
         case (.unversioned, .unversioned):
@@ -75,8 +77,7 @@ public struct Term: Equatable, Hashable {
         // requirements. 
         guard
             case .versionSet(let lhs) = self.requirement,
-            case .versionSet(let rhs) = requirement else
-        {
+            case .versionSet(let rhs) = requirement else {
             return nil
         }
 
@@ -267,8 +268,7 @@ extension Term: CustomStringConvertible {
 
 private extension Range where Bound == Version {
     func contains(_ other: Range<Version>) -> Bool {
-        return contains(version: other.lowerBound) &&
-            contains(version: other.upperBound)
+        return contains(version: other.lowerBound) && contains(version: other.upperBound)
     }
 }
 
@@ -297,8 +297,7 @@ public struct Incompatibility: Equatable, Hashable {
         var terms = terms
         if terms.count > 1,
             case .conflict(conflict: _, other: _) = cause,
-            terms.contains(where: { $0.isPositive && $0.package == root })
-        {
+            terms.contains(where: { $0.isPositive && $0.package == root }) {
             terms = OrderedSet(terms.filter { !$0.isPositive || $0.package != root })
         }
 
@@ -347,22 +346,20 @@ extension Incompatibility {
     indirect enum Cause: Equatable, Hashable {
         /// The root incompatibility.
         case root
+
         /// The incompatibility represents a package's dependency on another
         /// package.
         case dependency(package: PackageReference)
+
         /// The incompatibility was derived from two others during conflict
         /// resolution.
         case conflict(conflict: Incompatibility, other: Incompatibility)
+
         /// There exists no version to fulfill the specified requirement.
         case noAvailableVersion
-        // TODO: Figure out what other cases should be represented here.
-        // - SDK requirements
-        // - package not found
 
         var isConflict: Bool {
-            if case .conflict = self {
-                return true
-            }
+            if case .conflict = self { return true }
             return false
         }
 
@@ -427,7 +424,8 @@ public struct Assignment: Equatable {
     static func derivation(
         _ term: Term,
         cause: Incompatibility,
-        decisionLevel: Int) -> Assignment {
+        decisionLevel: Int
+    ) -> Assignment {
         return self.init(
             term: term,
             decisionLevel: decisionLevel,
@@ -619,12 +617,16 @@ fileprivate func normalize(
 public struct GeneralTraceStep: CustomStringConvertible {
     /// The traced value, e.g. an incompatibility or term.
     public let value: Traceable
+
     /// How this value came to be.
     public let type: StepType
+
     /// Where this value was created.
     public let location: Location
+
     /// A previous step that caused this step.
     public let cause: String?
+
     /// The solution's current decision level.
     public let decisionLevel: Int
 
@@ -651,9 +653,12 @@ public struct GeneralTraceStep: CustomStringConvertible {
 
 /// A step the resolver takes during conflict resolution.
 public struct ConflictResolutionTraceStep: CustomStringConvertible {
+
     /// The conflicted incompatibility.
     public let incompatibility: Incompatibility
+
     public let term: Term
+
     /// The satisfying assignment.
     public let satisfier: Assignment
 
@@ -731,11 +736,13 @@ public final class PubgrubDependencyResolver {
         location: GeneralTraceStep.Location,
         cause: String?
     ) {
-        let step = GeneralTraceStep(value: value,
-                             type: type,
-                             location: location,
-                             cause: cause,
-                             decisionLevel: solution.decisionLevel)
+        let step = GeneralTraceStep(
+            value: value,
+            type: type,
+            location: location,
+            cause: cause,
+            decisionLevel: solution.decisionLevel
+        )
         delegate?.trace(.general(step))
 
         if let traceStream = traceStream {
@@ -748,10 +755,12 @@ public final class PubgrubDependencyResolver {
         incompatibility: Incompatibility,
         term: Term,
         satisfier: Assignment
-        ) {
-        let step = ConflictResolutionTraceStep(incompatibility: incompatibility,
-                                               term: term,
-                                               satisfier: satisfier)
+    ) {
+        let step = ConflictResolutionTraceStep(
+            incompatibility: incompatibility,
+            term: term,
+            satisfier: satisfier
+        )
         delegate?.trace(.conflictResolution(step))
 
         if let traceStream = traceStream {
@@ -792,8 +801,8 @@ public final class PubgrubDependencyResolver {
     func add(_ incompatibility: Incompatibility, location: GeneralTraceStep.Location) {
         trace(value: incompatibility, type: .incompatibility, location: location, cause: nil)
         for package in incompatibility.terms.map({ $0.package }) {
-            if incompatibilities[package] != nil {
-                if !incompatibilities[package]!.contains(incompatibility) {
+            if let incompats = incompatibilities[package] {
+                if !incompats.contains(incompatibility) {
                     incompatibilities[package]!.append(incompatibility)
                 }
             } else {
@@ -832,7 +841,13 @@ public final class PubgrubDependencyResolver {
     private func solve(
         constraints: [Constraint], pins: [Constraint] = []
     ) throws -> [(container: PackageReference, binding: BoundVersion)] {
-        let root = PackageReference(identity: "<synthesized-root>", path: "<synthesized-root-path>", name: nil, isLocal: true)
+        let root = PackageReference(
+            identity: "<synthesized-root>",
+            path: "<synthesized-root-path>",
+            name: nil,
+            isLocal: true
+        )
+
         self.root = root
 
         let rootIncompatibility = Incompatibility(
@@ -868,7 +883,7 @@ public final class PubgrubDependencyResolver {
                 boundVersion = .version(version)
             case .revision(let rev):
                 boundVersion = .revision(rev)
-            case .versionSet(.range(_)):
+            case .versionSet(.range):
                 // FIXME: A new requirement type that makes having a range here impossible feels like the correct thing to do.
                 fatalError("Solution should not contain version ranges.")
             case .unversioned, .versionSet(.any):
@@ -1103,9 +1118,12 @@ public final class PubgrubDependencyResolver {
 
     // MARK: - Error Reporting
 
+    // FIXME: Convert this into a method.
     var diagnosticBuilder: DiagnosticReportBuilder {
-        return DiagnosticReportBuilder(root: root!,
-                                       incompatibilities: incompatibilities)
+        return DiagnosticReportBuilder(
+            root: root!,
+            incompatibilities: incompatibilities
+        )
     }
 
     // MARK: - Container Management
