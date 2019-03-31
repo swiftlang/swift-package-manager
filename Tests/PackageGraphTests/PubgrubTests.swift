@@ -445,20 +445,6 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(solution.satisfier(for: Term("a^2.0.0")).term, "a@2.0.0")
     }
 
-    func testMissingVersion() {
-        builder.serve(root: "root", with: ["a": .versionSet(v2Range)])
-        builder.serve("a", at: v1_1)
-
-        let resolver = builder.create()
-        let result = resolver.solve(root: rootRef, pins: [])
-
-        AssertUnresolvable(result, resolver,
-                           diagnostic: """
-        Because no versions of a match the requirement 2.0.0..<3.0.0,
-        version solving has failed.
-        """, skipDiagnosticAssert: true)
-    }
-
     func testResolutionNoConflicts() {
         builder.serve(root: "root", with: ["a": .versionSet(v1Range)])
         builder.serve("a", at: v1, with: ["b": .versionSet(v1Range)])
@@ -568,8 +554,24 @@ final class PubgrubTests: XCTestCase {
         }
     }
 
+    func testMissingVersion() {
+        builder.serve("foopkg", at: v1_1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foopkg": .versionSet(v2Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        guard let rootCause = result.rootCause else {
+            return
+        }
+
+        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
+        XCTAssertEqual(diag, "Because no versions of foopkg match the requirement 2.0.0..<3.0.0 and <synthesized-root> depends on foopkg from 2.0.0, version solving has failed.")
+    }
+
     func testResolutionNonExistentVersion() {
-        builder.serve(root: "root", with: ["package": .versionSet(.exact(v1))])
         builder.serve("package", at: v2)
 
         let resolver = builder.create()
@@ -578,13 +580,12 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let rootCause = AssertRootCause(result, ["package@1.0.0"]) else {
-            XCTFail("Expected to find rootCause.")
+        guard let rootCause = result.rootCause else {
             return
         }
-        XCTAssertEqual(resolver.diagnosticBuilder.reportError(for: rootCause), """
-        No versions of package match the requirement 1.0.0. <Synthesized-Root> is a dependency of package.
-        """)
+
+        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
+        XCTAssertEqual(diag, "Because no versions of package match the requirement 1.0.0 and <synthesized-root> depends on package 1.0.0, version solving has failed.")
     }
 
     func testNonExistentPackage() {
@@ -828,23 +829,18 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        AssertUnresolvable(result, resolver,
-                           diagnostic: "",
-                           skipDiagnosticAssert: true)
-//        guard let rootCause = AssertRootCause(result, [Term("foo@master")]) else {
-//            XCTFail("Expected to find rootCause.")
-//            return
-//        }
+        guard let rootCause = result.rootCause else {
+            return
+        }
+
+        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
+        XCTAssertEqual(diag, "Foo at master depends on bar at master, and because foo at master depends on bar at master and <synthesized-root> depends on foo at master, version solving failed.")
 //        XCTAssertEqual(resolver.diagnosticBuilder.reportError(for: rootCause), """
 //        Because foo at master depends on bar at master and root depends on bar from 1.0.0, version solving has failed.
 //        """)
     }
 
     func testResolutionLinearErrorReporting() {
-        builder.serve(root: "root", with: [
-            "foo": .versionSet(v1Range),
-            "baz": .versionSet(v1Range)
-        ])
         builder.serve("foo", at: v1, with: ["bar": .versionSet(v2Range)])
         builder.serve("bar", at: v2, with: ["baz": .versionSet(.range("3.0.0"..<"4.0.0"))])
         builder.serve("baz", at: v1)
@@ -854,15 +850,21 @@ final class PubgrubTests: XCTestCase {
         // with root's constraint.
 
         let resolver = builder.create()
-        let result = resolver.solve(root: rootRef, pins: [])
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+            "baz": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
 
-        AssertUnresolvable(result, resolver,
-                           diagnostic: "",
-                           skipDiagnosticAssert: true)
+        guard let rootCause = result.rootCause else {
+            return
+        }
+
+        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
+        print(diag)
     }
 
     func testResolutionBranchingErrorReporting() {
-        builder.serve(root: "root", with: ["foo": .versionSet(v1Range)])
         builder.serve("foo", at: v1, with: [
             "a": .versionSet(v1Range),
             "b": .versionSet(v1Range)
@@ -879,29 +881,41 @@ final class PubgrubTests: XCTestCase {
         builder.serve("y", at: v2)
 
         let resolver = builder.create()
-        let result = resolver.solve(root: rootRef, pins: [])
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
 
-        AssertUnresolvable(result, resolver,
-                           diagnostic: "",
-                           skipDiagnosticAssert: true)
+        guard let rootCause = result.rootCause else {
+            return
+        }
+
+        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
+        print(diag)
     }
 
     func testConflict1() {
-        builder.serve(root: "root", with: [
-            "foo": .versionSet(v1Range),
-            "bar": .versionSet(v1Range)
-        ])
         builder.serve("foo", at: v1, with: ["config": .versionSet(v1Range)])
         builder.serve("bar", at: v1, with: ["config": .versionSet(v2Range)])
         builder.serve("config", at: v1)
         builder.serve("config", at: v2)
 
         let resolver = builder.create()
-        let result = resolver.solve(root: rootRef, pins: [])
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+            "bar": .versionSet(v1Range)
+        ])
+        let result = resolver.solve(dependencies: dependencies)
 
-        AssertUnresolvable(result, resolver,
-                           diagnostic: "Because foo depends on config from 1.0.0 and bar depends on config from 2.0.0, foo from 1.0.0 isn't valid and version solving has failed.",
-                           skipDiagnosticAssert: true)
+        guard let rootCause = result.rootCause else {
+            return
+        }
+
+        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
+        print(diag)
+
+        // Expected:
+        // "Because foo depends on config from 1.0.0 and bar depends on config from 2.0.0, foo from 1.0.0 isn't valid and version solving has failed."
     }
 
     func testConflict2() {
@@ -929,10 +943,6 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testConflict3() {
-        builder.serve(root: "root", with: [
-            "foo": .versionSet(v1Range),
-            "config": .versionSet(v2Range),
-        ])
         builder.serve("foo", at: v1, with: ["config": .versionSet(v1Range)])
         builder.serve("config", at: v1)
 
@@ -941,10 +951,13 @@ final class PubgrubTests: XCTestCase {
             "config": .versionSet(v2Range),
             "foo": .versionSet(v1Range),
         ])
-        let _ = resolver.solve(dependencies: dependencies, pins: [])
+        let result = resolver.solve(dependencies: dependencies, pins: [])
 
-        // FIXME: This is non-deterministic.
-//        AssertRootCause(result, ["foo-1.0.0-2.0.0"])
+        guard let rootCause = result.rootCause else {
+            return
+        }
+        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
+        print(diag)
     }
 }
 
@@ -1385,5 +1398,24 @@ extension PackageReference: ExpressibleByStringLiteral {
 
     init(_ name: String) {
         self.init(identity: name, path: "")
+    }
+}
+
+extension DependencyResolver.Result {
+    var rootCause: Incompatibility? {
+        switch self {
+        case .error(let error):
+            guard let pubGrubError = error as? PubgrubDependencyResolver.PubgrubError else {
+                XCTFail("Unexpected result \(self)")
+                return nil
+            }
+            switch pubGrubError {
+            case .unresolvable(let cause):
+                return cause
+            }
+        default:
+            XCTFail("Unexpected result \(self)")
+            return nil
+        }
     }
 }
