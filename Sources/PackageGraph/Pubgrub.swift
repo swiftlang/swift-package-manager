@@ -719,15 +719,31 @@ public final class PubgrubDependencyResolver {
     fileprivate let traceFile: AbsolutePath?
 
     fileprivate lazy var traceStream: OutputByteStream? = {
+        if let stream = self._traceStream { return stream }
         guard let traceFile = self.traceFile else { return nil }
         // FIXME: Emit a warning if this fails.
         return try? LocalFileOutputByteStream(traceFile, closeOnDeinit: true, buffered: false)
     }()
+    private var _traceStream: OutputByteStream?
 
     /// Set the package root.
     func set(_ root: PackageReference) {
         self.root = root
         self.solution.root = root
+    }
+
+    private func log(_ assignments: [(container: PackageReference, binding: BoundVersion)]) {
+        log("solved:")
+        for (container, binding) in assignments {
+            log("\(container) \(binding)")
+        }
+    }
+
+    fileprivate func log(_ message: String) {
+        if let traceStream = traceStream {
+            traceStream <<< message <<< "\n"
+            traceStream.flush()
+        }
     }
 
     func trace(
@@ -744,10 +760,6 @@ public final class PubgrubDependencyResolver {
             decisionLevel: solution.decisionLevel
         )
         delegate?.trace(.general(step))
-
-        if let traceStream = traceStream {
-            traceStream <<< step <<< "\n"
-        }
     }
 
     /// Trace a conflict resolution step.
@@ -762,10 +774,6 @@ public final class PubgrubDependencyResolver {
             satisfier: satisfier
         )
         delegate?.trace(.conflictResolution(step))
-
-        if let traceStream = traceStream {
-            traceStream <<< step <<< "\n"
-        }
     }
 
     func decide(_ package: PackageReference, version: BoundVersion, location: GeneralTraceStep.Location) {
@@ -782,23 +790,35 @@ public final class PubgrubDependencyResolver {
         solution.derive(term, cause: cause)
     }
 
-    public init(
+    init(
         _ provider: PackageContainerProvider,
         _ delegate: DependencyResolverDelegate? = nil,
         isPrefetchingEnabled: Bool = false,
         skipUpdate: Bool = false,
-        traceFile: AbsolutePath? = nil
+        traceFile: AbsolutePath? = nil,
+        traceStream: OutputByteStream? = nil
     ) {
         self.provider = provider
         self.delegate = delegate
         self.isPrefetchingEnabled = isPrefetchingEnabled
         self.skipUpdate = skipUpdate
         self.traceFile = traceFile
-//        self.traceFile = AbsolutePath("/tmp/resolver.trace")
+        self._traceStream = traceStream
+    }
+
+    public convenience init(
+        _ provider: PackageContainerProvider,
+        _ delegate: DependencyResolverDelegate? = nil,
+        isPrefetchingEnabled: Bool = false,
+        skipUpdate: Bool = false,
+        traceFile: AbsolutePath? = nil
+    ) {
+        self.init(provider, delegate, isPrefetchingEnabled: isPrefetchingEnabled, skipUpdate: skipUpdate, traceFile: traceFile, traceStream: nil)
     }
 
     /// Add a new incompatibility to the list of known incompatibilities.
     func add(_ incompatibility: Incompatibility, location: GeneralTraceStep.Location) {
+        log("incompat: \(incompatibility) \(location)")
         trace(value: incompatibility, type: .incompatibility, location: location, cause: nil)
         for package in incompatibility.terms.map({ $0.package }) {
             if let incompats = incompatibilities[package] {
@@ -898,6 +918,8 @@ public final class PubgrubDependencyResolver {
             return (identifier, boundVersion)
         }
 
+        log(finalAssignments)
+
         return finalAssignments
     }
 
@@ -982,6 +1004,7 @@ public final class PubgrubDependencyResolver {
             return .conflict
         }
 
+        log("derived: \(unsatisfiedTerm.inverse)")
         derive(unsatisfiedTerm.inverse, cause: incompatibility, location: .unitPropagation)
 
         return .almostSatisfied(package: unsatisfiedTerm.package)
@@ -994,6 +1017,7 @@ public final class PubgrubDependencyResolver {
     }
 
     func _resolve(conflict: Incompatibility) throws -> Incompatibility {
+        log("conflict: \(conflict)");
         // Based on:
         // https://github.com/dart-lang/pub/tree/master/doc/solver.md#conflict-resolution
         // https://github.com/dart-lang/pub/blob/master/lib/src/solver/version_solver.dart#L201
@@ -1060,8 +1084,13 @@ public final class PubgrubDependencyResolver {
                 root: root!,
                 cause: .conflict(conflict: incompatibility, other: priorCause))
             createdIncompatibility = true
+
+            log("CR: \(mostRecentTerm?.description ?? "") is\(difference != nil ? " partially" : "") satisfied by \(_mostRecentSatisfier)")
+            log("CR: which is caused by \(_mostRecentSatisfier.cause?.description ?? "")")
+            log("CR: new incompatibility \(incompatibility)")
         }
 
+        log("failed: \(incompatibility)")
         throw PubgrubError.unresolvable(incompatibility)
     }
 
@@ -1110,6 +1139,7 @@ public final class PubgrubDependencyResolver {
 
         // Decide this version if there was no conflict with its dependencies.
         if !haveConflict {
+            log("decision: \(pkgTerm.package)@\(version)")
             decide(pkgTerm.package, version: version, location: .decisionMaking)
         }
 
