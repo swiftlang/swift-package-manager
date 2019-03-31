@@ -808,21 +808,6 @@ public final class PubgrubDependencyResolver {
         case unresolvable(Incompatibility)
     }
 
-    // TODO: This should be the actual (and probably only) entrypoint to version solving.
-    /// Run the resolution algorithm on a root package finding a valid assignment of versions.
-    func solve(root: PackageReference, pins: [Constraint]) -> Result {
-        // Prefetch the pins.
-        if isPrefetchingEnabled {
-            prefetch(containers: pins.map({ $0.identifier }))
-        }
-
-        do {
-            return try .success(solve(constraints: [Constraint(container: root, requirement: .unversioned)], pins: pins))
-        } catch {
-            return .error(error)
-        }
-    }
-
     /// Execute the resolution algorithm to find a valid assignment of versions.
     public func solve(dependencies: [Constraint], pins: [Constraint] = []) -> Result {
         do {
@@ -831,6 +816,7 @@ public final class PubgrubDependencyResolver {
             if let error = error as? PubgrubError {
                 switch error {
                 case .unresolvable(let rootCause):
+                    // FIXME: Do this better.
                     let diag = diagnosticBuilder.reportError(for: rootCause)
                     print(diag)
                 }
