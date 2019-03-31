@@ -982,13 +982,12 @@ final class PubgrubTests: XCTestCase {
 
 /// Asserts that the listed packages are present in the bindings with their
 /// specified versions.
-private func AssertBindings(_ bindings: [DependencyResolver.Binding],
-                            _ packages: [(identity: String, version: BoundVersion)],
-                            file: StaticString = #file,
-                            line: UInt = #line) {
-    // Remove root from bindings.
-    let bindings = bindings.filter { $0.container.identity != "root" }
-
+private func AssertBindings(
+    _ bindings: [DependencyResolver.Binding],
+    _ packages: [(identity: String, version: BoundVersion)],
+    file: StaticString = #file,
+    line: UInt = #line
+) {
     if bindings.count > packages.count {
         let unexpectedBindings = bindings
             .filter { binding in
@@ -1013,10 +1012,12 @@ private func AssertBindings(_ bindings: [DependencyResolver.Binding],
 }
 
 /// Asserts that a result succeeded and contains the specified bindings.
-private func AssertResult(_ result: PubgrubDependencyResolver.Result,
-                          _ packages: [(identity: String, version: BoundVersion)],
-                          file: StaticString = #file,
-                          line: UInt = #line) {
+private func AssertResult(
+    _ result: PubgrubDependencyResolver.Result,
+    _ packages: [(identity: String, version: BoundVersion)],
+    file: StaticString = #file,
+    line: UInt = #line
+) {
     switch result {
     case .success(let bindings):
         AssertBindings(bindings, packages, file: file, line: line)
@@ -1027,40 +1028,15 @@ private func AssertResult(_ result: PubgrubDependencyResolver.Result,
     }
 }
 
-/// Asserts that a result failed with a conflict incompatibility containing the
-/// specified terms.
-@discardableResult
-private func AssertRootCause(_ result: PubgrubDependencyResolver.Result,
-                             _ rootCauseTerms: [Term],
-                             file: StaticString = #file,
-                             line: UInt = #line) -> Incompatibility? {
-    switch result {
-    case .success(let bindings):
-        let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
-        XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
-        return nil
-    case .unsatisfiable(dependencies: let constraints, pins: let pins):
-        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
-        return nil
-    case .error(let error):
-        guard let pubgrubError = error as? PubgrubDependencyResolver.PubgrubError,
-            case .unresolvable(let incompatibility) = pubgrubError,
-            case .conflict(let unavailable, _) = incompatibility.cause else {
-                XCTFail("Unexpected error: \(error)", file: file, line: line)
-                return nil
-        }
-        XCTAssertEqual(Array(unavailable.terms), rootCauseTerms, file: file, line: line)
-        return unavailable
-    }
-}
-
-private func AssertUnresolvable(_ result: PubgrubDependencyResolver.Result,
-                                _ resolver: PubgrubDependencyResolver,
-                                rootPackageName: String = "<synthesized-root>",
-                                diagnostic expectedDiagnostic: String,
-                                skipDiagnosticAssert: Bool = false,
-                                file: StaticString = #file,
-                                line: UInt = #line) {
+private func AssertUnresolvable(
+    _ result: PubgrubDependencyResolver.Result,
+    _ resolver: PubgrubDependencyResolver,
+    rootPackageName: String = "<synthesized-root>",
+    diagnostic expectedDiagnostic: String,
+    skipDiagnosticAssert: Bool = false,
+    file: StaticString = #file,
+    line: UInt = #line
+) {
     switch result {
     case .success(let bindings):
         let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
@@ -1087,10 +1063,12 @@ private func AssertUnresolvable(_ result: PubgrubDependencyResolver.Result,
 }
 
 /// Asserts that a result failed with specified error.
-private func AssertError(_ result: PubgrubDependencyResolver.Result,
-                         _ expectedError: Error,
-                         file: StaticString = #file,
-                         line: UInt = #line) {
+private func AssertError(
+    _ result: PubgrubDependencyResolver.Result,
+    _ expectedError: Error,
+    file: StaticString = #file,
+    line: UInt = #line
+) {
     switch result {
     case .success(let bindings):
         let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
@@ -1225,79 +1203,7 @@ public struct MockProvider: PackageContainerProvider {
     }
 }
 
-public class _MockResolverDelegate: DependencyResolverDelegate {
-    public typealias Identifier = PackageReference
-
-    public init() {}
-
-    var traceSteps: [TraceStep] = []
-
-    public func trace(_ step: TraceStep) {
-        traceSteps.append(step)
-    }
-
-    func traceDescription() -> String {
-        let headers = ["Step", "Value", "Type", "Location", "Cause", "Dec. Lvl."]
-        let values = traceSteps
-            .compactMap { step -> GeneralTraceStep? in
-                if case .general(let generalStep) = step {
-                    return generalStep
-                }
-                return nil
-            }
-            .enumerated()
-            .map { val -> [String] in
-                let (idx, s) = val
-                return [
-                    "\(idx + 1)",
-                    s.value.description,
-                    s.type.rawValue,
-                    s.location.rawValue,
-                    s.cause ?? "",
-                    String(s.decisionLevel)
-                ]
-        }
-        return textTable([headers] + values)
-    }
-
-    func textTable(_ data: [[String]]) -> String {
-        guard let firstRow = data.first, !firstRow.isEmpty else {
-            return ""
-        }
-
-        func maxWidth(_ array: [String]) -> Int {
-            guard let maxElement = array.max(by: { $0.count < $1.count }) else {
-                return 0
-            }
-            return maxElement.count
-        }
-
-        func pad(_ string: String, _ padding: Int) -> String {
-            let padding = padding - (string.count - 1)
-            guard padding >= 0 else {
-                return string
-            }
-            return " " + string + Array(repeating: " ", count: padding).joined()
-        }
-
-        var columns = [[String]]()
-        for i in 0..<firstRow.count {
-            columns.append(data.map { $0[i] })
-        }
-
-        let dividerLine = columns
-            .map { Array(repeating: "-", count: maxWidth($0) + 2).joined() }
-            .reduce("+") { $0 + $1 + "+" }
-
-        return data
-            .reduce([dividerLine]) { result, row -> [String] in
-                let rowString = zip(row, columns)
-                    .map { pad(String(describing: $0), maxWidth($1)) }
-                    .reduce("|") { $0 + $1 + "|" }
-                return result + [rowString, dividerLine]}
-            .joined(separator: "\n")
-    }
-}
+struct _MockResolverDelegate: DependencyResolverDelegate {}
 
 class DependencyGraphBuilder {
     private var containers: [String: MockContainer] = [:]
@@ -1312,17 +1218,27 @@ class DependencyGraphBuilder {
         return newReference
     }
 
-    func create(dependencies: OrderedDictionary<String, PackageRequirement>) -> [PackageContainerConstraint] {
+    func create(
+        dependencies: OrderedDictionary<String, PackageRequirement>
+    ) -> [PackageContainerConstraint] {
         return dependencies.map {
             PackageContainerConstraint(container: reference(for: $0), requirement: $1)
         }
     }
 
-    func serve(_ package: String, at version: Version, with dependencies: OrderedDictionary<String, PackageRequirement> = [:]) {
+    func serve(
+        _ package: String,
+        at version: Version,
+        with dependencies: OrderedDictionary<String, PackageRequirement> = [:]
+    ) {
         serve(package, at: .version(version), with: dependencies)
     }
 
-    func serve(_ package: String, at version: BoundVersion, with dependencies: OrderedDictionary<String, PackageRequirement> = [:]) {
+    func serve(
+        _ package: String,
+        at version: BoundVersion,
+        with dependencies: OrderedDictionary<String, PackageRequirement> = [:]
+    ) {
         let packageReference = reference(for: package)
         let container = self.containers[package] ?? MockContainer(name: packageReference)
 
