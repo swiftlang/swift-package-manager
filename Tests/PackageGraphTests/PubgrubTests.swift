@@ -1259,13 +1259,13 @@ class DependencyGraphBuilder {
         self.containers[package] = container
     }
 
-    func create() -> PubgrubDependencyResolver {
+    func create(log: Bool = false) -> PubgrubDependencyResolver {
         defer {
             self.containers = [:]
             self.references = [:]
         }
         let provider = MockProvider(containers: self.containers.values.map { $0 })
-        return PubgrubDependencyResolver(provider, delegate)
+        return PubgrubDependencyResolver(provider, delegate, traceStream: log ? stdoutStream : nil)
     }
 }
 
