@@ -568,6 +568,7 @@ final class PubgrubTests: XCTestCase {
         }
 
         let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
+        // Because root depends on foo^1.0.0 which doesn't match any versions, version solving failed.
         XCTAssertEqual(diag, "Because no versions of foopkg match the requirement 2.0.0..<3.0.0 and root depends on foopkg^2.0.0, version solving has failed.")
     }
 

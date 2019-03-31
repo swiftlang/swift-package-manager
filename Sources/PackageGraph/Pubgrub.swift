@@ -1273,7 +1273,13 @@ class DiagnosticReportBuilder {
         countDerivations(incompatibility)
 
         let stream = BufferedOutputByteStream()
-        visit(incompatibility, stream)
+
+        if incompatibility.cause.isConflict {
+            visit(incompatibility, stream)
+        } else {
+            assertionFailure("Unimplemented")
+            stream <<< "root's cause is not a conflict" <<< "\(incompatibility.cause)"
+        }
 
         return stream.bytes.description
     }
@@ -1425,13 +1431,23 @@ class DiagnosticReportBuilder {
             assert(package.isPositive)
             return "no versions of \(package.package) match the requirement \(package.requirement)"
         case .root:
+            // FIXME: This will never happen I think.
             assert(incompatibility.terms.count == 1)
             let package = incompatibility.terms.first!
             assert(package.isPositive)
             return "\(package.package) is \(package.requirement)"
-        case .conflict:
+        default: break
+        }
+
+        if isFailure(incompatibility) {
             return "version solving failed"
         }
+        
+        return "\(incompatibility)"
+    }
+
+    func isFailure(_ incompatibility: Incompatibility) -> Bool {
+        return incompatibility.terms.count == 1 && incompatibility.terms.first?.package.identity == "<synthesized-root>"
     }
 
     private func description(for term: Term) -> String {
