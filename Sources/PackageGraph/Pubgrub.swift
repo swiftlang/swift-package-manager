@@ -593,7 +593,8 @@ final class PartialSolution {
 /// requirements to a^1.5.0.
 fileprivate func normalize(
     terms: [Term]) -> [Term] {
-    let dict = terms.reduce(into: [PackageReference: (req: PackageRequirement, polarity: Bool)]()) {
+
+    let dict = terms.reduce(into: OrderedDictionary<PackageReference, (req: PackageRequirement, polarity: Bool)>()) {
         res, term in
         // Don't try to intersect if this is the first time we're seeing this package.
         guard let previous = res[term.package] else {
@@ -611,13 +612,8 @@ fileprivate func normalize(
             """)
         res[term.package] = (intersection!.requirement, intersection!.isPositive)
     }
-    // Sorting the values for deterministic test runs.
-    let sortedKeys = dict.keys.sorted(by: { lhs, rhs in
-        return String(describing: lhs) < String(describing: rhs)
-    })
-    return sortedKeys.map { pkg in
-        let req = dict[pkg]!
-        return Term(package: pkg, requirement: req.req, isPositive: req.polarity)
+    return dict.map { (pkg, req) in
+        Term(package: pkg, requirement: req.req, isPositive: req.polarity)
     }
 }
 
@@ -848,6 +844,12 @@ public final class PubgrubDependencyResolver {
     ) throws -> [(container: PackageReference, binding: BoundVersion)] {
         let root = PackageReference(identity: "<synthesized-root>", path: "<synthesized-root-path>", name: nil, isLocal: true)
         self.root = root
+
+        let rootIncompatibility = Incompatibility(
+            terms: [Term(not: root, .versionSet(.exact("1.0.0")))],
+            cause: .root
+        )
+        add(rootIncompatibility, location: .topLevel)
 
         // Handle root, e.g. add dependencies and root decision.
         //
@@ -1209,6 +1211,7 @@ public final class PubgrubDependencyResolver {
                 var terms: OrderedSet<Term> = []
                 terms.append(Term(container.identifier, .revision(revision)))
                 terms.append(Term(not: dep.identifier, dep.requirement))
+
                 return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
             }
         case .excluded:
@@ -1408,11 +1411,8 @@ class DiagnosticReportBuilder {
         switch incompatibility.cause {
         case .dependency(package: _):
             assert(incompatibility.terms.count == 2)
-            // Shouldn't these be the other way around?
-//            let depender = incompatibility.terms.first!
-//            let dependee = incompatibility.terms.last!
-            let depender = incompatibility.terms.last!
-            let dependee = incompatibility.terms.first!
+            let depender = incompatibility.terms.first!
+            let dependee = incompatibility.terms.last!
             assert(depender.isPositive)
             assert(!dependee.isPositive)
 
