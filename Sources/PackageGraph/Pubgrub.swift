@@ -1232,6 +1232,11 @@ public final class PubgrubDependencyResolver {
                 // We can't represent that here (currently), so we're
                 // pretending that it goes to the next nonexistent major
                 // version.
+                //
+                // FIXME: This is completely wrong when a dependencies change
+                // across version. It leads to us not being able to diagnose
+                // resolution errors properly. We only end up showing the
+                // the problem with the oldest version.
                 let nextMajor = Version(version.major + 1, 0, 0)
                 terms.append(Term(container.identifier, .versionSet(.range(version..<nextMajor))))
                 terms.append(Term(not: dep.identifier, dep.requirement))
@@ -1474,10 +1479,12 @@ final class DiagnosticReportBuilder {
             return "version solving failed"
         }
 
+        // FIXME: Need to show requirements for some of these.
+
         let terms = incompatibility.terms
         if terms.count == 1 {
             let term = terms.first!
-            return "\(term.package) is " + (term.isPositive ? "forbidden" : "required")
+            return "\(term) is " + (term.isPositive ? "forbidden" : "required")
         } else if terms.count == 2 {
             let term1 = terms.first!
             let term2 = terms.last!
