@@ -568,7 +568,7 @@ final class PubgrubTests: XCTestCase {
         }
 
         let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
-        XCTAssertEqual(diag, "Because no versions of foopkg match the requirement 2.0.0..<3.0.0 and <synthesized-root> depends on foopkg from 2.0.0, version solving has failed.")
+        XCTAssertEqual(diag, "Because no versions of foopkg match the requirement 2.0.0..<3.0.0 and root depends on foopkg^2.0.0, version solving has failed.")
     }
 
     func testResolutionNonExistentVersion() {
@@ -585,7 +585,7 @@ final class PubgrubTests: XCTestCase {
         }
 
         let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
-        XCTAssertEqual(diag, "Because no versions of package match the requirement 1.0.0 and <synthesized-root> depends on package 1.0.0, version solving has failed.")
+        XCTAssertEqual(diag, "Because no versions of package match the requirement 1.0.0 and root depends on package@1.0.0, version solving has failed.")
     }
 
     func testNonExistentPackage() {
@@ -834,7 +834,7 @@ final class PubgrubTests: XCTestCase {
         }
 
         let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
-        XCTAssertEqual(diag, "Foo at master depends on bar at master, and because foo at master depends on bar at master and <synthesized-root> depends on foo at master, version solving failed.")
+        XCTAssertEqual(diag, "Foo@master depends on bar@master, and because foo@master depends on bar@master and root depends on foo@master, version solving failed.")
 //        XCTAssertEqual(resolver.diagnosticBuilder.reportError(for: rootCause), """
 //        Because foo at master depends on bar at master and root depends on bar from 1.0.0, version solving has failed.
 //        """)

@@ -1435,30 +1435,30 @@ class DiagnosticReportBuilder {
     }
 
     private func description(for term: Term) -> String {
-        let identity = term.package.identity
+        let name = term.package.name ?? term.package.identity
 
         switch term.requirement {
         case .versionSet(let vs):
             switch vs {
-            case .any: return "any version of \(identity)"
-            case .empty: return "no version of \(identity)"
+            case .any: return "any version of \(name)"
+            case .empty: return "no version of \(name)"
             case .exact(let version):
                 // For the root package, don't output the useless version 1.0.0.
-                if identity == rootPackage.identity {
-                    return "\(identity)"
+                if term.package == rootPackage {
+                    return "root"
                 }
-                return "\(identity) \(version)"
+                return "\(name)@\(version)"
             case .range(let range):
                 let upper = range.upperBound
                 let nextMajor = Version(range.lowerBound.major + 1, 0, 0)
                 if upper == nextMajor {
-                    return "\(identity) from \(range.lowerBound)"
+                    return "\(name)^\(range.lowerBound)"
                 } else {
-                    return range.description
+                    return "\(name)@\(range.description)"
                 }
             }
-        case .revision(let rev): return "\(identity) at \(rev)"
-        case .unversioned: return "unversioned \(identity)"
+        case .revision(let rev): return "\(name)@\(rev)"
+        case .unversioned: return "\(name)@unversioned"
         }
     }
 
