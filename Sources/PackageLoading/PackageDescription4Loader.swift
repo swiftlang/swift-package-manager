@@ -280,7 +280,7 @@ extension PackageDependencyDescription {
     fileprivate init(v4 json: JSON, baseURL: String, fileSystem: FileSystem) throws {
         let isBaseURLRemote = URL.scheme(baseURL) != nil
 
-        func fixURL(_ url: String) -> String {
+        func fixURL(_ url: String, requirement: Requirement) throws -> String {
             // If base URL is remote (http/ssh), we can't do any "fixing".
             if isBaseURLRemote {
                 return url
@@ -296,13 +296,19 @@ extension PackageDependencyDescription {
                 // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
                 return AbsolutePath(url, relativeTo: AbsolutePath(baseURL)).pathString
             }
+            
+            if case .localPackage = requirement {
+                return try AbsolutePath(validating: url).pathString
+            }
 
             return url
         }
 
+        let requirement = try Requirement(v4: json.get("requirement"))
+        
         try self.init(
-            url: fixURL(json.get("url")),
-            requirement: .init(v4: json.get("requirement"))
+            url: fixURL(json.get("url"), requirement: requirement),
+            requirement: requirement
         )
     }
 }

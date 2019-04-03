@@ -429,42 +429,4 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let v = container.versions(filter: { _ in true }).map{$0}
         XCTAssertEqual(v, ["2.0.1", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
     }
-    
-    func testLocalPackageContainerAbsolutePath() {
-        enum ExpectedResult {
-            case noThrow
-            case throwsError(PathValidationError)
-        }
-        
-        let tests: [(path: String, expected: ExpectedResult)] = [
-            ("/", .noThrow),
-            ("/a/valid/absolute/path", .noThrow),
-            ("https://github.com", .throwsError(.invalidAbsolutePath("https://github.com"))),
-            ("~/valid/relative/path", .throwsError(.startsWithTilde("~/valid/relative/path")))
-        ]
-        
-        for test in tests {
-            let fs = InMemoryFileSystem()
-            let identifier = LocalPackageContainer.Identifier(identity: "id", path: test.path)
-            
-            let manifest = Manifest(name: "manifest", platforms: [], path: AbsolutePath("/"), url: "", manifestVersion: .v5)
-            
-            let manifestLoader = MockManifestLoader(manifests: [MockManifestLoader.Key(url: identifier.path): manifest])
-            
-            do {
-                _ = try LocalPackageContainer(identifier, config: SwiftPMConfig(), manifestLoader: manifestLoader, toolsVersionLoader: ToolsVersionLoader(), currentToolsVersion: ToolsVersion.currentToolsVersion, fs: fs)
-            } catch let error as PathValidationError {
-                switch test.expected {
-                case .noThrow:
-                    XCTFail("Expected to not throw an error with path \(test.path), but threw \(error)")
-                case .throwsError(let expectedError):
-                    XCTAssertEqual(expectedError, error)
-                }
-            } catch {
-                XCTFail("Unexpected error \(error)")
-            }
-        }
-        
-    }
-    
 }

@@ -446,6 +446,31 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             XCTAssertEqual(urls, ["/foo/path/to/foo1", "/foo1", "/foo1.git", "/foo2.git", "/foo2.git"])
         }
     }
+    
+    func testNotAbsoluteDependencyPath() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+        import PackageDescription
+        let package = Package(
+            name: "Trivial",
+            dependencies: [
+                .package(path: "https://someurl.com"),
+            ],
+            targets: [
+                .target(
+                    name: "foo",
+                    dependencies: []),
+            ]
+        )
+        """
+        
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch PathValidationError.invalidAbsolutePath(let path) {
+            XCTAssertEqual(path, "https://someurl.com")
+        }
+    }
 
     func testCacheInvalidationOnEnv() {
         mktmpdir { path in
