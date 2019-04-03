@@ -100,9 +100,15 @@ public struct AbsolutePath: Hashable {
 
     /// Convenience initializer that verifies that the path is absolute.
     public init(validating path: String) throws {
+        try AbsolutePath.validate(path: path)
+        self.init(path)
+    }
+    
+    /// Checks if the path is a valid absolute path. Throws an `PathValidationError` if not.
+    public static func validate(path: String) throws {
         switch path.first {
         case "/":
-            self.init(path)
+            return
         case "~":
             throw PathValidationError.startsWithTilde(path)
         default:
@@ -445,7 +451,7 @@ private struct PathImpl: Hashable {
 }
 
 /// Describes the way in which a path is invalid.
-public enum PathValidationError: Error {
+public enum PathValidationError: Error, Equatable {
     case startsWithTilde(String)
     case invalidAbsolutePath(String)
     case invalidRelativePath(String)

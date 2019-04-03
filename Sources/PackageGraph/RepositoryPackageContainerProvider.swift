@@ -64,13 +64,17 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         // If the container is local, just create and return a local package container.
         if identifier.isLocal {
             callbacksQueue.async {
-                let container = LocalPackageContainer(identifier,
-                    config: self.config,
-                    manifestLoader: self.manifestLoader,
-                    toolsVersionLoader: self.toolsVersionLoader,
-                    currentToolsVersion: self.currentToolsVersion,
-                    fs: self.repositoryManager.fileSystem)
-                completion(Result(container))
+                do {
+                    let container = try LocalPackageContainer(identifier,
+                                                              config: self.config,
+                                                              manifestLoader: self.manifestLoader,
+                                                              toolsVersionLoader: self.toolsVersionLoader,
+                                                              currentToolsVersion: self.currentToolsVersion,
+                                                              fs: self.repositoryManager.fileSystem)
+                    completion(Result(container))
+                } catch {
+                    completion(.failure(AnyError(error)))
+                }
             }
             return
         }
@@ -183,8 +187,10 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
             return manifest
         }
 
+        let path = try AbsolutePath(validating: identifier.path)
+        
         // Load the tools version.
-        let toolsVersion = try toolsVersionLoader.load(at: AbsolutePath(identifier.path), fileSystem: fs)
+        let toolsVersion = try toolsVersionLoader.load(at: path, fileSystem: fs)
 
         // Ensure current tools supports this package.
         guard self.currentToolsVersion >= toolsVersion else {
@@ -194,7 +200,7 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
 
         // Load the manifest.
         _manifest = try manifestLoader.load(
-            package: AbsolutePath(identifier.path),
+            package: path,
             baseURL: identifier.path,
             version: nil,
             manifestVersion: toolsVersion.manifestVersion,
@@ -219,8 +225,8 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion,
         fs: FileSystem = localFileSystem
-    ) {
-        assert(URL.scheme(identifier.path) == nil, "unexpected scheme \(URL.scheme(identifier.path)!) in \(identifier.path)")
+    ) throws {
+        try AbsolutePath.validate(path: identifier.path)
         self.fs = fs
         super.init(
             identifier,
