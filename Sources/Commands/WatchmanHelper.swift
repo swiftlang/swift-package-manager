@@ -77,7 +77,7 @@ final class WatchmanHelper {
     }
 
     private func run(_ scriptPath: AbsolutePath) throws {
-        // Construct the arugments.
+        // Construct the arguments.
         var args = [String]()
         args += ["--settle", "2"]
         args += ["-p", "Package.swift", "Package.resolved"]
