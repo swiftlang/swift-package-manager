@@ -93,6 +93,7 @@ extension PackageDescription4_2LoadingTests {
         ("testCaching", testCaching),
         ("testDuplicateDependencyDecl", testDuplicateDependencyDecl),
         ("testLLBuildEngineErrors", testLLBuildEngineErrors),
+        ("testNotAbsoluteDependencyPath", testNotAbsoluteDependencyPath),
         ("testPackageDependencies", testPackageDependencies),
         ("testPlatforms", testPlatforms),
         ("testRuntimeManifestErrors", testRuntimeManifestErrors),
