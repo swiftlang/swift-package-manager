@@ -298,7 +298,11 @@ extension PackageDependencyDescription {
             }
             
             if case .localPackage = requirement {
-                return try AbsolutePath(validating: url).pathString
+                do {
+                    return try AbsolutePath(validating: url).pathString
+                } catch PathValidationError.invalidAbsolutePath(let path) {
+                    throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path. Please use a relative or absolute path for local dependencies.", diagnosticFile: nil)
+                }
             }
 
             return url
