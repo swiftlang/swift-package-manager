@@ -36,9 +36,9 @@ import SourceControl
 // the resolution by calling .solve() on it and passing a reference to the root
 // package.
 //
-// The functions (AssertBindings,) AssertResult, AssertRootCause, AssertError &
-// AssertUnresolvable can be used for checking the success or error outcomes of
-// the resolver without having to manually pull the bindings or errors out of
+// The functions (AssertBindings,) AssertResult, AssertRootCause & AssertError
+// can be used for checking the success or error outcomes of the resolver
+// without having to manually pull the bindings or errors out of
 // the results. They also offer useful failure messages.
 
 let builder = DependencyGraphBuilder()
@@ -573,12 +573,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let rootCause = result.rootCause else {
+        guard let errorMsg = result.errorMsg else {
             return
         }
-
-        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
-        print(diag)
+        print(errorMsg)
         // Because root depends on foo^1.0.0 which doesn't match any versions, version solving failed.
 //        XCTAssertEqual(diag, "Because no versions of foopkg match the requirement 2.0.0..<3.0.0 and root depends on foopkg^2.0.0, version solving has failed.")
     }
@@ -592,12 +590,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let rootCause = result.rootCause else {
+        guard let errorMsg = result.errorMsg else {
             return
         }
-
-        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
-        print(diag)
+        print(errorMsg)
 //        XCTAssertEqual(diag, "Because no versions of package match the requirement 1.0.0 and root depends on package@1.0.0, version solving has failed.")
     }
 
@@ -743,9 +739,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        AssertUnresolvable(result, resolver,
-                           diagnostic: "",
-                           skipDiagnosticAssert: true)
+        guard let errorMsg = result.errorMsg else {
+            return
+        }
+        print(errorMsg)
     }
 
     func testUnversioned8() {
@@ -847,12 +844,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let rootCause = result.rootCause else {
+        guard let errorMsg = result.errorMsg else {
             return
         }
-
-        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
-        print(diag)
+        print(errorMsg)
         // XCTAssertEqual(diag, "Foo@master depends on bar@master, and because foo@master depends on bar@master and root depends on foo@master, version solving failed.")
 //        XCTAssertEqual(resolver.diagnosticBuilder.reportError(for: rootCause), """
 //        Because foo at master depends on bar at master and root depends on bar from 1.0.0, version solving has failed.
@@ -875,12 +870,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let rootCause = result.rootCause else {
+        guard let errorMsg = result.errorMsg else {
             return
         }
-
-        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
-        print(diag)
+        print(errorMsg)
     }
 
     func testResolutionBranchingErrorReporting() {
@@ -905,12 +898,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let rootCause = result.rootCause else {
+        guard let errorMsg = result.errorMsg else {
             return
         }
-
-        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
-        print(diag)
+        print(errorMsg)
     }
 
     func testConflict1() {
@@ -926,12 +917,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let rootCause = result.rootCause else {
+        guard let errorMsg = result.errorMsg else {
             return
         }
-
-        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
-        print(diag)
+        print(errorMsg)
 
         // Expected:
         // "Because foo depends on config from 1.0.0 and bar depends on config from 2.0.0, foo from 1.0.0 isn't valid and version solving has failed."
@@ -972,11 +961,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies, pins: [])
 
-        guard let rootCause = result.rootCause else {
+        guard let errorMsg = result.errorMsg else {
             return
         }
-        let diag = resolver.diagnosticBuilder.reportError(for: rootCause)
-        print(diag)
+        print(errorMsg)
     }
 }
 
@@ -1025,40 +1013,6 @@ private func AssertResult(
         XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
     case .error(let error):
         XCTFail("Unexpected error: \(error)", file: file, line: line)
-    }
-}
-
-private func AssertUnresolvable(
-    _ result: PubgrubDependencyResolver.Result,
-    _ resolver: PubgrubDependencyResolver,
-    rootPackageName: String = "<synthesized-root>",
-    diagnostic expectedDiagnostic: String,
-    skipDiagnosticAssert: Bool = false,
-    file: StaticString = #file,
-    line: UInt = #line
-) {
-    switch result {
-    case .success(let bindings):
-        let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
-        XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
-    case .unsatisfiable(dependencies: let constraints, pins: let pins):
-        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
-    case .error(let error):
-        guard let pubgrubError = error as? PubgrubDependencyResolver.PubgrubError,
-            case .unresolvable(let incompatibility) = pubgrubError else {
-                XCTFail("Unexpected error: \(error)", file: file, line: line)
-                return
-        }
-        XCTAssertEqual(Array(incompatibility.terms), [Term("\(rootPackageName)@1.0.0")], file: file, line: line)
-        if !skipDiagnosticAssert {
-            // Remove all internal newlines and extra outside whitespace.
-            let trimmedDiagnostic = expectedDiagnostic
-                .replacingOccurrences(of: "\n", with: "")
-                .trimmingCharacters(in: .whitespaces)
-            let r = PackageReference(identity: "<synthesized-root>", path: "<synthesized-root-path>", name: nil, isLocal: true)
-            let rootCause = Incompatibility(Term(r, .versionSet(.exact(v1))), root: r)
-            XCTAssertEqual(resolver.diagnosticBuilder.reportError(for: rootCause), trimmedDiagnostic, file: file, line: line)
-        }
     }
 }
 
@@ -1327,20 +1281,18 @@ extension PackageReference: ExpressibleByStringLiteral {
 }
 
 extension DependencyResolver.Result {
-    var rootCause: Incompatibility? {
+    var errorMsg: String? {
         switch self {
         case .error(let error):
-            guard let pubGrubError = error as? PubgrubDependencyResolver.PubgrubError else {
+            guard let pubGrubError = error as? PubgrubDependencyResolver.PubgrubError,
+                case .unresolvable(let msg) = pubGrubError else {
                 XCTFail("Unexpected result \(self)")
                 return nil
             }
-            switch pubGrubError {
-            case .unresolvable(let cause):
-                return cause
-            }
+            return msg
         default:
             XCTFail("Unexpected result \(self)")
-            return nil
         }
+        return nil
     }
 }
