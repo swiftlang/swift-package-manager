@@ -966,6 +966,62 @@ final class PubgrubTests: XCTestCase {
         }
         print(errorMsg)
     }
+
+    func _testConflict4() {
+        builder.serve("swift-nio", at: v1)
+        builder.serve("swift-nio", at: .revision("master"))
+        builder.serve("swift-nio-ssl", at: .revision("master"), with: [
+            "swift-nio": .versionSet(v2Range),
+        ])
+        builder.serve("foo", at: "1.0.0", with: [
+            "swift-nio": .versionSet(v1Range),
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+            "swift-nio": .revision("master"),
+            "swift-nio-ssl": .revision("master"),
+        ])
+        let result = resolver.solve(dependencies: dependencies, pins: [])
+
+        guard let errorMsg = result.errorMsg else {
+            return
+        }
+        print(errorMsg)
+    }
+
+    func _testConflict5() {
+        builder.serve("swift-nio", at: v1)
+        builder.serve("swift-nio", at: .revision("master"))
+        builder.serve("swift-nio-ssl", at: .revision("master"), with: [
+            "swift-nio": .versionSet(v2Range),
+        ])
+        builder.serve("nio-postgres", at: .revision("master"), with: [
+            "swift-nio": .revision("master"),
+            "swift-nio-ssl": .revision("master"),
+        ])
+        builder.serve("http-client", at: v1, with: [
+            "swift-nio": .versionSet(v1Range),
+            "boring-ssl": .versionSet(v1Range),
+        ])
+        builder.serve("boring-ssl", at: v1, with: [
+            "swift-nio": .versionSet(v1Range),
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "nio-postgres": .revision("master"),
+            "http-client": .versionSet(v1Range),
+            "boring-ssl": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies, pins: [])
+
+        guard let errorMsg = result.errorMsg else {
+            return
+        }
+        print(errorMsg)
+    }
 }
 
 /// Asserts that the listed packages are present in the bindings with their
