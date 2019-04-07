@@ -388,7 +388,7 @@ class FileSystemTests: XCTestCase {
     }
 
     func testSetAttribute() throws {
-      #if os(macOS)
+      #if os(macOS) || os(Linux)
         mktmpdir { path in
             let fs = Basic.localFileSystem
 
