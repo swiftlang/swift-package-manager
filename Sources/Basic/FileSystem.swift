@@ -259,11 +259,8 @@ private class LocalFileSystem: FileSystem {
     }
 
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
-        let path = path.pathString
-        var statBuf = SPMLibc.stat()
-        let rv = stat(path, &statBuf)
-        guard rv == 0 else { throw SystemError.stat(errno, path) }
-        return FileInfo(statBuf)
+        let attrs = try FileManager.default.attributesOfItem(atPath: path.pathString)
+        return FileInfo(attrs)
     }
 
     var currentWorkingDirectory: AbsolutePath? {
