@@ -172,8 +172,8 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(Term("a^2.0.0").relation(with: "a@1.0.0"), .disjoint)
         XCTAssertEqual(Term("a@1.0.0").relation(with: "a@master"), .disjoint)
         XCTAssertEqual(Term("a^1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(Term("a@master").relation(with: "a@1.0.0"), .overlap)
-        XCTAssertEqual(Term("a@master").relation(with: "a^1.0.0"), .overlap)
+        XCTAssertEqual(Term("a@master").relation(with: "a@1.0.0"), .subset)
+        XCTAssertEqual(Term("a@master").relation(with: "a^1.0.0"), .subset)
         XCTAssertEqual(Term("a@master").relation(with: "a@master"), .subset)
         XCTAssertEqual(Term("a@master").relation(with: "a@develop"), .disjoint)
 
@@ -181,8 +181,8 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(Term("¬a^1.0.0").relation(with: "a@1.5.0"), .disjoint)
         XCTAssertEqual(Term("¬a^1.5.0").relation(with: "a^1.0.0"), .overlap)
         XCTAssertEqual(Term("¬a^2.0.0").relation(with: "a^1.5.0"), .overlap)
-        XCTAssertEqual(Term("¬a@1.0.0").relation(with: "a@master"), .overlap)
-        XCTAssertEqual(Term("¬a^1.0.0").relation(with: "a@master"), .overlap)
+        XCTAssertEqual(Term("¬a@1.0.0").relation(with: "a@master"), .disjoint)
+        XCTAssertEqual(Term("¬a^1.0.0").relation(with: "a@master"), .disjoint)
         XCTAssertEqual(Term("¬a@master").relation(with: "a@1.0.0"), .overlap)
         XCTAssertEqual(Term("¬a@master").relation(with: "a^1.0.0"), .overlap)
         XCTAssertEqual(Term("¬a@master").relation(with: "a@master"), .disjoint)
@@ -194,8 +194,8 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(Term("a^1.0.0").relation(with: "¬a^1.5.0"), .overlap)
         XCTAssertEqual(Term("a@1.0.0").relation(with: "¬a@master"), .subset)
         XCTAssertEqual(Term("a^1.0.0").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(Term("a@master").relation(with: "¬a@1.0.0"), .overlap)
-        XCTAssertEqual(Term("a@master").relation(with: "¬a^1.0.0"), .overlap)
+        XCTAssertEqual(Term("a@master").relation(with: "¬a@1.0.0"), .disjoint)
+        XCTAssertEqual(Term("a@master").relation(with: "¬a^1.0.0"), .disjoint)
         XCTAssertEqual(Term("a@master").relation(with: "¬a@master"), .disjoint)
         XCTAssertEqual(Term("a@master").relation(with: "¬a@develop"), .subset)
         XCTAssertEqual(Term("a-1.0.0-2.0.0").relation(with: "¬a-1.0.0-1.2.0"), .overlap)
@@ -204,8 +204,8 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(Term("¬a^1.0.0").relation(with: "¬a^1.5.0"), .subset)
         XCTAssertEqual(Term("¬a^2.0.0").relation(with: "¬a^1.0.0"), .overlap)
         XCTAssertEqual(Term("¬a^1.5.0").relation(with: "¬a^1.0.0"), .overlap)
-        XCTAssertEqual(Term("¬a@1.0.0").relation(with: "¬a@master"), .overlap)
-        XCTAssertEqual(Term("¬a^1.0.0").relation(with: "¬a@master"), .overlap)
+        XCTAssertEqual(Term("¬a@1.0.0").relation(with: "¬a@master"), .subset)
+        XCTAssertEqual(Term("¬a^1.0.0").relation(with: "¬a@master"), .subset)
         XCTAssertEqual(Term("¬a@master").relation(with: "¬a@1.0.0"), .overlap)
         XCTAssertEqual(Term("¬a@master").relation(with: "¬a^1.0.0"), .overlap)
         XCTAssertEqual(Term("¬a@master").relation(with: "¬a@master"), .subset)
@@ -808,7 +808,24 @@ final class PubgrubTests: XCTestCase {
         builder.serve("bar", at: v1, with: ["foo": .versionSet(v1Range)])
 
         let resolver = builder.create()
-        // FIXME: This fails if you change the order.
+        let dependencies = builder.create(dependencies: [
+            "foo": .revision("master"),
+            "bar": .versionSet(.exact(v1)),
+
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("foo", .revision("master")),
+            ("bar", .version(v1))
+        ])
+    }
+
+    func testResolutionWithOverridingBranchBasedDependency2() {
+        builder.serve("foo", at: .revision("master"))
+        builder.serve("bar", at: v1, with: ["foo": .versionSet(v1Range)])
+
+        let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
             "bar": .versionSet(.exact(v1)),
             "foo": .revision("master"),
@@ -967,7 +984,7 @@ final class PubgrubTests: XCTestCase {
         print(errorMsg)
     }
 
-    func _testConflict4() {
+    func testBranchOverriding3() {
         builder.serve("swift-nio", at: v1)
         builder.serve("swift-nio", at: .revision("master"))
         builder.serve("swift-nio-ssl", at: .revision("master"), with: [
@@ -985,13 +1002,14 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies, pins: [])
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
+        AssertResult(result, [
+            ("swift-nio-ssl", .revision("master")),
+            ("swift-nio", .revision("master")),
+            ("foo", .version(v1))
+        ])
     }
 
-    func _testConflict5() {
+    func testBranchOverriding4() {
         builder.serve("swift-nio", at: v1)
         builder.serve("swift-nio", at: .revision("master"))
         builder.serve("swift-nio-ssl", at: .revision("master"), with: [
@@ -1017,10 +1035,13 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies, pins: [])
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
+        AssertResult(result, [
+            ("swift-nio-ssl", .revision("master")),
+            ("swift-nio", .revision("master")),
+            ("nio-postgres", .revision("master")),
+            ("http-client", .version(v1)),
+            ("boring-ssl", .version(v1)),
+        ])
     }
 }
 

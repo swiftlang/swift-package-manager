@@ -65,11 +65,14 @@ public struct Term: Equatable, Hashable {
         andPolarity otherIsPositive: Bool
     ) -> Term? {
 
+        // FIXME: Figure out if we need to handle more of these cases.
         switch (self.requirement, requirement) {
         case (.unversioned, .unversioned):
             return self.isPositive == otherIsPositive ? self : nil
         case (.revision(let lhs), .revision(let rhs)):
             return self.isPositive == otherIsPositive && lhs == rhs ? self : nil
+        case (.revision, .versionSet):
+            return self.isPositive ? self : nil
         default: break
         }
 
@@ -210,7 +213,7 @@ extension PackageRequirement {
         case (.revision, _):
             return false
         case (_, .revision):
-            return false
+            return true
         default:
             fatalError("unhandled \(self), \(other)")
         }
