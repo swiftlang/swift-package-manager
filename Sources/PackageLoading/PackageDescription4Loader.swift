@@ -301,7 +301,7 @@ extension PackageDependencyDescription {
                 do {
                     return try AbsolutePath(validating: url).pathString
                 } catch PathValidationError.invalidAbsolutePath(let path) {
-                    throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path. Please use a relative or absolute path for local dependencies.", diagnosticFile: nil)
+                    throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil)
                 }
             }
 
