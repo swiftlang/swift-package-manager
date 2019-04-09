@@ -467,8 +467,9 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         do {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail("Unexpected success")
-        } catch PathValidationError.invalidAbsolutePath(let path) {
-            XCTAssertEqual(path, "https://someurl.com")
+        } catch ManifestParseError.invalidManifestFormat(let message, let diagnosticFile) {
+            XCTAssertNil(diagnosticFile)
+            XCTAssertEqual(message, "'https://someurl.com' is not a valid path for path-based dependencies; use relative or absolute path instead.")
         }
     }
 
