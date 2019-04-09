@@ -36,7 +36,11 @@ enum ProcessLockError: Swift.Error {
 /// by mutiple instances of a process. The `FileLock` is not thread-safe.
 public final class FileLock {
     /// File descriptor to the lock file.
+  #if os(Windows)
+    private var h: HANDLE?
+  #else
     private var fd: CInt?
+  #endif
 
     /// Path to the lock file.
     private let lockFile: AbsolutePath
@@ -53,6 +57,32 @@ public final class FileLock {
     ///
     /// Note: This method can throw if underlying POSIX methods fail.
     public func lock() throws {
+      #if os(Windows)
+        if h == nil {
+            let h = lockFile.pathString.withCString(encodedAs: UTF16.self, {
+                CreateFileW(
+                    $0,
+                    UInt32(GENERIC_READ) | UInt32(GENERIC_WRITE),
+                    0,
+                    nil,
+                    DWORD(OPEN_ALWAYS),
+                    DWORD(FILE_ATTRIBUTE_NORMAL),
+                    nil
+                )
+          })
+          if h == INVALID_HANDLE_VALUE {
+              throw FileSystemError(errno: Int32(GetLastError()))
+          }
+          self.h = h
+        }
+        var overlapped = OVERLAPPED()
+        overlapped.Offset = 0
+        overlapped.OffsetHigh = 0
+        overlapped.hEvent = nil
+        if FALSE == LockFileEx(h, DWORD(LOCKFILE_EXCLUSIVE_LOCK), 0, DWORD(INT_MAX), DWORD(INT_MAX), &overlapped) {
+            throw ProcessLockError.unableToAquireLock(errno: Int32(GetLastError()))
+        }
+      #else
         // Open the lock file.
         if fd == nil {
             let fd = SPMLibc.open(lockFile.pathString, O_WRONLY | O_CREAT | O_CLOEXEC, 0o666)
@@ -70,17 +100,31 @@ public final class FileLock {
             if errno == EINTR { continue }
             throw ProcessLockError.unableToAquireLock(errno: errno)
         }
+      #endif
     }
 
     /// Unlock the held lock.
     public func unlock() {
+      #if os(Windows)
+        var overlapped = OVERLAPPED()
+        overlapped.Offset = 0
+        overlapped.OffsetHigh = 0
+        overlapped.hEvent = nil
+        UnlockFileEx(h, 0, DWORD(INT_MAX), DWORD(INT_MAX), &overlapped)
+      #else
         guard let fd = fd else { return }
         flock(fd, LOCK_UN)
+      #endif
     }
 
     deinit {
+      #if os(Windows)
+        guard let h = h else { return }
+        CloseHandle(h)
+      #else
         guard let fd = fd else { return }
         close(fd)
+      #endif
     }
 
     /// Execute the given block while holding the lock.
