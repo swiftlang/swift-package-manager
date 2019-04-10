@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import SPMLibc
 import class Foundation.FileHandle
 import class Foundation.FileManager
 import Foundation
@@ -130,7 +129,7 @@ public final class TemporaryFile {
     /// Remove the temporary file before deallocating.
     deinit {
         if deleteOnClose {
-           unlink(path.pathString)
+            try? FileManager.default.removeItem(atPath: path.pathString)
         }
     }
 }
@@ -175,10 +174,9 @@ public final class TemporaryDirectory {
 
     /// Remove the temporary file before deallocating.
     deinit {
-        if shouldRemoveTreeOnDeinit {
-            _ = try? FileManager.default.removeItem(atPath: path.pathString)
-        } else {
-            rmdir(path.pathString)
+        let isEmpty = (try? FileManager.default.contentsOfDirectory(atPath: path.pathString).isEmpty) ?? false
+        if shouldRemoveTreeOnDeinit || isEmpty {
+            try? FileManager.default.removeItem(atPath: path.pathString)
         }
     }
 }
