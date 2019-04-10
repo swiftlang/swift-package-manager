@@ -13,7 +13,7 @@ import class Foundation.FileHandle
 import class Foundation.FileManager
 import Foundation
 
-public enum TempFileError: Swift.Error {
+public enum TempFileOrDirError: Swift.Error {
     /// Could not create a unique temporary filename.
     case couldNotCreateUniqueName
 
@@ -32,18 +32,22 @@ public func determineTempDirectory(_ dir: AbsolutePath? = nil) throws -> Absolut
     // FIXME: Add other platform specific locations.
     let tmpDir = dir ?? AbsolutePath(NSTemporaryDirectory())
     guard localFileSystem.isDirectory(tmpDir) else {
-        throw TempFileError.couldNotFindTmpDir
+        throw TempFileOrDirError.couldNotFindTmpDir
     }
     return tmpDir
 }
 
 let ALPHANUMERIC_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-public func mkstemps(dir: AbsolutePath, prefix: String, suffix: String) throws -> AbsolutePath {
+func createMkstempLikeName(prefix: String, suffix: String) -> String {
     let randomMiddleStringLen = 6
     let randomMiddleString =
         String((0..<randomMiddleStringLen).map { _ in ALPHANUMERIC_CHARS.randomElement()! })
-    let path = dir.appending(RelativePath(prefix + "." + randomMiddleString + suffix))
+    return prefix + "." + randomMiddleString + suffix
+}
+
+func mkstemps(dir: AbsolutePath, prefix: String, suffix: String) throws -> AbsolutePath {
+    let path = dir.appending(RelativePath(createMkstempLikeName(prefix: prefix, suffix: suffix)))
 
     if localFileSystem.exists(path) {
         return try mkstemps(dir: dir, prefix: prefix, suffix: suffix)
@@ -52,10 +56,26 @@ public func mkstemps(dir: AbsolutePath, prefix: String, suffix: String) throws -
             try localFileSystem.writeFileContents(path, bytes: ByteString())
             return path
         } catch {
-            throw TempFileError.couldNotCreateUniqueName
+            throw TempFileOrDirError.couldNotCreateUniqueName
         }
     }
 }
+
+func mkdtemp(dir: AbsolutePath, prefix: String) throws -> AbsolutePath {
+    let path = dir.appending(RelativePath(createMkstempLikeName(prefix: prefix, suffix: "")))
+
+    if localFileSystem.exists(path) {
+        return try mkdtemp(dir: dir, prefix: prefix)
+    } else {
+        do {
+            try localFileSystem.createDirectory(path)
+            return path
+        } catch {
+            throw TempFileOrDirError.couldNotCreateUniqueName
+        }
+    }
+}
+
 
 /// This class is basically a wrapper over posix's mkstemps() function to creates disposable files.
 /// The file is deleted as soon as the object of this class is deallocated.
@@ -121,44 +141,6 @@ extension TemporaryFile: CustomStringConvertible {
     }
 }
 
-// FIXME: This isn't right place to declare this, probably POSIX or merge with FileSystemError?
-//
-/// Contains the error which can be thrown while creating a directory using POSIX's mkdir.
-public enum MakeDirectoryError: Swift.Error {
-    /// The given path already exists as a directory, file or symbolic link.
-    case pathExists
-    /// The path provided was too long.
-    case pathTooLong
-    /// Process does not have permissions to create directory.
-    /// Note: Includes read-only filesystems or if file system does not support directory creation.
-    case permissionDenied
-    /// The path provided is unresolvable because it has too many symbolic links or a path component is invalid.
-    case unresolvablePathComponent
-    /// Exceeded user quota or kernel is out of memory.
-    case outOfMemory
-    /// All other system errors with their value.
-    case other(Int32)
-}
-
-private extension MakeDirectoryError {
-    init(errno: Int32) {
-        switch errno {
-        case SPMLibc.EEXIST:
-            self = .pathExists
-        case SPMLibc.ENAMETOOLONG:
-            self = .pathTooLong
-        case SPMLibc.EACCES, SPMLibc.EFAULT, SPMLibc.EPERM, SPMLibc.EROFS:
-            self = .permissionDenied
-        case SPMLibc.ELOOP, SPMLibc.ENOENT, SPMLibc.ENOTDIR:
-            self = .unresolvablePathComponent
-        case SPMLibc.ENOMEM, SPMLibc.EDQUOT:
-            self = .outOfMemory
-        default:
-            self = .other(errno)
-        }
-    }
-}
-
 /// A class to create disposable directories using POSIX's mkdtemp() method.
 public final class TemporaryDirectory {
     /// If specified during init, the temporary directory name begins with this prefix.
@@ -188,18 +170,7 @@ public final class TemporaryDirectory {
         self.shouldRemoveTreeOnDeinit = removeTreeOnDeinit
         self.prefix = prefix
         // Construct path to the temporary directory.
-        let path = try determineTempDirectory(dir).appending(RelativePath(prefix + ".XXXXXX"))
-
-        // Convert path to a C style string terminating with null char to be an valid input
-        // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
-        // which will be the actual path to the temporary directory.
-        var template = [UInt8](path.pathString.utf8).map({ Int8($0) }) + [Int8(0)]
-
-        if SPMLibc.mkdtemp(&template) == nil {
-            throw MakeDirectoryError(errno: errno)
-        }
-
-        self.path = AbsolutePath(String(cString: template))
+        self.path = try mkdtemp(dir: try determineTempDirectory(dir), prefix: prefix)
     }
 
     /// Remove the temporary file before deallocating.
