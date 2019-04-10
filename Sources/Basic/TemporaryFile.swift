@@ -11,29 +11,14 @@
 import SPMLibc
 import class Foundation.FileHandle
 import class Foundation.FileManager
+import Foundation
 
 public enum TempFileError: Swift.Error {
     /// Could not create a unique temporary filename.
     case couldNotCreateUniqueName
 
-    // FIXME: This should be factored out into a open error enum.
-    //
-    /// Some error thrown defined by posix's open().
-    case other(Int32)
-
     /// Couldn't find a temporary directory.
     case couldNotFindTmpDir
-}
-
-private extension TempFileError {
-    init(errno: Int32) {
-        switch errno {
-        case SPMLibc.EEXIST:
-            self = .couldNotCreateUniqueName
-        default:
-            self = .other(errno)
-        }
-    }
 }
 
 /// Determines the directory in which the temporary file should be created. Also makes
@@ -45,18 +30,32 @@ private extension TempFileError {
 /// - Returns: Path to directory in which temporary file should be created.
 public func determineTempDirectory(_ dir: AbsolutePath? = nil) throws -> AbsolutePath {
     // FIXME: Add other platform specific locations.
-    let tmpDir = dir ?? cachedTempDirectory
+    let tmpDir = dir ?? AbsolutePath(NSTemporaryDirectory())
     guard localFileSystem.isDirectory(tmpDir) else {
         throw TempFileError.couldNotFindTmpDir
     }
     return tmpDir
 }
 
-/// Returns temporary directory location by searching relevant env variables.
-/// Evaluates once per execution.
-private var cachedTempDirectory: AbsolutePath = {
-    return AbsolutePath(Process.env["TMPDIR"] ?? Process.env["TEMP"] ?? Process.env["TMP"] ?? "/tmp/")
-}()
+let ALPHANUMERIC_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+public func mkstemps(dir: AbsolutePath, prefix: String, suffix: String) throws -> AbsolutePath {
+    let randomMiddleStringLen = 6
+    let randomMiddleString =
+        String((0..<randomMiddleStringLen).map { _ in ALPHANUMERIC_CHARS.randomElement()! })
+    let path = dir.appending(RelativePath(prefix + "." + randomMiddleString + suffix))
+
+    if localFileSystem.exists(path) {
+        return try mkstemps(dir: dir, prefix: prefix, suffix: suffix)
+    } else {
+        do {
+            try localFileSystem.writeFileContents(path, bytes: ByteString())
+            return path
+        } catch {
+            throw TempFileError.couldNotCreateUniqueName
+        }
+    }
+}
 
 /// This class is basically a wrapper over posix's mkstemps() function to creates disposable files.
 /// The file is deleted as soon as the object of this class is deallocated.
@@ -79,7 +78,7 @@ public final class TemporaryFile {
 
     /// FileHandle of the temporary file, can be used to read/write data.
     public let fileHandle: FileHandle
-    
+
     /// Whether the file should be deleted on dealloc.
     public let deleteOnClose: Bool
 
@@ -101,26 +100,17 @@ public final class TemporaryFile {
         self.deleteOnClose = deleteOnClose
         // Determine in which directory to create the temporary file.
         self.dir = try determineTempDirectory(dir)
-        // Construct path to the temporary file.
-        let path = self.dir.appending(RelativePath(prefix + ".XXXXXX" + suffix))
 
-        // Convert path to a C style string terminating with null char to be an valid input
-        // to mkstemps method. The XXXXXX in this string will be replaced by a random string
-        // which will be the actual path to the temporary file.
-        var template = [UInt8](path.pathString.utf8).map({ Int8($0) }) + [Int8(0)]
-
-        fd = SPMLibc.mkstemps(&template, Int32(suffix.utf8.count))
-        // If mkstemps failed then throw error.
-        if fd == -1 { throw TempFileError(errno: errno) }
-
-        self.path = AbsolutePath(String(cString: template))
-        fileHandle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        self.path = try mkstemps(dir: self.dir, prefix: prefix, suffix: suffix)
+        let readAndWriteFileHandle = FileHandle(forUpdatingAtPath: path.pathString)!
+        self.fd = readAndWriteFileHandle.fileDescriptor
+        self.fileHandle = readAndWriteFileHandle
     }
 
     /// Remove the temporary file before deallocating.
     deinit {
         if deleteOnClose {
-            unlink(path.pathString)
+           unlink(path.pathString)
         }
     }
 }
