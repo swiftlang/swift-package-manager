@@ -387,19 +387,23 @@ public class SwiftTool<Options: ToolOptions> {
                 // Terminate all processes on receiving an interrupt signal.
                 processSet.terminate()
 
+              #if os(Windows)
+                // Exit as if by signal()
+                TerminateProcess(GetCurrentProcess(), 3)
+              #elseif os(macOS)
                 // Install the default signal handler.
                 var action = sigaction()
-              #if os(macOS)
                 action.__sigaction_u.__sa_handler = SIG_DFL
+                sigaction(SIGINT, &action, nil)
+                kill(getpid(), SIGINT)
               #else
+                var action = sigaction()
                 action.__sigaction_handler = unsafeBitCast(
                     SIG_DFL,
                     to: sigaction.__Unnamed_union___sigaction_handler.self)
-              #endif
                 sigaction(SIGINT, &action, nil)
-
-                // Die with sigint.
                 kill(getpid(), SIGINT)
+              #endif
             }
             self.processSet = processSet
 
