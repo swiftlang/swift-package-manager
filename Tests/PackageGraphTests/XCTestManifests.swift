@@ -54,6 +54,8 @@ extension PubgrubTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__PubgrubTests = [
+        ("testBranchOverriding3", testBranchOverriding3),
+        ("testBranchOverriding4", testBranchOverriding4),
         ("testConflict1", testConflict1),
         ("testConflict2", testConflict2),
         ("testConflict3", testConflict3),
@@ -69,8 +71,10 @@ extension PubgrubTests {
         ("testResolutionNonExistentVersion", testResolutionNonExistentVersion),
         ("testResolutionPerformingConflictResolution", testResolutionPerformingConflictResolution),
         ("testResolutionWithOverridingBranchBasedDependency", testResolutionWithOverridingBranchBasedDependency),
+        ("testResolutionWithOverridingBranchBasedDependency2", testResolutionWithOverridingBranchBasedDependency2),
         ("testResolutionWithRevisionConflict", testResolutionWithRevisionConflict),
         ("testResolutionWithSimpleBranchBasedDependency", testResolutionWithSimpleBranchBasedDependency),
+        ("testResolutionWithSimpleBranchBasedDependency2", testResolutionWithSimpleBranchBasedDependency2),
         ("testResolutionWithUnavailableRevision", testResolutionWithUnavailableRevision),
         ("testResolverAddIncompatibility", testResolverAddIncompatibility),
         ("testResolverConflictResolution", testResolverConflictResolution),
@@ -86,6 +90,14 @@ extension PubgrubTests {
         ("testTermIsValidDecision", testTermIsValidDecision),
         ("testTermRelation", testTermRelation),
         ("testTermSatisfies", testTermSatisfies),
+        ("testUnversioned1", testUnversioned1),
+        ("testUnversioned2", testUnversioned2),
+        ("testUnversioned3", testUnversioned3),
+        ("testUnversioned4", testUnversioned4),
+        ("testUnversioned5", testUnversioned5),
+        ("testUnversioned6", testUnversioned6),
+        ("testUnversioned7", testUnversioned7),
+        ("testUnversioned8", testUnversioned8),
         ("testUpdatePackageIdentifierAfterResolution", testUpdatePackageIdentifierAfterResolution),
     ]
 }

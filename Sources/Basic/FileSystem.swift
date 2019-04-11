@@ -292,6 +292,9 @@ private class LocalFileSystem: FileSystem {
     }
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
+        // Don't fail if path is already a directory.
+        if isDirectory(path) { return }
+
         try FileManager.default.createDirectory(atPath: path.pathString, withIntermediateDirectories: recursive, attributes: [:])
     }
 

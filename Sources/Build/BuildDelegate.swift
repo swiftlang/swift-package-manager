@@ -198,6 +198,8 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]
+    /// Target name keyed by llbuild command name.
+    private let targetNames: [String: String]
 
     public init(
         plan: BuildPlan,
@@ -212,9 +214,15 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         self.progressAnimation = progressAnimation
 
         let buildConfig = plan.buildParameters.configuration.dirname
+
+        targetNames = Dictionary(uniqueKeysWithValues: plan.targetMap.map({ (target, description) in
+            return (target.getCommandName(config: buildConfig), target.name)
+        }))
+
         swiftParsers = Dictionary(uniqueKeysWithValues: plan.targetMap.compactMap({ (target, description) in
             guard case .swift = description else { return nil }
-            return (target.getCommandName(config: buildConfig), SwiftCompilerOutputParser(delegate: self))
+            let parser = SwiftCompilerOutputParser(targetName: target.name, delegate: self)
+            return (target.getCommandName(config: buildConfig), parser)
         }))
     }
 
@@ -235,6 +243,14 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     }
 
     public func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
+        guard !isVerbose else { return }
+        guard command.shouldShowStatus else { return }
+        guard !swiftParsers.keys.contains(command.name) else { return }
+
+        queue.async {
+            self.taskTracker.commandStatusChanged(command, kind: kind)
+            self.updateProgress()
+        }
     }
 
     public func commandPreparing(_ command: SPMLLBuild.Command) {
@@ -243,13 +259,10 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     public func commandStarted(_ command: SPMLLBuild.Command) {
         guard command.shouldShowStatus else { return }
 
-        queue.sync {
-            if isVerbose {
-                outputStream <<< command.verboseDescription <<< "\n"
-                outputStream.flush()
-            } else if !swiftParsers.keys.contains(command.name) {
-                taskTracker.commandStarted(command)
-                updateProgress()
+        queue.async {
+            if self.isVerbose {
+                self.outputStream <<< command.verboseDescription <<< "\n"
+                self.outputStream.flush()
             }
         }
     }
@@ -259,13 +272,14 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     }
 
     public func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult) {
+        guard !isVerbose else { return }
         guard command.shouldShowStatus else { return }
         guard !swiftParsers.keys.contains(command.name) else { return }
-        guard !isVerbose else { return }
 
-        queue.sync {
-            taskTracker.commandFinished(command, result: result)
-            updateProgress()
+        queue.async {
+            let targetName = self.targetNames[command.name]
+            self.taskTracker.commandFinished(command, result: result, targetName: targetName)
+            self.updateProgress()
         }
     }
 
@@ -306,9 +320,11 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         if let swiftParser = swiftParsers[command.name] {
             swiftParser.parse(bytes: data)
         } else {
-            progressAnimation.clear()
-            outputStream <<< data
-            outputStream.flush()
+            queue.async {
+                self.progressAnimation.clear()
+                self.outputStream <<< data
+                self.outputStream.flush()
+            }
         }
     }
 
@@ -327,37 +343,37 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         return false
     }
 
-    func swiftCompilerDidOutputMessage(_ message: SwiftCompilerMessage) {
-        queue.sync {
-            if isVerbose {
+    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
+        queue.async {
+            if self.isVerbose {
                 if let text = message.verboseProgressText {
-                    outputStream <<< text <<< "\n"
-                    outputStream.flush()
+                    self.outputStream <<< text <<< "\n"
+                    self.outputStream.flush()
                 }
             } else {
-                taskTracker.swiftCompilerDidOuputMessage(message)
-                updateProgress()
+                self.taskTracker.swiftCompilerDidOuputMessage(message, targetName: parser.targetName)
+                self.updateProgress()
             }
 
             if let output = message.standardOutput {
-                if !isVerbose {
-                    progressAnimation.clear()
+                if !self.isVerbose {
+                    self.progressAnimation.clear()
                 }
 
-                outputStream <<< output
-                outputStream.flush()
+                self.outputStream <<< output
+                self.outputStream.flush()
             }
         }
     }
 
-    func swiftCompilerOutputParserDidFail(withError error: Error) {
+    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         diagnostics.emit(data: SwiftCompilerOutputParsingError(message: message))
         onCommmandFailure?()
     }
 
     private func updateProgress() {
-        if let progressText = taskTracker.latestRunningText {
+        if let progressText = taskTracker.latestFinishedText {
             progressAnimation.update(
                 step: taskTracker.finishedCount,
                 total: taskTracker.totalCount,
@@ -368,95 +384,91 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
 
 /// Tracks tasks based on command status and swift compiler output.
 fileprivate struct CommandTaskTracker {
-    private struct Task {
-        let identifier: String
-        let text: String
-    }
-
-    private var tasks: [Task] = []
-    private(set) var finishedCount = 0
     private(set) var totalCount = 0
+    private(set) var finishedCount = 0
+    private var swiftTaskProgressTexts: [Int: String] = [:]
 
     /// The last task text before the task list was emptied.
-    private var lastText: String?
-    
-    var latestRunningText: String? {
-        return tasks.last?.text ?? lastText
-    }
-    
-    mutating func commandStarted(_ command: SPMLLBuild.Command) {
-        addTask(identifier: command.name, text: command.description)
-        totalCount += 1
-    }
-    
-    mutating func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult) {
-        removeTask(identifier: command.name)
+    private(set) var latestFinishedText: String?
 
-        switch result {
-        case .succeeded:
-            finishedCount += 1
-        case .cancelled, .failed, .skipped:
+    mutating func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
+        switch kind {
+        case .isScanning:
+            totalCount += 1
+            break
+        case .isUpToDate:
+            totalCount -= 1
+            break
+        case .isComplete:
             break
         }
     }
     
-    mutating func swiftCompilerDidOuputMessage(_ message: SwiftCompilerMessage) {
+    mutating func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult, targetName: String?) {
+        latestFinishedText = progressText(of: command, targetName: targetName)
+
+        switch result {
+        case .succeeded, .skipped:
+            finishedCount += 1
+        case .cancelled, .failed:
+            break
+        }
+    }
+    
+    mutating func swiftCompilerDidOuputMessage(_ message: SwiftCompilerMessage, targetName: String) {
         switch message.kind {
         case .began(let info):
-            if let text = message.progressText {
-                addTask(identifier: info.pid.description, text: text)
+            if let text = progressText(of: message, targetName: targetName) {
+                swiftTaskProgressTexts[info.pid] = text
             }
 
             totalCount += 1
         case .finished(let info):
-            removeTask(identifier: info.pid.description)
+            if let progressText = swiftTaskProgressTexts[info.pid] {
+                latestFinishedText = progressText
+                swiftTaskProgressTexts[info.pid] = nil
+            }
+
             finishedCount += 1
-        case .signalled(let info):
-            removeTask(identifier: info.pid.description)
-        case .skipped:
+        case .signalled, .skipped:
             break
         }
     }
-    
-    private mutating func addTask(identifier: String, text: String) {
-        tasks.append(Task(identifier: identifier, text: text))
-    }
-    
-    private mutating func removeTask(identifier: String) {
-        if let index = tasks.index(where: { $0.identifier == identifier }) {
-            if tasks.count == 1 {
-                lastText = tasks[0].text
-            }
 
-            tasks.remove(at: index)
+    private func progressText(of command: SPMLLBuild.Command, targetName: String?) -> String {
+        // Transforms descriptions like "Linking ./.build/x86_64-apple-macosx/debug/foo" into "Linking foo".
+        if let firstSpaceIndex = command.description.firstIndex(of: " "),
+           let lastDirectorySeperatorIndex = command.description.lastIndex(of: "/")
+        {
+            let action = command.description[..<firstSpaceIndex]
+            let fileNameStartIndex = command.description.index(after: lastDirectorySeperatorIndex)
+            let fileName = command.description[fileNameStartIndex...]
+
+            if let targetName = targetName {
+                return "\(action) \(targetName) \(fileName)"
+            } else {
+                return "\(action) \(fileName)"
+            }
+        } else {
+            return command.description
         }
     }
-}
 
-extension SwiftCompilerMessage {
-    fileprivate var progressText: String? {
-        if case .began(let info) = kind {
-            switch name {
+    private func progressText(of message: SwiftCompilerMessage, targetName: String) -> String? {
+        if case .began(let info) = message.kind {
+            switch message.name {
             case "compile":
                 if let sourceFile = info.inputs.first {
-                    return generateProgressText(prefix: "Compiling", file: sourceFile)
+                    return "Compiling \(targetName) \(AbsolutePath(sourceFile).components.last!)"
                 }
             case "link":
-                if let imageFile = info.outputs.first(where: { $0.type == "image" })?.path {
-                    return generateProgressText(prefix: "Linking", file: imageFile)
-                }
+                return "Linking \(targetName)"
             case "merge-module":
-                if let moduleFile = info.outputs.first(where: { $0.type == "swiftmodule" })?.path {
-                    return generateProgressText(prefix: "Merging module", file: moduleFile)
-                }
+                return "Merging module \(targetName)"
             case "generate-dsym":
-                if let dSYMFile = info.outputs.first(where: { $0.type == "dSYM" })?.path {
-                    return generateProgressText(prefix: "Generating dSYM", file: dSYMFile)
-                }
+                return "Generating \(targetName) dSYM"
             case "generate-pch":
-                if let pchFile = info.outputs.first(where: { $0.type == "pch" })?.path {
-                    return generateProgressText(prefix: "Generating PCH", file: pchFile)
-                }
+                return "Generating \(targetName) PCH"
             default:
                 break
             }
@@ -464,7 +476,9 @@ extension SwiftCompilerMessage {
 
         return nil
     }
+}
 
+extension SwiftCompilerMessage {
     fileprivate var verboseProgressText: String? {
         if case .began(let info) = kind {
             return ([info.commandExecutable] + info.commandArguments).joined(separator: " ")
@@ -481,11 +495,5 @@ extension SwiftCompilerMessage {
         default:
             return nil
         }
-    }
-
-    private func generateProgressText(prefix: String, file: String) -> String {
-        // FIXME: Eliminate cwd from here.
-        let relativePath = AbsolutePath(file).relative(to: localFileSystem.currentWorkingDirectory!)
-        return "\(prefix) \(relativePath)"
     }
 }

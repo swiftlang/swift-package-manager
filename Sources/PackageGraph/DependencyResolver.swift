@@ -240,20 +240,14 @@ public enum PackageRequirement: Hashable {
 
     /// Un-versioned requirement i.e. a version should not resolved.
     case unversioned
+}
 
-    /// Returns if this requirement pins to an exact version, e.g. a specific
-    /// version or a revision.
-    public var isExact: Bool {
+extension PackageRequirement: CustomStringConvertible {
+    public var description: String {
         switch self {
-        case .versionSet(let vs):
-            if case .exact = vs {
-                return true
-            }
-            return false
-        case .revision:
-            return true
-        case .unversioned:
-            return false
+        case .versionSet(let versionSet): return versionSet.description
+        case .revision(let revision): return revision
+        case .unversioned: return "unversioned"
         }
     }
 }

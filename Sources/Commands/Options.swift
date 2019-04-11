@@ -74,5 +74,8 @@ public class ToolOptions {
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     public var shouldEnableParseableModuleInterfaces = false
 
+    /// Write dependency resolver trace to a file.
+    public var enableResolverTrace = false
+
     public required init() {}
 }

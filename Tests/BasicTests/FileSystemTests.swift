@@ -121,7 +121,8 @@ class FileSystemTests: XCTestCase {
         do {
             let testPath = tmpDir.path.appending(component: "new-dir")
             XCTAssert(!fs.exists(testPath))
-            try! fs.createDirectory(testPath)
+            try fs.createDirectory(testPath)
+            try fs.createDirectory(testPath)
             XCTAssert(fs.exists(testPath))
             XCTAssert(fs.isDirectory(testPath))
         }
@@ -129,7 +130,7 @@ class FileSystemTests: XCTestCase {
         do {
             let testPath = tmpDir.path.appending(components: "another-new-dir", "with-a-subdir")
             XCTAssert(!fs.exists(testPath))
-            try! fs.createDirectory(testPath, recursive: true)
+            try fs.createDirectory(testPath, recursive: true)
             XCTAssert(fs.exists(testPath))
             XCTAssert(fs.isDirectory(testPath))
         }

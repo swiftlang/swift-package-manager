@@ -88,25 +88,10 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
 }
 
 fileprivate enum PackageResolver {
-    typealias _PubgrubResolver = PubgrubDependencyResolver
-    typealias _DependencyResolver = DependencyResolver
+    case pubgrub(PubgrubDependencyResolver)
+    case legacy(DependencyResolver)
 
-    case pubgrub(_PubgrubResolver)
-    case legacy(_DependencyResolver)
-
-    typealias Identifier = PackageReference
-    typealias Constraint = PackageContainerConstraint
-
-    func resolve(constraints: [Constraint], pins: [Constraint]) throws -> [(container: Identifier, binding: BoundVersion)] {
-        switch self {
-        case .pubgrub(let resolver):
-            return try resolver.solve(constraints: constraints, pins: pins)
-        case .legacy(let resolver):
-            return try resolver.resolve(constraints: constraints, pins: pins)
-        }
-    }
-
-    func resolve(dependencies: [Constraint], pins: [Constraint]) -> _DependencyResolver.Result {
+    func resolve(dependencies: [PackageContainerConstraint], pins: [PackageContainerConstraint]) -> DependencyResolver.Result {
         switch self {
         case .pubgrub(let resolver):
             return resolver.solve(dependencies: dependencies, pins: pins)
@@ -303,6 +288,9 @@ public class Workspace {
     /// The active package resolver. This is set during a dependency resolution operation.
     fileprivate var activeResolver: PackageResolver?
 
+    /// Write dependency resolver trace to a file.
+    fileprivate let enableResolverTrace: Bool
+
     /// Typealias for dependency resolver we use in the workspace.
     fileprivate typealias PackageDependencyResolver = DependencyResolver
     fileprivate typealias PubgrubResolver = PubgrubDependencyResolver
@@ -334,7 +322,8 @@ public class Workspace {
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
         isResolverPrefetchingEnabled: Bool = false,
         enablePubgrubResolver: Bool = false,
-        skipUpdate: Bool = false
+        skipUpdate: Bool = false,
+        enableResolverTrace: Bool = false
     ) {
         self.delegate = delegate
         self.dataPath = dataPath
@@ -346,6 +335,7 @@ public class Workspace {
         self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
         self.enablePubgrubResolver = enablePubgrubResolver
         self.skipUpdate = skipUpdate
+        self.enableResolverTrace = enableResolverTrace
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(
@@ -1595,17 +1585,22 @@ extension Workspace {
     /// Creates resolver for the workspace.
     fileprivate func createResolver() -> PackageResolver {
         let resolverDelegate = WorkspaceResolverDelegate()
+        // Create pubgrub resolver if enabled.
         if enablePubgrubResolver {
-            let resolver = PubgrubResolver(containerProvider, resolverDelegate,
-                                           isPrefetchingEnabled: isResolverPrefetchingEnabled,
-                                           skipUpdate: skipUpdate)
+            let traceFile = enableResolverTrace ? self.dataPath.appending(components: "resolver.trace") : nil
+            let resolver = PubgrubResolver(
+                containerProvider, resolverDelegate,
+                isPrefetchingEnabled: isResolverPrefetchingEnabled,
+                skipUpdate: skipUpdate, traceFile: traceFile)
             return .pubgrub(resolver)
-        } else {
-            let resolver = DependencyResolver(containerProvider, resolverDelegate,
-                                              isPrefetchingEnabled: isResolverPrefetchingEnabled,
-                                              skipUpdate: skipUpdate)
-            return .legacy(resolver)
         }
+
+        // Otherwise, use the legacy resolver.
+        let resolver = DependencyResolver(
+            containerProvider, resolverDelegate,
+            isPrefetchingEnabled: isResolverPrefetchingEnabled,
+            skipUpdate: skipUpdate)
+        return .legacy(resolver)
     }
 
     /// Runs the dependency resolver based on constraints provided and returns the results.

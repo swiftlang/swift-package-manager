@@ -60,14 +60,27 @@ public struct Term: Equatable, Hashable {
     /// and given term.
     /// Returns `nil` if an intersection is not possible (possibly due to being
     /// constrained on branches, revisions, local, etc. or entirely different packages).
-    func intersect(withRequirement requirement: PackageRequirement,
-                   andPolarity otherIsPositive: Bool) -> Term? {
+    func intersect(
+        withRequirement requirement: PackageRequirement,
+        andPolarity otherIsPositive: Bool
+    ) -> Term? {
+
+        // FIXME: Figure out if we need to handle more of these cases.
+        switch (self.requirement, requirement) {
+        case (.unversioned, .unversioned):
+            return self.isPositive == otherIsPositive ? self : nil
+        case (.revision(let lhs), .revision(let rhs)):
+            return self.isPositive == otherIsPositive && lhs == rhs ? self : nil
+        case (.revision, .versionSet):
+            return self.isPositive ? self : nil
+        default: break
+        }
+
         // Intersections can only be calculated if both sides have version-based
         // requirements. 
         guard
             case .versionSet(let lhs) = self.requirement,
-            case .versionSet(let rhs) = requirement else
-        {
+            case .versionSet(let rhs) = requirement else {
             return nil
         }
 
@@ -185,12 +198,22 @@ public struct Term: Equatable, Hashable {
 extension PackageRequirement {
     func containsAll(_ other: PackageRequirement) -> Bool {
         switch (self, other) {
+        // Unversioned should be handled first.
+        case (.unversioned, .unversioned):
+            return true
+        case (_, .unversioned):
+            return true
+        case (.unversioned, _):
+            // FIXME: What is the answer here?
+            return false
         case (.versionSet(let lhs), .versionSet(let rhs)):
             return lhs.intersection(rhs) == rhs
         case (.revision(let lhs), .revision(let rhs)):
             return lhs == rhs
-        case (.revision, _), (_, .revision):
+        case (.revision, _):
             return false
+        case (_, .revision):
+            return true
         default:
             fatalError("unhandled \(self), \(other)")
         }
@@ -198,12 +221,19 @@ extension PackageRequirement {
 
     func containsAny(_ other: PackageRequirement) -> Bool {
         switch (self, other) {
+        // Unversioned should be handled first.
+        case (_, .unversioned):
+            return true
+        case (.unversioned, _):
+            return false
         case (.versionSet(let lhs), .versionSet(let rhs)):
             return lhs.intersection(rhs) != .empty
         case (.revision(let lhs), .revision(let rhs)):
             return lhs == rhs
-        case (.revision, _), (_, .revision):
+        case (.revision, _):
             return false
+        case (_, .revision):
+            return true
         default:
             fatalError("unhandled \(self), \(other)")
         }
@@ -241,8 +271,7 @@ extension Term: CustomStringConvertible {
 
 private extension Range where Bound == Version {
     func contains(_ other: Range<Version>) -> Bool {
-        return contains(version: other.lowerBound) &&
-            contains(version: other.upperBound)
+        return contains(version: other.lowerBound) && contains(version: other.upperBound)
     }
 }
 
@@ -271,8 +300,7 @@ public struct Incompatibility: Equatable, Hashable {
         var terms = terms
         if terms.count > 1,
             case .conflict(conflict: _, other: _) = cause,
-            terms.contains(where: { $0.isPositive && $0.package == root })
-        {
+            terms.contains(where: { $0.isPositive && $0.package == root }) {
             terms = OrderedSet(terms.filter { !$0.isPositive || $0.package != root })
         }
 
@@ -321,36 +349,31 @@ extension Incompatibility {
     indirect enum Cause: Equatable, Hashable {
         /// The root incompatibility.
         case root
+
         /// The incompatibility represents a package's dependency on another
         /// package.
         case dependency(package: PackageReference)
+
         /// The incompatibility was derived from two others during conflict
         /// resolution.
         case conflict(conflict: Incompatibility, other: Incompatibility)
+
         /// There exists no version to fulfill the specified requirement.
         case noAvailableVersion
-        // TODO: Figure out what other cases should be represented here.
-        // - SDK requirements
-        // - package not found
 
         var isConflict: Bool {
-            if case .conflict = self {
-                return true
-            }
+            if case .conflict = self { return true }
             return false
         }
 
         /// Returns whether this cause can be represented in a single line of the
         /// error output.
         var isSingleLine: Bool {
-            guard case .conflict(let lhs, let rhs) = self else {
-                // TODO: Sure?
+            guard case .conflict(let cause) = self else {
+                assertionFailure("unreachable")
                 return false
             }
-            if case .conflict = lhs.cause, case .conflict = rhs.cause {
-                return false
-            }
-            return true
+            return !cause.conflict.cause.isConflict && !cause.other.cause.isConflict
         }
     }
 }
@@ -383,7 +406,14 @@ public struct Assignment: Equatable {
 
     /// An assignment made during decision making.
     static func decision(_ term: Term, decisionLevel: Int) -> Assignment {
-        assert(term.requirement.isExact, "Cannot create a decision assignment with a non-exact version selection.")
+        switch term.requirement {
+        case .revision, .unversioned: break
+        case .versionSet(let vs):
+            if case .exact = vs {
+                break
+            }
+            assertionFailure("Cannot create a decision assignment with a non-exact version selection: \(vs)")
+        }
 
         return self.init(
             term: term,
@@ -397,7 +427,8 @@ public struct Assignment: Equatable {
     static func derivation(
         _ term: Term,
         cause: Incompatibility,
-        decisionLevel: Int) -> Assignment {
+        decisionLevel: Int
+    ) -> Assignment {
         return self.init(
             term: term,
             decisionLevel: decisionLevel,
@@ -560,7 +591,8 @@ final class PartialSolution {
 /// requirements to a^1.5.0.
 fileprivate func normalize(
     terms: [Term]) -> [Term] {
-    let dict = terms.reduce(into: [PackageReference: (req: PackageRequirement, polarity: Bool)]()) {
+
+    let dict = terms.reduce(into: OrderedDictionary<PackageReference, (req: PackageRequirement, polarity: Bool)>()) {
         res, term in
         // Don't try to intersect if this is the first time we're seeing this package.
         guard let previous = res[term.package] else {
@@ -578,27 +610,26 @@ fileprivate func normalize(
             """)
         res[term.package] = (intersection!.requirement, intersection!.isPositive)
     }
-    // Sorting the values for deterministic test runs.
-    let sortedKeys = dict.keys.sorted(by: { lhs, rhs in
-        return String(describing: lhs) < String(describing: rhs)
-    })
-    return sortedKeys.map { pkg in
-        let req = dict[pkg]!
-        return Term(package: pkg, requirement: req.req, isPositive: req.polarity)
+    return dict.map { (pkg, req) in
+        Term(package: pkg, requirement: req.req, isPositive: req.polarity)
     }
 }
 
 /// A step the resolver takes to advance its progress, e.g. deriving a new assignment
 /// or creating a new incompatibility based on a package's dependencies.
-public struct GeneralTraceStep {
+public struct GeneralTraceStep: CustomStringConvertible {
     /// The traced value, e.g. an incompatibility or term.
     public let value: Traceable
+
     /// How this value came to be.
     public let type: StepType
+
     /// Where this value was created.
     public let location: Location
+
     /// A previous step that caused this step.
     public let cause: String?
+
     /// The solution's current decision level.
     public let decisionLevel: Int
 
@@ -617,15 +648,26 @@ public struct GeneralTraceStep {
         case decisionMaking = "decision making"
         case conflictResolution = "conflict resolution"
     }
+
+    public var description: String {
+        return "\(value) \(type) \(location) \(cause ?? "<nocause>") \(decisionLevel)"
+    }
 }
 
 /// A step the resolver takes during conflict resolution.
-public struct ConflictResolutionTraceStep {
+public struct ConflictResolutionTraceStep: CustomStringConvertible {
+
     /// The conflicted incompatibility.
     public let incompatibility: Incompatibility
+
     public let term: Term
+
     /// The satisfying assignment.
     public let satisfier: Assignment
+
+    public var description: String {
+        return "Conflict: \(incompatibility) \(term) \(satisfier)"
+    }
 }
 
 public enum TraceStep {
@@ -676,10 +718,35 @@ public final class PubgrubDependencyResolver {
     /// Should resolver prefetch the containers.
     private let isPrefetchingEnabled: Bool
 
+    /// Path to the trace file.
+    fileprivate let traceFile: AbsolutePath?
+
+    fileprivate lazy var traceStream: OutputByteStream? = {
+        if let stream = self._traceStream { return stream }
+        guard let traceFile = self.traceFile else { return nil }
+        // FIXME: Emit a warning if this fails.
+        return try? LocalFileOutputByteStream(traceFile, closeOnDeinit: true, buffered: false)
+    }()
+    private var _traceStream: OutputByteStream?
+
     /// Set the package root.
     func set(_ root: PackageReference) {
         self.root = root
         self.solution.root = root
+    }
+
+    private func log(_ assignments: [(container: PackageReference, binding: BoundVersion)]) {
+        log("solved:")
+        for (container, binding) in assignments {
+            log("\(container) \(binding)")
+        }
+    }
+
+    fileprivate func log(_ message: String) {
+        if let traceStream = traceStream {
+            traceStream <<< message <<< "\n"
+            traceStream.flush()
+        }
     }
 
     func trace(
@@ -688,11 +755,13 @@ public final class PubgrubDependencyResolver {
         location: GeneralTraceStep.Location,
         cause: String?
     ) {
-        let step = GeneralTraceStep(value: value,
-                             type: type,
-                             location: location,
-                             cause: cause,
-                             decisionLevel: solution.decisionLevel)
+        let step = GeneralTraceStep(
+            value: value,
+            type: type,
+            location: location,
+            cause: cause,
+            decisionLevel: solution.decisionLevel
+        )
         delegate?.trace(.general(step))
     }
 
@@ -701,10 +770,12 @@ public final class PubgrubDependencyResolver {
         incompatibility: Incompatibility,
         term: Term,
         satisfier: Assignment
-        ) {
-        let step = ConflictResolutionTraceStep(incompatibility: incompatibility,
-                                               term: term,
-                                               satisfier: satisfier)
+    ) {
+        let step = ConflictResolutionTraceStep(
+            incompatibility: incompatibility,
+            term: term,
+            satisfier: satisfier
+        )
         delegate?.trace(.conflictResolution(step))
     }
 
@@ -722,24 +793,39 @@ public final class PubgrubDependencyResolver {
         solution.derive(term, cause: cause)
     }
 
-    public init(
+    init(
         _ provider: PackageContainerProvider,
         _ delegate: DependencyResolverDelegate? = nil,
         isPrefetchingEnabled: Bool = false,
-        skipUpdate: Bool = false
-        ) {
+        skipUpdate: Bool = false,
+        traceFile: AbsolutePath? = nil,
+        traceStream: OutputByteStream? = nil
+    ) {
         self.provider = provider
         self.delegate = delegate
         self.isPrefetchingEnabled = isPrefetchingEnabled
         self.skipUpdate = skipUpdate
+        self.traceFile = traceFile
+        self._traceStream = traceStream
+    }
+
+    public convenience init(
+        _ provider: PackageContainerProvider,
+        _ delegate: DependencyResolverDelegate? = nil,
+        isPrefetchingEnabled: Bool = false,
+        skipUpdate: Bool = false,
+        traceFile: AbsolutePath? = nil
+    ) {
+        self.init(provider, delegate, isPrefetchingEnabled: isPrefetchingEnabled, skipUpdate: skipUpdate, traceFile: traceFile, traceStream: nil)
     }
 
     /// Add a new incompatibility to the list of known incompatibilities.
     func add(_ incompatibility: Incompatibility, location: GeneralTraceStep.Location) {
+        log("incompat: \(incompatibility) \(location)")
         trace(value: incompatibility, type: .incompatibility, location: location, cause: nil)
         for package in incompatibility.terms.map({ $0.package }) {
-            if incompatibilities[package] != nil {
-                if !incompatibilities[package]!.contains(incompatibility) {
+            if let incompats = incompatibilities[package] {
+                if !incompats.contains(incompatibility) {
                     incompatibilities[package]!.append(incompatibility)
                 }
             } else {
@@ -750,71 +836,82 @@ public final class PubgrubDependencyResolver {
 
     public typealias Result = DependencyResolver.Result
 
-    // TODO: This should be the actual (and probably only) entrypoint to version solving.
-    /// Run the resolution algorithm on a root package finding a valid assignment of versions.
-    public func solve(root: PackageReference, pins: [Constraint]) -> Result {
-        // Prefetch the pins.
-        if isPrefetchingEnabled {
-            prefetch(containers: pins.map({ $0.identifier }))
+    public enum PubgrubError: Swift.Error, Equatable, CustomStringConvertible {
+        case _unresolvable(Incompatibility)
+        case unresolvable(String)
+
+        public var description: String {
+            switch self {
+            case ._unresolvable(let rootCause):
+                return rootCause.description
+            case .unresolvable(let error):
+                return error
+            }
         }
 
-        self.set(root)
-        do {
-            return try .success(solve(constraints: [], pins: pins))
-        } catch {
-            return .error(error)
+        var rootCause: Incompatibility? {
+            switch self {
+            case ._unresolvable(let rootCause):
+                return rootCause
+            case .unresolvable:
+                return nil
+            }
         }
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(dependencies: [Constraint], pins: [Constraint]) -> Result {
-        guard let root = dependencies.first?.identifier else {
-            fatalError("expected a root package")
-        }
-        self.root = root
-        return solve(root: root, pins: pins)
-    }
+    public func solve(dependencies: [Constraint], pins: [Constraint] = []) -> Result {
+        do {
+            return try .success(solve(constraints: dependencies, pins: pins))
+        } catch {
+            var error = error
 
-    public enum PubgrubError: Swift.Error, Equatable {
-        case unresolvable(Incompatibility)
+            // If version solving failing, build the user-facing diagnostic.
+            if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause {
+                let diagnostic = diagnosticBuilder.reportError(for: rootCause)
+                error = PubgrubError.unresolvable(diagnostic)
+            }
+
+            return .error(error)
+        }
     }
 
     /// Find a set of dependencies that fit the given constraints. If dependency
     /// resolution is unable to provide a result, an error is thrown.
     /// - Warning: It is expected that the root package reference has been set
     ///            before this is called.
-    public func solve(
-        constraints: [Constraint], pins: [Constraint]
+    private func solve(
+        constraints: [Constraint], pins: [Constraint] = []
     ) throws -> [(container: PackageReference, binding: BoundVersion)] {
-        // TODO: Handle pins
-        guard let root = self.root else {
-            fatalError("Expected resolver root reference to be set.")
-        }
+        let root = PackageReference(
+            identity: "<synthesized-root>",
+            path: "<synthesized-root-path>",
+            name: nil,
+            isLocal: true
+        )
+
+        self.root = root
+
+        let rootIncompatibility = Incompatibility(
+            terms: [Term(not: root, .versionSet(.exact("1.0.0")))],
+            cause: .root
+        )
+        add(rootIncompatibility, location: .topLevel)
 
         // Handle root, e.g. add dependencies and root decision.
         //
         // We add the dependencies before deciding on a version for root
         // to avoid inserting the wrong decision level.
-        let rootContainer = try getContainer(for: root)
-        for dependency in try rootContainer.getUnversionedDependencies() {
+        for dependency in pins + constraints {
             let incompatibility = Incompatibility(
                 Term(root, .versionSet(.exact("1.0.0"))),
                 Term(not: dependency.identifier, dependency.requirement),
-                root: root, cause: .root)
+                root: root, cause: .dependency(package: root))
             add(incompatibility, location: .topLevel)
         }
         decide(root, version: .version("1.0.0"), location: .topLevel)
 
-        do {
-            try run()
-        } catch {
-            if let pubgrubError = error as? PubgrubError,
-                case .unresolvable(let incompatibility) = pubgrubError,
-                case .conflict(let cause, let other) = incompatibility.cause {
-                print("Root cause: \(cause) \(cause.cause) because of \(other) \(other.cause)")
-            }
-            throw error
-        }
+        try run()
 
         let decisions = solution.assignments.filter { $0.isDecision }
         let finalAssignments: [(container: PackageReference, binding: BoundVersion)] = try decisions.compactMap { assignment in
@@ -828,7 +925,7 @@ public final class PubgrubDependencyResolver {
                 boundVersion = .version(version)
             case .revision(let rev):
                 boundVersion = .revision(rev)
-            case .versionSet(.range(_)):
+            case .versionSet(.range):
                 // FIXME: A new requirement type that makes having a range here impossible feels like the correct thing to do.
                 fatalError("Solution should not contain version ranges.")
             case .unversioned, .versionSet(.any):
@@ -842,6 +939,8 @@ public final class PubgrubDependencyResolver {
 
             return (identifier, boundVersion)
         }
+
+        log(finalAssignments)
 
         return finalAssignments
     }
@@ -927,6 +1026,7 @@ public final class PubgrubDependencyResolver {
             return .conflict
         }
 
+        log("derived: \(unsatisfiedTerm.inverse)")
         derive(unsatisfiedTerm.inverse, cause: incompatibility, location: .unitPropagation)
 
         return .almostSatisfied(package: unsatisfiedTerm.package)
@@ -939,6 +1039,7 @@ public final class PubgrubDependencyResolver {
     }
 
     func _resolve(conflict: Incompatibility) throws -> Incompatibility {
+        log("conflict: \(conflict)");
         // Based on:
         // https://github.com/dart-lang/pub/tree/master/doc/solver.md#conflict-resolution
         // https://github.com/dart-lang/pub/blob/master/lib/src/solver/version_solver.dart#L201
@@ -1005,9 +1106,14 @@ public final class PubgrubDependencyResolver {
                 root: root!,
                 cause: .conflict(conflict: incompatibility, other: priorCause))
             createdIncompatibility = true
+
+            log("CR: \(mostRecentTerm?.description ?? "") is\(difference != nil ? " partially" : "") satisfied by \(_mostRecentSatisfier)")
+            log("CR: which is caused by \(_mostRecentSatisfier.cause?.description ?? "")")
+            log("CR: new incompatibility \(incompatibility)")
         }
 
-        throw PubgrubError.unresolvable(incompatibility)
+        log("failed: \(incompatibility)")
+        throw PubgrubError._unresolvable(incompatibility)
     }
 
     /// Does a given incompatibility specify that version solving has entirely
@@ -1055,6 +1161,7 @@ public final class PubgrubDependencyResolver {
 
         // Decide this version if there was no conflict with its dependencies.
         if !haveConflict {
+            log("decision: \(pkgTerm.package)@\(version)")
             decide(pkgTerm.package, version: version, location: .decisionMaking)
         }
 
@@ -1063,154 +1170,12 @@ public final class PubgrubDependencyResolver {
 
     // MARK: - Error Reporting
 
-    private var derivations: [Incompatibility: Int] = [:]
-
-    func reportError(for incompatibility: Incompatibility) -> String {
-        /// Populate `derivations`.
-        func countDerivations(_ i: Incompatibility) {
-            derivations[i, default: 0] += 1
-            if case .conflict(let lhs, let rhs) = i.cause {
-                countDerivations(lhs)
-                countDerivations(rhs)
-            }
-        }
-
-        countDerivations(incompatibility)
-
-        let stream = BufferedOutputByteStream()
-        visit(incompatibility, stream)
-
-        return stream.bytes.description
-    }
-
-    private func visit(
-        _ incompatibility: Incompatibility,
-        _ stream: BufferedOutputByteStream,
-        isConclusion: Bool = false
-    ) {
-
-        let isNumbered = isConclusion || derivations[incompatibility]! > 1
-
-        guard case .conflict(let lhs, let rhs) = incompatibility.cause else {
-            // TODO: Do nothing else here?
-            return
-        }
-
-        switch (lhs.cause, rhs.cause) {
-        case (.conflict, .conflict):
-            let lhsLine = lineNumbers[lhs]
-            let rhsLine = lineNumbers[rhs]
-
-            switch (lhsLine, rhsLine) {
-            case (.some(let lhsLine), .some(let rhsLine)):
-                write(incompatibility,
-                      message: "Because \(lhs) (\(lhsLine)) and \(rhs) (\(rhsLine), \(incompatibility).",
-                      isNumbered: isNumbered,
-                      toStream: stream)
-            case (.some(let lhsLine), .none):
-                visit(incompatibility, stream)
-                write(incompatibility,
-                      message: "And because \(lhs) (\(lhsLine)), \(incompatibility).",
-                      isNumbered: isNumbered,
-                      toStream: stream)
-            case (.none, .some(let rhsLine)):
-                visit(incompatibility, stream)
-                write(incompatibility,
-                      message: "And because \(rhs) (\(rhsLine)), \(incompatibility).",
-                      isNumbered: isNumbered,
-                      toStream: stream)
-            case (.none, .none):
-                let singleLineConflict = lhs.cause.isSingleLine
-                let singleLineOther = rhs.cause.isSingleLine
-
-                if singleLineOther || singleLineConflict {
-                    let simple = singleLineOther ? lhs : rhs
-                    let complex = singleLineOther ? rhs : lhs
-                    visit(simple, stream)
-                    visit(complex, stream)
-                    write(incompatibility,
-                        message: "Thus, \(incompatibility)",
-                        isNumbered: isNumbered,
-                        toStream: stream)
-                } else {
-                    visit(lhs, stream, isConclusion: true)
-                    write(incompatibility,
-                        message: "\n",
-                        isNumbered: isNumbered,
-                        toStream: stream)
-
-                    visit(rhs, stream)
-                    // TODO: lhsLine will always be nil here...
-                    write(incompatibility,
-                        message: "And because \(lhs) (\(lhsLine ?? -1)), \(incompatibility).",
-                        isNumbered: isNumbered,
-                        toStream: stream)
-                }
-
-            }
-        case (.conflict, _), (_, .conflict):
-            var derived: Incompatibility
-            var external: Incompatibility
-            if case .conflict = lhs.cause {
-                derived = lhs
-                external = rhs
-            } else {
-                derived = rhs
-                external = lhs
-            }
-
-            if let derivedLine = lineNumbers[derived] {
-                write(incompatibility,
-                    message: "Because \(external) and \(derived) (\(derivedLine)), \(incompatibility).",
-                    isNumbered: isNumbered,
-                    toStream: stream)
-            } else if derivations[incompatibility]! <= 1 {
-                guard case .conflict(let lhs, let rhs) = derived.cause else {
-                    // FIXME
-                    fatalError("unexpected non-conflict")
-                }
-                let collapsedDerived = lhs.cause.isConflict ? rhs : lhs
-                let collapsedExternal = lhs.cause.isConflict ? rhs : lhs
-                visit(collapsedDerived, stream)
-                write(incompatibility,
-                    message: "And because \(collapsedExternal) and \(external), \(incompatibility).",
-                    isNumbered: isNumbered,
-                    toStream: stream)
-            } else {
-                visit(derived, stream)
-                write(incompatibility,
-                    message: "And because \(external), \(incompatibility).",
-                    isNumbered: isNumbered,
-                    toStream: stream)
-            }
-        default:
-            write(incompatibility,
-                message: "Because \(lhs) and \(rhs), \(incompatibility).",
-                isNumbered: isNumbered,
-                toStream: stream)
-        }
-    }
-
-    private var lineNumbers: [Incompatibility: Int] = [:]
-
-    /// Write a given output message to a stream. The message should describe
-    /// the incompatibility and how it as derived. If `isNumbered` is true, a
-    /// line number will be assigned to this incompatibility so that it can be
-    /// referred to again.
-    private func write(
-        _ i: Incompatibility,
-        message: String,
-        isNumbered: Bool,
-        toStream stream: BufferedOutputByteStream
-    ) {
-        if isNumbered {
-            let number = lineNumbers.count + 1
-            lineNumbers[i] = number
-            // TODO: Handle `number`
-            stream <<< message
-        } else {
-            stream <<< message
-        }
+    // FIXME: Convert this into a method.
+    var diagnosticBuilder: DiagnosticReportBuilder {
+        return DiagnosticReportBuilder(
+            root: root!,
+            incompatibilities: incompatibilities
+        )
     }
 
     // MARK: - Container Management
@@ -1289,18 +1254,29 @@ public final class PubgrubDependencyResolver {
                 // We can't represent that here (currently), so we're
                 // pretending that it goes to the next nonexistent major
                 // version.
+                //
+                // FIXME: This is completely wrong when a dependencies change
+                // across version. It leads to us not being able to diagnose
+                // resolution errors properly. We only end up showing the
+                // the problem with the oldest version.
                 let nextMajor = Version(version.major + 1, 0, 0)
                 terms.append(Term(container.identifier, .versionSet(.range(version..<nextMajor))))
                 terms.append(Term(not: dep.identifier, dep.requirement))
                 return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
             }
         case .unversioned:
-            fatalError("Generating incompatibilities for an unversioned dependency is currently unsupported.")
+            return try container.getUnversionedDependencies().map { dep -> Incompatibility in
+                var terms: OrderedSet<Term> = []
+                terms.append(Term(container.identifier, .unversioned))
+                terms.append(Term(not: dep.identifier, dep.requirement))
+                return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
+            }
         case .revision(let revision):
             return try container.getDependencies(at: revision).map { dep -> Incompatibility in
                 var terms: OrderedSet<Term> = []
                 terms.append(Term(container.identifier, .revision(revision)))
                 terms.append(Term(not: dep.identifier, dep.requirement))
+
                 return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
             }
         case .excluded:
@@ -1333,6 +1309,301 @@ public final class PubgrubDependencyResolver {
                 }
             }
         }
+    }
+}
+
+final class DiagnosticReportBuilder {
+    let rootPackage: PackageReference
+    let incompatibilities: [PackageReference: [Incompatibility]]
+
+    private var lines: [(String, Int)] = []
+    private var derivations: [Incompatibility: Int] = [:]
+    private var lineNumbers: [Incompatibility: Int] = [:]
+
+    init(root: PackageReference, incompatibilities: [PackageReference: [Incompatibility]]) {
+        self.rootPackage = root
+        self.incompatibilities = incompatibilities
+    }
+
+    func reportError(for incompatibility: Incompatibility) -> String {
+        /// Populate `derivations`.
+        func countDerivations(_ i: Incompatibility) {
+            derivations[i, default: 0] += 1
+            if case .conflict(let lhs, let rhs) = i.cause {
+                countDerivations(lhs)
+                countDerivations(rhs)
+            }
+        }
+
+        countDerivations(incompatibility)
+
+        if incompatibility.cause.isConflict {
+            visit(incompatibility)
+        } else {
+            assertionFailure("Unimplemented")
+            write(
+                incompatibility,
+                message: "Because \(description(for: incompatibility)), version solving failed.",
+                isNumbered: false)
+        }
+
+
+        let stream = BufferedOutputByteStream()
+        let padding = lineNumbers.isEmpty ? 0 : "\(lineNumbers.values.map{$0}.last!) ".count
+
+        for (idx, line) in lines.enumerated() {
+            let message = line.0
+            let number = line.1
+            stream <<< Format.asRepeating(string: " ", count: padding)
+            if (number != -1) {
+                stream <<< Format.asRepeating(string: " ", count: padding)
+                stream <<< " (\(number)) "
+            }
+            stream <<< message
+
+            if lines.count - 1 != idx {
+                stream <<< "\n"
+            }
+        }
+
+        return stream.bytes.description
+    }
+
+    private func visit(
+        _ incompatibility: Incompatibility,
+        isConclusion: Bool = false
+    ) {
+        let isNumbered = isConclusion || derivations[incompatibility]! > 1
+        let conjunction = isConclusion || incompatibility.cause == .root ? "So," : "And"
+        let incompatibilityDesc = description(for: incompatibility)
+
+        guard case .conflict(let cause) = incompatibility.cause else {
+            assertionFailure("\(incompatibility)")
+            return
+        }
+
+        if cause.conflict.cause.isConflict && cause.other.cause.isConflict {
+            let conflictLine = lineNumbers[cause.conflict]
+            let otherLine = lineNumbers[cause.other]
+
+            if let conflictLine = conflictLine, let otherLine = otherLine {
+                write(
+                    incompatibility,
+                    message: "Because \(description(for: cause.conflict)) (\(conflictLine)) and \(description(for: cause.other)) (\(otherLine), \(incompatibilityDesc).",
+                    isNumbered: isNumbered)
+            } else if conflictLine != nil || otherLine != nil {
+                let withLine: Incompatibility
+                let withoutLine: Incompatibility
+                let line: Int
+                if let conflictLine = conflictLine {
+                    withLine = cause.conflict
+                    withoutLine = cause.other
+                    line = conflictLine
+                } else {
+                    withLine = cause.other
+                    withoutLine = cause.conflict
+                    line = otherLine!
+                }
+
+                visit(withoutLine)
+                write(
+                    incompatibility,
+                    message: "\(conjunction) because \(description(for: withLine)) \(line), \(incompatibilityDesc).",
+                    isNumbered: isNumbered)
+            } else {
+                let singleLineConflict = cause.conflict.cause.isSingleLine
+                let singleLineOther = cause.other.cause.isSingleLine
+                if singleLineOther || singleLineConflict {
+                    let first = singleLineOther ? cause.conflict : cause.other
+                    let second = singleLineOther ? cause.other : cause.conflict
+                    visit(first)
+                    visit(second)
+                    write(
+                        incompatibility,
+                        message: "Thus, \(incompatibilityDesc).",
+                        isNumbered: isNumbered)
+                } else {
+                    visit(cause.conflict, isConclusion: true)
+                    visit(cause.other)
+                    write(
+                        incompatibility,
+                        message: "\(conjunction) because \(description(for: cause.conflict)) (\(lineNumbers[cause.conflict]!)), \(incompatibilityDesc).",
+                        isNumbered: isNumbered)
+                }
+            }
+        } else if cause.conflict.cause.isConflict || cause.other.cause.isConflict {
+            let derived =
+                cause.conflict.cause.isConflict ? cause.conflict : cause.other
+            let ext =
+                cause.conflict.cause.isConflict ? cause.other : cause.conflict
+            let derivedLine = lineNumbers[derived]
+            if let derivedLine = derivedLine {
+                write(
+                    incompatibility,
+                    message: "because \(description(for: ext)) and \(description(for: derived)) (\(derivedLine)), \(incompatibilityDesc).",
+                    isNumbered: isNumbered)
+            } else if isCollapsible(derived) {
+                guard case .conflict(let derivedCause) = derived.cause else {
+                    assertionFailure("unreachable")
+                    return
+                }
+
+                let collapsedDerived = derivedCause.conflict.cause.isConflict ? derivedCause.conflict : derivedCause.other
+                let collapsedExt = derivedCause.conflict.cause.isConflict ? derivedCause.other : derivedCause.conflict
+
+                visit(collapsedDerived)
+                write(
+                    incompatibility,
+                    message: "\(conjunction) because \(description(for: collapsedExt)) and \(description(for: ext)), \(incompatibilityDesc).",
+                    isNumbered: isNumbered)
+            } else {
+                visit(derived)
+                write(
+                    incompatibility,
+                    message: "\(conjunction) because \(description(for: ext)), \(incompatibilityDesc).",
+                    isNumbered: isNumbered)
+            }
+        } else {
+            write(
+                incompatibility,
+                message: "because \(description(for: cause.conflict)) and \(description(for: cause.other)), \(incompatibilityDesc).",
+                isNumbered: isNumbered)
+        }
+    }
+
+    private func description(for incompatibility: Incompatibility) -> String {
+        switch incompatibility.cause {
+        case .dependency(package: _):
+            assert(incompatibility.terms.count == 2)
+            let depender = incompatibility.terms.first!
+            let dependee = incompatibility.terms.last!
+            assert(depender.isPositive)
+            assert(!dependee.isPositive)
+
+            let dependerDesc = description(for: depender)
+            let dependeeDesc = description(for: dependee)
+            return "\(dependerDesc) depends on \(dependeeDesc)"
+        case .noAvailableVersion:
+            assert(incompatibility.terms.count == 1)
+            let package = incompatibility.terms.first!
+            assert(package.isPositive)
+            return "no versions of \(package.package.identity) match the requirement \(package.requirement)"
+        case .root:
+            // FIXME: This will never happen I think.
+            assert(incompatibility.terms.count == 1)
+            let package = incompatibility.terms.first!
+            assert(package.isPositive)
+            return "\(package.package.identity) is \(package.requirement)"
+        default: break
+        }
+
+        if isFailure(incompatibility) {
+            return "version solving failed"
+        }
+
+        // FIXME: Need to show requirements for some of these.
+
+        let terms = incompatibility.terms
+        if terms.count == 1 {
+            let term = terms.first!
+            return "\(term) is " + (term.isPositive ? "forbidden" : "required")
+        } else if terms.count == 2 {
+            let term1 = terms.first!
+            let term2 = terms.last!
+            if term1.isPositive == term2.isPositive {
+                if term1.isPositive {
+                    return "\(term1.package.identity) is incompatible with \(term2.package.identity)";
+                } else {
+                    return "either \(term1.package.identity) or \(term2)"
+                }
+            }
+        }
+
+        let positive = terms.filter{ $0.isPositive }.map{ $0.package.identity }
+        let negative = terms.filter{ !$0.isPositive }.map{ $0.package.identity }
+        if !positive.isEmpty && !negative.isEmpty {
+            if positive.count == 1 {
+                return "\(positive[0]) requires \(negative.joined(separator: " or "))";
+            } else {
+                return "if \(positive.joined(separator: " and ")) then \(negative.joined(separator: " or "))";
+            }
+        } else if !positive.isEmpty {
+            return "one of \(positive.joined(separator: " or ")) must be true"
+        } else {
+            return "one of \(negative.joined(separator: " or ")) must be true"
+        }
+    }
+
+    private func isCollapsible(_ incompatibility: Incompatibility) -> Bool {
+        if derivations[incompatibility]! > 1 {
+            return false
+        }
+
+        guard case .conflict(let cause) = incompatibility.cause else {
+            assertionFailure("unreachable")
+            return false
+        }
+
+        if cause.conflict.cause.isConflict && cause.other.cause.isConflict {
+            return false
+        }
+
+        if !cause.conflict.cause.isConflict && !cause.other.cause.isConflict {
+            return false
+        }
+
+        let complex = cause.conflict.cause.isConflict ? cause.conflict : cause.other
+        return !lineNumbers.keys.contains(complex)
+    }
+
+    // FIXME: This is duplicated and wrong.
+    private func isFailure(_ incompatibility: Incompatibility) -> Bool {
+        return incompatibility.terms.count == 1 && incompatibility.terms.first?.package.identity == "<synthesized-root>"
+    }
+
+    private func description(for term: Term) -> String {
+        let name = term.package.name ?? term.package.identity
+
+        switch term.requirement {
+        case .versionSet(let vs):
+            switch vs {
+            case .any: return "any version of \(name)"
+            case .empty: return "no version of \(name)"
+            case .exact(let version):
+                // For the root package, don't output the useless version 1.0.0.
+                if term.package == rootPackage {
+                    return "root"
+                }
+                return "\(name) @\(version)"
+            case .range(let range):
+                let upper = range.upperBound
+                let nextMajor = Version(range.lowerBound.major + 1, 0, 0)
+                if upper == nextMajor {
+                    return "\(name) ^\(range.lowerBound)"
+                } else {
+                    return "\(name) \(range.description)"
+                }
+            }
+        case .revision(let rev): return "\(name) @\(rev)"
+        case .unversioned: return "\(name)"
+        }
+    }
+
+    /// Write a given output message to a stream. The message should describe
+    /// the incompatibility and how it as derived. If `isNumbered` is true, a
+    /// line number will be assigned to this incompatibility so that it can be
+    /// referred to again.
+    private func write(
+        _ i: Incompatibility,
+        message: String,
+        isNumbered: Bool
+    ) {
+        var number = -1
+        if isNumbered {
+            number = lineNumbers.count + 1
+            lineNumbers[i] = number
+        }
+        lines.append((message, number))
     }
 }
 
