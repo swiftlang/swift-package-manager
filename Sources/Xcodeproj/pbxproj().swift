@@ -73,7 +73,8 @@ func xcodeProject(
 
         let pdTarget = project.addTarget(
             objectID: "\(package.name)::SwiftPMPackageDescription",
-            productType: .framework, name: "\(package.name)PackageDescription")
+            productType: .framework, name: "\(package.name)PackageDescription",
+            artifact: .packageDescription(package))
         let compilePhase = pdTarget.addSourcesBuildPhase()
         compilePhase.addBuildFile(fileRef: manifestFileRef)
 
@@ -213,17 +214,33 @@ func xcodeProject(
 
     // Build a backmap of targets and products to packages.
     var packagesByTarget = [ResolvedTarget: ResolvedPackage]()
+    var packagesByProduct = [ResolvedProduct: ResolvedPackage]()
+    // At the same time, build a mapping of packages + product/target name to an index
+    // representing the manifest order. This is used for sorting groups and Xcode targets
+    // while only requiring O(n) time.
+    var manifestOrderByPackageAndName = [ResolvedPackage: [String: Int]]()
     for package in graph.packages {
         for target in package.targets {
             packagesByTarget[target] = package
         }
-    }
-    var packagesByProduct = [ResolvedProduct: ResolvedPackage]()
-    for package in graph.packages {
         for product in package.products {
             packagesByProduct[product] = package
         }
+        
+        // When populating manifest order, loop over products first so that targets take precedence.
+        for (i, product) in package.manifest.products.enumerated() {
+            manifestOrderByPackageAndName[package, default: [:]][product.name] = i
+        }
+        for (i, target) in package.manifest.targets.enumerated() {
+            manifestOrderByPackageAndName[package, default: [:]][target.name] = i
+        }
     }
+    
+    // Set sort descriptor for targets based on mappings.
+    project.targetSortDescriptor = .declarationOrder(graph: graph,
+                                                     packagesByTarget: packagesByTarget,
+                                                     packagesByProduct: packagesByProduct,
+                                                     manifestOrderByPackageAndName: manifestOrderByPackageAndName)
 
     // To avoid creating multiple groups for the same path, we keep a mapping
     // of the paths we've seen and the corresponding groups we've created.
@@ -274,7 +291,7 @@ func xcodeProject(
     // source files added later will be able to find the right group.
     @discardableResult
     func createSourceGroup(named groupName: String, for targets: [ResolvedTarget], in parentGroup: Xcode.Group) -> Xcode.Group? {
-        let targets = targets.sorted { $0.name < $1.name }
+        let targets = targets.sorted(by: project.targetSortDescriptor)
         // Look for the special case of a single target in a flat layout.
         let needsSourcesGroup: Bool
         if let target = targets.spm_only {
@@ -410,7 +427,8 @@ func xcodeProject(
         let package = packagesByTarget[target]!
         let xcodeTarget = project.addTarget(
             objectID: "\(package.name)::\(target.name)",
-            productType: productType, name: target.name)
+            productType: productType, name: target.name,
+            artifact: .target(target))
 
         // Set the product name to the C99-mangled form of the target name.
         xcodeTarget.productName = target.c99name
@@ -689,7 +707,8 @@ func xcodeProject(
         let package = packagesByProduct[product]!
         let aggregateTarget = project.addTarget(
             objectID: "\(package.name)::\(product.name)::ProductTarget",
-            productType: nil, name: product.name)
+            productType: nil, name: product.name,
+            artifact: .product(product))
         // Add dependencies on the targets created for each of the dependencies.
         for target in product.targets {
             // Find the target that corresponds to the target.  There might not

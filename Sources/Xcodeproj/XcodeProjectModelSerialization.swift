@@ -66,7 +66,7 @@ extension Xcode.Project: PropertyListSerializable {
         }
         dict["projectDirPath"] = .string(projectDir)
         // Ensure that targets are output in a sorted order.
-        let sortedTargets = targets.sorted(by: { $0.name < $1.name })
+        let sortedTargets = targets.sorted(by: targetSortDescriptor)
         dict["targets"] = .array(sortedTargets.map({ target in
             .identifier(serializer.serialize(object: target))
         }))

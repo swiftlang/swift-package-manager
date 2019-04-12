@@ -54,6 +54,8 @@
    references
 */
 
+import PackageModel
+
 public struct Xcode {
 
     /// An Xcode project, consisting of a tree of groups and file references,
@@ -65,18 +67,28 @@ public struct Xcode {
         var productGroup: Group?
         var projectDir: String
         var targets: [Target]
+        var targetSortDescriptor: TargetSortDescriptor
         init() {
             self.mainGroup = Group(path: "")
             self.buildSettings = BuildSettingsTable()
             self.productGroup = nil
             self.projectDir = ""
             self.targets = []
+            self.targetSortDescriptor = .alphabetical
         }
 
         /// Creates and adds a new target (which does not initially have any
         /// build phases).
-        public func addTarget(objectID: String? = nil, productType: Target.ProductType?, name: String) -> Target {
-            let target = Target(objectID: objectID, productType: productType, name: name)
+        ///
+        /// - Parameters:
+        ///   - objectID: The unique id for the Xcode target.
+        ///   - productType: The type of Xcode product this target represents.
+        ///   - name: The name of the target.
+        ///   - artifact: The underlying Swift PM object this target represents.
+        ///               This value must be non-`nil` to enable target sorting.
+        /// - Returns: The added target.
+        public func addTarget(objectID: String? = nil, productType: Target.ProductType?, name: String, artifact: Target.UnderlyingArtifact? = nil) -> Target {
+            let target = Target(objectID: objectID, productType: productType, name: name, artifact: artifact)
             targets.append(target)
             return target
         }
@@ -169,6 +181,9 @@ public struct Xcode {
         var buildPhases: [BuildPhase]
         var productReference: FileReference?
         var dependencies: [TargetDependency]
+        /// Represents the Swift PM object this target represents.
+        /// This is used for sorting when present.
+        var underlyingArtifact: UnderlyingArtifact?
         public enum ProductType: String {
             case application = "com.apple.product-type.application"
             case staticArchive = "com.apple.product-type.library.static"
@@ -177,7 +192,16 @@ public struct Xcode {
             case executable = "com.apple.product-type.tool"
             case unitTest = "com.apple.product-type.bundle.unit-test"
         }
-        init(objectID: String?, productType: ProductType?, name: String) {
+        /// A type that represents the underlying Swift PM object behind an Xcode Target.
+        public enum UnderlyingArtifact {
+            /// This Xcode target represents a Swift PM product from some package.
+            case product(ResolvedProduct)
+            /// This Xcode target represents a Swift PM target from some package.
+            case target(ResolvedTarget)
+            /// This Xcode target represents a Swift PM package description for some package.
+            case packageDescription(ResolvedPackage)
+        }
+        init(objectID: String?, productType: ProductType?, name: String, artifact: UnderlyingArtifact? = nil) {
             self.objectID = objectID
             self.name = name
             self.productType = productType
@@ -185,6 +209,7 @@ public struct Xcode {
             self.buildSettings = BuildSettingsTable()
             self.buildPhases = []
             self.dependencies = []
+            self.underlyingArtifact = artifact
         }
 
         // FIXME: There's a lot repetition in these methods; using generics to
