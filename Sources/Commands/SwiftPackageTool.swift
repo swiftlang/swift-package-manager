@@ -498,6 +498,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.xcodeprojOptions.enableAutogeneration = $2 ?? false
                 $0.xcodeprojOptions.addExtraFiles = !($3 ?? false)
             })
+        binder.bind(
+            option: generateXcodeParser.add(
+                option: "--sort-targets-alphabetically", kind: Bool.self,
+                usage: "Sort targets and target groups in alphabetical order instead of in manifest definition order."
+            ),
+            to: {
+                $0.xcodeprojOptions.sortTargetsAlphabetically = $1
+            })
 
         let completionToolParser = parser.add(
             subparser: PackageMode.completionTool.rawValue,

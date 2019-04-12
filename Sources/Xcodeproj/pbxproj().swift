@@ -236,11 +236,15 @@ func xcodeProject(
         }
     }
     
-    // Set sort descriptor for targets based on mappings.
-    project.targetSortDescriptor = .declarationOrder(graph: graph,
-                                                     packagesByTarget: packagesByTarget,
-                                                     packagesByProduct: packagesByProduct,
-                                                     manifestOrderByPackageAndName: manifestOrderByPackageAndName)
+    // Set sort descriptor for targets.
+    if options.sortTargetsAlphabetically {
+        project.targetSortDescriptor = .alphabetical
+    } else {
+        project.targetSortDescriptor = .declarationOrder(graph: graph,
+                                                         packagesByTarget: packagesByTarget,
+                                                         packagesByProduct: packagesByProduct,
+                                                         manifestOrderByPackageAndName: manifestOrderByPackageAndName)
+    }
 
     // To avoid creating multiple groups for the same path, we keep a mapping
     // of the paths we've seen and the corresponding groups we've created.

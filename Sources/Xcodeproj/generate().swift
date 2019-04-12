@@ -29,6 +29,12 @@ public struct XcodeprojOptions {
 
     /// Whether to use legacy scheme generation logic.
     public var useLegacySchemeGenerator: Bool
+    
+    /// Whether targets should be sorted alphabetically.
+    ///
+    /// The default is `false`, which indicates sorting in manifest
+    /// declaration order.
+    public var sortTargetsAlphabetically: Bool
 
     /// Run watchman to auto-generate the project file on changes.
     public var enableAutogeneration: Bool
@@ -44,6 +50,7 @@ public struct XcodeprojOptions {
         xcconfigOverrides: AbsolutePath? = nil,
         isCodeCoverageEnabled: Bool? = nil,
         useLegacySchemeGenerator: Bool? = nil,
+        sortTargetsAlphabetically: Bool? = nil,
         enableAutogeneration: Bool? = nil,
         addExtraFiles: Bool? = nil
     ) {
@@ -51,6 +58,7 @@ public struct XcodeprojOptions {
         self.xcconfigOverrides = xcconfigOverrides
         self.isCodeCoverageEnabled = isCodeCoverageEnabled ?? false
         self.useLegacySchemeGenerator = useLegacySchemeGenerator ?? false
+        self.sortTargetsAlphabetically = sortTargetsAlphabetically ?? false
         self.enableAutogeneration = enableAutogeneration ?? false
         self.addExtraFiles = addExtraFiles ?? true
     }
