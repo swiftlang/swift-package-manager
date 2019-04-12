@@ -65,11 +65,14 @@ public struct Term: Equatable, Hashable {
         andPolarity otherIsPositive: Bool
     ) -> Term? {
 
+        // FIXME: Figure out if we need to handle more of these cases.
         switch (self.requirement, requirement) {
         case (.unversioned, .unversioned):
             return self.isPositive == otherIsPositive ? self : nil
         case (.revision(let lhs), .revision(let rhs)):
             return self.isPositive == otherIsPositive && lhs == rhs ? self : nil
+        case (.revision, .versionSet):
+            return self.isPositive ? self : nil
         default: break
         }
 
@@ -210,7 +213,7 @@ extension PackageRequirement {
         case (.revision, _):
             return false
         case (_, .revision):
-            return false
+            return true
         default:
             fatalError("unhandled \(self), \(other)")
         }
@@ -833,8 +836,27 @@ public final class PubgrubDependencyResolver {
 
     public typealias Result = DependencyResolver.Result
 
-    public enum PubgrubError: Swift.Error, Equatable {
-        case unresolvable(Incompatibility)
+    public enum PubgrubError: Swift.Error, Equatable, CustomStringConvertible {
+        case _unresolvable(Incompatibility)
+        case unresolvable(String)
+
+        public var description: String {
+            switch self {
+            case ._unresolvable(let rootCause):
+                return rootCause.description
+            case .unresolvable(let error):
+                return error
+            }
+        }
+
+        var rootCause: Incompatibility? {
+            switch self {
+            case ._unresolvable(let rootCause):
+                return rootCause
+            case .unresolvable:
+                return nil
+            }
+        }
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
@@ -842,14 +864,14 @@ public final class PubgrubDependencyResolver {
         do {
             return try .success(solve(constraints: dependencies, pins: pins))
         } catch {
-            if let error = error as? PubgrubError {
-                switch error {
-                case .unresolvable(let rootCause):
-                    // FIXME: Do this better.
-                    let diag = diagnosticBuilder.reportError(for: rootCause)
-                    print(diag)
-                }
+            var error = error
+
+            // If version solving failing, build the user-facing diagnostic.
+            if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause {
+                let diagnostic = diagnosticBuilder.reportError(for: rootCause)
+                error = PubgrubError.unresolvable(diagnostic)
             }
+
             return .error(error)
         }
     }
@@ -1091,7 +1113,7 @@ public final class PubgrubDependencyResolver {
         }
 
         log("failed: \(incompatibility)")
-        throw PubgrubError.unresolvable(incompatibility)
+        throw PubgrubError._unresolvable(incompatibility)
     }
 
     /// Does a given incompatibility specify that version solving has entirely
