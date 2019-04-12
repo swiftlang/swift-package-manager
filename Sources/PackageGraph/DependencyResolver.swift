@@ -1041,6 +1041,8 @@ public class DependencyResolver {
         subjectTo allConstraints: PackageContainerConstraintSet,
         excluding allExclusions: [PackageReference: Set<Version>]
     ) -> AnySequence<VersionAssignmentSet> {
+        guard self.error == nil else { return AnySequence([]) }
+
         // The key that is used to cache this assignement set.
         let cacheKey = ResolveSubtreeCacheKey(container: container, allConstraints: allConstraints)
 
@@ -1067,6 +1069,7 @@ public class DependencyResolver {
         //
         // FIXME: We must detect recursion here.
         func merge(constraints: [PackageContainerConstraint], binding: BoundVersion) -> AnySequence<VersionAssignmentSet> {
+            guard self.error == nil else { return AnySequence([]) }
 
             // Diagnose if this container depends on itself.
             if constraints.contains(where: { $0.identifier == container.identifier }) {
@@ -1181,6 +1184,8 @@ public class DependencyResolver {
         subjectTo allConstraints: PackageContainerConstraintSet,
         excluding allExclusions: [PackageReference: Set<Version>]
     ) -> AnySequence<VersionAssignmentSet> {
+        guard self.error == nil else { return AnySequence([]) }
+
         var allConstraints = allConstraints
 
         // Never prefetch when running in incomplete mode.
