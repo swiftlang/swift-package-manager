@@ -39,7 +39,7 @@ extension InMemoryFileSystem {
     /// Create a new file system with an empty file at each provided path.
     public convenience init(emptyFiles files: [String]) {
         self.init()
-        self.createEmptyFiles(at: .root, files: files)
+        self.createEmptyFiles(at: AbsolutePath("/"), files: files)
     }
 }
 

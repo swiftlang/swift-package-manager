@@ -10,9 +10,10 @@
 
 /// Represents an absolute file system path, independently of what (or whether
 /// anything at all) exists at that path in the file system at any given time.
-/// An absolute path always starts with a `/` character, and holds a normalized
-/// string representation.  This normalization is strictly syntactic, and does
-/// not access the file system in any way.
+/// An absolute path always starts with a `/` character on POSIX systems or a
+/// '\\' character on Windows, and holds a normalized string representation.
+/// This normalization is strictly syntactic, and does not access the file
+/// system in any way.
 ///
 /// The absolute path string is normalized by:
 /// - Collapsing `..` path components
@@ -28,6 +29,15 @@
 /// normalization, because it is normally the responsibility of the shell and
 /// not the program being invoked (e.g. when invoking `cd ~`, it is the shell
 /// that evaluates the tilde; the `cd` command receives an absolute path).
+
+import Foundation
+
+#if os(Windows)
+public let PATH_SEPARATOR = "\\"
+#else
+public let PATH_SEPARATOR = "/"
+#endif
+
 public struct AbsolutePath: Hashable {
     /// Check if the given name is a valid individual path component.
     ///
@@ -35,7 +45,7 @@ public struct AbsolutePath: Hashable {
     /// and `RelativePath`; particular file systems may have their own
     /// additional requirements.
     static func isValidComponent(_ name: String) -> Bool {
-        return name != "" && name != "." && name != ".." && !name.contains("/")
+        return name != "" && name != "." && name != ".." && !name.contains(PATH_SEPARATOR)
     }
 
     /// Private implementation details, shared with the RelativePath struct.
@@ -47,8 +57,9 @@ public struct AbsolutePath: Hashable {
     }
 
     /// Initializes the AbsolutePath from `absStr`, which must be an absolute
-    /// path (i.e. it must begin with a path separator; this initializer does
-    /// not interpret leading `~` characters as home directory specifiers).
+    /// path (i.e. it must begin with a path separator or drive; this
+    /// initializer does not interpret leading `~` characters as home directory
+    /// specifiers).
     /// The input string will be normalized if needed, as described in the
     /// documentation for AbsolutePath.
     public init(_ absStr: String) {
@@ -60,7 +71,7 @@ public struct AbsolutePath: Hashable {
     /// or relative; if relative, `basePath` is used as the anchor; if absolute,
     /// it is used as is, and in this case `basePath` is ignored.
     public init(_ str: String, relativeTo basePath: AbsolutePath) {
-        if str.hasPrefix("/") {
+        if pathStartsWithRoot(str) {
             self.init(str)
         } else {
             self.init(basePath, RelativePath(str))
@@ -75,8 +86,8 @@ public struct AbsolutePath: Hashable {
         // with a `..` path component.
         let relStr = relPath._impl.string
         var absStr = absPath._impl.string
-        if absStr != "/" {
-            absStr.append("/")
+        if absStr != PATH_SEPARATOR {
+            absStr.append(PATH_SEPARATOR)
         }
         absStr.append(relStr)
 
@@ -100,14 +111,13 @@ public struct AbsolutePath: Hashable {
 
     /// Convenience initializer that verifies that the path is absolute.
     public init(validating path: String) throws {
-        switch path.first {
-        case "/":
-            self.init(path)
-        case "~":
+        guard path.first != "~" else {
             throw PathValidationError.startsWithTilde(path)
-        default:
+        }
+        guard pathStartsWithRoot(path) else {
             throw PathValidationError.invalidAbsolutePath(path)
         }
+        self.init(path)
     }
 
     /// Directory component.  An absolute path always has a non-empty directory
@@ -143,7 +153,13 @@ public struct AbsolutePath: Hashable {
 
     /// True if the path is the root directory.
     public var isRoot: Bool {
-        return _impl.string.spm_only == "/"
+        #if os(Windows)
+            let firstSeparator = _impl.string.firstIndex(of: PATH_SEPARATOR.first!)
+            return pathStartsWithRoot(_impl.string) &&
+                (firstSeparator == nil || firstSeparator == _impl.string.endIndex)
+        #else
+            return _impl.string == PATH_SEPARATOR
+        #endif
     }
 
     /// Returns the absolute path with the relative path applied.
@@ -155,7 +171,7 @@ public struct AbsolutePath: Hashable {
     ///
     /// This method accepts pseudo-path like '.' or '..', but should not contain "/".
     public func appending(component name: String) -> AbsolutePath {
-        assert(!name.contains("/"), "\(name) is invalid path component")
+        assert(!name.contains(PATH_SEPARATOR), "\(name) is invalid path component")
 
         // Handle pseudo paths.
         switch name {
@@ -166,10 +182,10 @@ public struct AbsolutePath: Hashable {
         default: break
         }
 
-        if self == AbsolutePath.root {
-            return AbsolutePath(PathImpl(string: "/" + name))
+        if self._impl.string.last == PATH_SEPARATOR.first {
+            return AbsolutePath(PathImpl(string: _impl.string + name))
         } else {
-            return AbsolutePath(PathImpl(string: _impl.string + "/" + name))
+            return AbsolutePath(PathImpl(string: _impl.string + PATH_SEPARATOR + name))
         }
     }
 
@@ -185,20 +201,6 @@ public struct AbsolutePath: Hashable {
         })
     }
 
-    /// NOTE: We will most likely want to add other `appending()` methods, such
-    ///       as `appending(suffix:)`, and also perhaps `replacing()` methods,
-    ///       such as `replacing(suffix:)` or `replacing(basename:)` for some
-    ///       of the more common path operations.
-
-    /// NOTE: We may want to consider adding operators such as `+` for appending
-    ///       a path component.
-
-    /// NOTE: We will want to add a method to return the lowest common ancestor
-    ///       path.
-
-    /// Root directory (whose string representation is just a path separator).
-    public static let root = AbsolutePath("/")
-
     /// Normalized string representation (the normalization rules are described
     /// in the documentation of the initializer).  This string is never empty.
     public var pathString: String {
@@ -208,16 +210,20 @@ public struct AbsolutePath: Hashable {
     /// Returns an array of strings that make up the path components of the
     /// absolute path.  This is the same sequence of strings as the basenames
     /// of each successive path component, starting from the root.  Therefore
-    /// the first path component of an absolute path is always `/`.
+    /// the first path component of an absolute path is always `/` or a drive.
     public var components: [String] {
-        return ["/"] + _impl.components
+        #if os(Windows)
+            return _impl.components
+        #else
+            return [PATH_SEPARATOR] + _impl.components
+        #endif
     }
 }
 
 /// Represents a relative file system path.  A relative path never starts with
-/// a `/` character, and holds a normalized string representation.  As with
-/// AbsolutePath, the normalization is strictly syntactic, and does not access
-/// the file system in any way.
+/// a separator character, and holds a normalized string representation.  As
+/// with AbsolutePath, the normalization is strictly syntactic, and does not
+/// access the file system in any way.
 ///
 /// The relative path string is normalized by:
 /// - Collapsing `..` path components that aren't at the beginning
@@ -245,12 +251,13 @@ public struct RelativePath: Hashable {
 
     /// Convenience initializer that verifies that the path is relative.
     public init(validating path: String) throws {
-        switch path.first {
-        case "/", "~":
-            throw PathValidationError.invalidRelativePath(path)
-        default:
-            self.init(path)
+        guard path.first != "~" else {
+            throw PathValidationError.startsWithTilde(path)
         }
+        guard !pathStartsWithRoot(path) && path.first != PATH_SEPARATOR.first else {
+            throw PathValidationError.invalidRelativePath(path)
+        }
+        self.init(path)
     }
 
     /// Directory component.  For a relative path without any path separators,
@@ -365,15 +372,17 @@ private struct PathImpl: Hashable {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         // Find the last path separator.
-        guard let idx = string.lastIndex(of: "/") else {
+        guard let idx = string.lastIndex(of: PATH_SEPARATOR.first!) else {
             // No path separators, so the directory name is `.`.
             return "."
         }
         // Check if it's the only one in the string.
-        if idx == string.startIndex {
-            // Just one path separator, so the directory name is `/`.
-            return "/"
-        }
+        #if !os(Windows)
+            if idx == string.startIndex {
+                // Just one path separator, so the directory name is `/`.
+                return PATH_SEPARATOR
+            }
+        #endif
         // Otherwise, it's the string up to (but not including) the last path
         // separator.
         return String(string.prefix(upTo: idx))
@@ -383,13 +392,15 @@ private struct PathImpl: Hashable {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         // Check for a special case of the root directory.
-        if string.spm_only == "/" {
-            // Root directory, so the basename is a single path separator (the
-            // root directory is special in this regard).
-            return "/"
-        }
+        #if !os(Windows)
+            if string.spm_only == "/" {
+                // Root directory, so the basename is a single path separator (the
+                // root directory is special in this regard).
+                return "/"
+            }
+        #endif
         // Find the last path separator.
-        guard let idx = string.lastIndex(of: "/") else {
+        guard let idx = string.lastIndex(of: PATH_SEPARATOR.first!) else {
             // No path separators, so the basename is the whole string.
             return string
         }
@@ -415,15 +426,15 @@ private struct PathImpl: Hashable {
         // in fact, it might well be best to return a custom iterator so we
         // don't have to allocate everything up-front.  It would be backed by
         // the path string and just return a slice at a time.
-        return string.components(separatedBy: "/").filter({ !$0.isEmpty })
+        return string.components(separatedBy: PATH_SEPARATOR).filter({ !$0.isEmpty })
     }
 
-    /// Returns suffix with leading `.` if withDot is true otherwise without it. 
+    /// Returns suffix with leading `.` if withDot is true otherwise without it.
     private func suffix(withDot: Bool) -> String? {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         // Find the last path separator, if any.
-        let sIdx = string.lastIndex(of: "/")
+        let sIdx = string.lastIndex(of: PATH_SEPARATOR.first!)
         // Find the start of the basename.
         let bIdx = (sIdx != nil) ? string.index(after: sIdx!) : string.startIndex
         // Find the last `.` (if any), starting from the second character of
@@ -455,11 +466,11 @@ extension PathValidationError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .startsWithTilde(let path):
-            return "invalid absolute path '\(path)'; absolute path must begin with '/'"
+            return "invalid path '\(path)'; path must not begin with '~'"
         case .invalidAbsolutePath(let path):
             return "invalid absolute path '\(path)'"
         case .invalidRelativePath(let path):
-            return "invalid relative path '\(path)'; relative path should not begin with '/' or '~'"
+            return "invalid relative path '\(path)'; relative path should not begin with '/', a drive or '~'"
         }
     }
 }
@@ -488,7 +499,7 @@ extension AbsolutePath {
             // Special case, which is a plain path without `..` components.  It
             // might be an empty path (when self and the base are equal).
             let relComps = pathComps.dropFirst(baseComps.count)
-            result = RelativePath(relComps.joined(separator: "/"))
+            result = RelativePath(relComps.joined(separator: PATH_SEPARATOR))
         } else {
             // General case, in which we might well need `..` components to go
             // "up" before we can go "down" the directory tree.
@@ -503,7 +514,7 @@ extension AbsolutePath {
             // `newBaseComps` followed by what remains in `newPathComps`.
             var relComps = Array(repeating: "..", count: newBaseComps.count)
             relComps.append(contentsOf: newPathComps)
-            result = RelativePath(relComps.joined(separator: "/"))
+            result = RelativePath(relComps.joined(separator: PATH_SEPARATOR))
         }
         assert(base.appending(result) == self)
         return result
@@ -531,21 +542,52 @@ extension AbsolutePath {
 /// This assumes that paths containing dotfiles are rare:
 private func mayNeedNormalization(absolute string: String) -> Bool {
     var last = UInt8(ascii: "0")
+    #if os(Windows)
+        let sep = UInt8(ascii: "\\")
+    #else
+        let sep = UInt8(ascii: "/")
+    #endif
     for c in string.utf8 {
         switch c {
-        case UInt8(ascii: "/") where last == UInt8(ascii: "/"):
+        case sep where last == sep:
             return true
-        case UInt8(ascii: ".") where last == UInt8(ascii: "/"):
+        case UInt8(ascii: ".") where last == sep:
             return true
         default:
             break
         }
         last = c
     }
-    if last == UInt8(ascii: "/") {
+    if last == sep {
         return true
     }
     return false
+}
+
+extension Character {
+    var isAlpha: Bool {
+        return (self >= "a" && self <= "Z") || (self >= "A" && self <= "Z")
+    }
+}
+
+extension String {
+    var second: String.Element? {
+        return self.dropFirst().first
+    }
+    var third: String.Element? {
+        return self.dropFirst(2).first
+    }
+}
+
+private func pathStartsWithRoot(_ string: String) -> Bool {
+    #if os(Windows)
+        return string.count >= 2 &&
+            string.first!.isAlpha &&
+            string.second == ":" &&
+            (string.count == 2 || string.third == PATH_SEPARATOR.first)
+    #else
+        return string.first == PATH_SEPARATOR.first
+    #endif
 }
 
 /// Private function that normalizes and returns an absolute string.  Asserts
@@ -553,10 +595,7 @@ private func mayNeedNormalization(absolute string: String) -> Bool {
 ///
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(absolute string: String) -> String {
-    precondition(string.first == "/", "Failure normalizing \(string), absolute paths should start with '/'")
-
-    // At this point we expect to have a path separator as first character.
-    assert(string.first == "/")
+    precondition(pathStartsWithRoot(string), "Failure normalizing \(string), absolute paths should start with '/'")
 
     // Fast path.
     if !mayNeedNormalization(absolute: string) {
@@ -568,7 +607,7 @@ private func normalize(absolute string: String) -> String {
     // the normalized string representation.
     var parts: [String] = []
     var capacity = 0
-    for part in string.split(separator: "/") {
+    for part in string.split(separator: PATH_SEPARATOR.first!) {
         switch part.count {
           case 0:
             // Ignore empty path components.
@@ -588,7 +627,12 @@ private func normalize(absolute string: String) -> String {
             capacity += part.count
         }
     }
-    capacity += max(parts.count, 1)
+    // We increase the capacity by the number of separators we need to include
+    #if os(Windows)
+        capacity += max(parts.count - 1, 0)
+    #else
+        capacity += max(parts.count, 1)
+    #endif
 
     // Create an output buffer using the capacity we've calculated.
     // FIXME: Determine the most efficient way to reassemble a string.
@@ -597,11 +641,14 @@ private func normalize(absolute string: String) -> String {
 
     // Put the normalized parts back together again.
     var iter = parts.makeIterator()
-    result.append("/")
+    // On Windows we don't start the path with the separator
+    #if !os(Windows)
+        result.append(PATH_SEPARATOR)
+    #endif
     if let first = iter.next() {
         result.append(contentsOf: first)
         while let next = iter.next() {
-            result.append("/")
+            result.append(PATH_SEPARATOR)
             result.append(contentsOf: next)
         }
     }
@@ -620,7 +667,7 @@ private func normalize(absolute string: String) -> String {
 ///
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(relative string: String) -> String {
-    precondition(string.first != "/")
+    precondition(!pathStartsWithRoot(string))
 
     // FIXME: Here we should also keep track of whether anything actually has
     // to be changed in the string, and if not, just return the existing one.
@@ -630,7 +677,7 @@ private func normalize(relative string: String) -> String {
     // the normalized string representation.
     var parts: [String] = []
     var capacity = 0
-    for part in string.split(separator: "/") {
+    for part in string.split(separator: PATH_SEPARATOR.first!) {
         switch part.count {
         case 0:
             // Ignore empty path components.

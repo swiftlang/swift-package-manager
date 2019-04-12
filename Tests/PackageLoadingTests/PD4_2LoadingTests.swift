@@ -26,10 +26,10 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         body: (Manifest) -> Void
     ) throws {
         let fs = InMemoryFileSystem()
-        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+        let manifestPath = AbsolutePath("/").appending(component: Manifest.filename)
         try fs.writeFileContents(manifestPath, bytes: contents)
         let m = try manifestLoader.load(
-            package: AbsolutePath.root,
+            package: AbsolutePath("/"),
             baseURL: "/foo",
             manifestVersion: .v4_2,
             fileSystem: fs)
@@ -360,7 +360,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             "\(currentVersion.major)"
         ]
         for (i, key) in possibleSuffixes.enumerated() {
-            let root = AbsolutePath.root
+            let root = AbsolutePath("/")
             // Create a temporary FS with the version we want to test, and everything else as bogus.
             let fs = InMemoryFileSystem()
             // Write the good manifests.
@@ -446,7 +446,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             XCTAssertEqual(urls, ["/foo/path/to/foo1", "/foo1", "/foo1.git", "/foo2.git", "/foo2.git"])
         }
     }
-    
+
     func testNotAbsoluteDependencyPath() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -463,7 +463,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             ]
         )
         """
-        
+
         do {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail("Unexpected success")

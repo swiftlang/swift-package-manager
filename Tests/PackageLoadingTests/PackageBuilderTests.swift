@@ -1571,7 +1571,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         PackageBuilderTester(manifest1, path: AbsolutePath("/pkg"), in: fs) { result in
-            result.checkDiagnostic("invalid relative path '/Sources/headers'; relative path should not begin with '/' or '~'")
+            result.checkDiagnostic("invalid relative path '/Sources/headers'; relative path should not begin with '/', a drive or '~'")
         }
 
         let manifest2 = Manifest.createManifest(
@@ -1650,7 +1650,7 @@ final class PackageBuilderTester {
     @discardableResult
     init(
         _ manifest: Manifest,
-        path: AbsolutePath = .root,
+        path: AbsolutePath = AbsolutePath("/"),
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         in fs: FileSystem,

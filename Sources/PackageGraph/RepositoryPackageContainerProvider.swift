@@ -271,7 +271,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             return isValid
         }))
     }
-    
+
     /// The opened repository.
     let repository: Repository
 
@@ -343,7 +343,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         let tag = knownVersions[version]!
         let revision = try repository.resolveRevision(tag: tag)
         let fs = try repository.openFileView(revision: revision)
-        return try toolsVersionLoader.load(at: .root, fileSystem: fs)
+        return try toolsVersionLoader.load(at: AbsolutePath("/"), fileSystem: fs)
     }
 
     public override func getDependencies(at version: Version) throws -> [RepositoryPackageConstraint] {
@@ -396,7 +396,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         let packageURL = identifier.repository.url
 
         // Load the tools version.
-        let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)
+        let toolsVersion = try toolsVersionLoader.load(at: AbsolutePath("/"), fileSystem: fs)
 
         // Validate the tools version.
         try toolsVersion.validateToolsVersion(
@@ -404,7 +404,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
         // Load the manifest.
         let manifest = try manifestLoader.load(
-            package: AbsolutePath.root,
+            package: AbsolutePath("/"),
             baseURL: packageURL,
             version: version,
             manifestVersion: toolsVersion.manifestVersion,

@@ -26,10 +26,10 @@ class PackageDescription5LoadingTests: XCTestCase {
         body: (Manifest) -> Void
     ) throws {
         let fs = InMemoryFileSystem()
-        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+        let manifestPath = AbsolutePath("/").appending(component: Manifest.filename)
         try fs.writeFileContents(manifestPath, bytes: contents)
         let m = try manifestLoader.load(
-            package: AbsolutePath.root,
+            package: AbsolutePath("/"),
             baseURL: "/foo",
             manifestVersion: .v5,
             fileSystem: fs)

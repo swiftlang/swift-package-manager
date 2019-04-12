@@ -19,7 +19,7 @@ import TestSupport
 class InMemoryGitRepositoryTests: XCTestCase {
     func testBasics() throws {
         let fs = InMemoryFileSystem()
-        let repo = InMemoryGitRepository(path: .root, fs: fs)
+        let repo = InMemoryGitRepository(path: AbsolutePath("/"), fs: fs)
 
         try repo.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
         XCTAssertTrue(!repo.hasUncommittedChanges())
@@ -75,7 +75,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
     func testProvider() throws {
         let v1 = "1.0.0"
         let v2 = "2.0.0"
-        let repo = InMemoryGitRepository(path: .root, fs: InMemoryFileSystem())
+        let repo = InMemoryGitRepository(path: AbsolutePath("/"), fs: InMemoryFileSystem())
 
         let specifier = RepositorySpecifier(url: "/foo")
         try repo.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)

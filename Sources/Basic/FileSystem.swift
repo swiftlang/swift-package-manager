@@ -203,7 +203,7 @@ public extension FileSystem {
     func chmod(_ mode: FileMode, path: AbsolutePath) throws {
         try chmod(mode, path: path, options: [])
     }
-    
+
     // Unless the file system type provides an override for this method, throw
     // if `atomically` is `true`, otherwise fall back to whatever implementation already exists.
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
@@ -351,7 +351,7 @@ private class LocalFileSystem: FileSystem {
             break
         }
     }
-    
+
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
         // Perform non-atomic writes using the fast path.
         if !atomically {
@@ -657,7 +657,7 @@ public class InMemoryFileSystem: FileSystem {
         // Write the file.
         contents.entries[path.basename] = Node(.file(bytes))
     }
-    
+
     public func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
         // In memory file system's writeFileContents is already atomic, so ignore the parameter here
         // and just call the base implementation.
@@ -706,8 +706,8 @@ public class RerootedFileSystemView: FileSystem {
 
     /// Adjust the input path for the underlying file system.
     private func formUnderlyingPath(_ path: AbsolutePath) -> AbsolutePath {
-        if path == AbsolutePath.root {
-            return root
+        if path.isRoot {
+            return path
         } else {
             // FIXME: Optimize?
             return root.appending(RelativePath(String(path.pathString.dropFirst(1))))
@@ -779,7 +779,7 @@ extension FileSystem {
     /// Print the filesystem tree of the given path.
     ///
     /// For debugging only.
-    public func dumpTree(at path: AbsolutePath = .root) {
+    public func dumpTree(at path: AbsolutePath) {
         print(".")
         do {
             try recurse(fs: self, path: path)

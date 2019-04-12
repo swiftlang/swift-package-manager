@@ -27,10 +27,10 @@ class PackageDescription4LoadingTests: XCTestCase {
         body: (Manifest) -> Void) throws
     {
         let fs = InMemoryFileSystem()
-        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+        let manifestPath = AbsolutePath("/").appending(component: Manifest.filename)
         try fs.writeFileContents(manifestPath, bytes: contents)
         let m = try manifestLoader.load(
-            package: AbsolutePath.root,
+            package: AbsolutePath("/"),
             baseURL: "/foo",
             manifestVersion: .v4,
             fileSystem: fs)
@@ -376,7 +376,7 @@ class PackageDescription4LoadingTests: XCTestCase {
 
     func testManifestWithWarnings() throws {
         let fs = InMemoryFileSystem()
-        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+        let manifestPath = AbsolutePath("/").appending(component: Manifest.filename)
         let stream = BufferedOutputByteStream()
 
         stream <<< """
@@ -393,7 +393,7 @@ class PackageDescription4LoadingTests: XCTestCase {
 
         let diagnostics = DiagnosticsEngine()
         let manifest = try manifestLoader.load(
-            package: .root, baseURL: "/foo",
+            package: AbsolutePath("/"), baseURL: "/foo",
             manifestVersion: .v4, fileSystem: fs,
             diagnostics: diagnostics
         )

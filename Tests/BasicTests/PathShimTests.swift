@@ -17,7 +17,7 @@ class PathShimTests : XCTestCase {
 
     func testResolvingSymlinks() {
         // Make sure the root path resolves to itself.
-        XCTAssertEqual(resolveSymlinks(AbsolutePath.root), AbsolutePath.root)
+        XCTAssertEqual(resolveSymlinks(AbsolutePath("/")), AbsolutePath("/"))
 
         // For the rest of the tests we'll need a temporary directory.
         let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)

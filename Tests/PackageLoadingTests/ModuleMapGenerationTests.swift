@@ -137,19 +137,19 @@ class ModuleMapGeneration: XCTestCase {
 }
 
 func ModuleMapTester(_ name: String, includeDir: String = "include", in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
-    let includeDir = AbsolutePath.root.appending(component: includeDir)
-    let target = ClangTarget(name: name, cLanguageStandard: nil, cxxLanguageStandard: nil, includeDir: includeDir, isTest: false, sources: Sources(paths: [], root: .root))
+    let includeDir = AbsolutePath("/").appending(component: includeDir)
+    let target = ClangTarget(name: name, cLanguageStandard: nil, cxxLanguageStandard: nil, includeDir: includeDir, isTest: false, sources: Sources(paths: [], root: AbsolutePath("/")))
     let warningStream = BufferedOutputByteStream()
     var generator = ModuleMapGenerator(for: target, fileSystem: fileSystem, warningStream: warningStream)
     var diagnostics = Set<String>()
     do {
-        try generator.generateModuleMap(inDir: .root)
+        try generator.generateModuleMap(inDir: AbsolutePath("/"))
         // FIXME: Find a better way.
         diagnostics = Set(warningStream.bytes.description.split(separator: "\n").map(String.init))
     } catch {
       diagnostics.insert("\(error)")
     }
-    let genPath = AbsolutePath.root.appending(components: "module.modulemap")
+    let genPath = AbsolutePath("/").appending(components: "module.modulemap")
     let result = ModuleMapResult(diagnostics: diagnostics, path: genPath, fs: fileSystem)
     body(result)
     result.validateDiagnostics()

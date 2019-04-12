@@ -1,9 +1,9 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
@@ -15,7 +15,7 @@ import Foundation
 public enum Platform {
     case darwin
     case linux(LinuxFlavor)
-    
+
     /// Recognized flavors of linux.
     public enum LinuxFlavor {
         case debian
@@ -61,12 +61,16 @@ public enum Platform {
     ///
     /// - Note: This method returns `nil` if the value is an invalid path.
     private static func getConfstr(_ name: Int32) -> AbsolutePath? {
-        let len = confstr(name, nil, 0)
-        let tmp = UnsafeMutableBufferPointer(start: UnsafeMutablePointer<Int8>.allocate(capacity: len), count:len)
-        defer { tmp.deallocate() }
-        guard confstr(name, tmp.baseAddress, len) == len else { return nil }
-        let value = String(cString: tmp.baseAddress!)
-        guard value.hasSuffix(AbsolutePath.root.pathString) else { return nil }
-        return resolveSymlinks(AbsolutePath(value))
+        #if !os(Windows)
+            let len = confstr(name, nil, 0)
+            let tmp = UnsafeMutableBufferPointer(start: UnsafeMutablePointer<Int8>.allocate(capacity: len), count:len)
+            defer { tmp.deallocate() }
+            guard confstr(name, tmp.baseAddress, len) == len else { return nil }
+            let value = String(cString: tmp.baseAddress!)
+            guard value.hasSuffix("/") else { return nil }
+            return resolveSymlinks(AbsolutePath(value))
+        #else
+            return nil
+        #endif
     }
 }

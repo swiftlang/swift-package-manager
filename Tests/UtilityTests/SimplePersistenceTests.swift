@@ -26,7 +26,7 @@ fileprivate class Foo: SimplePersistanceProtocol {
             fileSystem: fileSystem,
             schemaVersion: 1,
             supportedSchemaVersions: [0],
-            statePath: AbsolutePath.root.appending(components: "subdir", "state.json")
+            statePath: AbsolutePath("/").appending(components: "subdir", "state.json")
         )
     }
 
@@ -71,7 +71,7 @@ fileprivate enum Bar {
             self.persistence = SimplePersistence(
                 fileSystem: fileSystem,
                 schemaVersion: 1,
-                statePath: AbsolutePath.root.appending(components: "subdir", "state.json")
+                statePath: AbsolutePath("/").appending(components: "subdir", "state.json")
             )
         }
 
@@ -97,7 +97,7 @@ fileprivate enum Bar {
             self.persistence = SimplePersistence(
                 fileSystem: fileSystem,
                 schemaVersion: 1,
-                statePath: AbsolutePath.root.appending(components: "subdir", "state.json")
+                statePath: AbsolutePath("/").appending(components: "subdir", "state.json")
             )
         }
 
@@ -118,7 +118,7 @@ fileprivate enum Bar {
 class SimplePersistenceTests: XCTestCase {
     func testBasics() throws {
         let fs = InMemoryFileSystem()
-        let stateFile = AbsolutePath.root.appending(components: "subdir", "state.json")
+        let stateFile = AbsolutePath("/").appending(components: "subdir", "state.json")
         let foo = Foo(int: 1, path: AbsolutePath("/hello"), fileSystem: fs)
         // Restoring right now should return false because state is not present.
         XCTAssertFalse(try foo.restore())
@@ -152,7 +152,7 @@ class SimplePersistenceTests: XCTestCase {
         // Test that we don't overwrite the json in case we find keys we don't need.
 
         let fs = InMemoryFileSystem()
-        let stateFile = AbsolutePath.root.appending(components: "subdir", "state.json")
+        let stateFile = AbsolutePath("/").appending(components: "subdir", "state.json")
 
         // Create and save v2 object.
         let v2 = Bar.V2(int: 100, string: "hello", fileSystem: fs)
@@ -181,7 +181,7 @@ class SimplePersistenceTests: XCTestCase {
 
     func testCanLoadFromOldSchema() throws {
         let fs = InMemoryFileSystem()
-        let stateFile = AbsolutePath.root.appending(components: "subdir", "state.json")
+        let stateFile = AbsolutePath("/").appending(components: "subdir", "state.json")
         try fs.writeFileContents(stateFile) {
             $0 <<< """
                 {
