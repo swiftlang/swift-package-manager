@@ -833,6 +833,15 @@ func appendSetting(
         case nil:
             table.common.OTHER_CFLAGS += value
         }
+    case .OTHER_CPLUSPLUSFLAGS:
+        switch config {
+        case .debug?:
+            table.debug.OTHER_CPLUSPLUSFLAGS += value
+        case .release?:
+            table.release.OTHER_CPLUSPLUSFLAGS += value
+        case nil:
+            table.common.OTHER_CPLUSPLUSFLAGS += value
+        }
 
 
     case .OTHER_LDFLAGS:

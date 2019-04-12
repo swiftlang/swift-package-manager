@@ -361,6 +361,7 @@ public struct Xcode {
             var MODULEMAP_FILE: String?
             var ONLY_ACTIVE_ARCH: String?
             var OTHER_CFLAGS: [String]?
+            var OTHER_CPLUSPLUSFLAGS: [String]?
             var OTHER_LDFLAGS: [String]?
             var OTHER_SWIFT_FLAGS: [String]?
             var PRODUCT_BUNDLE_IDENTIFIER: String?
@@ -406,6 +407,7 @@ public struct Xcode {
                 MODULEMAP_FILE: String? = nil,
                 ONLY_ACTIVE_ARCH: String? = nil,
                 OTHER_CFLAGS: [String]? = nil,
+                OTHER_CPLUSPLUSFLAGS: [String]? = nil,
                 OTHER_LDFLAGS: [String]? = nil,
                 OTHER_SWIFT_FLAGS: [String]? = nil,
                 PRODUCT_BUNDLE_IDENTIFIER: String? = nil,
@@ -450,6 +452,7 @@ public struct Xcode {
                 self.MODULEMAP_FILE = MODULEMAP_FILE
                 self.ONLY_ACTIVE_ARCH = ONLY_ACTIVE_ARCH
                 self.OTHER_CFLAGS = OTHER_CFLAGS
+                self.OTHER_CPLUSPLUSFLAGS = OTHER_CPLUSPLUSFLAGS
                 self.OTHER_LDFLAGS = OTHER_LDFLAGS
                 self.OTHER_SWIFT_FLAGS = OTHER_SWIFT_FLAGS
                 self.PRODUCT_BUNDLE_IDENTIFIER = PRODUCT_BUNDLE_IDENTIFIER

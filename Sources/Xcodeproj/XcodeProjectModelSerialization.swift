@@ -50,7 +50,7 @@ extension Xcode.Project: PropertyListSerializable {
         dict["attributes"] = .dictionary(["LastUpgradeCheck": .string("9999"),
                                           "LastSwiftMigration": .string("9999")])
         dict["compatibilityVersion"] = .string("Xcode 3.2")
-        dict["developmentRegion"] = .string("English")
+        dict["developmentRegion"] = .string("en")
         // Build settings are a bit tricky; in Xcode, each is stored in a named
         // XCBuildConfiguration object, and the list of build configurations is
         // in turn stored in an XCConfigurationList.  In our simplified model,
