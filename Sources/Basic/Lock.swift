@@ -59,7 +59,7 @@ public final class FileLock {
     public func lock() throws {
       #if os(Windows)
         if handle == nil {
-          let h = lockFile.pathString.withCString(encodedAs: UTF16.self, {
+            let h = lockFile.pathString.withCString(encodedAs: UTF16.self, {
                 CreateFileW(
                     $0,
                     UInt32(GENERIC_READ) | UInt32(GENERIC_WRITE),
@@ -69,11 +69,11 @@ public final class FileLock {
                     DWORD(FILE_ATTRIBUTE_NORMAL),
                     nil
                 )
-          })
-          if h == INVALID_HANDLE_VALUE {
-              throw FileSystemError(errno: Int32(GetLastError()))
-          }
-          self.handle = h
+            })
+            if h == INVALID_HANDLE_VALUE {
+                throw FileSystemError(errno: Int32(GetLastError()))
+            }
+            self.handle = h
         }
         var overlapped = OVERLAPPED()
         overlapped.Offset = 0
