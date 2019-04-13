@@ -37,9 +37,9 @@ enum ProcessLockError: Swift.Error {
 public final class FileLock {
     /// File descriptor to the lock file.
   #if os(Windows)
-    private var h: HANDLE?
+    private var handle: HANDLE?
   #else
-    private var fd: CInt?
+    private var fileDescriptor: CInt?
   #endif
 
     /// Path to the lock file.
@@ -58,8 +58,8 @@ public final class FileLock {
     /// Note: This method can throw if underlying POSIX methods fail.
     public func lock() throws {
       #if os(Windows)
-        if h == nil {
-            let h = lockFile.pathString.withCString(encodedAs: UTF16.self, {
+        if handle == nil {
+          let h = lockFile.pathString.withCString(encodedAs: UTF16.self, {
                 CreateFileW(
                     $0,
                     UInt32(GENERIC_READ) | UInt32(GENERIC_WRITE),
@@ -73,7 +73,7 @@ public final class FileLock {
           if h == INVALID_HANDLE_VALUE {
               throw FileSystemError(errno: Int32(GetLastError()))
           }
-          self.h = h
+          self.handle = h
         }
         var overlapped = OVERLAPPED()
         overlapped.Offset = 0
@@ -84,16 +84,16 @@ public final class FileLock {
         }
       #else
         // Open the lock file.
-        if fd == nil {
+        if fileDescriptor == nil {
             let fd = SPMLibc.open(lockFile.pathString, O_WRONLY | O_CREAT | O_CLOEXEC, 0o666)
             if fd == -1 {
                 throw FileSystemError(errno: errno)
             }
-            self.fd = fd
+            self.fileDescriptor = fd
         }
         // Aquire lock on the file.
         while true {
-            if flock(fd!, LOCK_EX) == 0 {
+            if flock(fileDescriptor!, LOCK_EX) == 0 {
                 break
             }
             // Retry if interrupted.
@@ -112,7 +112,7 @@ public final class FileLock {
         overlapped.hEvent = nil
         UnlockFileEx(h, 0, DWORD(INT_MAX), DWORD(INT_MAX), &overlapped)
       #else
-        guard let fd = fd else { return }
+        guard let fd = fileDescriptor else { return }
         flock(fd, LOCK_UN)
       #endif
     }
@@ -122,7 +122,7 @@ public final class FileLock {
         guard let h = h else { return }
         CloseHandle(h)
       #else
-        guard let fd = fd else { return }
+        guard let fd = fileDescriptor else { return }
         close(fd)
       #endif
     }
