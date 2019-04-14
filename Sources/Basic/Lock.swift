@@ -119,8 +119,8 @@ public final class FileLock {
 
     deinit {
       #if os(Windows)
-        guard let h = h else { return }
-        CloseHandle(h)
+        guard let handle = handle else { return }
+        CloseHandle(handle)
       #else
         guard let fd = fileDescriptor else { return }
         close(fd)
