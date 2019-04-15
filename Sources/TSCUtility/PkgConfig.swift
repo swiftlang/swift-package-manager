@@ -143,26 +143,31 @@ public struct PkgConfig {
         var parser = PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
         try parser.parse()
 
-        var cFlags = parser.cFlags
-        var libs = parser.libs
-
-        // If parser found dependencies in pc file, get their flags too.
-        if !parser.dependencies.isEmpty {
-            for dep in parser.dependencies {
+        func getFlags(from dependencies: [String]) throws -> (cFlags: [String], libs: [String]) {
+            var cFlags = [String]()
+            var libs = [String]()
+            
+            for dep in dependencies {
                 // FIXME: This is wasteful, we should be caching the PkgConfig result.
                 let pkg = try PkgConfig(
                     name: dep, 
                     additionalSearchPaths: additionalSearchPaths,
-                    diagnostics: self.diagnostics,
+                    diagnostics: diagnostics,
                     brewPrefix: brewPrefix
                 )
+
                 cFlags += pkg.cFlags
                 libs += pkg.libs
             }
+
+            return (cFlags: cFlags, libs: libs)
         }
 
-        self.cFlags = cFlags
-        self.libs = libs
+        let dependencyFlags = try getFlags(from: parser.dependencies)
+        let privateDependencyFlags = try getFlags(from: parser.privateDependencies)
+
+        self.cFlags = parser.cFlags + dependencyFlags.cFlags + privateDependencyFlags.cFlags
+        self.libs = parser.libs + dependencyFlags.libs
     }
 
     private static var envSearchPaths: [AbsolutePath] {
@@ -183,6 +188,7 @@ struct PkgConfigParser {
     private let fileSystem: FileSystem
     private(set) var variables = [String: String]()
     var dependencies = [String]()
+    var privateDependencies = [String]()
     var cFlags = [String]()
     var libs = [String]()
 
@@ -233,6 +239,8 @@ struct PkgConfigParser {
         switch key {
         case "Requires":
             dependencies = try parseDependencies(value)
+        case "Requires.private":
+            privateDependencies = try parseDependencies(value)
         case "Libs":
             libs = try splitEscapingSpace(value)
         case "Cflags":
