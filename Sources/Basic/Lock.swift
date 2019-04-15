@@ -79,7 +79,7 @@ public final class FileLock {
         overlapped.Offset = 0
         overlapped.OffsetHigh = 0
         overlapped.hEvent = nil
-        if FALSE == LockFileEx(h, DWORD(LOCKFILE_EXCLUSIVE_LOCK), 0, DWORD(INT_MAX), DWORD(INT_MAX), &overlapped) {
+        if FALSE == LockFileEx(handle, DWORD(LOCKFILE_EXCLUSIVE_LOCK), 0, DWORD(INT_MAX), DWORD(INT_MAX), &overlapped) {
             throw ProcessLockError.unableToAquireLock(errno: Int32(GetLastError()))
         }
       #else
@@ -110,7 +110,7 @@ public final class FileLock {
         overlapped.Offset = 0
         overlapped.OffsetHigh = 0
         overlapped.hEvent = nil
-        UnlockFileEx(h, 0, DWORD(INT_MAX), DWORD(INT_MAX), &overlapped)
+        UnlockFileEx(handle, 0, DWORD(INT_MAX), DWORD(INT_MAX), &overlapped)
       #else
         guard let fd = fileDescriptor else { return }
         flock(fd, LOCK_UN)
