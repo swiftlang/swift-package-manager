@@ -20,15 +20,18 @@
  and does so generically to avoid duplicate logic between resolved package targets and
  Xcode targets.
  
- 1. Root Package Description
- 2. Root Aggregate Products
- 3. Root Targets
- 4. Root Test Targets
- 5. Dependency 1 Package Description
- 6. Dependency 1 Aggregate Products
- 7. Dependency 1 Targets
- 8. Dependency 1 Test Targets
- 9. (Repeated for dependencies in alhabetical order)
+ 1. Root Aggregate Products
+ 2. Root Targets
+ 3. Root Test Targets
+ 4. Dependency 1 Aggregate Products
+ 5. Dependency 1 Targets
+ 6. Dependency 1 Test Targets
+ 7. (Repeated for dependencies in alhabetical order)
+ 8. Root Package Description
+ 9. Dependency Package Descriptions (in alphabetical order by package)
+ 
+ Package descriptions are always ordered last because `xcodebuild -alltargets` may not properly
+ build further targets once it builds a package description target.
  
  When sorting in this order, the sort descriptor stores a context with various dictionaries
  to ensure sorting can still take place in O(n) time (in the case of no collisions).
