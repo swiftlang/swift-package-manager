@@ -212,8 +212,11 @@ struct PkgConfigParser {
             return line
         }
 
-        // Add pcfiledir variable. This is path to the directory containing the pc file.
+        // Add pcfiledir variable. This is the path of the directory containing this pc file.
         variables["pcfiledir"] = pcFile.parentDirectory.pathString
+
+        // Add pc_sysrootdir variable. This is the path of the sysroot directory for pc files.
+        variables["pc_sysrootdir"] = Process.env["PKG_CONFIG_PATH"] ?? "/"
 
         let fileContents = try fileSystem.readFileContents(pcFile)
         // FIXME: Should we error out instead if content is not UTF8 representable?
