@@ -206,6 +206,13 @@ enum TargetSortDescriptor {
         let item1IsRoot = context.packageGraph.rootPackages.contains(package1)
         let item2IsRoot = context.packageGraph.rootPackages.contains(package2)
         
+        // Package description targets should always come last.
+        // If this is not the case, `xcodebuild -alltargets` does not properly build any targets
+        // listed after the package description target.
+        if item1Artifact.isPackageDescription != item2Artifact.isPackageDescription {
+            return item2Artifact.isPackageDescription
+        }
+        
         // Root items should be ordered before dependency items.
         if item1IsRoot != item2IsRoot {
             // One item is root and one isn't. The root item should come first.
@@ -217,13 +224,8 @@ enum TargetSortDescriptor {
             return package1.name < package2.name
         }
         
-        // Package description targets should always come first within their package.
-        if item1Artifact.isPackageDescription != item2Artifact.isPackageDescription {
-            return item1Artifact.isPackageDescription
-        }
-        // If exactly one wasn't a package description, than neither should be
-        // because the packages should be the same if we got this far.
-        assert(!item1Artifact.isPackageDescription)
+        // If we got this far, neither one should be a package description target.
+        assert(!item1Artifact.isPackageDescription && !item2Artifact.isPackageDescription)
         
         // Product (aggregate) targets should come before regular targets.
         if item1Artifact.isProduct != item2Artifact.isProduct {
