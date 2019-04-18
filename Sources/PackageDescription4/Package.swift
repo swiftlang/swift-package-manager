@@ -67,8 +67,13 @@ public final class Package {
 
   #if !PACKAGE_DESCRIPTION_4
     /// The list of platforms supported by this package.
-    public var platforms: [SupportedPlatform]?
+    @available(_PackageDescription, introduced: 5)
+    public var platforms: [SupportedPlatform]? {
+        get { return _platforms }
+        set { _platforms = newValue }
+    }
   #endif
+    private var _platforms: [SupportedPlatform]?
 
     /// pkgconfig name to use for C Modules. If present, swiftpm will try to
     /// search for <name>.pc file to get the additional flags needed for the
@@ -126,7 +131,32 @@ public final class Package {
         registerExitHandler()
     }
   #else
+    @available(_PackageDescription, introduced: 4.2, obsoleted: 5)
+    public init(
+        name: String,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProvider]? = nil,
+        products: [Product] = [],
+        dependencies: [Dependency] = [],
+        targets: [Target] = [],
+        swiftLanguageVersions: [SwiftVersion]? = nil,
+        cLanguageStandard: CLanguageStandard? = nil,
+        cxxLanguageStandard: CXXLanguageStandard? = nil
+    ) {
+        self.name = name
+        self.pkgConfig = pkgConfig
+        self.providers = providers
+        self.products = products
+        self.dependencies = dependencies
+        self.targets = targets
+        self.swiftLanguageVersions = swiftLanguageVersions
+        self.cLanguageStandard = cLanguageStandard
+        self.cxxLanguageStandard = cxxLanguageStandard
+        registerExitHandler()
+    }
+
     /// Construct a package.
+    @available(_PackageDescription, introduced: 5)
     public init(
         name: String,
         platforms: [SupportedPlatform]? = nil,
@@ -140,7 +170,7 @@ public final class Package {
         cxxLanguageStandard: CXXLanguageStandard? = nil
     ) {
         self.name = name
-        self.platforms = platforms
+        self._platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.products = products
@@ -221,10 +251,8 @@ extension Package: Encodable {
         try container.encode(name, forKey: .name)
 
       #if !PACKAGE_DESCRIPTION_4
-        if let platforms = self.platforms {
-            // The platforms API was introduced in manifest version 5.
-            let versionedPlatforms = VersionedValue(platforms, api: "platforms", versions: [.v5])
-            try container.encode(versionedPlatforms, forKey: .platforms)
+        if let platforms = self._platforms {
+            try container.encode(platforms, forKey: .platforms)
         }
       #endif
 
@@ -234,7 +262,7 @@ extension Package: Encodable {
         try container.encode(dependencies, forKey: .dependencies)
         try container.encode(targets, forKey: .targets)
       #if PACKAGE_DESCRIPTION_4
-        let slv = swiftLanguageVersions?.map({ VersionedValue(String($0), api: "") })
+        let slv = swiftLanguageVersions?.map({ String($0) })
         try container.encode(slv, forKey: .swiftLanguageVersions)
       #else
         try container.encode(swiftLanguageVersions, forKey: .swiftLanguageVersions)

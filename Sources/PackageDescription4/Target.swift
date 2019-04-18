@@ -81,16 +81,36 @@ public final class Target {
     public let providers: [SystemPackageProvider]?
 
     /// C build settings.
-    public var cSettings: [CSetting]?
+    @available(_PackageDescription, introduced: 5)
+    public var cSettings: [CSetting]? {
+        get { return _cSettings }
+        set { _cSettings = newValue }
+    }
+    private var _cSettings: [CSetting]?
 
     /// C++ build settings.
-    public var cxxSettings: [CXXSetting]?
+    @available(_PackageDescription, introduced: 5)
+    public var cxxSettings: [CXXSetting]? {
+        get { return _cxxSettings }
+        set { _cxxSettings = newValue }
+    }
+    private var _cxxSettings: [CXXSetting]?
 
     /// Swift build settings.
-    public var swiftSettings: [SwiftSetting]?
+    @available(_PackageDescription, introduced: 5)
+    public var swiftSettings: [SwiftSetting]? {
+        get { return _swiftSettings }
+        set { _swiftSettings = newValue }
+    }
+    private var _swiftSettings: [SwiftSetting]?
 
     /// Linker build settings.
-    public var linkerSettings: [LinkerSetting]?
+    @available(_PackageDescription, introduced: 5)
+    public var linkerSettings: [LinkerSetting]? {
+        get { return _linkerSettings }
+        set { _linkerSettings = newValue }
+    }
+    private var _linkerSettings: [LinkerSetting]?
 
     /// Construct a target.
     private init(
@@ -117,10 +137,10 @@ public final class Target {
         self.type = type
         self.pkgConfig = pkgConfig
         self.providers = providers
-        self.cSettings = cSettings
-        self.cxxSettings = cxxSettings
-        self.swiftSettings = swiftSettings
-        self.linkerSettings = linkerSettings
+        self._cSettings = cSettings
+        self._cxxSettings = cxxSettings
+        self._swiftSettings = swiftSettings
+        self._linkerSettings = linkerSettings
 
         switch type {
         case .regular, .test:
@@ -129,6 +149,27 @@ public final class Target {
         }
     }
 
+    @available(_PackageDescription, introduced: 4, obsoleted: 5)
+    public static func target(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        publicHeadersPath: String? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            publicHeadersPath: publicHeadersPath,
+            type: .regular
+        )
+    }
+
+    @available(_PackageDescription, introduced: 5)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -156,6 +197,26 @@ public final class Target {
         )
     }
 
+    @available(_PackageDescription, introduced: 4, obsoleted: 5)
+    public static func testTarget(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            publicHeadersPath: nil,
+            type: .test
+        )
+    }
+
+    @available(_PackageDescription, introduced: 5)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -233,23 +294,19 @@ extension Target: Encodable {
         try container.encode(pkgConfig, forKey: .pkgConfig)
         try container.encode(providers, forKey: .providers)
 
-        if let cSettings = self.cSettings {
-            let cSettings = VersionedValue(cSettings, api: "cSettings", versions: [.v5])
+        if let cSettings = self._cSettings {
             try container.encode(cSettings, forKey: .cSettings)
         }
 
-        if let cxxSettings = self.cxxSettings {
-            let cxxSettings = VersionedValue(cxxSettings, api: "cxxSettings", versions: [.v5])
+        if let cxxSettings = self._cxxSettings {
             try container.encode(cxxSettings, forKey: .cxxSettings)
         }
 
-        if let swiftSettings = self.swiftSettings {
-            let swiftSettings = VersionedValue(swiftSettings, api: "swiftSettings", versions: [.v5])
+        if let swiftSettings = self._swiftSettings {
             try container.encode(swiftSettings, forKey: .swiftSettings)
         }
 
-        if let linkerSettings = self.linkerSettings {
-            let linkerSettings = VersionedValue(linkerSettings, api: "linkerSettings", versions: [.v5])
+        if let linkerSettings = self._linkerSettings {
             try container.encode(linkerSettings, forKey: .linkerSettings)
         }
     }

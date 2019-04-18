@@ -23,8 +23,6 @@ public enum ManifestParseError: Swift.Error {
     case runtimeManifestErrors([String])
 
     case duplicateDependencyDecl([[PackageDependencyDescription]])
-
-    case unsupportedAPI(api: String, supportedVersions: [ManifestVersion])
 }
 
 /// Resources required for manifest loading.
@@ -512,6 +510,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
             cmd += ["-sdk", sdkRoot.pathString]
         }
+        cmd += ["-package-description-version", manifestVersion.description]
         return cmd
     }
 
