@@ -41,6 +41,7 @@ extension MiscellaneousTestCase {
         ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
         ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
         ("testPackageManagerDefineAndXArgs", testPackageManagerDefineAndXArgs),
+        ("testPackageUse", testPackageUse),
         ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
         ("testPkgConfigCFamilyTargets", testPkgConfigCFamilyTargets),
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),

@@ -435,4 +435,21 @@ class MiscellaneousTestCase: XCTestCase {
         }
       #endif
     }
+
+    func testPackageUse() throws {
+        // This test ensures that the package manager can find the toolchains it needs,
+        // even when built as a package dependency.
+        // It creates a self‐built instance of the package manager (like package clients end up with)
+        // and ensures that that instance can build one of the fixtures.
+        let repositoryRoot = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+        let fixture = repositoryRoot.appending(RelativePath("Fixtures/Miscellaneous/EchoExecutable"))
+        let process = Process.init(arguments: [
+            "swift", "run", "--package-path", repositoryRoot.pathString,
+            "swift-build", "--package-path", fixture.pathString
+            ])
+        try process.launch()
+        let result = try process.waitUntilExit()
+        let output = try result.utf8Output() + result.utf8stderrOutput()
+        XCTAssertEqual(result.exitStatus, .terminated(code: 0), output)
+    }
 }

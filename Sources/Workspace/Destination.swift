@@ -56,7 +56,9 @@ public struct Destination {
     /// - Parameter originalWorkingDirectory: The working directory when the program was launched.
     private static func hostBinDir(
         originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory
-    ) -> AbsolutePath {
+    ) throws -> AbsolutePath {
+      #if COMPILE_FOR_TOOLCHAIN // Compiling as part of the Swift project.
+
       #if Xcode
         // For Xcode, set bin directory to the build directory containing the fake
         // toolchain created during bootstraping. This is obviously not production ready
@@ -75,6 +77,15 @@ public struct Destination {
         }
         return AbsolutePath(CommandLine.arguments[0], relativeTo: cwd).parentDirectory
       #endif
+
+      #else // Compiling as a package dependency.
+
+        guard let hostToolchainPath = Destination._hostToolchainPath else {
+            throw DestinationError.invalidInstallation("host toolchain not found")
+        }
+        return hostToolchainPath
+
+      #endif
     }
 
     /// The destination describing the host OS.
@@ -84,7 +95,7 @@ public struct Destination {
         environment: [String:String] = Process.env
     ) throws -> Destination {
         // Select the correct binDir.
-        let binDir = binDir ?? Destination.hostBinDir(
+        let binDir = try binDir ?? Destination.hostBinDir(
             originalWorkingDirectory: originalWorkingDirectory)
 
       #if os(macOS)
@@ -125,6 +136,69 @@ public struct Destination {
         )
       #endif
     }
+
+    private static func _hostToolchainSearchPaths() -> [() -> [AbsolutePath]] {
+        /// Searches for the Swift instance seen by the shell.
+        func generalSearch() -> [AbsolutePath] {
+            return (Process.findExecutable("swift")?.parentDirectory).map({ [$0] }) ?? []
+        }
+        /// Searches for the Swift instance owned by Xcode.
+        func xcodeSearch() -> [AbsolutePath] {
+            let process = Process(args: "xcrun", "--find", "swift")
+            do {
+                try process.launch()
+                let result = try process.waitUntilExit()
+                guard result.exitStatus == .terminated(code: 0) else {
+                    return []
+                }
+                var pathString = try result.utf8Output()
+                if pathString.last == "\n" { pathString.removeLast() }
+                let path = AbsolutePath(pathString).parentDirectory
+                return [path]
+            } catch {
+                return []
+            }
+        }
+        /// Searches for the Swift instance owned by the Swift Version Manager.
+        /// (https://github.com/kylef/swiftenv#swift-version-manager)
+        func swiftVersionManagerSearch() -> [AbsolutePath] {
+            let process = Process(args: "swiftenv", "which", "swift")
+            do {
+                try process.launch()
+                let result = try process.waitUntilExit()
+                guard result.exitStatus == .terminated(code: 0) else {
+                    return []
+                }
+                var pathString = try result.utf8Output()
+                if pathString.last == "\n" { pathString.removeLast() }
+                let path = AbsolutePath(pathString).parentDirectory
+                return [path]
+            } catch {
+                return []
+            }
+        }
+        return [
+            generalSearch,
+            xcodeSearch,
+            swiftVersionManagerSearch
+        ]
+    }
+    /// Internal static cache of the host toolchain path.
+    private static let _hostToolchainPath: AbsolutePath? = {
+        for group in _hostToolchainSearchPaths() {
+            for path in group() {
+                // Varify the toolchain is complete and not just a partial set of forwarding stubs.
+                let lib = path.parentDirectory.appending(component: "lib")
+                let llbuild = path.appending(RelativePath("swift-build-tool"))
+                let pm = lib.appending(RelativePath("swift/pm"))
+                if localFileSystem.isExecutableFile(llbuild),
+                    localFileSystem.isDirectory(pm) {
+                    return path
+                }
+            }
+        }
+        return nil
+    }()
 
     /// Returns macosx sdk platform framework path.
     public static func sdkPlatformFrameworkPath(environment: [String:String] = Process.env) -> AbsolutePath? {
