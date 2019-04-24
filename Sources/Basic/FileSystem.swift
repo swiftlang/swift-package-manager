@@ -231,7 +231,7 @@ private class LocalFileSystem: FileSystem {
 
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
         // Our semantics doesn't consider directories.
-        return self.isFile(path) && FileManager.default.isExecutableFile(atPath: path.pathString)
+        return  (self.isFile(path) || self.isSymlink(path)) && FileManager.default.isExecutableFile(atPath: path.pathString)
     }
 
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
