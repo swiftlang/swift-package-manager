@@ -652,11 +652,7 @@ public final class SwiftTargetBuildDescription {
 
         // Add arguments to colorize output if stdout is tty
         if BuildParameters.isTTY {
-            if ProcessEnv.vars["SWIFTPM_USE_NEW_COLOR_DIAGNOSTICS"] != nil {
-                args += ["-color-diagnostics"]
-            } else {
-                args += ["-Xfrontend", "-color-diagnostics"]
-            }
+            args += ["-color-diagnostics"]
         }
 
         // Add the output for the `.swiftinterface`, if requested.
