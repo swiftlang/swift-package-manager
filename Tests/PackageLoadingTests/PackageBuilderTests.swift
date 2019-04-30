@@ -1037,7 +1037,7 @@ class PackageBuilderTests: XCTestCase {
         manifest = createManifest(
             swiftVersions: [SwiftLanguageVersion(string: "6")!, SwiftLanguageVersion(string: "7")!])
         PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("package \'pkg\' requires minimum Swift language version 6 which is not supported by the current tools version (5.0.0)")
+            result.checkDiagnostic("package \'pkg\' requires minimum Swift language version 6 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))")
         }
     }
 

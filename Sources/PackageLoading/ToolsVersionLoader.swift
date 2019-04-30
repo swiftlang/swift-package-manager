@@ -64,7 +64,7 @@ extension Manifest {
         })
 
         let regularManifest = packagePath.appending(component: filename)
-        let toolsVersionLoader = ToolsVersionLoader()
+        let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
 
         // Find the version-specific manifest that statisfies the current tools version.
         if let versionSpecificCandidate = versionSpecificManifests.keys.sorted(by: >).first(where: { $0 <= currentToolsVersion }) {
