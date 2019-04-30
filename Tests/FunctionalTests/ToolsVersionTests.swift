@@ -103,7 +103,7 @@ class ToolsVersionTests: XCTestCase {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
                 XCTFail()
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssert(stderr.contains("is using Swift tools version 10000.1.0 but the installed version is 5.0.0"), stderr)
+                XCTAssert(stderr.contains("is using Swift tools version 10000.1.0 but the installed version is \(ToolsVersion.currentToolsVersion)"), stderr)
             }
 
             // Write the manifest with incompatible sources.
@@ -124,7 +124,7 @@ class ToolsVersionTests: XCTestCase {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
                 XCTFail()
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertTrue(stderr.contains("package 'Primary' requires minimum Swift language version 1000 which is not supported by the current tools version (5.0.0)"), stderr)
+                XCTAssertTrue(stderr.contains("package 'Primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))"), stderr)
             }
 
              try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
