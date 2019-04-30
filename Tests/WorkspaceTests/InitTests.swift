@@ -164,6 +164,33 @@ class InitTests: XCTestCase {
             XCTAssert(fs.exists(path.appending(component: "module.modulemap")))
         }
     }
+
+    func testInitManifest() throws {
+        mktmpdir { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending(component: "Foo")
+            let name = path.basename
+            try fs.createDirectory(path)
+
+            // Create the package
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.manifest)
+            var progressMessages = [String]()
+            initPackage.progressReporter = { message in
+                progressMessages.append(message)
+            }
+            try initPackage.writePackageStructure()
+
+            // Not picky about the specific progress messages, just checking that we got some.
+            XCTAssert(progressMessages.count > 0)
+
+            // Verify basic file system content that we expect in the package
+            let manifest = path.appending(component: "Package.swift")
+            XCTAssertTrue(fs.exists(manifest))
+            let manifestContents = try localFileSystem.readFileContents(manifest).description
+            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
+            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+        }
+    }
     
     // MARK: Special case testing
     
