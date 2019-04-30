@@ -6,6 +6,7 @@ extension InitTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__InitTests = [
+        ("testInitManifest", testInitManifest),
         ("testInitPackageEmpty", testInitPackageEmpty),
         ("testInitPackageExecutable", testInitPackageExecutable),
         ("testInitPackageLibrary", testInitPackageLibrary),
