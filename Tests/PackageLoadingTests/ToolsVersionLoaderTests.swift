@@ -156,17 +156,17 @@ class ToolsVersionLoaderTests: XCTestCase {
 
         try fs.writeFileContents(root.appending(component: "Package.swift"), bytes: "// swift-tools-version:1.0.0\n")
         try fs.writeFileContents(root.appending(component: "Package@swift-4.2.swift"), bytes: "// swift-tools-version:3.4.5\n")
-        try fs.writeFileContents(root.appending(component: "Package@swift-5.1.swift"), bytes: "// swift-tools-version:3.4.6\n")
-        try fs.writeFileContents(root.appending(component: "Package@swift-5.2.swift"), bytes: "// swift-tools-version:3.4.7\n")
-        try fs.writeFileContents(root.appending(component: "Package@swift-5.3.swift"), bytes: "// swift-tools-version:3.4.8\n")
+        try fs.writeFileContents(root.appending(component: "Package@swift-15.1.swift"), bytes: "// swift-tools-version:3.4.6\n")
+        try fs.writeFileContents(root.appending(component: "Package@swift-15.2.swift"), bytes: "// swift-tools-version:3.4.7\n")
+        try fs.writeFileContents(root.appending(component: "Package@swift-15.3.swift"), bytes: "// swift-tools-version:3.4.8\n")
 
         do {
-            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "5.1.1")).load(at: root, fileSystem: fs)
+            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "15.1.1")).load(at: root, fileSystem: fs)
             XCTAssertEqual(version.description, "3.4.6")
         }
 
         do {
-            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "5.2.5")).load(at: root, fileSystem: fs)
+            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "15.2.5")).load(at: root, fileSystem: fs)
             XCTAssertEqual(version.description, "3.4.7")
         }
 
@@ -176,7 +176,7 @@ class ToolsVersionLoaderTests: XCTestCase {
         }
 
         do {
-            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "5.3.0")).load(at: root, fileSystem: fs)
+            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "15.3.0")).load(at: root, fileSystem: fs)
             XCTAssertEqual(version.description, "3.4.8")
         }
     }
