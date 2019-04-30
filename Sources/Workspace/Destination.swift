@@ -57,7 +57,6 @@ public struct Destination {
     private static func hostBinDir(
         originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory
     ) throws -> AbsolutePath {
-      #if COMPILE_FOR_TOOLCHAIN // Compiling as part of the Swift project.
 
       #if Xcode
         // For Xcode, set bin directory to the build directory containing the fake
@@ -72,19 +71,23 @@ public struct Destination {
         return AbsolutePath(#file).parentDirectory
             .parentDirectory.parentDirectory.appending(components: ".build", hostTargetTriple.tripleString, "debug")
       #else
-        guard let cwd = originalWorkingDirectory else {
-            return try! AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory
+        /// The expected location if the package manager is part of a toolchain.
+        var assumingSameToolchain: AbsolutePath?
+        if let cwd = originalWorkingDirectory {
+            assumingSameToolchain = AbsolutePath(CommandLine.arguments[0], relativeTo: cwd).parentDirectory
+        } else {
+            assumingSameToolchain = try? AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory
         }
-        return AbsolutePath(CommandLine.arguments[0], relativeTo: cwd).parentDirectory
-      #endif
 
-      #else // Compiling as a package dependency.
-
-        guard let hostToolchainPath = Destination._hostToolchainPath else {
-            throw DestinationError.invalidInstallation("host toolchain not found")
+        if let sameToolchain = assumingSameToolchain,
+            UserToolchain.toolchainIsComplete(sameToolchain.parentDirectory) {
+            // Found toolchain the package manager belongs to.
+            return sameToolchain
+        } else {
+            // The package manager is not part of a toolchain because it was build as a package,
+            // so search for the toolchain separately:
+            return try UserToolchain.getHostToolchain().appending(component: "bin")
         }
-        return hostToolchainPath
-
       #endif
     }
 
@@ -136,69 +139,6 @@ public struct Destination {
         )
       #endif
     }
-
-    private static func _hostToolchainSearchPaths() -> [() -> [AbsolutePath]] {
-        /// Searches for the Swift instance seen by the shell.
-        func generalSearch() -> [AbsolutePath] {
-            return (Process.findExecutable("swift")?.parentDirectory).map({ [$0] }) ?? []
-        }
-        /// Searches for the Swift instance owned by Xcode.
-        func xcodeSearch() -> [AbsolutePath] {
-            let process = Process(args: "xcrun", "--find", "swift")
-            do {
-                try process.launch()
-                let result = try process.waitUntilExit()
-                guard result.exitStatus == .terminated(code: 0) else {
-                    return []
-                }
-                var pathString = try result.utf8Output()
-                if pathString.last == "\n" { pathString.removeLast() }
-                let path = AbsolutePath(pathString).parentDirectory
-                return [path]
-            } catch {
-                return []
-            }
-        }
-        /// Searches for the Swift instance owned by the Swift Version Manager.
-        /// (https://github.com/kylef/swiftenv#swift-version-manager)
-        func swiftVersionManagerSearch() -> [AbsolutePath] {
-            let process = Process(args: "swiftenv", "which", "swift")
-            do {
-                try process.launch()
-                let result = try process.waitUntilExit()
-                guard result.exitStatus == .terminated(code: 0) else {
-                    return []
-                }
-                var pathString = try result.utf8Output()
-                if pathString.last == "\n" { pathString.removeLast() }
-                let path = AbsolutePath(pathString).parentDirectory
-                return [path]
-            } catch {
-                return []
-            }
-        }
-        return [
-            generalSearch,
-            xcodeSearch,
-            swiftVersionManagerSearch
-        ]
-    }
-    /// Internal static cache of the host toolchain path.
-    private static let _hostToolchainPath: AbsolutePath? = {
-        for group in _hostToolchainSearchPaths() {
-            for path in group() {
-                // Varify the toolchain is complete and not just a partial set of forwarding stubs.
-                let lib = path.parentDirectory.appending(component: "lib")
-                let llbuild = path.appending(RelativePath("swift-build-tool"))
-                let pm = lib.appending(RelativePath("swift/pm"))
-                if localFileSystem.isExecutableFile(llbuild),
-                    localFileSystem.isDirectory(pm) {
-                    return path
-                }
-            }
-        }
-        return nil
-    }()
 
     /// Returns macosx sdk platform framework path.
     public static func sdkPlatformFrameworkPath(environment: [String:String] = Process.env) -> AbsolutePath? {

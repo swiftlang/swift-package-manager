@@ -97,6 +97,81 @@ public final class UserToolchain: Toolchain {
         return runtime
     }
 
+    private static func _hostToolchainSearchPaths() -> [() -> [AbsolutePath]] {
+        /// Searches for the Swift instance seen by the shell.
+        func generalSearch() -> [AbsolutePath] {
+            return (Process.findExecutable("swift")?.parentDirectory.parentDirectory).map({ [$0] }) ?? []
+        }
+        /// Searches for the Swift instance owned by Xcode.
+        func xcodeSearch() -> [AbsolutePath] {
+            let process = Process(args: "xcrun", "--find", "swift")
+            do {
+                try process.launch()
+                let result = try process.waitUntilExit()
+                guard result.exitStatus == .terminated(code: 0) else {
+                    return []
+                }
+                var pathString = try result.utf8Output()
+                if pathString.last == "\n" { pathString.removeLast() }
+                let path = AbsolutePath(pathString).parentDirectory.parentDirectory
+                return [path]
+            } catch {
+                return []
+            }
+        }
+        /// Searches for the Swift instance owned by the Swift Version Manager.
+        /// (https://github.com/kylef/swiftenv#swift-version-manager)
+        func swiftVersionManagerSearch() -> [AbsolutePath] {
+            let process = Process(args: "swiftenv", "which", "swift")
+            do {
+                try process.launch()
+                let result = try process.waitUntilExit()
+                guard result.exitStatus == .terminated(code: 0) else {
+                    return []
+                }
+                var pathString = try result.utf8Output()
+                if pathString.last == "\n" { pathString.removeLast() }
+                let path = AbsolutePath(pathString).parentDirectory.parentDirectory
+                return [path]
+            } catch {
+                return []
+            }
+        }
+        return [
+            generalSearch,
+            xcodeSearch,
+            swiftVersionManagerSearch
+        ]
+    }
+    /// Varifies that the toolchain is complete and not just a partial set of forwarding stubs.
+    internal static func toolchainIsComplete(_ toolchain: AbsolutePath) -> Bool {
+        let lib = toolchain.appending(component: "lib")
+        let llbuild = toolchain.appending(RelativePath("bin/swift-build-tool"))
+        let pm = lib.appending(RelativePath("swift/pm"))
+        if localFileSystem.isExecutableFile(llbuild),
+            localFileSystem.isDirectory(pm) {
+            return true
+        } else {
+            return false
+        }
+    }
+    /// Internal static cache of the host toolchain path.
+    private static let _hostToolchainPath: AbsolutePath? = {
+        for group in _hostToolchainSearchPaths() {
+            for path in group() where toolchainIsComplete(path) {
+                return path
+            }
+        }
+        return nil
+    }()
+    /// Returns the path to the host toolchain.
+    public static func getHostToolchain() throws -> AbsolutePath {
+        guard let hostToolchainPath = _hostToolchainPath else {
+            throw DestinationError.invalidInstallation("host toolchain not found")
+        }
+        return hostToolchainPath
+    }
+
     /// Determines the Swift compiler paths for compilation and manifest parsing.
     private static func determineSwiftCompilers(binDir: AbsolutePath, lookup: (String) -> AbsolutePath?) throws -> (compile: AbsolutePath, manifest: AbsolutePath) {
         func validateCompiler(at path: AbsolutePath?) throws {
