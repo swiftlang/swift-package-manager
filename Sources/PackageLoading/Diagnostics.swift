@@ -21,14 +21,13 @@ public enum PackageBuilderDiagnostics {
             name: "org.swift.diags.pkg-builder.nosources",
             defaultBehavior: .warning,
             description: {
-                $0 <<< "target" <<< { "'\($0.target)'" }
-                $0 <<< "in package" <<< { "'\($0.package)'" }
-                $0 <<< "contains no valid source files"
+                $0 <<< "Source files for target" <<< { "\($0.target)" }
+                $0 <<< "should be located under" <<< { "\($0.targetPath)" }
             }
         )
 
-        /// The name of the package.
-        public let package: String
+        /// The path of the target.
+        public let targetPath: String
 
         /// The name of the target which has no sources.
         public let target: String
