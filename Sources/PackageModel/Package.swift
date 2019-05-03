@@ -94,7 +94,7 @@ extension Package.Error: CustomStringConvertible {
    public var description: String {
         switch self {
         case .noManifest(let baseURL, let version):
-            var string = "\(baseURL) has no manifest"
+            var string = "\(baseURL) has no Package.swift manifest"
             if let version = version {
                 string += " for version \(version)"
             }
