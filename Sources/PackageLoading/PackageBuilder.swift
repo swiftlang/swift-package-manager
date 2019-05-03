@@ -24,8 +24,8 @@ public enum ModuleError: Swift.Error {
     /// Indicates two targets with the same name and their corresponding packages.
     case duplicateModule(String, [String])
 
-    /// One or more referenced targets could not be found.
-    case modulesNotFound([String])
+    /// The eferenced target could not be found.
+    case moduleNotFound(String)
 
     /// Invalid custom path.
     case invalidCustomPath(target: String, path: String)
@@ -67,9 +67,8 @@ extension ModuleError: CustomStringConvertible {
         case .duplicateModule(let name, let packages):
             let packages = packages.joined(separator: ", ")
             return "multiple targets named '\(name)' in: \(packages)"
-        case .modulesNotFound(let targets):
-            let targets = targets.joined(separator: ", ")
-            return "could not find source files for target(s): \(targets); use the 'path' property in the Swift 4 manifest to set a custom target path"
+        case .moduleNotFound(let target):
+            return "Source files for target \(target) should be located under 'Sources/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
         case .invalidLayout(let type):
             return "package has unsupported layout; \(type)"
         case .invalidManifestConfig(let package, let message):
@@ -456,7 +455,7 @@ public final class PackageBuilder {
             if fileSystem.isDirectory(path) {
                 return path
             }
-            throw ModuleError.modulesNotFound([target.name])
+            throw ModuleError.moduleNotFound(target.name)
         }
 
         // Create potential targets.
@@ -474,8 +473,8 @@ public final class PackageBuilder {
         let allReferencedModules = manifest.allReferencedModules()
         let potentialModulesName = Set(potentialModules.map({ $0.name }))
         let missingModules = allReferencedModules.subtracting(potentialModulesName).intersection(allReferencedModules)
-        guard missingModules.isEmpty else {
-            throw ModuleError.modulesNotFound(missingModules.map({ $0 }))
+        if let missingModule = missingModules.first {
+            throw ModuleError.moduleNotFound(missingModule)
         }
 
         let targetItems = manifest.targets.map({ ($0.name, $0 as TargetDescription) })
@@ -562,7 +561,7 @@ public final class PackageBuilder {
                 targets[createdTarget.name] = createdTarget
             } else {
                 emptyModules.insert(potentialModule.name)
-                diagnostics.emit(data: PackageBuilderDiagnostics.NoSources(package: manifest.name, target: potentialModule.name))
+                diagnostics.emit(data: PackageBuilderDiagnostics.NoSources(targetPath: potentialModule.path.pathString, target: potentialModule.name))
             }
         }
         return targets.values.map({ $0 })

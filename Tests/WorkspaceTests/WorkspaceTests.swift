@@ -743,7 +743,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         workspace.checkPackageGraph(deps: deps) { (_, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("dependency graph is unresolvable;"), behavior: .error)
+                result.check(diagnostic: .contains("the package dependency graph could not be resolved; possibly because of these requirements"), behavior: .error)
             }
         }
         // There should be no extra fetches.

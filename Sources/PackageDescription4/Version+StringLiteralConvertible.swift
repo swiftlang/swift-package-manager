@@ -18,7 +18,7 @@ extension Version: ExpressibleByStringLiteral {
             // the error and initialize with a dummy value.  This is done to
             // report error to the invoking tool (like swift build) gracefully
             // rather than just crashing.
-            errors.append("Invalid version string: \(value)")
+            errors.append("Invalid semantic version string '\(value)'")
             self.init(0, 0, 0)
         }
     }
