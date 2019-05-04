@@ -240,13 +240,13 @@ cat > "$cross_tc_basename/ubuntu-xenial-destination.json" <<EOF
     "toolchain-bin-dir": "$(pwd)/$cross_tc_basename/$xc_tc_name/usr/bin",
     "target": "x86_64-unknown-linux",
     "extra-cc-flags": [
-        "-fPIC"
+        "-fPIC", "-DCROSS_COMPILATION_TARGET_LINUX"
     ],
     "extra-swiftc-flags": [
-        "-use-ld=lld", "-tools-directory", "$(pwd)/$cross_tc_basename/$xc_tc_name/usr/bin"
+        "-use-ld=lld", "-tools-directory", "$(pwd)/$cross_tc_basename/$xc_tc_name/usr/bin", "-DCROSS_COMPILATION_TARGET_LINUX"
     ],
     "extra-cpp-flags": [
-        "-lstdc++"
+        "-lstdc++", "-DCROSS_COMPILATION_TARGET_LINUX"
     ]
 }
 EOF
