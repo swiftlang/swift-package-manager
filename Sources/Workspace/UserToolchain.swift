@@ -236,7 +236,8 @@ public final class UserToolchain: Toolchain {
         ] + destination.extraCCFlags
 
         // Compute the path of directory containing the PackageDescription libraries.
-        var pdLibDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+        let manifestBinDir = swiftCompilers.manifest.parentDirectory
+        var pdLibDir = manifestBinDir.parentDirectory.appending(components: "lib", "swift", "pm")
 
         // Look for an override in the env.
         if let pdLibDirEnvStr = Process.env["SWIFTPM_PD_LIBS"] {
