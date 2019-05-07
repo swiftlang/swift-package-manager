@@ -239,7 +239,7 @@ let package = Package(
 )
 ```
 
-The above manifest declares two target, `Foo` and `Bar`. `Bar` is a test target
+The above manifest declares two targets, `Foo` and `Bar`. `Bar` is a test target
 which depends on `Foo`. The Package Manager will automatically search for the
 targets inside package in the [predefined search paths](#target-format-reference).
 
