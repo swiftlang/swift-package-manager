@@ -228,6 +228,7 @@ class Target(object):
         link_input_nodes.append(compile_swift_node)
 
         other_args.extend(["-swift-version", "4"])
+        other_args.extend(["-module-cache-path", os.path.join(args.sandbox_path, "ModuleCache")])
         
         print("  %s:" % json.dumps(compile_swift_node), file=output)
         print("    tool: swift-compiler", file=output)
@@ -285,6 +286,8 @@ class Target(object):
                                      link_input_nodes, predecessor_node):
 
         common_args = ["-fobjc-arc", "-fmodule-name=%s" % self.module_name()]
+        common_args.extend(["-fmodules-cache-path=%s" % os.path.join(args.sandbox_path, "ModuleCache")])
+
         if platform.system() == 'Darwin':
             common_args.extend(["-arch", "x86_64", "-mmacosx-version-min=10.10"])
 
@@ -1028,6 +1031,7 @@ def main():
 
     build_path = os.path.join(g_project_root, args.build_path)
     sandbox_path = os.path.join(build_path, ".bootstrap")
+    args.sandbox_path = sandbox_path
     target_path = os.path.join(build_path, build_target)
 
     libdir = os.path.join(target_path, "lib")
