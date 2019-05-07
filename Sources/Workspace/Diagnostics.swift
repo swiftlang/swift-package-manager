@@ -71,10 +71,6 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestParseDiagnostic(errors, diagnosticFile: nil)
         case .duplicateDependencyDecl(let duplicates):
             return ManifestDuplicateDeclDiagnostic(duplicates)
-        case .unsupportedAPI(let api, let supportedVersions):
-            var error = "'\(api)' is only supported by manifest version(s): "
-            error += supportedVersions.map({ $0.description }).joined(separator: ", ")
-            return ManifestParseDiagnostic([error], diagnosticFile: nil)
         }
     }
 }
@@ -86,7 +82,7 @@ public enum ResolverDiagnostics {
             type: Unsatisfiable.self,
             name: "org.swift.diags.resolver.unsatisfiable",
             description: {
-                $0 <<< "dependency graph is unresolvable;"
+                $0 <<< "the package dependency graph could not be resolved;"
                 $0 <<< .substitution({
                     let `self` = $0 as! Unsatisfiable
 
@@ -94,18 +90,13 @@ public enum ResolverDiagnostics {
                     if self.dependencies.isEmpty && self.pins.isEmpty {
                         return ""
                     }
-                    var diag = "found these conflicting requirements:"
+                    var diag = "possibly because of these requirements:"
                     let indent = "    "
 
                     if !self.dependencies.isEmpty {
-                        diag += "\n\nDependencies: \n"
                         diag += self.dependencies.map({ indent + Unsatisfiable.toString($0) }).joined(separator: "\n")
                     }
 
-                    if !self.pins.isEmpty {
-                        diag += "\n\nPins: \n"
-                        diag += self.pins.map({ indent + Unsatisfiable.toString($0) }).joined(separator: "\n")
-                    }
                     return diag
                 }, preference: .default)
             }

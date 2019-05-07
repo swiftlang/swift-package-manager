@@ -140,11 +140,12 @@ class PackageDescription5LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail()
         } catch {
-            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                 return XCTFail("\(error)")
             }
-            XCTAssertEqual(api, "PackageDescription.SwiftVersion.v3")
-            XCTAssertEqual(supportedVersions, [.v4_2])
+
+            XCTAssertMatch(message, .contains("'v3' is unavailable"))
+            XCTAssertMatch(message, .contains("'v3' was obsoleted in PackageDescription 5"))
         }
     }
 

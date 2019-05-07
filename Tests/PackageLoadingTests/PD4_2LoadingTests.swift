@@ -175,16 +175,16 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail()
         } catch {
-            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                 return XCTFail("\(error)")
             }
-            XCTAssertEqual(api, "PackageDescription.SwiftVersion.v5")
-            XCTAssertEqual(supportedVersions, [.v5])
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
         }
     }
 
     func testPlatforms() throws {
-        // Unfortunately, we can't prevent the nil case.
         var stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -194,9 +194,16 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.name, "Foo")
-            XCTAssertEqual(manifest.platforms, [], "\(manifest.platforms)")
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail()
+        } catch {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("\(error)")
+            }
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
         }
 
         stream = BufferedOutputByteStream()
@@ -212,11 +219,12 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail()
         } catch {
-            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                 return XCTFail("\(error)")
             }
-            XCTAssertEqual(api, "platforms")
-            XCTAssertEqual(supportedVersions, [.v5])
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
         }
     }
 
@@ -244,11 +252,12 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail()
         } catch {
-            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                 return XCTFail("\(error)")
             }
-            XCTAssertEqual(api, "swiftSettings")
-            XCTAssertEqual(supportedVersions, [.v5])
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
         }
     }
 
@@ -411,7 +420,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail("Unexpected success")
         } catch ManifestParseError.runtimeManifestErrors(let errors) {
-            XCTAssertEqual(errors, ["Invalid version string: 1.0,0"])
+            XCTAssertEqual(errors, ["Invalid semantic version string '1.0,0'"])
         }
     }
 
