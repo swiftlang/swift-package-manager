@@ -116,9 +116,9 @@ extension Package: ObjectIdentifierProtocol {
 ///
 /// This represents a reference to a package containing its identity and location.
 public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConvertible, Equatable, Hashable {
-
+    public typealias Identifier = String
     /// Compute identity of a package given its URL.
-    public static func computeIdentity(packageURL: String) -> String {
+    public static func computeIdentity(packageURL: String) -> Identifier {
         // Get the last path component of the URL.
         var lastComponent = packageURL.split(separator: "/", omittingEmptySubsequences: true).last!
 
@@ -131,7 +131,7 @@ public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConv
     }
 
     /// The identity of the package.
-    public let identity: String
+    public let identity: Identifier
 
     /// The name of the package, if available.
     public let name: String?
@@ -146,7 +146,7 @@ public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConv
     public let isLocal: Bool
 
     /// Create a package reference given its identity and repository.
-    public init(identity: String, path: String, name: String? = nil, isLocal: Bool = false) {
+    public init(identity: Identifier, path: String, name: String? = nil, isLocal: Bool = false) {
         assert(identity == identity.lowercased(), "The identity is expected to be lowercased")
         self.name = name
         self.identity = identity

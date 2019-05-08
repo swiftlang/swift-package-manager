@@ -103,44 +103,33 @@ public struct PackageGraphLoader {
         createREPLProduct: Bool = false
     ) -> PackageGraph {
 
-        // Create a map of the manifests, keyed by their identity.
+        // A package graph depends on accessible (existing) Manifests.
+        // If Manifest is not avilable (not downloaded), dependency is not taken into account.
         //
         // FIXME: For now, we have to compute the identity of dependencies from
         // the URL but that shouldn't be needed after <rdar://problem/33693433>
         // Ensure that identity and package name are the same once we have an
         // API to specify identity in the manifest file
-        let manifestMapSequence = (root.manifests + externalManifests).map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
-        let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
-        let successors: (Manifest) -> [Manifest] = { manifest in
-            manifest.dependencies.compactMap({
+
+        // Create a map of the manifests, keyed by their identity. (manifest -> package) reference
+        let manifestMap = (root.manifests + externalManifests).map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
+                                                              .spm_createDictionary({$0})
+
+        // Construct the root manifest and root dependencies set.
+        let rootManifestSet = Set(root.manifests)
+        let rootDependenciesSet = Set(root.dependencies.map({ PackageReference.computeIdentity(packageURL: $0.url) })
+                                                       .compactMap({ manifestMap[$0] }))
+        // Collect the manifests for which we are going to build packages.
+        let allManifests = try! takeAllManifests(from: root.manifests + rootDependenciesSet, diagnostics: diagnostics) { manifest -> [Manifest] in
+            return manifest.dependencies.compactMap({
                 let url = config.mirroredURL(forURL: $0.url)
                 return manifestMap[PackageReference.computeIdentity(packageURL: url)]
             })
         }
 
-        // Construct the root manifest and root dependencies set.
-        let rootManifestSet = Set(root.manifests)
-        let rootDependencies = Set(root.dependencies.compactMap({
-            manifestMap[PackageReference.computeIdentity(packageURL: $0.url)]
-        }))
-        let inputManifests = root.manifests + rootDependencies
-
-        // Collect the manifests for which we are going to build packages.
-        let allManifests: [Manifest]
-
-        // Detect cycles in manifest dependencies.
-        if let cycle = findCycle(inputManifests, successors: successors) {
-            diagnostics.emit(PackageGraphError.cycleDetected(cycle))
-            // Break the cycle so we can build a partial package graph.
-            allManifests = inputManifests.filter({ $0 != cycle.cycle[0] })
-        } else {
-            // Sort all manifests toplogically.
-            allManifests = try! topologicalSort(inputManifests, successors: successors)
-        }
-
         // Create the packages.
-        var manifestToPackage: [Manifest: Package] = [:]
-        for manifest in allManifests {
+        // Create package builder objects from the input manifests.
+        let packageBuilders = allManifests.compactMap({ manifest -> Package? in
             let isRootPackage = rootManifestSet.contains(manifest)
 
             // Derive the path to the package.
@@ -148,8 +137,9 @@ public struct PackageGraphLoader {
             // FIXME: Lift this out of the manifest.
             let packagePath = manifest.path.parentDirectory
 
+            return diagnostics.wrap(with: PackageLocation.Local(name: manifest.name, packagePath: packagePath), {
             // Create a package from the manifest and sources.
-            let builder = PackageBuilder(
+                let package = try PackageBuilder(
                 manifest: manifest,
                 path: packagePath,
                 fileSystem: fileSystem,
@@ -157,24 +147,21 @@ public struct PackageGraphLoader {
                 isRootPackage: isRootPackage,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 createREPLProduct: isRootPackage ? createREPLProduct : false
-            )
-
-            diagnostics.wrap(with: PackageLocation.Local(name: manifest.name, packagePath: packagePath), {
-                let package = try builder.construct()
-                manifestToPackage[manifest] = package
+                                  ).construct()
 
                 // Throw if any of the non-root package is empty.
                 if package.targets.isEmpty && !isRootPackage {
                     throw PackageGraphError.noModules(package)
                 }
+
+                return package
             })
-        }
+        }).map({ ResolvedPackageBuilder($0) })
 
         // Resolve dependencies and create resolved packages.
         let resolvedPackages = createResolvedPackages(
-            allManifests: allManifests,
+            packageBuilders: packageBuilders,
             config: config,
-            manifestToPackage: manifestToPackage,
             rootManifestSet: rootManifestSet,
             diagnostics: diagnostics
         )
@@ -185,9 +172,21 @@ public struct PackageGraphLoader {
 
         return PackageGraph(
             rootPackages: rootPackages,
-            rootDependencies: resolvedPackages.filter({ rootDependencies.contains($0.manifest) }),
+            rootDependencies: resolvedPackages.filter({ rootDependenciesSet.contains($0.manifest) }),
             requiredDependencies: requiredDependencies
         )
+    }
+}
+
+private func takeAllManifests(from inputManifests: [Manifest], diagnostics: DiagnosticsEngine, successors: (Manifest) throws -> [Manifest]) throws -> [Manifest] {
+    // Detect cycles in manifest dependencies.
+    if let cycle = try findCycle(inputManifests, successors: successors) {
+        diagnostics.emit(PackageGraphError.cycleDetected(cycle))
+        // Break the cycle so we can build a partial package graph.
+        return inputManifests.filter({ $0 != cycle.cycle[0] })
+    } else {
+        // Sort all manifests toplogically.
+        return try topologicalSort(inputManifests, successors: successors)
     }
 }
 
@@ -229,22 +228,12 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
 
 /// Create resolved packages from the loaded packages.
 private func createResolvedPackages(
-    allManifests: [Manifest],
+    packageBuilders: [ResolvedPackageBuilder],
     config: SwiftPMConfig,
-    manifestToPackage: [Manifest: Package],
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifestSet: Set<Manifest>,
     diagnostics: DiagnosticsEngine
 ) -> [ResolvedPackage] {
-
-    // Create package builder objects from the input manifests.
-    let packageBuilders: [ResolvedPackageBuilder] = allManifests.compactMap({
-        guard let package = manifestToPackage[$0] else {
-            return nil
-        }
-        return ResolvedPackageBuilder(package)
-    })
-
     // Create a map of package builders keyed by the package identity.
     let packageMap: [String: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary({
         // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
@@ -327,6 +316,7 @@ private func createResolvedPackages(
         let productDependencies = packageBuilder.dependencies
             .flatMap({ $0.products })
             .filter({ $0.product.type != .test })
+
         let productDependencyMap = productDependencies.spm_createDictionary({ ($0.product.name, $0) })
 
         // Establish dependencies in each target.
@@ -338,34 +328,32 @@ private func createResolvedPackages(
             targetBuilder.dependencies += implicitSystemTargetDeps
 
             // Establish product dependencies.
-            for productRef in targetBuilder.target.productDependencies {
+            targetBuilder.productDeps += targetBuilder.target.productDependencies.compactMap({ (productName, productPackageName) -> ResolvedProductBuilder? in
                 // Find the product in this package's dependency products.
-                guard let product = productDependencyMap[productRef.name] else {
+                guard let product = productDependencyMap[productName] else {
                     // Only emit a diagnostic if there are no other diagnostics.
                     // This avoids flooding the diagnostics with product not
                     // found errors when there are more important errors to
                     // resolve (like authentication issues).
                     if !diagnostics.hasErrors {
-                        let error = PackageGraphError.productDependencyNotFound(name: productRef.name, package: productRef.package)
+                        let error = PackageGraphError.productDependencyNotFound(name: productName, target: targetBuilder.target.name)
                         diagnostics.emit(error, location: diagnosticLocation())
                     }
-                    continue
+                    return nil
                 }
 
                 // If package name is mentioned, ensure it is valid.
-                if let packageName = productRef.package {
+                if let productPackageName = productPackageName {
                     // Find the declared package and check that it contains
                     // the product we found above.
-                    guard let dependencyPackage = packageMap[packageName.lowercased()], dependencyPackage.products.contains(product) else {
-                        let error = PackageGraphError.productDependencyIncorrectPackage(
-                            name: productRef.name, package: packageName)
+                    guard let dependencyPackage = packageMap[productPackageName.lowercased()], dependencyPackage.products.contains(product) else {
+                        let error = PackageGraphError.productDependencyIncorrectPackage(name: productName, package: productPackageName)
                         diagnostics.emit(error, location: diagnosticLocation())
-                        continue
+                        return nil
                     }
                 }
-
-                targetBuilder.productDeps.append(product)
-            }
+                return product
+            })
         }
     }
 
