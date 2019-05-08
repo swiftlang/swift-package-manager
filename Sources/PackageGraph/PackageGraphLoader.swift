@@ -54,7 +54,7 @@ enum PackageGraphError: Swift.Error {
     case cycleDetected((path: [Manifest], cycle: [Manifest]))
 
     /// The product dependency not found.
-    case productDependencyNotFound(name: String, package: String?)
+    case productDependencyNotFound(name: String, target: String)
 
     /// The product dependency was found but the package name did not match.
     case productDependencyIncorrectPackage(name: String, package: String)
@@ -74,8 +74,8 @@ extension PackageGraphError: CustomStringConvertible {
                 (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0].name
 
-        case .productDependencyNotFound(let name, _):
-            return "product dependency '\(name)' not found"
+        case .productDependencyNotFound(let name, let target):
+            return "Product '\(name)' not found. It is required by target '\(target)'."
 
         case .productDependencyIncorrectPackage(let name, let package):
             return "product dependency '\(name)' in package '\(package)' not found"

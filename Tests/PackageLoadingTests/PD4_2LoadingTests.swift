@@ -420,7 +420,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail("Unexpected success")
         } catch ManifestParseError.runtimeManifestErrors(let errors) {
-            XCTAssertEqual(errors, ["Invalid version string: 1.0,0"])
+            XCTAssertEqual(errors, ["Invalid semantic version string '1.0,0'"])
         }
     }
 
