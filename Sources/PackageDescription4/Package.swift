@@ -17,13 +17,98 @@ import ucrt
 #endif
 import Foundation
 
-/// The description for a complete package.
+/// The `Package` type is used to configure the name, products, targets,
+/// dependencies and various other parts of the package.
+///
+/// By convention, the properties of a `Package` are defined in a single nested
+/// initializer statement, and not modified after initialization. For example:
+///
+///     // swift-tools-version:5.0
+///     import PackageDesc ription
+///
+///     let package = Package(
+///         name: "MyLibrary",
+///         platforms: [
+///             .macOS(.v10_14),
+///         ],
+///         products: [
+///             .library(name: "MyLibrary", targets: ["MyLibrary"]),
+///         ],
+///         dependencies: [
+///             .package(url: "https://url/of/another/package/named/Utility", from: "1.0.0"),
+///         ],
+///         targets: [
+///             .target(name: "MyLibrary", dependencies: ["Utility"]),
+///             .testTarget(name: "MyLibraryTests", dependencies: ["MyLibrary"]),
+///         ]
+///     )
+///
+/// # About the Swift Tools Version
+///
+/// A Package.swift manifest file must begin with the string `//
+/// swift-tools-version:` followed by a version number specifier.
+///
+/// Examples:
+///
+///     // swift-tools-version:3.0.2
+///     // swift-tools-version:3.1
+///     // swift-tools-version:4.0
+///     // swift-tools-version:5.0
+///
+/// The Swift tools version declares the version of the `PackageDescription`
+/// library, the minimum version of the Swift tools and Swift language
+/// compatibility version to process the manifest, and the minimum version of the
+/// Swift tools that are needed to use the Swift package. Each version of Swift
+/// can introduce updates to the `PackageDescription` library, but the previous
+/// API version will continue to be available to packages which declare a prior
+/// tools version. This behavior lets you take advantage of new releases of
+/// Swift, the Swift tools, and the `PackageDescription` library, without having
+/// to update your package's manifest or losing access to existing packages.
 public final class Package {
 
-    /// Represents a package dependency.
-    public class Dependency: Encodable {
+      /// A package dependency consists of a Git URL to the source of the package,
+      /// and a requirement for the version of the package that can be used.
+      ///
+      /// The Swift Package Manager performs a process called dependency resolution to
+      /// figure out the exact version of the package dependencies that can be used in
+      /// your package. The results of the dependency resolution are recorded in the
+      /// `Package.resolved` file which will be placed in the top-level directory of
+      /// your package.
+      public class Dependency: Encodable {
 
-        /// The dependency requirement.
+        /// The dependency requirement can be defined as one of three different version requirements.
+        ///
+        /// 1. Version-based Requirement
+        ///
+        ///     A requirement which restricts what version of a dependency your
+        ///     package can use based on its available versions. When a new package
+        ///     version is published, it should increment the major version component
+        ///     if it has backwards-incompatible changes. It should increment the
+        ///     minor version component if it adds new functionality in
+        ///     a backwards-compatible manner. And it should increment the patch
+        ///     version if it makes backwards-compatible bugfixes. To learn more about
+        ///     the syntax of semantic versioning syntax, see `Version` or visit
+        ///     https://semver.org (https://semver.org/).
+        ///
+        /// 2. Branch-based Requirement
+        ///
+        ///     Specify the name of a branch that a dependency will follow. This is
+        ///     useful when developing multiple packages which are closely related,
+        ///     allowing you to keep them in sync during development. Note that
+        ///     packages which use branch-based dependency requirements cannot be
+        ///     depended-upon by packages which use version-based dependency
+        ///     requirements; you should remove branch-based dependency requirements
+        ///     before publishing a version of your package.
+        ///
+        /// 3. Commit-based Requirement
+        ///
+        ///     A requirement that restricts a dependency to a specific commit
+        ///     hash. This is useful if you want to pin your package to a specific
+        ///     commit hash of a dependency. Note that packages which use
+        ///     commit-based dependency requirements cannot be depended-upon by
+        ///     packages which use version-based dependency requirements; you
+        ///     should remove commit-based dependency requirements before
+        ///     publishing a version of your package.
         public enum Requirement {
           #if PACKAGE_DESCRIPTION_4
             case exactItem(Version)
