@@ -8,7 +8,34 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-/// A struct representing a semver version.
+/// A struct representing a Semantic Version.
+///
+/// Semantic versioning is a specification that proposes a set of rules and
+/// requirements that dictate how version numbers are assigned and incremented.
+/// To learn more about the semantic versioning specification, visit
+/// www.semver.org.
+///
+/// # Semantic Versioning (SemVer) 2.0.0 
+/// 
+/// ## The Major Version
+///
+/// The major version signifies breaking changes to the API which requires
+/// updating existing clients. For example, renaming an existing type, removing
+/// a method or changing a method’s signature are considered breaking changes.
+/// This also includes any backwards incompatible bugfixes or behaviour changes
+/// of existing API.
+///
+/// ## The Minor Version
+///
+/// Update the minor version if functionality is added in a backward compatible
+/// manner. For example, adding a new method or type without changing any other
+/// API is considered backward-compatible.
+///
+/// ## The Patch Version
+///
+/// Increase the patch version if you are making a backward-compatible bugfix.
+/// This allows clients to benefit from bugfixes to your package without
+/// incurring any maintenance burden.
 public struct Version {
 
     /// The major version.
