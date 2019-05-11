@@ -24,6 +24,30 @@ public struct BuildConfiguration: Encodable {
 }
 
 /// A build setting condition.
+///
+/// By default, build settings will be applicable for all platforms and build
+/// configurations. The `.when` modifier can be used to conditionalize a build
+/// setting. Invalid usage of `.when` will cause an error to be emitted during
+/// manifest parsing. For example, it is invalid to specify a `.when` condition with
+/// both parameters as `nil`.
+///
+/// Here is an example usage of build setting conditions with various APIs:
+///
+///    ...
+///    .target(
+///        name: "MyTool",
+///        dependencies: ["Utility"],
+///        cSettings: [
+///            .headerSearchPath("path/relative/to/my/target"),
+///            .define("DISABLE_SOMETHING", .when(platforms: [.iOS], configuration: .release)),
+///        ],
+///        swiftSettings: [
+///            .define("ENABLE_SOMETHING", .when(configuration: .release)),
+///        ],
+///        linkerSettings: [
+///            .linkLibrary("openssl", .when(platforms: [.linux])),
+///        ]
+///    ),
 public struct BuildSettingCondition: Encodable {
 
     private let platforms: [Platform]?
@@ -37,11 +61,15 @@ public struct BuildSettingCondition: Encodable {
     /// Create a build setting condition.
     ///
     /// At least one parameter is mandatory.
+    ///
+    /// - Parameters:
+    ///   - platforms: The platforms for which this condition will be applied.
+    ///   - configuration: The build configuration for which this condition will be applied.
     public static func when(
         platforms: [Platform]? = nil,
         configuration: BuildConfiguration? = nil
     ) -> BuildSettingCondition {
-        // FIXME: This should be an error not a precondition.
+        // FIXME: This should be an error, not a precondition.
         precondition(!(platforms == nil && configuration == nil))
         return BuildSettingCondition(platforms: platforms, config: configuration)
     }
@@ -56,7 +84,7 @@ fileprivate struct BuildSettingData: Encodable {
     /// The value of the build setting.
     let value: [String]
 
-    /// The condition at which the build setting should be applied.
+    /// A condition which will restrict when the build setting applies.
     let condition: BuildSettingCondition?
 }
 
@@ -68,14 +96,32 @@ public struct CSetting: Encodable {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
     }
 
-    /// Provide a header search path relative to the target's root directory.
+    /// Provide a header search path relative to the target's directory.
     ///
-    /// The path must not escape the package boundary.
+    /// Use this setting to add a search path for headers within your target.
+    /// Absolute paths are disallowed and this setting can't be used to provide
+    /// headers that are visible to other targets.
+    ///
+    /// The path must be a directory inside the package.
+    ///
+    /// - Since: First available in PackageDescription 5.0
+    ///
+    /// - Parameters:
+    ///   - path: The path of the directory that should be searched for headers. The path is relative to the target's directory.
+    ///   - condition: A condition which will restrict when the build setting applies.
     public static func headerSearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "headerSearchPath", value: [path], condition: condition)
     }
 
-    /// Define macro to a value (or 1 if the value is omitted).
+    /// Defines a value for a macro. If no value is specified, the macro value will
+    /// be defined as 1.
+    ///
+    /// - Since: First available in PackageDescription 5.0
+    ///
+    /// - Parameters:
+    ///   - name: The name of the macro.
+    ///   - value: The value of the macro.
+    ///   - condition: A condition which will restrict when the build setting applies.
     public static func define(_ name: String, to value: String? = nil, _ condition: BuildSettingCondition? = nil) -> CSetting {
         var settingValue = name
         if let value = value {
@@ -84,7 +130,22 @@ public struct CSetting: Encodable {
         return CSetting(name: "define", value: [settingValue], condition: condition)
     }
 
-    /// Set the given unsafe flags.
+    /// Set unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
+    ///
+    /// As the usage of the word "unsafe" implies, the Swift Package Manager
+    /// can't safely determine if the build flags will have any negative
+    /// side-effect to the build since certain flags can change the behavior of
+    /// how a build is performed.
+    ///
+    /// As some build flags could be exploited for unsupported or malicious
+    /// behavior, the use of unsafe flags make the products containing this
+    /// target ineligible to be used by other packages.
+    ///
+    /// - Since: First available in PackageDescription 5.0
+    ///
+    /// - Parameters:
+    ///   - flags: The flags to set.
+    ///   - condition: A condition which will restrict when the build setting applies.
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
@@ -100,12 +161,30 @@ public struct CXXSetting: Encodable {
 
     /// Provide a header search path relative to the target's root directory.
     ///
-    /// The path must not escape the package boundary.
+    /// Use this setting to add a search path for headers within your target.
+    /// Absolute paths are disallowed and this setting can't be used to provide
+    /// headers that are visible to other targets.
+    ///
+    /// The path must be a directory inside the package.
+    ///
+    /// - Since: First available in PackageDescription 5.0
+    ///
+    /// - Parameters:
+    ///   - path: The path of the directory that should be searched for headers. The path is relative to the target's directory.
+    ///   - condition: A condition which will restrict when the build setting applies.
     public static func headerSearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         return CXXSetting(name: "headerSearchPath", value: [path], condition: condition)
     }
 
-    /// Define macro to a value (or 1 if the value is omitted).
+    /// Defines a value for a macro. If no value is specified, the macro value will
+    /// be defined as 1.
+    ///
+    /// - Since: First available in PackageDescription 5.0
+    ///
+    /// - Parameters:
+    ///   - name: The name of the macro.
+    ///   - value: The value of the macro.
+    ///   - condition: A condition which will restrict when the build setting applies.
     public static func define(_ name: String, to value: String? = nil, _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         var settingValue = name
         if let value = value {
@@ -114,7 +193,22 @@ public struct CXXSetting: Encodable {
         return CXXSetting(name: "define", value: [settingValue], condition: condition)
     }
 
-    /// Set the given unsafe flags.
+    /// Set unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
+    ///
+    /// As the usage of the word "unsafe" implies, the Swift Package Manager
+    /// can't safely determine if the build flags will have any negative
+    /// side-effect to the build since certain flags can change the behavior of
+    /// how a build is performed.
+    ///
+    /// As some build flags could be exploited for unsupported or malicious
+    /// behavior, the use of unsafe flags make the products containing this
+    /// target ineligible to be used by other packages.
+    ///
+    /// - Since: First available in PackageDescription 5.0
+    ///
+    /// - Parameters:
+    ///   - flags: The flags to set.
+    ///   - condition: A condition which will restrict when the build setting applies.
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         return CXXSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
@@ -128,12 +222,44 @@ public struct SwiftSetting: Encodable {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
     }
 
-    /// Marks the given conditional compilation flag as true.
+    /// Define a compilation condition.
+    ///
+    /// Compilation conditons are used inside to conditionally compile
+    /// statements. For example, the Swift compiler will only compile the
+    /// statements inside the `#if` block when `ENABLE_SOMETHING` is defined:
+    ///     
+    ///    #if ENABLE_SOMETHING
+    ///       ...
+    ///    #endif
+    ///
+    /// Unlike macros in C/C++, compilation conditions don't have an
+    /// associated value.
+    ///
+    /// - Since: First available in PackageDescription 5.0
+    ///
+    /// - Parameters:
+    ///   - name: The name of the macro.
+    ///   - condition: A condition which will restrict when the build setting applies.
     public static func define(_ name: String, _ condition: BuildSettingCondition? = nil) -> SwiftSetting {
         return SwiftSetting(name: "define", value: [name], condition: condition)
     }
 
-    /// Set the given unsafe flags.
+    /// Set unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
+    ///
+    /// As the usage of the word "unsafe" implies, the Swift Package Manager
+    /// can't safely determine if the build flags will have any negative
+    /// side-effect to the build since certain flags can change the behavior of
+    /// how a build is performed.
+    ///
+    /// As some build flags could be exploited for unsupported or malicious
+    /// behavior, the use of unsafe flags make the products containing this
+    /// target ineligible to be used by other packages.
+    ///
+    /// - Since: First available in PackageDescription 5.0
+    ///
+    /// - Parameters:
+    ///   - flags: The flags to set.
+    ///   - condition: A condition which will restrict when the build setting applies.
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> SwiftSetting {
         return SwiftSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
@@ -147,17 +273,52 @@ public struct LinkerSetting: Encodable {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
     }
 
-    /// Link a system library.
+    /// Declare linkage to a system library.
+    ///
+    /// This setting is most useful when the library can't be linked
+    /// automatically (for example, C++ based libraries and non-modular
+    /// libraries).
+    ///
+    /// - Since: First available in PackageDescription 5.0
+    ///
+    /// - Parameters:
+    ///   - library: The library name.
+    ///   - condition: A condition which will restrict when the build setting applies.
     public static func linkedLibrary(_ library: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "linkedLibrary", value: [library], condition: condition)
     }
 
-    /// Link a system framework.
+    /// Declare linkage to a framework.
+    ///
+    /// This setting is most useful when the framework can't be linked
+    /// automatically (for example, C++ based frameworks and non-modular
+    /// frameworks).
+    ///
+    /// - Since: First available in PackageDescription 5.0
+    ///
+    /// - Parameters:
+    ///   - framework: The framework name.
+    ///   - condition: A condition which will restrict when the build setting applies.
     public static func linkedFramework(_ framework: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "linkedFramework", value: [framework], condition: condition)
     }
 
-    /// Set the given unsafe flags.
+    /// Set unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
+    ///
+    /// As the usage of the word "unsafe" implies, the Swift Package Manager
+    /// can't safely determine if the build flags will have any negative
+    /// side-effect to the build since certain flags can change the behavior of
+    /// how a build is performed.
+    ///
+    /// As some build flags could be exploited for unsupported or malicious
+    /// behavior, the use of unsafe flags make the products containing this
+    /// target ineligible to be used by other packages.
+    ///
+    /// - Since: First available in PackageDescription 5.0
+    ///
+    /// - Parameters:
+    ///   - flags: The flags to set.
+    ///   - condition: A condition which will restrict when the build setting applies.
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
