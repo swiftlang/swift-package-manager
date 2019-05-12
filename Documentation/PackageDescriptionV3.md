@@ -1,22 +1,6 @@
 # PackageDescription API Version 3
 
-## Table of Contents
-
-* [Overview](README.md)
-* [Usage](Usage.md)
-* [**PackageDescription API Version 3**](PackageDescriptionV3.md)
-  * [Target Format Reference](#target-format-reference)
-    * [Source Layouts](#source-layouts)
-    * [Test Target Layouts](#test-target-layouts)
-    * [Other Rules](#other-rules)
-  * [Package Manifest File Format Reference](#package-manifest-file-format-reference)
-    * [Package Declaration](#package-declaration)
-    * [Package](#package)
-    * [Package Dependency](#package-dependency)
-  * [Version](#version)
-* [PackageDescription API Version 4](PackageDescriptionV4.md)
-* [PackageDescription API Version 4.2](PackageDescriptionV4_2.md)
-* [Resources](Resources.md)
+⚠️  This version is no longer supported ⚠️
 
 ---
 

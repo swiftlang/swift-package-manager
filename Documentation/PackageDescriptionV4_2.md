@@ -1,16 +1,8 @@
 # PackageDescription API Version 4.2
 
-## Table of Contents
+⚠️  This document is no longer maintained ⚠️
 
-* [Overview](README.md)
-* [Usage](Usage.md)
-* [PackageDescription API Version 3](PackageDescriptionV3.md)
-* [PackageDescription API Version 4](PackageDescriptionV4.md)
-* [**PackageDescription API Version 4.2**](PackageDescriptionV4_2.md)
-  * [Swift Language Version](#swift-language-version)
-  * [Local Dependencies](#local-dependencies)
-  * [System Library Targets](#system-library-targets)
-* [Resources](Resources.md)
+See [this](PackageDescription.md) document instead.
 
 ---
 
