@@ -24,9 +24,7 @@
   * [Depending on Apple Modules](#depending-on-apple-modules)
   * [C language targets](#c-language-targets)
   * [Shell completion scripts](#shell-completion-scripts)
-* [PackageDescription API Version 3](PackageDescriptionV3.md)
-* [PackageDescription API Version 4](PackageDescriptionV4.md)
-* [PackageDescription API Version 4.2](PackageDescriptionV4_2.md)
+* [PackageDescription API](PackageDescription.md)
 * [Resources](Resources.md)
 
 ---

@@ -1,16 +1,8 @@
 # PackageDescription API Version 4
 
-## Table of Contents
+⚠️  This document is no longer maintained ⚠️
 
-* [Overview](README.md)
-* [Usage](Usage.md)
-* [PackageDescription API Version 3](PackageDescriptionV3.md)
-* [**PackageDescription API Version 4**](PackageDescriptionV4.md)
-  * [Target Format Reference](#target-format-reference)
-  * [Package Manifest File Format Reference](#package-manifest-file-format-reference)
-  * [Version](#version)
-* [PackageDescription API Version 4.2](PackageDescriptionV4_2.md)
-* [Resources](Resources.md)
+See [this](PackageDescription.md) document instead.
 
 ---
 
