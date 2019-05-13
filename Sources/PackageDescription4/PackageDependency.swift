@@ -50,7 +50,7 @@ extension Package.Dependency {
     }
 
     /// Add a package dependency starting with a specific minimum version, up to
-    // but not including a specific maximum version.
+    /// but not including a specific maximum version.
     ///
     /// For example
     ///
