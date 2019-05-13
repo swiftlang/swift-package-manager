@@ -160,7 +160,7 @@ public final class Target {
     }
 
     /// Create a library or executable target.
-    //
+    ///
     /// A target can either contain Swift or C-family source files. You cannot
     /// mix Swift and C-family source files within a target. A target is
     /// considered to be an executable target if there is a `main.swift`,
@@ -196,7 +196,7 @@ public final class Target {
     }
 
     /// Create a library or executable target.
-    //
+    ///
     /// A target can either contain Swift or C-family source files. You cannot
     /// mix Swift and C-family source files within a target. A target is
     /// considered to be an executable target if there is a `main.swift`,
