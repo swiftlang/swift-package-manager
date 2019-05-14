@@ -142,6 +142,6 @@ struct SwiftCompilerTool: ToolProtocol {
         stream <<< "    enable-whole-module-optimization: "
             <<< Format.asJSON(target.buildParameters.configuration == .release) <<< "\n"
         stream <<< "    num-threads: "
-            <<< Format.asJSON("\(SwiftCompilerTool.numThreads)") <<< "\n"
+            <<< Format.asJSON("\(target.buildParameters.numThreads)") <<< "\n"
     }
 }

@@ -77,5 +77,8 @@ public class ToolOptions {
     /// Write dependency resolver trace to a file.
     public var enableResolverTrace = false
 
+    /// Limit the number of parallel instances of the swift compiler
+    public var numThreads = UInt32(0)
+
     public required init() {}
 }

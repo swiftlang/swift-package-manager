@@ -140,6 +140,9 @@ public struct BuildParameters {
     /// `.swiftmodule`s.
     public let enableParseableModuleInterfaces: Bool
 
+    /// Maximum number of threads to use for compilation (0 means use number of CPUs)
+    public let numThreads: UInt32
+
     /// Checks if stdout stream is tty.
     fileprivate let isTTY: Bool = {
         guard let stream = stdoutStream.stream as? LocalFileOutputByteStream else {
@@ -164,7 +167,8 @@ public struct BuildParameters {
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
-        enableParseableModuleInterfaces: Bool = false
+        enableParseableModuleInterfaces: Bool = false,
+        numThreads: UInt32 = 0
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
@@ -178,6 +182,7 @@ public struct BuildParameters {
         self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode
         self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
+        self.numThreads = numThreads
     }
 
     /// Returns the compiler arguments for the index store, if enabled.
