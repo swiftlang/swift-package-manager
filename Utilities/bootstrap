@@ -682,6 +682,8 @@ def process_runtime_libraries(build, args, lib_path):
         tf = tempfile.NamedTemporaryFile(suffix=".swift")
         cmd += [tf.name]
 
+    cmd.extend(["-module-cache-path", os.path.join(args.sandbox_path, "ModuleCache")])
+
     subprocess.check_call(cmd)
     return (runtime_module_path, runtime_swiftdoc_path, runtime_lib_path)
 
