@@ -28,8 +28,6 @@ public struct Platform: Encodable {
 
 /// Represents a platform supported by the package.
 ///
-/// # The Supported Platform
-///
 /// By default, the Swift Package Manager assigns a predefined minimum deployment
 /// version for each supported platforms unless configured using the `platforms`
 /// API. This predefined deployment version will be the oldest deployment target
