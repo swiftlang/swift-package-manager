@@ -1165,7 +1165,7 @@ def main():
 
             # Add XCTest.
             for module_file in ["XCTest.swiftmodule", "XCTest.swiftdoc"]:
-                symlink_force(os.path.join(args.xctest_path, module_file), libincludedir)
+                symlink_force(os.path.join(args.xctest_path, 'swift', module_file), libincludedir)
             symlink_force(os.path.join(args.xctest_path, "libXCTest.so"), libswiftdir)
 
             return (libswiftdir, libincludedir)
