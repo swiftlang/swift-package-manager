@@ -709,10 +709,12 @@ public final class ProductBuildDescription {
         args += ["-module-name", product.name.spm_mangledToC99ExtendedIdentifier()]
         args += dylibs.map({ "-l" + $0.product.name })
 
-        // Add arguements needed for code coverage if it is enabled.
+        // Add arguments needed for code coverage if it is enabled.
         if buildParameters.enableCodeCoverage {
             args += ["-profile-coverage-mapping", "-profile-generate"]
         }
+
+        let containsSwiftTargets = product.containsSwiftTargets
 
         switch product.type {
         case .library(.automatic):
@@ -731,7 +733,8 @@ public final class ProductBuildDescription {
             args += ["-emit-library"]
         case .executable:
             // Link the Swift stdlib statically if requested.
-            if buildParameters.shouldLinkStaticSwiftStdlib {
+            if containsSwiftTargets,
+               buildParameters.shouldLinkStaticSwiftStdlib {
                 // FIXME: This does not work for linux yet (SR-648).
                 if !buildParameters.triple.isLinux() {
                     args += ["-static-stdlib"]
@@ -748,16 +751,24 @@ public final class ProductBuildDescription {
         args += ["@\(linkFileListPath.pathString)"]
 
         // Embed the swift stdlib library path inside tests and executables on Darwin.
-        switch product.type {
-        case .library: break
-        case .test, .executable:
-            if buildParameters.triple.isDarwin() {
-                let stdlib = buildParameters.toolchain.macosSwiftStdlib
-                args += ["-Xlinker", "-rpath", "-Xlinker", stdlib.pathString]
-            }
+        if containsSwiftTargets {
+          switch product.type {
+          case .library: break
+          case .test, .executable:
+              if buildParameters.triple.isDarwin() {
+                  let stdlib = buildParameters.toolchain.macosSwiftStdlib
+                  args += ["-Xlinker", "-rpath", "-Xlinker", stdlib.pathString]
+              }
+          }
         }
 
-        // Add agruments from declared build settings.
+        // Don't link runtime compatibility patch libraries if there are no
+        // Swift sources in the target.
+        if !containsSwiftTargets {
+          args += ["-runtime-compatibility-version", "none"]
+        }
+
+        // Add arguments from declared build settings.
         args += self.buildSettingsFlags()
 
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
