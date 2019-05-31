@@ -412,6 +412,8 @@ fileprivate struct CommandTaskTracker {
             finishedCount += 1
         case .cancelled, .failed:
             break
+        default:
+            break
         }
     }
     
