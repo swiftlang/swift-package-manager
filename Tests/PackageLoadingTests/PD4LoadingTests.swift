@@ -75,12 +75,21 @@ class PackageDescription4LoadingTests: XCTestCase {
         }
 
         let fiveVersions = [
-            "5.1.0", "6.1.100", "5.0.0", "7.0.0",
+            "5.0.0", "5.0.1", "5.0.2",
         ]
 
         for version in fiveVersions {
             let toolsVersion = ToolsVersion(string: version)!
             XCTAssertEqual(toolsVersion.manifestVersion, .v5, version)
+        }
+
+        let fiveOneVersions = [
+            "5.1.0", "6.1.100", "5.1.1", "7.0.0",
+        ]
+
+        for version in fiveOneVersions {
+            let toolsVersion = ToolsVersion(string: version)!
+            XCTAssertEqual(toolsVersion.manifestVersion, .v5_1, version)
         }
     }
 
