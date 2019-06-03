@@ -81,7 +81,7 @@ public enum SupportedLanguageExtension: String {
         switch manifestVersion {
         case .v4, .v4_2:
             return alwaysValidExts
-        case .v5:
+        case .v5, .v5_1:
             return alwaysValidExts.union(assemblyExtensions)
         }
     }

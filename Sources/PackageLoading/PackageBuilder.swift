@@ -367,7 +367,7 @@ public final class PackageBuilder {
             // Emit deprecation notice.
             switch manifest.manifestVersion {
             case .v4: break
-            case .v4_2, .v5:
+            case .v4_2, .v5, .v5_1:
                 diagnostics.emit(
                     data: PackageBuilderDiagnostics.SystemPackageDeprecatedDiagnostic(),
                     location: diagnosticLocation()
