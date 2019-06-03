@@ -186,6 +186,12 @@ extension SupportedPlatform {
         ///
         /// - Since: First available in PackageDescription 5.0
         public static let v10_14: MacOSVersion = .init(string: "10.14")
+
+        /// macOS 10.15
+        ///
+        /// - Since: First available in PackageDescription 5.1
+        @available(_PackageDescription, introduced: 5.1)
+        public static let v10_15: MacOSVersion = .init(string: "10.15")
     }
 
     public struct TVOSVersion: Encodable, AppleOSVersion {
@@ -218,6 +224,12 @@ extension SupportedPlatform {
         ///
         /// - Since: First available in PackageDescription 5.0
         public static let v12: TVOSVersion = .init(string: "12.0")
+
+        /// tvOS 13.0
+        ///
+        /// - Since: First available in PackageDescription 5.1
+        @available(_PackageDescription, introduced: 5.1)
+        public static let v13: TVOSVersion = .init(string: "13.0")
     }
 
     public struct IOSVersion: Encodable, AppleOSVersion {
@@ -255,6 +267,12 @@ extension SupportedPlatform {
         ///
         /// - Since: First available in PackageDescription 5.0
         public static let v12: IOSVersion = .init(string: "12.0")
+
+        /// iOS 13.0
+        ///
+        /// - Since: First available in PackageDescription 5.1
+        @available(_PackageDescription, introduced: 5.1)
+        public static let v13: IOSVersion = .init(string: "13.0")
     }
 
     public struct WatchOSVersion: Encodable, AppleOSVersion {
@@ -287,6 +305,12 @@ extension SupportedPlatform {
         ///
         /// - Since: First available in PackageDescription 5.0
         public static let v5: WatchOSVersion = .init(string: "5.0")
+
+        /// watchOS 6.0
+        ///
+        /// - Since: First available in PackageDescription 5.1
+        @available(_PackageDescription, introduced: 5.1)
+        public static let v6: WatchOSVersion = .init(string: "6.0")
     }
 }
 

@@ -70,10 +70,12 @@ extension ToolsVersion {
 
             // Otherwise, return 4.2
             return .v4_2
+        case 5 where minor < 1:
+            return .v5
 
         default:
             // For rest, return the latest manifest version.
-            return .v5
+            return .v5_1
         }
     }
 }
