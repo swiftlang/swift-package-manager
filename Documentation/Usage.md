@@ -684,11 +684,8 @@ A C language target is build with following flags in release mode:
 
 ## Depending on Apple Modules
 
-At this time there is no explicit support for depending on UIKit, AppKit, etc,
-though importing these modules should work if they are present in the proper
-system location. We will add explicit support for system dependencies in the
-future. Note that at this time the Package Manager has no support for iOS,
-watchOS, or tvOS platforms.
+Swift Package Manager includes a build system that can build for macOS and Linux.
+Xcode 11 integrates with libSwiftPM to provide support for iOS, watchOS, and tvOS platforms.
 
 ## C language targets
 
