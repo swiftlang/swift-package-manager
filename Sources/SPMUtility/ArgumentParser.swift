@@ -16,7 +16,7 @@ import func SPMLibc.exit
 public enum ArgumentParserError: Swift.Error {
 
     /// An unknown option is encountered.
-    case unknownOption(String)
+    case unknownOption(String, suggestion: String?)
 
     /// The value of an argument is invalid.
     case invalidValue(argument: String, error: ArgumentConversionError)
@@ -40,8 +40,11 @@ extension ArgumentParserError: LocalizedError {
 extension ArgumentParserError: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .unknownOption(let option):
-            return "unknown option \(option); use --help to list available options"
+        case .unknownOption(let option, let suggestion):
+            return [
+                "unknown option \(option); use --help to list available options",
+                suggestion.map { "Did you mean \($0)?" }
+            ].compactMap({ $0 }).joined(separator: "\n")
         case .invalidValue(let argument, let error):
             return "\(error) for argument \(argument); use --help to print usage"
         case .expectedValue(let option):
@@ -837,7 +840,15 @@ public final class ArgumentParser {
                 let (argumentString, value) = argumentString.spm_split(around: "=")
                 // Get the corresponding option for the option argument.
                 guard let optionArgument = optionsMap[argumentString] else {
-                    throw ArgumentParserError.unknownOption(argumentString)
+                    var suggestion: String?
+                    if #available(macOS 9999, *) {
+                        suggestion = optionsMap.keys
+                            .map({ ($0, $0.difference(from: argumentString).count) })
+                            .filter({ $0.1 < $0.0.count / 2 })
+                            .sorted(by: { $0.1 < $1.1 })
+                            .first?.0
+                    }
+                    throw ArgumentParserError.unknownOption(argumentString, suggestion: suggestion)
                 }
 
                 argument = optionArgument
