@@ -64,7 +64,7 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 	$ Utilities/bootstrap
 	```
 
-    Note: The bootstrap script requires having [Ninja](https://ninja-build.org/) installed.
+    Note: The bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed. Please refer to the [Swift project repo](https://github.com/apple/swift/blob/master/README.md#macos) for installation instructions.
 	
     This command will build the Package Manager inside `.build/` directory.
     Run the bootstrap script to rebuild after making a change to the source
