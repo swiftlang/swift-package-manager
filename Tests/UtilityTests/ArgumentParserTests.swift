@@ -120,8 +120,17 @@ class ArgumentParserTests: XCTestCase {
         do {
             _ = try parser.parse(["foo", "--bar"])
             XCTFail("unexpected success")
-        } catch ArgumentParserError.unknownOption(let option, _) {
+        } catch ArgumentParserError.unknownOption(let option, let suggestion) {
             XCTAssertEqual(option, "--bar")
+            XCTAssertNil(suggestion)
+        }
+
+        do {
+            _ = try parser.parse(["--food"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.unknownOption(let option, let suggestion) {
+            XCTAssertEqual(option, "--food")
+            XCTAssertEqual(suggestion, "--foo")
         }
 
         do {
