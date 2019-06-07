@@ -63,6 +63,8 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 	$ cd swiftpm
 	$ Utilities/bootstrap
 	```
+
+    Note: The bootstrap script requires having [Ninja](https://ninja-build.org/) installed.
 	
     This command will build the Package Manager inside `.build/` directory.
     Run the bootstrap script to rebuild after making a change to the source
