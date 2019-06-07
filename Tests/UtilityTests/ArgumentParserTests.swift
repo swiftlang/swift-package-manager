@@ -132,6 +132,13 @@ class ArgumentParserTests: XCTestCase {
             XCTAssertEqual(option, "--food")
             XCTAssertEqual(suggestion, "--foo")
         }
+        do {
+            _ = try parser.parse(["--verb"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.unknownOption(let option, let suggestion) {
+            XCTAssertEqual(option, "--verb")
+            XCTAssertNil(suggestion)
+        }
 
         do {
             _ = try parser.parse(["foo", "--verbosity"])

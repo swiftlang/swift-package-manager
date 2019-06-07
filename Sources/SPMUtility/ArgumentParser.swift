@@ -841,8 +841,9 @@ public final class ArgumentParser {
                 // Get the corresponding option for the option argument.
                 guard let optionArgument = optionsMap[argumentString] else {
                     var suggestion: String?
+                    // TODO: The available check should be removed when the tool chain gets an update that no longer requires it, and the check should be for macOS 10.15.
                     if #available(macOS 9999, *) {
-                        suggestion = optionsMap.keys
+                        suggestion = optionsMap.keys.lazy
                             .map({ ($0, $0.difference(from: argumentString).count) })
                             .filter({ $0.1 < $0.0.count / 2 })
                             .sorted(by: { $0.1 < $1.1 })
