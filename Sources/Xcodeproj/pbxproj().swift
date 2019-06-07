@@ -139,7 +139,9 @@ func xcodeProject(
 
     // Also set the `Xcode` build preset in Swift to let code conditionalize on
     // being built in Xcode.
-    projectSettings.common.OTHER_SWIFT_FLAGS += ["-DXcode"]
+    projectSettings.common.OTHER_SWIFT_FLAGS = ["$(inherited)"]
+        + (projectSettings.common.OTHER_SWIFT_FLAGS ?? [])
+        + ["-DXcode"]
     projectSettings.common.MACOSX_DEPLOYMENT_TARGET = "10.10"
 
     // Prevent Xcode project upgrade warnings.
