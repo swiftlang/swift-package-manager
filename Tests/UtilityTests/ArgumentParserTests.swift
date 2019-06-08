@@ -724,4 +724,16 @@ class ArgumentParserTests: XCTestCase {
         args = try parser.parse(["0"])
         XCTAssertEqual(args.get(positional), 0)
     }
+  
+    func testSingleValueMultipleTimes() throws {
+        let parser = ArgumentParser(usage: "sample", overview: "sample")
+        _ = parser.add(option: "--verbosity", kind: Int.self)
+      
+        do {
+            _ = try parser.parse(["--verbosity", "5", "--verbosity", "6"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.duplicateArgument(let argument) {
+            XCTAssertEqual(argument, "--verbosity")
+        }
+    }
 }

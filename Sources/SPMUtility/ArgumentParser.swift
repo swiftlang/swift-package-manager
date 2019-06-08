@@ -29,6 +29,9 @@ public enum ArgumentParserError: Swift.Error {
 
     /// Expected these positional arguments but not found.
     case expectedArguments(ArgumentParser, [String])
+  
+    /// Expected a single argument but got multiple ones.
+    case duplicateArgument(String)
 }
 
 extension ArgumentParserError: LocalizedError {
@@ -50,6 +53,8 @@ extension ArgumentParserError: CustomStringConvertible {
             return "unexpected argument \(argument); use --help to list available arguments"
         case .expectedArguments(_, let arguments):
             return "expected arguments: \(arguments.joined(separator: ", "))"
+        case .duplicateArgument(let option):
+            return "expected single value for argument: \(option)"
         }
     }
 }
@@ -556,6 +561,11 @@ public final class ArgumentParser {
                     assertionFailure()
                     return
                 }
+              
+                guard results[argument.name] == nil else {
+                    throw ArgumentParserError.duplicateArgument(argument.name)
+                }
+              
                 results[argument.name] = value
             }
         }
