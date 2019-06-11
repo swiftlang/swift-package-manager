@@ -37,7 +37,7 @@ public func editDistance(_ first: String, _ second: String) -> Int {
     return distance[a.count][b.count]
 }
 
-/// Finds the "best" match for the given `String` from the given options using`editDistance(_:_:)`.
+/// Finds the "best" match for a `String` from an array of possible options.
 ///
 /// - Parameters:
 ///     - input: The input `String` to match.
