@@ -368,7 +368,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         binder.bind(
             option: parser.add(option: "--jobs", shortName: "-j", kind: Int.self,
-                usage: "Limit the number of parallel jobs that we tell llbuild to perform."),
+                usage: "The number of jobs to spawn in parallel during the build process"),
             to: { $0.jobs = UInt32($1) })
 
         // Let subclasses bind arguments.
@@ -686,7 +686,7 @@ public class SwiftTool<Options: ToolOptions> {
             args.append("-v")
         }
         if let jobs = options.jobs {
-            args.append("-j(\(jobs))")
+            args.append("-j\(jobs)")
         }
 
         // Create the environment for llbuild.
