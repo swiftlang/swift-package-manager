@@ -26,22 +26,14 @@ public struct BuildParameters {
         case auto
     }
 
-    // FIXME: Error handling.
-    //
-    /// Path to the module cache directory to use for SwiftPM's own tests.
-    public static let swiftpmTestCache = resolveSymlinks(try! determineTempDirectory()).appending(component: "org.swift.swiftpm.tests-3")
-
     /// Returns the directory to be used for module cache.
     fileprivate var moduleCache: AbsolutePath {
-        let base: AbsolutePath
         // FIXME: We use this hack to let swiftpm's functional test use shared
         // cache so it doesn't become painfully slow.
-        if Process.env["IS_SWIFTPM_TEST"] != nil {
-            base = BuildParameters.swiftpmTestCache
-        } else {
-            base = buildPath
+        if let path = Process.env["SWIFTPM_TESTS_MODULECACHE"] {
+            return AbsolutePath(path)
         }
-        return base.appending(component: "ModuleCache")
+        return buildPath.appending(component: "ModuleCache")
     }
 
     /// The path to the data directory.

@@ -384,13 +384,21 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let runtimePath = self.runtimePath(for: manifestVersion).pathString
             let interpreterFlags = self.interpreterFlags(for: manifestVersion)
 
+            // FIXME: Workaround for the module cache bug that's been haunting Swift CI
+            // <rdar://problem/48443680>
+            let moduleCachePath = Process.env["SWIFTPM_TESTS_MODULECACHE"]
+
             var cmd = [String]()
           #if os(macOS)
             // If enabled, use sandbox-exec on macOS. This provides some safety against
             // arbitrary code execution when parsing manifest files. We only allow
             // the permissions which are absolutely necessary for manifest parsing.
             if isManifestSandboxEnabled {
-                cmd += ["sandbox-exec", "-p", sandboxProfile(cacheDir)]
+                let cacheDirs = [
+                    cacheDir,
+                    moduleCachePath.map{ AbsolutePath($0) }
+                ].compactMap{$0}
+                cmd += ["sandbox-exec", "-p", sandboxProfile(cacheDirs)]
             }
           #endif
             cmd += [resources.swiftCompiler.pathString]
@@ -399,6 +407,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += verbosity.ccArgs
             cmd += ["-L", runtimePath, "-lPackageDescription"]
             cmd += interpreterFlags
+            if let moduleCachePath = moduleCachePath {
+                cmd += ["-module-cache-path", moduleCachePath]
+            }
 
             // Add the arguments for emitting serialized diagnostics, if requested.
             if serializedDiagnostics, cacheDir != nil {
@@ -542,7 +553,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.
-private func sandboxProfile(_ cacheDir: AbsolutePath? = nil) -> String {
+private func sandboxProfile(_ cacheDirs: [AbsolutePath] = []) -> String {
     let stream = BufferedOutputByteStream()
     stream <<< "(version 1)" <<< "\n"
     // Deny everything by default.
@@ -559,7 +570,7 @@ private func sandboxProfile(_ cacheDir: AbsolutePath? = nil) -> String {
     for directory in Platform.darwinCacheDirectories() {
         stream <<< "    (regex #\"^\(directory.pathString)/org\\.llvm\\.clang.*\")" <<< "\n"
     }
-    if let cacheDir = cacheDir {
+    for cacheDir in cacheDirs {
         stream <<< "    (subpath \"\(cacheDir.pathString)\")" <<< "\n"
     }
     stream <<< ")" <<< "\n"
