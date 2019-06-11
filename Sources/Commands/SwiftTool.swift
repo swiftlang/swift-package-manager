@@ -675,7 +675,6 @@ public class SwiftTool<Options: ToolOptions> {
             let allowedDirectories = [
                 tempDir,
                 buildPath,
-                BuildParameters.swiftpmTestCache
             ].map(resolveSymlinks)
             args += ["sandbox-exec", "-p", sandboxProfile(allowedDirectories: allowedDirectories)]
         }
@@ -842,7 +841,7 @@ private func findPackageRoot() -> AbsolutePath? {
 /// Returns the build path from the environment, if present.
 private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
     // Don't rely on build path from env for SwiftPM's own tests.
-    guard Process.env["IS_SWIFTPM_TEST"] == nil else { return nil }
+    guard Process.env["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
     guard let env = Process.env["SWIFTPM_BUILD_DIR"] else { return nil }
     return AbsolutePath(env, relativeTo: workingDir)
 }
