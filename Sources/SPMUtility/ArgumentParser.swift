@@ -41,10 +41,11 @@ extension ArgumentParserError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .unknownOption(let option, let suggestion):
-            return [
-                "unknown option \(option); use --help to list available options",
-                suggestion.map { "Did you mean \($0)?" }
-            ].compactMap({ $0 }).joined(separator: "\n")
+            var desc = "unknown option \(option); use --help to list available options"
+            if let suggestion = suggestion {
+                desc += "\nDid you mean \(suggestion)?"
+            }
+            return desc
         case .invalidValue(let argument, let error):
             return "\(error) for argument \(argument); use --help to print usage"
         case .expectedValue(let option):
@@ -840,15 +841,7 @@ public final class ArgumentParser {
                 let (argumentString, value) = argumentString.spm_split(around: "=")
                 // Get the corresponding option for the option argument.
                 guard let optionArgument = optionsMap[argumentString] else {
-                    var suggestion: String?
-                    // TODO: The available check should be removed when the tool chain gets an update that no longer requires it, and the check should be for macOS 10.15.
-                    if #available(macOS 9999, *) {
-                        suggestion = optionsMap.keys.lazy
-                            .map({ ($0, $0.difference(from: argumentString).count) })
-                            .filter({ $0.1 < $0.0.count / 2 })
-                            .sorted(by: { $0.1 < $1.1 })
-                            .first?.0
-                    }
+                    let suggestion = bestMatch(for: argumentString, from: Array(optionsMap.keys))
                     throw ArgumentParserError.unknownOption(argumentString, suggestion: suggestion)
                 }
 
