@@ -41,6 +41,7 @@ struct SwiftCompilerMessage {
         case skipped(SkippedInfo)
         case finished(OutputInfo)
         case signalled(OutputInfo)
+        case unparsableOutput(String)
     }
 
     let name: String
@@ -166,7 +167,12 @@ private extension SwiftCompilerOutputParser {
         }
 
         guard let messageSize = Int(string) else {
-            throw ParsingError(reason: "invalid message size")
+            // Non-parseable chunks are *assumed* to be output. E.g., you get
+            // a "remark" if you build with SWIFTC_MAXIMUM_DETERMINISM env variable.
+            let message = SwiftCompilerMessage(name: "unknown", kind: .unparsableOutput(string))
+            delegate?.swiftCompilerOutputParser(self, didParse: message)
+            buffer.removeAll()
+            return
         }
 
         buffer.removeAll()

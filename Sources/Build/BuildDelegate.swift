@@ -432,7 +432,7 @@ fileprivate struct CommandTaskTracker {
             }
 
             finishedCount += 1
-        case .signalled, .skipped:
+        case .unparsableOutput, .signalled, .skipped:
             break
         }
     }
@@ -482,9 +482,10 @@ fileprivate struct CommandTaskTracker {
 
 extension SwiftCompilerMessage {
     fileprivate var verboseProgressText: String? {
-        if case .began(let info) = kind {
+        switch kind {
+        case .began(let info):
             return ([info.commandExecutable] + info.commandArguments).joined(separator: " ")
-        } else {
+        case .skipped, .finished, .signalled, .unparsableOutput:
             return nil
         }
     }
@@ -494,7 +495,9 @@ extension SwiftCompilerMessage {
         case .finished(let info),
              .signalled(let info):
             return info.output
-        default:
+        case .unparsableOutput(let output):
+            return output
+        case .skipped, .began:
             return nil
         }
     }

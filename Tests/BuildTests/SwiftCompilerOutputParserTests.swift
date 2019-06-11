@@ -211,7 +211,9 @@ class SwiftCompilerOutputParserTests: XCTestCase {
             2A
 
             """.utf8)
-        delegate.assert(messages: [], errorDescription: "invalid message size")
+        delegate.assert(messages: [
+            SwiftCompilerMessage(name: "unknown", kind: .unparsableOutput("2A"))
+        ], errorDescription: nil)
 
         parser.parse(bytes: """
             119
@@ -223,7 +225,9 @@ class SwiftCompilerOutputParserTests: XCTestCase {
               "signal": 4
             }
             """.utf8)
-        delegate.assert(messages: [], errorDescription: nil)
+        delegate.assert(messages: [
+            SwiftCompilerMessage(name: "link", kind: .signalled(.init(pid: 22699, output: nil)))
+        ], errorDescription: nil)
     }
 
     func testInvalidMessageBytes() {
