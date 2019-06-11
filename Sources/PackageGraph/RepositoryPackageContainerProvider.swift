@@ -324,6 +324,10 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         return "RepositoryPackageContainer(\(identifier.repository.url.debugDescription))"
     }
 
+    public var _isRemoteContainer: Bool {
+        return true
+    }
+
     public func getTag(for version: Version) -> String? {
         return knownVersions[version]
     }

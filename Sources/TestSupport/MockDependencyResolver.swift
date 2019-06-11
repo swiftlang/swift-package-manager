@@ -149,6 +149,10 @@ public class MockPackageContainer: PackageContainer {
         self._versions = versions.sorted().reversed()
         self.dependencies = dependencies
     }
+
+    public var _isRemoteContainer: Bool? {
+        return true
+    }
 }
 
 public class MockPackageContainer2: MockPackageContainer {

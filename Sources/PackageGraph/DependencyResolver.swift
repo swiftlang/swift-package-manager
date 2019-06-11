@@ -316,6 +316,13 @@ public protocol PackageContainer {
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
     func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference
+
+    /// Hack for the old resolver. Don't use.
+    var _isRemoteContainer: Bool? { get }
+}
+
+extension PackageContainer {
+    public var _isRemoteContainer: Bool? { return nil }
 }
 
 /// An interface for resolving package containers.
@@ -1006,6 +1013,8 @@ public class DependencyResolver {
         let constraintsWithNoAvailableVersions = constraints.filter { constraint in
             if case .versionSet(let versions) = constraint.requirement,
             let container = try? getContainer(for: constraint.identifier),
+            // FIXME: This is hacky but we should be moving away from this resolver anyway.
+            container._isRemoteContainer == true,
             !container.versions(filter: versions.contains).contains(where: { _ in true }) {
                 return true
             }
