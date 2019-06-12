@@ -151,30 +151,35 @@ public final class UserToolchain: Toolchain {
             return toolPath
         }
 
-        // Otherwise, lookup the tool on the system.
+        // Then, check the toolchain.
+        do {
+            let toolPath = destination.binDir.appending(component: "clang" + hostExecutableSuffix)
+            if localFileSystem.exists(toolPath) {
+                _clangCompiler = toolPath
+                return toolPath
+            }
+        }
+
+        // Otherwise, lookup it up on the system.
         let arguments = whichArgs + ["clang"]
         let foundPath = try Process.checkNonZeroExit(arguments: arguments, environment: processEnvironment).spm_chomp()
         guard !foundPath.isEmpty else {
             throw InvalidToolchainDiagnostic("could not find clang")
         }
         let toolPath = try AbsolutePath(validating: foundPath)
-
-        // If we found clang using xcrun, assume the vendor is Apple.
-        // FIXME: This might not be the best way to determine this.
-        #if os(macOS)
-            __isClangCompilerVendorApple = true
-        #endif
-
         _clangCompiler = toolPath
         return toolPath
     }
     private var _clangCompiler: AbsolutePath?
-    private var __isClangCompilerVendorApple: Bool?
 
     public func _isClangCompilerVendorApple() throws -> Bool? {
-        // The boolean gets computed as a side-effect of lookup for clang compiler.
-        _ = try getClangCompiler()
-        return __isClangCompilerVendorApple
+        // Assume the vendor is Apple on macOS.
+        // FIXME: This might not be the best way to determine this.
+      #if os(macOS)
+        return true
+      #else
+        return false
+      #endif
     }
 
     /// Returns the path to llvm-cov tool.

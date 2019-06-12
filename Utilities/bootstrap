@@ -306,7 +306,7 @@ class Target(object):
 
             link_input_nodes.append(object_path)
 
-            args = ["clang"]
+            args = [args.clang_path]
             args.extend(common_args)
             args.extend([deps_path, "-c", source,"-o", object_path])
 
@@ -733,6 +733,20 @@ def get_llbuild_source_path():
     note("clone llbuild next to swiftpm directory; see development docs: https://github.com/apple/swift-package-manager/blob/master/Documentation/Development.md#using-trunk-snapshot")
     error("unable to find llbuild source directory at %s" % llbuild_path)
 
+def get_clang_path():
+    try:
+        if os.getenv("CC"):
+            clang_path=os.path.realpath(os.getenv("CC"))
+            return clang_path
+        elif platform.system() == 'Darwin':
+            return subprocess.check_output(["xcrun", "--find", "clang"],
+                stderr=subprocess.PIPE, universal_newlines=True).strip()
+        else:
+            return subprocess.check_output(["which", "clang"],
+            universal_newlines=True).strip()
+    except:
+        error("unable to find 'clang' tool for bootstrap build")
+
 def get_swiftc_path():
     try:
         if os.getenv("SWIFT_EXEC"):
@@ -978,6 +992,7 @@ def main():
 
     if not args.swiftc_path:
         args.swiftc_path = get_swiftc_path()
+    args.clang_path = get_clang_path()
 
     args.swift_stdlib_path = os.path.normpath(
         os.path.join(os.path.dirname(os.path.realpath(args.swiftc_path)), "..",
@@ -1128,6 +1143,7 @@ def main():
     def make_fake_toolchain():
         symlink_force(args.swiftc_path, os.path.join(bindir, "swift"))
         symlink_force(args.swiftc_path, os.path.join(bindir, "swiftc"))
+        symlink_force(args.clang_path, os.path.join(bindir, "clang"))
         symlink_force(args.sbt_path, os.path.join(bindir, "swift-build-tool"))
         symlink_force(os.path.join(sandbox_path, "bin", "swift-build"),
                       bootstrapped_product)
