@@ -575,7 +575,7 @@ changes (e.g.  because a teammate pushed a new version of the file) the next
 resolve command will update packages to match that file. After a successful
 resolve command, the checked out versions of all dependencies and the versions
 recorded in the resolved versions file will match. In most cases the resolve
-command will perform no changes unless the `Package.swift manifest or
+command will perform no changes unless the `Package.swift` manifest or
 `Package.resolved` file have changed.
 
 Most SwiftPM commands will implicitly invoke the swift package resolve
