@@ -1,10 +1,23 @@
 import Workspace
 
-let swiftpm = SwiftPMHelper(rootPackage: localFileSystem.currentWorkingDirectory!)
-let workspace = swiftpm.createWorkspace()
+/// The path of the package.
+let package = localFileSystem.currentWorkingDirectory!
 
+/// Determine the directory that contains SwiftPM's PackageDescription libs.
+let libDir = AbsolutePath(#file).appending(RelativePath("../../../.build/.bootstrap/lib/swift/pm"))
+
+// Load package's manifest.
+let loader = ManifestLoader(manifestResources: UserManifestResources(libDir: libDir))
+let manifest = try loader.load(packagePath: package)
+
+print("Name in the manifest:", manifest.name)
+
+/// Create a workspace for the package.
+let workspace = Workspace.create(forRootPackage: package, libDir: libDir)
+
+/// Load it's package graph.
 let diagnostics = DiagnosticsEngine()
-let packageGraph = workspace.loadPackageGraph(root: swiftpm.rootPackage, diagnostics: diagnostics)
+let packageGraph = workspace.loadPackageGraph(root: package, diagnostics: diagnostics)
 
 let numberOfFiles = packageGraph.allTargets.reduce(0, { $0 + $1.sources.paths.count })
 print("Number of source files:", numberOfFiles)

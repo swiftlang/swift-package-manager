@@ -103,7 +103,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         }
     }
 
-    public func load(at path: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
+    public func load(at path: AbsolutePath, fileSystem: FileSystem = localFileSystem) throws -> ToolsVersion {
         // The file which contains the tools version.
         let file = try Manifest.path(atPackagePath: path, currentToolsVersion: currentToolsVersion, fileSystem: fileSystem)
         guard fileSystem.isFile(file) else {

@@ -31,7 +31,7 @@ public enum ManifestParseError: Swift.Error {
 /// using the package manager with alternate toolchains in the future.
 public protocol ManifestResourceProvider {
     /// The path of the swift compiler.
-    var swiftCompiler: AbsolutePath { get }
+    var swiftCompiler: AbsolutePath? { get }
 
     /// The path of the library resources.
     var libDir: AbsolutePath { get }
@@ -40,6 +40,23 @@ public protocol ManifestResourceProvider {
     ///
     /// If provided, it will be passed to the swift interpreter.
     var sdkRoot: AbsolutePath? { get }
+}
+
+/// Concrete object for manifest resource provider.
+public struct UserManifestResources: ManifestResourceProvider {
+    public let swiftCompiler: AbsolutePath?
+    public let libDir: AbsolutePath
+    public let sdkRoot: AbsolutePath?
+
+    public init(
+        swiftCompiler: AbsolutePath? = nil,
+        libDir: AbsolutePath,
+        sdkRoot: AbsolutePath? = nil
+        ) {
+        self.swiftCompiler = swiftCompiler
+        self.libDir = libDir
+        self.sdkRoot = sdkRoot
+    }
 }
 
 /// Default implemention for the resource provider.
@@ -178,6 +195,24 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             manifestResources: resources,
             isManifestSandboxEnabled: isManifestSandboxEnabled
        )
+    }
+
+    public func load(
+        packagePath path: AbsolutePath,
+        baseURL: String? = nil,
+        version: Version? = nil,
+        manifestVersion: ManifestVersion? = nil,
+        fileSystem: FileSystem? = nil,
+        diagnostics: DiagnosticsEngine? = nil
+    ) throws -> Manifest {
+        return try self.load(
+            packagePath: path,
+            baseURL: baseURL ?? path.basename,
+            version: version,
+            manifestVersion: manifestVersion ?? ToolsVersionLoader().load(at: path).manifestVersion,
+            fileSystem: fileSystem,
+            diagnostics: diagnostics
+        )
     }
 
     public func load(
@@ -401,7 +436,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 cmd += ["sandbox-exec", "-p", sandboxProfile(cacheDirs)]
             }
           #endif
-            cmd += [resources.swiftCompiler.pathString]
+            cmd += [resources.swiftCompiler?.pathString ?? "swiftc"]
             cmd += ["--driver-mode=swift"]
             cmd += bootstrapArgs()
             cmd += verbosity.ccArgs

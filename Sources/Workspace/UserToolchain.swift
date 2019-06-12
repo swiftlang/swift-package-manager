@@ -25,23 +25,6 @@ private let hostExecutableSuffix = ".exe"
 private let hostExecutableSuffix = ""
 #endif
 
-/// Concrete object for manifest resource provider.
-public struct UserManifestResources: ManifestResourceProvider {
-    public let swiftCompiler: AbsolutePath
-    public let libDir: AbsolutePath
-    public let sdkRoot: AbsolutePath?
-
-    public init(
-        swiftCompiler: AbsolutePath,
-        libDir: AbsolutePath,
-        sdkRoot: AbsolutePath? = nil
-    ) {
-        self.swiftCompiler = swiftCompiler
-        self.libDir = libDir
-        self.sdkRoot = sdkRoot
-    }
-}
-
 // FIXME: This is messy and needs a redesign.
 public final class UserToolchain: Toolchain {
 

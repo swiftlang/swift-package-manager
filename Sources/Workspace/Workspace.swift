@@ -365,10 +365,18 @@ public class Workspace {
     /// default paths.
     public static func create(
         forRootPackage packagePath: AbsolutePath,
-        manifestLoader: ManifestLoaderProtocol
+        libDir: AbsolutePath
     ) -> Workspace {
+        let buildDir = packagePath.appending(component: ".build")
+
+        let manifestLoader = ManifestLoader(
+            manifestResources: UserManifestResources(libDir: libDir),
+            isManifestSandboxEnabled: false,
+            cacheDir: buildDir
+        )
+
         return Workspace(
-            dataPath: packagePath.appending(component: ".build"),
+            dataPath: buildDir,
             editablesPath: packagePath.appending(component: "Packages"),
             pinsFile: packagePath.appending(component: "Package.resolved"),
             manifestLoader: manifestLoader
