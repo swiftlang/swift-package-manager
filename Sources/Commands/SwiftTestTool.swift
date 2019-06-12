@@ -482,8 +482,9 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             var env = try constructTestEnvironment(toolchain: try getToolchain(), options: self.options, buildParameters: self.buildParameters())
             // Add the sdk platform path if we have it. If this is not present, we
             // might always end up failing.
-            if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPath() {
-                env["DYLD_FRAMEWORK_PATH"] = sdkPlatformFrameworksPath.pathString
+            if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPaths() {
+                env["DYLD_FRAMEWORK_PATH"] = sdkPlatformFrameworksPath.fwk.pathString
+                env["DYLD_LIBRARY_PATH"] = sdkPlatformFrameworksPath.lib.pathString
             }
             try Process.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.

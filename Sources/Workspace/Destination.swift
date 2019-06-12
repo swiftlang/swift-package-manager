@@ -92,15 +92,21 @@ public struct Destination: Encodable {
         }
 
         // Compute common arguments for clang and swift.
-        // This is currently just frameworks path.
-        let commonArgs = Destination.sdkPlatformFrameworkPath(environment: environment).map({ ["-F", $0.pathString] }) ?? []
+        var extraCCFlags: [String] = []
+        var extraSwiftCFlags: [String] = []
+        if let sdkPaths = Destination.sdkPlatformFrameworkPaths(environment: environment) {
+            extraCCFlags += ["-F", sdkPaths.fwk.pathString]
+            extraSwiftCFlags += ["-F", sdkPaths.fwk.pathString]
+            extraSwiftCFlags += ["-I", sdkPaths.lib.pathString]
+            extraSwiftCFlags += ["-L", sdkPaths.lib.pathString]
+        }
 
         return Destination(
             target: hostTargetTriple,
             sdk: sdkPath,
             binDir: binDir,
-            extraCCFlags: commonArgs,
-            extraSwiftCFlags: commonArgs,
+            extraCCFlags: extraCCFlags,
+            extraSwiftCFlags: extraSwiftCFlags,
             extraCPPFlags: ["-lc++"]
         )
       #else
@@ -116,21 +122,31 @@ public struct Destination: Encodable {
     }
 
     /// Returns macosx sdk platform framework path.
-    public static func sdkPlatformFrameworkPath(environment: [String:String] = ProcessEnv.vars) -> AbsolutePath? {
+    public static func sdkPlatformFrameworkPaths(
+        environment: [String: String] = ProcessEnv.vars
+    ) -> (fwk: AbsolutePath, lib: AbsolutePath)? {
         if let path = _sdkPlatformFrameworkPath {
             return path
         }
         let platformPath = try? Process.checkNonZeroExit(
-            arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"], environment: environment).spm_chomp()
+            arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"],
+            environment: environment).spm_chomp()
 
         if let platformPath = platformPath, !platformPath.isEmpty {
-           _sdkPlatformFrameworkPath = AbsolutePath(platformPath).appending(
+            // For XCTest framework.
+            let fwk = AbsolutePath(platformPath).appending(
                 components: "Developer", "Library", "Frameworks")
+
+            // For XCTest Swift library.
+            let lib = AbsolutePath(platformPath).appending(
+                components: "Developer", "usr", "lib")
+
+            _sdkPlatformFrameworkPath = (fwk, lib)
         }
         return _sdkPlatformFrameworkPath
     }
     /// Cache storage for sdk platform path.
-    private static var _sdkPlatformFrameworkPath: AbsolutePath? = nil
+    private static var _sdkPlatformFrameworkPath: (fwk: AbsolutePath, lib: AbsolutePath)? = nil
 
     /// Target triple for the host system.
     private static let hostTargetTriple = Triple.hostTriple
