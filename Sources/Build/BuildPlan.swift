@@ -664,12 +664,16 @@ public final class ProductBuildDescription {
         return tempsPath.appending(component: "Objects.LinkFileList")
     }
 
+    /// Diagnostics Engine for emitting diagnostics.
+    let diagnostics: DiagnosticsEngine
+
     /// Create a build description for a product.
-    init(product: ResolvedProduct, buildParameters: BuildParameters, fs: FileSystem) {
+    init(product: ResolvedProduct, buildParameters: BuildParameters, fs: FileSystem, diagnostics: DiagnosticsEngine) {
         assert(product.type != .library(.automatic), "Automatic type libraries should not be described.")
         self.product = product
         self.buildParameters = buildParameters
         self.fs = fs
+        self.diagnostics = diagnostics
     }
 
     /// Strips the arguments which should *never* be passed to Swift compiler
@@ -724,12 +728,12 @@ public final class ProductBuildDescription {
         case .library(.dynamic):
             args += ["-emit-library"]
         case .executable:
-            // Link the Swift stdlib statically if requested.
-            if containsSwiftTargets,
-               buildParameters.shouldLinkStaticSwiftStdlib {
-                // FIXME: This does not work for linux yet (SR-648).
-                if !buildParameters.triple.isLinux() {
-                    args += ["-static-stdlib"]
+            // Link the Swift stdlib statically, if requested.
+            //
+            // FIXME: This does not work for linux yet (SR-648).
+            if buildParameters.shouldLinkStaticSwiftStdlib {
+                if buildParameters.triple.isDarwin() {
+                    diagnostics.emit(data: SwiftBackDeployLibrariesNote())
                 }
             }
             args += ["-emit-executable"]
@@ -861,7 +865,7 @@ public class BuildPlan {
     /// The filesystem to operate on.
     let fileSystem: FileSystem
 
-    /// Diagnostics Engine to emit diagnostics
+    /// Diagnostics Engine for emitting diagnostics.
     let diagnostics: DiagnosticsEngine
 
     /// Create a build plan with build parameters and a package graph.
@@ -938,7 +942,8 @@ public class BuildPlan {
         for product in graph.allProducts where product.type != .library(.automatic) {
             productMap[product] = ProductBuildDescription(
                 product: product, buildParameters: buildParameters,
-                fs: fileSystem
+                fs: fileSystem,
+                diagnostics: diagnostics
             )
         }
 
@@ -1217,4 +1222,14 @@ struct ProductRequiresHigherPlatformVersion: DiagnosticData {
         self.product = product
         self.platform = platform
     }
+}
+
+struct SwiftBackDeployLibrariesNote: DiagnosticData {
+    static let id = DiagnosticID(
+        type: SwiftBackDeployLibrariesNote.self,
+        name: "org.swift.diags.\(SwiftBackDeployLibrariesNote.self)",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at https://developer.apple.com/download/more/"
+    })
 }

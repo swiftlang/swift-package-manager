@@ -111,7 +111,7 @@ final class BuildPlanTests: XCTestCase {
         let linkArguments = [
             "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe",
-            "-static-stdlib", "-emit-executable",
+            "-emit-executable",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
         ]
@@ -126,6 +126,14 @@ final class BuildPlanTests: XCTestCase {
       #endif
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), linkArguments)
+
+      #if os(macOS)
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: .contains("can be downloaded"), behavior: .warning)
+        }
+      #else
+        XCTAssertNoDiagnostics(diagnostics)
+      #endif
     }
 
     func testBasicExtPackages() throws {
