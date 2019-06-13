@@ -69,9 +69,6 @@ public final class UserToolchain: Toolchain {
     /// This is only present on macOS.
     public let xctest: AbsolutePath?
 
-    /// Path to llbuild.
-    public let llbuild: AbsolutePath
-
     /// The compilation destination object.
     public let destination: Destination
 
@@ -215,13 +212,6 @@ public final class UserToolchain: Toolchain {
 
         let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) })
         self.swiftCompiler = swiftCompilers.compile
-
-        // Look for llbuild in bin dir.
-        llbuild = binDir.appending(component: "swift-build-tool" + hostExecutableSuffix)
-        guard localFileSystem.exists(llbuild) else {
-            throw InvalidToolchainDiagnostic("could not find `llbuild` at expected path \(llbuild)")
-        }
-
 
         // We require xctest to exist on macOS.
       #if os(macOS)
