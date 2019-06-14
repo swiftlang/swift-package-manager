@@ -182,3 +182,48 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
         ])
     }
 }
+
+/// A file watcher utility for the Package.resolved file.
+///
+/// This is not intended to be used directly by clients.
+final class ResolvedFileWatcher {
+    private var fswatch: FSWatch!
+    private var existingValue: ByteString?
+    private let valueLock: Lock = Lock()
+    private let resolvedFile: AbsolutePath
+
+    public func updateValue() {
+        valueLock.withLock {
+            self.existingValue = try? localFileSystem.readFileContents(resolvedFile)
+        }
+    }
+
+    init(resolvedFile: AbsolutePath, onChange: @escaping () -> ()) throws {
+        self.resolvedFile = resolvedFile
+
+        let block = { [weak self] (paths: [AbsolutePath]) in
+            guard let self = self else { return }
+
+            // Check if resolved file is part of the received paths.
+            let hasResolvedFile = paths.contains{ $0.appending(component: resolvedFile.basename) == resolvedFile }
+            guard hasResolvedFile else { return }
+
+            self.valueLock.withLock {
+                // Compute the contents of the resolved file and fire the onChange block
+                // if its value is different than existing value.
+                let newValue = try? localFileSystem.readFileContents(resolvedFile)
+                if self.existingValue != newValue {
+                    self.existingValue = newValue
+                    onChange()
+                }
+            }
+        }
+
+        fswatch = FSWatch(paths: [resolvedFile.parentDirectory], latency: 1, block: block)
+        try fswatch.start()
+    }
+
+    deinit {
+        fswatch.stop()
+    }
+}

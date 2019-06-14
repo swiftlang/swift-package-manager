@@ -13,34 +13,22 @@ import Dispatch
 import Foundation
 import SPMLibc
 
-public protocol FSWatchDelegate {
-    // FIXME: We need to provide richer information about the events.
-    func pathsDidReceiveEvent(_ paths: [AbsolutePath])
-}
-
 /// FSWatch is a cross-platform filesystem watching utility.
 public class FSWatch {
 
+    public typealias EventReceivedBlock = (_ paths: [AbsolutePath]) -> Void
+
     /// Delegate for handling events from the underling watcher.
-    fileprivate class _WatcherDelegate {
-
-        /// Back reference to the fswatch instance.
-        unowned let fsWatch: FSWatch
-
-        init(_ fsWatch: FSWatch) {
-            self.fsWatch = fsWatch
-        }
+    fileprivate struct _WatcherDelegate {
+        let block: EventReceivedBlock
 
         func pathsDidReceiveEvent(_ paths: [AbsolutePath]) {
-            fsWatch.delegate.pathsDidReceiveEvent(paths)
+            block(paths)
         }
     }
 
     /// The paths being watched.
     public let paths: [AbsolutePath]
-
-    /// The delegate for reporting received events.
-    let delegate: FSWatchDelegate
 
     /// The underlying file watching utility.
     ///
@@ -54,10 +42,9 @@ public class FSWatch {
     /// Create an instance with given paths.
     ///
     /// Paths can be files or directories. Directories are watched recursively.
-    public init(paths: [AbsolutePath], latency: Double = 1, delegate: FSWatchDelegate) {
+    public init(paths: [AbsolutePath], latency: Double = 1, block: @escaping EventReceivedBlock) {
         precondition(!paths.isEmpty)
         self.paths = paths
-        self.delegate = delegate
         self.latency = latency
 
       #if canImport(Glibc)
@@ -75,9 +62,9 @@ public class FSWatch {
             }
         }
 
-        self._watcher = Inotify(paths: ipaths, latency: latency, delegate: _WatcherDelegate(self))
+        self._watcher = Inotify(paths: ipaths, latency: latency, delegate: _WatcherDelegate(block: block))
       #elseif os(macOS)
-        self._watcher = FSEventStream(paths: paths, latency: latency, delegate: _WatcherDelegate(self))
+        self._watcher = FSEventStream(paths: paths, latency: latency, delegate: _WatcherDelegate(block: block))
       #else
         fatalError("Unsupported platform")
       #endif
@@ -603,7 +590,10 @@ public final class FSEventStream {
 
     /// Stop watching the events.
     public func stop() {
-        CFRunLoopStop(runLoop!)
+        // FIXME: This is probably not thread safe?
+        if let runLoop = self.runLoop {
+            CFRunLoopStop(runLoop)
+        }
     }
 }
 #endif
