@@ -164,6 +164,10 @@ public class BasePackageContainer: PackageContainer {
         self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
     }
+
+    public var _isRemoteContainer: Bool? {
+        return nil
+    }
 }
 
 /// Local package container.
@@ -324,7 +328,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         return "RepositoryPackageContainer(\(identifier.repository.url.debugDescription))"
     }
 
-    public var _isRemoteContainer: Bool {
+    public override var _isRemoteContainer: Bool? {
         return true
     }
 
