@@ -75,7 +75,6 @@ class CFamilyTargetTestCase: XCTestCase {
     }
 
     func testObjectiveCPackageWithTestTarget(){
-      #if DISABLED // rdar://problem/50057445
       #if os(macOS)
         fixture(name: "CFamilyTargets/ObjCmacOSPackage") { prefix in
             // Build the package.
@@ -84,7 +83,6 @@ class CFamilyTargetTestCase: XCTestCase {
             // Run swift-test on package.
             XCTAssertSwiftTest(prefix)
         }
-      #endif
       #endif
     }
 }

@@ -272,7 +272,6 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testPkgConfigCFamilyTargets() throws {
-    #if DISABLED // rdar://problem/50057445
         fixture(name: "Miscellaneous/PkgConfig") { prefix in
             let systemModule = prefix.appending(component: "SystemModule")
             // Create a shared library.
@@ -304,7 +303,6 @@ class MiscellaneousTestCase: XCTestCase {
 
             XCTAssertFileExists(moduleUser.appending(components: ".build", Destination.host.target.tripleString, "debug", "SystemModuleUserClang"))
         }
-    #endif
     }
 
     func testCanKillSubprocessOnSigInt() throws {
