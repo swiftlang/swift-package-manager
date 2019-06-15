@@ -265,6 +265,8 @@ public final class InitPackage {
     private func writeLinuxMain(testsPath: AbsolutePath) throws {
         try writePackageFile(testsPath.appending(component: "LinuxMain.swift")) { stream in
             stream <<< """
+                #if !os(watchOS)
+
                 import XCTest
 
                 import \(moduleName)Tests
@@ -273,6 +275,8 @@ public final class InitPackage {
                 tests += \(moduleName)Tests.allTests()
                 XCTMain(tests)
 
+                #endif
+
                 """
         }
     }
@@ -280,6 +284,8 @@ public final class InitPackage {
     private func writeLibraryTestsFile(_ path: AbsolutePath) throws {
         try writePackageFile(path) { stream in
             stream <<< """
+                #if !os(watchOS)
+
                 import XCTest
                 @testable import \(moduleName)
 
@@ -296,6 +302,8 @@ public final class InitPackage {
                     ]
                 }
 
+                #endif
+
                 """
         }
     }
@@ -303,6 +311,8 @@ public final class InitPackage {
     private func writeExecutableTestsFile(_ path: AbsolutePath) throws {
         try writePackageFile(path) { stream in
             stream <<< """
+                #if !os(watchOS)
+
                 import XCTest
                 import class Foundation.Bundle
 
@@ -351,6 +361,8 @@ public final class InitPackage {
                     ]
                 }
 
+                #endif
+
                 """
         }
     }
@@ -371,6 +383,8 @@ public final class InitPackage {
 
         try writePackageFile(testModule.appending(component: "XCTestManifests.swift")) { stream in
             stream <<< """
+                #if !os(watchOS)
+
                 import XCTest
 
                 #if !canImport(ObjectiveC)
@@ -379,6 +393,8 @@ public final class InitPackage {
                         testCase(\(moduleName)Tests.allTests),
                     ]
                 }
+                #endif
+
                 #endif
 
                 """
