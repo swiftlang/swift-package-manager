@@ -77,5 +77,8 @@ public class ToolOptions {
     /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
     public var jobs: UInt32? = nil
 
+    /// Whether to enable test discovery on platforms without Objective-C runtime.
+    public var enableTestDiscovery: Bool = false
+
     public required init() {}
 }
