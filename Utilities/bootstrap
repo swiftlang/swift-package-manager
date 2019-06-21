@@ -1226,14 +1226,17 @@ def main():
         build_flags.extend(["-Xswiftc", "-F%s" % args.llbuild_build_dir])
 
     # Embed rpath to find llbuild library or framework at runtime.
+    llbuild_libs_rpaths = []
     if args.llbuild_link_framework:
-        llbuild_libs_rpath = "@executable_path/../../../../../SharedFrameworks"
+        llbuild_libs_rpaths.append("@executable_path/../../../../../SharedFrameworks")
+        llbuild_libs_rpaths.append("@executable_path/../lib/swift/pm/llbuild")
     else:
         if platform.system() == 'Darwin':
-            llbuild_libs_rpath = "@executable_path/../lib/swift/pm/llbuild"
+            llbuild_libs_rpaths.append("@executable_path/../lib/swift/pm/llbuild")
         else:
-            llbuild_libs_rpath = "$ORIGIN/../lib/swift/pm/llbuild"
-    build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libs_rpath])
+            llbuild_libs_rpaths.append("$ORIGIN/../lib/swift/pm/llbuild")
+    for rpath in llbuild_libs_rpaths:
+        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", rpath])
 
     # Add llbuild link flags.
     build_flags.extend(llbuild_link_args(args))
