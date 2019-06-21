@@ -189,3 +189,11 @@ installed. This path can be overridden by setting the environment variable
 absolute search paths separated by colon (":"). SwiftPM will choose the first
 path which exists on disk. If none of the path are present on disk, it will fall
 back to built-in computation.
+
+## Skip SwiftPM tests
+
+SwiftPM has a hidden env variable `_SWIFTPM_SKIP_TESTS_LIST` that can be used
+to skip a list of tests. This value of the variable is either a file path that contains a
+new-line separated list of tests to skip or a colon separated list of tests.
+
+This is only a development feature and should be considered _unsupported_.
