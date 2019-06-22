@@ -1,0 +1,224 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
+import argparse
+import codecs
+import copy
+import errno
+import json
+import os
+import pipes
+import platform
+import re
+import stat
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+
+def note(message):
+    print("--- note: %s" % (message))
+    sys.stdout.flush()
+
+def error(message):
+    print("--- %s: error: %s" % (os.path.basename(sys.argv[0]), message))
+    sys.stdout.flush()
+    raise SystemExit(1)
+
+def symlink_force(target, link_name):
+    if os.path.isdir(link_name):
+        link_name = os.path.join(link_name, os.path.basename(target))
+    try:
+        os.symlink(target, link_name)
+    except OSError as e:
+        if e.errno == errno.EEXIST:
+            os.remove(link_name)
+            os.symlink(target, link_name)
+        else:
+            raise e
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as e:
+        # Ignore EEXIST, which may occur during a race condition.
+        if e.errno != errno.EEXIST:
+            raise
+
+def write_file_if_changed(path, data):
+    try:
+        with open(path) as f:
+            old_data = f.read()
+    except:
+        old_data = None
+    if old_data == data:
+        return
+
+    # Create directory if needed.
+    mkdir_p(os.path.dirname(path))
+
+    # Write the contents.
+    with open(path, "w") as f:
+        f.write(data)
+
+def rmdir(dir):
+    try:
+        subprocess.check_call(["rm", "-rf", dir])
+    except:
+        note("couldn't remove %s" % dir)
+
+###
+
+g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+g_build_path = os.path.join(g_project_root, ".build")
+g_source_root = os.path.join(g_project_root, "Sources")
+g_shared_fwk = None
+if platform.system() == 'Darwin':
+    g_shared_fwk = subprocess.check_output(
+        ["xcode-select", "-p"],
+        universal_newlines=True).strip()
+
+def dump_manifest():
+    cmd = ["swift", "package", "dump-package"]
+    note("Running: %s" % ' '.join(cmd))
+    return subprocess.check_output(cmd, cwd=g_project_root)
+
+def bootstrap(args):
+    note("Bootstrapping SwiftPM at %s" % build_path)
+    mkdir_p(build_path)
+
+    # rmdir(build_path)
+
+    # CMake.
+    cmake_cache_path = os.path.join(build_path, "CMakeCache.txt")
+    if not os.path.isfile(cmake_cache_path):
+        mkdir_p(build_path)
+        cmd = ["cmake", "-G", "Ninja", "-DCMAKE_BUILD_TYPE:=Debug", ("-DLLBUILD_FRAMEWORK=%s/../SharedFrameworks" % g_shared_fwk), g_project_root]
+        note("Running cmake for swiftpm bootstrap: %s" % ' '.join(cmd))
+        subprocess.check_call(cmd, cwd=build_path)
+
+    # Build.
+    subprocess.check_call(["ninja"], cwd=g_build_path)
+
+g_exclude_targets = [
+    "PackageDescription4",
+    "swiftpm-xctest-helper",
+    "TestSupport",
+    "TestSupportExecutable",
+]
+
+class Target(object):
+    def __init__(self, target):
+        # print(target["name"], target["dependencies"])
+        self.name = target["name"]
+
+        deps = []
+        for dep in target["dependencies"]:
+            deps.extend(dep["byName"])
+        self.dependencies = deps
+
+    def __str__(self):
+        return "Target<%s>: %s" % (self.name, self.dependencies)
+
+def make_targets(manifest_json):
+    targets = []
+    for target in manifest_json["targets"]:
+        if target["type"] != "regular" or target["name"] in g_exclude_targets:
+            continue
+        targets.append(Target(target))
+    return targets
+
+def write_main_cmake(targets):
+    file = "/tmp/cmake.txt"
+
+    output = StringIO()
+
+    preamble = """
+cmake_minimum_required(VERSION 3.14.20190603)
+
+project(SwiftPM LANGUAGES C Swift)
+
+# Place all modules into `swift` in the root of the build tree.
+set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
+
+# enable shared libraries by default.
+option(BUILD_SHARED_LIBS "Build shared libraries by default" YES)
+
+# Get the SDK path for macOS.
+execute_process(
+    COMMAND xcrun --sdk macosx --show-sdk-path
+    OUTPUT_VARIABLE CMAKE_OSX_SYSROOT
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+SET(CMAKE_Swift_FLAGS "${CMAKE_Swift_FLAGS} -sdk ${CMAKE_OSX_SYSROOT}")
+SET(CMAKE_Swift_FLAGS "${CMAKE_Swift_FLAGS} -swift-version 4.2")
+
+# For llbuild.
+option(LLBUILD_FRAMEWORK "Path to llbuild framework" "")
+option(LLBUILD_LIBRARY "Path to llbuild library" "")
+option(LLBUILD_SRC "Path to llbuild sources" "")
+
+if(LLBUILD_FRAMEWORK)
+    message("==== Using llbuild framework at ${LLBUILD_FRAMEWORK}")
+    SET(CMAKE_Swift_FLAGS "${CMAKE_Swift_FLAGS} -F${LLBUILD_FRAMEWORK}")
+    SET(CMAKE_Swift_FLAGS "${CMAKE_Swift_FLAGS} -Xlinker -rpath -Xlinker ${LLBUILD_FRAMEWORK}")
+elseif(LLBUILD_BUILD_DIR)
+    if(NOT LLBUILD_SRC)
+        message(FATAL_ERROR "Need LLBUILD_SRC when using LLBUILD_LIBRARY")
+    endif()
+    message("==== Using llbuild build dir at ${LLBUILD_BUILD_DIR}")
+    message("==== Using llbuild src at ${LLBUILD_SRC}")
+    SET(CMAKE_Swift_FLAGS "${CMAKE_Swift_FLAGS} -I${LLBUILD_BUILD_DIR}/products/llbuildSwift")
+    SET(CMAKE_Swift_FLAGS "${CMAKE_Swift_FLAGS} -I${LLBUILD_SRC}/products/libllbuild/include")
+    SET(CMAKE_Swift_FLAGS "${CMAKE_Swift_FLAGS} -L${LLBUILD_BUILD_DIR}/lib")
+    SET(CMAKE_Swift_FLAGS "${CMAKE_Swift_FLAGS} -Xlinker -rpath -Xlinker ${LLBUILD_BUILD_DIR}/lib")
+else()
+    message(FATAL_ERROR "Need LLBUILD_FRAMEWORK or LLBUILD_SRC + LLBUILD_LIBRARY")
+endif()
+
+include_directories(${CMAKE_SOURCE_DIR}/Sources/clibc/include)"""
+
+    print(preamble, file=output)
+
+    for target in targets:
+        deps = target.dependencies
+        deps = ' '.join(deps)
+        decl = """
+# ==================== {target} ==================== #
+file(GLOB {target}_SRC Sources/{target}/*.swift)
+add_library({target}
+    ${{{target}_SRC}}
+)""".format(target=target.name)
+
+        decl = """
+        {decl}
+target_link_libraries({target}
+    {deps})""".format(target=target.name, decl=decl, deps=deps)
+
+        decl += """
+set_target_properties({target} PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES ${{CMAKE_Swift_MODULE_DIRECTORY}}
+)""".format(target=target.name)
+
+        print(decl, file=output)
+
+    write_file_if_changed(
+            file, output.getvalue())
+
+def main():
+    parser = argparse.ArgumentParser()
+    args = parser.parse_args()
+
+    manifest_json = json.loads(dump_manifest())
+    targets = make_targets(manifest_json)
+
+    write_main_cmake(targets)
+
+if __name__ == '__main__':
+    main()

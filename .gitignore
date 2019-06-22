@@ -1,4 +1,5 @@
 .build
+build
 /.previous-build
 xcuserdata
 .DS_Store
