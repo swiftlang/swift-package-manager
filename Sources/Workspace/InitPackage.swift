@@ -176,6 +176,7 @@ public final class InitPackage {
                 /.build
                 /Packages
                 /*.xcodeproj
+                xcuserdata/
 
                 """
         }
