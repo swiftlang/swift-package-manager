@@ -136,10 +136,38 @@ public class TestToolOptions: ToolOptions {
     /// Generate LinuxMain entries and exit.
     var shouldGenerateLinuxMain = false
 
-    var testCaseSpecifier: TestCaseSpecifier = .none
+    var testCaseSpecifier: TestCaseSpecifier {
+        testCaseSpecifierOverride() ?? _testCaseSpecifier
+    }
+
+    var _testCaseSpecifier: TestCaseSpecifier = .none
 
     /// Path where the xUnit xml file should be generated.
     var xUnitOutput: AbsolutePath?
+
+    /// Returns the test case specifier if overridden in the env.
+    private func testCaseSpecifierOverride() -> TestCaseSpecifier? {
+        guard let override = ProcessEnv.vars["_SWIFTPM_SKIP_TESTS_LIST"] else {
+            return nil
+        }
+
+        do {
+            let skipTests: [String.SubSequence]
+            // Read from the file if it exists.
+            if let path = try? AbsolutePath(validating: override), localFileSystem.exists(path) {
+                let contents = try localFileSystem.readFileContents(path).cString
+                skipTests = contents.split(separator: "\n", omittingEmptySubsequences: true)
+            } else {
+                // Otherwise, read the env variable.
+                skipTests = override.split(separator: ":", omittingEmptySubsequences: true)
+            }
+
+            return .skip(skipTests.map(String.init))
+        } catch {
+            // FIXME: We should surface errors from here.
+        }
+        return nil
+    }
 }
 
 /// Tests filtering specifier
@@ -152,6 +180,7 @@ public enum TestCaseSpecifier {
     case none
     case specific(String)
     case regex(String)
+    case skip([String])
 }
 
 public enum TestMode {
@@ -234,7 +263,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 )
                 ranSuccessfully = runner.test()
 
-            case .regex, .specific:
+            case .regex, .specific, .skip:
                 // If old specifier `-s` option was used, emit deprecation notice.
                 if case .specific = options.testCaseSpecifier {
                     diagnostics.emit(data: SpecifierDeprecatedDiagnostic())
@@ -419,7 +448,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         binder.bind(
             option: parser.add(option: "--specifier", shortName: "-s", kind: String.self),
-            to: { $0.testCaseSpecifier = .specific($1) })
+            to: { $0._testCaseSpecifier = .specific($1) })
 
         binder.bind(
             option: parser.add(option: "--xunit-output", kind: PathArgument.self),
@@ -429,7 +458,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             option: parser.add(option: "--filter", kind: String.self,
                 usage: "Run test cases matching regular expression, Format: <test-target>.<test-case> or " +
                     "<test-target>.<test-case>/<test>"),
-            to: { $0.testCaseSpecifier = .regex($1) })
+            to: { $0._testCaseSpecifier = .regex($1) })
 
         binder.bind(
             option: parser.add(option: "--enable-code-coverage", kind: Bool.self,
@@ -925,6 +954,14 @@ fileprivate extension Sequence where Iterator.Element == TestSuite {
             })
         case .specific(let name):
             return allTests.filter{ $0.specifier == name }
+        case .skip(let skippedTests):
+            var result = allTests
+            for skippedTest in skippedTests {
+                result = result.filter{
+                    $0.specifier.range(of: skippedTest, options: .regularExpression) == nil
+                }
+            }
+            return result
         }
     }
 }
