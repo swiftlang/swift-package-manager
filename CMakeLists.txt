@@ -40,132 +40,248 @@ else()
     message(FATAL_ERROR "Need LLBUILD_FRAMEWORK or LLBUILD_SRC + LLBUILD_LIBRARY")
 endif()
 
+SET(CMAKE_Swift_FLAGS "${CMAKE_Swift_FLAGS} -Xlinker -rpath -Xlinker ${CMAKE_BINARY_DIR}")
 include_directories(${CMAKE_SOURCE_DIR}/Sources/clibc/include)
-
-# ================== Libc ===================== #
-add_library(clibc STATIC
-    Sources/clibc/libc.c)
-
-# ================== SPMLibc ===================== #
+add_library(clibc STATIC Sources/clibc/libc.c)
+# ==================== SPMLibc ==================== #
+file(GLOB SPMLibc_SRC Sources/SPMLibc/*.swift)
 add_library(SPMLibc
-    Sources/SPMLibc/libc.swift)
+Sources/SPMLibc/libc.swift
+)
 target_link_libraries(SPMLibc
-  clibc)
+    clibc)
 set_target_properties(SPMLibc PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-# ================== Basic ===================== #
-file(GLOB BASIC_SRC Sources/Basic/*.swift)
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY}
+)
+# ==================== Basic ==================== #
+file(GLOB Basic_SRC Sources/Basic/*.swift)
 add_library(Basic
-    ${BASIC_SRC}
+Sources/Basic/Await.swift
+Sources/Basic/ByteString.swift
+Sources/Basic/CStringArray.swift
+Sources/Basic/CacheableSequence.swift
+Sources/Basic/CollectionAlgorithms.swift
+Sources/Basic/CollectionExtensions.swift
+Sources/Basic/Condition.swift
+Sources/Basic/DeltaAlgorithm.swift
+Sources/Basic/DiagnosticsEngine.swift
+Sources/Basic/DictionaryExtensions.swift
+Sources/Basic/DictionaryLiteralExtensions.swift
+Sources/Basic/EditDistance.swift
+Sources/Basic/FileInfo.swift
+Sources/Basic/FileSystem.swift
+Sources/Basic/GraphAlgorithms.swift
+Sources/Basic/JSON.swift
+Sources/Basic/JSONMapper.swift
+Sources/Basic/KeyedPair.swift
+Sources/Basic/LazyCache.swift
+Sources/Basic/Lock.swift
+Sources/Basic/ObjectIdentifierProtocol.swift
+Sources/Basic/OrderedDictionary.swift
+Sources/Basic/OrderedSet.swift
+Sources/Basic/OutputByteStream.swift
+Sources/Basic/Path.swift
+Sources/Basic/PathShims.swift
+Sources/Basic/Process.swift
+Sources/Basic/ProcessEnv.swift
+Sources/Basic/ProcessSet.swift
+Sources/Basic/RegEx.swift
+Sources/Basic/Result.swift
+Sources/Basic/SHA256.swift
+Sources/Basic/SortedArray.swift
+Sources/Basic/StringConversions.swift
+Sources/Basic/SynchronizedQueue.swift
+Sources/Basic/TemporaryFile.swift
+Sources/Basic/TerminalController.swift
+Sources/Basic/Thread.swift
+Sources/Basic/Tuple.swift
+Sources/Basic/misc.swift
 )
 target_link_libraries(Basic
     SPMLibc)
 set_target_properties(Basic PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-# ================== Utility ===================== #
-file(GLOB UTILITY_SRC Sources/SPMUtility/*.swift)
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY}
+)
+# ==================== SPMUtility ==================== #
+file(GLOB SPMUtility_SRC Sources/SPMUtility/*.swift)
 add_library(SPMUtility
-    ${UTILITY_SRC}
+Sources/SPMUtility/ArgumentParser.swift
+Sources/SPMUtility/ArgumentParserShellCompletion.swift
+Sources/SPMUtility/BuildFlags.swift
+Sources/SPMUtility/CollectionExtensions.swift
+Sources/SPMUtility/Diagnostics.swift
+Sources/SPMUtility/FSWatch.swift
+Sources/SPMUtility/Git.swift
+Sources/SPMUtility/InterruptHandler.swift
+Sources/SPMUtility/PkgConfig.swift
+Sources/SPMUtility/Platform.swift
+Sources/SPMUtility/Process.swift
+Sources/SPMUtility/ProgressAnimation.swift
+Sources/SPMUtility/SimplePersistence.swift
+Sources/SPMUtility/StringExtensions.swift
+Sources/SPMUtility/StringMangling.swift
+Sources/SPMUtility/URL.swift
+Sources/SPMUtility/Verbosity.swift
+Sources/SPMUtility/Version.swift
+Sources/SPMUtility/Versioning.swift
+Sources/SPMUtility/misc.swift
 )
 target_link_libraries(SPMUtility
     Basic)
 set_target_properties(SPMUtility PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-# ================== SourceControl ===================== #
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY}
+)
+# ==================== SourceControl ==================== #
 file(GLOB SourceControl_SRC Sources/SourceControl/*.swift)
 add_library(SourceControl
-    ${SourceControl_SRC}
+Sources/SourceControl/GitRepository.swift
+Sources/SourceControl/InMemoryGitRepository.swift
+Sources/SourceControl/Repository.swift
+Sources/SourceControl/RepositoryManager.swift
+Sources/SourceControl/SwiftPMConfig.swift
 )
 target_link_libraries(SourceControl
-    SPMUtility)
+    Basic SPMUtility)
 set_target_properties(SourceControl PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-# ================== SPMLLBuild ===================== #
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY}
+)
+# ==================== SPMLLBuild ==================== #
 file(GLOB SPMLLBuild_SRC Sources/SPMLLBuild/*.swift)
 add_library(SPMLLBuild
-    ${SPMLLBuild_SRC}
+Sources/SPMLLBuild/llbuild.swift
 )
 target_link_libraries(SPMLLBuild
-    SPMUtility)
+    Basic SPMUtility)
 set_target_properties(SPMLLBuild PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-# ================== PackageModel ===================== #
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY}
+)
+# ==================== PackageModel ==================== #
 file(GLOB PackageModel_SRC Sources/PackageModel/*.swift)
 add_library(PackageModel
-    ${PackageModel_SRC}
+Sources/PackageModel/BuildSettings.swift
+Sources/PackageModel/Manifest.swift
+Sources/PackageModel/Package.swift
+Sources/PackageModel/PackageModel+Codable.swift
+Sources/PackageModel/Platform.swift
+Sources/PackageModel/Product.swift
+Sources/PackageModel/ResolvedModels.swift
+Sources/PackageModel/Sources.swift
+Sources/PackageModel/Target.swift
+Sources/PackageModel/ToolsVersion.swift
 )
 target_link_libraries(PackageModel
-    SPMUtility)
+    Basic SPMUtility)
 set_target_properties(PackageModel PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-# ================== PackageLoading ===================== #
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY}
+)
+# ==================== PackageLoading ==================== #
 file(GLOB PackageLoading_SRC Sources/PackageLoading/*.swift)
 add_library(PackageLoading
-    ${PackageLoading_SRC}
+Sources/PackageLoading/Diagnostics.swift
+Sources/PackageLoading/ManifestBuilder.swift
+Sources/PackageLoading/ManifestLoader.swift
+Sources/PackageLoading/ModuleMapGenerator.swift
+Sources/PackageLoading/PackageBuilder.swift
+Sources/PackageLoading/PackageDescription4Loader.swift
+Sources/PackageLoading/Target+PkgConfig.swift
+Sources/PackageLoading/ToolsVersionLoader.swift
 )
 target_link_libraries(PackageLoading
-    PackageModel SPMLLBuild
-)
+    Basic PackageModel SPMUtility SPMLLBuild)
 set_target_properties(PackageLoading PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-# ================== PackageGraph ===================== #
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY}
+)
+# ==================== PackageGraph ==================== #
 file(GLOB PackageGraph_SRC Sources/PackageGraph/*.swift)
 add_library(PackageGraph
-    ${PackageGraph_SRC}
+Sources/PackageGraph/DependencyResolver.swift
+Sources/PackageGraph/PackageGraph.swift
+Sources/PackageGraph/PackageGraphLoader.swift
+Sources/PackageGraph/PackageGraphRoot.swift
+Sources/PackageGraph/Pubgrub.swift
+Sources/PackageGraph/RawPackageConstraints.swift
+Sources/PackageGraph/RepositoryPackageContainerProvider.swift
 )
 target_link_libraries(PackageGraph
-    PackageLoading SourceControl)
+    Basic PackageLoading PackageModel SourceControl SPMUtility)
 set_target_properties(PackageGraph PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-# ================== Build ===================== #
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY}
+)
+# ==================== Build ==================== #
 file(GLOB Build_SRC Sources/Build/*.swift)
 add_library(Build
-    ${Build_SRC}
+Sources/Build/BuildDelegate.swift
+Sources/Build/BuildPlan.swift
+Sources/Build/Command.swift
+Sources/Build/Sanitizers.swift
+Sources/Build/SwiftCompilerOutputParser.swift
+Sources/Build/ToolProtocol.swift
+Sources/Build/Toolchain.swift
+Sources/Build/Triple.swift
+Sources/Build/llbuild.swift
 )
 target_link_libraries(Build
-    PackageGraph)
+    Basic PackageGraph)
 set_target_properties(Build PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-# ================== Xcodeproj ===================== #
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY}
+)
+# ==================== Xcodeproj ==================== #
 file(GLOB Xcodeproj_SRC Sources/Xcodeproj/*.swift)
 add_library(Xcodeproj
-    ${Xcodeproj_SRC}
+Sources/Xcodeproj/PropertyList.swift
+Sources/Xcodeproj/SchemesGenerator.swift
+Sources/Xcodeproj/Target+PBXProj.swift
+Sources/Xcodeproj/XcodeProjectModel.swift
+Sources/Xcodeproj/XcodeProjectModelSerialization.swift
+Sources/Xcodeproj/generate.swift
+Sources/Xcodeproj/pbxproj.swift
 )
 target_link_libraries(Xcodeproj
-    PackageGraph)
+    Basic PackageGraph)
 set_target_properties(Xcodeproj PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-# ================== Workspace ===================== #
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY}
+)
+# ==================== Workspace ==================== #
 file(GLOB Workspace_SRC Sources/Workspace/*.swift)
 add_library(Workspace
-    ${Workspace_SRC}
+Sources/Workspace/CheckoutState.swift
+Sources/Workspace/Destination.swift
+Sources/Workspace/Diagnostics.swift
+Sources/Workspace/Export.swift
+Sources/Workspace/InitPackage.swift
+Sources/Workspace/ManagedDependency.swift
+Sources/Workspace/PinsStore.swift
+Sources/Workspace/ToolsVersionWriter.swift
+Sources/Workspace/UserToolchain.swift
+Sources/Workspace/Workspace.swift
 )
 target_link_libraries(Workspace
-    Build SourceControl)
+    Basic Build PackageGraph PackageModel SourceControl Xcodeproj)
 set_target_properties(Workspace PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-# ================== Commands ===================== #
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY}
+)
+# ==================== Commands ==================== #
 file(GLOB Commands_SRC Sources/Commands/*.swift)
 add_library(Commands
-    ${Commands_SRC}
+Sources/Commands/Completions+bash.swift
+Sources/Commands/Completions+zsh.swift
+Sources/Commands/Describe.swift
+Sources/Commands/Error.swift
+Sources/Commands/GenerateLinuxMain.swift
+Sources/Commands/Options.swift
+Sources/Commands/SwiftBuildTool.swift
+Sources/Commands/SwiftPackageTool.swift
+Sources/Commands/SwiftRunTool.swift
+Sources/Commands/SwiftTestTool.swift
+Sources/Commands/SwiftTool.swift
+Sources/Commands/WatchmanHelper.swift
+Sources/Commands/show-dependencies.swift
 )
 target_link_libraries(Commands
-    Workspace Xcodeproj)
+    Basic Build PackageGraph SourceControl SPMUtility Xcodeproj Workspace)
 set_target_properties(Commands PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-# ================== swift-build ===================== #
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY}
+)
 file(GLOB swiftbuild_SRC Sources/swift-build/*.swift)
 add_executable(swift-build
     ${swiftbuild_SRC}
@@ -173,7 +289,6 @@ add_executable(swift-build
 target_link_libraries(swift-build
     Commands)
 
-# ================== PD_4 ===================== #
 file(GLOB PD_SRC Sources/PackageDescription4/*.swift)
 
 add_library(PD4
@@ -186,8 +301,6 @@ set_target_properties(PD4 PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/runtimes/4
 )
 target_compile_definitions(PD4 PRIVATE PACKAGE_DESCRIPTION_4)
-
-# ================== PD_4_2 ===================== #
 add_library(PD4_2
     ${PD_SRC}
 )
