@@ -74,5 +74,8 @@ public class ToolOptions {
     /// Write dependency resolver trace to a file.
     public var enableResolverTrace = false
 
+    /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
+    public var jobs: UInt32? = nil
+
     public required init() {}
 }
