@@ -1,4 +1,5 @@
 module clibc {
     header "clibc.h"
+    header "indexstore_functions.h"
     export *
 }

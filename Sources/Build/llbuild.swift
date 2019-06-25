@@ -14,7 +14,7 @@ import PackageModel
 import PackageGraph
 
 /// llbuild manifest file generator for a build plan.
-public struct LLBuildManifestGenerator {
+public final class LLBuildManifestGenerator {
 
     /// The name of the llbuild target that builds all products and targets (excluding tests).
     public static let llbuildMainTargetName = "main"
@@ -49,7 +49,7 @@ public struct LLBuildManifestGenerator {
         }
 
         /// All commands.
-        private(set) var allCommands = SortedArray<Command>(areInIncreasingOrder: <)
+        var allCommands = SortedArray<Command>(areInIncreasingOrder: <)
 
         /// Other targets.
         private var otherTargets: [Target] = []
@@ -101,6 +101,8 @@ public struct LLBuildManifestGenerator {
             }
         }
 
+        addTestFileGeneration(&targets)
+
         // Create command for all products in the plan.
         for (product, description) in plan.productMap {
             // Only build products by default if they are reachabe from a root target.
@@ -133,6 +135,40 @@ public struct LLBuildManifestGenerator {
 
         try localFileSystem.writeFileContents(path, bytes: stream.bytes)
     }
+
+    private func addTestFileGeneration(_ targets: inout Targets) {
+        var testTargets: [SwiftTargetBuildDescription] = []
+        var _testDiscoveryTarget: SwiftTargetBuildDescription?
+
+        for target in plan.targets {
+            switch target {
+            case .swift(let target) where target.isTestTarget:
+                if target.testDiscoveryTarget {
+                    _testDiscoveryTarget = target
+                } else {
+                    testTargets.append(target)
+                }
+            default:
+                break
+            }
+        }
+
+        // Nothing to do if we don't have the test discovery target.
+        guard let testDiscoveryTarget = _testDiscoveryTarget else {
+            return
+        }
+
+        let objectFiles = testTargets.flatMap{ $0.objects }.map{ $0.pathString }.sorted()
+        let outputs = testDiscoveryTarget.target.sources.paths
+        let tool = TestDiscoveryTool(inputs: objectFiles, outputs: outputs.map{ $0.pathString })
+
+        let cmdName = outputs.first{ $0.basename == "main.swift" }!.pathString
+        targets.allCommands.insert(Command(name: cmdName, tool: tool))
+        buildTimeCmdToolMap[cmdName] = tool
+    }
+
+    /// Map of command -> tool that is used during the build for in-process tools.
+    public private(set) var buildTimeCmdToolMap: [String: ToolProtocol] = [:]
 
     /// Create a llbuild target for a product description.
     private func createProductTarget(_ buildProduct: ProductBuildDescription) -> Target {
