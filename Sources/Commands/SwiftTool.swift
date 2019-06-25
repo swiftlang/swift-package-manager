@@ -357,6 +357,11 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--trace-resolver", kind: Bool.self),
             to: { $0.enableResolverTrace = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--jobs", shortName: "-j", kind: Int.self,
+                usage: "The number of jobs to spawn in parallel during the build process"),
+            to: { $0.jobs = UInt32($1) })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -619,6 +624,9 @@ public class SwiftTool<Options: ToolOptions> {
         buildDelegate.isVerbose = isVerbose
 
         let databasePath = buildPath.appending(component: "build.db").pathString
+        if let jobs = options.jobs {
+            BuildSystem.setSchedulerLaneWidth(width: jobs)
+        }
         let buildSystem = BuildSystem(buildFile: manifest.pathString, databaseFile: databasePath, delegate: buildDelegate)
         buildDelegate.onCommmandFailure = { buildSystem.cancel() }
 
