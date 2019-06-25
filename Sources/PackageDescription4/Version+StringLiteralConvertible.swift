@@ -10,6 +10,10 @@
 
 extension Version: ExpressibleByStringLiteral {
 
+    /// Initializes and returns a newly allocated version struct for the provided string literal.
+    ///
+    /// - Parameters:
+    ///     - version: A string literal to use for creating a new version object.
     public init(stringLiteral value: String) {
         if let version = Version(value) {
             self.init(version)
@@ -23,10 +27,18 @@ extension Version: ExpressibleByStringLiteral {
         }
     }
 
+    /// Initializes and returns a newly allocated version struct for the provided extended grapheme cluster.
+    ///
+    /// - Parameters:
+    ///     - version: An extended grapheme cluster to use for creating a new version object.
     public init(extendedGraphemeClusterLiteral value: String) {
         self.init(stringLiteral: value)
     }
 
+    /// Initializes and returns a newly allocated version struct for the provided Unicode string.
+    ///
+    /// - Parameters:
+    ///     - version: A Unicode string to use for creating a new version object.
     public init(unicodeScalarLiteral value: String) {
         self.init(stringLiteral: value)
     }
@@ -34,6 +46,10 @@ extension Version: ExpressibleByStringLiteral {
 
 extension Version {
 
+    /// Initializes and returns a newly allocated version struct for the provided version.
+    ///
+    /// - Parameters:
+    ///     - version: A version object to use for creating a new version object.
     public init(_ version: Version) {
         major = version.major
         minor = version.minor
@@ -42,6 +58,10 @@ extension Version {
         buildMetadataIdentifiers = version.buildMetadataIdentifiers
     }
 
+    /// Initializes and returns a newly allocated version struct for the provided version string.
+    ///
+    /// - Parameters:
+    ///     - version: A version string to use for creating a new version object.
     public init?(_ versionString: String) {
         let prereleaseStartIndex = versionString.index(of: "-")
         let metadataStartIndex = versionString.index(of: "+")

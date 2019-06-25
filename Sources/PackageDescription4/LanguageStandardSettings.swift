@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-/// Support C language standards.
+/// The supported C language standard to use for compiling C sources in the package.
 public enum CLanguageStandard: String, Encodable {
     case c89
     case c90
@@ -24,7 +24,7 @@ public enum CLanguageStandard: String, Encodable {
     case gnu11
 }
 
-/// Supported C++ language standards.
+/// The supported C++ language standards to use for compiling C++ sources in the package.
 public enum CXXLanguageStandard: String, Encodable {
     case cxx98 = "c++98"
     case cxx03 = "c++03"
@@ -39,8 +39,7 @@ public enum CXXLanguageStandard: String, Encodable {
 }
 
 #if !PACKAGE_DESCRIPTION_4
-/// Represents the version of the Swift language that should be used for
-/// compiling Swift sources in the package.
+/// The version of the Swift language to use for compiling Swift sources in the package.
 public enum SwiftVersion {
     @available(_PackageDescription, introduced: 4, obsoleted: 5)
     case v3
@@ -54,13 +53,14 @@ public enum SwiftVersion {
     @available(_PackageDescription, introduced: 5)
     case v5
 
-    /// User-defined value of Swift version.
+    /// A user-defined value for the Swift version.
     ///
-    /// The value is passed as-is to Swift compiler's `-swift-version` flag.
+    /// The value is passed as-is to the Swift compiler's `-swift-version` flag.
     case version(String)
 }
 
 extension SwiftVersion: Encodable {
+
     public func encode(to encoder: Encoder) throws {
         let value: String
 
