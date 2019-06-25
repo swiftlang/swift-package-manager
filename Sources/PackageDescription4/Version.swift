@@ -8,52 +8,63 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-/// A struct representing a Semantic Version.
+/// A semantic version.
 ///
-/// Semantic versioning is a specification that proposes a set of rules and
+/// A package's version must conform to the semantic versioning standard in order to ensure
+/// that your package behaves in a predictable manner once developers update their
+/// package dependency to a newer version. To achieve predictability, the semantic versioning specification proposes a set of rules and
 /// requirements that dictate how version numbers are assigned and incremented.
-/// To learn more about the semantic versioning specification, visit
-/// www.semver.org.
 ///
-/// # Semantic Versioning (SemVer) 2.0.0 
+/// A package version is a three period-separated integer. An example is `1.0.0`.
 /// 
-/// ## The Major Version
+/// **The Major Version**
 ///
-/// The major version signifies breaking changes to the API which requires
-/// updating existing clients. For example, renaming an existing type, removing
-/// a method or changing a method’s signature are considered breaking changes.
-/// This also includes any backwards incompatible bugfixes or behaviour changes
-/// of existing API.
+/// The first digit of a version, or  *major version*, signifies breaking changes to the API that require
+/// updates to existing clients. For example, the semantic versioning specification
+/// considers renaming an existing type, removing a method, or changing a method's signature
+/// breaking changes. This also includes any backward-incompatible bug fixes or
+/// behavioral changes of the existing API.
 ///
-/// ## The Minor Version
-///
-/// Update the minor version if functionality is added in a backward compatible
-/// manner. For example, adding a new method or type without changing any other
-/// API is considered backward-compatible.
+/// **The Minor Version**
+//
+/// Update the second digit of a version, or *minor version*,  if you add functionality in a backward-compatible manner.
+/// For example, the semantic versioning specification considers adding a new method
+/// or type without changing any other API to be backward-compatible.
 ///
 /// ## The Patch Version
 ///
-/// Increase the patch version if you are making a backward-compatible bugfix.
-/// This allows clients to benefit from bugfixes to your package without
-/// incurring any maintenance burden.
+/// Increase the third digit of a version, or *patch version* if you are making a backward-compatible bug fix.
+/// This allows clients to benefit from bugfixes to your package without incurring
+/// any maintenance burden.
+///
+/// To learn more about the semantic versioning specification, visit
+/// [semver.org](www.semver.org).
 public struct Version {
 
-    /// The major version.
+    /// The major version according to the semantic versioning standard.
     public let major: Int
 
-    /// The minor version.
+    /// The minor version according to the semantic versioning standard.
     public let minor: Int
 
-    /// The patch version.
+    /// The patch version according to the semantic versioning standard.
     public let patch: Int
 
-    /// The pre-release identifier.
+    /// The pre-release identifier according to the semantic versioning standard, such as `-beta.1`.
     public let prereleaseIdentifiers: [String]
 
-    /// The build metadata.
+    /// The build metadata of this version according to the semantic versioning standard, such as a commit hash.
     public let buildMetadataIdentifiers: [String]
 
-    /// Create a version object.
+    /// Initializes and returns a newly allocated version struct
+    /// for the provided components of a semantic version.
+    ///
+    /// - Parameters:
+    ///     - major: The major version numner.
+    ///     - minor: The minor version number.
+    ///     - patch: The patch version number.
+    ///     - prereleaseIdentifiers: The pre-release identifier.
+    ///     - buildMetaDataIdentifiers: Build metadata that identifies a build.
     public init(
         _ major: Int,
         _ minor: Int,
@@ -111,6 +122,7 @@ extension Version: Comparable {
 }
 
 extension Version: CustomStringConvertible {
+    /// A textual description of the version object.
     public var description: String {
         var base = "\(major).\(minor).\(patch)"
         if !prereleaseIdentifiers.isEmpty {

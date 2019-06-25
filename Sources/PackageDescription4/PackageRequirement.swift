@@ -12,16 +12,17 @@ extension Package.Dependency.Requirement: Encodable {
 
     /// Returns a requirement for the given exact version.
     ///
-    /// Specifying exact version requirements are usually not recommended, as
-    /// they can cause conflicts in your package dependency graph when a package
-    /// is depended on by multiple other packages.
+    /// Specifying exact version requirements are not recommended as
+    /// they can cause conflicts in your dependency graph when multiple other packages depend on a package.
+    /// As Swift packages follow the semantic versioning convention,
+    /// think about specifying a version range instead.
     ///
-    /// Example:
+    /// The following example defines a version requirement that requires version 1.2.3 of a package.
     ///
     ///   .exact("1.2.3")
     ///
     /// - Parameters:
-    ///      - version: The exact version to be specified.
+    ///      - version: The exact version of the dependency for this requirement.
     public static func exact(_ version: Version) -> Package.Dependency.Requirement {
       #if PACKAGE_DESCRIPTION_4
         return .exactItem(version)
@@ -30,20 +31,19 @@ extension Package.Dependency.Requirement: Encodable {
       #endif
     }
 
-    /// Returns a requirement for a source control revision. This is usually
-    /// specified with the hash of a commit.
+    /// Returns a requirement for a source control revision such as the hash of a commit.
     ///
-    /// Note that packages which use commit-based dependency requirements
-    /// cannot be depended-upon by packages which use version-based dependency
+    /// Note that packages that use commit-based dependency requirements
+    /// can't be depended upon by packages that use version-based dependency
     /// requirements; you should remove commit-based dependency requirements
     /// before publishing a version of your package.
     ///
-    /// Example:
+    /// The following example defines a version requirement for a specific commit hash.
     ///
     ///   .revision("e74b07278b926c9ec6f9643455ea00d1ce04a021")
     ///
     /// - Parameters:
-    ///     - ref: The Git revision, usually a hash of the commit.
+    ///     - ref: The Git revision, usually a commit hash.
     public static func revision(_ ref: String) -> Package.Dependency.Requirement {
       #if PACKAGE_DESCRIPTION_4
         return .revisionItem(ref)
@@ -54,12 +54,13 @@ extension Package.Dependency.Requirement: Encodable {
 
     /// Returns a requirement for a source control branch.
     ///
-    /// Note that packages which use branch-based dependency requirements
-    /// cannot be depended-upon by packages which use version-based dependency
+    /// Note that packages that use branch-based dependency requirements
+    /// can't be depended upon by packages that use version-based dependency
     /// requirements; you should remove branch-based dependency requirements
     /// before publishing a version of your package.
     ///
-    /// Example:
+    /// The following example defines a version requirement that accepts any
+    /// change in the develop branch.
     ///
     ///    .branch("develop")
     ///
@@ -74,7 +75,7 @@ extension Package.Dependency.Requirement: Encodable {
     }
 
     /// Returns a requirement for a version range, starting at the given minimum
-    /// version and going up to the next major version.
+    /// version and going up to the next major version. This is the recommended version requirement.
     ///
     /// - Parameters:
     ///     - version: The minimum version for the version range.

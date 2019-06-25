@@ -8,23 +8,23 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-/// Defines a package product.
+/// The object that defines a package product.
 ///
-/// A package product defines an externally visible build artifact that is
+/// A package product defines an externally visible build artifact that's
 /// available to clients of a package. The product is assembled from the build
 /// artifacts of one or more of the package's targets.
 ///
 /// A package product can be one of two types:
 ///
-/// 1. Library
+/// Library
 ///
-///     A library product is used to vend library targets containing the public
-///     APIs that will be available to clients.
+///     Use a library product to vend library targets. This makes a target's public APIs
+///     available to clients that integrate the Swift package.
 ///
-/// 2. Executable
+/// Executable
 ///
-///     An executable product is used to vend an executable target. This should
-///     only be used if the executable needs to be made available to clients.
+///     Use an executable product to vend an executable target.
+///     Use this only if you want to make the executable available to clients.
 ///
 /// The following example shows a package manifest for a library called "Paper"
 /// that defines multiple products:
@@ -63,14 +63,14 @@ public class Product: Encodable {
         case type = "product_type"
     }
 
-    /// The name of the product.
+    /// The name of the package product.
     public let name: String
 
     init(name: String) {
         self.name = name
     }
 
-    /// Represents an executable product.
+    /// The executable product of a Swift package.
     public final class Executable: Product {
         private enum ExecutableCodingKeys: CodingKey {
             case targets
@@ -93,14 +93,14 @@ public class Product: Encodable {
         }
     }
 
-    /// Represents a library product.
+    /// The library product of a Swift package.
     public final class Library: Product {
         private enum LibraryCodingKeys: CodingKey {
             case type
             case targets
         }
 
-        /// The type of library product.
+        /// The different types of a library product.
         public enum LibraryType: String, Encodable {
             case `static`
             case `dynamic`
@@ -111,7 +111,8 @@ public class Product: Encodable {
 
         /// The type of the library.
         ///
-        /// If the type is unspecified, package manager will automatically choose a type.
+        /// If the type is unspecified, the Swift Package Manager automatically
+        /// chooses a type based on the client's preference.
         public let type: LibraryType?
 
         init(name: String, type: LibraryType? = nil, targets: [String]) {
@@ -130,12 +131,13 @@ public class Product: Encodable {
         }
     }
 
-    /// Create a library product that can be used by clients that depend on this package.
+    /// Create a library product to allow clients that declare a dependency on this package
+    /// to use the package's functionality.
     ///
-    /// A library's product can either be statically or dynamically linked. It
-    /// is recommended to not declare the type of library explicitly to let the
-    /// Swift Package Manager choose between static or dynamic linking depending
-    /// on the consumer of the package.
+    /// A library's product can either be statically or dynamically linked.
+    /// If possible, don't declare the type of library explicitly to let 
+    /// the Swift Package Manager choose between static or dynamic linking based
+    /// on the preference of the package's consumer.
     ///
     /// - Parameters:
     ///     - name: The name of the library product.
@@ -151,11 +153,11 @@ public class Product: Encodable {
         return Library(name: name, type: type, targets: targets)
     }
 
-    /// Create an executable product.
+    /// Create an executable package product that clients can run.
     ///
     /// - Parameters:
     ///     - name: The name of the executable product.
-    ///     - targets: The targets that are bundled into an executable product.
+    ///     - targets: The targets to bundle into an executable product.
     public static func executable(
         name: String,
         targets: [String]
