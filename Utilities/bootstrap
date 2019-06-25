@@ -666,6 +666,7 @@ def process_runtime_libraries(build, args, lib_path):
                runtime_lib_path,
                "-Xlinker", "-all_load",
                input_lib_path,
+               "-sdk", args.sysroot,
                "-target", "x86_64-apple-macosx10.10"]
     else:
         # We include an RPATH entry so that the Swift libraries can be found
