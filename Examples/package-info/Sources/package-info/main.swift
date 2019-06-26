@@ -1,16 +1,48 @@
+import PackageModel
+import PackageLoading
+import PackageGraph
 import Workspace
 
-let swiftpm = SwiftPMHelper(rootPackage: localFileSystem.currentWorkingDirectory!)
-let workspace = swiftpm.createWorkspace()
+// PREREQUISITS
+// ============
 
-let diagnostics = DiagnosticsEngine()
-let packageGraph = workspace.loadPackageGraph(root: swiftpm.rootPackage, diagnostics: diagnostics)
+// We will need to know where the Swift compiler is.
+let swiftCompiler: AbsolutePath = {
+    let string: String
+    #if os(macOS)
+    string = try! Process.checkNonZeroExit(args: "xcrun", "--sdk", "macosx", "-f", "swift").spm_chomp()
+    #else
+    string = try! Process.checkNonZeroExit(args: "which", "swift").spm_chomp()
+    #endif
+    return AbsolutePath(string)
+}()
 
-let numberOfFiles = packageGraph.allTargets.reduce(0, { $0 + $1.sources.paths.count })
-print("Number of source files:", numberOfFiles)
+// We need a package to work with.
+// This assumes there is one in the current working directory:
+let package = localFileSystem.currentWorkingDirectory!
 
-let rootPackageTargets = packageGraph.rootPackages.flatMap({ $0.targets }).map({ $0.name }).joined(separator: ", ")
-print("Targets:", rootPackageTargets)
+// LOADING
+// =======
 
-let products = packageGraph.allProducts.map({ $0.name }).joined(separator: ", ")
+// There are several levels of information available.
+// Each takes longer to load than the level above it, but provides more detail.
+let manifest: Manifest = try Manifest.loadManifest(from: package, with: swiftCompiler)
+let loadedPackage: Package = try Package.loadPackage(from: package, with: swiftCompiler)
+let graph: PackageGraph = try PackageGraph.loadGraph(from: package, with: swiftCompiler)
+
+// EXAMPLES
+// ========
+
+// Manifest
+let products = manifest.products.map({ $0.name }).joined(separator: ", ")
 print("Products:", products)
+let targets = manifest.targets.map({ $0.name }).joined(separator: ", ")
+print("Targets:", targets)
+
+// Package
+let executables = loadedPackage.targets.filter({ $0.type == .executable }).map({ $0.name })
+print("Executable targets:", executables)
+
+// PackageGraph
+let numberOfFiles = graph.reachableTargets.reduce(0, { $0 + $1.sources.paths.count })
+print("Total number of source files (including dependencies):", numberOfFiles)
