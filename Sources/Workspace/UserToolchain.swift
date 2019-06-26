@@ -40,6 +40,19 @@ public struct UserManifestResources: ManifestResourceProvider {
         self.libDir = libDir
         self.sdkRoot = sdkRoot
     }
+
+    /// Creates the set of manifest resources associated with a `swift` executable.
+    ///
+    /// - Parameters:
+    ///     - swiftExectuable: The absolute path of the associated `swift` executable.
+    public init(swiftExectuable: AbsolutePath) throws {
+        let binDir = swiftExectuable.parentDirectory
+        self.init(
+            swiftCompiler: try UserToolchain.swiftCompilers(
+                forBinDir: binDir,
+                searchPaths: UserToolchain.getSearchPaths()).manifest,
+            libDir: UserToolchain.libDir(forBinDir: binDir))
+    }
 }
 
 // FIXME: This is messy and needs a redesign.
@@ -197,20 +210,38 @@ public final class UserToolchain: Toolchain {
         return toolPath
     }
 
+    fileprivate static func getSearchPaths() -> [AbsolutePath] {
+        // Get the search paths from PATH.
+        return getEnvSearchPaths(
+            pathString: Process.env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+    }
+
+    fileprivate static func swiftCompilers(
+        forBinDir binDir: AbsolutePath,
+        searchPaths: [AbsolutePath]) throws -> (compile: AbsolutePath, manifest: AbsolutePath) {
+
+        return try UserToolchain.determineSwiftCompilers(
+            binDir: binDir,
+            lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) })
+    }
+
+    fileprivate static func libDir(forBinDir binDir: AbsolutePath) -> AbsolutePath {
+        return binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+    }
+
     public init(destination: Destination, environment: [String: String] = Process.env) throws {
         self.destination = destination
         self.processEnvironment = environment
 
         // Get the search paths from PATH.
-        let searchPaths = getEnvSearchPaths(
-            pathString: Process.env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+        let searchPaths = UserToolchain.getSearchPaths()
 
         self.envSearchPaths = searchPaths
 
         // Get the binDir from destination.
         let binDir = destination.binDir
 
-        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) })
+        let swiftCompilers = try UserToolchain.swiftCompilers(forBinDir: binDir, searchPaths: searchPaths)
         self.swiftCompiler = swiftCompilers.compile
 
         // We require xctest to exist on macOS.
@@ -231,7 +262,7 @@ public final class UserToolchain: Toolchain {
         ] + destination.extraCCFlags
 
         // Compute the path of directory containing the PackageDescription libraries.
-        var pdLibDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+        var pdLibDir = UserToolchain.libDir(forBinDir: binDir)
 
         // Look for an override in the env.
         if let pdLibDirEnvStr = Process.env["SWIFTPM_PD_LIBS"] {

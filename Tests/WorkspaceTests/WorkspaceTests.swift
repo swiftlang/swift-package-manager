@@ -2930,6 +2930,27 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
     }
+
+    func testSimpleAPI() throws {
+        // This verifies that the simplest possible loading APIs are available for package clients.
+
+        // This checkout of the SwiftPM package.
+        let package: AbsolutePath = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+
+        // Clients must locate the corresponding “swift” exectuable themselves for now.
+        // (This just uses the same one used by all the other tests.)
+        let swiftExecutable: AbsolutePath
+            = try Destination.hostDestination().binDir.appending(component: "swift")
+
+        // From here the API should be simple and straightforward:
+        let manifest: Manifest = try Manifest.loadManifest(from: package, with: swiftExecutable)
+        let loadedPackage: Package = try Package.loadPackage(from: package, with: swiftExecutable)
+        let graph: PackageGraph = try PackageGraph.loadGraph(from: package, with: swiftExecutable)
+
+        XCTAssertEqual(manifest.name, "SwiftPM")
+        XCTAssertEqual(loadedPackage.name, "SwiftPM")
+        XCTAssert(graph.reachableProducts.contains(where: { $0.name == "SwiftPM" }))
+    }
 }
 
 extension PackageGraph {
