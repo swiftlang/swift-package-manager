@@ -238,13 +238,14 @@ public final class PackageBuilder {
     ///         Its associated resources will be used by the loader.
     public static func loadPackage(
         from package: AbsolutePath,
-        with swiftExecutable: AbsolutePath) throws -> Package {
+        with swiftExecutable: AbsolutePath,
+        diagnostics: DiagnosticsEngine = DiagnosticsEngine()) throws -> Package {
 
         let manifest = try ManifestLoader.loadManifest(from: package, with: swiftExecutable)
         let builder = PackageBuilder(
             manifest: manifest,
             path: package,
-            diagnostics: DiagnosticsEngine(),
+            diagnostics: diagnostics,
             isRootPackage: true)
         return try builder.construct()
     }
