@@ -31,7 +31,7 @@ let package = localFileSystem.currentWorkingDirectory!
 // There are several levels of information available.
 // Each takes longer to load than the level above it, but provides more detail.
 let manifest: Manifest = try ManifestLoader.loadManifest(from: package, with: swiftCompiler)
-let loadedPackage: Package = try Package.loadPackage(from: package, with: swiftCompiler)
+let loadedPackage: Package = try PackageBuilder.loadPackage(from: package, with: swiftCompiler)
 let graph: PackageGraph = try PackageGraph.loadGraph(from: package, with: swiftCompiler)
 
 // EXAMPLES
