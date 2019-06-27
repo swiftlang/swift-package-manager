@@ -13,7 +13,7 @@ import XCTest
 import Basic
 import SPMUtility
 import PackageModel
-import PackageGraph
+@testable import PackageGraph
 import TestSupport
 import SourceControl
 @testable import Workspace
