@@ -239,14 +239,15 @@ public final class PackageBuilder {
     public static func loadPackage(
         from package: AbsolutePath,
         with swiftExecutable: AbsolutePath,
-        diagnostics: DiagnosticsEngine = DiagnosticsEngine()) throws -> Package {
+        diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
+        isRootPackage: Bool = true) throws -> Package {
 
         let manifest = try ManifestLoader.loadManifest(from: package, with: swiftExecutable)
         let builder = PackageBuilder(
             manifest: manifest,
             path: package,
             diagnostics: diagnostics,
-            isRootPackage: true)
+            isRootPackage: isRootPackage)
         return try builder.construct()
     }
 
