@@ -2937,15 +2937,15 @@ final class WorkspaceTests: XCTestCase {
         // This checkout of the SwiftPM package.
         let package: AbsolutePath = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
 
-        // Clients must locate the corresponding “swift” exectuable themselves for now.
+        // Clients must locate the corresponding “swiftc” exectuable themselves for now.
         // (This just uses the same one used by all the other tests.)
-        let swiftExecutable: AbsolutePath
-            = try Destination.hostDestination().binDir.appending(component: "swift")
+        let swiftCompiler: AbsolutePath
+            = try Destination.hostDestination().binDir.appending(component: "swiftc")
 
         // From here the API should be simple and straightforward:
-        let manifest: Manifest = try ManifestLoader.loadManifest(from: package, with: swiftExecutable)
-        let loadedPackage: Package = try PackageBuilder.loadPackage(from: package, with: swiftExecutable)
-        let graph: PackageGraph = try Workspace.loadGraph(from: package, with: swiftExecutable)
+        let manifest: Manifest = try ManifestLoader.loadManifest(from: package, with: swiftCompiler)
+        let loadedPackage: Package = try PackageBuilder.loadPackage(from: package, with: swiftCompiler)
+        let graph: PackageGraph = try Workspace.loadGraph(from: package, with: swiftCompiler)
 
         XCTAssertEqual(manifest.name, "SwiftPM")
         XCTAssertEqual(loadedPackage.name, "SwiftPM")

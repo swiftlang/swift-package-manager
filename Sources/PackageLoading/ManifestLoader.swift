@@ -180,17 +180,17 @@ public final class ManifestLoader: ManifestLoaderProtocol {
        )
     }
 
-    /// Loads a manifest from a package repository using the resources associated with a particular `swift` executable.
+    /// Loads a manifest from a package repository using the resources associated with a particular `swiftc` executable.
     ///
     /// - Parameters:
     ///     - package: The absolute path of the package root.
-    ///     - swiftExecutable: The absolute path of a `swift` executable.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
     ///         Its associated resources will be used by the loader.
     public static func loadManifest(
         from package: AbsolutePath,
-        with swiftExecutable: AbsolutePath) throws -> Manifest {
+        with swiftCompiler: AbsolutePath) throws -> Manifest {
 
-        let resources = try UserManifestResources(swiftExectuable: swiftExecutable)
+        let resources = try UserManifestResources(swiftCompiler: swiftCompiler)
         let loader = ManifestLoader(manifestResources: resources)
         let toolsVersion = try ToolsVersionLoader().load(at: package, fileSystem: localFileSystem)
         return try loader.load(

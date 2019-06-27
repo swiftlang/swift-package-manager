@@ -10,9 +10,9 @@ import Workspace
 let swiftCompiler: AbsolutePath = {
     let string: String
     #if os(macOS)
-    string = try! Process.checkNonZeroExit(args: "xcrun", "--sdk", "macosx", "-f", "swift").spm_chomp()
+    string = try! Process.checkNonZeroExit(args: "xcrun", "--sdk", "macosx", "-f", "swiftc").spm_chomp()
     #else
-    string = try! Process.checkNonZeroExit(args: "which", "swift").spm_chomp()
+    string = try! Process.checkNonZeroExit(args: "which", "swiftc").spm_chomp()
     #endif
     return AbsolutePath(string)
 }()

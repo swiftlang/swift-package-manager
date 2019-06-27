@@ -624,18 +624,18 @@ extension Workspace {
             diagnostics: diagnostics)
     }
 
-    /// Loads a package graph from a root package using the resources associated with a particular `swift` executable.
+    /// Loads a package graph from a root package using the resources associated with a particular `swiftc` executable.
     ///
     /// - Parameters:
     ///     - package: The absolute path of the root package.
-    ///     - swiftExecutable: The absolute path of a `swift` executable.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
     ///         Its associated resources will be used by the loader.
     public static func loadGraph(
         from package: AbsolutePath,
-        with swiftExecutable: AbsolutePath,
+        with swiftCompiler: AbsolutePath,
         diagnostics: DiagnosticsEngine = DiagnosticsEngine()) throws -> PackageGraph {
 
-        let resources = try UserManifestResources(swiftExectuable: swiftExecutable)
+        let resources = try UserManifestResources(swiftCompiler: swiftCompiler)
         let loader = ManifestLoader(manifestResources: resources)
         let workspace = Workspace.create(forRootPackage: package, manifestLoader: loader)
         return workspace.loadPackageGraph(root: package, diagnostics: diagnostics)

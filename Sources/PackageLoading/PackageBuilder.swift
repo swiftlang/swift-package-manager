@@ -230,19 +230,19 @@ public final class PackageBuilder {
         self.createREPLProduct = createREPLProduct
     }
 
-    /// Loads a package from a package repository using the resources associated with a particular `swift` executable.
+    /// Loads a package from a package repository using the resources associated with a particular `swiftc` executable.
     ///
     /// - Parameters:
     ///     - package: The absolute path of the package root.
-    ///     - swiftExecutable: The absolute path of a `swift` executable.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
     ///         Its associated resources will be used by the loader.
     public static func loadPackage(
         from package: AbsolutePath,
-        with swiftExecutable: AbsolutePath,
+        with swiftCompiler: AbsolutePath,
         diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
         isRootPackage: Bool = true) throws -> Package {
 
-        let manifest = try ManifestLoader.loadManifest(from: package, with: swiftExecutable)
+        let manifest = try ManifestLoader.loadManifest(from: package, with: swiftCompiler)
         let builder = PackageBuilder(
             manifest: manifest,
             path: package,

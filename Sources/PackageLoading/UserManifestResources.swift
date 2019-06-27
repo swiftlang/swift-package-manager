@@ -30,14 +30,14 @@ public struct UserManifestResources: ManifestResourceProvider {
         return binDir.parentDirectory.appending(components: "lib", "swift", "pm")
     }
 
-    /// Creates the set of manifest resources associated with a `swift` executable.
+    /// Creates the set of manifest resources associated with a `swiftc` executable.
     ///
     /// - Parameters:
-    ///     - swiftExectuable: The absolute path of the associated `swift` executable.
-    public init(swiftExectuable: AbsolutePath) throws {
-        let binDir = swiftExectuable.parentDirectory
+    ///     - swiftCompiler: The absolute path of the associated `swiftc` executable.
+    public init(swiftCompiler: AbsolutePath) throws {
+        let binDir = swiftCompiler.parentDirectory
         self.init(
-            swiftCompiler: swiftExectuable.parentDirectory.appending(component: "swiftc"),
+            swiftCompiler: swiftCompiler,
             libDir: UserManifestResources.libDir(forBinDir: binDir))
     }
 }
