@@ -2945,7 +2945,7 @@ final class WorkspaceTests: XCTestCase {
         // From here the API should be simple and straightforward:
         let manifest: Manifest = try ManifestLoader.loadManifest(from: package, with: swiftExecutable)
         let loadedPackage: Package = try PackageBuilder.loadPackage(from: package, with: swiftExecutable)
-        let graph: PackageGraph = try PackageGraph.loadGraph(from: package, with: swiftExecutable)
+        let graph: PackageGraph = try Workspace.loadGraph(from: package, with: swiftExecutable)
 
         XCTAssertEqual(manifest.name, "SwiftPM")
         XCTAssertEqual(loadedPackage.name, "SwiftPM")
