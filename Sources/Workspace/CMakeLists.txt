@@ -7,16 +7,15 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Workspace
-  CheckoutState.swift
   Destination.swift
   Diagnostics.swift
   Export.swift
   InitPackage.swift
   ManagedDependency.swift
-  PinsStore.swift
   ToolsVersionWriter.swift
   UserToolchain.swift
-  Workspace.swift)
+  Workspace.swift
+  misc.swift)
 target_link_libraries(Workspace PUBLIC
   Basic
   Build

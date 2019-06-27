@@ -7,10 +7,12 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageGraph
+  CheckoutState.swift
   DependencyResolver.swift
   PackageGraph.swift
   PackageGraphLoader.swift
   PackageGraphRoot.swift
+  PinsStore.swift
   Pubgrub.swift
   RawPackageConstraints.swift
   RepositoryPackageContainerProvider.swift)
