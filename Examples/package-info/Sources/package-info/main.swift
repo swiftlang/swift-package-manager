@@ -24,6 +24,10 @@ let package = localFileSystem.currentWorkingDirectory!
 // LOADING
 // =======
 
+// Note:
+// This simplified API has been added since 0.4.0 was released.
+// See older revisions for examples that work with 0.4.0.
+
 // There are several levels of information available.
 // Each takes longer to load than the level above it, but provides more detail.
 let manifest: Manifest = try Manifest.loadManifest(from: package, with: swiftCompiler)
