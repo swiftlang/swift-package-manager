@@ -1271,7 +1271,8 @@ public final class PubgrubDependencyResolver {
                 terms.append(Term(not: dep.identifier, dep.requirement))
                 return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
             }
-        case .revision(let revision):
+        case .revision(let revision, _):
+            // FIXME: Handle branches here.
             return try container.getDependencies(at: revision).map { dep -> Incompatibility in
                 var terms: OrderedSet<Term> = []
                 terms.append(Term(container.identifier, .revision(revision)))
@@ -1616,7 +1617,8 @@ extension BoundVersion {
             fatalError("Cannot create package requirement from excluded version.")
         case .unversioned:
             return .unversioned
-        case .revision(let revision):
+        case .revision(let revision, _):
+            // FIXME: Handle branches here
             return .revision(revision)
         }
     }

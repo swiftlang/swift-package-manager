@@ -151,6 +151,10 @@ public class BasePackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
+    public func getRevision(forIdentifier identifier: String) throws -> Revision {
+        fatalError("This should never be called")
+    }
+
     fileprivate init(
         _ identifier: Identifier,
         config: SwiftPMConfig,
@@ -342,7 +346,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     }
 
     /// Returns revision for the given identifier.
-    public func getRevision(forIdentifier identifier: String) throws -> Revision {
+    public override func getRevision(forIdentifier identifier: String) throws -> Revision {
         return try repository.resolveRevision(identifier: identifier)
     }
 
@@ -431,8 +435,8 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         switch boundVersion {
         case .version(let version):
             identifier = version.description
-        case .revision(let revision):
-            identifier = revision
+        case .revision(let revision, let pinned):
+            identifier = pinned ?? revision
         case .unversioned, .excluded:
             assertionFailure("Unexpected type requirement \(boundVersion)")
             return self.identifier

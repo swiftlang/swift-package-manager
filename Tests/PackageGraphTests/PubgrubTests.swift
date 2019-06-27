@@ -1112,6 +1112,10 @@ private func AssertError(
 }
 
 public class MockContainer: PackageContainer {
+    public func getRevision(forIdentifier identifier: String) throws -> Revision {
+        fatalError()
+    }
+
     public typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
 
     var name: PackageReference

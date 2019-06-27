@@ -97,12 +97,16 @@ fileprivate enum PackageResolver {
     case pubgrub(PubgrubDependencyResolver)
     case legacy(DependencyResolver)
 
-    func resolve(dependencies: [PackageContainerConstraint], pins: [PackageContainerConstraint]) -> DependencyResolver.Result {
+    func resolve(
+        dependencies: [PackageContainerConstraint],
+        pins: [PackageContainerConstraint],
+        store: PinsStore? = nil
+    ) -> DependencyResolver.Result {
         switch self {
         case .pubgrub(let resolver):
             return resolver.solve(dependencies: dependencies, pins: pins)
         case .legacy(let resolver):
-            return resolver.resolve(dependencies: dependencies, pins: pins)
+            return resolver.resolve(dependencies: dependencies, pins: pins, store: store)
         }
     }
 }
@@ -598,7 +602,11 @@ extension Workspace {
         let resolver = createResolver()
         activeResolver = resolver
 
-        let updateResults = resolveDependencies(resolver: resolver, dependencies: updateConstraints, diagnostics: diagnostics)
+        let updateResults = resolveDependencies(
+            resolver: resolver,
+            dependencies: updateConstraints,
+            diagnostics: diagnostics
+        )
 
         // Reset the active resolver.
         activeResolver = nil
@@ -1260,7 +1268,12 @@ extension Workspace {
         activeResolver = resolver
 
         var result = resolveDependencies(
-            resolver: resolver, dependencies: constraints, pins: validPins, diagnostics: resolverDiagnostics)
+            resolver: resolver,
+            dependencies: constraints,
+            pins: validPins,
+            store: pinsStore,
+            diagnostics: resolverDiagnostics
+        )
         activeResolver = nil
 
         // If we fail, we just try again without any pins because the pins might
@@ -1505,8 +1518,6 @@ extension Workspace {
         resolvedDependencies: [(PackageReference, BoundVersion)],
         updateBranches: Bool
     ) throws -> [(PackageReference, PackageStateChange)] {
-        // Load pins store and managed dependendencies.
-        let pinsStore = try self.pinsStore.load()
         var packageStateChanges: [String: (PackageReference, PackageStateChange)] = [:]
 
         // Set the states from resolved dependencies results.
@@ -1557,23 +1568,14 @@ extension Workspace {
                     packageStateChanges[packageRef.path] = (packageRef, .added(.unversioned))
                 }
 
-            case .revision(let identifier):
-                // Get the latest revision from the container.
+            case .revision(let identifier, let pinned):
+                // Get the revision from the container because the identifier
+                // used might not be the canonical revision (e.g., it could be a short-ref).
                 let container = try await {
                     containerProvider.getContainer(for: packageRef, skipUpdate: true, completion: $0)
                 } as! RepositoryPackageContainer
-                var revision = try container.getRevision(forIdentifier: identifier)
+                let revision = try container.getRevision(forIdentifier: pinned ?? identifier)
                 let branch = identifier == revision.identifier ? nil : identifier
-
-                // If we have a branch and we shouldn't be updating the
-                // branches, use the revision from pin instead (if present).
-                if branch != nil {
-                    if let pin = pinsStore.pins.first(where: { $0.packageRef == packageRef }),
-                        !updateBranches,
-                        pin.state.branch == branch {
-                        revision = pin.state.revision
-                    }
-                }
 
                 // First check if we have this dependency.
                 if let currentDependency = currentDependency {
@@ -1637,9 +1639,10 @@ extension Workspace {
         resolver: PackageResolver,
         dependencies: [RepositoryPackageConstraint],
         pins: [RepositoryPackageConstraint] = [],
+        store: PinsStore? = nil,
         diagnostics: DiagnosticsEngine
     ) -> [(container: PackageReference, binding: BoundVersion)] {
-        let result = resolver.resolve(dependencies: dependencies, pins: pins)
+        let result = resolver.resolve(dependencies: dependencies, pins: pins, store: store)
 
         // Take an action based on the result.
         switch result {

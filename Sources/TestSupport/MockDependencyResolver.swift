@@ -82,6 +82,10 @@ public enum MockLoadingError: Error {
 }
 
 public class MockPackageContainer: PackageContainer {
+    public func getRevision(forIdentifier identifier: String) throws -> Revision {
+        fatalError()
+    }
+
 
     public typealias Identifier = PackageReference
 

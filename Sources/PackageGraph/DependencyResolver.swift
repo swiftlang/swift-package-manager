@@ -12,6 +12,7 @@ import Basic
 import struct PackageModel.PackageReference
 import struct SPMUtility.Version
 import class Foundation.NSDate
+import struct SourceControl.Revision
 
 public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
     /// The resolver was unable to find a solution to the input constraints.
@@ -305,6 +306,8 @@ public protocol PackageContainer {
     ///   dependency resolution completely.
     func getDependencies(at revision: String) throws -> [PackageContainerConstraint]
 
+    func getRevision(forIdentifier identifier: String) throws -> Revision
+
     /// Fetch the dependencies of an unversioned package container.
     ///
     /// NOTE: This method should not be called on a versioned container.
@@ -391,7 +394,11 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
     case unversioned
 
     /// The package assignment is this revision.
-    case revision(String)
+    case revision(String, pinned: String?)
+
+    public static func revision(_ revision: String) -> BoundVersion {
+        return .revision(revision, pinned: nil)
+    }
 
     public var description: String {
         switch self {
@@ -401,7 +408,10 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
             return version.description
         case .unversioned:
             return "unversioned"
-        case .revision(let identifier):
+        case .revision(let identifier, let branch):
+            if let branch = branch {
+                return branch + "[\(identifier)]"
+            }
             return identifier
         }
     }
@@ -654,9 +664,9 @@ struct VersionAssignmentSet: Equatable, Sequence {
                 // If the package is unversioned or excluded, it doesn't contribute.
                 continue
 
-            case .revision(let identifier):
+            case .revision(let identifier, let pinned):
                 // FIXME: Need caching and error handling here. See the FIXME below.
-                merge(constraints: try! container.getDependencies(at: identifier))
+                merge(constraints: try! container.getDependencies(at: pinned ?? identifier))
 
             case .version(let version):
                 // If we have a version, add the constraints from that package version.
@@ -690,7 +700,7 @@ struct VersionAssignmentSet: Equatable, Sequence {
             }
             return false
 
-        case .revision(let identifier):
+        case .revision(let identifier, _):
             // If we already have a revision constraint, it should be same as
             // the one we're trying to set.
             if case .revision(let existingRevision) = constraints[container.identifier] {
@@ -874,6 +884,9 @@ public class DependencyResolver {
     /// Note that the input constraints will always be fetched.
     public var isInIncompleteMode = false
 
+    private var pinStore: PinsStore?
+    private var pins: [PackageContainerConstraint] = []
+
     public init(
         _ provider: PackageContainerProvider,
         _ delegate: DependencyResolverDelegate? = nil,
@@ -917,8 +930,11 @@ public class DependencyResolver {
     /// mode and try to find the conflicting constraints.
     public func resolve(
         dependencies: [PackageContainerConstraint],
-        pins: [PackageContainerConstraint]
+        pins: [PackageContainerConstraint],
+        store: PinsStore? = nil
     ) -> Result {
+        self.pinStore = store
+        self.pins = pins
         do {
             // Reset the incomplete mode and run the resolver.
             self.isInIncompleteMode = false
@@ -950,6 +966,7 @@ public class DependencyResolver {
         constraints: [PackageContainerConstraint],
         pins: [PackageContainerConstraint] = []
     ) throws -> [(container: PackageReference, binding: BoundVersion)] {
+        self.pins = pins
         return try resolveAssignment(constraints: constraints, pins: pins).map({ assignment in
             let (container, binding) = assignment
             let identifier = try self.isInIncompleteMode ? container.identifier : container.getUpdatedIdentifier(at: binding)
@@ -1024,6 +1041,40 @@ public class DependencyResolver {
         if !constraintsWithNoAvailableVersions.isEmpty {
             throw DependencyResolverError.missingVersions(constraintsWithNoAvailableVersions)
         }
+    }
+
+    /// Returns true if there is a revision pin for the given package.
+    private func havePin(for package: PackageReference, revison: String) -> Bool {
+        guard let pin = self.pins.first(where: { $0.identifier == package }) else {
+            return false
+        }
+        return pin.requirement == .revision(revison)
+    }
+
+    private func getConstraints(
+        atRevision identifier: String,
+        for container: PackageContainer
+    ) throws -> ([PackageContainerConstraint], branch: String?) {
+        // Check if we have a revision pin for this container.
+        guard havePin(for: container.identifier, revison: identifier) else {
+            return (try container.getDependencies(at: identifier), nil)
+        }
+
+        // First, get the canonical revision identifier.
+        let revision = try container.getRevision(forIdentifier: identifier)
+
+        // If the canonical reivision is not equal to the identifier, we probably
+        // have a branch. In that case, use its pinned version if available.
+        if identifier != revision.identifier {
+            let pin = pinStore?.pins.first{ container.identifier == $0.packageRef }
+            if let pin = pin, pin.state.branch == identifier {
+                let pinnedIdentifer = pin.state.revision.identifier
+                return (try container.getDependencies(at: pinnedIdentifer), pinnedIdentifer)
+            }
+        }
+
+        // Otherwise, just use the identifier to get the dependencies.
+        return (try container.getDependencies(at: identifier), nil)
     }
 
     // FIXME: This needs to a way to return information on the failure, or we
@@ -1111,10 +1162,15 @@ public class DependencyResolver {
             result = merge(constraints: constraints, binding: .unversioned)
 
         case .revision(let identifier):
-            guard let constraints = self.safely({ try container.getDependencies(at: identifier) }) else {
+            // Figure out the constraints for the revision.
+            let _constraints: ([PackageContainerConstraint], String?)? = self.safely {
+                try self.getConstraints(atRevision: identifier, for: container)
+            }
+
+            guard let constraints = _constraints else {
                 return AnySequence([])
             }
-            result = merge(constraints: constraints, binding: .revision(identifier))
+            result = merge(constraints: constraints.0, binding: .revision(identifier, pinned: constraints.1))
 
         case .versionSet(let versionSet):
             // The previous valid version that was picked.
