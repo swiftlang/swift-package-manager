@@ -180,34 +180,20 @@ public final class UserToolchain: Toolchain {
         return toolPath
     }
 
-    fileprivate static func getSearchPaths() -> [AbsolutePath] {
-        // Get the search paths from PATH.
-        return getEnvSearchPaths(
-            pathString: Process.env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
-    }
-
-    fileprivate static func swiftCompilers(
-        forBinDir binDir: AbsolutePath,
-        searchPaths: [AbsolutePath]) throws -> (compile: AbsolutePath, manifest: AbsolutePath) {
-
-        return try UserToolchain.determineSwiftCompilers(
-            binDir: binDir,
-            lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) })
-    }
-
     public init(destination: Destination, environment: [String: String] = Process.env) throws {
         self.destination = destination
         self.processEnvironment = environment
 
         // Get the search paths from PATH.
-        let searchPaths = UserToolchain.getSearchPaths()
+        let searchPaths = getEnvSearchPaths(
+            pathString: Process.env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
 
         self.envSearchPaths = searchPaths
 
         // Get the binDir from destination.
         let binDir = destination.binDir
 
-        let swiftCompilers = try UserToolchain.swiftCompilers(forBinDir: binDir, searchPaths: searchPaths)
+        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) })
         self.swiftCompiler = swiftCompilers.compile
 
         // We require xctest to exist on macOS.
