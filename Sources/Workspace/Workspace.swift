@@ -632,12 +632,13 @@ extension Workspace {
     ///         Its associated resources will be used by the loader.
     public static func loadGraph(
         from package: AbsolutePath,
-        with swiftExecutable: AbsolutePath) throws -> PackageGraph {
+        with swiftExecutable: AbsolutePath,
+        diagnostics: DiagnosticsEngine = DiagnosticsEngine()) throws -> PackageGraph {
 
         let resources = try UserManifestResources(swiftExectuable: swiftExecutable)
         let loader = ManifestLoader(manifestResources: resources)
         let workspace = Workspace.create(forRootPackage: package, manifestLoader: loader)
-        return workspace.loadPackageGraph(root: package, diagnostics: DiagnosticsEngine())
+        return workspace.loadPackageGraph(root: package, diagnostics: diagnostics)
     }
 
     /// Fetch and load the complete package at the given path.
