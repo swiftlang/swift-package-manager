@@ -9,7 +9,6 @@
  */
 
 import Basic
-import PackageGraph
 import SourceControl
 import SPMUtility
 
@@ -56,7 +55,7 @@ public struct CheckoutState: Equatable, CustomStringConvertible {
 extension CheckoutState {
 
     /// Returns requirement induced by this state.
-    func requirement() -> PackageRequirement {
+    public func requirement() -> PackageRequirement {
         if let version = version {
             return .versionSet(.exact(version))
         } else if let branch = branch {
@@ -83,15 +82,6 @@ extension CheckoutState: JSONMappable, JSONSerializable {
            "version": version.toJSON(),
            "branch": branch.toJSON(),
        ])
-    }
-}
-
-extension ManagedDependency {
-    public var checkoutState: CheckoutState? {
-        if case .checkout(let checkoutState) = state {
-            return checkoutState
-        }
-        return nil
     }
 }
 

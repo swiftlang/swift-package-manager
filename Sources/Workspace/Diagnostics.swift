@@ -405,10 +405,4 @@ public enum WorkspaceDiagnostics {
 
         let name: String
     }
-
-    public struct MalformedPackageResolved: Swift.Error, CustomStringConvertible {
-        public var description: String {
-            return "Package.resolved file is corrupted or malformed; fix or delete the file to continue"
-        }
-    }
 }
