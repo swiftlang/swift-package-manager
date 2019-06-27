@@ -23,7 +23,7 @@ extension Package {
         from package: AbsolutePath,
         with swiftExecutable: AbsolutePath) throws -> Package {
 
-        let manifest = try Manifest.loadManifest(from: package, with: swiftExecutable)
+        let manifest = try ManifestLoader.loadManifest(from: package, with: swiftExecutable)
         let builder = PackageBuilder(
             manifest: manifest,
             path: package,

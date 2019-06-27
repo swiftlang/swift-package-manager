@@ -2943,7 +2943,7 @@ final class WorkspaceTests: XCTestCase {
             = try Destination.hostDestination().binDir.appending(component: "swift")
 
         // From here the API should be simple and straightforward:
-        let manifest: Manifest = try Manifest.loadManifest(from: package, with: swiftExecutable)
+        let manifest: Manifest = try ManifestLoader.loadManifest(from: package, with: swiftExecutable)
         let loadedPackage: Package = try Package.loadPackage(from: package, with: swiftExecutable)
         let graph: PackageGraph = try PackageGraph.loadGraph(from: package, with: swiftExecutable)
 
