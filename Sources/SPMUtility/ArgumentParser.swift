@@ -16,7 +16,7 @@ import func SPMLibc.exit
 public enum ArgumentParserError: Swift.Error {
 
     /// An unknown option is encountered.
-    case unknownOption(String)
+    case unknownOption(String, suggestion: String?)
 
     /// The value of an argument is invalid.
     case invalidValue(argument: String, error: ArgumentConversionError)
@@ -29,6 +29,9 @@ public enum ArgumentParserError: Swift.Error {
 
     /// Expected these positional arguments but not found.
     case expectedArguments(ArgumentParser, [String])
+  
+    /// Expected a single argument but got multiple ones.
+    case duplicateArgument(String)
 }
 
 extension ArgumentParserError: LocalizedError {
@@ -40,8 +43,12 @@ extension ArgumentParserError: LocalizedError {
 extension ArgumentParserError: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .unknownOption(let option):
-            return "unknown option \(option); use --help to list available options"
+        case .unknownOption(let option, let suggestion):
+            var desc = "unknown option \(option); use --help to list available options"
+            if let suggestion = suggestion {
+                desc += "\nDid you mean \(suggestion)?"
+            }
+            return desc
         case .invalidValue(let argument, let error):
             return "\(error) for argument \(argument); use --help to print usage"
         case .expectedValue(let option):
@@ -50,6 +57,8 @@ extension ArgumentParserError: CustomStringConvertible {
             return "unexpected argument \(argument); use --help to list available arguments"
         case .expectedArguments(_, let arguments):
             return "expected arguments: \(arguments.joined(separator: ", "))"
+        case .duplicateArgument(let option):
+            return "expected single value for argument: \(option)"
         }
     }
 }
@@ -556,6 +565,11 @@ public final class ArgumentParser {
                     assertionFailure()
                     return
                 }
+              
+                guard results[argument.name] == nil else {
+                    throw ArgumentParserError.duplicateArgument(argument.name)
+                }
+              
                 results[argument.name] = value
             }
         }
@@ -837,7 +851,8 @@ public final class ArgumentParser {
                 let (argumentString, value) = argumentString.spm_split(around: "=")
                 // Get the corresponding option for the option argument.
                 guard let optionArgument = optionsMap[argumentString] else {
-                    throw ArgumentParserError.unknownOption(argumentString)
+                    let suggestion = bestMatch(for: argumentString, from: Array(optionsMap.keys))
+                    throw ArgumentParserError.unknownOption(argumentString, suggestion: suggestion)
                 }
 
                 argument = optionArgument

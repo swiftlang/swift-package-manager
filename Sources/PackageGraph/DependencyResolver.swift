@@ -79,7 +79,7 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
 
         case let .missingVersions(constraints):
             let stream = BufferedOutputByteStream()
-            stream <<< "the package dependency graph could not be resolved; unable find any available tag for the following requirements:\n"
+            stream <<< "the package dependency graph could not be resolved; unable to find any available tag for the following requirements:\n"
             for (i, constraint) in constraints.enumerated() {
                 stream <<< "    "
                 stream <<< "\(constraint.identifier.path)" <<< " @ "
