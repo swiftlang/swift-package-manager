@@ -1,4 +1,4 @@
-// swift-tools-version:4.2
+// swift-tools-version:5.0
 
 /*
  This source file is part of the Swift.org open source project
@@ -14,6 +14,9 @@ import PackageDescription
 
 let package = Package(
     name: "SwiftPM",
+    platforms: [
+        .macOS(.v10_14),
+    ],
     products: [
         // The `libSwiftPM` set of interfaces to programatically work with Swift
         // packages.

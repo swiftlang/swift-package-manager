@@ -285,9 +285,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             let encoder = JSONEncoder()
             encoder.userInfo[Manifest.dumpPackageKey] = true
-            if #available(macOS 10.13, *) {
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            }
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
             let jsonData = try encoder.encode(manifest)
             let jsonString = String(data: jsonData, encoding: .utf8)!

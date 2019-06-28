@@ -17,7 +17,7 @@ final public class Thread {
 
     /// The thread implementation which is Foundation.Thread on Linux and
     /// a Thread subclass which provides closure support on Darwin.
-    private var thread: ThreadImpl!
+    private var thread: Foundation.Thread!
 
     /// Condition variable to support blocking other threads using join when this thread has not finished executing.
     private var finishedCondition: Condition
@@ -48,7 +48,7 @@ final public class Thread {
             }
         }
 
-        self.thread = ThreadImpl(block: theTask)
+        self.thread = Foundation.Thread(block: theTask)
     }
 
     /// Starts the thread execution.
@@ -65,23 +65,3 @@ final public class Thread {
         }
     }
 }
-
-#if canImport(Darwin)
-/// A helper subclass of Foundation's Thread with closure support.
-final private class ThreadImpl: Foundation.Thread {
-
-    /// The task to be executed.
-    private let task: () -> Void
-
-    override func main() {
-        task()
-    }
-
-    init(block task: @escaping () -> Void) {
-        self.task = task
-    }
-}
-#else
-// Thread on Linux supports closure so just use it directly.
-typealias ThreadImpl = Foundation.Thread
-#endif

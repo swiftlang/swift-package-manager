@@ -221,7 +221,7 @@ class Target(object):
             other_args.extend(["-Onone", "-g"])
         other_args.extend(['-j%d' % g_num_cpus] + self.swiftflags)
         if platform.system() == 'Darwin':
-            other_args.extend(["-target", "x86_64-apple-macosx10.10"])
+            other_args.extend(["-target", "x86_64-apple-macosx10.14"])
         if args.sysroot:
             other_args.extend(["-sdk", args.sysroot])
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
@@ -289,7 +289,7 @@ class Target(object):
         common_args.extend(["-fmodules-cache-path=%s" % os.path.join(args.sandbox_path, "ModuleCache")])
 
         if platform.system() == 'Darwin':
-            common_args.extend(["-arch", "x86_64", "-mmacosx-version-min=10.10"])
+            common_args.extend(["-arch", "x86_64", "-mmacosx-version-min=10.14"])
 
         if args.sysroot:
             common_args.extend(["-isysroot", args.sysroot])
@@ -556,7 +556,7 @@ class llbuild(object):
                 if self.args.sysroot:
                     link_command.extend(["-sdk", self.args.sysroot])
                 if platform.system() == 'Darwin':
-                    link_command.extend(["-target", "x86_64-apple-macosx10.10"])
+                    link_command.extend(["-target", "x86_64-apple-macosx10.14"])
                 link_command.extend(objects)
                 for dependency in target.dependencies:
                     dep_target = self.target_map[dependency]
@@ -667,7 +667,7 @@ def process_runtime_libraries(build, args, lib_path):
                "-Xlinker", "-all_load",
                input_lib_path,
                "-sdk", args.sysroot,
-               "-target", "x86_64-apple-macosx10.10"]
+               "-target", "x86_64-apple-macosx10.14"]
     else:
         # We include an RPATH entry so that the Swift libraries can be found
         # relative to where it will be installed (in 'lib/swift/pm/<version>/...').

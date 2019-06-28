@@ -518,7 +518,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cmd += ["-swift-version", manifestVersion.swiftLanguageVersion.rawValue]
         cmd += ["-I", runtimePath.pathString]
       #if os(macOS)
-        cmd += ["-target", "x86_64-apple-macosx10.10"]
+        cmd += ["-target", "x86_64-apple-macosx10.14"]
       #endif
         if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
             cmd += ["-sdk", sdkRoot.pathString]
