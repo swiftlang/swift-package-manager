@@ -88,18 +88,16 @@ public enum FileMode {
     case userUnWritable
     case userWritable
     case executable
-
-    internal var setMode: (Int16) -> Int16 {
+    
+    /// File mode as it would be passed to `chmod`.
+    public var cliArgument: String {
         switch self {
         case .userUnWritable:
-            // r-x rwx rwx
-            return {$0 & 0o577}
+            return "u-w"
         case .userWritable:
-            // -w- --- ---
-            return {$0 | 0o200}
+            return "u+w"
         case .executable:
-            // --x --x --x
-            return {$0 | 0o111}
+            return "+x"
         }
     }
 }
@@ -231,7 +229,7 @@ private class LocalFileSystem: FileSystem {
 
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
         // Our semantics doesn't consider directories.
-        return  (self.isFile(path) || self.isSymlink(path)) && FileManager.default.isExecutableFile(atPath: path.pathString)
+        return self.isFile(path) && FileManager.default.isExecutableFile(atPath: path.pathString)
     }
 
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
@@ -259,8 +257,11 @@ private class LocalFileSystem: FileSystem {
     }
 
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
-        let attrs = try FileManager.default.attributesOfItem(atPath: path.pathString)
-        return FileInfo(attrs)
+        let path = path.pathString
+        var statBuf = SPMLibc.stat()
+        let rv = stat(path, &statBuf)
+        guard rv == 0 else { throw SystemError.stat(errno, path) }
+        return FileInfo(statBuf)
     }
 
     var currentWorkingDirectory: AbsolutePath? {
@@ -374,39 +375,86 @@ private class LocalFileSystem: FileSystem {
     }
 
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
-        guard exists(path) else { return }
-        func setMode(path: String) throws {
-            // Skip if only files should be changed.
-            if options.contains(.onlyFiles) && isDirectory(AbsolutePath(path)) {
-                return
+      #if os(macOS)
+        // Get the mode we need to set.
+        guard let setMode = setmode(mode.cliArgument) else {
+            throw FileSystemError(errno: errno)
+        }
+        defer { setMode.deallocate() }
+
+        let recursive = options.contains(.recursive)
+        // If we're in recursive mode, do physical walk otherwise logical.
+        let ftsOptions = recursive ? FTS_PHYSICAL : FTS_LOGICAL
+
+        // Get handle to the file hierarchy we want to traverse.
+        let paths = CStringArray([path.pathString])
+        guard let ftsp = fts_open(paths.cArray, ftsOptions, nil) else {
+            throw FileSystemError(errno: errno)
+        }
+        defer { fts_close(ftsp) }
+
+        // Start traversing.
+        while let p = fts_read(ftsp) {
+
+            switch Int32(p.pointee.fts_info) {
+
+            // A directory being visited in pre-order.
+            case FTS_D:
+                // If we're not recursing, skip the contents of the directory.
+                if !recursive {
+                    fts_set(ftsp, p, FTS_SKIP)
+                }
+                continue
+
+            // A directory couldn't be read.
+            case FTS_DNR:
+                // FIXME: We should warn here.
+                break
+
+            // There was an error.
+            case FTS_ERR:
+                fallthrough
+
+            // No stat(2) information was available.
+            case FTS_NS:
+                // FIXME: We should warn here.
+                continue
+
+            // A symbolic link.
+            case FTS_SL:
+                fallthrough
+
+            // A symbolic link with a non-existent target.
+            case FTS_SLNONE:
+                // The only symlinks that end up here are ones that don't point
+                // to anything and ones that we found doing a physical walk.  
+                continue
+
+            default:
+                break
             }
 
-            let attrs = try FileManager.default.attributesOfItem(atPath: path)
-
             // Compute the new mode for this file.
-            let currentMode = attrs[.posixPermissions] as! Int16
-            let newMode = mode.setMode(currentMode)
-            guard newMode != currentMode else { return }
-            try FileManager.default.setAttributes([.posixPermissions : newMode],
-                                                  ofItemAtPath: path)
-        }
+            let currentMode = mode_t(p.pointee.fts_statp.pointee.st_mode)
 
-        try setMode(path: path.pathString)
-        guard isDirectory(path) else { return }
+            // Skip if only files should be changed.
+            if options.contains(.onlyFiles) && (currentMode & S_IFMT) == S_IFDIR {
+                continue
+            }
 
-        guard let traverse = FileManager.default.enumerator(
-                at: URL(fileURLWithPath: path.pathString),
-                includingPropertiesForKeys: nil) else {
-            throw FileSystemError.noEntry
-        }
+            // Compute the new mode.
+            let newMode = getmode(setMode, currentMode)
+            if newMode == currentMode {
+                continue
+            }
 
-        if !options.contains(.recursive) {
-            traverse.skipDescendants()
+            // Update the mode.
+            //
+            // We ignore the errors for now but we should have a way to report back.
+            _ = SPMLibc.chmod(p.pointee.fts_accpath, newMode)
         }
-
-        while let path = traverse.nextObject() {
-            try setMode(path: (path as! URL).path)
-        }
+      #endif
+        // FIXME: We only support macOS right now.
     }
 }
 

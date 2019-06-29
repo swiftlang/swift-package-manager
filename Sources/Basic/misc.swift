@@ -18,20 +18,9 @@ import Foundation
 ///   - args: The executable arguments.
 public func exec(path: String, args: [String]) throws {
     let cArgs = CStringArray(args)
-  #if os(Windows)
-    guard cArgs.cArray.withUnsafeBufferPointer({
-        $0.withMemoryRebound(to: UnsafePointer<Int8>?.self, {
-          _execv(path, $0.baseAddress) != -1
-        })
-    })
-    else {
-        throw SystemError.exec(errno, path: path, args: args)
-    }
-  #else
     guard execv(path, cArgs.cArray) != -1 else {
         throw SystemError.exec(errno, path: path, args: args)
     }
-  #endif
 }
 
 // MARK: Utility function for searching for executables
@@ -174,23 +163,13 @@ public enum SystemError: Swift.Error {
     case waitpid(Int32)
 }
 
-#if os(Windows)
-import func SPMLibc.strerror_s
-#else
 import func SPMLibc.strerror_r
-#endif
 import var SPMLibc.EINVAL
 import var SPMLibc.ERANGE
 
 extension SystemError: CustomStringConvertible {
     public var description: String {
         func strerror(_ errno: Int32) -> String {
-          #if os(Windows)
-            let cap = 128
-            var buf = [Int8](repeating: 0, count: cap)
-            let _ = SPMLibc.strerror_s(&buf, 128, errno)
-            return "\(String(cString: buf)) (\(errno))"
-          #else
             var cap = 64
             while cap <= 16 * 1024 {
                 var buf = [Int8](repeating: 0, count: cap)
@@ -208,7 +187,6 @@ extension SystemError: CustomStringConvertible {
                 return "\(String(cString: buf)) (\(errno))"
             }
             fatalError("strerror_r error: \(ERANGE)")
-          #endif
         }
 
         switch self {
