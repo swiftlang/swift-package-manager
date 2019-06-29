@@ -29,7 +29,7 @@ class FileSystemTests: XCTestCase {
         let file = try! TemporaryFile()
         XCTAssertTrue(fs.exists(file.path))
         XCTAssertTrue(fs.isFile(file.path))
-        XCTAssertEqual(try fs.getFileInfo(file.path).fileType, .typeRegular)
+        XCTAssertEqual(try fs.getFileInfo(file.path).kind, .file)
         XCTAssertFalse(fs.isDirectory(file.path))
         XCTAssertFalse(fs.isFile(AbsolutePath("/does-not-exist")))
         XCTAssertFalse(fs.isSymlink(AbsolutePath("/does-not-exist")))
@@ -41,7 +41,7 @@ class FileSystemTests: XCTestCase {
         try! createSymlink(sym, pointingAt: file.path)
         XCTAssertTrue(fs.isSymlink(sym))
         XCTAssertTrue(fs.isFile(sym))
-        XCTAssertEqual(try fs.getFileInfo(sym).fileType, .typeSymbolicLink)
+        XCTAssertEqual(try fs.getFileInfo(sym).kind, .file)
         XCTAssertFalse(fs.isDirectory(sym))
 
         // isExecutableFile
@@ -388,7 +388,7 @@ class FileSystemTests: XCTestCase {
     }
 
     func testSetAttribute() throws {
-      #if os(macOS) || os(Linux)
+      #if os(macOS)
         mktmpdir { path in
             let fs = Basic.localFileSystem
 

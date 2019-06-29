@@ -19,11 +19,6 @@ private let whichArgs: [String] = ["xcrun", "--find"]
 #else
 private let whichArgs = ["which"]
 #endif
-#if os(Windows)
-private let hostExecutableSuffix = ".exe"
-#else
-private let hostExecutableSuffix = ""
-#endif
 
 /// Concrete object for manifest resource provider.
 public struct UserManifestResources: ManifestResourceProvider {
@@ -61,7 +56,7 @@ public final class UserToolchain: Toolchain {
 
     /// Path of the `swift` interpreter.
     public var swiftInterpreter: AbsolutePath {
-        return swiftCompiler.parentDirectory.appending(component: "swift" + hostExecutableSuffix)
+        return swiftCompiler.parentDirectory.appending(component: "swift")
     }
 
     /// Path to the xctest utility.
@@ -99,7 +94,7 @@ public final class UserToolchain: Toolchain {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path = path else { return }
             guard localFileSystem.isExecutableFile(path) else {
-                throw InvalidToolchainDiagnostic("could not find the `swiftc\(hostExecutableSuffix)` at expected path \(path)")
+                throw InvalidToolchainDiagnostic("could not find the `swiftc` at expected path \(path)")
             }
         }
 
@@ -114,13 +109,13 @@ public final class UserToolchain: Toolchain {
         // We require there is at least one valid swift compiler, either in the
         // bin dir or SWIFT_EXEC.
         let resolvedBinDirCompiler: AbsolutePath
-        let binDirCompiler = binDir.appending(component: "swiftc" + hostExecutableSuffix)
+        let binDirCompiler = binDir.appending(component: "swiftc")
         if localFileSystem.isExecutableFile(binDirCompiler) {
             resolvedBinDirCompiler = binDirCompiler
         } else if let SWIFT_EXEC = SWIFT_EXEC {
             resolvedBinDirCompiler = SWIFT_EXEC
         } else {
-            throw InvalidToolchainDiagnostic("could not find the `swiftc\(hostExecutableSuffix)` at expected path \(binDirCompiler)")
+            throw InvalidToolchainDiagnostic("could not find the `swiftc` at expected path \(binDirCompiler)")
         }
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
@@ -148,35 +143,30 @@ public final class UserToolchain: Toolchain {
             return toolPath
         }
 
-        // Then, check the toolchain.
-        do {
-            let toolPath = destination.binDir.appending(component: "clang" + hostExecutableSuffix)
-            if localFileSystem.exists(toolPath) {
-                _clangCompiler = toolPath
-                return toolPath
-            }
-        }
-
-        // Otherwise, lookup it up on the system.
+        // Otherwise, lookup the tool on the system.
         let arguments = whichArgs + ["clang"]
         let foundPath = try Process.checkNonZeroExit(arguments: arguments, environment: processEnvironment).spm_chomp()
         guard !foundPath.isEmpty else {
             throw InvalidToolchainDiagnostic("could not find clang")
         }
         let toolPath = try AbsolutePath(validating: foundPath)
+
+        // If we found clang using xcrun, assume the vendor is Apple.
+        // FIXME: This might not be the best way to determine this.
+        #if os(macOS)
+            __isClangCompilerVendorApple = true
+        #endif
+
         _clangCompiler = toolPath
         return toolPath
     }
     private var _clangCompiler: AbsolutePath?
+    private var __isClangCompilerVendorApple: Bool?
 
     public func _isClangCompilerVendorApple() throws -> Bool? {
-        // Assume the vendor is Apple on macOS.
-        // FIXME: This might not be the best way to determine this.
-      #if os(macOS)
-        return true
-      #else
-        return false
-      #endif
+        // The boolean gets computed as a side-effect of lookup for clang compiler.
+        _ = try getClangCompiler()
+        return __isClangCompilerVendorApple
     }
 
     /// Returns the path to llvm-cov tool.

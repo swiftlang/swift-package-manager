@@ -128,9 +128,6 @@ public struct BuildParameters {
     /// Whether to enable code coverage.
     public let enableCodeCoverage: Bool
 
-    /// Whether to enable test discovery on platforms without Objective-C runtime.
-    public let enableTestDiscovery: Bool
-
     /// Whether to enable generation of `.swiftinterface` files alongside
     /// `.swiftmodule`s.
     public let enableParseableModuleInterfaces: Bool
@@ -159,8 +156,7 @@ public struct BuildParameters {
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
-        enableParseableModuleInterfaces: Bool = false,
-        enableTestDiscovery: Bool = false
+        enableParseableModuleInterfaces: Bool = false
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
@@ -174,7 +170,6 @@ public struct BuildParameters {
         self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode
         self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
-        self.enableTestDiscovery = enableTestDiscovery
     }
 
     /// Returns the compiler arguments for the index store, if enabled.
@@ -474,22 +469,13 @@ public final class SwiftTargetBuildDescription {
     /// If this target is a test target.
     public let isTestTarget: Bool
 
-    /// True if this is the test discovery target.
-    public let testDiscoveryTarget: Bool
-
     /// Create a new target description with target and build parameters.
-    init(
-        target: ResolvedTarget,
-        buildParameters: BuildParameters,
-        isTestTarget: Bool? = nil,
-        testDiscoveryTarget: Bool = false
-    ) {
+    init(target: ResolvedTarget, buildParameters: BuildParameters, isTestTarget: Bool? = nil) {
         assert(target.underlyingTarget is SwiftTarget, "underlying target type mismatch \(target)")
         self.target = target
         self.buildParameters = buildParameters
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
         self.isTestTarget = isTestTarget ?? (target.type == .test)
-        self.testDiscoveryTarget = testDiscoveryTarget
     }
 
     /// The arguments needed to compile this target.
@@ -525,11 +511,7 @@ public final class SwiftTargetBuildDescription {
 
         // Add arguments to colorize output if stdout is tty
         if buildParameters.isTTY {
-            if Process.env["SWIFTPM_USE_NEW_COLOR_DIAGNOSTICS"] != nil {
-                args += ["-color-diagnostics"]
-            } else {
-                args += ["-Xfrontend", "-color-diagnostics"]
-            }
+            args += ["-Xfrontend", "-color-diagnostics"]
         }
 
         // Add the output for the `.swiftinterface`, if requested.
@@ -883,65 +865,6 @@ public class BuildPlan {
     /// Diagnostics Engine for emitting diagnostics.
     let diagnostics: DiagnosticsEngine
 
-    private static func planLinuxMain(
-        _ buildParameters: BuildParameters,
-        _ graph: PackageGraph
-    ) throws -> (ResolvedTarget, SwiftTargetBuildDescription)? {
-        guard buildParameters.triple.isLinux() else {
-            return nil
-        }
-
-        // Currently, there can be only one test product in a package graph.
-        guard let testProduct = graph.allProducts.first(where: { $0.type == .test }) else {
-            return nil
-        }
-
-        if !buildParameters.enableTestDiscovery {
-            guard let linuxMainTarget = testProduct.linuxMainTarget else {
-                throw Error.missingLinuxMain
-            }
-
-            let desc = SwiftTargetBuildDescription(
-                target: linuxMainTarget,
-                buildParameters: buildParameters,
-                isTestTarget: true
-            )
-            return (linuxMainTarget, desc)
-        }
-
-        // We'll generate sources containing the test names as part of the build process.
-        let derivedTestListDir = buildParameters.buildPath.appending(components: "testlist.derived")
-        let mainFile = derivedTestListDir.appending(component: "main.swift")
-
-        var paths: [AbsolutePath] = []
-        paths.append(mainFile)
-        let testTargets = graph.rootPackages.flatMap{ $0.targets }.filter{ $0.type == .test }
-        for testTarget in testTargets {
-            let path = derivedTestListDir.appending(components: testTarget.name + ".swift")
-            paths.append(path)
-        }
-
-        let src = Sources(paths: paths, root: derivedTestListDir)
-
-        let swiftTarget = SwiftTarget(
-            testDiscoverySrc: src,
-            name: testProduct.name,
-            dependencies: testProduct.underlyingProduct.targets)
-        let linuxMainTarget = ResolvedTarget(
-            target: swiftTarget,
-            dependencies: testProduct.targets.map(ResolvedTarget.Dependency.target)
-        )
-
-        let target = SwiftTargetBuildDescription(
-            target: linuxMainTarget,
-            buildParameters: buildParameters,
-            isTestTarget: true,
-            testDiscoveryTarget: true
-        )
-
-        return (linuxMainTarget, target)
-    }
-
     /// Create a build plan with build parameters and a package graph.
     public init(
         buildParameters: BuildParameters,
@@ -995,10 +918,19 @@ public class BuildPlan {
             throw Diagnostics.fatalError
         }
 
-        // Plan the linux main target.
-        if let result = try Self.planLinuxMain(buildParameters, graph) {
-            targetMap[result.0] = .swift(result.1)
-            self.linuxMainTarget = result.0
+        if buildParameters.triple.isLinux() {
+            // FIXME: Create a target for LinuxMain file on linux.
+            // This will go away once it is possible to auto detect tests.
+            let testProducts = graph.allProducts.filter({ $0.type == .test })
+
+            for product in testProducts {
+                guard let linuxMainTarget = product.linuxMainTarget else {
+                    throw Error.missingLinuxMain
+                }
+                let target = SwiftTargetBuildDescription(
+                        target: linuxMainTarget, buildParameters: buildParameters, isTestTarget: true)
+                targetMap[linuxMainTarget] = .swift(target)
+            }
         }
 
         var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
@@ -1017,8 +949,6 @@ public class BuildPlan {
         // Finally plan these targets.
         try plan()
     }
-
-    private var linuxMainTarget: ResolvedTarget?
 
     static func validateDeploymentVersionOfProductDependency(
         _ product: ResolvedProduct,
@@ -1161,7 +1091,7 @@ public class BuildPlan {
 
         if buildParameters.triple.isLinux() {
             if product.type == .test {
-                linuxMainTarget.map({ staticTargets.append($0) })
+                product.linuxMainTarget.map({ staticTargets.append($0) })
             }
         }
 

@@ -363,7 +363,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             option: initPackageParser.add(
                 option: "--type", kind: InitPackage.PackageType.self,
-                usage: "empty|library|executable|system-module|manifest"),
+                usage: "empty|library|executable|system-module"),
             to: { $0.initMode = $1 })
 
         binder.bind(

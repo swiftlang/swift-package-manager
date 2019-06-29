@@ -16,7 +16,6 @@ extension ArgumentParserTests {
         ("testPathArgument", testPathArgument),
         ("testRemainingStrategy", testRemainingStrategy),
         ("testShellCompletionGeneration", testShellCompletionGeneration),
-        ("testSingleValueMultipleTimes", testSingleValueMultipleTimes),
         ("testSubparser", testSubparser),
         ("testSubparserBinder", testSubparserBinder),
         ("testSubsubparser", testSubsubparser),

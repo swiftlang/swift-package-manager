@@ -89,11 +89,7 @@ public final class ProcessSet {
                 }
             }
             // Send kill signal to all processes.
-          #if os(Windows)
-            self.signalAll(SIGTERM)
-          #else
             self.signalAll(SIGKILL)
-          #endif
         }
 
         thread.start()

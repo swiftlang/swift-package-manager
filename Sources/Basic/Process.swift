@@ -10,10 +10,6 @@
 
 import class Foundation.ProcessInfo
 
-#if os(Windows)
-import Foundation
-#endif
-
 import SPMLibc
 import Dispatch
 
@@ -60,16 +56,12 @@ public struct ProcessResult: CustomStringConvertible {
         stderrOutput: Result<[UInt8], AnyError>
     ) {
         let exitStatus: ExitStatus
-      #if os(Windows)
-        exitStatus = .terminated(code: exitStatusCode)
-      #else
         if WIFSIGNALED(exitStatusCode) {
             exitStatus = .signalled(signal: WTERMSIG(exitStatusCode))
         } else {
             precondition(WIFEXITED(exitStatusCode), "unexpected exit status \(exitStatusCode)")
             exitStatus = .terminated(code: WEXITSTATUS(exitStatusCode))
         }
-      #endif
         self.init(arguments: arguments, exitStatus: exitStatus, output: output,
             stderrOutput: stderrOutput)
     }
@@ -145,10 +137,8 @@ public final class Process: ObjectIdentifierProtocol {
     }
 
     /// Typealias for process id type.
-  #if !os(Windows)
     public typealias ProcessID = pid_t
-  #endif
-
+    
     /// Typealias for stdout/stderr output closure.
     public typealias OutputClosure = ([UInt8]) -> Void
 
@@ -170,11 +160,7 @@ public final class Process: ObjectIdentifierProtocol {
     public let environment: [String: String]
 
     /// The process id of the spawned process, available after the process is launched.
-  #if os(Windows)
-    private var _process: Foundation.Process?
-  #else
     public private(set) var processID = ProcessID()
-  #endif
 
     /// If the subprocess has launched.
     /// Note: This property is not protected by the serial queue because it is only mutated in `launch()`, which will be
@@ -193,11 +179,6 @@ public final class Process: ObjectIdentifierProtocol {
 
     /// The result of the process execution. Available after process is terminated.
     private var _result: ProcessResult?
-
-  #if os(Windows)
-    private var stdoutData: [UInt8] = []
-    private var stderrData: [UInt8] = []
-  #endif
 
     /// If redirected, stdout result and reference to the thread reading the output.
     private var stdout: (result: Result<[UInt8], AnyError>, thread: Thread?) = (Result([]), nil)
@@ -286,30 +267,6 @@ public final class Process: ObjectIdentifierProtocol {
             throw Process.Error.missingExecutableProgram(program: arguments[0])
         }
 
-    #if os(Windows)
-        _process = Foundation.Process()
-        _process?.arguments = arguments
-        _process?.executableURL = URL(fileURLWithPath: arguments[0])
-
-        if outputRedirection.redirectsOutput {
-            let stdoutPipe = Pipe()
-            let stderrPipe = Pipe()
-            stdoutPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
-                let contents = fh.readDataToEndOfFile()
-                self.outputRedirection.outputClosures?.stdoutClosure([UInt8](contents))
-                self.stdoutData += contents
-            }
-            stderrPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
-                let contents = fh.readDataToEndOfFile()
-                self.outputRedirection.outputClosures?.stderrClosure([UInt8](contents))
-                self.stderrData += contents
-            }
-            _process?.standardOutput = stdoutPipe
-            _process?.standardError = stderrPipe
-        }
-
-        try _process?.run()
-      #else
         // Initialize the spawn attributes.
       #if canImport(Darwin)
         var attributes: posix_spawnattr_t? = nil
@@ -424,27 +381,11 @@ public final class Process: ObjectIdentifierProtocol {
             thread.start()
             self.stderr.thread = thread
         }
-      #endif // POSIX implementation
     }
 
     /// Blocks the calling process until the subprocess finishes execution.
     @discardableResult
     public func waitUntilExit() throws -> ProcessResult {
-      #if os(Windows)
-        precondition(_process != nil, "The process is not yet launched.")
-        let p = _process!
-        p.waitUntilExit()
-        stdout.thread?.join()
-        stderr.thread?.join()
-
-        let executionResult = ProcessResult(
-            arguments: arguments,
-            exitStatusCode: p.terminationStatus,
-            output: stdout.result,
-            stderrOutput: stderr.result
-        )
-        return executionResult
-      #else
         return try serialQueue.sync {
             precondition(launched, "The process is not yet launched.")
 
@@ -477,10 +418,8 @@ public final class Process: ObjectIdentifierProtocol {
             self._result = executionResult
             return executionResult
         }
-      #endif
     }
 
-  #if !os(Windows)
     /// Reads the given fd and returns its result.
     ///
     /// Closes the fd before returning.
@@ -517,22 +456,13 @@ public final class Process: ObjectIdentifierProtocol {
         // Construct the output result.
         return error.map(Result.init) ?? Result(out)
     }
-  #endif
 
     /// Send a signal to the process.
     ///
     /// Note: This will signal all processes in the process group.
     public func signal(_ signal: Int32) {
-      #if os(Windows)
-        if signal == SIGINT {
-          _process?.interrupt()
-        } else {
-          _process?.terminate()
-        }
-      #else
         assert(launched, "The process is not yet launched.")
         _ = SPMLibc.kill(startNewProcessGroup ? -processID : processID, signal)
-      #endif
     }
 }
 
@@ -587,7 +517,6 @@ extension Process {
 
 // MARK: - Private helpers
 
-#if !os(Windows)
 #if os(macOS)
 private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
 #else
@@ -676,4 +605,3 @@ extension ProcessResult.Error: CustomStringConvertible {
         }
     }
 }
-#endif

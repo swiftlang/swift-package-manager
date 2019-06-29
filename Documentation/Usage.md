@@ -24,7 +24,9 @@
   * [Depending on Apple Modules](#depending-on-apple-modules)
   * [C language targets](#c-language-targets)
   * [Shell completion scripts](#shell-completion-scripts)
-* [PackageDescription API](PackageDescription.md)
+* [PackageDescription API Version 3](PackageDescriptionV3.md)
+* [PackageDescription API Version 4](PackageDescriptionV4.md)
+* [PackageDescription API Version 4.2](PackageDescriptionV4_2.md)
 * [Resources](Resources.md)
 
 ---
@@ -48,7 +50,7 @@ get started, create a directory and run `swift package init` command:
 This will create the directory structure needed for a library package with a
 target and the corresponding test target to write unit tests. A library package
 can contain multiple targets as explained in [Target Format
-Reference](PackageDescription.md#target).
+Reference](PackageDescriptionV4.md#target-format-reference).
 
 ### Create an executable package
 
@@ -65,7 +67,7 @@ get started:
 This creates the directory structure needed for executable targets. Any target
 can be turned into a executable target if there is a `main.swift` present in
 its sources. Complete reference for layout is
-[here](PackageDescription.md#target).
+[here](PackageDescriptionV4.md#target-format-reference).
 
 ## Define Dependencies
 
@@ -575,7 +577,7 @@ changes (e.g.  because a teammate pushed a new version of the file) the next
 resolve command will update packages to match that file. After a successful
 resolve command, the checked out versions of all dependencies and the versions
 recorded in the resolved versions file will match. In most cases the resolve
-command will perform no changes unless the `Package.swift` manifest or
+command will perform no changes unless the `Package.swift manifest or
 `Package.resolved` file have changed.
 
 Most SwiftPM commands will implicitly invoke the swift package resolve
@@ -684,8 +686,11 @@ A C language target is build with following flags in release mode:
 
 ## Depending on Apple Modules
 
-Swift Package Manager includes a build system that can build for macOS and Linux.
-Xcode 11 integrates with libSwiftPM to provide support for iOS, watchOS, and tvOS platforms.
+At this time there is no explicit support for depending on UIKit, AppKit, etc,
+though importing these modules should work if they are present in the proper
+system location. We will add explicit support for system dependencies in the
+future. Note that at this time the Package Manager has no support for iOS,
+watchOS, or tvOS platforms.
 
 ## C language targets
 

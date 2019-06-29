@@ -120,24 +120,8 @@ class ArgumentParserTests: XCTestCase {
         do {
             _ = try parser.parse(["foo", "--bar"])
             XCTFail("unexpected success")
-        } catch ArgumentParserError.unknownOption(let option, let suggestion) {
+        } catch ArgumentParserError.unknownOption(let option) {
             XCTAssertEqual(option, "--bar")
-            XCTAssertNil(suggestion)
-        }
-
-        do {
-            _ = try parser.parse(["--food"])
-            XCTFail("unexpected success")
-        } catch ArgumentParserError.unknownOption(let option, let suggestion) {
-            XCTAssertEqual(option, "--food")
-            XCTAssertEqual(suggestion, "--foo")
-        }
-        do {
-            _ = try parser.parse(["--verb"])
-            XCTFail("unexpected success")
-        } catch ArgumentParserError.unknownOption(let option, let suggestion) {
-            XCTAssertEqual(option, "--verb")
-            XCTAssertNil(suggestion)
         }
 
         do {
@@ -302,19 +286,19 @@ class ArgumentParserTests: XCTestCase {
 
         do {
             args = try parser.parse(["--foo", "foo", "b", "--no-fly", "--branch", "bugfix"])
-        } catch ArgumentParserError.unknownOption(let arg, _) {
+        } catch ArgumentParserError.unknownOption(let arg) {
             XCTAssertEqual(arg, "--branch")
         }
 
         do {
             args = try parser.parse(["--foo", "foo", "a", "--branch", "bugfix", "--no-fly"])
-        } catch ArgumentParserError.unknownOption(let arg, _) {
+        } catch ArgumentParserError.unknownOption(let arg) {
             XCTAssertEqual(arg, "--no-fly")
         }
 
         do {
             args = try parser.parse(["a", "--branch", "bugfix", "--foo"])
-        } catch ArgumentParserError.unknownOption(let arg, _) {
+        } catch ArgumentParserError.unknownOption(let arg) {
             XCTAssertEqual(arg, "--foo")
         }
 
@@ -390,7 +374,7 @@ class ArgumentParserTests: XCTestCase {
 
         do {
             args = try parser.parse(["foo", "bar", "--no-fly"])
-        } catch ArgumentParserError.unknownOption(let arg, _) {
+        } catch ArgumentParserError.unknownOption(let arg) {
             XCTAssertEqual(arg, "--no-fly")
         }
     }
@@ -733,23 +717,11 @@ class ArgumentParserTests: XCTestCase {
         do {
             _ = try parser.parse(["-18"])
             XCTFail("unexpected success")
-        } catch ArgumentParserError.unknownOption(let option, _) {
+        } catch ArgumentParserError.unknownOption(let option) {
             XCTAssertEqual(option, "-18")
         }
 
         args = try parser.parse(["0"])
         XCTAssertEqual(args.get(positional), 0)
-    }
-  
-    func testSingleValueMultipleTimes() throws {
-        let parser = ArgumentParser(usage: "sample", overview: "sample")
-        _ = parser.add(option: "--verbosity", kind: Int.self)
-      
-        do {
-            _ = try parser.parse(["--verbosity", "5", "--verbosity", "6"])
-            XCTFail("unexpected success")
-        } catch ArgumentParserError.duplicateArgument(let argument) {
-            XCTAssertEqual(argument, "--verbosity")
-        }
     }
 }
