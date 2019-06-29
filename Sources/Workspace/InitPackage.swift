@@ -174,6 +174,7 @@ public final class InitPackage {
             stream <<< """
                 .DS_Store
                 /.build
+                /.swiftpm
                 /Packages
                 /*.xcodeproj
                 xcuserdata/
