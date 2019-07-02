@@ -1,4 +1,5 @@
 # Package
+`class Package`
 
 The `Package` type is used to configure the name, products, targets,
 dependencies and various other parts of the package.
@@ -65,6 +66,7 @@ Swift, the Swift tools, and the `PackageDescription` library, without having
 to update your package's manifest or losing access to existing packages.
 
 # SupportedPlatform
+`public struct SupportedPlatform`
 
 Represents a platform supported by the package.
 
@@ -77,7 +79,7 @@ start from 10.10. Packages can choose to configure the minimum deployment
 target version for a platform by using the APIs defined in this struct. The
 Swift Package Manager will emit appropriate errors when an invalid value is
 provided for supported platforms, i.e., an empty array, multiple declarations
-for the same platform or an invalid version specification.
+for the same platform, or an invalid version specification.
 
 The Swift Package Manager will emit an error if a dependency is not
 compatible with the top-level package's deployment version; the deployment
@@ -161,6 +163,7 @@ static func watchOS(_ versionString: String) -> SupportedPlatform
 ```
 
 # Product
+`class Product`
 
 Defines a package product.
 
@@ -245,6 +248,7 @@ public static func executable(name: String, targets: [String]) -> Product
 ```
 
 # Package Dependency
+`class Package.Dependency`
 
 A package dependency consists of a Git URL to the source of the package,
 and a requirement for the version of the package that can be used.
@@ -424,6 +428,7 @@ public static func upToNextMinor(from version: Version) -> Package.Dependency.Re
 ```
 
 # Version
+`struct Version`
 
 A struct representing a Semantic Version.
 
@@ -444,8 +449,8 @@ of existing API.
 
 #### The Minor Version
 
-Update the minor version if functionality is added in a backward compatible
-manner. For example, adding a new method or type without changing any other
+Increase the minor version if functionality is added in a backward compatible
+manner. For example, adding a new method or type without otherwise changing an
 API is considered backward-compatible.
 
 #### The Patch Version
@@ -455,6 +460,7 @@ This allows clients to benefit from bugfixes to your package without
 incurring any maintenance burden.
 
 # Target
+`class Target`
 
 Targets are the basic building blocks of a package.
 
@@ -556,6 +562,8 @@ public static func systemLibrary(
 
 Represents dependency on other targets in the package or products from other packages.
 
+### Methods
+
 ```swift
 /// A dependency on a target in the same package.
 public static func target(name: String) -> Target.Dependency
@@ -569,6 +577,7 @@ public static func byName(name: String) -> Target.Dependency
 ```
 
 # CSetting
+`struct CSetting`
 
 A C-language build setting.
 
@@ -621,6 +630,7 @@ public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondi
 ```
 
 # CXXSetting
+`struct CXXSetting`
 
 A CXX-language build setting.
 
@@ -673,6 +683,7 @@ public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondi
 ```
 
 # SwiftSetting
+`struct SwiftSetting`
 
 A Swift language build setting.
 
@@ -719,6 +730,7 @@ public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondi
 ```
 
 # LinkerSetting
+`struct LinkerSetting`
 
 A linker build setting.
 
