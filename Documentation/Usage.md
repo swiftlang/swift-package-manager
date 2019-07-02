@@ -37,7 +37,7 @@ that contains Swift sources and a `Package.swift` manifest file at its root.
 ### Create a library package
 
 A library package contains code which other packages can use and depend on. To
-get started, create a directory and run `swift package init` command:
+get started, create a directory and run `swift package init`:
 
     $ mkdir MyPackage
     $ cd MyPackage
@@ -52,8 +52,8 @@ Reference](PackageDescription.md#target).
 
 ### Create an executable package
 
-SwiftPM can create native binary which can be executed from command line. To
-get started: 
+SwiftPM can create native binary which can be executed from the command line. To
+get started:
 
     $ mkdir MyExecutable
     $ cd MyExecutable
@@ -63,16 +63,16 @@ get started:
     Hello, World!
 
 This creates the directory structure needed for executable targets. Any target
-can be turned into a executable target if there is a `main.swift` present in
-its sources. Complete reference for layout is
+can be turned into a executable target if there is a `main.swift` file present in
+its sources. The complete reference for layout is
 [here](PackageDescription.md#target).
 
 ## Define Dependencies
 
-To depend on a package, define the dependency and the version in manifest of
-your package, and add a product from that package as a dependency. For e.g. if
+To depend on a package, define the dependency and the version in the manifest of
+your package, and add a product from that package as a dependency, e.g. if
 you want to use https://github.com/apple/example-package-playingcard as
-a dependency, add the GitHub URL in dependencies of your `Package.swift`:
+a dependency, add the GitHub URL in the dependencies of `Package.swift`:
 
 ```swift
 import PackageDescription
@@ -273,8 +273,9 @@ it.
 
     $ echo '#include <stdio.h>' > shim.h 
 
-This is because `jpeglib.h` is not a correct module. You can also add `#include
-<stdio.h>` to the top of jpeglib.h and avoid creating `shim.h` file.
+This is because `jpeglib.h` is not a correct module, i.e. it does not contain
+the required line `#include <stdio.h>`. Alternatively, you can add `#include <stdio.h>`
+to the top of jpeglib.h to avoid creating the `shim.h` file.
 
 Create a Git repository and tag it:
 
@@ -346,12 +347,12 @@ package the link errors can be especially difficult to debug.
 ### Cross-platform Module Maps
 
 Module maps must contain absolute paths, thus they are not cross-platform. We
-intend to provide a solution for this in the package manager. Long term we hope
-that system libraries and system packagers will provide module maps and thus
-this component of the package manager will become redundant.
+intend to provide a solution for this in the package manager. In the long term, 
+we hope that system libraries and system packagers will provide module maps and
+thus this component of the package manager will become redundant.
 
 *Notably* the above steps will not work if you installed JPEG and JasPer with
-[Homebrew](http://brew.sh) since the files will be installed to `/usr/local` for
+[Homebrew](http://brew.sh) since the files will be installed to `/usr/local`. For
 now adapt the paths, but as said, we plan to support basic relocations like
 these.
 
@@ -400,7 +401,7 @@ version.
 In most cases, if you want to support multiple Swift versions in a package you
 should do so by using the language-specific version checks available in the
 source code itself. However, in some circumstances this may become unmanageable;
-in particular, when the package manifest itself cannot be written to be Swift
+specifically, when the package manifest itself cannot be written to be Swift
 version agnostic (for example, because it optionally adopts new package manager
 features not present in older versions).
 
@@ -437,7 +438,7 @@ This feature is intended for use in the following scenarios:
    In this case, the author can maintain parallel tag sets for both versions.
 
 It is *not* expected the packages would ever use this feature unless absolutely
-necessary to support existing clients. In particular, packages *should not*
+necessary to support existing clients. Specifically, packages *should not*
 adopt this syntax for tagging versions supporting the _latest GM_ Swift
 version.
 
@@ -461,7 +462,7 @@ substantively different manifest file for this to be viable (e.g., due to
 changes in the manifest API).
 
 It is *not* expected the packages would ever use this feature unless absolutely
-necessary to support existing clients. In particular, packages *should not*
+necessary to support existing clients. Specifically, packages *should not*
 adopt this syntax for tagging versions supporting the _latest GM_ Swift
 version.
 
@@ -469,11 +470,11 @@ version.
 
 Swift package manager supports editing dependencies, when your work requires
 making a change to one of your dependencies (for example, to fix a bug, or add
-a new API). The package manager moves the dependency into a location under
+a new API). The package manager moves the dependency into a location under the
 `Packages/` directory where it can be edited.
 
 For the packages which are in the editable state, `swift build` will always use
-the exact sources in this directory to build, regardless of its state, git
+the exact sources in this directory to build, regardless of their state, git
 repository status, tags, or the tag desired by dependency resolution. In other
 words, this will _just build_ against the sources that are present. When an
 editable package is present, it will be used to satisfy all instances of that
@@ -486,15 +487,15 @@ There are two ways to put a package in editable state:
 
     $ swift package edit Foo --branch bugFix
 
-This will create a branch called `bugFix` from currently resolved version and
-put the dependency Foo in `Packages/` directory. 
+This will create a branch called `bugFix` from currently the resolved version and
+put the dependency `Foo` in the `Packages/` directory. 
 
     $ swift package edit Foo --revision 969c6a9
 
-This is similar to previous version except that the Package Manager will leave
+This is similar to the previous version, except that the Package Manager will leave
 the dependency at a detached HEAD on the specified revision.
 
-Note: If branch or revision option is not provided, the Package Manager will
+Note: If the branch or revision option is not provided, the Package Manager will
 checkout the currently resolved version on a detached HEAD.
 
 Once a package is in an editable state, you can navigate to the directory
@@ -519,7 +520,7 @@ unedit, you can use the `--force` option:
 
 This feature allows overriding a dependency with a local checkout on the
 filesystem. This checkout is completely unmanaged by the package manager and
-will be used as-is. The only requirement is — the package name in the
+will be used as-is. The only requirement is that the package name in the
 overridden checkout should not change. This is extremely useful when developing
 multiple packages in tandem or when working on packages alongside an
 application.
@@ -528,16 +529,16 @@ The command to attach (or create) a local checkout is:
 
     $ swift package edit <package name> --path <path/to/dependency>
 
-For e.g., if `Foo` depends on `Bar` and you have a checkout of `Bar` at
+E.g., if `Foo` depends on `Bar` and you have a checkout of `Bar` at
 `/workspace/bar`:
 
     foo$ swift package edit Bar --path /workspace/bar
 
 A checkout of `Bar` will be created if it doesn't exist at the given path. If
-checkout a exists, package manager will validate the package name at the given
+a checkout exists, package manager will validate the package name at the given
 path and attach to it.
 
-The package manager will also create a symlink in `Packages/` directory to the
+The package manager will also create a symlink in the `Packages/` directory to the
 checkout path.
 
 Use unedit command to stop using the local checkout:
@@ -548,19 +549,19 @@ Use unedit command to stop using the local checkout:
 
 ## Resolved versions (Package.resolved file)
 
-The package manager records the result of dependency resolution in
-a `Package.resolved` file in the top-level package, and when this file is
-already present in the top-level package it is used when performing dependency
+The package manager records the result of dependency resolution in a
+`Package.resolved` file in the top-level of the package, and when this file is
+already present in the top-level, it is used when performing dependency
 resolution, rather than the package manager finding the latest eligible version
 of each package. Running `swift package update` updates all dependencies to the
-latest eligible versions and update the `Package.resolved` file accordingly.
+latest eligible versions and updates the `Package.resolved` file accordingly.
 
 Resolved versions will always be recorded by the package manager. Some users may
 choose to add the Package.resolved file to their package's .gitignore file. When
 this file is checked in, it allows a team to coordinate on what versions of the
 dependencies they should use. If this file is gitignored, each user will
-separately choose when to get new versions based on when they run the swift
-package update command, and new users will start with the latest eligible
+separately choose when to get new versions based on when they run the `swift
+package update` command, and new users will start with the latest eligible
 version of each dependency. Either way, for a package which is a dependency of
 other packages (e.g. a library package), that package's `Package.resolved` file
 will not have any effect on its client packages.
@@ -570,15 +571,15 @@ account the current version restrictions in the `Package.swift` manifest and
 `Package.resolved` resolved versions file, and issuing an error if the graph
 cannot be resolved. For packages which have previously resolved versions
 recorded in the `Package.resolved` file, the resolve command will resolve to
-those versions as long as they are still eligible. If the resolved versions file
-changes (e.g.  because a teammate pushed a new version of the file) the next
+those versions as long as they are still eligible. If the resolved version's file
+changes (e.g. because a teammate pushed a new version of the file) the next
 resolve command will update packages to match that file. After a successful
 resolve command, the checked out versions of all dependencies and the versions
 recorded in the resolved versions file will match. In most cases the resolve
 command will perform no changes unless the `Package.swift` manifest or
 `Package.resolved` file have changed.
 
-Most SwiftPM commands will implicitly invoke the swift package resolve
+Most SwiftPM commands will implicitly invoke the `swift package resolve`
 functionality before running, and will cancel with an error if dependencies
 cannot be resolved.
 
@@ -606,7 +607,7 @@ number specifier.
 
 The version number specifier follows the syntax defined by semantic versioning
 2.0, with an amendment that the patch version component is optional and
-considered to be 0 if not specified. The semver syntax allows for an optional
+considered to be 0 if not specified. The `semver` syntax allows for an optional
 pre-release version component or build version component; those components will
 be completely ignored by the package manager currently.  
 After the version number specifier, an optional `;` character may be present;
@@ -638,12 +639,12 @@ The following Swift tools version commands are supported:
 
 ## Testing
 
-Use `swift test` tool to run tests of a Swift package. For more information on
+Use the `swift test` tool to run the tests of a Swift package. For more information on
 the test tool, run `swift test --help`.
 
 ## Running
 
-Use `swift run [executable [arguments...]]` tool to run an executable product of a Swift
+Use the `swift run [executable [arguments...]]` tool to run an executable product of a Swift
 package. The executable's name is optional when running without arguments and when there
 is only one executable product. For more information on the run tool, run
 `swift run --help`.
@@ -654,31 +655,31 @@ SwiftPM allows two build configurations: Debug (default) and Release.
 
 ### Debug
 
-By default, running `swift build` will build in debug configuration.
+By default, running `swift build` will build in its debug configuration.
 Alternatively, you can also use `swift build -c debug`. The build artifacts are
-located in directory called `debug` under build folder.  A Swift target is built
-with following flags in debug mode:  
+located in a directory called `debug` under the build folder.  A Swift target is built
+with the following flags in debug mode:  
 
 * `-Onone`: Compile without any optimization.
 * `-g`: Generate debug information.
-* `-enable-testing`: Enable Swift compiler's testability feature.
+* `-enable-testing`: Enable the Swift compiler's testability feature.
 
-A C language target is build with following flags in debug mode:
+A C language target is built with the following flags in debug mode:
 
 * `-O0`: Compile without any optimization.
 * `-g`: Generate debug information.
 
 ### Release
 
-To build in release mode, type: `swift build -c release`. The build artifacts
-are located in directory called `release` under build folder.  A Swift target is
+To build in release mode, type `swift build -c release`. The build artifacts
+are located in directory named `release` under the build folder.  A Swift target is
 built with following flags in release mode:  
 
 * `-O`: Compile with optimizations.
 * `-whole-module-optimization`: Optimize input files (per module) together
   instead of individually.
 
-A C language target is build with following flags in release mode:
+A C language target is built with following flags in release mode:
 
 * `-O2`: Compile with optimizations.
 
@@ -689,7 +690,7 @@ Xcode 11 integrates with libSwiftPM to provide support for iOS, watchOS, and tvO
 
 ## C language targets
 
-The C language targets are similar to Swift targets except that the C language
+C language targets are similar to Swift targets, except that the C language
 libraries should contain a directory named `include` to hold the public headers.  
 
 To allow a Swift target to import a C language target, add a [target
@@ -703,12 +704,12 @@ automatically generate a modulemap for each C language library target for these
 * If `include/Foo.h` exists and `include` contains no other subdirectory then
   `include/Foo.h` becomes the umbrella header.
 
-* Otherwise if the `include` directory only contains header files and no other
+* Otherwise, if the `include` directory only contains header files and no other
   subdirectory, it becomes the umbrella directory.
 
 In case of complicated `include` layouts, a custom `module.modulemap` can be
 provided inside `include`. SwiftPM will error out if it can not generate
-a modulemap w.r.t the above rules.
+a modulemap with respect to the above rules.
 
 For executable targets, only one valid C language main file is allowed i.e. it
 is invalid to have `main.c` and `main.cpp` in the same target.
