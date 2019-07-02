@@ -108,7 +108,7 @@ you **will** need to rebuild using the bootstrap script.
 
 ## Developing using Xcode
 
-Run the following commands to generate and open a Xcode project.
+Run the following commands to generate and open an Xcode project.
 
 ```sh
 $ Utilities/bootstrap --generate-xcodeproj
