@@ -21,7 +21,7 @@ $ ../swift/utils/build-script -R --llbuild --swiftpm
 $ ../swift/utils/build-script -R --llbuild --swiftpm --xctest --foundation --libdispatch
 ```
 
-This will build the compiler and friends in the `build/` directory. It takes about 1
+This will build the compiler and its friends in the `build/` directory. It takes about 1
 hour for the initial build process. However, it is not really required to build
 the entire compiler in order to work on the Package Manager. A faster option is
 using a [snapshot](https://swift.org/download/#releases) from swift.org.
@@ -29,7 +29,7 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 ## Using a trunk snapshot
 
 1. [Download](https://swift.org/download/#snapshots) and install the latest Trunk Development snapshot.
-2. Run the following command depending on your platform.
+2. Run the following commands depending on your platform.
 
 	### macOS
 	```sh
@@ -64,7 +64,7 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 	$ Utilities/bootstrap
 	```
 
-Note: The bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed. Please refer to the [Swift project repo](https://github.com/apple/swift/blob/master/README.md#macos) for installation instructions.
+    Note: The bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed. Please refer to the [Swift project repo](https://github.com/apple/swift/blob/master/README.md#macos) for installation instructions.
 	
     This command will build the Package Manager inside the `.build/` directory.
     Run the bootstrap script to rebuild after making a change to the source
@@ -80,7 +80,7 @@ Note: The bootstrap script requires having [CMake](https://cmake.org/) and [Ninj
 	$ /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-build
 	```
 
-5. Testing the Swift Package Manager.
+5. Test the Swift Package Manager.
 
 	```sh
 	$ Utilities/bootstrap test --test-parallel
@@ -103,7 +103,7 @@ $ .build/x86_64-apple-macosx/debug/spm build
 $ .build/x86_64-apple-macosx/debug/spm test --filter BasicTests.GraphAlgorithmsTests/testCycleDetection
 ```
 
-Note: If you make any changes to `PackageDescription`'s runtime-related targets,
+Note: If you make any changes to the `PackageDescription` runtime-related targets,
 you **will** need to rebuild using the bootstrap script.
 
 ## Developing using Xcode
