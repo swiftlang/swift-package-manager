@@ -55,7 +55,7 @@ swift build
 
 Swift will build a single executable called `foo`.
 
-To the package manager, everything is a package, hence `Package.swift`. However, this does not mean you have to release your software to the wider world: you can develop your app without ever publishing it in a place where others can see or use. On the other hand, if one day you decide that your project _should_ be  available to a wider audience your sources are already in a form ready to be published.  The package manager is also independent of specific forms of distribution, so you can use it to share code within your personal projects, within your workgroup, team or company, or with the world.
+To the package manager, everything is a package, hence `Package.swift`. However, this does not mean you have to release your software to the wider world; you can develop your app without ever publishing it in a place where others can see or use. On the other hand, if one day you decide that your project _should_ be  available to a wider audience your sources are already in a form ready to be published.  The package manager is also independent of specific forms of distribution, so you can use it to share code within your personal projects, within your workgroup, team or company, or with the world.
 
 Of course, the package manager is used to build itself, so its own source files are laid out following these conventions as well.
 
@@ -69,7 +69,7 @@ A target may build either a library or an executable as its product. A library c
 
 ## About Dependencies
 
-Modern development is accelerated by the exponential use of external dependencies (for better and worse).  This is great for allowing you to get more done with less time, but adding dependencies to a project has an associated coordination cost.
+Modern development is accelerated by the exponential use of external dependencies (for better and worse).  This is great for allowing you to get more done in less time, but adding dependencies to a project has an associated coordination cost.
 
 In addition to downloading and building the source code for a dependency, that dependency's own dependencies must be downloaded and built as well, and so on, until the entire dependency graph is satisfied. To complicate matters further, a dependency may specify version requirements, which may have to be reconciled with the version requirements of other modules with the same dependency.
 
@@ -79,7 +79,7 @@ Dependencies are specified in your `Package.swift` manifest file.
 
 ### Dependency Hell
 
-“Dependency Hell” is the colloquialism for a situation where the graph of dependencies required by a project cannot be met. The end-user is then required to solve the scenario; usually a difficult task:
+“Dependency Hell” is the colloquialism for a situation where the graph of dependencies required by a project cannot be met. The end-user is then required to solve the scenario, which is usually a difficult task:
 
 1. The conflict may be in unfamiliar dependencies (of dependencies) that the user did not explicitly request.
 2. Due to the nature of development it would be rare for two dependency graphs to be the same. Thus the amount of help other users (often even the package authors) can offer is limited. Internet searches will likely prove fruitless.
