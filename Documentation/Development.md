@@ -2,7 +2,7 @@
 
 This document contains information on building and testing the Swift Package Manager.
 
-## Using Swift compiler build script
+## Using the Swift compiler build script
 
 The official way to build and test is using the Swift compiler build script.
 First, follow the instructions provided
@@ -21,14 +21,14 @@ $ ../swift/utils/build-script -R --llbuild --swiftpm
 $ ../swift/utils/build-script -R --llbuild --swiftpm --xctest --foundation --libdispatch
 ```
 
-This will build compiler and friends in `build/` directory. It takes about ~1
+This will build the compiler and friends in the `build/` directory. It takes about 1
 hour for the initial build process. However, it is not really required to build
 the entire compiler in order to work on the Package Manager. A faster option is
 using a [snapshot](https://swift.org/download/#releases) from swift.org.
 
-## Using trunk snapshot
+## Using a trunk snapshot
 
-1. [Download](https://swift.org/download/#snapshots) and install latest Trunk Development snapshot.
+1. [Download](https://swift.org/download/#snapshots) and install the latest Trunk Development snapshot.
 2. Run the following command depending on your platform.
 
 	### macOS
@@ -57,16 +57,16 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
     Note: Make sure the directory for llbuild is called "llbuild" and not
     "swift-llbuild".
  
-4. Building the Swift Package Manager.
+4. Build the Swift Package Manager.
 
 	```sh
 	$ cd swiftpm
 	$ Utilities/bootstrap
 	```
 
-    Note: The bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed. Please refer to the [Swift project repo](https://github.com/apple/swift/blob/master/README.md#macos) for installation instructions.
+Note: The bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed. Please refer to the [Swift project repo](https://github.com/apple/swift/blob/master/README.md#macos) for installation instructions.
 	
-    This command will build the Package Manager inside `.build/` directory.
+    This command will build the Package Manager inside the `.build/` directory.
     Run the bootstrap script to rebuild after making a change to the source
     code.
 	
@@ -103,12 +103,12 @@ $ .build/x86_64-apple-macosx/debug/spm build
 $ .build/x86_64-apple-macosx/debug/spm test --filter BasicTests.GraphAlgorithmsTests/testCycleDetection
 ```
 
-Note: If you make any changes to `PackageDescription` runtime-related targets,
+Note: If you make any changes to `PackageDescription`'s runtime-related targets,
 you **will** need to rebuild using the bootstrap script.
 
 ## Developing using Xcode
 
-Run the following command to generate a Xcode project.
+Run the following commands to generate and open a Xcode project.
 
 ```sh
 $ Utilities/bootstrap --generate-xcodeproj
@@ -116,13 +116,13 @@ generated: ./SwiftPM.xcodeproj
 $ open SwiftPM.xcodeproj
 ```
 
-Note: If you make any changes to `PackageDescription` or `PackageDescription4`
-target, you will need to regenerate the Xcode project using the above command.
+Note: If you make any changes to the `PackageDescription` or `PackageDescription4`
+targets, you will need to regenerate the Xcode project using the above command.
 
 ## Continuous Integration
 
 SwiftPM uses [swift-ci](https://ci.swift.org) infrastructure for its continuous integration testing. The
-bots can be triggered on pull-requests if you have commit access, otherwise ask
+bots can be triggered on pull-requests if you have commit access. Otherwise, ask
 one of the code owners to trigger them for you. The following commands are supported:
 
 ### @swift-ci please smoke test
@@ -164,36 +164,36 @@ $ Utilities/Docker/docker-utils swift-run # to run swift-run in the container
 
 ## Using custom Swift compilers
 
-SwiftPM needs Swift compiler to parse Package.swift manifest files and to
-compile Swift source files. You can use `SWIFT_EXEC` and `SWIFT_EXEC_MANIFEST`
+SwiftPM needs the Swift compiler to parse `Package.swift` manifest files and to
+compile Swift source files. You can use the `SWIFT_EXEC` and `SWIFT_EXEC_MANIFEST`
 environment variables to control which compiler to use for these operations.
 
 `SWIFT_EXEC_MANIFEST`: This variable controls which compiler to use for parsing
-Package.swift manifest files. The lookup order for the manifest compiler is:
-SWIFT_EXEC_MANIFEST, swiftc adjacent to swiftpm binaries, SWIFT_EXEC
+`Package.swift` manifest files. The lookup order for the manifest compiler is:
+`SWIFT_EXEC_MANIFEST`, `swiftc` adjacent to `swiftpm` binaries, `SWIFT_EXEC`
 
 `SWIFT_EXEC`: This variable controls which compiler to use for compiling Swift
-sources. The lookup order for the sources compiler is: SWIFT_EXEC, swiftc adjacent
-to swiftpm binaries. This is also useful for Swift compiler developers when they
+sources. The lookup order for the sources compiler is: `SWIFT_EXEC`, `swiftc` adjacent
+to `swiftpm` binaries. This is also useful for Swift compiler developers when they
 want to use a debug compiler with SwiftPM.
 
 ```sh
 $ SWIFT_EXEC=/path/to/my/built/swiftc swift build
 ```
 
-## Overriding path to the runtime libraries
+## Overriding the path to the runtime libraries
 
-SwiftPM computes the path of runtime libraries relative to where it is
+SwiftPM computes the path of its runtime libraries relative to where it is
 installed. This path can be overridden by setting the environment variable
 `SWIFTPM_PD_LIBS` to a directory containing the libraries. This can be a list of
 absolute search paths separated by colon (":"). SwiftPM will choose the first
-path which exists on disk. If none of the path are present on disk, it will fall
+path which exists on disk. If none of the paths are present on disk, it will fall
 back to built-in computation.
 
 ## Skip SwiftPM tests
 
 SwiftPM has a hidden env variable `_SWIFTPM_SKIP_TESTS_LIST` that can be used
 to skip a list of tests. This value of the variable is either a file path that contains a
-new-line separated list of tests to skip or a colon separated list of tests.
+newline separated list of tests to skip or a colon separated list of tests.
 
 This is only a development feature and should be considered _unsupported_.
