@@ -783,6 +783,7 @@ public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondi
 ```
 
 # SwiftVersion
+`enum SwiftVersion`
 
 Represents the version of the Swift language that should be used for compiling
 Swift sources in the package.
@@ -810,6 +811,7 @@ public enum SwiftVersion {
 ```
 
 # CLanguageStandard
+`enum CLanguageStandard`
 
 Supported C language standards.
 
@@ -830,6 +832,7 @@ public enum CLanguageStandard {
 }
 ```
 # CXXLanguageStandard
+`enum CXXLanguageStandard`
 
 Supported C++ language standards.
 
