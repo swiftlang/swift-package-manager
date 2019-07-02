@@ -190,7 +190,7 @@ Bug: N/A
 
 We need an easy way to edit the Package.swift manifest from automated tools, for
 cases where you don't want users to have to update the Swift code directly.  We
-think that it's possible to provide API to allow this, probably using
+think that it's possible to provide an API to allow this, probably using
 [`SwiftSyntax`](https://github.com/apple/swift/tree/master/tools/SwiftSyntax).
 
 Thread: N/A  
@@ -198,7 +198,7 @@ Bug: N/A
 
 # SwiftPM Integration in Xcode
 
-This is not part of the evolution ideas but it has frequently come up on the
+This is not part of the evolution ideas, but it has frequently come up on the
 forums (albeit for the right reasons). Please see [this](https://forums.swift.org/t/swift-package-manager-3-0-project-status/3794/5)
 post if you haven't. It is important to understand that Xcode is **not** part of
 the Swift Open Source project and the future plans and timelines are not published 
