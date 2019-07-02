@@ -66,7 +66,7 @@ Swift, the Swift tools, and the `PackageDescription` library, without having
 to update your package's manifest or losing access to existing packages.
 
 # SupportedPlatform
-`public struct SupportedPlatform`
+`struct SupportedPlatform`
 
 Represents a platform supported by the package.
 
