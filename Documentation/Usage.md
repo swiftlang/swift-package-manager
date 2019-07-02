@@ -70,7 +70,7 @@ its sources. The complete reference for layout is
 ## Define Dependencies
 
 To depend on a package, define the dependency and the version in the manifest of
-your package, and add a product from that package as a dependency, e.g. if
+your package, and add a product from that package as a dependency, e.g., if
 you want to use https://github.com/apple/example-package-playingcard as
 a dependency, add the GitHub URL in the dependencies of `Package.swift`:
 
@@ -273,7 +273,7 @@ it.
 
     $ echo '#include <stdio.h>' > shim.h 
 
-This is because `jpeglib.h` is not a correct module, i.e. it does not contain
+This is because `jpeglib.h` is not a correct module, i.e., it does not contain
 the required line `#include <stdio.h>`. Alternatively, you can add `#include <stdio.h>`
 to the top of jpeglib.h to avoid creating the `shim.h` file.
 
@@ -529,7 +529,7 @@ The command to attach (or create) a local checkout is:
 
     $ swift package edit <package name> --path <path/to/dependency>
 
-E.g., if `Foo` depends on `Bar` and you have a checkout of `Bar` at
+For example, if `Foo` depends on `Bar` and you have a checkout of `Bar` at
 `/workspace/bar`:
 
     foo$ swift package edit Bar --path /workspace/bar
@@ -563,7 +563,7 @@ dependencies they should use. If this file is gitignored, each user will
 separately choose when to get new versions based on when they run the `swift
 package update` command, and new users will start with the latest eligible
 version of each dependency. Either way, for a package which is a dependency of
-other packages (e.g. a library package), that package's `Package.resolved` file
+other packages (e.g., a library package), that package's `Package.resolved` file
 will not have any effect on its client packages.
 
 The `swift package resolve` command resolves the dependencies, taking into
@@ -572,7 +572,7 @@ account the current version restrictions in the `Package.swift` manifest and
 cannot be resolved. For packages which have previously resolved versions
 recorded in the `Package.resolved` file, the resolve command will resolve to
 those versions as long as they are still eligible. If the resolved version's file
-changes (e.g. because a teammate pushed a new version of the file) the next
+changes (e.g., because a teammate pushed a new version of the file) the next
 resolve command will update packages to match that file. After a successful
 resolve command, the checked out versions of all dependencies and the versions
 recorded in the resolved versions file will match. In most cases the resolve
@@ -711,7 +711,7 @@ In case of complicated `include` layouts, a custom `module.modulemap` can be
 provided inside `include`. SwiftPM will error out if it can not generate
 a modulemap with respect to the above rules.
 
-For executable targets, only one valid C language main file is allowed i.e. it
+For executable targets, only one valid C language main file is allowed, e.g., it
 is invalid to have `main.c` and `main.cpp` in the same target.
 
 ## Shell completion scripts
