@@ -369,4 +369,29 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTAssertNotNil(contents)
         }
     }
+
+    func testInvalidBuildSettings() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "Foo",
+                       cSettings: [
+                           .headerSearchPath("$(BYE)/path/to/foo/$(SRCROOT)/$(HELLO)"),
+                       ]
+                   ),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch ManifestParseError.runtimeManifestErrors(let errors) {
+            XCTAssertEqual(errors, ["the build setting 'headerSearchPath' contains invalid component(s): $(BYE) $(SRCROOT) $(HELLO)"])
+        }
+    }
 }
