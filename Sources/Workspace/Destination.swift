@@ -84,7 +84,11 @@ public struct Destination {
         environment: [String:String] = Process.env
     ) throws -> Destination {
         // Select the correct binDir.
-        let binDir = binDir ?? Destination.hostBinDir(
+        var customBinDir: AbsolutePath?
+      #if DEBUG
+        customBinDir = ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"].flatMap{ try? AbsolutePath(validating: $0) }
+      #endif
+        let binDir = customBinDir ?? binDir ?? Destination.hostBinDir(
             originalWorkingDirectory: originalWorkingDirectory)
 
       #if os(macOS)
