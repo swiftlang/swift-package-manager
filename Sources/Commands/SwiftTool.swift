@@ -362,6 +362,11 @@ public class SwiftTool<Options: ToolOptions> {
                 usage: "The number of jobs to spawn in parallel during the build process"),
             to: { $0.jobs = UInt32($1) })
 
+        binder.bind(
+            option: parser.add(option: "--enable-test-discovery", kind: Bool.self,
+               usage: "Enable test discovery on platforms without Objective-C runtime"),
+            to: { $0.enableTestDiscovery = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -383,19 +388,23 @@ public class SwiftTool<Options: ToolOptions> {
                 // Terminate all processes on receiving an interrupt signal.
                 processSet.terminate()
 
+              #if os(Windows)
+                // Exit as if by signal()
+                TerminateProcess(GetCurrentProcess(), 3)
+              #elseif os(macOS)
                 // Install the default signal handler.
                 var action = sigaction()
-              #if os(macOS)
                 action.__sigaction_u.__sa_handler = SIG_DFL
+                sigaction(SIGINT, &action, nil)
+                kill(getpid(), SIGINT)
               #else
+                var action = sigaction()
                 action.__sigaction_handler = unsafeBitCast(
                     SIG_DFL,
                     to: sigaction.__Unnamed_union___sigaction_handler.self)
-              #endif
                 sigaction(SIGINT, &action, nil)
-
-                // Die with sigint.
                 kill(getpid(), SIGINT)
+              #endif
             }
             self.processSet = processSet
 
@@ -579,13 +588,6 @@ public class SwiftTool<Options: ToolOptions> {
             return try subset.llbuildTargetName(for: loadPackageGraph(), diagnostics: diagnostics, config: buildParameters.configuration.dirname)
         }
     }
-    
-    func build(plan: BuildPlan, parameters: BuildParameters, subset: BuildSubset) throws {
-        guard let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: parameters) else {
-            return
-        }
-        try runLLBuild(plan: plan, manifest: parameters.llbuildManifest, llbuildTarget: llbuildTargetName)
-    }
 
     /// Build a subset of products and targets using swift-build-tool.
     func build(plan: BuildPlan, subset: BuildSubset) throws {
@@ -597,10 +599,11 @@ public class SwiftTool<Options: ToolOptions> {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestGenerator(plan, client: "basic")
         try llbuild.generateManifest(at: manifest)
+        let bctx = BuildExecutionContext(plan, buildTimeCmdToolMap: llbuild.buildTimeCmdToolMap)
 
         // Run llbuild.
         assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest)")
-        try runLLBuild(plan: plan, manifest: manifest, llbuildTarget: llbuildTargetName)
+        try runLLBuild(plan: plan, bctx: bctx, manifest: manifest, llbuildTarget: llbuildTargetName)
 
         // Create backwards-compatibilty symlink to old build path.
         let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
@@ -610,13 +613,14 @@ public class SwiftTool<Options: ToolOptions> {
         try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
     }
 
-    func runLLBuild(plan: BuildPlan, manifest: AbsolutePath, llbuildTarget: String) throws {
+    private func runLLBuild(plan: BuildPlan, bctx: BuildExecutionContext, manifest: AbsolutePath, llbuildTarget: String) throws {
         // Setup the build delegate.
         let isVerbose = verbosity != .concise
         let progressAnimation: ProgressAnimationProtocol = isVerbose ?
             MultiLineNinjaProgressAnimation(stream: stdoutStream) :
             NinjaProgressAnimation(stream: stdoutStream)
         let buildDelegate = BuildDelegate(
+            bctx: bctx,
             plan: plan,
             diagnostics: diagnostics,
             outputStream: stdoutStream,
@@ -654,7 +658,8 @@ public class SwiftTool<Options: ToolOptions> {
                 sanitizers: options.sanitizers,
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
                 indexStoreMode: options.indexStoreMode,
-                enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces
+                enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
+                enableTestDiscovery: options.enableTestDiscovery
             )
         })
     }()
