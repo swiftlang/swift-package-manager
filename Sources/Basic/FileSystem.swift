@@ -376,12 +376,11 @@ private class LocalFileSystem: FileSystem {
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         guard exists(path) else { return }
         func setMode(path: String) throws {
+            let attrs = try FileManager.default.attributesOfItem(atPath: path)
             // Skip if only files should be changed.
-            if options.contains(.onlyFiles) && isDirectory(AbsolutePath(path)) {
+            if options.contains(.onlyFiles) && attrs[.type] as? FileAttributeType != .typeRegular {
                 return
             }
-
-            let attrs = try FileManager.default.attributesOfItem(atPath: path)
 
             // Compute the new mode for this file.
             let currentMode = attrs[.posixPermissions] as! Int16
