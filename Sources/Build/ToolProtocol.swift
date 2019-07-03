@@ -14,7 +14,7 @@ import SPMUtility
 import class Foundation.ProcessInfo
 
 /// Describes a tool which can be understood by llbuild's BuildSystem library.
-protocol ToolProtocol {
+public protocol ToolProtocol {
     /// The list of inputs to declare.
     var inputs: [String] { get }
 
@@ -33,6 +33,20 @@ struct PhonyTool: ToolProtocol {
 
     func append(to stream: OutputByteStream) {
         stream <<< "    tool: phony\n"
+        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
+    }
+}
+
+struct TestDiscoveryTool: ToolProtocol {
+
+    static let name: String = "test-discovery-tool"
+
+    let inputs: [String]
+    let outputs: [String]
+
+    func append(to stream: OutputByteStream) {
+        stream <<< "    tool: \(Self.name)\n"
         stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
         stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
     }

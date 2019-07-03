@@ -79,6 +79,19 @@ public class SwiftTarget: Target {
     /// The file name of linux main file.
     public static let linuxMainBasename = "LinuxMain.swift"
 
+    public init(testDiscoverySrc: Sources, name: String, dependencies: [Target]) {
+        self.swiftVersion = .v5
+
+        super.init(
+            name: name,
+            platforms: [],
+            type: .executable,
+            sources: testDiscoverySrc,
+            dependencies: dependencies,
+            buildSettings: .init()
+        )
+    }
+
     /// Create an executable Swift target from linux main test manifest file.
     init(linuxMain: AbsolutePath, name: String, dependencies: [Target]) {
         // Look for the first swift test target and use the same swift version
