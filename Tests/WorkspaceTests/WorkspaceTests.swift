@@ -743,7 +743,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         workspace.checkPackageGraph(deps: deps) { (_, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("dependency graph is unresolvable;"), behavior: .error)
+                result.check(diagnostic: .contains("the package dependency graph could not be resolved; possibly because of these requirements"), behavior: .error)
             }
         }
         // There should be no extra fetches.
@@ -2929,6 +2929,30 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
+    }
+
+    func testSimpleAPI() throws {
+        // This verifies that the simplest possible loading APIs are available for package clients.
+
+        // This checkout of the SwiftPM package.
+        let package = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+
+        // Clients must locate the corresponding “swiftc” exectuable themselves for now.
+        // (This just uses the same one used by all the other tests.)
+        let swiftCompiler = Resources.default.swiftCompiler
+
+        // From here the API should be simple and straightforward:
+        let diagnostics = DiagnosticsEngine()
+        let manifest = try ManifestLoader.loadManifest(
+            packagePath: package, swiftCompiler: swiftCompiler)
+        let loadedPackage = try PackageBuilder.loadPackage(
+            packagePath: package, swiftCompiler: swiftCompiler, diagnostics: diagnostics)
+        let graph = try Workspace.loadGraph(
+            packagePath: package, swiftCompiler: swiftCompiler, diagnostics: diagnostics)
+
+        XCTAssertEqual(manifest.name, "SwiftPM")
+        XCTAssertEqual(loadedPackage.name, "SwiftPM")
+        XCTAssert(graph.reachableProducts.contains(where: { $0.name == "SwiftPM" }))
     }
 }
 

@@ -60,9 +60,9 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .cancelled:
-            return "the dependency resolution was cancelled"
+            return "the package resolution operation was cancelled"
         case .unsatisfiable:
-            return "unable to resolve dependencies"
+            return "the package dependency graph could not be resolved due to an unknown conflict"
         case .cycle(let package):
             return "the package \(package) depends on itself"
         case let .incompatibleConstraints(dependency, revisions):
@@ -79,7 +79,7 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
 
         case let .missingVersions(constraints):
             let stream = BufferedOutputByteStream()
-            stream <<< "the package dependency graph is unresolvable; unable find any available tag for the following requirements:\n"
+            stream <<< "the package dependency graph could not be resolved; unable to find any available tag for the following requirements:\n"
             for (i, constraint) in constraints.enumerated() {
                 stream <<< "    "
                 stream <<< "\(constraint.identifier.path)" <<< " @ "
@@ -316,6 +316,13 @@ public protocol PackageContainer {
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
     func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference
+
+    /// Hack for the old resolver. Don't use.
+    var _isRemoteContainer: Bool? { get }
+}
+
+extension PackageContainer {
+    public var _isRemoteContainer: Bool? { return nil }
 }
 
 /// An interface for resolving package containers.
@@ -1006,6 +1013,8 @@ public class DependencyResolver {
         let constraintsWithNoAvailableVersions = constraints.filter { constraint in
             if case .versionSet(let versions) = constraint.requirement,
             let container = try? getContainer(for: constraint.identifier),
+            // FIXME: This is hacky but we should be moving away from this resolver anyway.
+            container._isRemoteContainer == true,
             !container.versions(filter: versions.contains).contains(where: { _ in true }) {
                 return true
             }

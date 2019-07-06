@@ -26,22 +26,14 @@ public struct BuildParameters {
         case auto
     }
 
-    // FIXME: Error handling.
-    //
-    /// Path to the module cache directory to use for SwiftPM's own tests.
-    public static let swiftpmTestCache = resolveSymlinks(try! determineTempDirectory()).appending(component: "org.swift.swiftpm.tests-3")
-
     /// Returns the directory to be used for module cache.
     fileprivate var moduleCache: AbsolutePath {
-        let base: AbsolutePath
         // FIXME: We use this hack to let swiftpm's functional test use shared
         // cache so it doesn't become painfully slow.
-        if Process.env["IS_SWIFTPM_TEST"] != nil {
-            base = BuildParameters.swiftpmTestCache
-        } else {
-            base = buildPath
+        if let path = Process.env["SWIFTPM_TESTS_MODULECACHE"] {
+            return AbsolutePath(path)
         }
-        return base.appending(component: "ModuleCache")
+        return buildPath.appending(component: "ModuleCache")
     }
 
     /// The path to the data directory.
@@ -136,6 +128,9 @@ public struct BuildParameters {
     /// Whether to enable code coverage.
     public let enableCodeCoverage: Bool
 
+    /// Whether to enable test discovery on platforms without Objective-C runtime.
+    public let enableTestDiscovery: Bool
+
     /// Whether to enable generation of `.swiftinterface` files alongside
     /// `.swiftmodule`s.
     public let enableParseableModuleInterfaces: Bool
@@ -164,7 +159,8 @@ public struct BuildParameters {
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
-        enableParseableModuleInterfaces: Bool = false
+        enableParseableModuleInterfaces: Bool = false,
+        enableTestDiscovery: Bool = false
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
@@ -178,6 +174,7 @@ public struct BuildParameters {
         self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode
         self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
+        self.enableTestDiscovery = enableTestDiscovery
     }
 
     /// Returns the compiler arguments for the index store, if enabled.
@@ -477,13 +474,22 @@ public final class SwiftTargetBuildDescription {
     /// If this target is a test target.
     public let isTestTarget: Bool
 
+    /// True if this is the test discovery target.
+    public let testDiscoveryTarget: Bool
+
     /// Create a new target description with target and build parameters.
-    init(target: ResolvedTarget, buildParameters: BuildParameters, isTestTarget: Bool? = nil) {
+    init(
+        target: ResolvedTarget,
+        buildParameters: BuildParameters,
+        isTestTarget: Bool? = nil,
+        testDiscoveryTarget: Bool = false
+    ) {
         assert(target.underlyingTarget is SwiftTarget, "underlying target type mismatch \(target)")
         self.target = target
         self.buildParameters = buildParameters
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
         self.isTestTarget = isTestTarget ?? (target.type == .test)
+        self.testDiscoveryTarget = testDiscoveryTarget
     }
 
     /// The arguments needed to compile this target.
@@ -672,12 +678,16 @@ public final class ProductBuildDescription {
         return tempsPath.appending(component: "Objects.LinkFileList")
     }
 
+    /// Diagnostics Engine for emitting diagnostics.
+    let diagnostics: DiagnosticsEngine
+
     /// Create a build description for a product.
-    init(product: ResolvedProduct, buildParameters: BuildParameters, fs: FileSystem) {
+    init(product: ResolvedProduct, buildParameters: BuildParameters, fs: FileSystem, diagnostics: DiagnosticsEngine) {
         assert(product.type != .library(.automatic), "Automatic type libraries should not be described.")
         self.product = product
         self.buildParameters = buildParameters
         self.fs = fs
+        self.diagnostics = diagnostics
     }
 
     /// Strips the arguments which should *never* be passed to Swift compiler
@@ -709,10 +719,12 @@ public final class ProductBuildDescription {
         args += ["-module-name", product.name.spm_mangledToC99ExtendedIdentifier()]
         args += dylibs.map({ "-l" + $0.product.name })
 
-        // Add arguements needed for code coverage if it is enabled.
+        // Add arguments needed for code coverage if it is enabled.
         if buildParameters.enableCodeCoverage {
             args += ["-profile-coverage-mapping", "-profile-generate"]
         }
+
+        let containsSwiftTargets = product.containsSwiftTargets
 
         switch product.type {
         case .library(.automatic):
@@ -730,11 +742,12 @@ public final class ProductBuildDescription {
         case .library(.dynamic):
             args += ["-emit-library"]
         case .executable:
-            // Link the Swift stdlib statically if requested.
+            // Link the Swift stdlib statically, if requested.
+            //
+            // FIXME: This does not work for linux yet (SR-648).
             if buildParameters.shouldLinkStaticSwiftStdlib {
-                // FIXME: This does not work for linux yet (SR-648).
-                if !buildParameters.triple.isLinux() {
-                    args += ["-static-stdlib"]
+                if buildParameters.triple.isDarwin() {
+                    diagnostics.emit(data: SwiftBackDeployLibrariesNote())
                 }
             }
             args += ["-emit-executable"]
@@ -748,16 +761,24 @@ public final class ProductBuildDescription {
         args += ["@\(linkFileListPath.pathString)"]
 
         // Embed the swift stdlib library path inside tests and executables on Darwin.
-        switch product.type {
-        case .library: break
-        case .test, .executable:
-            if buildParameters.triple.isDarwin() {
-                let stdlib = buildParameters.toolchain.macosSwiftStdlib
-                args += ["-Xlinker", "-rpath", "-Xlinker", stdlib.pathString]
-            }
+        if containsSwiftTargets {
+          switch product.type {
+          case .library: break
+          case .test, .executable:
+              if buildParameters.triple.isDarwin() {
+                  let stdlib = buildParameters.toolchain.macosSwiftStdlib
+                  args += ["-Xlinker", "-rpath", "-Xlinker", stdlib.pathString]
+              }
+          }
         }
 
-        // Add agruments from declared build settings.
+        // Don't link runtime compatibility patch libraries if there are no
+        // Swift sources in the target.
+        if !containsSwiftTargets {
+          args += ["-runtime-compatibility-version", "none"]
+        }
+
+        // Add arguments from declared build settings.
         args += self.buildSettingsFlags()
 
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
@@ -858,8 +879,67 @@ public class BuildPlan {
     /// The filesystem to operate on.
     let fileSystem: FileSystem
 
-    /// Diagnostics Engine to emit diagnostics
+    /// Diagnostics Engine for emitting diagnostics.
     let diagnostics: DiagnosticsEngine
+
+    private static func planLinuxMain(
+        _ buildParameters: BuildParameters,
+        _ graph: PackageGraph
+    ) throws -> (ResolvedTarget, SwiftTargetBuildDescription)? {
+        guard buildParameters.triple.isLinux() else {
+            return nil
+        }
+
+        // Currently, there can be only one test product in a package graph.
+        guard let testProduct = graph.allProducts.first(where: { $0.type == .test }) else {
+            return nil
+        }
+
+        if !buildParameters.enableTestDiscovery {
+            guard let linuxMainTarget = testProduct.linuxMainTarget else {
+                throw Error.missingLinuxMain
+            }
+
+            let desc = SwiftTargetBuildDescription(
+                target: linuxMainTarget,
+                buildParameters: buildParameters,
+                isTestTarget: true
+            )
+            return (linuxMainTarget, desc)
+        }
+
+        // We'll generate sources containing the test names as part of the build process.
+        let derivedTestListDir = buildParameters.buildPath.appending(components: "testlist.derived")
+        let mainFile = derivedTestListDir.appending(component: "main.swift")
+
+        var paths: [AbsolutePath] = []
+        paths.append(mainFile)
+        let testTargets = graph.rootPackages.flatMap{ $0.targets }.filter{ $0.type == .test }
+        for testTarget in testTargets {
+            let path = derivedTestListDir.appending(components: testTarget.name + ".swift")
+            paths.append(path)
+        }
+
+        let src = Sources(paths: paths, root: derivedTestListDir)
+
+        let swiftTarget = SwiftTarget(
+            testDiscoverySrc: src,
+            name: testProduct.name,
+            dependencies: testProduct.underlyingProduct.targets)
+        let linuxMainTarget = ResolvedTarget(
+            target: swiftTarget,
+            dependencies: testProduct.targets.map(ResolvedTarget.Dependency.target)
+        )
+
+        let target = SwiftTargetBuildDescription(
+            target: linuxMainTarget,
+            buildParameters: buildParameters,
+            isTestTarget: true,
+            testDiscoveryTarget: true
+        )
+
+        return (linuxMainTarget, target)
+    }
 
     /// Create a build plan with build parameters and a package graph.
     public init(
@@ -914,19 +994,10 @@ public class BuildPlan {
             throw Diagnostics.fatalError
         }
 
-        if buildParameters.triple.isLinux() {
-            // FIXME: Create a target for LinuxMain file on linux.
-            // This will go away once it is possible to auto detect tests.
-            let testProducts = graph.allProducts.filter({ $0.type == .test })
-
-            for product in testProducts {
-                guard let linuxMainTarget = product.linuxMainTarget else {
-                    throw Error.missingLinuxMain
-                }
-                let target = SwiftTargetBuildDescription(
-                        target: linuxMainTarget, buildParameters: buildParameters, isTestTarget: true)
-                targetMap[linuxMainTarget] = .swift(target)
-            }
+        // Plan the linux main target.
+        if let result = try Self.planLinuxMain(buildParameters, graph) {
+            targetMap[result.0] = .swift(result.1)
+            self.linuxMainTarget = result.0
         }
 
         var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
@@ -935,7 +1006,8 @@ public class BuildPlan {
         for product in graph.allProducts where product.type != .library(.automatic) {
             productMap[product] = ProductBuildDescription(
                 product: product, buildParameters: buildParameters,
-                fs: fileSystem
+                fs: fileSystem,
+                diagnostics: diagnostics
             )
         }
 
@@ -944,6 +1016,8 @@ public class BuildPlan {
         // Finally plan these targets.
         try plan()
     }
+
+    private var linuxMainTarget: ResolvedTarget?
 
     static func validateDeploymentVersionOfProductDependency(
         _ product: ResolvedProduct,
@@ -1086,7 +1160,7 @@ public class BuildPlan {
 
         if buildParameters.triple.isLinux() {
             if product.type == .test {
-                product.linuxMainTarget.map({ staticTargets.append($0) })
+                linuxMainTarget.map({ staticTargets.append($0) })
             }
         }
 
@@ -1214,4 +1288,14 @@ struct ProductRequiresHigherPlatformVersion: DiagnosticData {
         self.product = product
         self.platform = platform
     }
+}
+
+struct SwiftBackDeployLibrariesNote: DiagnosticData {
+    static let id = DiagnosticID(
+        type: SwiftBackDeployLibrariesNote.self,
+        name: "org.swift.diags.\(SwiftBackDeployLibrariesNote.self)",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at https://developer.apple.com/download/more/"
+    })
 }

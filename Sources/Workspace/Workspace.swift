@@ -45,6 +45,11 @@ public protocol WorkspaceDelegate: class {
 
     /// Called when the resolver is about to be run.
     func willResolveDependencies()
+
+    /// Called when the Package.resolved file is changed *outside* of libSwiftPM operations.
+    ///
+    /// This is only fired when activated using Workspace's watchResolvedFile() method.
+    func resolvedFileChanged()
 }
 
 public extension WorkspaceDelegate {
@@ -53,6 +58,7 @@ public extension WorkspaceDelegate {
     func repositoryDidUpdate(_ repository: String) {}
     func willResolveDependencies() {}
     func dependenciesUpToDate() {}
+    func resolvedFileChanged() {}
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -252,6 +258,9 @@ public class Workspace {
     /// The Pins store. The pins file will be created when first pin is added to pins store.
     public let pinsStore: LoadableResult<PinsStore>
 
+    /// The path to the Package.resolved file for this workspace.
+    public let resolvedFile: AbsolutePath
+
     /// The path for working repository clones (checkouts).
     public let checkoutsPath: AbsolutePath
 
@@ -290,6 +299,8 @@ public class Workspace {
 
     /// Write dependency resolver trace to a file.
     fileprivate let enableResolverTrace: Bool
+
+    fileprivate var resolvedFileWatcher: ResolvedFileWatcher?
 
     /// Typealias for dependency resolver we use in the workspace.
     fileprivate typealias PackageDependencyResolver = DependencyResolver
@@ -336,6 +347,7 @@ public class Workspace {
         self.enablePubgrubResolver = enablePubgrubResolver
         self.skipUpdate = skipUpdate
         self.enableResolverTrace = enableResolverTrace
+        self.resolvedFile = pinsFile
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(
@@ -610,6 +622,23 @@ extension Workspace {
             dependencyManifests: updatedDependencyManifests,
             pinsStore: pinsStore,
             diagnostics: diagnostics)
+    }
+
+    /// Loads a package graph from a root package using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///     - packagePath: The absolute path of the root package.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
+    ///         Its associated resources will be used by the loader.
+    public static func loadGraph(
+        packagePath: AbsolutePath,
+        swiftCompiler: AbsolutePath,
+        diagnostics: DiagnosticsEngine
+    ) throws -> PackageGraph {
+        let resources = try UserManifestResources(swiftCompiler: swiftCompiler)
+        let loader = ManifestLoader(manifestResources: resources)
+        let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader)
+        return workspace.loadPackageGraph(root: packagePath, diagnostics: diagnostics)
     }
 
     /// Fetch and load the complete package at the given path.
@@ -904,12 +933,29 @@ extension Workspace {
             }
         }
         diagnostics.wrap({ try pinsStore.saveState() })
+
+        // Ask resolved file watcher to update its value so we don't fire
+        // an extra event if the file was modified by us.
+        self.resolvedFileWatcher?.updateValue()
     }
 }
 
 // MARK: - Utility Functions
 
 extension Workspace {
+
+    /// Watch the Package.resolved for changes.
+    ///
+    /// This is useful if clients want to be notified when the Package.resolved
+    /// file is changed *outside* of libSwiftPM operations. For example, as part
+    /// of a git operation.
+    public func watchResolvedFile() throws {
+        // Return if we're already watching it.
+        guard self.resolvedFileWatcher == nil else { return }
+        self.resolvedFileWatcher = try ResolvedFileWatcher(resolvedFile: self.resolvedFile) { [weak self] in
+            self?.delegate?.resolvedFileChanged()
+        }
+    }
 
     /// Create the cache directories.
     fileprivate func createCacheDirectories(with diagnostics: DiagnosticsEngine) {

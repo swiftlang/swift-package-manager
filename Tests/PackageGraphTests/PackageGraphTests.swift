@@ -497,7 +497,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "target 'Bar' in package 'Bar' contains no valid source files", behavior: .warning)
+            result.check(diagnostic: "Source files for target Bar should be located under /Bar/Sources/Bar", behavior: .warning)
             result.check(diagnostic: "target 'Bar' referenced in product 'Bar' could not be found", behavior: .error, location: "'Bar' /Bar")
         }
     }
@@ -521,7 +521,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "product dependency 'Barx' not found", behavior: .error, location: "'Foo' /Foo")
+            result.check(diagnostic: "Product 'Barx' not found. It is required by target 'Foo'.", behavior: .error, location: "'Foo' /Foo")
         }
     }
 

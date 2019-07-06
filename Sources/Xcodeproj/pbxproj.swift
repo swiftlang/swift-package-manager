@@ -126,6 +126,10 @@ func xcodeProject(
     // paths so that all the products can be found.
     projectSettings.common.DYLIB_INSTALL_NAME_BASE = "@rpath"
 
+    // Set the `Xcode` build preset in Swift to let code conditionalize on
+    // being built in Xcode.
+    projectSettings.common.OTHER_SWIFT_FLAGS = ["$(inherited)", "-DXcode"]
+
     // Add any additional compiler and linker flags the user has specified.
     if !options.flags.cCompilerFlags.isEmpty {
         projectSettings.common.OTHER_CFLAGS = options.flags.cCompilerFlags
@@ -134,12 +138,9 @@ func xcodeProject(
         projectSettings.common.OTHER_LDFLAGS = options.flags.linkerFlags
     }
     if !options.flags.swiftCompilerFlags.isEmpty {
-        projectSettings.common.OTHER_SWIFT_FLAGS = options.flags.swiftCompilerFlags
+        projectSettings.common.OTHER_SWIFT_FLAGS += options.flags.swiftCompilerFlags
     }
 
-    // Also set the `Xcode` build preset in Swift to let code conditionalize on
-    // being built in Xcode.
-    projectSettings.common.OTHER_SWIFT_FLAGS += ["-DXcode"]
     projectSettings.common.MACOSX_DEPLOYMENT_TARGET = "10.10"
 
     // Prevent Xcode project upgrade warnings.
@@ -428,7 +429,7 @@ func xcodeProject(
 
         // Assign the deployment target if the package is using the newer manifest version.
         switch package.manifest.manifestVersion {
-        case .v5:
+        case .v5, .v5_1:
             for supportedPlatform in target.underlyingTarget.platforms {
                 let version = supportedPlatform.version.versionString
                 switch supportedPlatform.platform {

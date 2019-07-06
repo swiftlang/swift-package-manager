@@ -135,12 +135,26 @@ extension ManifestBuilder {
             condition = try parseCondition(conditionJSON)
         }
 
+        let value = try json.get([String].self, forKey: "value")
+
+        // Diagnose invalid values.
+        for item in value {
+            let groups = Self.invalidValueRegex.matchGroups(in: item).flatMap{ $0 }
+            if !groups.isEmpty {
+                let error = "the build setting '\(name)' contains invalid component(s): \(groups.joined(separator: " "))"
+                throw ManifestParseError.runtimeManifestErrors([error])
+            }
+        }
+
         return .init(
             tool: tool, name: name,
-            value: try json.get("value"),
+            value: value,
             condition: condition
         )
     }
+
+    /// Looks for Xcode-style build setting macros "$()".
+    private static let invalidValueRegex = try! RegEx(pattern: #"(\$\(.*?\))"#)
 
     func parseCondition(_ json: JSON) throws -> TargetBuildSettingDescription.Condition {
         let platformNames: [String]? = try? json.getArray("platforms").map({ try $0.get("name") })

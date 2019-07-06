@@ -110,6 +110,7 @@ extension PackageDescription5LoadingTests {
     static let __allTests__PackageDescription5LoadingTests = [
         ("testBasics", testBasics),
         ("testBuildSettings", testBuildSettings),
+        ("testInvalidBuildSettings", testInvalidBuildSettings),
         ("testPlatforms", testPlatforms),
         ("testSerializedDiagnostics", testSerializedDiagnostics),
         ("testSwiftLanguageVersion", testSwiftLanguageVersion),

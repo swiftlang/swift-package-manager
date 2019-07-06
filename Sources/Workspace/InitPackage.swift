@@ -14,7 +14,7 @@ import PackageModel
 /// Create an initial template package.
 public final class InitPackage {
     /// The tool version to be used for new packages.
-    public static let newPackageToolsVersion = ToolsVersion(version: "5.0.0")
+    public static let newPackageToolsVersion = ToolsVersion(version: "5.1.0")
     
     /// Represents a package type for the purposes of initialization.
     public enum PackageType: String, CustomStringConvertible {
@@ -176,6 +176,7 @@ public final class InitPackage {
                 /.build
                 /Packages
                 /*.xcodeproj
+                xcuserdata/
 
                 """
         }

@@ -70,10 +70,12 @@ extension ToolsVersion {
 
             // Otherwise, return 4.2
             return .v4_2
+        case 5 where minor < 1:
+            return .v5
 
         default:
             // For rest, return the latest manifest version.
-            return .v5
+            return .v5_1
         }
     }
 }
@@ -176,6 +178,25 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             manifestResources: resources,
             isManifestSandboxEnabled: isManifestSandboxEnabled
        )
+    }
+
+    /// Loads a manifest from a package repository using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///     - packagePath: The absolute path of the package root.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
+    ///         Its associated resources will be used by the loader.
+    public static func loadManifest(
+        packagePath: AbsolutePath,
+        swiftCompiler: AbsolutePath
+    ) throws -> Manifest {
+        let resources = try UserManifestResources(swiftCompiler: swiftCompiler)
+        let loader = ManifestLoader(manifestResources: resources)
+        let toolsVersion = try ToolsVersionLoader().load(at: packagePath, fileSystem: localFileSystem)
+        return try loader.load(
+            package: packagePath,
+            baseURL: packagePath.pathString,
+            manifestVersion: toolsVersion.manifestVersion)
     }
 
     public func load(
@@ -382,13 +403,21 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let runtimePath = self.runtimePath(for: manifestVersion).pathString
             let interpreterFlags = self.interpreterFlags(for: manifestVersion)
 
+            // FIXME: Workaround for the module cache bug that's been haunting Swift CI
+            // <rdar://problem/48443680>
+            let moduleCachePath = Process.env["SWIFTPM_MODULECACHE_OVERRIDE"] ?? Process.env["SWIFTPM_TESTS_MODULECACHE"]
+
             var cmd = [String]()
           #if os(macOS)
             // If enabled, use sandbox-exec on macOS. This provides some safety against
             // arbitrary code execution when parsing manifest files. We only allow
             // the permissions which are absolutely necessary for manifest parsing.
             if isManifestSandboxEnabled {
-                cmd += ["sandbox-exec", "-p", sandboxProfile(cacheDir)]
+                let cacheDirs = [
+                    cacheDir,
+                    moduleCachePath.map{ AbsolutePath($0) }
+                ].compactMap{$0}
+                cmd += ["sandbox-exec", "-p", sandboxProfile(cacheDirs)]
             }
           #endif
             cmd += [resources.swiftCompiler.pathString]
@@ -397,6 +426,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += verbosity.ccArgs
             cmd += ["-L", runtimePath, "-lPackageDescription"]
             cmd += interpreterFlags
+            if let moduleCachePath = moduleCachePath {
+                cmd += ["-module-cache-path", moduleCachePath]
+            }
 
             // Add the arguments for emitting serialized diagnostics, if requested.
             if serializedDiagnostics, cacheDir != nil {
@@ -540,7 +572,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.
-private func sandboxProfile(_ cacheDir: AbsolutePath? = nil) -> String {
+private func sandboxProfile(_ cacheDirs: [AbsolutePath] = []) -> String {
     let stream = BufferedOutputByteStream()
     stream <<< "(version 1)" <<< "\n"
     // Deny everything by default.
@@ -557,7 +589,7 @@ private func sandboxProfile(_ cacheDir: AbsolutePath? = nil) -> String {
     for directory in Platform.darwinCacheDirectories() {
         stream <<< "    (regex #\"^\(directory.pathString)/org\\.llvm\\.clang.*\")" <<< "\n"
     }
-    if let cacheDir = cacheDir {
+    for cacheDir in cacheDirs {
         stream <<< "    (subpath \"\(cacheDir.pathString)\")" <<< "\n"
     }
     stream <<< ")" <<< "\n"

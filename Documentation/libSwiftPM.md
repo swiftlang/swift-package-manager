@@ -12,9 +12,8 @@ package:
 
 ```sh
 $ git clone https://github.com/apple/swift-package-manager
-$ cd swift-package-manager/Examples/package-stats
-$ make build-runtimes
-$ swift build
+$ cd swift-package-manager/Examples/package-info
+$ make build
 $ swift run
 ```
 

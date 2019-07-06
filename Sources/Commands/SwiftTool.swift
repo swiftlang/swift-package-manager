@@ -212,10 +212,6 @@ public class SwiftTool<Options: ToolOptions> {
     /// The stream to print standard output on.
     fileprivate var stdoutStream: OutputByteStream = Basic.stdoutStream
 
-    /// If true, Redirects the stdout stream to stderr when invoking
-    /// `swift-build-tool`.
-    private var shouldRedirectStdoutToStderr = false
-
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
@@ -330,11 +326,6 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.shouldLinkStaticSwiftStdlib = $1 })
 
         binder.bind(
-            option: parser.add(option: "--enable-llbuild-library", kind: Bool.self,
-                usage: "Enable building with the llbuild library"),
-            to: { $0.shouldEnableLLBuildLibrary = $1 })
-
-        binder.bind(
             option: parser.add(option: "--force-resolved-versions", kind: Bool.self),
             to: { $0.forceResolvedVersions = $1 })
 
@@ -365,6 +356,16 @@ public class SwiftTool<Options: ToolOptions> {
         binder.bind(
             option: parser.add(option: "--trace-resolver", kind: Bool.self),
             to: { $0.enableResolverTrace = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--jobs", shortName: "-j", kind: Int.self,
+                usage: "The number of jobs to spawn in parallel during the build process"),
+            to: { $0.jobs = UInt32($1) })
+
+        binder.bind(
+            option: parser.add(option: "--enable-test-discovery", kind: Bool.self,
+               usage: "Enable test discovery on platforms without Objective-C runtime"),
+            to: { $0.enableTestDiscovery = $1 })
 
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
@@ -518,7 +519,6 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Start redirecting the standard output stream to the standard error stream.
     func redirectStdoutToStderr() {
-        self.shouldRedirectStdoutToStderr = true
         self.stdoutStream = Basic.stderrStream
         DiagnosticsEngineHandler.default.stdoutStream = Basic.stderrStream
     }
@@ -588,13 +588,6 @@ public class SwiftTool<Options: ToolOptions> {
             return try subset.llbuildTargetName(for: loadPackageGraph(), diagnostics: diagnostics, config: buildParameters.configuration.dirname)
         }
     }
-    
-    func build(plan: BuildPlan, parameters: BuildParameters, subset: BuildSubset) throws {
-        guard let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: parameters) else {
-            return
-        }
-        try runLLBuild(plan: plan, manifest: parameters.llbuildManifest, llbuildTarget: llbuildTargetName)
-    }
 
     /// Build a subset of products and targets using swift-build-tool.
     func build(plan: BuildPlan, subset: BuildSubset) throws {
@@ -602,14 +595,16 @@ public class SwiftTool<Options: ToolOptions> {
             return
         }
 
-        let yaml = plan.buildParameters.llbuildManifest
+        let manifest = plan.buildParameters.llbuildManifest
         // Generate the llbuild manifest.
-        let client = options.shouldEnableLLBuildLibrary ? "basic" : "swift-build"
-        let llbuild = LLBuildManifestGenerator(plan, client: client)
-        try llbuild.generateManifest(at: yaml)
+        let llbuild = LLBuildManifestGenerator(plan, client: "basic")
+        try llbuild.generateManifest(at: manifest)
+
+        let bctx = BuildExecutionContext(plan, buildTimeCmdToolMap: llbuild.buildTimeCmdToolMap)
 
         // Run llbuild.
-        try runLLBuild(plan: plan, manifest: yaml, llbuildTarget: llbuildTargetName)
+        assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest)")
+        try runLLBuild(plan: plan, bctx: bctx, manifest: manifest, llbuildTarget: llbuildTargetName)
 
         // Create backwards-compatibilty symlink to old build path.
         let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
@@ -619,22 +614,14 @@ public class SwiftTool<Options: ToolOptions> {
         try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
     }
 
-    func runLLBuild(plan: BuildPlan, manifest: AbsolutePath, llbuildTarget: String) throws {
-        assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest)")
-        if options.shouldEnableLLBuildLibrary {
-            try runLLBuildAsLibrary(plan: plan, manifest: manifest, llbuildTarget: llbuildTarget)
-        } else {
-            try runLLBuildAsExecutable(manifest: manifest, llbuildTarget: llbuildTarget)
-        }
-    }
-
-    func runLLBuildAsLibrary(plan: BuildPlan, manifest: AbsolutePath, llbuildTarget: String) throws {
+    private func runLLBuild(plan: BuildPlan, bctx: BuildExecutionContext, manifest: AbsolutePath, llbuildTarget: String) throws {
         // Setup the build delegate.
         let isVerbose = verbosity != .concise
         let progressAnimation: ProgressAnimationProtocol = isVerbose ?
             MultiLineNinjaProgressAnimation(stream: stdoutStream) :
             NinjaProgressAnimation(stream: stdoutStream)
         let buildDelegate = BuildDelegate(
+            bctx: bctx,
             plan: plan,
             diagnostics: diagnostics,
             outputStream: stdoutStream,
@@ -642,66 +629,15 @@ public class SwiftTool<Options: ToolOptions> {
         buildDelegate.isVerbose = isVerbose
 
         let databasePath = buildPath.appending(component: "build.db").pathString
+        if let jobs = options.jobs {
+            BuildSystem.setSchedulerLaneWidth(width: jobs)
+        }
         let buildSystem = BuildSystem(buildFile: manifest.pathString, databaseFile: databasePath, delegate: buildDelegate)
         buildDelegate.onCommmandFailure = { buildSystem.cancel() }
 
         let success = buildSystem.build(target: llbuildTarget)
         progressAnimation.complete(success: success)
         guard success else { throw Diagnostics.fatalError }
-    }
-
-    func runLLBuildAsExecutable(manifest: AbsolutePath, llbuildTarget: String) throws {
-        // Create a temporary directory for the build process.
-        let tempDirName = "org.swift.swiftpm.\(NSUserName())"
-        let tempDir = try determineTempDirectory().appending(component: tempDirName)
-        try localFileSystem.createDirectory(tempDir, recursive: true)
-
-        // Run the swift-build-tool with the generated manifest.
-        var args = [String]()
-
-      #if os(macOS)
-        // If enabled, use sandbox-exec on macOS. This provides some safety
-        // against arbitrary code execution. We only allow the permissions which
-        // are absolutely necessary for performing a build.
-        if !options.shouldDisableSandbox {
-            let allowedDirectories = [
-                tempDir,
-                buildPath,
-                BuildParameters.swiftpmTestCache
-            ].map(resolveSymlinks)
-            args += ["sandbox-exec", "-p", sandboxProfile(allowedDirectories: allowedDirectories)]
-        }
-      #endif
-
-        args += [try getToolchain().llbuild.pathString, "-f", manifest.pathString, llbuildTarget]
-        if verbosity != .concise {
-            args.append("-v")
-        }
-
-        // Create the environment for llbuild.
-        var env = Process.env
-        // We override the temporary directory so tools assuming full access to
-        // the tmp dir can create files here freely, provided they respect this
-        // variable.
-        env["TMPDIR"] = tempDir.pathString
-
-        // Run llbuild and print output on standard streams.
-        let process = Process(arguments: args, environment: env, outputRedirection: shouldRedirectStdoutToStderr ? .collect : .none)
-        try process.launch()
-        try processSet.add(process)
-        let result = try process.waitUntilExit()
-
-        // Emit the output to the selected stream if we need to redirect the
-        // stream.
-        if shouldRedirectStdoutToStderr {
-            self.stdoutStream <<< (try result.utf8stderrOutput())
-            self.stdoutStream <<< (try result.utf8Output())
-            self.stdoutStream.flush()
-        }
-
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw ProcessResult.Error.nonZeroExit(result)
-        }
     }
 
     /// Return the build parameters.
@@ -723,7 +659,8 @@ public class SwiftTool<Options: ToolOptions> {
                 sanitizers: options.sanitizers,
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
                 indexStoreMode: options.indexStoreMode,
-                enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces
+                enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
+                enableTestDiscovery: options.enableTestDiscovery
             )
         })
     }()
@@ -831,7 +768,7 @@ private func findPackageRoot() -> AbsolutePath? {
 /// Returns the build path from the environment, if present.
 private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
     // Don't rely on build path from env for SwiftPM's own tests.
-    guard Process.env["IS_SWIFTPM_TEST"] == nil else { return nil }
+    guard Process.env["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
     guard let env = Process.env["SWIFTPM_BUILD_DIR"] else { return nil }
     return AbsolutePath(env, relativeTo: workingDir)
 }

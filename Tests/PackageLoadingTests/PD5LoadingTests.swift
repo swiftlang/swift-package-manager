@@ -226,6 +226,31 @@ class PackageDescription5LoadingTests: XCTestCase {
         } catch ManifestParseError.runtimeManifestErrors(let errors) {
             XCTAssertEqual(errors, ["supported platforms can't be empty"])
         }
+
+        // Newer OS version.
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [
+                   .macOS(.v10_15), .iOS(.v13),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("\(error)")
+            }
+
+            XCTAssertMatch(message, .contains("error: 'v10_15' is unavailable"))
+            XCTAssertMatch(message, .contains("note: 'v10_15' was introduced in PackageDescription 5.1"))
+            XCTAssertMatch(message, .contains("note: 'v13' was introduced in PackageDescription 5.1"))
+        }
     }
 
     func testBuildSettings() throws {
@@ -342,6 +367,31 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTAssertMatch(diag.output, .contains("warning: initialization of immutable value"))
             let contents = try localFileSystem.readFileContents(diag.diagnosticFile!)
             XCTAssertNotNil(contents)
+        }
+    }
+
+    func testInvalidBuildSettings() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "Foo",
+                       cSettings: [
+                           .headerSearchPath("$(BYE)/path/to/foo/$(SRCROOT)/$(HELLO)"),
+                       ]
+                   ),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch ManifestParseError.runtimeManifestErrors(let errors) {
+            XCTAssertEqual(errors, ["the build setting 'headerSearchPath' contains invalid component(s): $(BYE) $(SRCROOT) $(HELLO)"])
         }
     }
 }

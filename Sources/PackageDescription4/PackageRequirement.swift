@@ -10,7 +10,19 @@
 
 extension Package.Dependency.Requirement: Encodable {
 
-    /// The requirement is specified by an exact version.
+    /// Returns a requirement for the given exact version.
+    ///
+    /// Specifying exact version requirements are not recommended as
+    /// they can cause conflicts in your dependency graph when multiple other packages depend on a package.
+    /// As Swift packages follow the semantic versioning convention,
+    /// think about specifying a version range instead.
+    ///
+    /// The following example defines a version requirement that requires version 1.2.3 of a package.
+    ///
+    ///   .exact("1.2.3")
+    ///
+    /// - Parameters:
+    ///      - version: The exact version of the dependency for this requirement.
     public static func exact(_ version: Version) -> Package.Dependency.Requirement {
       #if PACKAGE_DESCRIPTION_4
         return .exactItem(version)
@@ -19,7 +31,19 @@ extension Package.Dependency.Requirement: Encodable {
       #endif
     }
 
-    /// The requirement is specified by a source control revision.
+    /// Returns a requirement for a source control revision such as the hash of a commit.
+    ///
+    /// Note that packages that use commit-based dependency requirements
+    /// can't be depended upon by packages that use version-based dependency
+    /// requirements; you should remove commit-based dependency requirements
+    /// before publishing a version of your package.
+    ///
+    /// The following example defines a version requirement for a specific commit hash.
+    ///
+    ///   .revision("e74b07278b926c9ec6f9643455ea00d1ce04a021")
+    ///
+    /// - Parameters:
+    ///     - ref: The Git revision, usually a commit hash.
     public static func revision(_ ref: String) -> Package.Dependency.Requirement {
       #if PACKAGE_DESCRIPTION_4
         return .revisionItem(ref)
@@ -28,7 +52,20 @@ extension Package.Dependency.Requirement: Encodable {
       #endif
     }
 
-    /// The requirement is specified by a source control branch.
+    /// Returns a requirement for a source control branch.
+    ///
+    /// Note that packages that use branch-based dependency requirements
+    /// can't be depended upon by packages that use version-based dependency
+    /// requirements; you should remove branch-based dependency requirements
+    /// before publishing a version of your package.
+    ///
+    /// The following example defines a version requirement that accepts any
+    /// change in the develop branch.
+    ///
+    ///    .branch("develop")
+    ///
+    /// - Parameters:
+    ///     - name: The name of the branch.
     public static func branch(_ name: String) -> Package.Dependency.Requirement {
       #if PACKAGE_DESCRIPTION_4
         return .branchItem(name)
@@ -37,8 +74,11 @@ extension Package.Dependency.Requirement: Encodable {
       #endif
     }
 
-    /// Creates a specified for a range starting at the given lower bound
-    /// and going upto next major version.
+    /// Returns a requirement for a version range, starting at the given minimum
+    /// version and going up to the next major version. This is the recommended version requirement.
+    ///
+    /// - Parameters:
+    ///     - version: The minimum version for the version range.
     public static func upToNextMajor(from version: Version) -> Package.Dependency.Requirement {
       #if PACKAGE_DESCRIPTION_4
         return .rangeItem(version..<Version(version.major + 1, 0, 0))
@@ -47,8 +87,11 @@ extension Package.Dependency.Requirement: Encodable {
       #endif
     }
 
-    /// Creates a specified for a range starting at the given lower bound
-    /// and going upto next minor version.
+    /// Returns a requirement for a version range, starting at the given minimum
+    /// version and going up to the next minor version.
+    ///
+    /// - Parameters:
+    ///     - version: The minimum version for the version range.
     public static func upToNextMinor(from version: Version) -> Package.Dependency.Requirement {
       #if PACKAGE_DESCRIPTION_4
         return .rangeItem(version..<Version(version.major, version.minor + 1, 0))

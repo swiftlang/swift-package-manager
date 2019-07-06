@@ -25,23 +25,6 @@ private let hostExecutableSuffix = ".exe"
 private let hostExecutableSuffix = ""
 #endif
 
-/// Concrete object for manifest resource provider.
-public struct UserManifestResources: ManifestResourceProvider {
-    public let swiftCompiler: AbsolutePath
-    public let libDir: AbsolutePath
-    public let sdkRoot: AbsolutePath?
-
-    public init(
-        swiftCompiler: AbsolutePath,
-        libDir: AbsolutePath,
-        sdkRoot: AbsolutePath? = nil
-    ) {
-        self.swiftCompiler = swiftCompiler
-        self.libDir = libDir
-        self.sdkRoot = sdkRoot
-    }
-}
-
 // FIXME: This is messy and needs a redesign.
 public final class UserToolchain: Toolchain {
 
@@ -68,9 +51,6 @@ public final class UserToolchain: Toolchain {
     ///
     /// This is only present on macOS.
     public let xctest: AbsolutePath?
-
-    /// Path to llbuild.
-    public let llbuild: AbsolutePath
 
     /// The compilation destination object.
     public let destination: Destination
@@ -151,30 +131,35 @@ public final class UserToolchain: Toolchain {
             return toolPath
         }
 
-        // Otherwise, lookup the tool on the system.
+        // Then, check the toolchain.
+        do {
+            let toolPath = destination.binDir.appending(component: "clang" + hostExecutableSuffix)
+            if localFileSystem.exists(toolPath) {
+                _clangCompiler = toolPath
+                return toolPath
+            }
+        }
+
+        // Otherwise, lookup it up on the system.
         let arguments = whichArgs + ["clang"]
         let foundPath = try Process.checkNonZeroExit(arguments: arguments, environment: processEnvironment).spm_chomp()
         guard !foundPath.isEmpty else {
             throw InvalidToolchainDiagnostic("could not find clang")
         }
         let toolPath = try AbsolutePath(validating: foundPath)
-
-        // If we found clang using xcrun, assume the vendor is Apple.
-        // FIXME: This might not be the best way to determine this.
-        #if os(macOS)
-            __isClangCompilerVendorApple = true
-        #endif
-
         _clangCompiler = toolPath
         return toolPath
     }
     private var _clangCompiler: AbsolutePath?
-    private var __isClangCompilerVendorApple: Bool?
 
     public func _isClangCompilerVendorApple() throws -> Bool? {
-        // The boolean gets computed as a side-effect of lookup for clang compiler.
-        _ = try getClangCompiler()
-        return __isClangCompilerVendorApple
+        // Assume the vendor is Apple on macOS.
+        // FIXME: This might not be the best way to determine this.
+      #if os(macOS)
+        return true
+      #else
+        return false
+      #endif
     }
 
     /// Returns the path to llvm-cov tool.
@@ -211,13 +196,6 @@ public final class UserToolchain: Toolchain {
         let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) })
         self.swiftCompiler = swiftCompilers.compile
 
-        // Look for llbuild in bin dir.
-        llbuild = binDir.appending(component: "swift-build-tool" + hostExecutableSuffix)
-        guard localFileSystem.exists(llbuild) else {
-            throw InvalidToolchainDiagnostic("could not find `llbuild` at expected path \(llbuild)")
-        }
-
-
         // We require xctest to exist on macOS.
       #if os(macOS)
         // FIXME: We should have some general utility to find tools.
@@ -237,7 +215,7 @@ public final class UserToolchain: Toolchain {
 
         // Compute the path of directory containing the PackageDescription libraries.
         let manifestBinDir = swiftCompilers.manifest.parentDirectory
-        var pdLibDir = manifestBinDir.parentDirectory.appending(components: "lib", "swift", "pm")
+        var pdLibDir = UserManifestResources.libDir(forBinDir: manifestBinDir)
 
         // Look for an override in the env.
         if let pdLibDirEnvStr = Process.env["SWIFTPM_PD_LIBS"] {

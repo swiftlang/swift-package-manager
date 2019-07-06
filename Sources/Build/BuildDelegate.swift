@@ -186,6 +186,183 @@ extension SPMLLBuild.Diagnostic: DiagnosticDataConvertible {
     }
 }
 
+class CustomLLBuildCommand: ExternalCommand {
+    let ctx: BuildExecutionContext
+
+    required init(_ ctx: BuildExecutionContext) {
+        self.ctx = ctx
+    }
+
+    func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
+        return []
+    }
+
+    func execute(_ command: SPMLLBuild.Command) -> Bool {
+        fatalError("subclass responsibility")
+    }
+}
+
+final class TestDiscoveryCommand: CustomLLBuildCommand {
+
+    private func write(
+        tests: [IndexStore.TestCaseClass],
+        forModule module: String,
+        to path: AbsolutePath
+    ) throws {
+        let stream = try LocalFileOutputByteStream(path)
+
+        stream <<< "import XCTest" <<< "\n"
+        stream <<< "@testable import " <<< module <<< "\n"
+
+        for klass in tests {
+            stream <<< "\n"
+            stream <<< "fileprivate extension " <<< klass.name <<< " {" <<< "\n"
+            stream <<< indent(4) <<< "static let __allTests__\(klass.name) = [" <<< "\n"
+            for method in klass.methods {
+                let method = method.hasSuffix("()") ? String(method.dropLast(2)) : method
+                stream <<< indent(8) <<< "(\"\(method)\", \(method))," <<< "\n"
+            }
+            stream <<< indent(4) <<< "]" <<< "\n"
+            stream <<< "}" <<< "\n"
+        }
+
+        stream <<< """
+        func __allTests_\(module)() -> [XCTestCaseEntry] {
+            return [\n
+        """
+
+        for klass in tests {
+            stream <<< indent(8) <<< "testCase(\(klass.name).__allTests__\(klass.name)),\n"
+        }
+
+        stream <<< """
+            ]
+        }
+        """
+
+        stream.flush()
+    }
+
+    private func execute(with tool: ToolProtocol) throws {
+        assert(tool is TestDiscoveryTool, "Unexpected tool \(tool)")
+
+        let index = ctx.buildParameters.indexStore
+        let api = try ctx.indexStoreAPI.dematerialize()
+        let store = try IndexStore.open(store: index, api: api)
+
+        // FIXME: We can speed this up by having one llbuild command per object file.
+        let tests = try tool.inputs.flatMap {
+            try store.listTests(inObjectFile: AbsolutePath($0))
+        }
+
+        let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0) }
+        let testsByModule = Dictionary(grouping: tests, by: { $0.module })
+
+        func isMainFile(_ path: AbsolutePath) -> Bool {
+            return path.basename == "main.swift"
+        }
+
+        // Write one file for each test module.
+        //
+        // We could write everything in one file but that can easily run into type conflicts due
+        // in complex packages with large number of test targets.
+        for file in outputs {
+            if isMainFile(file) { continue }
+
+            // FIXME: This is relying on implementation detail of the output but passing the
+            // the context all the way through is not worth it right now.
+            let module = file.basenameWithoutExt
+
+            guard let tests = testsByModule[module] else {
+                // This module has no tests so just write an empty file for it.
+                try localFileSystem.writeFileContents(file, bytes: "")
+                continue
+            }
+            try write(tests: tests, forModule: module, to: file)
+        }
+
+        // Write the main file.
+        let mainFile = outputs.first(where: isMainFile)!
+        let stream = try LocalFileOutputByteStream(mainFile)
+
+        stream <<< "import XCTest" <<< "\n\n"
+        stream <<< "var tests = [XCTestCaseEntry]()" <<< "\n"
+        for module in testsByModule.keys {
+            stream <<< "tests += __allTests_\(module)()" <<< "\n"
+        }
+        stream <<< "\n"
+        stream <<< "XCTMain(tests)" <<< "\n"
+
+        stream.flush()
+    }
+
+    private func indent(_ spaces: Int) -> ByteStreamable {
+        return Format.asRepeating(string: " ", count: spaces)
+    }
+
+    override func execute(_ command: SPMLLBuild.Command) -> Bool {
+        guard let tool = ctx.buildTimeCmdToolMap[command.name] else {
+            print("command \(command.name) not registered")
+            return false
+        }
+        do {
+            try execute(with: tool)
+        } catch {
+            // FIXME: Shouldn't use "print" here.
+            print("error:", error)
+            return false
+        }
+        return true
+    }
+}
+
+private final class InProcessTool: Tool {
+    let ctx: BuildExecutionContext
+
+    init(_ ctx: BuildExecutionContext) {
+        self.ctx = ctx
+    }
+
+    func createCommand(_ name: String) -> ExternalCommand {
+        // FIXME: This should be able to dynamically look up the right command.
+        switch ctx.buildTimeCmdToolMap[name] {
+        case is TestDiscoveryTool:
+            return TestDiscoveryCommand(ctx)
+        default:
+            fatalError("Unhandled command \(name)")
+        }
+    }
+}
+
+/// The context available during build execution.
+public final class BuildExecutionContext {
+
+    /// Mapping of command-name to its tool.
+    let buildTimeCmdToolMap: [String: ToolProtocol]
+
+    var indexStoreAPI: Result<IndexStoreAPI, AnyError> {
+        indexStoreAPICache.getValue(self)
+    }
+
+    let buildParameters: BuildParameters
+
+    public init(_ plan: BuildPlan, buildTimeCmdToolMap: [String: ToolProtocol]) {
+        self.buildParameters = plan.buildParameters
+        self.buildTimeCmdToolMap = buildTimeCmdToolMap
+    }
+
+    // MARK:- Private
+
+    private var indexStoreAPICache = LazyCache(createIndexStoreAPI)
+    private func createIndexStoreAPI() -> Result<IndexStoreAPI, AnyError> {
+        Result {
+            let ext = buildParameters.triple.dynamicLibraryExtension
+            let indexStoreLib = buildParameters.toolchain.toolchainLibDir.appending(component: "libIndexStore" + ext)
+            return try IndexStoreAPI(dylib: indexStoreLib)
+        }
+    }
+}
+
 private let newLineByte: UInt8 = 10
 public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParserDelegate {
     private let diagnostics: DiagnosticsEngine
@@ -201,7 +378,10 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     /// Target name keyed by llbuild command name.
     private let targetNames: [String: String]
 
+    let buildExecutionContext: BuildExecutionContext
+
     public init(
+        bctx: BuildExecutionContext,
         plan: BuildPlan,
         diagnostics: DiagnosticsEngine,
         outputStream: OutputByteStream,
@@ -212,6 +392,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.progressAnimation = progressAnimation
+        self.buildExecutionContext = bctx
 
         let buildConfig = plan.buildParameters.configuration.dirname
 
@@ -231,7 +412,12 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     }
 
     public func lookupTool(_ name: String) -> Tool? {
-        return nil
+        switch name {
+        case TestDiscoveryTool.name:
+            return InProcessTool(buildExecutionContext)
+        default:
+            return nil
+        }
     }
 
     public func hadCommandFailure() {
@@ -412,6 +598,8 @@ fileprivate struct CommandTaskTracker {
             finishedCount += 1
         case .cancelled, .failed:
             break
+        default:
+            break
         }
     }
     
@@ -430,7 +618,7 @@ fileprivate struct CommandTaskTracker {
             }
 
             finishedCount += 1
-        case .signalled, .skipped:
+        case .unparsableOutput, .signalled, .skipped:
             break
         }
     }
@@ -480,9 +668,10 @@ fileprivate struct CommandTaskTracker {
 
 extension SwiftCompilerMessage {
     fileprivate var verboseProgressText: String? {
-        if case .began(let info) = kind {
+        switch kind {
+        case .began(let info):
             return ([info.commandExecutable] + info.commandArguments).joined(separator: " ")
-        } else {
+        case .skipped, .finished, .signalled, .unparsableOutput:
             return nil
         }
     }
@@ -492,7 +681,9 @@ extension SwiftCompilerMessage {
         case .finished(let info),
              .signalled(let info):
             return info.output
-        default:
+        case .unparsableOutput(let output):
+            return output
+        case .skipped, .began:
             return nil
         }
     }

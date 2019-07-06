@@ -164,6 +164,10 @@ public class BasePackageContainer: PackageContainer {
         self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
     }
+
+    public var _isRemoteContainer: Bool? {
+        return nil
+    }
 }
 
 /// Local package container.
@@ -322,6 +326,10 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     public var description: String {
         return "RepositoryPackageContainer(\(identifier.repository.url.debugDescription))"
+    }
+
+    public override var _isRemoteContainer: Bool? {
+        return true
     }
 
     public func getTag(for version: Version) -> String? {
