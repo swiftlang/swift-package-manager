@@ -39,12 +39,34 @@ class LockTests: XCTestCase {
         let N = 10
         let threads = (1...N).map { idx in
             return Thread {
-                _ = try! SwiftPMProduct.TestSupportExecutable.execute(["fileLockTest", tempDir.path.pathString, sharedResource.path.pathString, String(idx)])
+                _ = try! SwiftPMProduct.TestSupportExecutable.execute(["fileLockTest", "test.lock", tempDir.path.pathString, sharedResource.path.pathString, String(idx)])
             }
         }
         threads.forEach { $0.start() }
         threads.forEach { $0.join() }
 
         XCTAssertEqual(try localFileSystem.readFileContents(sharedResource.path).description, String((N * (N + 1) / 2 )))
+    }
+
+    func testFileLockTry() throws {
+        let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
+        let fileLock = FileLock(name: "test.lock", in: tempDir.path)
+
+        let lockThread = Thread {
+            try! SwiftPMProduct.TestSupportExecutable.execute(["fileLockLock", "test.lock", tempDir.path.pathString, "3"])
+        }
+
+        lockThread.start()
+
+        // wait for the fileLockLock process to launch and acquire a lock
+        XCTAssertTrue(waitForFile(tempDir.path.appending(component: "test.lock")))
+        // try lock
+        XCTAssertFalse(fileLock.try())
+        // wait for lock
+        try fileLock.lock()
+        fileLock.unlock()
+        XCTAssertTrue(fileLock.try())
+
+        lockThread.join()
     }
 }
