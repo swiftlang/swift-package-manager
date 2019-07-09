@@ -33,6 +33,19 @@ public enum PackageBuilderDiagnostics {
         public let target: String
     }
 
+    public struct TargetNameHasIncorrectCase: DiagnosticData {
+        public static let id = DiagnosticID(
+            type: TargetNameHasIncorrectCase.self,
+            name: "org.swift.diags.pkg-builder.\(TargetNameHasIncorrectCase.self)",
+            defaultBehavior: .warning,
+            description: {
+                $0 <<< "the target name" <<< { $0.target } <<< "has different case on the filesystem and the Package.swift manifest file"
+            }
+        )
+
+        public let target: String
+    }
+
     /// C language test target on linux is not supported.
     public struct UnsupportedCTarget: DiagnosticData {
         public static let id = DiagnosticID(

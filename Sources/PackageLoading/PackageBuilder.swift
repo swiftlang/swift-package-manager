@@ -442,10 +442,23 @@ public final class PackageBuilder {
         return (targetDir, testTargetDir)
     }
 
+    struct PredefinedTargetDirectory {
+        let path: AbsolutePath
+        let contents: [String]
+
+        init(fs: FileSystem, path: AbsolutePath) {
+            self.path = path
+            self.contents = (try? fs.getDirectoryContents(path)) ?? []
+        }
+    }
+
     /// Construct targets according to PackageDescription 4 conventions.
     fileprivate func constructV4Targets() throws -> [Target] {
         // Select the correct predefined directory list.
         let predefinedDirs = findPredefinedTargetDirectory()
+
+        let predefinedTargetDirectory = PredefinedTargetDirectory(fs: fileSystem, path: packagePath.appending(component: predefinedDirs.targetDir))
+        let predefinedTestTargetDirectory = PredefinedTargetDirectory(fs: fileSystem, path: packagePath.appending(component: predefinedDirs.testTargetDir))
 
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
@@ -472,11 +485,22 @@ public final class PackageBuilder {
             }
 
             // Check if target is present in the predefined directory.
-            let predefinedDir = target.isTest ? predefinedDirs.testTargetDir : predefinedDirs.targetDir
-            let path = packagePath.appending(components: predefinedDir, target.name)
-            if fileSystem.isDirectory(path) {
+            let predefinedDir = target.isTest ? predefinedTestTargetDirectory : predefinedTargetDirectory
+            let path = predefinedDir.path.appending(component: target.name)
+
+            // Return the path if the predefined directory contains it.
+            if predefinedDir.contents.contains(target.name) {
                 return path
             }
+
+            // Otherwise, if the path "exists" then the case in manifest differs from the case on the file system.
+            if fileSystem.isDirectory(path) {
+                diagnostics.emit(
+                    data: PackageBuilderDiagnostics.TargetNameHasIncorrectCase(target: target.name),
+                    location: diagnosticLocation())
+                return path
+            }
+
             throw ModuleError.moduleNotFound(target.name)
         }
 
