@@ -39,6 +39,7 @@ extension PackageBuilderTests {
         ("testExecutableAsADep", testExecutableAsADep),
         ("testInvalidHeaderSearchPath", testInvalidHeaderSearchPath),
         ("testInvalidManifestConfigForNonSystemModules", testInvalidManifestConfigForNonSystemModules),
+        ("testInvalidPublicHeadersPath", testInvalidPublicHeadersPath),
         ("testLinuxMain", testLinuxMain),
         ("testLinuxMainError", testLinuxMainError),
         ("testLinuxMainSearch", testLinuxMainSearch),

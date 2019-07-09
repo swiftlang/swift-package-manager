@@ -518,6 +518,32 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testInvalidPublicHeadersPath() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/inc/module.modulemap",
+                                    "/Sources/Foo/inc/Foo.h",
+                                    "/Sources/Foo/Foo.c",
+                                    "/Sources/Bar/include/module.modulemap",
+                                    "/Sources/Bar/include/Bar.h",
+                                    "/Sources/Bar/Bar.c"
+        )
+
+        let manifest = Manifest.createV4Manifest(
+            name: "Foo",
+            targets: [
+                TargetDescription(
+                    name: "Foo",
+                    publicHeadersPath: "/inc"),
+                TargetDescription(
+                    name: "Bar"),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkDiagnostic("invalid relative path \'/inc\'; relative path should not begin with \'/\' or \'~\'")
+        }
+    }
+
     func testTestsLayoutsv4() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/main.swift",
