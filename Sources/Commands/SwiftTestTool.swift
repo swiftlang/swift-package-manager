@@ -356,7 +356,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         }
 
         // Export the codecov data as JSON.
-        try exportCodeCovAsJSON(filename: buildPlan.graph.rootPackages[0].name, testBinary: testProduct.binary)
+        try exportCodeCovAsJSON(buildPlan: buildPlan, testBinary: testProduct.binary)
     }
 
     /// Merges all profraw profiles in codecoverage directory into default.profdata file.
@@ -381,8 +381,12 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         try Process.checkNonZeroExit(arguments: args)
     }
 
+    private func codeCovAsJSONPath(buildParameters: BuildParameters, buildPlan: BuildPlan) -> AbsolutePath {
+        return buildParameters.codeCovPath.appending(component: buildPlan.graph.rootPackages[0].name + ".json")
+    }
+
     /// Exports profdata as a JSON file.
-    private func exportCodeCovAsJSON(filename: String, testBinary: AbsolutePath) throws {
+    private func exportCodeCovAsJSON(buildPlan: BuildPlan, testBinary: AbsolutePath) throws {
         // Export using the llvm-cov tool.
         let llvmCov = try getToolchain().getLLVMCov()
         let buildParameters = try self.buildParameters()
@@ -395,7 +399,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         let result = try Process.popen(arguments: args)
 
         // Write to a file.
-        let jsonPath = buildParameters.codeCovPath.appending(component:  filename + ".json")
+        let jsonPath = codeCovAsJSONPath(buildParameters: buildParameters, buildPlan: buildPlan)
         try localFileSystem.writeFileContents(jsonPath, bytes: ByteString(result.output.dematerialize()))
     }
 
