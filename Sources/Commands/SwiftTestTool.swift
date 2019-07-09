@@ -118,6 +118,10 @@ public class TestToolOptions: ToolOptions {
             return .generateLinuxMain
         }
 
+        if shouldPrintCodeCovPath {
+            return .codeCovPath
+        }
+
         return .runSerial
     }
 
@@ -135,6 +139,9 @@ public class TestToolOptions: ToolOptions {
 
     /// Generate LinuxMain entries and exit.
     var shouldGenerateLinuxMain = false
+
+    /// If the path of the exported code coverage JSON should be printed.
+    var shouldPrintCodeCovPath = false
 
     var testCaseSpecifier: TestCaseSpecifier {
         testCaseSpecifierOverride() ?? _testCaseSpecifier
@@ -186,6 +193,7 @@ public enum TestCaseSpecifier {
 public enum TestMode {
     case version
     case listTests
+    case codeCovPath
     case generateLinuxMain
     case runSerial
     case runParallel
@@ -224,6 +232,13 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             for test in tests {
                 print(test.specifier)
             }
+
+        case .codeCovPath:
+            let workspace = try getActiveWorkspace()
+            let root = try getWorkspaceRoot()
+            let rootManifest = workspace.loadRootManifests(packages: root.packages, diagnostics: diagnostics)[0]
+            let buildParameters = try self.buildParameters()
+            print(codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.name))
 
         case .generateLinuxMain:
           #if os(Linux)
@@ -356,7 +371,10 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         }
 
         // Export the codecov data as JSON.
-        try exportCodeCovAsJSON(filename: buildPlan.graph.rootPackages[0].name, testBinary: testProduct.binary)
+        let jsonPath = codeCovAsJSONPath(
+            buildParameters: buildPlan.buildParameters,
+            packageName: buildPlan.graph.rootPackages[0].name)
+        try exportCodeCovAsJSON(to: jsonPath, testBinary: testProduct.binary)
     }
 
     /// Merges all profraw profiles in codecoverage directory into default.profdata file.
@@ -381,8 +399,12 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         try Process.checkNonZeroExit(arguments: args)
     }
 
+    private func codeCovAsJSONPath(buildParameters: BuildParameters, packageName: String) -> AbsolutePath {
+        return buildParameters.codeCovPath.appending(component: packageName + ".json")
+    }
+
     /// Exports profdata as a JSON file.
-    private func exportCodeCovAsJSON(filename: String, testBinary: AbsolutePath) throws {
+    private func exportCodeCovAsJSON(to path: AbsolutePath, testBinary: AbsolutePath) throws {
         // Export using the llvm-cov tool.
         let llvmCov = try getToolchain().getLLVMCov()
         let buildParameters = try self.buildParameters()
@@ -393,10 +415,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             testBinary.pathString
         ]
         let result = try Process.popen(arguments: args)
-
-        // Write to a file.
-        let jsonPath = buildParameters.codeCovPath.appending(component:  filename + ".json")
-        try localFileSystem.writeFileContents(jsonPath, bytes: ByteString(result.output.dematerialize()))
+        try localFileSystem.writeFileContents(path, bytes: ByteString(result.output.dematerialize()))
     }
 
     /// Builds the "test" target if enabled in options.
@@ -464,6 +483,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             option: parser.add(option: "--enable-code-coverage", kind: Bool.self,
                 usage: "Test with code coverage enabled"),
             to: { $0.shouldEnableCodeCoverage = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--show-codecov-path", kind: Bool.self,
+                usage: "Print the path of the exported code coverage JSON file"),
+            to: { $0.shouldPrintCodeCovPath = $1 })
     }
 
     /// Locates XCTestHelper tool inside the libexec directory and bin directory.
