@@ -1039,7 +1039,11 @@ public class BuildPlan {
         //
         // If the product's platform version is greater than ours, then it is incompatible.
         if productPlatform.version > targetPlatform.version {
-            diagnostics.emit(data: ProductRequiresHigherPlatformVersion(product: product.name, platform: productPlatform))
+            diagnostics.emit(data: ProductRequiresHigherPlatformVersion(
+                target: target,
+                product: product.name,
+                platform: productPlatform
+            ))
         }
     }
 
@@ -1276,15 +1280,18 @@ struct ProductRequiresHigherPlatformVersion: DiagnosticData {
         name: "org.swift.diags.\(ProductRequiresHigherPlatformVersion.self)",
         defaultBehavior: .error,
         description: {
-            $0 <<< "the product" <<< { "'\($0.product)'" }
-            $0 <<< "requires minimum platform version" <<< { $0.platform.version.versionString }
-            $0 <<< "for" <<< { $0.platform.platform.name } <<< "platform"
+            $0 <<< "the" <<< { $0.target.type.rawValue } <<< { "'\($0.target.name)'" }
+            $0 <<< "has a minimum platform version lower than"
+            $0 <<< { $0.platform.platform.name } <<< { "\($0.platform.version.versionString)," }
+            $0 <<< "which is required by the product" <<< { "'\($0.product)'" }
     })
 
+    public let target: ResolvedTarget
     public let product: String
     public let platform: SupportedPlatform
 
-    init(product: String, platform: SupportedPlatform) {
+    init(target: ResolvedTarget, product: String, platform: SupportedPlatform) {
+        self.target = target
         self.product = product
         self.platform = platform
     }

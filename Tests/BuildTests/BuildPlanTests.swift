@@ -1232,7 +1232,7 @@ final class BuildPlanTests: XCTestCase {
         }
 
         DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-            result.check(diagnostic: .contains("the product 'BLibrary' requires minimum platform version 10.14 for macos platform"), behavior: .error)
+            result.check(diagnostic: .contains("the library 'ATarget' has a minimum platform version lower than macos 10.14, which is required by the product 'BLibrary'"), behavior: .error)
         }
     }
 
