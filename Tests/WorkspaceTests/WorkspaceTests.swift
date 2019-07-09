@@ -1481,7 +1481,7 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkPackageGraph(roots: ["Baz"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Baz' is using Swift tools version 3.1.0 which is no longer supported; use 4.0.0 or newer instead"), behavior: .error, location: "/tmp/ws/roots/Baz")
+                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Baz' is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version"), behavior: .error, location: "/tmp/ws/roots/Baz")
             }
         }
     }

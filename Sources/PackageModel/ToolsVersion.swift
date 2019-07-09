@@ -106,7 +106,7 @@ public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable {
             throw UnsupportedToolsVersion(
                 packagePath: packagePath,
                 version: version,
-                minimumRequiredToolsVersion: .minimumRequired,
+                currentToolsVersion: currentToolsVersion,
                 packageToolsVersion: self
             )
         }
@@ -280,8 +280,7 @@ public struct UnsupportedToolsVersion: DiagnosticData, Swift.Error {
                 return text
             }, preference: .default)
             $0 <<< "is using Swift tools version" <<< { $0.packageToolsVersion.description }
-            $0 <<< "which is no longer supported; use" <<< { $0.minimumRequiredToolsVersion.description }
-            $0 <<< "or newer instead"
+            $0 <<< "which is no longer supported;" <<< { $0.hintString }
     })
 
     /// The path of the package.
@@ -290,21 +289,25 @@ public struct UnsupportedToolsVersion: DiagnosticData, Swift.Error {
     /// The version of the package.
     public let version: String?
 
-    /// The tools version required by the package.
-    public let minimumRequiredToolsVersion: ToolsVersion
+    /// The current tools version support by the tools.
+    public let currentToolsVersion: ToolsVersion
 
-    /// The current tools version.
+    /// The tools version of the package.
     public let packageToolsVersion: ToolsVersion
+
+    fileprivate var hintString: String {
+        return "consider using '// swift-tools-version:\(currentToolsVersion.major).\(currentToolsVersion.minor)' to specify the current tools version"
+    }
 
     public init(
         packagePath: String,
         version: String? = nil,
-        minimumRequiredToolsVersion: ToolsVersion,
+        currentToolsVersion: ToolsVersion,
         packageToolsVersion: ToolsVersion
     ) {
         self.packagePath = packagePath
         self.version = version
-        self.minimumRequiredToolsVersion = minimumRequiredToolsVersion
+        self.currentToolsVersion = currentToolsVersion
         self.packageToolsVersion = packageToolsVersion
     }
 }
