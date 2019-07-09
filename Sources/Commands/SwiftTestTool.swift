@@ -118,6 +118,10 @@ public class TestToolOptions: ToolOptions {
             return .generateLinuxMain
         }
 
+        if shouldPrintCodeCovPath {
+            return .codeCovPath
+        }
+
         return .runSerial
     }
 
@@ -135,6 +139,9 @@ public class TestToolOptions: ToolOptions {
 
     /// Generate LinuxMain entries and exit.
     var shouldGenerateLinuxMain = false
+
+    /// If the path of the exported code coverage JSON should be printed.
+    var shouldPrintCodeCovPath = false
 
     var testCaseSpecifier: TestCaseSpecifier {
         testCaseSpecifierOverride() ?? _testCaseSpecifier
@@ -186,6 +193,7 @@ public enum TestCaseSpecifier {
 public enum TestMode {
     case version
     case listTests
+    case codeCovPath
     case generateLinuxMain
     case runSerial
     case runParallel
@@ -224,6 +232,12 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             for test in tests {
                 print(test.specifier)
             }
+
+        case .codeCovPath:
+            let graph = try loadPackageGraph()
+            let buildParameters = try self.buildParameters()
+            let buildPlan = try BuildPlan(buildParameters: buildParameters, graph: graph, diagnostics: diagnostics)
+            print(codeCovAsJSONPath(buildParameters: buildParameters, buildPlan: buildPlan))
 
         case .generateLinuxMain:
           #if os(Linux)
@@ -468,6 +482,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             option: parser.add(option: "--enable-code-coverage", kind: Bool.self,
                 usage: "Test with code coverage enabled"),
             to: { $0.shouldEnableCodeCoverage = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--show-codecov-path", kind: Bool.self,
+                               usage: "Print the path of the exported code coverage JSON"),
+            to: { $0.shouldPrintCodeCovPath = $1 })
     }
 
     /// Locates XCTestHelper tool inside the libexec directory and bin directory.
