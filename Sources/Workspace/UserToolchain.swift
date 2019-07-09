@@ -205,9 +205,10 @@ public final class UserToolchain: Toolchain {
         self.xctest = nil
       #endif
 
-        self.extraSwiftCFlags = [
-            "-sdk", destination.sdk.pathString
-        ] + destination.extraSwiftCFlags
+        self.extraSwiftCFlags = (destination.target.isDarwin()
+                                    ? ["-sdk", destination.sdk.pathString]
+                                    : [])
+                                  + destination.extraSwiftCFlags
 
         self.extraCCFlags = [
             destination.target.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
