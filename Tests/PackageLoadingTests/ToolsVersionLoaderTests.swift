@@ -187,9 +187,8 @@ class ToolsVersionLoaderTests: XCTestCase {
                 XCTFail("unexpected success - \($0)", file: file, line: line)
             }
             XCTFail("unexpected success", file: file, line: line)
-        } catch ToolsVersionLoader.Error.malformed(let specifier, let path) {
+        } catch ToolsVersionLoader.Error.malformed(let specifier, _) {
             XCTAssertEqual(specifier, theSpecifier, file: file, line: line)
-            XCTAssertEqual(path, AbsolutePath("/pkg/Package.swift"), file: file, line: line)
         } catch {
             XCTFail("Failed with error \(error)")
         }

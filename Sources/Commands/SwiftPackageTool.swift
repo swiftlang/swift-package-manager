@@ -208,7 +208,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             case .set(let value):
                 guard let toolsVersion = ToolsVersion(string: value) else {
                     // FIXME: Probably lift this error defination to ToolsVersion.
-                    throw ToolsVersionLoader.Error.malformed(specifier: value, file: pkg)
+                    throw ToolsVersionLoader.Error.malformed(specifier: value, currentToolsVersion: .currentToolsVersion)
                 }
                 try writeToolsVersion(at: pkg, version: toolsVersion, fs: localFileSystem)
 
