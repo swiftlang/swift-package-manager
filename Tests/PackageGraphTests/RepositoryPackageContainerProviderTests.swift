@@ -348,7 +348,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 _ = try container.getDependencies(at: revision.identifier)
             } catch let error as RepositoryPackageContainer.GetDependenciesErrorWrapper {
                 let error = error.underlyingError as! UnsupportedToolsVersion
-                XCTAssertMatch(error.description, .and(.prefix("package at '/some-repo' @"), .suffix("is using Swift tools version 3.1.0 which is no longer supported; use 4.0.0 or newer instead")))
+                XCTAssertMatch(error.description, .and(.prefix("package at '/some-repo' @"), .suffix("is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version")))
             }
         }
     }
