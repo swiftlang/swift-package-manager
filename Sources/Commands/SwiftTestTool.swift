@@ -234,10 +234,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             }
 
         case .codeCovPath:
-            let graph = try loadPackageGraph()
+            let workspace = try getActiveWorkspace()
+            let root = try getWorkspaceRoot()
+            let rootManifest = workspace.loadRootManifests(packages: root.packages, diagnostics: diagnostics)[0]
             let buildParameters = try self.buildParameters()
-            let buildPlan = try BuildPlan(buildParameters: buildParameters, graph: graph, diagnostics: diagnostics)
-            print(codeCovAsJSONPath(buildParameters: buildParameters, buildPlan: buildPlan))
+            print(codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.name))
 
         case .generateLinuxMain:
           #if os(Linux)
@@ -395,8 +396,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         try Process.checkNonZeroExit(arguments: args)
     }
 
-    private func codeCovAsJSONPath(buildParameters: BuildParameters, buildPlan: BuildPlan) -> AbsolutePath {
-        return buildParameters.codeCovPath.appending(component: buildPlan.graph.rootPackages[0].name + ".json")
+    private func codeCovAsJSONPath(buildParameters: BuildParameters, packageName: String) -> AbsolutePath {
+        return buildParameters.codeCovPath.appending(component: packageName + ".json")
     }
 
     /// Exports profdata as a JSON file.
@@ -413,7 +414,9 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         let result = try Process.popen(arguments: args)
 
         // Write to a file.
-        let jsonPath = codeCovAsJSONPath(buildParameters: buildParameters, buildPlan: buildPlan)
+        let jsonPath = codeCovAsJSONPath(
+            buildParameters: buildParameters,
+            packageName: buildPlan.graph.rootPackages[0].name)
         try localFileSystem.writeFileContents(jsonPath, bytes: ByteString(result.output.dematerialize()))
     }
 
