@@ -199,6 +199,9 @@ public class SwiftTool<Options: ToolOptions> {
     /// received by the swift tools.
     let processSet: ProcessSet
 
+    /// The current build system reference. The actual reference is present only during an active build.
+    private let buildSystemRef: BuildSystemRef
+
     /// The interrupt handler.
     let interruptHandler: InterruptHandler
 
@@ -384,9 +387,11 @@ public class SwiftTool<Options: ToolOptions> {
             }
 
             let processSet = ProcessSet()
+            let buildSystemRef = BuildSystemRef()
             interruptHandler = try InterruptHandler {
                 // Terminate all processes on receiving an interrupt signal.
                 processSet.terminate()
+                buildSystemRef.buildSystem?.cancel()
 
               #if os(Windows)
                 // Exit as if by signal()
@@ -407,6 +412,7 @@ public class SwiftTool<Options: ToolOptions> {
               #endif
             }
             self.processSet = processSet
+            self.buildSystemRef = buildSystemRef
 
         } catch {
             handle(error: error)
@@ -632,9 +638,12 @@ public class SwiftTool<Options: ToolOptions> {
             BuildSystem.setSchedulerLaneWidth(width: jobs)
         }
         let buildSystem = BuildSystem(buildFile: manifest.pathString, databaseFile: databasePath, delegate: buildDelegate)
+        self.buildSystemRef.buildSystem = buildSystem
         buildDelegate.onCommmandFailure = { buildSystem.cancel() }
 
         let success = buildSystem.build(target: llbuildTarget)
+        self.buildSystemRef.buildSystem = nil
+
         progressAnimation.complete(success: success)
         guard success else { throw Diagnostics.fatalError }
     }
@@ -809,4 +818,10 @@ extension BuildConfiguration: StringEnumArgument {
         (debug.rawValue, "build with DEBUG configuration"),
         (release.rawValue, "build with RELEASE configuration"),
     ])
+}
+
+/// A wrapper to hold the build system so we can use it inside
+/// the int. handler without requiring to initialize it.
+private final class BuildSystemRef {
+    var buildSystem: BuildSystem?
 }
