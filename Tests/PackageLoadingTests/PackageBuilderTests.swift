@@ -755,6 +755,21 @@ class PackageBuilderTests: XCTestCase {
 
         do {
             let fs = InMemoryFileSystem(emptyFiles:
+                "/Sources/pkg/Foo.swift")
+            let manifest = Manifest.createV4Manifest(
+                name: "pkg",
+                targets: [
+                    TargetDescription(name: "pkg", dependencies: []),
+                    TargetDescription(name: "pkgTests", dependencies: [], type: .test),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { result in
+                result.checkDiagnostic("Source files for target pkgTests should be located under 'Tests/pkgTests', or a custom sources path can be set with the 'path' property in Package.swift")
+            }
+        }
+
+        do {
+            let fs = InMemoryFileSystem(emptyFiles:
                 "/Source/pkg/Foo.swift")
             // Reference self in dependencies.
             let manifest = Manifest.createV4Manifest(
@@ -1077,7 +1092,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("Source files for target BarTests should be located under 'Sources/BarTests', or a custom sources path can be set with the 'path' property in Package.swift")
+                result.checkDiagnostic("Source files for target BarTests should be located under 'Tests/BarTests', or a custom sources path can be set with the 'path' property in Package.swift")
             }
 
             // We should be able to fix this by using custom paths.

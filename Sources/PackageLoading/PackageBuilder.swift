@@ -25,7 +25,7 @@ public enum ModuleError: Swift.Error {
     case duplicateModule(String, [String])
 
     /// The eferenced target could not be found.
-    case moduleNotFound(String)
+    case moduleNotFound(String, TargetDescription.TargetType)
 
     /// Invalid custom path.
     case invalidCustomPath(target: String, path: String)
@@ -67,8 +67,9 @@ extension ModuleError: CustomStringConvertible {
         case .duplicateModule(let name, let packages):
             let packages = packages.joined(separator: ", ")
             return "multiple targets named '\(name)' in: \(packages)"
-        case .moduleNotFound(let target):
-            return "Source files for target \(target) should be located under 'Sources/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
+        case .moduleNotFound(let target, let type):
+            let folderName = type == .test ? "Tests" : "Sources"
+            return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
         case .invalidLayout(let type):
             return "package has unsupported layout; \(type)"
         case .invalidManifestConfig(let package, let message):
@@ -500,8 +501,7 @@ public final class PackageBuilder {
                     location: diagnosticLocation())
                 return path
             }
-
-            throw ModuleError.moduleNotFound(target.name)
+            throw ModuleError.moduleNotFound(target.name, target.type)
         }
 
         // Create potential targets.
@@ -520,7 +520,7 @@ public final class PackageBuilder {
         let potentialModulesName = Set(potentialModules.map({ $0.name }))
         let missingModules = allReferencedModules.subtracting(potentialModulesName).intersection(allReferencedModules)
         if let missingModule = missingModules.first {
-            throw ModuleError.moduleNotFound(missingModule)
+            throw ModuleError.moduleNotFound(missingModule, potentialModules.first(where: { $0.name == missingModule })?.type ?? .regular)
         }
 
         let targetItems = manifest.targets.map({ ($0.name, $0 as TargetDescription) })
