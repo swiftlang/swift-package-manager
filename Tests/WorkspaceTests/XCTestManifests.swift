@@ -57,6 +57,7 @@ extension WorkspaceTests {
         ("testDuplicateRootPackages", testDuplicateRootPackages),
         ("testEditDependency", testEditDependency),
         ("testForceResolveToResolvedVersions", testForceResolveToResolvedVersions),
+        ("testForceResolveToResolvedVersionsLocalPackage", testForceResolveToResolvedVersionsLocalPackage),
         ("testGraphRootDependencies", testGraphRootDependencies),
         ("testInterpreterFlags", testInterpreterFlags),
         ("testIsResolutionRequired", testIsResolutionRequired),
