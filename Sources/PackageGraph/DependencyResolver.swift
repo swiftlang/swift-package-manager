@@ -28,6 +28,9 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
     /// The resolver found missing versions for the given constraints.
     case missingVersions([PackageContainerConstraint])
 
+    /// A revision-based dependency contains a local package dependency.
+    case revisionDependencyContainsLocalPackage(dependency: String, localPackage: String)
+
     /// The resolution was cancelled.
     case cancelled
 
@@ -50,6 +53,10 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
             return lhs == rhs
         case (.missingVersions, _):
             return false
+        case (.revisionDependencyContainsLocalPackage(let a1, let b1), .revisionDependencyContainsLocalPackage(let a2, let b2)):
+            return a1 == a2 && b1 == b2
+        case (.revisionDependencyContainsLocalPackage, _):
+            return false
         case (.cancelled, .cancelled):
             return true
         case (.cancelled, _):
@@ -61,6 +68,8 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
         switch self {
         case .cancelled:
             return "the package resolution operation was cancelled"
+        case .revisionDependencyContainsLocalPackage(let dependency, let localPackage):
+            return "package '\(dependency)' is required using a revision-based requirement and it depends on local package '\(localPackage)', which is not supported"
         case .unsatisfiable:
             return "the package dependency graph could not be resolved due to an unknown conflict"
         case .cycle(let package):
@@ -1114,6 +1123,21 @@ public class DependencyResolver {
             guard let constraints = self.safely({ try container.getDependencies(at: identifier) }) else {
                 return AnySequence([])
             }
+
+            // If we have any local packages, set the error and abort.
+            //
+            // We might want to support this in the future if the local package is contained
+            // inside the dependency. That's going to be tricky though since we don't have
+            // concrete checkouts yet.
+            let incompatibleConstraints = constraints.filter{ $0.requirement == .unversioned }
+            guard incompatibleConstraints.isEmpty else {
+                self.error = DependencyResolverError.revisionDependencyContainsLocalPackage(
+                    dependency: container.identifier.identity,
+                    localPackage: incompatibleConstraints[0].identifier.identity
+                )
+                return AnySequence([])
+            }
+
             result = merge(constraints: constraints, binding: .revision(identifier))
 
         case .versionSet(let versionSet):
