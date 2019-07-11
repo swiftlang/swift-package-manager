@@ -2995,6 +2995,59 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(loadedPackage.name, "SwiftPM")
         XCTAssert(graph.reachableProducts.contains(where: { $0.name == "SwiftPM" }))
     }
+
+    func testRevisionDepOnLocal() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .branch("develop")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Local", requirement: .localPackage),
+                    ],
+                    versions: ["develop"]
+                ),
+                TestPackage(
+                    name: "Local",
+                    targets: [
+                        TestTarget(name: "Local"),
+                    ],
+                    products: [
+                        TestProduct(name: "Local", targets: ["Local"]),
+                    ],
+                    versions: [nil]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"]) { (_, diagnostics) in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .equal("package 'foo' is required using a revision-based requirement and it depends on local package 'local', which is not supported"), behavior: .error)
+            }
+        }
+    }
 }
 
 extension PackageGraph {
