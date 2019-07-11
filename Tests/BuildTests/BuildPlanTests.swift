@@ -1232,7 +1232,12 @@ final class BuildPlanTests: XCTestCase {
         }
 
         DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-            result.check(diagnostic: .contains("the product 'BLibrary' requires minimum platform version 10.14 for macos platform"), behavior: .error)
+            let diagnosticMessage = """
+            the library 'ATarget' requires macos 10.13, but depends on the product 'BLibrary' which requires macos 10.14; \
+            consider changing the library 'ATarget' to require macos 10.14 or later, or the product 'BLibrary' to require \
+            macos 10.13 or earlier.
+            """
+            result.check(diagnostic: .contains(diagnosticMessage), behavior: .error)
         }
     }
 
