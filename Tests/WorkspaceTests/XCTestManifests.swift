@@ -75,6 +75,7 @@ extension WorkspaceTests {
         ("testResolve", testResolve),
         ("testResolvedFileUpdate", testResolvedFileUpdate),
         ("testResolverCanHaveError", testResolverCanHaveError),
+        ("testRevisionDepOnLocal", testRevisionDepOnLocal),
         ("testRevisionVersionSwitch", testRevisionVersionSwitch),
         ("testRootAsDependency1", testRootAsDependency1),
         ("testRootAsDependency2", testRootAsDependency2),
