@@ -1177,6 +1177,18 @@ extension Workspace {
             }
         }
 
+        // Save state for local packages, if any.
+        //
+        // FIXME: This will only work for top-level local packages right now.
+        for rootManifest in rootManifests {
+            let dependencies = rootManifest.dependencies.filter{ $0.requirement == .localPackage }
+            for localPackage in dependencies {
+                let package = localPackage.createPackageRef(config: self.config)
+                managedDependencies[forURL: package.path] = ManagedDependency.local(packageRef: package)
+            }
+        }
+        diagnostics.wrap { try managedDependencies.saveState() }
+
         let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Check if a new resolution is required.
