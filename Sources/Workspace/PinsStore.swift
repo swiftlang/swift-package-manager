@@ -99,6 +99,10 @@ public final class PinsStore {
         pinsMap[pin.packageRef.identity] = pin
     }
 
+    func remove(identity: String) {
+        pinsMap[identity] = nil
+    }
+
     /// Pin a managed dependency at its checkout state.
     ///
     /// This method does nothing if the dependency is in edited state.
