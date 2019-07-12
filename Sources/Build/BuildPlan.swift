@@ -778,6 +778,14 @@ public final class ProductBuildDescription {
           args += ["-runtime-compatibility-version", "none"]
         }
 
+        // Add the target triple from the first target in the product.
+        //
+        // We can just use the first target of the product because the deployment target
+        // setting is the package-level right now. We might need to figure out a better
+        // answer for libraries if/when we support specifying deployment target at the
+        // target-level.
+        args += buildParameters.targetTripleArgs(for: product.targets[0])
+
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags()
 
