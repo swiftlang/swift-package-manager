@@ -861,7 +861,7 @@ final class WorkspaceTests: XCTestCase {
             ], pinsStore: pinsStore)
 
             XCTAssertEqual(result.resolve, false)
-            XCTAssertEqual(result.validPins, [])
+            XCTAssertEqual(result.validPins.map({$0.identifier.repository.url}).sorted(), ["/A", "/B", "/C"])
         }
     }
 
@@ -2575,7 +2575,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies() { result in
-            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(notPresent: "foo")
         }
         workspace.checkResolved() { result in
             result.check(notPresent: "foo")
@@ -3046,6 +3046,107 @@ final class WorkspaceTests: XCTestCase {
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .equal("package 'foo' is required using a revision-based requirement and it depends on local package 'local', which is not supported"), behavior: .error)
             }
+        }
+    }
+
+    func testUpdateToResolvedFileResolvesCorrectly() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Bar"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar", dependencies: ["Foo"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar", dependencies: []),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    dependencies: [
+                    ],
+                    versions: ["1.1.0"]
+                ),
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Bar", requirement: .exact("1.0.0")),
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Bar", "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+
+        // Emulate a complete change in Package.resolved file.
+        do {
+            let ws = workspace.createWorkspace()
+            let pinsStore = try ws.pinsStore.load()
+            let barPin = pinsStore.pins.first(where: { $0.packageRef.identity == "bar" })!
+
+            let barRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: barPin.packageRef.path)]!
+            let revision = try barRepo.resolveRevision(tag: "1.1.0")
+            let newState = CheckoutState(revision: revision, version: "1.1.0")
+
+            pinsStore.unpinAll()
+            pinsStore.pin(packageRef: barPin.packageRef, state: newState)
+            try pinsStore.saveState()
+        }
+
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Bar", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(notPresent: "foo")
+            result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
         }
     }
 }
