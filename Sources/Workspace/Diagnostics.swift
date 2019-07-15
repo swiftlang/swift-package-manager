@@ -148,7 +148,25 @@ public struct InvalidToolchainDiagnostic: DiagnosticData, Error {
 
 public enum WorkspaceDiagnostics {
 
-    //MARK: - Errors
+    // MARK: - Errors
+
+    public struct PackageOverrideBasenameMismatch: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: PackageOverrideBasenameMismatch.self,
+            name: "org.swift.diags.workspace.\(PackageOverrideBasenameMismatch.self)",
+            description: {
+                $0 <<< { $0.diag }
+            }
+        )
+
+        let packageName: String
+        let packageIdentity: String
+        let overrideIdentity: String
+
+        var diag: String {
+            return "unable to override package '\(packageName)' because its basename '\(packageIdentity)' doesn't match directory name '\(overrideIdentity)'"
+        }
+    }
 
     /// The diagnostic triggered when an operation fails because its completion
     /// would loose the uncommited changes in a repository.
