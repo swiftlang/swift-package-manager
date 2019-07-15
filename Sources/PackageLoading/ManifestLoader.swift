@@ -670,6 +670,14 @@ final class ManifestLoadRule: LLBuildRule {
         engine.taskNeedsInput(FileInfoRule.RuleKey(path: key.path), inputID: 3)
     }
 
+    override func isResultValid(_ priorValue: Value) -> Bool {
+        // Always rebuild if we had a failure.
+        let value = RuleKey.BuildValue(priorValue)
+        if value.hasErrors { return false }
+
+        return super.isResultValid(priorValue)
+    }
+
     override func inputsAvailable(_ engine: LLTaskBuildEngine) {
         let value = loader.parse(
             packageIdentity: key.packageIdentity,
