@@ -205,6 +205,19 @@ public final class LLBuildManifestGenerator {
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.
             if target.underlyingTarget is SystemLibraryTarget { return }
+
+            // Depend on the binary for executable targets.
+            if target.type == .executable {
+                // FIXME: Optimize.
+                let _product = plan.graph.allProducts.first {
+                    $0.type == .executable && $0.executableModule == target
+                }
+                if let product = _product {
+                    inputs += [plan.productMap[product]!.binary.pathString]
+                }
+                return
+            }
+
             switch plan.targetMap[target] {
             case .swift(let target)?:
                 inputs.insert(target.moduleOutputPath.pathString)
