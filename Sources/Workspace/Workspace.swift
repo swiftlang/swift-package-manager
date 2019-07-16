@@ -1236,27 +1236,21 @@ extension Workspace {
             return currentManifests
         }
 
-        // Load the pinstore and check if its outdated.
-        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
+        validatePinsStore(dependencyManifests: currentManifests, diagnostics: diagnostics)
+
+        // Abort if pinsStore is unloadable or if diagnostics has errors.
+        guard !diagnostics.hasErrors, let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
             return currentManifests
         }
-        let isPinStoreOutdated = pinsStore.isOutdated(
-            dependencyManifests: currentManifests,
-            managedDependencies: managedDependencies
-        )
 
-        // Compute the missing package identities and scrub any out-of-date entry from the pin store..
+        // Compute the missing package identities.
         let missingPackageURLs = currentManifests.missingPackageURLs()
-        for missingURL in missingPackageURLs {
-            pinsStore.remove(identity: missingURL.identity)
-            try? pinsStore.saveState()
-        }
 
         // The pins to use in case we need to run the resolution.
         var validPins = pinsStore.createConstraints()
 
         // Compute if we need to run the resolver. We always run the resolver if
-        // there are missing packages.
+        // there are extra constraints.
         if missingPackageURLs.isEmpty {
             // Use root constraints, dependency manifest constraints and extra
             // constraints to compute if a new resolution is required.
@@ -1269,11 +1263,9 @@ extension Workspace {
 
             let result = isResolutionRequired(root: graphRoot, dependencies: dependencies, pinsStore: pinsStore)
 
-            // We don't need to resolve if:
-            // 1. Nothing in the manifest changed.
-            // 2. PinStore is valid.
-            // 3. We have no extra constraints.
-            if !result.resolve && extraConstraints.isEmpty && !isPinStoreOutdated {
+            // If we don't need resolution and there are no extra constraints,
+            // just validate pinsStore and return.
+            if !result.resolve && extraConstraints.isEmpty {
                 return currentManifests
             }
 
@@ -1472,7 +1464,38 @@ extension Workspace {
             }
         }
 
-        return (false, validPins)
+        return (false, [])
+    }
+
+    /// Validates that each checked out managed dependency has an entry in pinsStore.
+    private func validatePinsStore(dependencyManifests: DependencyManifests, diagnostics: DiagnosticsEngine) {
+        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
+            return
+        }
+
+		let pins = pinsStore.pinsMap.keys
+        let requiredURLs = dependencyManifests.computePackageURLs().required
+
+        for dependency in managedDependencies.values {
+            switch dependency.state {
+            case .checkout: break
+            case .edited, .local: continue
+            }
+
+            let identity = dependency.packageRef.identity
+
+            if requiredURLs.contains(where: { $0.path == dependency.packageRef.path }) {
+                // If required identity contains this dependency, it should be in the pins store.
+                if let pin = pinsStore.pinsMap[identity], pin.packageRef.path == dependency.packageRef.path {
+                    continue
+                }
+            } else if !pins.contains(identity) {
+                // Otherwise, it should *not* be in the pins store.
+                continue
+            }
+
+            return self.pinAll(dependencyManifests: dependencyManifests, pinsStore: pinsStore, diagnostics: diagnostics)
+        }
     }
 
     /// This enum represents state of an external package.
@@ -1991,38 +2014,5 @@ public final class LoadableResult<Value> {
     /// Load and return the value.
     public func load() throws -> Value {
         return try loadResult().dematerialize()
-    }
-}
-
-extension PinsStore {
-    /// Returns true if the pin store is outdated with the content in the managed dependencies.
-    func isOutdated(
-        dependencyManifests: Workspace.DependencyManifests,
-        managedDependencies: ManagedDependencies
-    ) -> Bool {
-        let pins = pinsMap.keys
-        let requiredURLs = dependencyManifests.computePackageURLs().required
-
-        for dependency in managedDependencies.values {
-            switch dependency.state {
-            case .checkout: break
-            case .edited, .local: continue
-            }
-
-            let identity = dependency.packageRef.identity
-
-            if requiredURLs.contains(where: { $0.path == dependency.packageRef.path }) {
-                // If required identity contains this dependency, it should be in the pins store.
-                if let pin = pinsMap[identity], pin.packageRef.path == dependency.packageRef.path {
-                    continue
-                }
-            } else if !pins.contains(identity) {
-                // Otherwise, it should *not* be in the pins store.
-                continue
-            }
-
-            return true
-        }
-        return false
     }
 }
