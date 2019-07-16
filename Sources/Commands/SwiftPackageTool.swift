@@ -265,8 +265,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .describe:
             let workspace = try getActiveWorkspace()
             let root = try getWorkspaceRoot()
-            let manifest = workspace.loadRootManifests(
-                packages: root.packages, diagnostics: diagnostics)[0]
+            let manifests = workspace.loadRootManifests(
+                packages: root.packages, diagnostics: diagnostics)
+            guard let manifest = manifests.first else { return }
 
             let builder = PackageBuilder(
                 manifest: manifest,
@@ -280,8 +281,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .dumpPackage:
             let workspace = try getActiveWorkspace()
             let root = try getWorkspaceRoot()
-            let manifest = workspace.loadRootManifests(
-                packages: root.packages, diagnostics: diagnostics)[0]
+            let manifests = workspace.loadRootManifests(
+                packages: root.packages, diagnostics: diagnostics)
+            guard let manifest = manifests.first else { return }
 
             let encoder = JSONEncoder()
             encoder.userInfo[Manifest.dumpPackageKey] = true
