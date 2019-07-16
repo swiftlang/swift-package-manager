@@ -1422,6 +1422,56 @@ final class BuildPlanTests: XCTestCase {
         let exe = try result.buildProduct(for: "exe").linkArguments()
         XCTAssertMatch(exe, [.anySequence, "-L", "/path/to/foo", "-L/path/to/foo", "-Xlinker", "-rpath=foo", "-Xlinker", "-rpath", "-Xlinker", "foo", "-L", "/fake/path/lib"])
     }
+
+    func testExecBuildTimeDependency() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/PkgA/Sources/exe/main.swift",
+            "/PkgA/Sources/swiftlib/lib.swift",
+            "/PkgB/Sources/PkgB/PkgB.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/PkgB", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "PkgA",
+                    path: "/PkgA",
+                    url: "/PkgA",
+                    products: [
+                        ProductDescription(name: "swiftlib", targets: ["swiftlib"]),
+                        ProductDescription(name: "exe", type: .executable, targets: ["exe"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: []),
+                        TargetDescription(name: "swiftlib", dependencies: ["exe"]),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "PkgB",
+                    path: "/PkgB",
+                    url: "/PkgB",
+                    dependencies: [
+                        PackageDependencyDescription(url: "/PkgA", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "PkgB", dependencies: ["swiftlib"]),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let plan = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs)
+
+        mktmpdir { path in
+            let yaml = path.appending(component: "debug.yaml")
+            let llbuild = LLBuildManifestGenerator(plan, client: "swift-build")
+            try llbuild.generateManifest(at: yaml)
+            let contents = try localFileSystem.readFileContents(yaml).description
+            XCTAssertTrue(contents.contains("""
+                    module-output-path: "/path/to/build/debug/swiftlib.swiftmodule"
+                    inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/exe"]
+                """), contents)
+        }
+    }
 }
 
 // MARK:- Test Helpers
