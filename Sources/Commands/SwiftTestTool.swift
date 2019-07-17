@@ -14,7 +14,7 @@ import SPMBasic
 import SPMBuild
 import SPMUtility
 import PackageGraph
-import Workspace
+import SPMWorkspace
 
 import func SPMLibc.exit
 

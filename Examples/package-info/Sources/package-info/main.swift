@@ -1,7 +1,7 @@
 import PackageModel
 import PackageLoading
 import PackageGraph
-import Workspace
+import SPMWorkspace
 
 // PREREQUISITS
 // ============

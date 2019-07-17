@@ -13,7 +13,7 @@ import TestSupport
 import XCTest
 import SPMUtility
 import Commands
-import Workspace
+import SPMWorkspace
 
 class SwiftPMXCTestHelperTests: XCTestCase {
     func testBasicXCTestHelper() {

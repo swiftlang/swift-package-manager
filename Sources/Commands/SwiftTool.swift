@@ -15,7 +15,7 @@ import PackageGraph
 import PackageModel
 import SourceControl
 import SPMUtility
-import Workspace
+import SPMWorkspace
 import SPMLibc
 import func Foundation.NSUserName
 import SPMLLBuild

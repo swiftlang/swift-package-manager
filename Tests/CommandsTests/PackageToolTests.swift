@@ -18,7 +18,7 @@ import PackageModel
 import SourceControl
 import TestSupport
 import SPMUtility
-import Workspace
+import SPMWorkspace
 @testable import class Workspace.PinsStore
 
 final class PackageToolTests: XCTestCase {

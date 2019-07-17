@@ -13,7 +13,7 @@ import XCTest
 import TestSupport
 import SPMBasic
 import Commands
-import Workspace
+import SPMWorkspace
 
 struct BuildResult {
     let output: String

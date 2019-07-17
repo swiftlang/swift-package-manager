@@ -16,7 +16,7 @@ import PackageModel
 import PackageGraph
 import TestSupport
 import SourceControl
-@testable import Workspace
+@testable import SPMWorkspace
 
 final class PinsStoreTests: XCTestCase {
 

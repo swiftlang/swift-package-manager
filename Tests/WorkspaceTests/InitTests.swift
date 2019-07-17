@@ -12,7 +12,7 @@ import XCTest
 import TestSupport
 import SPMBasic
 import PackageModel
-import Workspace
+import SPMWorkspace
 import Commands
 
 class InitTests: XCTestCase {

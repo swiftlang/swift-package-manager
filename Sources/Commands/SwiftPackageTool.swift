@@ -16,7 +16,7 @@ import PackageGraph
 import SourceControl
 import SPMUtility
 import Xcodeproj
-import Workspace
+import SPMWorkspace
 import Foundation
 
 struct FetchDeprecatedDiagnostic: DiagnosticData {

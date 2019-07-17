@@ -14,7 +14,7 @@ import SPMBasic
 import Commands
 import TestSupport
 import SourceControl
-import Workspace
+import SPMWorkspace
 
 class DependencyResolutionTests: XCTestCase {
     func testInternalSimple() {

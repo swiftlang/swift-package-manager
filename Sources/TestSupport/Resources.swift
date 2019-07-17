@@ -13,7 +13,7 @@ import SPMBuild
 import Foundation
 import Commands
 import PackageLoading
-import Workspace
+import SPMWorkspace
 
 #if os(macOS)
 private func bundleRoot() -> AbsolutePath {

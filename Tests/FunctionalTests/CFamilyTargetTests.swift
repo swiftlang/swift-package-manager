@@ -15,7 +15,7 @@ import SPMBasic
 import PackageModel
 import SourceControl
 import SPMUtility
-import Workspace
+import SPMWorkspace
 
 typealias Process = Basic.Process
 

@@ -16,7 +16,7 @@ import PackageModel
 import PackageGraph
 import SourceControl
 import SPMUtility
-@testable import Workspace
+@testable import SPMWorkspace
 
 import TestSupport
 

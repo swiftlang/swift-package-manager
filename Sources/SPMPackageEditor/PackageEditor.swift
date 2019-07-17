@@ -13,7 +13,7 @@ import SPMBasic
 import SourceControl
 import PackageLoading
 import PackageModel
-import Workspace
+import SPMWorkspace
 import Foundation
 
 /// An editor for Swift packages.

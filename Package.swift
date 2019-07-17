@@ -34,7 +34,7 @@ let package = Package(
                 "PackageGraph",
                 "SPMBuild",
                 "Xcodeproj",
-                "Workspace"
+                "SPMWorkspace"
             ]
         ),
         .library(
@@ -51,7 +51,7 @@ let package = Package(
                 "PackageGraph",
                 "SPMBuild",
                 "Xcodeproj",
-                "Workspace"
+                "SPMWorkspace"
             ]
         ),
 
@@ -135,7 +135,7 @@ let package = Package(
             dependencies: ["SPMBasic", "PackageGraph"]),
         .target(
             /** High level functionality */
-            name: "Workspace",
+            name: "SPMWorkspace",
             dependencies: ["SPMBasic", "SPMBuild", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
 
         // MARK: Commands
@@ -143,7 +143,7 @@ let package = Package(
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["SPMBasic", "SPMBuild", "PackageGraph", "SourceControl", "SPMUtility", "Xcodeproj", "Workspace"]),
+            dependencies: ["SPMBasic", "SPMBuild", "PackageGraph", "SourceControl", "SPMUtility", "Xcodeproj", "SPMWorkspace"]),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -187,10 +187,10 @@ let package = Package(
             dependencies: ["SPMBuild", "TestSupport"]),
         .testTarget(
             name: "CommandsTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "TestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "SPMWorkspace", "TestSupport"]),
         .testTarget(
             name: "WorkspaceTests",
-            dependencies: ["Workspace", "TestSupport"]),
+            dependencies: ["SPMWorkspace", "TestSupport"]),
         .testTarget(
             name: "FunctionalTests",
             dependencies: ["swift-build", "swift-package", "swift-test", "SPMBasic", "SPMUtility", "PackageModel", "TestSupport"]),
@@ -260,7 +260,7 @@ if ProcessInfo.processInfo.environment["SWIFTPM_BOOTSTRAP"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTPM_BUILD_PACKAGE_EDITOR"] != nil {
     package.targets += [
-        .target(name: "SPMPackageEditor", dependencies: ["Workspace", "SwiftSyntax"]),
+        .target(name: "SPMPackageEditor", dependencies: ["SPMWorkspace", "SwiftSyntax"]),
         .target(name: "swiftpm-manifest-tool", dependencies: ["SPMPackageEditor"]),
         .testTarget(name: "SPMPackageEditorTests", dependencies: ["SPMPackageEditor", "TestSupport"]),
     ]

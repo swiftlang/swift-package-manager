@@ -17,7 +17,7 @@ import PackageGraph
 import PackageModel
 import SourceControl
 import SPMUtility
-import Workspace
+import SPMWorkspace
 import Commands
 
 #if os(macOS)

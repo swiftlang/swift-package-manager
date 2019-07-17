@@ -12,7 +12,7 @@ import XCTest
 
 import SPMBasic
 import PackageModel
-import Workspace
+import SPMWorkspace
 
 class ToolsVersionWriterTests: XCTestCase {
 

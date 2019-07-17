@@ -11,7 +11,7 @@ import PackageModelTests
 import SourceControlTests
 import TestSupportTests
 import UtilityTests
-import WorkspaceTests
+import SPMWorkspaceTests
 import XcodeprojTests
 
 var tests = [XCTestCaseEntry]()

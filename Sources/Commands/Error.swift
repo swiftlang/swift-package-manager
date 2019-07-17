@@ -14,7 +14,7 @@ import PackageModel
 import SourceControl
 import SPMUtility
 import func SPMLibc.exit
-import Workspace
+import SPMWorkspace
 
 enum Error: Swift.Error {
     /// Couldn't find all tools needed by the package manager.
