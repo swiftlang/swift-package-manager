@@ -21,7 +21,7 @@ $ ../swift/utils/build-script -R --llbuild --swiftpm
 $ ../swift/utils/build-script -R --llbuild --swiftpm --xctest --foundation --libdispatch
 ```
 
-This will build the compiler and its friends in the `build/` directory. It takes about 1
+This will build the compiler and friends in the `build/` directory. It takes about 1
 hour for the initial build process. However, it is not really required to build
 the entire compiler in order to work on the Package Manager. A faster option is
 using a [snapshot](https://swift.org/download/#releases) from swift.org.
@@ -46,7 +46,7 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 	/path/to/swift-toolchain/usr/bin/swift
 	```
 
-3. Clone [llbuild](https://github.com/apple/swift-llbuild) next to the package manager directory.
+3. Clone [llbuild](https://github.com/apple/swift-llbuild) to the package manager directory.
 
     ```sh
     $ git clone https://github.com/apple/swift-llbuild llbuild
@@ -127,15 +127,15 @@ one of the code owners to trigger them for you. The following commands are suppo
 
 ### @swift-ci please smoke test
 
-Run tests with trunk compiler and other projects. This is **required** before
+Run tests with the trunk compiler and other projects. This is **required** before
 a pull-request can be merged.
 
 ### @swift-ci test with toolchain
 
-Run tests with latest trunk snapshot. This has fast turnaround times so it can
+Run tests with the latest trunk snapshot. This has fast turnaround times so it can
 be used to get quick feedback.
 
-Note: Smoke tests are still required for merging the pull-requests.
+Note: Smoke tests are still required for merging pull-requests.
 
 ## Running the performance tests
 
@@ -154,9 +154,9 @@ For contributors on macOS who need to test on Linux, install Docker and use the
 following commands:
 
 ```sh
-$ Utilities/Docker/docker-utils build # will build an image with the latest swift snapshot
-$ Utilities/Docker/docker-utils bootstrap # will bootstrap SwiftPM on the linux container
-$ Utilities/Docker/docker-utils run bash # to run an interactive bash shell in the container
+$ Utilities/Docker/docker-utils build # will build an image with the latest Swift snapshot
+$ Utilities/Docker/docker-utils bootstrap # will bootstrap SwiftPM on the Linux container
+$ Utilities/Docker/docker-utils run bash # to run an interactive Bash shell in the container
 $ Utilities/Docker/docker-utils swift-build # to run swift-build in the container
 $ Utilities/Docker/docker-utils swift-test # to run swift-test in the container
 $ Utilities/Docker/docker-utils swift-run # to run swift-run in the container
@@ -170,10 +170,10 @@ environment variables to control which compiler to use for these operations.
 
 `SWIFT_EXEC_MANIFEST`: This variable controls which compiler to use for parsing
 `Package.swift` manifest files. The lookup order for the manifest compiler is:
-`SWIFT_EXEC_MANIFEST`, `swiftc` adjacent to `swiftpm` binaries, `SWIFT_EXEC`
+`SWIFT_EXEC_MANIFEST`, `swiftc` adjacent to the `swiftpm` binaries, then `SWIFT_EXEC`
 
 `SWIFT_EXEC`: This variable controls which compiler to use for compiling Swift
-sources. The lookup order for the sources compiler is: `SWIFT_EXEC`, `swiftc` adjacent
+sources. The lookup order for the sources' compiler is: `SWIFT_EXEC`, then `swiftc` adjacent
 to `swiftpm` binaries. This is also useful for Swift compiler developers when they
 want to use a debug compiler with SwiftPM.
 
@@ -186,7 +186,7 @@ $ SWIFT_EXEC=/path/to/my/built/swiftc swift build
 SwiftPM computes the path of its runtime libraries relative to where it is
 installed. This path can be overridden by setting the environment variable
 `SWIFTPM_PD_LIBS` to a directory containing the libraries. This can be a list of
-absolute search paths separated by colon (":"). SwiftPM will choose the first
+absolute search paths separated by colons (":"). SwiftPM will choose the first
 path which exists on disk. If none of the paths are present on disk, it will fall
 back to built-in computation.
 
@@ -194,6 +194,6 @@ back to built-in computation.
 
 SwiftPM has a hidden env variable `_SWIFTPM_SKIP_TESTS_LIST` that can be used
 to skip a list of tests. This value of the variable is either a file path that contains a
-newline separated list of tests to skip or a colon separated list of tests.
+newline separated list of tests to skip, or a colon separated list of tests.
 
 This is only a development feature and should be considered _unsupported_.
