@@ -10,7 +10,7 @@
 
 import XCTest
 
-import Basic
+import SPMBasic
 import PackageGraph
 import PackageModel
 import TestSupport

@@ -9,7 +9,7 @@
 */
 
 import SPMLibc
-import Basic
+import SPMBasic
 
 /// Interrupt signal handling global variables
 private var wasInterrupted = false

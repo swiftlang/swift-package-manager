@@ -10,7 +10,7 @@
 
 import XCTest
 
-import Basic
+import SPMBasic
 
 // Allow simple conversion from String, in the tests target.
 extension ByteString {

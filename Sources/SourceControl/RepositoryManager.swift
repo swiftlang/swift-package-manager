@@ -11,7 +11,7 @@
 import Dispatch
 import class Foundation.OperationQueue
 
-import Basic
+import SPMBasic
 import SPMUtility
 
 /// Delegate to notify clients about actions being performed by RepositoryManager.

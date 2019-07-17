@@ -12,7 +12,7 @@ import TestSupport
 import XCTest
 import SPMLibc
 
-@testable import Basic
+@testable import SPMBasic
 
 typealias ProcessID = Basic.Process.ProcessID
 typealias Process = Basic.Process

@@ -1,7 +1,7 @@
 import Dispatch
 import Foundation
 
-import Basic
+import SPMBasic
 import SPMLibc
 import SPMUtility
 

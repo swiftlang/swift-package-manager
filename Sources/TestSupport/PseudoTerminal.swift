@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-@testable import Basic
+@testable import SPMBasic
 import SPMLibc
 
 public final class PseudoTerminal {

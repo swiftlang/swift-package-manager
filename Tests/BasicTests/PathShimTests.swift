@@ -11,7 +11,7 @@
 import Foundation
 import XCTest
 
-import Basic
+import SPMBasic
 
 class PathShimTests : XCTestCase {
 

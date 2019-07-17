@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import SPMBasic
 
 /// A protocol which needs to be implemented by the objects which can be
 /// persisted using SimplePersistence

@@ -9,7 +9,7 @@
  */
 
 import TestSupport
-import Basic
+import SPMBasic
 
 class SortedArrayPerfTests: XCTestCasePerf {
     func testPerformanceOfSortedArrayInAscendingOrder() {

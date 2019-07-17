@@ -12,7 +12,7 @@ import XCTest
 
 import class Foundation.FileManager
 
-import Basic
+import SPMBasic
 
 class TemporaryFileTests: XCTestCase {
     func testBasicReadWrite() throws {

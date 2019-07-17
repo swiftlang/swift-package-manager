@@ -10,7 +10,7 @@
 
 import XCTest
 
-import Basic
+import SPMBasic
 
 class OrderedDictionaryTests: XCTestCase {
     func testBasics() {

@@ -11,7 +11,7 @@
 import XCTest
 import TestSupport
 import SPMLibc
-@testable import Basic
+@testable import SPMBasic
 
 final class TerminalControllerTests: XCTestCase {
     func testBasic() {

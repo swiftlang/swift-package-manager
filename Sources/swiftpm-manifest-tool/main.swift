@@ -9,7 +9,7 @@
 */
 
 import Foundation
-import Basic
+import SPMBasic
 import SPMUtility
 import func POSIX.exit
 

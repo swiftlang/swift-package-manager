@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-@_exported import Basic
+@_exported import SPMBasic
 @_exported import SPMUtility
 
 @_exported import PackageGraph

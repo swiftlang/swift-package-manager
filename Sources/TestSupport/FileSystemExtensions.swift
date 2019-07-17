@@ -10,7 +10,7 @@
 
 import func XCTest.XCTFail
 
-import Basic
+import SPMBasic
 import SPMUtility
 
 #if os(macOS)

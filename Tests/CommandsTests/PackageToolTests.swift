@@ -11,7 +11,7 @@
 import XCTest
 import Foundation
 
-import Basic
+import SPMBasic
 @testable import Commands
 import Xcodeproj
 import PackageModel

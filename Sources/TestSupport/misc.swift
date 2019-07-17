@@ -12,7 +12,7 @@ import func XCTest.XCTFail
 import class Foundation.NSDate
 import class Foundation.Thread
 
-import Basic
+import SPMBasic
 import PackageGraph
 import PackageModel
 import SourceControl

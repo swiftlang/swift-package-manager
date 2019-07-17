@@ -10,7 +10,7 @@
 
 import XCTest
 
-import Basic
+import SPMBasic
 
 final class Person {
     let name: String

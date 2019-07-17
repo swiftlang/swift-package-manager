@@ -9,7 +9,7 @@
 */
 
 import PackageModel
-import Basic
+import SPMBasic
 import SPMUtility
 
 extension Manifest {

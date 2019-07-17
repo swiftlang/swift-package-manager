@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
+import SPMBasic
 
 /// Concrete object for manifest resource provider.
 public struct UserManifestResources: ManifestResourceProvider {

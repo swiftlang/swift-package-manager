@@ -11,7 +11,7 @@
 import XCTest
 import Dispatch
 
-import Basic
+import SPMBasic
 
 class AwaitTests: XCTestCase {
 

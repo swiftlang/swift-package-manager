@@ -9,7 +9,7 @@
  */
 
 import Foundation
-import Basic
+import SPMBasic
 
 /// Represents a message output by the Swift compiler in JSON output mode.
 struct SwiftCompilerMessage {

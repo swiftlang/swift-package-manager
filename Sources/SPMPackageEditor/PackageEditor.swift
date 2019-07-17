@@ -9,7 +9,7 @@
 */
 
 import SPMUtility
-import Basic
+import SPMBasic
 import SourceControl
 import PackageLoading
 import PackageModel

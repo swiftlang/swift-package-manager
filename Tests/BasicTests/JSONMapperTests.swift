@@ -9,7 +9,7 @@
 */
 
 import XCTest
-import Basic
+import SPMBasic
 
 fileprivate struct Bar: JSONMappable, JSONSerializable, Equatable {
     let str: String

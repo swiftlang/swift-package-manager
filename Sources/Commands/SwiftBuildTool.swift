@@ -10,7 +10,7 @@
 
 import Build
 import SPMUtility
-import Basic
+import SPMBasic
 import PackageGraph
 
 //FIXME: Can we move this functionality into the argument parser?

@@ -9,7 +9,7 @@
 */
 
 import class Foundation.ProcessInfo
-import Basic
+import SPMBasic
 
 extension Version {
     /// Try a version from a git tag.

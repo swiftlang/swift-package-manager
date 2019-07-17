@@ -9,7 +9,7 @@
 */
 
 import Foundation
-import Basic
+import SPMBasic
 
 extension ProductType: Codable {
     private enum CodingKeys: String, CodingKey {

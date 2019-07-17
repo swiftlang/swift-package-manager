@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import SPMBasic
 import Foundation
 
 /// Get clang's version from the given version output string on Ubuntu.

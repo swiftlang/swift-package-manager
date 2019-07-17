@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import SPMBasic
 
 public enum BuildConfiguration: String {
     case debug

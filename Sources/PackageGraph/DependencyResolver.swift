@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import SPMBasic
 import struct PackageModel.PackageReference
 import struct SPMUtility.Version
 import class Foundation.NSDate

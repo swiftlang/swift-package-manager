@@ -10,7 +10,7 @@
 
 import XCTest
 
-import Basic
+import SPMBasic
 import Commands
 import TestSupport
 import PackageModel

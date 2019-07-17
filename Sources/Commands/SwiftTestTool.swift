@@ -10,7 +10,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 import class Foundation.ProcessInfo
 
-import Basic
+import SPMBasic
 import Build
 import SPMUtility
 import PackageGraph

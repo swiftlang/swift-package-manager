@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import SPMBasic
 import SPMUtility
 
 // Re-export Version from PackageModel, since it is a key part of the model.

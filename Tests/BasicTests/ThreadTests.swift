@@ -10,7 +10,7 @@
 
 import XCTest
 
-import Basic
+import SPMBasic
 
 typealias Thread = Basic.Thread
 

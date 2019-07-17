@@ -51,7 +51,7 @@
 ///             .target(
 ///                 name: "Paper",
 ///                 dependencies: [
-///                     "Basic",
+///                     "SPMBasic",
 ///                     .target(name: "Utility"),
 ///                     .product(name: "AnotherExamplePackage"),
 ///                 ])

@@ -1,4 +1,4 @@
-import Basic
+import SPMBasic
 import Build
 import SPMUtility
 

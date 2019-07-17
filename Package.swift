@@ -25,7 +25,7 @@ let package = Package(
             targets: [
                 "clibc",
                 "SPMLibc",
-                "Basic",
+                "SPMBasic",
                 "SPMUtility",
                 "SourceControl",
                 "SPMLLBuild",
@@ -42,7 +42,7 @@ let package = Package(
             targets: [
                 "clibc",
                 "SPMLibc",
-                "Basic",
+                "SPMBasic",
                 "SPMUtility",
                 "SourceControl",
                 "SPMLLBuild",
@@ -65,7 +65,7 @@ let package = Package(
             targets: [
                 "clibc",
                 "SPMLibc",
-                "Basic",
+                "SPMBasic",
                 "SPMUtility",
             ]
         ),
@@ -90,60 +90,60 @@ let package = Package(
             dependencies: ["clibc"]),
         .target(
             /** Basic support library */
-            name: "Basic",
+            name: "SPMBasic",
             dependencies: ["SPMLibc"]),
         .target(
             /** Abstractions for common operations, should migrate to Basic */
             name: "SPMUtility",
-            dependencies: ["Basic"]),
+            dependencies: ["SPMBasic"]),
         .target(
             /** Source control operations */
             name: "SourceControl",
-            dependencies: ["Basic", "SPMUtility"]),
+            dependencies: ["SPMBasic", "SPMUtility"]),
         .target(
             /** Shim for llbuild library */
             name: "SPMLLBuild",
-            dependencies: ["Basic", "SPMUtility"]),
+            dependencies: ["SPMBasic", "SPMUtility"]),
 
         // MARK: Project Model
 
         .target(
             /** Primitive Package model objects */
             name: "PackageModel",
-            dependencies: ["Basic", "SPMUtility"]),
+            dependencies: ["SPMBasic", "SPMUtility"]),
         .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
-            dependencies: ["Basic", "PackageModel", "SPMUtility", "SPMLLBuild"]),
+            dependencies: ["SPMBasic", "PackageModel", "SPMUtility", "SPMLLBuild"]),
 
         // MARK: Package Dependency Resolution
 
         .target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
-            dependencies: ["Basic", "PackageLoading", "PackageModel", "SourceControl", "SPMUtility"]),
+            dependencies: ["SPMBasic", "PackageLoading", "PackageModel", "SourceControl", "SPMUtility"]),
 
         // MARK: Package Manager Functionality
 
         .target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["Basic", "PackageGraph"]),
+            dependencies: ["SPMBasic", "PackageGraph"]),
         .target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
-            dependencies: ["Basic", "PackageGraph"]),
+            dependencies: ["SPMBasic", "PackageGraph"]),
         .target(
             /** High level functionality */
             name: "Workspace",
-            dependencies: ["Basic", "Build", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
+            dependencies: ["SPMBasic", "Build", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
 
         // MARK: Commands
 
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["Basic", "Build", "PackageGraph", "SourceControl", "SPMUtility", "Xcodeproj", "Workspace"]),
+            dependencies: ["SPMBasic", "Build", "PackageGraph", "SourceControl", "SPMUtility", "Xcodeproj", "Workspace"]),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -170,18 +170,18 @@ let package = Package(
         .target(
             /** Test support library */
             name: "TestSupport",
-            dependencies: ["Basic", "PackageGraph", "PackageLoading", "SourceControl", "SPMUtility", "Commands"]),
+            dependencies: ["SPMBasic", "PackageGraph", "PackageLoading", "SourceControl", "SPMUtility", "Commands"]),
         .target(
             /** Test support executable */
             name: "TestSupportExecutable",
-            dependencies: ["Basic", "SPMUtility"]),
+            dependencies: ["SPMBasic", "SPMUtility"]),
 
         .testTarget(
             name: "BasicTests",
             dependencies: ["TestSupport", "TestSupportExecutable"]),
         .testTarget(
             name: "BasicPerformanceTests",
-            dependencies: ["Basic", "TestSupport"]),
+            dependencies: ["SPMBasic", "TestSupport"]),
         .testTarget(
             name: "BuildTests",
             dependencies: ["Build", "TestSupport"]),
@@ -193,7 +193,7 @@ let package = Package(
             dependencies: ["Workspace", "TestSupport"]),
         .testTarget(
             name: "FunctionalTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "Basic", "SPMUtility", "PackageModel", "TestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "SPMBasic", "SPMUtility", "PackageModel", "TestSupport"]),
         .testTarget(
             name: "FunctionalPerformanceTests",
             dependencies: ["swift-build", "swift-package", "swift-test", "TestSupport"]),

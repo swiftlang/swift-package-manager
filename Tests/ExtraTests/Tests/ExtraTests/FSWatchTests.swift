@@ -1,6 +1,6 @@
 import XCTest
 
-import Basic
+import SPMBasic
 import SPMUtility
 
 class FSWatchTests: XCTestCase {

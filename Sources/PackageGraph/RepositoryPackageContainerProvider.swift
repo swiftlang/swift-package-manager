@@ -10,7 +10,7 @@
 
 import Dispatch
 
-import Basic
+import SPMBasic
 import PackageLoading
 import PackageModel
 import SourceControl

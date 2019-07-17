@@ -10,7 +10,7 @@
 
 import XCTest
 
-import Basic
+import SPMBasic
 
 // FIXME: We should just move this to Basic.
 private struct StringDiagnostic: DiagnosticData {

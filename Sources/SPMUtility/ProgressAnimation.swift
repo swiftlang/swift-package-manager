@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import SPMBasic
 
 /// A protocol to operate on terminal based progress animations.
 public protocol ProgressAnimationProtocol {

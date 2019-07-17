@@ -9,7 +9,7 @@
  */
 
 import struct SPMUtility.Version
-import Basic
+import SPMBasic
 import struct PackageModel.PackageReference
 
 /// A term represents a statement about a package that may be true or false.

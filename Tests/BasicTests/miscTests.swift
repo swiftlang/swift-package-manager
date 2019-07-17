@@ -10,7 +10,7 @@
 
 import XCTest
 import TestSupport
-@testable import Basic
+@testable import SPMBasic
 
 class miscTests: XCTestCase {
 

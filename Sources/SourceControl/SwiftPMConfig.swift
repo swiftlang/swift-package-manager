@@ -10,7 +10,7 @@
 
 import Foundation
 
-import Basic
+import SPMBasic
 import SPMUtility
 
 // FIXME: We may want to move this class to some other layer once we start

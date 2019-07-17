@@ -9,7 +9,7 @@
 */
 
 import XCTest
-import Basic
+import SPMBasic
 
 class CStringArrayTests: XCTestCase {
     func testInitialization() {

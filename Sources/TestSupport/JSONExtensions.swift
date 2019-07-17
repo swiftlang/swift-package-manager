@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import SPMBasic
 
 /// Useful extensions to JSON to use in assert methods where 
 /// the type diagnostics is not that important.

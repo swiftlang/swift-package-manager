@@ -11,7 +11,7 @@
 import XCTest
 
 import TestSupport
-import Basic
+import SPMBasic
 import Commands
 import Workspace
 

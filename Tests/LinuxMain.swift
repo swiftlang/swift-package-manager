@@ -1,6 +1,6 @@
 import XCTest
 
-import BasicTests
+import SPMBasicTests
 import BuildTests
 import CommandsTests
 import FunctionalTests

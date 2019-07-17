@@ -10,7 +10,7 @@
 
 import XCTest
 
-import Basic
+import SPMBasic
 import PackageModel
 import PackageGraph
 import PackageLoading

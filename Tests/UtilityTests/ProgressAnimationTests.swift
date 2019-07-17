@@ -12,7 +12,7 @@ import XCTest
 import SPMUtility
 import SPMLibc
 import TestSupport
-@testable import Basic
+@testable import SPMBasic
 
 typealias Thread = Basic.Thread
 

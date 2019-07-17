@@ -9,7 +9,7 @@
 */
 
 import Foundation
-import Basic
+import SPMBasic
 
 fileprivate let removeDefaultRegex = try! NSRegularExpression(pattern: "\\[default: .+?\\]", options: [])
 

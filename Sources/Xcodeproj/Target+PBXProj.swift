@@ -25,7 +25,7 @@
 
 import Foundation
 
-import Basic
+import SPMBasic
 import PackageModel
 import PackageLoading
 
