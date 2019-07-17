@@ -19,7 +19,7 @@ class FileSystemTests: XCTestCase {
     // MARK: LocalFS Tests
 
     func testLocalBasics() throws {
-        let fs = Basic.localFileSystem
+        let fs = SPMBasic.localFileSystem
 
         // exists()
         XCTAssert(fs.exists(AbsolutePath("/")))
@@ -85,7 +85,7 @@ class FileSystemTests: XCTestCase {
 
     func testLocalExistsSymlink() throws {
         mktmpdir { path in
-            let fs = Basic.localFileSystem
+            let fs = SPMBasic.localFileSystem
 
             let source = path.appending(component: "source")
             let target = path.appending(component: "target")
@@ -115,7 +115,7 @@ class FileSystemTests: XCTestCase {
     }
 
     func testLocalCreateDirectory() throws {
-        let fs = Basic.localFileSystem
+        let fs = SPMBasic.localFileSystem
         
         let tmpDir = try TemporaryDirectory(prefix: #function, removeTreeOnDeinit: true)
         do {
@@ -137,7 +137,7 @@ class FileSystemTests: XCTestCase {
     }
 
     func testLocalReadWriteFile() throws {
-        let fs = Basic.localFileSystem
+        let fs = SPMBasic.localFileSystem
         
         let tmpDir = try TemporaryDirectory(prefix: #function, removeTreeOnDeinit: true)
         // Check read/write of a simple file.
@@ -150,8 +150,8 @@ class FileSystemTests: XCTestCase {
         
         // Atomic writes
         let inMemoryFilePath = AbsolutePath("/file.text")
-        XCTAssertNoThrow(try Basic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: true))
-        XCTAssertNoThrow(try Basic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: false))
+        XCTAssertNoThrow(try SPMBasic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: true))
+        XCTAssertNoThrow(try SPMBasic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: false))
         // Local file system does support atomic writes, so it doesn't throw.
         let byteString = ByteString(testData)
         let filePath1 = tmpDir.path.appending(components: "test-data-1.txt")
@@ -390,7 +390,7 @@ class FileSystemTests: XCTestCase {
     func testSetAttribute() throws {
       #if os(macOS) || os(Linux)
         mktmpdir { path in
-            let fs = Basic.localFileSystem
+            let fs = SPMBasic.localFileSystem
 
             let dir = path.appending(component: "dir")
             let foo = dir.appending(component: "foo")

@@ -10,7 +10,7 @@
 
 import XCTest
 
-import struct Basic.RegEx
+import struct SPMBasic.RegEx
 
 public indirect enum StringPattern {
     /// Matches only the start, when matching a list of inputs.

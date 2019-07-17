@@ -836,7 +836,7 @@ final class ParallelTestRunner {
 
         // List of processed tests.
         var processedTests: [TestResult] = []
-        let processedTestsLock = Basic.Lock()
+        let processedTestsLock = SPMBasic.Lock()
 
         // Report (consume) the tests which have finished running.
         while let result = finishedTests.dequeue() {

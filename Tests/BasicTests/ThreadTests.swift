@@ -12,7 +12,7 @@ import XCTest
 
 import SPMBasic
 
-typealias Thread = Basic.Thread
+typealias Thread = SPMBasic.Thread
 
 class ThreadTests: XCTestCase {
 

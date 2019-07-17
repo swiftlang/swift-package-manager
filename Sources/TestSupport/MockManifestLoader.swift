@@ -47,7 +47,7 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
     }
 
     public func load(
-        packagePath path: Basic.AbsolutePath,
+        packagePath path: SPMBasic.AbsolutePath,
         baseURL: String,
         version: Version?,
         manifestVersion: ManifestVersion,

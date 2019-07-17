@@ -12,7 +12,7 @@ import XCTest
 
 import SPMBasic
 
-typealias OrderedSet = Basic.OrderedSet
+typealias OrderedSet = SPMBasic.OrderedSet
 
 class OrderedSetTests: XCTestCase {
     func testBasics() {

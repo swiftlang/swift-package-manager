@@ -17,7 +17,7 @@ import SPMSourceControl
 import SPMUtility
 import SPMWorkspace
 
-typealias Process = Basic.Process
+typealias Process = SPMBasic.Process
 
 /// Asserts if a directory (recursively) contains a file.
 private func XCTAssertDirectoryContainsFile(dir: AbsolutePath, filename: String, file: StaticString = #file, line: UInt = #line) {

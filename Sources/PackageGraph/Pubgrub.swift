@@ -1184,7 +1184,7 @@ public final class PubgrubDependencyResolver {
     private let fetchCondition = Condition()
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [PackageReference: Basic.Result<PackageContainer, AnyError>] = [:]
+    private var _fetchedContainers: [PackageReference: SPMBasic.Result<PackageContainer, AnyError>] = [:]
 
     /// The set of containers requested so far.
     private var _prefetchingContainers: Set<PackageReference> = []
@@ -1209,7 +1209,7 @@ public final class PubgrubDependencyResolver {
 
             // Otherwise, fetch the container synchronously.
             let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
-            self._fetchedContainers[identifier] = Basic.Result(container)
+            self._fetchedContainers[identifier] = SPMBasic.Result(container)
             return container
         }
     }

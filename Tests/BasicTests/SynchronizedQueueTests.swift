@@ -46,7 +46,7 @@ class SyncronizedQueueTests: XCTestCase {
         let queueElementsTwo = Set(100..<500)
 
         var consumed = Set<Int>()
-        let consumedLock = Basic.Lock()
+        let consumedLock = SPMBasic.Lock()
 
         // Create two producers.
         let producers = [queueElementsOne, queueElementsTwo].map { queueElements in

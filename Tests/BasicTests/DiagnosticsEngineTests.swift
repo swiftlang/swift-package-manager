@@ -12,7 +12,7 @@ import XCTest
 
 import SPMBasic
 
-// FIXME: We should just move this to Basic.
+// FIXME: We should just move this to SPMBasic.
 private struct StringDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
         type: StringDiagnostic.self,

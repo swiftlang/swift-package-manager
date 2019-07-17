@@ -47,7 +47,7 @@ public enum Platform {
         var directories = [AbsolutePath]()
         // Compute the directories.
         directories.append(AbsolutePath("/private/var/tmp"))
-        (try? Basic.determineTempDirectory()).map{ directories.append($0) }
+        (try? SPMBasic.determineTempDirectory()).map{ directories.append($0) }
       #if os(macOS)
         getConfstr(_CS_DARWIN_USER_TEMP_DIR).map({ directories.append($0) })
         getConfstr(_CS_DARWIN_USER_CACHE_DIR).map({ directories.append($0) })

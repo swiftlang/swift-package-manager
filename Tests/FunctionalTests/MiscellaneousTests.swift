@@ -18,7 +18,7 @@ import class Foundation.ProcessInfo
 import class Foundation.Thread
 import SPMWorkspace
 
-typealias ProcessID = Basic.Process.ProcessID
+typealias ProcessID = SPMBasic.Process.ProcessID
 
 class MiscellaneousTestCase: XCTestCase {
 

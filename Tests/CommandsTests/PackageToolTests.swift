@@ -19,7 +19,7 @@ import SPMSourceControl
 import TestSupport
 import SPMUtility
 import SPMWorkspace
-@testable import class Workspace.PinsStore
+@testable import class SPMWorkspace.PinsStore
 
 final class PackageToolTests: XCTestCase {
     @discardableResult

@@ -14,8 +14,8 @@ import SPMLibc
 
 @testable import SPMBasic
 
-typealias ProcessID = Basic.Process.ProcessID
-typealias Process = Basic.Process
+typealias ProcessID = SPMBasic.Process.ProcessID
+typealias Process = SPMBasic.Process
 
 class ProcessTests: XCTestCase {
     func script(_ name: String) -> String {

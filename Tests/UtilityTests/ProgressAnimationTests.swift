@@ -14,7 +14,7 @@ import SPMLibc
 import TestSupport
 @testable import SPMBasic
 
-typealias Thread = Basic.Thread
+typealias Thread = SPMBasic.Thread
 
 final class ProgressAnimationTests: XCTestCase {
     func testPercentProgressAnimationDumbTerminal() {

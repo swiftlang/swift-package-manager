@@ -16,7 +16,7 @@ import SPMUtility
 
 import TestSupport
 
-@testable import class SourceControl.GitRepository
+@testable import class SPMSourceControl.GitRepository
 
 class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.

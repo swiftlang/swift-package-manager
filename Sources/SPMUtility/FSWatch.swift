@@ -378,7 +378,7 @@ public final class Inotify {
 
     /// Spawns a thread that collects events and reports them after the settle period.
     private func startReportThread() {
-        let thread = Basic.Thread {
+        let thread = SPMBasic.Thread {
             var endLoop = false
             while !endLoop {
 
@@ -530,7 +530,7 @@ public final class FSEventStream {
     let delegate: FSEventStreamDelegate
 
     /// The thread on which the stream is running.
-    private var thread: Basic.Thread?
+    private var thread: SPMBasic.Thread?
 
     /// The run loop attached to the stream.
     private var runLoop: CFRunLoop?

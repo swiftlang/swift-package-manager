@@ -13,7 +13,7 @@ import PackageModel
 import SPMUtility
 import SPMLLBuild
 import class Foundation.ProcessInfo
-public typealias FileSystem = Basic.FileSystem
+public typealias FileSystem = SPMBasic.FileSystem
 
 public enum ManifestParseError: Swift.Error {
     /// The manifest contains invalid format.
@@ -725,7 +725,7 @@ final class FileInfoRule: LLBuildRule {
         let path: AbsolutePath
     }
 
-    typealias RuleValue = Result<Basic.FileInfo, StringError>
+    typealias RuleValue = Result<SPMBasic.FileInfo, StringError>
 
     override class var ruleName: String { return "\(FileInfoRule.self)" }
 

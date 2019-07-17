@@ -52,7 +52,7 @@ public final class ProcessSet {
     /// - Parameters:
     ///   - process: The process to add.
     /// - Throws: ProcessGroupError
-    public func add(_ process: Basic.Process) throws {
+    public func add(_ process: SPMBasic.Process) throws {
         return try serialQueue.sync {
             guard !cancelled else {
                 throw ProcessSetError.cancelled
@@ -74,7 +74,7 @@ public final class ProcessSet {
         signalAll(SIGINT)
 
         // Create a thread that will kill all processes after a timeout.
-        let thread = Basic.Thread {
+        let thread = SPMBasic.Thread {
             // Compute the timeout date.
             let timeout = Date() + self.killTimeout
             // Block until we timeout or notification.

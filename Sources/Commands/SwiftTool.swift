@@ -19,7 +19,7 @@ import SPMWorkspace
 import SPMLibc
 import func Foundation.NSUserName
 import SPMLLBuild
-typealias Diagnostic = Basic.Diagnostic
+typealias Diagnostic = SPMBasic.Diagnostic
 
 struct ChdirDeprecatedDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
@@ -154,7 +154,7 @@ extension ToolName {
 private final class DiagnosticsEngineHandler {
 
     /// The standard output stream.
-    var stdoutStream = Basic.stdoutStream
+    var stdoutStream = SPMBasic.stdoutStream
 
     /// The default instance.
     static let `default` = DiagnosticsEngineHandler()
@@ -213,7 +213,7 @@ public class SwiftTool<Options: ToolOptions> {
     var executionStatus: ExecutionStatus = .success
 
     /// The stream to print standard output on.
-    fileprivate var stdoutStream: OutputByteStream = Basic.stdoutStream
+    fileprivate var stdoutStream: OutputByteStream = SPMBasic.stdoutStream
 
     /// Create an instance of this tool.
     ///
@@ -525,8 +525,8 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Start redirecting the standard output stream to the standard error stream.
     func redirectStdoutToStderr() {
-        self.stdoutStream = Basic.stderrStream
-        DiagnosticsEngineHandler.default.stdoutStream = Basic.stderrStream
+        self.stdoutStream = SPMBasic.stderrStream
+        DiagnosticsEngineHandler.default.stdoutStream = SPMBasic.stderrStream
     }
 
     /// Resolve the dependencies.

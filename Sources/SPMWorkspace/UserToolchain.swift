@@ -11,7 +11,7 @@
 import SPMBasic
 import SPMBuild
 import PackageLoading
-import protocol Build.Toolchain
+import protocol SPMBuild.Toolchain
 import SPMUtility
 
 #if os(macOS)

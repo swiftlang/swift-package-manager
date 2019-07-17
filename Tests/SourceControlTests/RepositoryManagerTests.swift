@@ -15,7 +15,7 @@ import SPMSourceControl
 
 import TestSupport
 
-@testable import class SourceControl.RepositoryManager
+@testable import class SPMSourceControl.RepositoryManager
 
 extension RepositoryManager {
     fileprivate func lookupSynchronously(repository: RepositorySpecifier) throws -> RepositoryHandle {

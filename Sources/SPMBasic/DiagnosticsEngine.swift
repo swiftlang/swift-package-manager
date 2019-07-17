@@ -229,7 +229,7 @@ public struct Diagnostic {
 
     /// The human readable summary description for the diagnostic.
     public var localizedDescription: String {
-        return Basic.localizedDescription(for: data)
+        return SPMBasic.localizedDescription(for: data)
     }
 }
 
