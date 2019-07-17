@@ -71,7 +71,7 @@ to update your package's manifest or losing access to existing packages.
 Represents a platform supported by the package.
 
 By default, the Swift Package Manager assigns a predefined minimum deployment
-version for each supported platforms unless configured using the `platforms`
+version for each supported platform unless configured using the `platforms`
 API. This predefined deployment version will be the oldest deployment target
 version supported by the installed SDK for a given platform. One exception
 to this rule is macOS, for which the minimum deployment target version will
@@ -341,7 +341,7 @@ The dependency requirement can be defined as one of three different version requ
     minor version component if it adds new functionality in
     a backwards-compatible manner. And it should increment the patch
     version if it makes backwards-compatible bugfixes. To learn more about
-    the syntax of semantic versioning syntax, see `Version` or visit
+    the syntax of semantic versioning, see `Version` or visit
     https://semver.org (https://semver.org/).
 
 2. Branch-based Requirement
@@ -444,7 +444,7 @@ www.semver.org.
 The major version signifies breaking changes to the API which requires
 updating existing clients. For example, renaming an existing type, removing
 a method or changing a method’s signature are considered breaking changes.
-This also includes any backwards incompatible bugfixes or behaviour changes
+This also includes any backwards incompatible bugfixes or behavior changes
 of existing API.
 
 #### The Minor Version
