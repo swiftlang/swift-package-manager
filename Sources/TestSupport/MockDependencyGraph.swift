@@ -14,7 +14,7 @@ import SPMBasic
 import PackageLoading
 import PackageModel
 import PackageGraph
-import SourceControl
+import SPMSourceControl
 import SPMUtility
 
 /// Represents a mock package.

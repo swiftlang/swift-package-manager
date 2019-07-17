@@ -12,7 +12,7 @@ import Dispatch
 
 import SPMBasic
 import PackageGraph
-import SourceControl
+import SPMSourceControl
 
 import struct SPMUtility.Version
 

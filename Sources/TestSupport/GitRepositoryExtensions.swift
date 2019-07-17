@@ -10,7 +10,7 @@
 
 import SPMBasic
 import SPMUtility
-import SourceControl
+import SPMSourceControl
 
 /// Extensions useful for unit testing purposes.
 /// Note: These are not thread safe.

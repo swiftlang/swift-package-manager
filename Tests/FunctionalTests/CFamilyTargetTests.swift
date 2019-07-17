@@ -13,7 +13,7 @@ import Commands
 import TestSupport
 import SPMBasic
 import PackageModel
-import SourceControl
+import SPMSourceControl
 import SPMUtility
 import SPMWorkspace
 

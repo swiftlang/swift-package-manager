@@ -13,7 +13,7 @@ import Foundation
 import PackageLoading
 import PackageModel
 import PackageGraph
-import SourceControl
+import SPMSourceControl
 import SPMUtility
 
 /// The delegate interface used by the workspace to report status information.

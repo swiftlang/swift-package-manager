@@ -15,7 +15,7 @@ import SPMBasic
 @testable import Commands
 import Xcodeproj
 import PackageModel
-import SourceControl
+import SPMSourceControl
 import TestSupport
 import SPMUtility
 import SPMWorkspace

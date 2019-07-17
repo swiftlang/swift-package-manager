@@ -12,7 +12,7 @@ import SPMBasic
 import PackageGraph
 import PackageModel
 import PackageLoading
-import SourceControl
+import SPMSourceControl
 import SPMUtility
 
 public struct XcodeprojOptions {

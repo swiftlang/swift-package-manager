@@ -12,7 +12,7 @@ import SPMBasic
 import SPMUtility
 
 import PackageModel
-import SourceControl
+import SPMSourceControl
 
 /// Represents the input to the package graph root.
 public struct PackageGraphRootInput {

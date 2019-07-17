@@ -11,7 +11,7 @@
 import SPMBasic
 import PackageLoading
 import PackageModel
-import SourceControl
+import SPMSourceControl
 import SPMUtility
 import func SPMLibc.exit
 import SPMWorkspace

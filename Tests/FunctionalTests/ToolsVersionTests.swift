@@ -15,7 +15,7 @@ import SPMUtility
 import TestSupport
 import Commands
 import PackageModel
-import SourceControl
+import SPMSourceControl
 import SPMWorkspace
 
 class ToolsVersionTests: XCTestCase {

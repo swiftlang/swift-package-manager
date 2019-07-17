@@ -11,7 +11,7 @@
 import XCTest
 
 import SPMBasic
-import SourceControl
+import SPMSourceControl
 
 import TestSupport
 

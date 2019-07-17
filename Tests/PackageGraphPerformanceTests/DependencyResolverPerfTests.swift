@@ -14,7 +14,7 @@ import SPMBasic
 import PackageModel
 import PackageGraph
 import PackageLoading
-import SourceControl
+import SPMSourceControl
 
 import struct SPMUtility.Version
 

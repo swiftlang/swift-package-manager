@@ -13,7 +13,7 @@ import SPMBuild
 import PackageLoading
 import PackageGraph
 import PackageModel
-import SourceControl
+import SPMSourceControl
 import SPMUtility
 import SPMWorkspace
 import SPMLibc

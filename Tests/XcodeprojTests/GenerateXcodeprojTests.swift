@@ -12,7 +12,7 @@ import SPMBasic
 import TestSupport
 import PackageGraph
 import PackageModel
-import SourceControl
+import SPMSourceControl
 @testable import Xcodeproj
 import SPMUtility
 import XCTest

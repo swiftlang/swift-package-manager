@@ -10,7 +10,7 @@
 
 import SPMBasic
 import SPMUtility
-import SourceControl
+import SPMSourceControl
 import PackageModel
 import PackageGraph
 

@@ -10,7 +10,7 @@
 
 import SPMBasic
 import PackageGraph
-import SourceControl
+import SPMSourceControl
 import SPMUtility
 
 /// A checkout state represents the current state of a repository.

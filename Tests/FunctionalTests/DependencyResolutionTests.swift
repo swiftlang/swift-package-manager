@@ -13,7 +13,7 @@ import XCTest
 import SPMBasic
 import Commands
 import TestSupport
-import SourceControl
+import SPMSourceControl
 import SPMWorkspace
 
 class DependencyResolutionTests: XCTestCase {

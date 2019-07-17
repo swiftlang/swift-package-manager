@@ -13,7 +13,7 @@ import XCTest
 import SPMBasic
 import PackageLoading
 import PackageModel
-import SourceControl
+import SPMSourceControl
 
 @testable import PackageGraph
 

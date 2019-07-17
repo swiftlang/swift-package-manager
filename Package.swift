@@ -27,7 +27,7 @@ let package = Package(
                 "SPMLibc",
                 "SPMBasic",
                 "SPMUtility",
-                "SourceControl",
+                "SPMSourceControl",
                 "SPMLLBuild",
                 "PackageModel",
                 "PackageLoading",
@@ -44,7 +44,7 @@ let package = Package(
                 "SPMLibc",
                 "SPMBasic",
                 "SPMUtility",
-                "SourceControl",
+                "SPMSourceControl",
                 "SPMLLBuild",
                 "PackageModel",
                 "PackageLoading",
@@ -98,7 +98,7 @@ let package = Package(
             dependencies: ["SPMBasic"]),
         .target(
             /** Source control operations */
-            name: "SourceControl",
+            name: "SPMSourceControl",
             dependencies: ["SPMBasic", "SPMUtility"]),
         .target(
             /** Shim for llbuild library */
@@ -121,7 +121,7 @@ let package = Package(
         .target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
-            dependencies: ["SPMBasic", "PackageLoading", "PackageModel", "SourceControl", "SPMUtility"]),
+            dependencies: ["SPMBasic", "PackageLoading", "PackageModel", "SPMSourceControl", "SPMUtility"]),
 
         // MARK: Package Manager Functionality
 
@@ -136,14 +136,14 @@ let package = Package(
         .target(
             /** High level functionality */
             name: "SPMWorkspace",
-            dependencies: ["SPMBasic", "SPMBuild", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
+            dependencies: ["SPMBasic", "SPMBuild", "PackageGraph", "PackageModel", "SPMSourceControl", "Xcodeproj"]),
 
         // MARK: Commands
 
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["SPMBasic", "SPMBuild", "PackageGraph", "SourceControl", "SPMUtility", "Xcodeproj", "SPMWorkspace"]),
+            dependencies: ["SPMBasic", "SPMBuild", "PackageGraph", "SPMSourceControl", "SPMUtility", "Xcodeproj", "SPMWorkspace"]),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -170,7 +170,7 @@ let package = Package(
         .target(
             /** Test support library */
             name: "TestSupport",
-            dependencies: ["SPMBasic", "PackageGraph", "PackageLoading", "SourceControl", "SPMUtility", "Commands"]),
+            dependencies: ["SPMBasic", "PackageGraph", "PackageLoading", "SPMSourceControl", "SPMUtility", "Commands"]),
         .target(
             /** Test support executable */
             name: "TestSupportExecutable",
@@ -218,7 +218,7 @@ let package = Package(
             dependencies: ["PackageGraph", "TestSupport"]),
         .testTarget(
             name: "SourceControlTests",
-            dependencies: ["SourceControl", "TestSupport"]),
+            dependencies: ["SPMSourceControl", "TestSupport"]),
         .testTarget(
             name: "TestSupportTests",
             dependencies: ["TestSupport"]),

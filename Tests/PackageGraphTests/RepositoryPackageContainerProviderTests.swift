@@ -14,7 +14,7 @@ import SPMBasic
 import PackageLoading
 import PackageModel
 @testable import PackageGraph
-import SourceControl
+import SPMSourceControl
 
 import TestSupport
 

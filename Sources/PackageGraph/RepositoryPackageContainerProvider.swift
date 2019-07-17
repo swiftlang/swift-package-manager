@@ -13,7 +13,7 @@ import Dispatch
 import SPMBasic
 import PackageLoading
 import PackageModel
-import SourceControl
+import SPMSourceControl
 import SPMUtility
 
 /// Adaptor for exposing repositories as PackageContainerProvider instances.

@@ -10,7 +10,7 @@
 
 import SPMUtility
 import SPMBasic
-import SourceControl
+import SPMSourceControl
 import PackageLoading
 import PackageModel
 import SPMWorkspace

@@ -15,7 +15,7 @@ import class Foundation.Thread
 import SPMBasic
 import PackageGraph
 import PackageModel
-import SourceControl
+import SPMSourceControl
 import SPMUtility
 import SPMWorkspace
 import Commands

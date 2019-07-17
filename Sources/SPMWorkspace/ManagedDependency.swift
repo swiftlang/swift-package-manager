@@ -11,7 +11,7 @@
 import SPMBasic
 import PackageGraph
 import PackageModel
-import SourceControl
+import SPMSourceControl
 import SPMUtility
 
 /// An individual managed dependency.

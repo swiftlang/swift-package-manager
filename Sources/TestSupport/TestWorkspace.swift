@@ -15,7 +15,7 @@ import PackageModel
 import PackageLoading
 @testable import SPMWorkspace
 import PackageGraph
-import SourceControl
+import SPMSourceControl
 
 public final class TestWorkspace {
 

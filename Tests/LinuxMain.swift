@@ -8,7 +8,7 @@ import PackageDescription4Tests
 import PackageGraphTests
 import PackageLoadingTests
 import PackageModelTests
-import SourceControlTests
+import SPMSourceControlTests
 import TestSupportTests
 import UtilityTests
 import SPMWorkspaceTests
