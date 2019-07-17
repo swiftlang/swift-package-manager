@@ -2,7 +2,7 @@
 
 This is a list of some evolution ideas for the package manager. Once the details
 of an idea are fleshed out and there is a full proposal, it can be scheduled for
-the swift-evolution process. It is important to note that not every idea on this
+the Swift Evolution process. It is important to note that not every idea on this
 list is guaranteed to become an official feature, and it all depends on where
 the design discussion leads us. Also, this is not meant to be an exhaustive
 feature list, if you have an idea for a feature that you think will be
@@ -17,7 +17,7 @@ proposal](https://github.com/apple/swift-evolution/blob/master/proposal-template
 that can be used as a starting point.
 
 **Important Note**: This list is not in any particular order. I plan to keep
-this post updated but please let me know if you see something out-of-date.
+this post updated, but please let me know if you see something out-of-date.
 
 # Mirror and Fork Support
 
@@ -34,8 +34,8 @@ Bug: [SR-679](https://bugs.swift.org/browse/SR-679)
 
 Some packages require specific language or linker flags that SwiftPM doesn’t
 currently support, and some packages may desire other configurable properties as
-well.  We want to have a real robust "build settings" model for adding these
-kinds of properties, potentially including including conditional settings and
+well.  We want to have a real, robust "build settings" model for adding these
+kinds of properties, potentially including conditional settings and
 fine-grained control over what parts of the package use which property values.
 
 Thread: N/A  
@@ -47,9 +47,9 @@ Packages may want to use dependencies that they only use while testing the
 package. Such dependencies shouldn't take part in dependency resolution process
 when a package is being used as a dependency. This is also called test-only or
 development dependencies in other package managers. It is sometimes also
-required to declare platform-specific dependencies which should be only fetched
+required to declare platform-specific dependencies which should only be fetched
 when a package is being built for a certain platform. This is currently possible
-using `#if os` checks but it leads to two problems: 1) it forces
+using `#if os` checks, but it leads to two problems: 1) it forces
 a non-declarative syntax in the manifest file, and 2) it causes issues in
 maintaining the `Package.resolved` file as the dependency is added or removed
 depending on the platform.
@@ -100,17 +100,17 @@ a static HTML website.
 Thread: N/A  
 Bug: N/A
 
-# Tagging and Publishing support
+# Tagging and Publishing Support
 
-Today you publish new versions of your package by tagging manually with git, and
-you use git directly to view your published tags. SwiftPM could help automate
+Today you publish new versions of your package by tagging manually with Git, and
+you use Git directly to view your published tags. SwiftPM could help automate
 this process, performing any validation, housekeeping, or auxiliary tasks that
 might make sense as part of a streamlined and safe publication workflow.
 
 Thread: N/A  
 Bug: N/A
 
-# Install/deploy Command
+# Install/Deploy Command
 
 When you’re deploying the product of your package, whether to a server or your
 local system, it could be helpful for SwiftPM to provide support for automating
@@ -129,17 +129,17 @@ Currently, SwiftPM has no support for running performance tests. We need to
 provide a way to specify performance tests for a package and to run them from
 the SwiftPM command-line tools.
 
-[Here](https://github.com/aciidb0mb3r/swift-evolution/blob/pref-proposal/proposals/xxxx-package-manager-performance-testing.md) is a very old draft proposal that I haven't gotten around to post for discussion yet.  
+[Here](https://github.com/aciidb0mb3r/swift-evolution/blob/pref-proposal/proposals/xxxx-package-manager-performance-testing.md) is a very old draft proposal that I haven't gotten around to posting for discussion yet.  
 
 Thread: N/A  
 Bug: [SR-1354](https://bugs.swift.org/browse/SR-1354)
 
 # Support for External Testing Frameworks
 
-Currently, SwiftPM only supports writing tests with help of XCTest testing
+Currently, SwiftPM only supports writing tests with help of the XCTest testing
 framework. The community should be able to use any testing framework of their
 choice to test with SwiftPM. This feature will most likely depend on extensible
-build tools feature.
+build tools features.
 
 Thread: N/A  
 Bug: N/A
@@ -195,11 +195,3 @@ think that it's possible to provide an API to allow this, probably using
 
 Thread: N/A  
 Bug: N/A
-
-# SwiftPM Integration in Xcode
-
-This is not part of the evolution ideas, but it has frequently come up on the
-forums (albeit for the right reasons). Please see [this](https://forums.swift.org/t/swift-package-manager-3-0-project-status/3794/5)
-post if you haven't. It is important to understand that Xcode is **not** part of
-the Swift Open Source project and the future plans and timelines are not published 
-in public.  Please use Apple developer [forums](https://developer.apple.com/devforums/) or [bug reporter](https://developer.apple.com/bug-reporting/) for Xcode related discussions.
