@@ -9,7 +9,7 @@
  */
 
 import SPMBasic
-import Build
+import SPMBuild
 import PackageLoading
 import protocol Build.Toolchain
 import SPMUtility

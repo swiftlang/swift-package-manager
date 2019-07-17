@@ -9,7 +9,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
 import SPMBasic
-import Build
+import SPMBuild
 import SPMUtility
 import PackageGraph
 import PackageModel

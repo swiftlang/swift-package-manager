@@ -1,7 +1,7 @@
 import XCTest
 
 import SPMBasicTests
-import BuildTests
+import SPMBuildTests
 import CommandsTests
 import FunctionalTests
 import PackageDescription4Tests

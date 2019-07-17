@@ -9,7 +9,7 @@
 */
 
 import SPMBasic
-import Build
+import SPMBuild
 import PackageModel
 import PackageLoading
 import PackageGraph

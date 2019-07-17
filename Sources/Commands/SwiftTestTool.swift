@@ -11,7 +11,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 import class Foundation.ProcessInfo
 
 import SPMBasic
-import Build
+import SPMBuild
 import SPMUtility
 import PackageGraph
 import Workspace

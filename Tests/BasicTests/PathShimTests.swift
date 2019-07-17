@@ -80,7 +80,7 @@ class WalkTests : XCTestCase {
     func testRecursive() {
         let root = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory.appending(component: "Sources")
         var expected = [
-            root.appending(component: "Build"),
+            root.appending(component: "SPMBuild"),
             root.appending(component: "SPMUtility")
         ]
         for x in try! walk(root) {

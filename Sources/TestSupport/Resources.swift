@@ -9,7 +9,7 @@
 */
 
 import SPMBasic
-import Build
+import SPMBuild
 import Foundation
 import Commands
 import PackageLoading

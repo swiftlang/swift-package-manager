@@ -32,7 +32,7 @@ let package = Package(
                 "PackageModel",
                 "PackageLoading",
                 "PackageGraph",
-                "Build",
+                "SPMBuild",
                 "Xcodeproj",
                 "Workspace"
             ]
@@ -49,7 +49,7 @@ let package = Package(
                 "PackageModel",
                 "PackageLoading",
                 "PackageGraph",
-                "Build",
+                "SPMBuild",
                 "Xcodeproj",
                 "Workspace"
             ]
@@ -127,7 +127,7 @@ let package = Package(
 
         .target(
             /** Builds Modules and Products */
-            name: "Build",
+            name: "SPMBuild",
             dependencies: ["SPMBasic", "PackageGraph"]),
         .target(
             /** Generates Xcode projects */
@@ -136,14 +136,14 @@ let package = Package(
         .target(
             /** High level functionality */
             name: "Workspace",
-            dependencies: ["SPMBasic", "Build", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
+            dependencies: ["SPMBasic", "SPMBuild", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
 
         // MARK: Commands
 
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["SPMBasic", "Build", "PackageGraph", "SourceControl", "SPMUtility", "Xcodeproj", "Workspace"]),
+            dependencies: ["SPMBasic", "SPMBuild", "PackageGraph", "SourceControl", "SPMUtility", "Xcodeproj", "Workspace"]),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -184,7 +184,7 @@ let package = Package(
             dependencies: ["SPMBasic", "TestSupport"]),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "TestSupport"]),
+            dependencies: ["SPMBuild", "TestSupport"]),
         .testTarget(
             name: "CommandsTests",
             dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "TestSupport"]),

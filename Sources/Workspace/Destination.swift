@@ -1,5 +1,5 @@
 import SPMBasic
-import Build
+import SPMBuild
 import SPMUtility
 
 public enum DestinationError: Swift.Error {

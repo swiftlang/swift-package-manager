@@ -10,7 +10,7 @@
 
 import SPMBasic
 import SPMUtility
-import Build
+import SPMBuild
 import PackageModel
 
 public class ToolOptions {
