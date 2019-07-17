@@ -206,7 +206,7 @@ let package = Package(
         .target(
             name: "Paper",
             dependencies: [
-                "SPMBasic",
+                "Basic",
                 .target(name: "Utility"),
                 .product(name: "AnotherExamplePackage"),
             ])
