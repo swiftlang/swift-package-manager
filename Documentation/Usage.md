@@ -52,7 +52,7 @@ Reference](PackageDescription.md#target).
 
 ### Creating an Executable Package
 
-SwiftPM can create native binary which can be executed from the command line. To
+SwiftPM can create native binaries which can be executed from the command line. To
 get started:
 
     $ mkdir MyExecutable
@@ -110,7 +110,7 @@ To publish a package, create and push a semantic version tag:
 
 Now other packages can depend on version 1.0.0 of this package using the github
 url.  
-Example of a published package:
+An example of a published package can be found here:
 https://github.com/apple/example-package-fisheryates
 
 ## Requiring System Libraries
@@ -217,7 +217,7 @@ let package = Package(
 
 Here we used a relative URL to speed up initial development. If you push your
 module map package to a public repository you must change the above URL
-reference so that it is a full, qualified git URL.
+reference so that it is a full, qualified Git URL.
 
 Now if we type `swift build` in our example app directory we will create an
 executable:
@@ -230,7 +230,7 @@ executable:
 
 
 Let’s see another example of using [IJG’s JPEG library](http://www.ijg.org)
-from an executable which has some caveats.
+from an executable, which has some caveats.
 
 Create a directory called `example`, and initialize it as a package that builds
 an executable:
@@ -248,7 +248,7 @@ let jpegData = jpeg_common_struct()
 print(jpegData)
 ```
 
-Install JPEG library using a system packager e.g `$ brew install jpeg`
+Install JPEG library using a system packager, e.g, `$ brew install jpeg`
 
 Create a directory called `CJPEG` next to the `example` directory and
 initialize it as a package that builds a system module:
@@ -307,9 +307,9 @@ executable:
     jpeg_common_struct(err: nil, mem: nil, progress: nil, client_data: nil, is_decompressor: 0, global_state: 0)
     example$
 
-We have to specify path where the libjpeg is present using `-Xlinker` because
-there is no pkg-config file for it. We plan to provide solution to avoid passing
-the flag in commandline.
+We have to specify the path where the libjpeg is present using `-Xlinker` because
+there is no pkg-config file for it. We plan to provide a solution to avoid passing
+the flag in the command line.
 
 ### Packages That Provide Multiple Libraries
 
@@ -340,8 +340,8 @@ in the module-map because the headers `foo/bar.h` and `foo/baz.h` both include
 `foo/foo.h`. It is very important however that those headers do include their
 dependent headers, otherwise when the modules are imported into Swift the
 dependent modules will not get imported automatically and link errors will
-happen. If these link errors occur to consumers of a package that consumes your
-package the link errors can be especially difficult to debug.
+happen. If these link errors occur for consumers of a package that consumes your
+package, the link errors can be especially difficult to debug.
 
 
 ### Cross-platform Module Maps
@@ -361,7 +361,7 @@ these.
 
 Version the module maps semantically. The meaning of semantic version is less
 clear here, so use your best judgement. Do not follow the version of the system
-library the module map represents, version the module map(s) independently.
+library the module map represents; version the module map(s) independently.
 
 Follow the conventions of system packagers; for example, the debian package for
 python3 is called python3, as there is not a single package for python and
@@ -400,7 +400,7 @@ version.
 
 In most cases, if you want to support multiple Swift versions in a package you
 should do so by using the language-specific version checks available in the
-source code itself. However, in some circumstances this may become unmanageable;
+source code itself. However, in some circumstances this may become unmanageable,
 specifically, when the package manifest itself cannot be written to be Swift
 version agnostic (for example, because it optionally adopts new package manager
 features not present in older versions).
@@ -437,7 +437,7 @@ This feature is intended for use in the following scenarios:
    same version numbers, but this requires substantial differences in the code.
    In this case, the author can maintain parallel tag sets for both versions.
 
-It is *not* expected the packages would ever use this feature unless absolutely
+It is *not* expected that the packages would ever use this feature unless absolutely
 necessary to support existing clients. Specifically, packages *should not*
 adopt this syntax for tagging versions supporting the _latest GM_ Swift
 version.
@@ -474,20 +474,20 @@ a new API). The package manager moves the dependency into a location under the
 `Packages/` directory where it can be edited.
 
 For the packages which are in the editable state, `swift build` will always use
-the exact sources in this directory to build, regardless of their state, git
+the exact sources in this directory to build, regardless of their state, Git
 repository status, tags, or the tag desired by dependency resolution. In other
 words, this will _just build_ against the sources that are present. When an
 editable package is present, it will be used to satisfy all instances of that
 package in the dependency graph. It is possible to edit all, some, or none of
 the packages in a dependency graph, without restriction.
 
-Editable packages are best used to do experimentation with dependency code or
+Editable packages are best used to do experimentation with dependency code, or to
 create and submit a patch in the dependency owner's repository (upstream).
 There are two ways to put a package in editable state:
 
     $ swift package edit Foo --branch bugFix
 
-This will create a branch called `bugFix` from currently the resolved version and
+This will create a branch called `bugFix` from the currently resolved version and
 put the dependency `Foo` in the `Packages/` directory. 
 
     $ swift package edit Foo --revision 969c6a9
@@ -587,8 +587,8 @@ cannot be resolved.
 
 The tools version declares the minimum version of the Swift tools required to
 use the package, determines what version of the PackageDescription API should
-be used in the Package.swift manifest, and determines which Swift language
-compatibility version should be used to parse the Package.swift manifest.
+be used in the `Package.swift` manifest, and determines which Swift language
+compatibility version should be used to parse the `Package.swift` manifest.
 
 When resolving package dependencies, if the version of a dependency that would
 normally be chosen specifies a Swift tools version which is greater than the
@@ -601,7 +601,7 @@ use, a dependency resolution error will result.
 ### Swift Tools Version Specification
 
 The Swift tools version is specified by a special comment in the first line of
-the Package.swift manifest. To specify a tools version, a Package.swift file
+the `Package.swift` manifest. To specify a tools version, a `Package.swift` file
 must begin with the string `// swift-tools-version:`, followed by a version
 number specifier.
 
@@ -686,7 +686,7 @@ A C language target is built with following flags in release mode:
 ## Depending on Apple Modules
 
 Swift Package Manager includes a build system that can build for macOS and Linux.
-Xcode 11 integrates with libSwiftPM to provide support for iOS, watchOS, and tvOS platforms.
+Xcode 11 integrates with `libSwiftPM` to provide support for iOS, watchOS, and tvOS platforms.
 
 ## C Language Targets
 
@@ -699,7 +699,7 @@ automatically generate a modulemap for each C language library target for these
 3 cases:
 
 * If `include/Foo/Foo.h` exists and `Foo` is the only directory under the
-  include directory then `include/Foo/Foo.h` becomes the umbrella header.
+  include directory, then `include/Foo/Foo.h` becomes the umbrella header.
 
 * If `include/Foo.h` exists and `include` contains no other subdirectory then
   `include/Foo.h` becomes the umbrella header.
