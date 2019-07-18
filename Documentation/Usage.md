@@ -465,6 +465,18 @@ necessary to support existing clients. In particular, packages *should not*
 adopt this syntax for tagging versions supporting the _latest GM_ Swift
 version.
 
+In case the current Swift version doesn't match any version-specific manifest,
+the package manager will pick the manifest with the most compatible tools
+version. For example, if there are three manifests:
+
+Package.swift (tools version 3.0)
+Package@swift-4.swift (tools version 4.0)
+Package@swift-4.2.swift (tools version 4.2)
+
+The package manager will pick Package.swift on Swift 3, Package@swift-4.swift on
+Swift 4, Package@swift-4.2.swift on Swift 4.2 and above because its tools
+version will be most compatible with future version of the package manager.
+
 ## Editable Packages
 
 Swift package manager supports editing dependencies, when your work requires
