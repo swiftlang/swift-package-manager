@@ -1,4 +1,4 @@
-# libSwiftPM - SwiftPM as a library
+# libSwiftPM - SwiftPM as a Library
 
 **NOTE: The libSwiftPM API is currently _unstable_ and may change at any time.**
 
