@@ -7,7 +7,7 @@
 * [PackageDescription API](PackageDescription.md)
 * [**Resources**](Resources.md)
   * [Support](#support)
-  * [Reporting a good SwiftPM Bug](#reporting-a-good-swiftpm-bug)
+  * [Reporting a SwiftPM Bug](#reporting-a-good-swiftpm-bug)
 
 ---
 
@@ -18,7 +18,7 @@ User-to-user support for Swift Package Manager is available on
 
 ---
 
-## Reporting a good SwiftPM Bug
+## Reporting a SwiftPM Bug
 
 Use the [Swift bug tracker](http://bugs.swift.org) to report bugs with Swift
 Package Manager. Sign up if you haven't already and click the "Create" button to
@@ -27,7 +27,7 @@ start filing an issue.
 Fill the following fields:
 * `Summary`: A one line summary of the problem you're facing  
 * `Description`: The complete description of the problem. Be specific and clearly mention the steps to reproduce the bug  
-* `Environment`: The Operating System, Xcode version (`$ xcodebuild -version`), Toolchain and `swift build` version (`$ swift build --version`)  
+* `Environment`: The Operating System, Xcode version (`$ xcodebuild -version`), Toolchain, and `swift build` version (`$ swift build --version`)  
 * `Component/s`: Package Manager  
 * `Attachment`: Relevant files like logs, project files, etc.
 
