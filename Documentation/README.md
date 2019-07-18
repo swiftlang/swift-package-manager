@@ -24,7 +24,7 @@ We’ve designed the system to make it really easy to share packages on services
 
 ## About Packages
 
-A package consists of Swift source files and a manifest file. The manifest file, called Package.swift, defines the package’s name and its contents using the PackageDescription module. A package has one or more targets. Each target specifies a product and may declare one or more dependencies.
+A package consists of Swift source files and a manifest file. The manifest file, called `Package.swift`, defines the package’s name and its contents using the PackageDescription module. A package has one or more targets. Each target specifies a product and may declare one or more dependencies.
 
 ---
 
@@ -55,7 +55,7 @@ swift build
 
 Swift will build a single executable called `foo`.
 
-To the package manager, everything is a package, hence `Package.swift`. However, this does not mean you have to release your software to the wider world; you can develop your app without ever publishing it in a place where others can see or use. On the other hand, if one day you decide that your project _should_ be  available to a wider audience your sources are already in a form ready to be published.  The package manager is also independent of specific forms of distribution, so you can use it to share code within your personal projects, within your workgroup, team or company, or with the world.
+To the package manager, everything is a package, hence `Package.swift`. However, this does not mean you have to release your software to the wider world; you can develop your app without ever publishing it in a place where others can see or use it. On the other hand, if one day you decide that your project _should_ be  available to a wider audience your sources are already in a form ready to be published.  The package manager is also independent of specific forms of distribution, so you can use it to share code within your personal projects, within your workgroup, team or company, or with the world.
 
 Of course, the package manager is used to build itself, so its own source files are laid out following these conventions as well.
 
@@ -69,7 +69,7 @@ A target may build either a library or an executable as its product. A library c
 
 ## About Dependencies
 
-Modern development is accelerated by the exponential use of external dependencies (for better and worse).  This is great for allowing you to get more done in less time, but adding dependencies to a project has an associated coordination cost.
+Modern development is accelerated by the use of external dependencies (for better and worse).  This is great for allowing you to get more done in less time, but adding dependencies to a project has an associated coordination cost.
 
 In addition to downloading and building the source code for a dependency, that dependency's own dependencies must be downloaded and built as well, and so on, until the entire dependency graph is satisfied. To complicate matters further, a dependency may specify version requirements, which may have to be reconciled with the version requirements of other modules with the same dependency.
 
@@ -84,7 +84,7 @@ Dependencies are specified in your `Package.swift` manifest file.
 1. The conflict may be in unfamiliar dependencies (of dependencies) that the user did not explicitly request.
 2. Due to the nature of development it would be rare for two dependency graphs to be the same. Thus the amount of help other users (often even the package authors) can offer is limited. Internet searches will likely prove fruitless.
 
-A good package manager should be designed from the start to minimize the risk of dependency hell and where this is not possible, to mitigate it and provide tooling so that the end-user can solve the scenario with a minimum of trouble. The [Package Manager Community Proposal](Internals/PackageManagerCommunityProposal.md) contains our thoughts on how we intend to iterate with these hells in mind.
+A good package manager should be designed from the start to minimize the risk of dependency hell, and where this is not possible, to mitigate it and provide tooling so that the end-user can solve the scenario with a minimum of trouble. The [Package Manager Community Proposal](Internals/PackageManagerCommunityProposal.md) contains our thoughts on how we intend to iterate with these hells in mind.
 
 The following are some of the most common “dependency hell” scenarios:
 
