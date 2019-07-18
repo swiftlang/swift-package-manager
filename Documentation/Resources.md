@@ -35,7 +35,7 @@ Please include a minimal example package which can reproduce the issue. The
 sample package can be attached with the report or you can include the URL of the
 package hosted on places like GitHub.  
 Also, include the verbose logs by adding `--verbose` or `-v` after a subcommand.
-For e.g.:
+For example:
 
     $ swift build --verbose
     $ swift package -v update
