@@ -688,7 +688,7 @@ A C language target is built with following flags in release mode:
 Swift Package Manager includes a build system that can build for macOS and Linux.
 Xcode 11 integrates with libSwiftPM to provide support for iOS, watchOS, and tvOS platforms.
 
-## C language Targets
+## C Language Targets
 
 C language targets are similar to Swift targets, except that the C language
 libraries should contain a directory named `include` to hold the public headers.  
