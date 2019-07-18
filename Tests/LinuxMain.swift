@@ -1,17 +1,17 @@
 import XCTest
 
-import SPMBasicTests
-import SPMBuildTests
+import BasicTests
+import BuildTests
 import CommandsTests
 import FunctionalTests
 import PackageDescription4Tests
 import PackageGraphTests
 import PackageLoadingTests
 import PackageModelTests
-import SPMSourceControlTests
+import SourceControlTests
 import TestSupportTests
 import UtilityTests
-import SPMWorkspaceTests
+import WorkspaceTests
 import XcodeprojTests
 
 var tests = [XCTestCaseEntry]()
