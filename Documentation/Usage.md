@@ -4,17 +4,17 @@
 
 * [Overview](README.md)
 * [**Usage**](Usage.md)
-  * [Create a Package](#create-a-package)
-    * [Create a library package](#create-a-library-package)
-    * [Create an executable package](#create-an-executable-package)
-  * [Define Dependencies](#define-dependencies)
-  * [Publish a package](#publish-a-package)
-  * [Require System Libraries](#require-system-libraries)
-  * [Packaging legacy code](#packaging-legacy-code)
+  * [Creating a Package](#creating-a-package)
+    * [Creating a Library Package](#creating-a-library-package)
+    * [Creating an Executable Package](#creating-an-executable-package)
+  * [Defining Dependencies](#defining-dependencies)
+  * [Publishing a Package](#publishing-a-package)
+  * [Requiring System Libraries](#requiring-system-libraries)
+  * [Packaging legacy Code](#packaging-legacy-code)
   * [Handling version-specific logic](#handling-version-specific-logic)
   * [Editable Packages](#editable-packages)
   * [Top of Tree Development](#top-of-tree-development)
-  * [Resolved versions (Package.resolved file)](#resolved-versions-packageresolved-file)
+  * [Resolved Versions (Package.resolved file)](#resolved-versions-packageresolved-file)
   * [Swift Tools Version](#swift-tools-version)
   * [Testing](#testing)
   * [Running](#running)
@@ -22,19 +22,19 @@
     * [Debug](#debug)
     * [Release](#release)
   * [Depending on Apple Modules](#depending-on-apple-modules)
-  * [C language targets](#c-language-targets)
-  * [Shell completion scripts](#shell-completion-scripts)
+  * [C Language Targets](#c-language-targets)
+  * [Shell Completion Scripts](#shell-completion-scripts)
 * [PackageDescription API](PackageDescription.md)
 * [Resources](Resources.md)
 
 ---
 
-## Create a Package
+## Creating a Package
 
 Simply put: a package is a git repository with semantically versioned tags,
 that contains Swift sources and a `Package.swift` manifest file at its root.
 
-### Create a library package
+### Creating a Library Package
 
 A library package contains code which other packages can use and depend on. To
 get started, create a directory and run `swift package init`:
@@ -50,7 +50,7 @@ target and the corresponding test target to write unit tests. A library package
 can contain multiple targets as explained in [Target Format
 Reference](PackageDescription.md#target).
 
-### Create an executable package
+### Creating an Executable Package
 
 SwiftPM can create native binary which can be executed from the command line. To
 get started:
@@ -67,7 +67,7 @@ can be turned into a executable target if there is a `main.swift` file present i
 its sources. The complete reference for layout is
 [here](PackageDescription.md#target).
 
-## Define Dependencies
+## Defining Dependencies
 
 To depend on a package, define the dependency and the version in the manifest of
 your package, and add a product from that package as a dependency, e.g., if
@@ -97,7 +97,7 @@ let package = Package(
 
 Now you should be able to `import PlayingCard` in the `MyPackage` target.
 
-## Publish a package
+## Publishing a Package
 
 To publish a package, create and push a semantic version tag:
 
@@ -113,7 +113,7 @@ url.
 Example of a published package:
 https://github.com/apple/example-package-fisheryates
 
-## Require System Libraries
+## Requiring System Libraries
 
 You can link against system libraries using the package manager. To do so, there
 needs to be a special package for each system library that contains a modulemap
@@ -378,7 +378,7 @@ compiled with `xz` support, but it is not required. To provide a package that
 uses libarchive with xz you must make a `CArchive+CXz` package that depends on
 `CXz` and provides `CArchive`.
 
-## Packaging legacy code
+## Packaging Legacy Code
 
 You may be working with code that builds both as a package and not. For example,
 you may be packaging a project that also builds with Xcode.
@@ -392,7 +392,7 @@ import Foundation
 #endif
 ```
 
-## Handling version-specific logic
+## Handling Version-specific Logic
 
 The package manager is designed to support packages which work with a variety of
 Swift project versions, including both the language and the package manager
@@ -409,7 +409,7 @@ The package manager has support for a mechanism to allow Swift version-specific
 customizations for the both package manifest and the package versions which will
 be considered.
 
-### Version-specific tag selection
+### Version-specific Tag Selection
 
 The tags which define the versions of the package available for clients to use
 can _optionally_ be suffixed with a marker in the form of `@swift-3`. When the
@@ -449,7 +449,7 @@ order of preference:
 2. `MAJOR.MINOR` (e.g., `1.2.0@swift-3.1`)
 3. `MAJOR` (e.g., `1.2.0@swift-3`)
 
-### Version-specific manifest selection
+### Version-specific Manifest Selection
 
 The package manager will additionally look for a version-specific marked
 manifest version when loading the particular version of a package, by searching
@@ -547,7 +547,7 @@ Use unedit command to stop using the local checkout:
     # Example:
     $ swift package unedit Bar
 
-## Resolved versions (Package.resolved file)
+## Resolved Versions (Package.resolved File)
 
 The package manager records the result of dependency resolution in a
 `Package.resolved` file in the top-level of the package, and when this file is
@@ -714,7 +714,7 @@ a modulemap with respect to the above rules.
 For executable targets, only one valid C language main file is allowed, e.g., it
 is invalid to have `main.c` and `main.cpp` in the same target.
 
-## Shell completion scripts
+## Shell Completion Scripts
 
 SwiftPM ships with completion scripts for both Bash and ZSH. These files should be generated in order to use them.
 
