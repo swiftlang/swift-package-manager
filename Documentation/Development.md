@@ -2,7 +2,7 @@
 
 This document contains information on building and testing the Swift Package Manager.
 
-## Using the Swift compiler build script
+## Using the Swift Compiler Build Script
 
 The official way to build and test is using the Swift compiler build script.
 First, follow the instructions provided
@@ -26,7 +26,7 @@ hour for the initial build process. However, it is not really required to build
 the entire compiler in order to work on the Package Manager. A faster option is
 using a [snapshot](https://swift.org/download/#releases) from swift.org.
 
-## Using a trunk snapshot
+## Using a Trunk Snapshot
 
 1. [Download](https://swift.org/download/#snapshots) and install the latest Trunk Development snapshot.
 2. Run the following commands depending on your platform.
@@ -87,7 +87,7 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 	```
 	Use this command to run the tests. All tests must pass before a patch can be accepted.
 
-## Self-hosting
+## Self Hosting
 
 It is possible to build SwiftPM with itself using a special script that is
 emitted during bootstrapping. This is useful when you want to rebuild just the
@@ -137,7 +137,7 @@ be used to get quick feedback.
 
 Note: Smoke tests are still required for merging pull-requests.
 
-## Running the performance tests
+## Running the Performance Tests
 
 Running performance tests is a little awkward right now. First, generate the
 Xcode project using this command:
@@ -162,7 +162,7 @@ $ Utilities/Docker/docker-utils swift-test # to run swift-test in the container
 $ Utilities/Docker/docker-utils swift-run # to run swift-run in the container
 ```
 
-## Using custom Swift compilers
+## Using Custom Swift Compilers
 
 SwiftPM needs the Swift compiler to parse `Package.swift` manifest files and to
 compile Swift source files. You can use the `SWIFT_EXEC` and `SWIFT_EXEC_MANIFEST`
@@ -181,7 +181,7 @@ want to use a debug compiler with SwiftPM.
 $ SWIFT_EXEC=/path/to/my/built/swiftc swift build
 ```
 
-## Overriding the path to the runtime libraries
+## Overriding the Path to the Runtime Libraries
 
 SwiftPM computes the path of its runtime libraries relative to where it is
 installed. This path can be overridden by setting the environment variable
