@@ -138,8 +138,8 @@ Bug: [SR-1354](https://bugs.swift.org/browse/SR-1354)
 
 Currently, SwiftPM only supports writing tests with help of the XCTest testing
 framework. The community should be able to use any testing framework of their
-choice to test with SwiftPM. This feature will most likely depend on extensible
-build tools features.
+choice to test with SwiftPM. This feature will most likely depend on the proposed extensible
+build tools feature described [here](https://forums.swift.org/t/package-manager-extensible-build-tools/10900).
 
 Thread: N/A  
 Bug: N/A
