@@ -46,7 +46,7 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 	/path/to/swift-toolchain/usr/bin/swift
 	```
 
-3. Clone [llbuild](https://github.com/apple/swift-llbuild) to the package manager directory.
+3. Clone [llbuild](https://github.com/apple/swift-llbuild) beside the package manager directory.
 
     ```sh
     $ git clone https://github.com/apple/swift-llbuild llbuild
