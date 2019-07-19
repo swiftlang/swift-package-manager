@@ -12,8 +12,20 @@ import Basic
 import Dispatch
 import SPMUtility
 
-public enum GitRepositoryProviderError: Swift.Error {
-    case gitCloneFailure(errorOutput: String)
+public struct GitCloneError: Swift.Error, CustomStringConvertible {
+
+    /// The repository that was being cloned.
+    public let repository: String
+
+    /// The process result.
+    public let result: ProcessResult
+
+    public var description: String {
+        let stdout = (try? result.utf8Output()) ?? ""
+        let stderr = (try? result.utf8stderrOutput()) ?? ""
+        let output = (stdout + stderr).spm_chomp().spm_multilineIndent(count: 4)
+        return "Failed to clone \(repository):\n\(output)"
+    }
 }
 
 /// A `git` repository provider.
@@ -42,14 +54,16 @@ public class GitRepositoryProvider: RepositoryProvider {
             args: Git.tool, "clone", "--mirror", repository.url, path.pathString, environment: Git.environment)
         // Add to process set.
         try processSet?.add(process)
-        // Launch the process.
+
         try process.launch()
-        // Block until cloning completes.
         let result = try process.waitUntilExit()
+
         // Throw if cloning failed.
         guard result.exitStatus == .terminated(code: 0) else {
-            let errorOutput = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle() ?? ""
-            throw GitRepositoryProviderError.gitCloneFailure(errorOutput: errorOutput)
+            throw GitCloneError(
+                repository: repository.url,
+                result: result
+            )
         }
     }
 
@@ -698,14 +712,5 @@ private class GitFileSystemView: FileSystem {
 
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         throw FileSystemError.unsupported
-    }
-}
-
-extension GitRepositoryProviderError: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .gitCloneFailure(let errorOutput):
-            return "failed to clone; \(errorOutput)"
-        }
     }
 }
