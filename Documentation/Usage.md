@@ -273,7 +273,7 @@ it.
 
     $ echo '#include <stdio.h>' > shim.h 
 
-This is because `jpeglib.h` is not a correct module, i.e., it does not contain
+This is because `jpeglib.h` is not a correct module, that is, it does not contain
 the required line `#include <stdio.h>`. Alternatively, you can add `#include <stdio.h>`
 to the top of jpeglib.h to avoid creating the `shim.h` file.
 
