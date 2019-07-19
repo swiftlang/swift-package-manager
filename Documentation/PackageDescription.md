@@ -78,7 +78,7 @@ to this rule is macOS, for which the minimum deployment target version will
 start from 10.10. Packages can choose to configure the minimum deployment
 target version for a platform by using the APIs defined in this struct. The
 Swift Package Manager will emit appropriate errors when an invalid value is
-provided for supported platforms, i.e., an empty array, multiple declarations
+provided for supported platforms, for example, an empty array, multiple declarations
 for the same platform, or an invalid version specification.
 
 The Swift Package Manager will emit an error if a dependency is not
