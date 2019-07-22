@@ -489,7 +489,7 @@ extension Workspace {
                 container: dependency.packageRef, requirement: requirement)
 
         // Run the resolution.
-        _resolve(root: root, extraConstraints: [constraint], diagnostics: diagnostics)
+        _resolve(root: root, forceResolution: false, extraConstraints: [constraint], diagnostics: diagnostics)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -661,7 +661,7 @@ extension Workspace {
         if forceResolvedVersions {
             manifests = self._resolveToResolvedVersion(root: root, diagnostics: diagnostics)
         } else {
-            manifests = self._resolve(root: root, diagnostics: diagnostics)
+            manifests = self._resolve(root: root, forceResolution: false, diagnostics: diagnostics)
         }
         let externalManifests = manifests.allManifests()
 
@@ -697,9 +697,10 @@ extension Workspace {
     /// checkout will be restored according to its pin.
     public func resolve(
         root: PackageGraphRootInput,
+        forceResolution: Bool = false,
         diagnostics: DiagnosticsEngine
     ) {
-        _resolve(root: root, diagnostics: diagnostics)
+        _resolve(root: root, forceResolution: forceResolution, diagnostics: diagnostics)
     }
 
     /// Loads and returns manifests at the given paths.
@@ -1215,6 +1216,7 @@ extension Workspace {
     @discardableResult
     fileprivate func _resolve(
         root: PackageGraphRootInput,
+        forceResolution: Bool,
         extraConstraints: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine,
         retryOnPackagePathMismatch: Bool = true
@@ -1265,7 +1267,7 @@ extension Workspace {
 
             // If we don't need resolution and there are no extra constraints,
             // just validate pinsStore and return.
-            if !result.resolve && extraConstraints.isEmpty {
+            if !result.resolve && extraConstraints.isEmpty && !forceResolution {
                 return currentManifests
             }
 
@@ -1345,6 +1347,7 @@ extension Workspace {
                 // we have the manifest files of all the dependencies.
                 return self._resolve(
                     root: root,
+                    forceResolution: forceResolution,
                     extraConstraints: extraConstraints,
                     diagnostics: diagnostics,
                     retryOnPackagePathMismatch: false
