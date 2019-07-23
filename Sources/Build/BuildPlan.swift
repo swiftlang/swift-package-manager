@@ -1087,6 +1087,14 @@ public class BuildPlan {
             buildProduct.additionalFlags += pkgConfig(for: target).libs
         }
 
+        // Mark dylibs safe for application extension if they don't depend on any system module.
+        if buildParameters.triple.isDarwin(), buildProduct.product.type == .library(.dynamic), dependencies.systemModules.isEmpty {
+            // We also ensure the user isn't trying to do anything custom using the -Xlinker style args.
+            if buildParameters.linkerFlags.isEmpty {
+                buildProduct.additionalFlags += ["-application-extension"]
+            }
+        }
+
         // Link C++ if needed.
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
@@ -1178,16 +1186,22 @@ public class BuildPlan {
 
     /// Plan a Clang target.
     private func plan(clangTarget: ClangTargetBuildDescription) {
+        var dependsOnAnySystemModules = false
         for dependency in clangTarget.target.recursiveDependencies() {
             switch dependency.underlyingTarget {
             case let target as ClangTarget where target.type == .library:
                 // Setup search paths for C dependencies:
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
             case let target as SystemLibraryTarget:
+                dependsOnAnySystemModules = true
                 clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 clangTarget.additionalFlags += pkgConfig(for: target).cFlags
             default: continue
             }
+        }
+
+        if buildParameters.triple.isDarwin() && clangTarget.target.type == .library && !dependsOnAnySystemModules {
+            clangTarget.additionalFlags += ["-fapplication-extension"]
         }
     }
 
@@ -1195,6 +1209,7 @@ public class BuildPlan {
     private func plan(swiftTarget: SwiftTargetBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
+        var dependsOnAnySystemModules = false
         for dependency in swiftTarget.target.recursiveDependencies() {
             switch dependency.underlyingTarget {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
@@ -1211,10 +1226,15 @@ public class BuildPlan {
                     "-I", target.clangTarget.includeDir.pathString,
                 ]
             case let target as SystemLibraryTarget:
+                dependsOnAnySystemModules = true
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 swiftTarget.additionalFlags += pkgConfig(for: target).cFlags
             default: break
             }
+        }
+
+        if buildParameters.triple.isDarwin() && swiftTarget.target.type == .library && !dependsOnAnySystemModules {
+            swiftTarget.additionalFlags += ["-application-extension"]
         }
     }
 
