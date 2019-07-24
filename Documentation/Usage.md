@@ -13,12 +13,12 @@
   * [Packaging Legacy Code](#packaging-legacy-code)
   * [Handling Version-specific Logic](#handling-version-specific-logic)
   * [Editing a Package](#editing-a-package)
-  * [Top of Tree Development](#top-of-tree-development)
-  * [Resolved Versions (Package.resolved file)](#resolved-versions-packageresolved-file)
-  * [Swift Tools Version](#swift-tools-version)
+    * [Top of Tree Development](#top-of-tree-development)
+  * [Resolving Versions (Package.resolved file)](#resolving-versions-packageresolved-file)
+  * [Setting the Swift Tools Version](#setting-the-swift-tools-version)
   * [Testing](#testing)
   * [Running](#running)
-  * [Build Configurations](#build-configurations)
+  * [Setting the Build Configuration](#setting-the-build-configuration)
     * [Debug](#debug)
     * [Release](#release)
   * [Depending on Apple Modules](#depending-on-apple-modules)
@@ -512,7 +512,7 @@ unedit, you can use the `--force` option:
 
     $ swift package unedit Foo --force
 
-## Top of Tree Development
+### Top of Tree Development
 
 This feature allows overriding a dependency with a local checkout on the
 filesystem. This checkout is completely unmanaged by the package manager and
@@ -543,7 +543,7 @@ Use unedit command to stop using the local checkout:
     # Example:
     $ swift package unedit Bar
 
-## Resolved Versions (Package.resolved File)
+## Resolving Versions (Package.resolved File)
 
 The package manager records the result of dependency resolution in a
 `Package.resolved` file in the top-level of the package, and when this file is
@@ -579,7 +579,7 @@ Most SwiftPM commands will implicitly invoke the `swift package resolve`
 functionality before running, and will cancel with an error if dependencies
 cannot be resolved.
 
-## Swift Tools Version
+## Setting the Swift Tools Version
 
 The tools version declares the minimum version of the Swift tools required to
 use the package, determines what version of the PackageDescription API should
@@ -645,7 +645,7 @@ package. The executable's name is optional when running without arguments and wh
 is only one executable product. For more information on the run tool, run
 `swift run --help`.
 
-## Build Configurations
+## Setting the Build Configuration
 
 SwiftPM allows two build configurations: Debug (default) and Release.
 

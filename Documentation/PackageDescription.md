@@ -347,7 +347,7 @@ The dependency requirement can be defined as one of three different version requ
     minor version component if it adds new functionality in
     a backwards-compatible manner. And it should increment the patch
     version if it makes backwards-compatible bugfixes. To learn more about
-    semantic versioning syntax, see `Version` or visit
+    semantic versioning syntax, see [Version](#version) or visit
     https://semver.org (https://semver.org/).
 
 2. Branch-based Requirement

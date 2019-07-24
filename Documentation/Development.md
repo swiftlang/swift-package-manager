@@ -69,7 +69,7 @@ $ Utilities/bootstrap
 
  Note: The bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed. Please refer to the [Swift project repo](https://github.com/apple/swift/blob/master/README.md#macos) for installation instructions.
 
-This command will build the Package Manager inside the `.build/` directory.
+This command builds the Package Manager inside the `.build/` directory.
     Run the bootstrap script to rebuild after making a change to the source
     code.
 
@@ -190,8 +190,8 @@ $ SWIFT_EXEC=/path/to/my/built/swiftc swift build
 
 SwiftPM computes the path of its runtime libraries relative to where it is
 installed. This path can be overridden by setting the environment variable
-`SWIFTPM_PD_LIBS` to a directory containing the libraries. This can be a list of
-absolute search paths separated by colons (":"). SwiftPM will choose the first
+`SWIFTPM_PD_LIBS` to a directory containing the libraries, or a colon-separated list of
+absolute search paths. SwiftPM will choose the first
 path which exists on disk. If none of the paths are present on disk, it will fall
 back to built-in computation.
 
@@ -199,6 +199,6 @@ back to built-in computation.
 
 SwiftPM has a hidden env variable `_SWIFTPM_SKIP_TESTS_LIST` that can be used
 to skip a list of tests. This value of the variable is either a file path that contains a
-newline separated list of tests to skip, or a colon separated list of tests.
+newline separated list of tests to skip, or a colon-separated list of tests.
 
 This is only a development feature and should be considered _unsupported_.
