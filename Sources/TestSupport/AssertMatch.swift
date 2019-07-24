@@ -21,7 +21,6 @@ public indirect enum StringPattern {
     
     /// Matches any sequence of zero or more strings, when matched a list of inputs.
     case anySequence
-    case optional(String)
     
     case any
     case contains(String)
@@ -50,8 +49,8 @@ extension StringPattern: ExpressibleByStringLiteral {
 
 public func ~=(pattern: StringPattern, value: String) -> Bool {
     switch pattern {
-    // These cases never matches individual items, they are just used for matching string lists.
-    case .start, .end, .anySequence, .optional:
+        // These cases never matches individual items, they are just used for matching string lists.
+    case .start, .end, .anySequence:
         return false
 
     case .any:
@@ -95,10 +94,6 @@ public func ~=(patterns: [StringPattern], input: [String]) -> Bool {
             
         case .anySequence:
             return matchAny(patterns, input: input)
-
-        case .optional(let needle):
-            let newInput = input.first == needle ? input.dropFirst() : input
-            return match(patterns, onlyAt: newInput)
 
         default:
             if input.isEmpty || !(item ~= input.first!) { return false }
