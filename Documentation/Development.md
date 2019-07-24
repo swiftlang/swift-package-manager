@@ -92,7 +92,7 @@ $ Utilities/bootstrap test --test-parallel
 
 Use this command to run the tests. All tests must pass before a patch can be accepted.
 
-## Self Hosting
+## Self Hosting a Swift Package
 
 It is possible to build SwiftPM with itself using a special script that is
 emitted during bootstrapping. This is useful when you want to rebuild just the
@@ -124,18 +124,18 @@ $ open SwiftPM.xcodeproj
 Note: If you make any changes to the `PackageDescription` or `PackageDescription4`
 targets, you will need to regenerate the Xcode project using the above command.
 
-## Continuous Integration
+## Using Continuous Integration
 
 SwiftPM uses [swift-ci](https://ci.swift.org) infrastructure for its continuous integration testing. The
 bots can be triggered on pull-requests if you have commit access. Otherwise, ask
 one of the code owners to trigger them for you. The following commands are supported:
 
-### @swift-ci please smoke test
+    @swift-ci please smoke test
 
 Run tests with the trunk compiler and other projects. This is **required** before
 a pull-request can be merged.
 
-### @swift-ci test with toolchain
+    @swift-ci test with toolchain
 
 Run tests with the latest trunk snapshot. This has fast turnaround times so it can
 be used to get quick feedback.
@@ -195,7 +195,7 @@ absolute search paths separated by colons (":"). SwiftPM will choose the first
 path which exists on disk. If none of the paths are present on disk, it will fall
 back to built-in computation.
 
-## Skip SwiftPM tests
+## Skipping SwiftPM tests
 
 SwiftPM has a hidden env variable `_SWIFTPM_SKIP_TESTS_LIST` that can be used
 to skip a list of tests. This value of the variable is either a file path that contains a

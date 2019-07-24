@@ -12,7 +12,7 @@
   * [Requiring System Libraries](#requiring-system-libraries)
   * [Packaging Legacy Code](#packaging-legacy-code)
   * [Handling Version-specific Logic](#handling-version-specific-logic)
-  * [Editable Packages](#editable-packages)
+  * [Editing a Package](#editing-a-package)
   * [Top of Tree Development](#top-of-tree-development)
   * [Resolved Versions (Package.resolved file)](#resolved-versions-packageresolved-file)
   * [Swift Tools Version](#swift-tools-version)
@@ -22,8 +22,8 @@
     * [Debug](#debug)
     * [Release](#release)
   * [Depending on Apple Modules](#depending-on-apple-modules)
-  * [C Language Targets](#c-language-targets)
-  * [Shell Completion Scripts](#shell-completion-scripts)
+  * [Creating C Language Targets](#creating-c-language-targets)
+  * [Using Shell Completion Scripts](#using-shell-completion-scripts)
 * [PackageDescription API](PackageDescription.md)
 * [Resources](Resources.md)
 
@@ -463,7 +463,7 @@ necessary to support existing clients. Specifically, packages *should not*
 adopt this syntax for tagging versions supporting the _latest GM_ Swift
 version.
 
-## Editable Packages
+## Editing a Package
 
 Swift package manager supports editing dependencies, when your work requires
 making a change to one of your dependencies (for example, to fix a bug, or add
@@ -684,7 +684,7 @@ A C language target is built with following flags in release mode:
 Swift Package Manager includes a build system that can build for macOS and Linux.
 Xcode 11 integrates with `libSwiftPM` to provide support for iOS, watchOS, and tvOS platforms.
 
-## C Language Targets
+## Creating C Language Targets
 
 C language targets are similar to Swift targets, except that the C language
 libraries should contain a directory named `include` to hold the public headers.
@@ -710,7 +710,7 @@ a modulemap with respect to the above rules.
 For executable targets, only one valid C language main file is allowed, e.g., it
 is invalid to have `main.c` and `main.cpp` in the same target.
 
-## Shell Completion Scripts
+## Using Shell Completion Scripts
 
 SwiftPM ships with completion scripts for both Bash and ZSH. These files should be generated in order to use them.
 
