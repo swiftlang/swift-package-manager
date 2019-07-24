@@ -109,7 +109,7 @@ To publish a package, create and push a semantic version tag:
     $ git push origin master --tags
 
 Now other packages can depend on version 1.0.0 of this package using the github
-url.  
+url.
 An example of a published package can be found here:
 https://github.com/apple/example-package-fisheryates
 
@@ -139,7 +139,7 @@ print(options)
 ```
 
 To `import Clibgit`, the package manager requires that the libgit2 library has
-been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.).  The
+been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.). The
 following files from the libgit2 system-package are of interest:
 
     /usr/local/lib/libgit2.dylib      # .so on Linux
@@ -172,7 +172,7 @@ let package = Package(
 ```
 
 The `pkgConfig` parameter helps SwiftPM in figuring out the include and library
-search paths for the system library.  Note: If you don't want to use the `pkgConfig`
+search paths for the system library. Note: If you don't want to use the `pkgConfig`
 parameter you can pass the path of a directory containing the library using the
 `-L` flag in commandline when building your app:
 
@@ -192,7 +192,7 @@ Edit `module.modulemap` so it consists of the following:
 > contains more “Swifty” function wrappers around the raw C interface.
 
 Packages are Git repositories, tagged with semantic versions, containing a
-`Package.swift` file at their root.  Initializing the package created a
+`Package.swift` file at their root. Initializing the package created a
 `Package.swift` file, but to make it a usable package we need to initialize a
 Git repository with at least one version tag:
 
@@ -227,7 +227,6 @@ executable:
     example$ .build/debug/example
     git_repository_init_options(version: 0, flags: 0, mode: 0, workdir_path: nil, description: nil, template_path: nil, initial_head: nil, origin_url: nil)
     example$
-
 
 Let’s see another example of using [IJG’s JPEG library](http://www.ijg.org)
 from an executable, which has some caveats.
@@ -343,11 +342,10 @@ dependent modules will not get imported automatically and link errors will
 happen. If these link errors occur for consumers of a package that consumes your
 package, the link errors can be especially difficult to debug.
 
-
 ### Cross-platform Module Maps
 
 Module maps must contain absolute paths, thus they are not cross-platform. We
-intend to provide a solution for this in the package manager. In the long term, 
+intend to provide a solution for this in the package manager. In the long term,
 we hope that system libraries and system packagers will provide module maps and
 thus this component of the package manager will become redundant.
 
@@ -355,7 +353,6 @@ thus this component of the package manager will become redundant.
 [Homebrew](http://brew.sh) since the files will be installed to `/usr/local`. For
 now adapt the paths, but as said, we plan to support basic relocations like
 these.
-
 
 ### Module Map Versioning
 
@@ -488,7 +485,7 @@ There are two ways to put a package in editable state:
     $ swift package edit Foo --branch bugFix
 
 This will create a branch called `bugFix` from the currently resolved version and
-put the dependency `Foo` in the `Packages/` directory. 
+put the dependency `Foo` in the `Packages/` directory.
 
     $ swift package edit Foo --revision 969c6a9
 
@@ -507,14 +504,13 @@ You can end editing a package using `unedit` command:
     $ swift package unedit Foo
 
 This will remove the edited dependency from `Packages/` and put the originally
-resolved version back. 
+resolved version back.
 
 This command fails if there are uncommited changes or changes which are not
 pushed to the remote repository. If you want to discard these changes and
 unedit, you can use the `--force` option:
 
     $ swift package unedit Foo --force
-
 
 ## Top of Tree Development
 
@@ -609,11 +605,11 @@ The version number specifier follows the syntax defined by semantic versioning
 2.0, with an amendment that the patch version component is optional and
 considered to be 0 if not specified. The `semver` syntax allows for an optional
 pre-release version component or build version component; those components will
-be completely ignored by the package manager currently.  
+be completely ignored by the package manager currently.
 After the version number specifier, an optional `;` character may be present;
 it, and anything else after it until the end of the first line, will be ignored
 by this version of the package manager, but is reserved for the use of future
-versions of the package manager. 
+versions of the package manager.
 
 Some Examples:
 
@@ -657,8 +653,8 @@ SwiftPM allows two build configurations: Debug (default) and Release.
 
 By default, running `swift build` will build in its debug configuration.
 Alternatively, you can also use `swift build -c debug`. The build artifacts are
-located in a directory called `debug` under the build folder.  A Swift target is built
-with the following flags in debug mode:  
+located in a directory called `debug` under the build folder. A Swift target is built
+with the following flags in debug mode:
 
 * `-Onone`: Compile without any optimization.
 * `-g`: Generate debug information.
@@ -672,8 +668,8 @@ A C language target is built with the following flags in debug mode:
 ### Release
 
 To build in release mode, type `swift build -c release`. The build artifacts
-are located in directory named `release` under the build folder.  A Swift target is
-built with following flags in release mode:  
+are located in directory named `release` under the build folder. A Swift target is
+built with following flags in release mode:
 
 * `-O`: Compile with optimizations.
 * `-whole-module-optimization`: Optimize input files (per module) together
@@ -691,7 +687,7 @@ Xcode 11 integrates with `libSwiftPM` to provide support for iOS, watchOS, and t
 ## C Language Targets
 
 C language targets are similar to Swift targets, except that the C language
-libraries should contain a directory named `include` to hold the public headers.  
+libraries should contain a directory named `include` to hold the public headers.
 
 To allow a Swift target to import a C language target, add a [target
 dependency](#targets) in the manifest file. Swift Package Manager will
@@ -733,7 +729,7 @@ Alternatively, add the following commands to your `~/.bash_profile` file to dire
 ```bash
 # Source Swift completion
 if [ -n "`which swift`" ]; then
-	eval "`swift package completion-tool generate-bash-script`"
+    eval "`swift package completion-tool generate-bash-script`"
 fi
 ```
 

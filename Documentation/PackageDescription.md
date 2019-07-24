@@ -1,4 +1,5 @@
 # Package
+
 `class Package`
 
 The `Package` type is used to configure the name, products, targets,
@@ -29,7 +30,8 @@ let package = Package(
 )
 ```
 
-### Methods
+## Methods
+
 <pre>
 Package(
     name: String,
@@ -66,6 +68,7 @@ Swift, the Swift tools, and the `PackageDescription` library, without having
 to update your package's manifest or losing access to existing packages.
 
 # SupportedPlatform
+
 `struct SupportedPlatform`
 
 Represents a platform supported by the package.
@@ -86,7 +89,7 @@ compatible with the top-level package's deployment version; the deployment
 target of dependencies must be lower than or equal to top-level package's
 deployment target version for a particular platform.
 
-### Methods
+## Methods
 
 ```swift
 /// Configure the minimum deployment target version for the macOS platform.
@@ -163,6 +166,7 @@ static func watchOS(_ versionString: String) -> SupportedPlatform
 ```
 
 # Product
+
 `class Product`
 
 Defines a package product.
@@ -217,7 +221,7 @@ let package = Package(
 )
 ```
 
-### Methods
+## Methods
 
 ```swift
 /// Create a library product that can be used by clients that depend on this package.
@@ -231,7 +235,7 @@ let package = Package(
 ///     - name: The name of the library product.
 ///     - type: The optional type of the library that is used to determine how to link to the library.
 ///         Leave this parameter unspecified to let to let the Swift Package Manager choose between static or dynamic linking (recommended).
-///         If you do not support both linkage types, use `.static` or `.dynamic` for this parameter. 
+///         If you do not support both linkage types, use `.static` or `.dynamic` for this parameter.
 ///     - targets: The targets that are bundled into a library product.
 public static func library(
     name: String,
@@ -248,6 +252,7 @@ public static func executable(name: String, targets: [String]) -> Product
 ```
 
 # Package Dependency
+
 `class Package.Dependency`
 
 A package dependency consists of a Git URL to the source of the package,
@@ -259,11 +264,11 @@ your package. The results of the dependency resolution are recorded in the
 `Package.resolved` file which will be placed in the top-level directory of
 your package.
 
-### Methods
+## Methods
 
 ```swift
 /// Add a package dependency that is required from the given minimum version,
-/// going up to the next major version. 
+/// going up to the next major version.
 ///
 /// This is the recommend way to specify a remote package dependency because
 /// it allows you to specify the minimum version you require and gives
@@ -328,6 +333,7 @@ public static func package(path: String) -> Package.Dependency
 ```
 
 # Package Dependency Requirement
+
 `enum Package.Dependency.Requirement`
 
 The dependency requirement can be defined as one of three different version requirements:
@@ -364,7 +370,7 @@ The dependency requirement can be defined as one of three different version requ
     should remove commit-based dependency requirements before
     publishing a version of your package.
 
-### Methods
+## Methods
 
 ```swift
 /// Returns a requirement for the given exact version.
@@ -428,6 +434,7 @@ public static func upToNextMinor(from version: Version) -> Package.Dependency.Re
 ```
 
 # Version
+
 `struct Version`
 
 A struct representing a Semantic Version.
@@ -437,9 +444,9 @@ requirements that dictate how version numbers are assigned and incremented.
 To learn more about the semantic versioning specification, visit
 www.semver.org.
 
-### Semantic Versioning (SemVer) 2.0.0 
+## Semantic Versioning (SemVer) 2.0.0
 
-#### The Major Version
+### The Major Version
 
 The major version signifies breaking changes to the API which requires
 updating existing clients. For example, renaming an existing type, removing
@@ -447,19 +454,20 @@ a method or changing a method’s signature are considered breaking changes.
 This also includes any backwards incompatible bugfixes or behavior changes
 of existing API.
 
-#### The Minor Version
+### The Minor Version
 
 Increment the minor version if functionality is added in a backward compatible
 manner. For example, adding a new method or type without otherwise changing an
 API is considered backward-compatible.
 
-#### The Patch Version
+### The Patch Version
 
 Increase the patch version if you are making a backward-compatible bugfix.
 This allows clients to benefit from bugfixes to your package without
 incurring any maintenance burden.
 
 # Target
+
 `class Target`
 
 Targets are the basic building blocks of a package.
@@ -471,7 +479,7 @@ include them.
 Targets may depend on targets within the same package and on products vended
 by its package dependencies.
 
-### Methods
+## Methods
 
 ```swift
 /// Create a library or executable target.
@@ -540,7 +548,7 @@ public static func testTarget(
 /// System library targets are used to adapt a library installed on the system to
 /// work with Swift packages. Such libraries are generally installed by system
 /// package managers (such as Homebrew and APT) and exposed to Swift packages by
-/// providing a modulemap file along with other metadata such as the library's 
+/// providing a modulemap file along with other metadata such as the library's
 /// pkg-config name.
 ///
 /// - Parameters:
@@ -558,11 +566,12 @@ public static func systemLibrary(
 ```
 
 # Target Dependency
+
 `class Target.Dependency`
 
 Represents dependency on other targets in the package or products from other packages.
 
-### Methods
+## Methods
 
 ```swift
 /// A dependency on a target in the same package.
@@ -581,7 +590,7 @@ public static func byName(name: String) -> Target.Dependency
 
 A C-language build setting.
 
-### Methods
+## Methods
 
 ```swift
 /// Provide a header search path relative to the target's directory.
@@ -630,11 +639,12 @@ public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondi
 ```
 
 # CXXSetting
+
 `struct CXXSetting`
 
 A CXX-language build setting.
 
-### Methods
+## Methods
 
 ```swift
 /// Provide a header search path relative to the target's root directory.
@@ -683,11 +693,12 @@ public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondi
 ```
 
 # SwiftSetting
+
 `struct SwiftSetting`
 
 A Swift language build setting.
 
-### Methods
+## Methods
 
 ```swift
 /// Define a compilation condition.
@@ -695,7 +706,7 @@ A Swift language build setting.
 /// Compilation conditons are used inside to conditionally compile
 /// statements. For example, the Swift compiler will only compile the
 /// statements inside the `#if` block when `ENABLE_SOMETHING` is defined:
-///     
+///
 ///    #if ENABLE_SOMETHING
 ///       ...
 ///    #endif
@@ -730,11 +741,12 @@ public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondi
 ```
 
 # LinkerSetting
+
 `struct LinkerSetting`
 
 A linker build setting.
 
-### Methods
+## Methods
 
 ```swift
 /// Declare linkage to a system library.
@@ -783,6 +795,7 @@ public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondi
 ```
 
 # SwiftVersion
+
 `enum SwiftVersion`
 
 Represents the version of the Swift language that should be used for compiling
@@ -811,6 +824,7 @@ public enum SwiftVersion {
 ```
 
 # CLanguageStandard
+
 `enum CLanguageStandard`
 
 Supported C language standards.
@@ -832,6 +846,7 @@ public enum CLanguageStandard {
 }
 ```
 # CXXLanguageStandard
+
 `enum CXXLanguageStandard`
 
 Supported C++ language standards.

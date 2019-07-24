@@ -20,13 +20,13 @@ We’ve designed the system to make it really easy to share packages on services
 * [libSwiftPM](libSwiftPM.md)
 * [Resources](Resources.md)
 
----
+***
 
 ## About Packages
 
 A package consists of Swift source files and a manifest file. The manifest file, called `Package.swift`, defines the package’s name and its contents using the PackageDescription module. A package has one or more targets. Each target specifies a product and may declare one or more dependencies.
 
----
+***
 
 ## About Modules
 
@@ -55,21 +55,21 @@ swift build
 
 Swift will build a single executable called `foo`.
 
-To the package manager, everything is a package, hence `Package.swift`. However, this does not mean you have to release your software to the wider world; you can develop your app without ever publishing it in a place where others can see or use it. On the other hand, if one day you decide that your project _should_ be  available to a wider audience your sources are already in a form ready to be published.  The package manager is also independent of specific forms of distribution, so you can use it to share code within your personal projects, within your workgroup, team or company, or with the world.
+To the package manager, everything is a package, hence `Package.swift`. However, this does not mean you have to release your software to the wider world; you can develop your app without ever publishing it in a place where others can see or use it. On the other hand, if one day you decide that your project _should_ be available to a wider audience your sources are already in a form ready to be published. The package manager is also independent of specific forms of distribution, so you can use it to share code within your personal projects, within your workgroup, team or company, or with the world.
 
 Of course, the package manager is used to build itself, so its own source files are laid out following these conventions as well.
 
----
+***
 
 ## About Products
 
 A target may build either a library or an executable as its product. A library contains a module that can be imported by other Swift code. An executable is a program that can be run by the operating system.
 
----
+***
 
 ## About Dependencies
 
-Modern development is accelerated by the use of external dependencies (for better and worse).  This is great for allowing you to get more done in less time, but adding dependencies to a project has an associated coordination cost.
+Modern development is accelerated by the use of external dependencies (for better and worse). This is great for allowing you to get more done in less time, but adding dependencies to a project has an associated coordination cost.
 
 In addition to downloading and building the source code for a dependency, that dependency's own dependencies must be downloaded and built as well, and so on, until the entire dependency graph is satisfied. To complicate matters further, a dependency may specify version requirements, which may have to be reconciled with the version requirements of other modules with the same dependency.
 
@@ -100,5 +100,4 @@ The following are some of the most common “dependency hell” scenarios:
 
 * Global State Conflict - A package may have two or more dependencies that presume to have exclusive access to the same global state. For example, one package may not be able to accommodate another package writing to a particular file path while reading from that same file path.
 
-*  Package Becomes Unavailable - A package may have a dependency on a package that becomes unavailable. This may be caused by the source URL becoming inaccessible, or maintainers deleting a published version.
-
+* Package Becomes Unavailable - A package may have a dependency on a package that becomes unavailable. This may be caused by the source URL becoming inaccessible, or maintainers deleting a published version.

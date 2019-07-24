@@ -9,13 +9,13 @@ First, follow the instructions provided
 [here](https://github.com/apple/swift/blob/master/README.md#getting-started) and
 then run one of these commands from the Swift Package Manager directory:
 
-##### macOS:
+### macOS
 
 ```sh
 $ ../swift/utils/build-script -R --llbuild --swiftpm
 ```
 
-##### Linux:
+### Linux
 
 ```sh
 $ ../swift/utils/build-script -R --llbuild --swiftpm --xctest --foundation --libdispatch
@@ -31,61 +31,66 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
 1. [Download](https://swift.org/download/#snapshots) and install the latest Trunk Development snapshot.
 2. Run the following commands depending on your platform.
 
-	### macOS
-	```sh
-	$ export TOOLCHAINS=swift
-	# Verify that we're able to find the swift compiler from the installed toolchain.
-	$ xcrun --find swift
-	/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swift
-	```
-	### Linux
-	```sh
-	$ export PATH=/path/to/swift-toolchain/usr/bin:"${PATH}"
-	# Verify that we're able to find the swift compiler from the installed toolchain.
-	$ which swift
-	/path/to/swift-toolchain/usr/bin/swift
-	```
+### macOS
+
+```sh
+$ export TOOLCHAINS=swift
+# Verify that we're able to find the swift compiler from the installed toolchain.
+$ xcrun --find swift
+/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swift
+```
+
+### Linux
+
+```sh
+$ export PATH=/path/to/swift-toolchain/usr/bin:"${PATH}"
+# Verify that we're able to find the swift compiler from the installed toolchain.
+$ which swift
+/path/to/swift-toolchain/usr/bin/swift
+```
 
 3. Clone [llbuild](https://github.com/apple/swift-llbuild) beside the package manager directory.
 
-    ```sh
-    $ git clone https://github.com/apple/swift-llbuild llbuild
-    $ ls
-    swiftpm llbuild
-    ```
+```sh
+$ git clone https://github.com/apple/swift-llbuild llbuild
+$ ls
+swiftpm llbuild
+```
 
-    Note: Make sure the directory for llbuild is called "llbuild" and not
+Note: Make sure the directory for llbuild is called "llbuild" and not
     "swift-llbuild".
- 
+
 4. Build the Swift Package Manager.
 
-	```sh
-	$ cd swiftpm
-	$ Utilities/bootstrap
-	```
+```sh
+$ cd swiftpm
+$ Utilities/bootstrap
+```
 
-    Note: The bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed. Please refer to the [Swift project repo](https://github.com/apple/swift/blob/master/README.md#macos) for installation instructions.
-	
-    This command will build the Package Manager inside the `.build/` directory.
+ Note: The bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed. Please refer to the [Swift project repo](https://github.com/apple/swift/blob/master/README.md#macos) for installation instructions.
+
+This command will build the Package Manager inside the `.build/` directory.
     Run the bootstrap script to rebuild after making a change to the source
     code.
-	
-    You can also use the built binaries: `swift-build`, `swift-package`,
+
+   You can also use the built binaries: `swift-build`, `swift-package`,
     `swift-test`, `swift-run`.
-	
-	### Example:
-	```sh
-	$ cd /tmp && mkdir hello && cd hello
-	$ /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-package init
-	$ /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-build
-	```
+
+### Example
+
+```sh
+$ cd /tmp && mkdir hello && cd hello
+$ /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-package init
+$ /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-build
+```
 
 5. Test the Swift Package Manager.
 
-	```sh
-	$ Utilities/bootstrap test --test-parallel
-	```
-	Use this command to run the tests. All tests must pass before a patch can be accepted.
+```sh
+$ Utilities/bootstrap test --test-parallel
+```
+
+Use this command to run the tests. All tests must pass before a patch can be accepted.
 
 ## Self Hosting
 
