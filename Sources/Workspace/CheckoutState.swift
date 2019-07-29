@@ -51,6 +51,10 @@ public struct CheckoutState: Equatable, CustomStringConvertible {
     public var description: String {
         return version?.description ?? branch ?? revision.identifier
     }
+
+    var isBranchOrRevisionBased: Bool {
+        return version == nil
+    }
 }
 
 extension CheckoutState {

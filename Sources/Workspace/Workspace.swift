@@ -151,6 +151,27 @@ public class Workspace {
             return computePackageURLs().missing
         }
 
+        /// Returns the list of package dependencies which are allowed to vend products with unsafe flags.
+        func unsafeAllowedDependencies() -> Set<PackageReference> {
+            var result = Set<PackageReference>()
+
+            for dependency in dependencies {
+                let dependency = dependency.dependency
+                switch dependency.state {
+                case .checkout(let checkout):
+                    if checkout.isBranchOrRevisionBased {
+                        result.insert(dependency.packageRef)
+                    }
+                case .edited:
+                    continue
+                case .local:
+                    result.insert(dependency.packageRef)
+                }
+            }
+
+            return result
+        }
+
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
             let manifestsMap: [String: Manifest] = Dictionary(items:
                 root.manifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) }) +
@@ -671,6 +692,7 @@ extension Workspace {
             config: config,
             externalManifests: externalManifests,
             requiredDependencies: manifests.computePackageURLs().required,
+            unsafeAllowedDependencies: manifests.unsafeAllowedDependencies(),
             diagnostics: diagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,

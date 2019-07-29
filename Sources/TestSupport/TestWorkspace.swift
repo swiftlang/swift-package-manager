@@ -409,24 +409,27 @@ public struct TestTarget {
 
     public let name: String
     public let dependencies: [String]
+    public let settings: [TargetBuildSettingDescription.Setting]
     public let type: Type
 
     public init(
         name: String,
         dependencies: [String] = [],
-        type: Type = .regular
+        type: Type = .regular,
+        settings: [TargetBuildSettingDescription.Setting] = []
     ) {
         self.name = name
         self.dependencies = dependencies
         self.type = type
+        self.settings = settings
     }
 
     fileprivate func convert() -> TargetDescription {
         switch type {
         case .regular:
-            return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular)
+            return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular, settings: settings)
         case .test:
-            return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .test)
+            return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .test, settings: settings)
         }
     }
 }
