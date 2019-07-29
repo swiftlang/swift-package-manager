@@ -25,23 +25,6 @@ private let hostExecutableSuffix = ".exe"
 private let hostExecutableSuffix = ""
 #endif
 
-/// Concrete object for manifest resource provider.
-public struct UserManifestResources: ManifestResourceProvider {
-    public let swiftCompiler: AbsolutePath
-    public let libDir: AbsolutePath
-    public let sdkRoot: AbsolutePath?
-
-    public init(
-        swiftCompiler: AbsolutePath,
-        libDir: AbsolutePath,
-        sdkRoot: AbsolutePath? = nil
-    ) {
-        self.swiftCompiler = swiftCompiler
-        self.libDir = libDir
-        self.sdkRoot = sdkRoot
-    }
-}
-
 // FIXME: This is messy and needs a redesign.
 public final class UserToolchain: Toolchain {
 
@@ -222,16 +205,17 @@ public final class UserToolchain: Toolchain {
         self.xctest = nil
       #endif
 
-        self.extraSwiftCFlags = [
-            "-sdk", destination.sdk.pathString
-        ] + destination.extraSwiftCFlags
+        self.extraSwiftCFlags = (destination.target.isDarwin()
+                                    ? ["-sdk", destination.sdk.pathString]
+                                    : [])
+                                  + destination.extraSwiftCFlags
 
         self.extraCCFlags = [
             destination.target.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
         ] + destination.extraCCFlags
 
         // Compute the path of directory containing the PackageDescription libraries.
-        var pdLibDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+        var pdLibDir = UserManifestResources.libDir(forBinDir: binDir)
 
         // Look for an override in the env.
         if let pdLibDirEnvStr = Process.env["SWIFTPM_PD_LIBS"] {

@@ -17,6 +17,7 @@ extension BuildPlanTests {
         ("testCppModule", testCppModule),
         ("testDynamicProducts", testDynamicProducts),
         ("testExecAsDependency", testExecAsDependency),
+        ("testExecBuildTimeDependency", testExecBuildTimeDependency),
         ("testExtraBuildFlags", testExtraBuildFlags),
         ("testIndexStore", testIndexStore),
         ("testNonReachableProductsAndTargets", testNonReachableProductsAndTargets),

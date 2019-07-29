@@ -489,7 +489,7 @@ extension Workspace {
                 container: dependency.packageRef, requirement: requirement)
 
         // Run the resolution.
-        _resolve(root: root, extraConstraints: [constraint], diagnostics: diagnostics)
+        _resolve(root: root, forceResolution: false, extraConstraints: [constraint], diagnostics: diagnostics)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -624,6 +624,23 @@ extension Workspace {
             diagnostics: diagnostics)
     }
 
+    /// Loads a package graph from a root package using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///     - packagePath: The absolute path of the root package.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
+    ///         Its associated resources will be used by the loader.
+    public static func loadGraph(
+        packagePath: AbsolutePath,
+        swiftCompiler: AbsolutePath,
+        diagnostics: DiagnosticsEngine
+    ) throws -> PackageGraph {
+        let resources = try UserManifestResources(swiftCompiler: swiftCompiler)
+        let loader = ManifestLoader(manifestResources: resources)
+        let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader)
+        return workspace.loadPackageGraph(root: packagePath, diagnostics: diagnostics)
+    }
+
     /// Fetch and load the complete package at the given path.
     ///
     /// This will implicitly cause any dependencies not yet present in the
@@ -644,7 +661,7 @@ extension Workspace {
         if forceResolvedVersions {
             manifests = self._resolveToResolvedVersion(root: root, diagnostics: diagnostics)
         } else {
-            manifests = self._resolve(root: root, diagnostics: diagnostics)
+            manifests = self._resolve(root: root, forceResolution: false, diagnostics: diagnostics)
         }
         let externalManifests = manifests.allManifests()
 
@@ -680,9 +697,10 @@ extension Workspace {
     /// checkout will be restored according to its pin.
     public func resolve(
         root: PackageGraphRootInput,
+        forceResolution: Bool = false,
         diagnostics: DiagnosticsEngine
     ) {
-        _resolve(root: root, diagnostics: diagnostics)
+        _resolve(root: root, forceResolution: forceResolution, diagnostics: diagnostics)
     }
 
     /// Loads and returns manifests at the given paths.
@@ -1160,6 +1178,18 @@ extension Workspace {
             }
         }
 
+        // Save state for local packages, if any.
+        //
+        // FIXME: This will only work for top-level local packages right now.
+        for rootManifest in rootManifests {
+            let dependencies = rootManifest.dependencies.filter{ $0.requirement == .localPackage }
+            for localPackage in dependencies {
+                let package = localPackage.createPackageRef(config: self.config)
+                managedDependencies[forURL: package.path] = ManagedDependency.local(packageRef: package)
+            }
+        }
+        diagnostics.wrap { try managedDependencies.saveState() }
+
         let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Check if a new resolution is required.
@@ -1186,6 +1216,7 @@ extension Workspace {
     @discardableResult
     fileprivate func _resolve(
         root: PackageGraphRootInput,
+        forceResolution: Bool,
         extraConstraints: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine,
         retryOnPackagePathMismatch: Bool = true
@@ -1236,7 +1267,7 @@ extension Workspace {
 
             // If we don't need resolution and there are no extra constraints,
             // just validate pinsStore and return.
-            if !result.resolve && extraConstraints.isEmpty {
+            if !result.resolve && extraConstraints.isEmpty && !forceResolution {
                 return currentManifests
             }
 
@@ -1308,12 +1339,15 @@ extension Workspace {
         // URL was changed. For e.g., the resolved file could refer to a dependency
         // through a ssh url but its new reference is now changed to http.
         if !updatedDependencyManifests.computePackageURLs().missing.isEmpty {
-            // Retry resolution which will most likely resolve correctly now since
-            // we have the manifest files of all the dependencies.
-            if retryOnPackagePathMismatch {
-                // We still have something that is required. Retry!
+            // Check if an override package has a mismatching basename.
+            if self.didDiagnosePackageOverrideBasenameMismatch(updatedDependencyManifests, diagnostics) {
+                return updatedDependencyManifests
+            } else if retryOnPackagePathMismatch {
+                // Retry resolution which will most likely resolve correctly now since
+                // we have the manifest files of all the dependencies.
                 return self._resolve(
                     root: root,
+                    forceResolution: forceResolution,
                     extraConstraints: extraConstraints,
                     diagnostics: diagnostics,
                     retryOnPackagePathMismatch: false
@@ -1332,6 +1366,26 @@ extension Workspace {
         self.pinAll(dependencyManifests: updatedDependencyManifests, pinsStore: pinsStore, diagnostics: diagnostics)
 
         return updatedDependencyManifests
+    }
+
+    private func didDiagnosePackageOverrideBasenameMismatch(
+        _ dependencyManifests: DependencyManifests,
+        _ diagnostics: DiagnosticsEngine
+    ) -> Bool {
+        let rootManifests = dependencyManifests.root.manifests.spm_createDictionary{ ($0.name, $0) }
+
+        for missingURLs in dependencyManifests.computePackageURLs().missing {
+            guard let manifest = loadManifest(forURL: missingURLs.path, diagnostics: diagnostics) else { continue }
+            if let override = rootManifests[manifest.name] {
+                let overrideIdentity = PackageReference.computeIdentity(packageURL: override.url)
+                let manifestIdentity = PackageReference.computeIdentity(packageURL: manifest.url)
+                let diagnostic = WorkspaceDiagnostics.PackageOverrideBasenameMismatch(
+                    packageName: manifest.name, packageIdentity: manifestIdentity, overrideIdentity: overrideIdentity)
+                diagnostics.emit(data: diagnostic)
+                return true
+            }
+        }
+        return false
     }
 
     /// Computes if dependency resolution is required based on input constraints and pins.

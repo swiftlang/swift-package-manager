@@ -93,12 +93,12 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     }
 
     public enum Error: Swift.Error, CustomStringConvertible {
-        case malformed(specifier: String, file: AbsolutePath)
+        case malformed(specifier: String, currentToolsVersion: ToolsVersion)
 
         public var description: String {
             switch self {
-            case .malformed(let versionSpecifier, let file):
-                return "the version specifier '\(versionSpecifier)' in '\(file)' is not valid"
+            case .malformed(let versionSpecifier, let currentToolsVersion):
+                return "the tools version '\(versionSpecifier)' is not valid; consider using '// swift-tools-version:\(currentToolsVersion.major).\(currentToolsVersion.minor)' to specify the current tools version"
             }
         }
     }
@@ -128,7 +128,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             let misspellings = ["swift-tool", "tool-version"]
             if let firstLine = ByteString(splitted[0]).validDescription,
                misspellings.first(where: firstLine.lowercased().contains) != nil {
-                throw Error.malformed(specifier: firstLine, file: file)
+                throw Error.malformed(specifier: firstLine, currentToolsVersion: currentToolsVersion)
             }
             // Otherwise assume the default to be v3.
             return .v3
@@ -136,7 +136,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
 
         // Ensure we can construct the version from the specifier.
         guard let version = ToolsVersion(string: versionSpecifier) else {
-            throw Error.malformed(specifier: versionSpecifier, file: file)
+            throw Error.malformed(specifier: versionSpecifier, currentToolsVersion: currentToolsVersion)
         }
         return version
     }

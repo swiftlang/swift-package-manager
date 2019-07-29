@@ -94,4 +94,11 @@ extension String {
     public func spm_dropGitSuffix() -> String {
         return spm_dropSuffix(".git")
     }
+
+    public func spm_multilineIndent(count: Int) -> String {
+        return self
+            .split(separator: "\n")
+            .map{ String(repeating: " ", count: count) + $0 }
+            .joined(separator: "\n")
+    }
 }

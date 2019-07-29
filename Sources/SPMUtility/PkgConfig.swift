@@ -45,6 +45,7 @@ struct PCFileFinder {
 
     /// Cached results of locations `pkg-config` will search for `.pc` files
     private(set) static var pkgConfigPaths: [AbsolutePath]? // FIXME: @testable(internal)
+    private static var shouldEmitPkgConfigPathsDiagnostic = false
 
     /// The built-in search path list.
     ///
@@ -75,7 +76,7 @@ struct PCFileFinder {
                 args: pkgConfigPath, "--variable", "pc_path", "pkg-config").spm_chomp()
                 PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
             } catch {
-                diagnostics.emit(data: PkgConfigExecutionDiagnostic())
+                PCFileFinder.shouldEmitPkgConfigPathsDiagnostic = true
                 PCFileFinder.pkgConfigPaths = []
             }
         }
@@ -94,6 +95,10 @@ struct PCFileFinder {
             if fileSystem.isFile(pcFile) {
                 return pcFile
             }
+        }
+        if PCFileFinder.shouldEmitPkgConfigPathsDiagnostic {
+            PCFileFinder.shouldEmitPkgConfigPathsDiagnostic = false
+            diagnostics.emit(data: PkgConfigExecutionDiagnostic())
         }
         throw PkgConfigError.couldNotFindConfigFile
     }

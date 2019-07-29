@@ -180,6 +180,25 @@ public final class ManifestLoader: ManifestLoaderProtocol {
        )
     }
 
+    /// Loads a manifest from a package repository using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///     - packagePath: The absolute path of the package root.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
+    ///         Its associated resources will be used by the loader.
+    public static func loadManifest(
+        packagePath: AbsolutePath,
+        swiftCompiler: AbsolutePath
+    ) throws -> Manifest {
+        let resources = try UserManifestResources(swiftCompiler: swiftCompiler)
+        let loader = ManifestLoader(manifestResources: resources)
+        let toolsVersion = try ToolsVersionLoader().load(at: packagePath, fileSystem: localFileSystem)
+        return try loader.load(
+            package: packagePath,
+            baseURL: packagePath.pathString,
+            manifestVersion: toolsVersion.manifestVersion)
+    }
+
     public func load(
         packagePath path: AbsolutePath,
         baseURL: String,
@@ -649,6 +668,14 @@ final class ManifestLoadRule: LLBuildRule {
 
         engine.taskNeedsInput(SwiftPMVersionRule.RuleKey(), inputID: 2)
         engine.taskNeedsInput(FileInfoRule.RuleKey(path: key.path), inputID: 3)
+    }
+
+    override func isResultValid(_ priorValue: Value) -> Bool {
+        // Always rebuild if we had a failure.
+        let value = RuleKey.BuildValue(priorValue)
+        if value.hasErrors { return false }
+
+        return super.isResultValid(priorValue)
     }
 
     override func inputsAvailable(_ engine: LLTaskBuildEngine) {

@@ -33,15 +33,18 @@ except ImportError:
 import argparse
 import codecs
 import copy
+import distutils.dir_util
+import distutils.file_util
 import errno
 import json
+import multiprocessing
 import os
 import pipes
 import platform
 import re
-import stat
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -117,7 +120,7 @@ def get_current_sha(project_root):
     except:
         return None
 
-g_num_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
+g_num_cpus = multiprocessing.cpu_count()
 g_default_sysroot = None
 if platform.system() == 'Darwin':
     g_platform_path = subprocess.check_output(
@@ -655,10 +658,10 @@ def process_runtime_libraries(build, args, lib_path):
     runtime_swiftdoc_path = os.path.join(
         lib_path, "PackageDescription.swiftdoc")
 
-    cmd = ["rsync", "-a", module_input_path, runtime_module_path]
-    subprocess.check_call(cmd)
-    cmd = ["rsync", "-a", swiftdoc_input_path, runtime_swiftdoc_path]
-    subprocess.check_call(cmd)
+    distutils.file_util.copy_file(module_input_path, runtime_module_path,
+        update=1)
+    distutils.file_util.copy_file(swiftdoc_input_path, runtime_swiftdoc_path,
+        update=1)
 
     if platform.system() == 'Darwin':
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.dylib")
@@ -668,6 +671,10 @@ def process_runtime_libraries(build, args, lib_path):
                input_lib_path,
                "-sdk", args.sysroot,
                "-target", "x86_64-apple-macosx10.10"]
+    elif platform.system() == 'Windows':
+        runtime_lib_path = os.path.join(lib_path, "PackageDescription.dll")
+        cmd = [args.swiftc_path, "-emit-library", "-o", runtime_lib_path,
+               "-Xlinker", input_lib_path]
     else:
         # We include an RPATH entry so that the Swift libraries can be found
         # relative to where it will be installed (in 'lib/swift/pm/<version>/...').
@@ -678,10 +685,10 @@ def process_runtime_libraries(build, args, lib_path):
                "-Xlinker", "--no-whole-archive", "-lswiftGlibc",
                "-Xlinker", "-rpath=$ORIGIN/../../linux"]
 
-        # We need to pass one swift file here to bypass the "no input files"
-        # error.
-        tf = tempfile.NamedTemporaryFile(suffix=".swift")
-        cmd += [tf.name]
+    # We need to pass one swift file here to bypass the "no input files"
+    # error.
+    tf = tempfile.NamedTemporaryFile(suffix=".swift")
+    cmd += [tf.name]
 
     cmd.extend(["-module-cache-path", os.path.join(args.sandbox_path, "ModuleCache")])
 
@@ -741,6 +748,9 @@ def get_clang_path():
             return clang_path
         elif platform.system() == 'Darwin':
             return subprocess.check_output(["xcrun", "--find", "clang"],
+                stderr=subprocess.PIPE, universal_newlines=True).strip()
+        elif  platform.system() == 'Windows':
+            return subprocess.check_output(["where", "clang"],
                 stderr=subprocess.PIPE, universal_newlines=True).strip()
         else:
             return subprocess.check_output(["which", "clang"],
@@ -1044,8 +1054,10 @@ def main():
             build_target = 'aarch64-unknown-linux'
         else:
             raise SystemExit("ERROR: unsupported machine:",platform.machine())
+    elif platform.system() == 'Windows':
+        build_target = 'x86_64-unknown-windows-msvc'
     else:
-        raise SystemExit("ERROR: unsupported system:",platform.system())
+        raise SystemExit("ERROR: unsupported system:",platform.system(), platform.machine())
 
     build_path = os.path.join(g_project_root, args.build_path)
     sandbox_path = os.path.join(build_path, ".bootstrap")

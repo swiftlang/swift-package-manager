@@ -778,6 +778,14 @@ public final class ProductBuildDescription {
           args += ["-runtime-compatibility-version", "none"]
         }
 
+        // Add the target triple from the first target in the product.
+        //
+        // We can just use the first target of the product because the deployment target
+        // setting is the package-level right now. We might need to figure out a better
+        // answer for libraries if/when we support specifying deployment target at the
+        // target-level.
+        args += buildParameters.targetTripleArgs(for: product.targets[0])
+
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags()
 
@@ -1039,7 +1047,12 @@ public class BuildPlan {
         //
         // If the product's platform version is greater than ours, then it is incompatible.
         if productPlatform.version > targetPlatform.version {
-            diagnostics.emit(data: ProductRequiresHigherPlatformVersion(product: product.name, platform: productPlatform))
+            diagnostics.emit(data: ProductRequiresHigherPlatformVersion(
+                target: target,
+                targetPlatform: targetPlatform,
+                product: product.name,
+                productPlatform: productPlatform
+            ))
         }
     }
 
@@ -1276,17 +1289,26 @@ struct ProductRequiresHigherPlatformVersion: DiagnosticData {
         name: "org.swift.diags.\(ProductRequiresHigherPlatformVersion.self)",
         defaultBehavior: .error,
         description: {
-            $0 <<< "the product" <<< { "'\($0.product)'" }
-            $0 <<< "requires minimum platform version" <<< { $0.platform.version.versionString }
-            $0 <<< "for" <<< { $0.platform.platform.name } <<< "platform"
+            $0 <<< "the" <<< { $0.target.type.rawValue } <<< { "'\($0.target.name)'" } <<< "requires"
+            $0 <<< { $0.targetPlatform.platform.name } <<< { "\($0.targetPlatform.version.versionString)," }
+            $0 <<< "but depends on the product" <<< { "'\($0.product)'" } <<< "which requires"
+            $0 <<< { $0.productPlatform.platform.name } <<< { "\($0.productPlatform.version.versionString);" }
+            $0 <<< "consider changing the" <<< { $0.target.type.rawValue } <<< { "'\($0.target.name)'" } <<< "to require"
+            $0 <<< { $0.productPlatform.platform.name } <<< { $0.productPlatform.version.versionString } <<< "or later,"
+            $0 <<< "or the product" <<< { "'\($0.product)'" } <<< "to require"
+            $0 <<< { $0.targetPlatform.platform.name } <<< { $0.targetPlatform.version.versionString } <<< "or earlier."
     })
 
+    public let target: ResolvedTarget
+    public let targetPlatform: SupportedPlatform
     public let product: String
-    public let platform: SupportedPlatform
+    public let productPlatform: SupportedPlatform
 
-    init(product: String, platform: SupportedPlatform) {
+    init(target: ResolvedTarget, targetPlatform: SupportedPlatform, product: String, productPlatform: SupportedPlatform) {
+        self.target = target
+        self.targetPlatform = targetPlatform
         self.product = product
-        self.platform = platform
+        self.productPlatform = productPlatform
     }
 }
 

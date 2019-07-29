@@ -25,7 +25,7 @@ public enum ModuleError: Swift.Error {
     case duplicateModule(String, [String])
 
     /// The eferenced target could not be found.
-    case moduleNotFound(String)
+    case moduleNotFound(String, TargetDescription.TargetType)
 
     /// Invalid custom path.
     case invalidCustomPath(target: String, path: String)
@@ -67,8 +67,9 @@ extension ModuleError: CustomStringConvertible {
         case .duplicateModule(let name, let packages):
             let packages = packages.joined(separator: ", ")
             return "multiple targets named '\(name)' in: \(packages)"
-        case .moduleNotFound(let target):
-            return "Source files for target \(target) should be located under 'Sources/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
+        case .moduleNotFound(let target, let type):
+            let folderName = type == .test ? "Tests" : "Sources"
+            return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
         case .invalidLayout(let type):
             return "package has unsupported layout; \(type)"
         case .invalidManifestConfig(let package, let message):
@@ -228,6 +229,28 @@ public final class PackageBuilder {
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.createREPLProduct = createREPLProduct
+    }
+
+    /// Loads a package from a package repository using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///     - packagePath: The absolute path of the package root.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
+    ///         Its associated resources will be used by the loader.
+    public static func loadPackage(
+        packagePath: AbsolutePath,
+        swiftCompiler: AbsolutePath,
+        diagnostics: DiagnosticsEngine,
+        isRootPackage: Bool = true) throws -> Package {
+
+        let manifest = try ManifestLoader.loadManifest(
+            packagePath: packagePath, swiftCompiler: swiftCompiler)
+        let builder = PackageBuilder(
+            manifest: manifest,
+            path: packagePath,
+            diagnostics: diagnostics,
+            isRootPackage: isRootPackage)
+        return try builder.construct()
     }
 
     /// Build a new package following the conventions.
@@ -420,10 +443,23 @@ public final class PackageBuilder {
         return (targetDir, testTargetDir)
     }
 
+    struct PredefinedTargetDirectory {
+        let path: AbsolutePath
+        let contents: [String]
+
+        init(fs: FileSystem, path: AbsolutePath) {
+            self.path = path
+            self.contents = (try? fs.getDirectoryContents(path)) ?? []
+        }
+    }
+
     /// Construct targets according to PackageDescription 4 conventions.
     fileprivate func constructV4Targets() throws -> [Target] {
         // Select the correct predefined directory list.
         let predefinedDirs = findPredefinedTargetDirectory()
+
+        let predefinedTargetDirectory = PredefinedTargetDirectory(fs: fileSystem, path: packagePath.appending(component: predefinedDirs.targetDir))
+        let predefinedTestTargetDirectory = PredefinedTargetDirectory(fs: fileSystem, path: packagePath.appending(component: predefinedDirs.testTargetDir))
 
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
@@ -450,12 +486,22 @@ public final class PackageBuilder {
             }
 
             // Check if target is present in the predefined directory.
-            let predefinedDir = target.isTest ? predefinedDirs.testTargetDir : predefinedDirs.targetDir
-            let path = packagePath.appending(components: predefinedDir, target.name)
-            if fileSystem.isDirectory(path) {
+            let predefinedDir = target.isTest ? predefinedTestTargetDirectory : predefinedTargetDirectory
+            let path = predefinedDir.path.appending(component: target.name)
+
+            // Return the path if the predefined directory contains it.
+            if predefinedDir.contents.contains(target.name) {
                 return path
             }
-            throw ModuleError.moduleNotFound(target.name)
+
+            // Otherwise, if the path "exists" then the case in manifest differs from the case on the file system.
+            if fileSystem.isDirectory(path) {
+                diagnostics.emit(
+                    data: PackageBuilderDiagnostics.TargetNameHasIncorrectCase(target: target.name),
+                    location: diagnosticLocation())
+                return path
+            }
+            throw ModuleError.moduleNotFound(target.name, target.type)
         }
 
         // Create potential targets.
@@ -474,7 +520,7 @@ public final class PackageBuilder {
         let potentialModulesName = Set(potentialModules.map({ $0.name }))
         let missingModules = allReferencedModules.subtracting(potentialModulesName).intersection(allReferencedModules)
         if let missingModule = missingModules.first {
-            throw ModuleError.moduleNotFound(missingModule)
+            throw ModuleError.moduleNotFound(missingModule, potentialModules.first(where: { $0.name == missingModule })?.type ?? .regular)
         }
 
         let targetItems = manifest.targets.map({ ($0.name, $0 as TargetDescription) })
@@ -609,7 +655,7 @@ public final class PackageBuilder {
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget?.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
-        let publicHeadersPath = potentialModule.path.appending(RelativePath(publicHeaderComponent))
+        let publicHeadersPath = potentialModule.path.appending(try RelativePath(validating: publicHeaderComponent))
         guard publicHeadersPath.contains(potentialModule.path) else {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }

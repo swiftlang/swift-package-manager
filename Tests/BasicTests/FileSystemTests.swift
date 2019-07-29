@@ -395,10 +395,12 @@ class FileSystemTests: XCTestCase {
             let dir = path.appending(component: "dir")
             let foo = dir.appending(component: "foo")
             let bar = dir.appending(component: "bar")
+            let sym = dir.appending(component: "sym")
 
             try fs.createDirectory(dir, recursive: true)
             try fs.writeFileContents(foo, bytes: "")
             try fs.writeFileContents(bar, bytes: "")
+            try createSymlink(sym, pointingAt: foo)
 
             // Set foo to unwritable.
             try fs.chmod(.userUnWritable, path: foo)
@@ -411,6 +413,10 @@ class FileSystemTests: XCTestCase {
             XCTAssertThrows(FileSystemError.invalidAccess) {
                 try fs.writeFileContents(bar, bytes: "test")
             }
+
+            // Ensure we didn't modify foo's permission through the symlink.
+            XCTAssertFalse(fs.isExecutableFile(foo))
+
             // It should be possible to add files.
             try fs.writeFileContents(dir.appending(component: "new"), bytes: "")
 
