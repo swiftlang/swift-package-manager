@@ -97,6 +97,7 @@ public struct PackageGraphLoader {
         config: SwiftPMConfig = SwiftPMConfig(),
         externalManifests: [Manifest],
         requiredDependencies: Set<PackageReference> = [],
+        unsafeAllowedDependencies: Set<PackageReference> = [],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
         shouldCreateMultipleTestProducts: Bool = false,
@@ -176,6 +177,7 @@ public struct PackageGraphLoader {
             config: config,
             manifestToPackage: manifestToPackage,
             rootManifestSet: rootManifestSet,
+            unsafeAllowedDependencies: unsafeAllowedDependencies,
             diagnostics: diagnostics
         )
 
@@ -234,6 +236,7 @@ private func createResolvedPackages(
     manifestToPackage: [Manifest: Package],
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifestSet: Set<Manifest>,
+    unsafeAllowedDependencies: Set<PackageReference>,
     diagnostics: DiagnosticsEngine
 ) -> [ResolvedPackage] {
 
@@ -242,7 +245,8 @@ private func createResolvedPackages(
         guard let package = manifestToPackage[$0] else {
             return nil
         }
-        return ResolvedPackageBuilder(package)
+        let isAllowedToVendUnsafeProducts = unsafeAllowedDependencies.contains{ $0.path == package.manifest.url }
+        return ResolvedPackageBuilder(package, isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts)
     })
 
     // Create a map of package builders keyed by the package identity.
@@ -274,7 +278,7 @@ private func createResolvedPackages(
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
         packageBuilder.products = package.products.map({
-            ResolvedProductBuilder(product: $0, targets: $0.targets.map({ targetMap[$0]! }))
+            ResolvedProductBuilder(product: $0, packageBuilder: packageBuilder, targets: $0.targets.map({ targetMap[$0]! }))
         })
     }
 
@@ -411,6 +415,8 @@ private class ResolvedBuilder<T>: ObjectIdentifierProtocol {
 
 /// Builder for resolved product.
 private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
+    /// The reference to its package.
+    unowned let packageBuilder: ResolvedPackageBuilder
 
     /// The product reference.
     let product: Product
@@ -418,8 +424,9 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
     /// The target builders in the product.
     let targets: [ResolvedTargetBuilder]
 
-    init(product: Product, targets: [ResolvedTargetBuilder]) {
+    init(product: Product, packageBuilder: ResolvedPackageBuilder, targets: [ResolvedTargetBuilder]) {
         self.product = product
+        self.packageBuilder = packageBuilder
         self.targets = targets
     }
 
@@ -451,7 +458,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         self.diagnostics = diagnostics
     }
 
-    func validateProductDependency(_ product: ResolvedProduct) {
+    func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) {
         // Diagnose if any target in this product uses an unsafe flag.
         for target in product.targets {
             let declarations = target.underlyingTarget.buildSettings.assignments.keys
@@ -472,8 +479,9 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         for dependency in productDeps {
             let product = dependency.construct()
 
-            // FIXME: Should we not add the dependency if validation fails?
-            validateProductDependency(product)
+            if !dependency.packageBuilder.isAllowedToVendUnsafeProducts {
+                diagnoseInvalidUseOfUnsafeFlags(product)
+            }
 
             deps.append(.product(product))
         }
@@ -500,8 +508,11 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []
 
-    init(_ package: Package) {
+    let isAllowedToVendUnsafeProducts: Bool
+
+    init(_ package: Package, isAllowedToVendUnsafeProducts: Bool) {
         self.package = package
+        self.isAllowedToVendUnsafeProducts = isAllowedToVendUnsafeProducts
     }
 
     override func constructImpl() -> ResolvedPackage {
