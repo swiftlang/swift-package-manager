@@ -4,40 +4,40 @@
 
 * [Overview](README.md)
 * [**Usage**](Usage.md)
-  * [Create a Package](#create-a-package)
-    * [Create a library package](#create-a-library-package)
-    * [Create an executable package](#create-an-executable-package)
-  * [Define Dependencies](#define-dependencies)
-  * [Publish a package](#publish-a-package)
-  * [Require System Libraries](#require-system-libraries)
-  * [Packaging legacy code](#packaging-legacy-code)
-  * [Handling version-specific logic](#handling-version-specific-logic)
-  * [Editable Packages](#editable-packages)
-  * [Top of Tree Development](#top-of-tree-development)
-  * [Resolved versions (Package.resolved file)](#resolved-versions-packageresolved-file)
-  * [Swift Tools Version](#swift-tools-version)
+  * [Creating a Package](#creating-a-package)
+    * [Creating a Library Package](#creating-a-library-package)
+    * [Creating an Executable Package](#creating-an-executable-package)
+  * [Defining Dependencies](#defining-dependencies)
+  * [Publishing a Package](#publishing-a-package)
+  * [Requiring System Libraries](#requiring-system-libraries)
+  * [Packaging Legacy Code](#packaging-legacy-code)
+  * [Handling Version-specific Logic](#handling-version-specific-logic)
+  * [Editing a Package](#editing-a-package)
+    * [Top of Tree Development](#top-of-tree-development)
+  * [Resolving Versions (Package.resolved file)](#resolving-versions-packageresolved-file)
+  * [Setting the Swift Tools Version](#setting-the-swift-tools-version)
   * [Testing](#testing)
   * [Running](#running)
-  * [Build Configurations](#build-configurations)
+  * [Setting the Build Configuration](#setting-the-build-configuration)
     * [Debug](#debug)
     * [Release](#release)
   * [Depending on Apple Modules](#depending-on-apple-modules)
-  * [C language targets](#c-language-targets)
-  * [Shell completion scripts](#shell-completion-scripts)
+  * [Creating C Language Targets](#creating-c-language-targets)
+  * [Using Shell Completion Scripts](#using-shell-completion-scripts)
 * [PackageDescription API](PackageDescription.md)
 * [Resources](Resources.md)
 
 ---
 
-## Create a Package
+## Creating a Package
 
 Simply put: a package is a git repository with semantically versioned tags,
 that contains Swift sources and a `Package.swift` manifest file at its root.
 
-### Create a library package
+### Creating a Library Package
 
 A library package contains code which other packages can use and depend on. To
-get started, create a directory and run `swift package init` command:
+get started, create a directory and run `swift package init`:
 
     $ mkdir MyPackage
     $ cd MyPackage
@@ -50,10 +50,10 @@ target and the corresponding test target to write unit tests. A library package
 can contain multiple targets as explained in [Target Format
 Reference](PackageDescription.md#target).
 
-### Create an executable package
+### Creating an Executable Package
 
-SwiftPM can create native binary which can be executed from command line. To
-get started: 
+SwiftPM can create native binaries which can be executed from the command line. To
+get started:
 
     $ mkdir MyExecutable
     $ cd MyExecutable
@@ -63,16 +63,16 @@ get started:
     Hello, World!
 
 This creates the directory structure needed for executable targets. Any target
-can be turned into a executable target if there is a `main.swift` present in
-its sources. Complete reference for layout is
+can be turned into a executable target if there is a `main.swift` file present in
+its sources. The complete reference for layout is
 [here](PackageDescription.md#target).
 
-## Define Dependencies
+## Defining Dependencies
 
-To depend on a package, define the dependency and the version in manifest of
-your package, and add a product from that package as a dependency. For e.g. if
+To depend on a package, define the dependency and the version in the manifest of
+your package, and add a product from that package as a dependency, e.g., if
 you want to use https://github.com/apple/example-package-playingcard as
-a dependency, add the GitHub URL in dependencies of your `Package.swift`:
+a dependency, add the GitHub URL in the dependencies of `Package.swift`:
 
 ```swift
 import PackageDescription
@@ -97,7 +97,7 @@ let package = Package(
 
 Now you should be able to `import PlayingCard` in the `MyPackage` target.
 
-## Publish a package
+## Publishing a Package
 
 To publish a package, create and push a semantic version tag:
 
@@ -109,11 +109,11 @@ To publish a package, create and push a semantic version tag:
     $ git push origin master --tags
 
 Now other packages can depend on version 1.0.0 of this package using the github
-url.  
-Example of a published package:
+url.
+An example of a published package can be found here:
 https://github.com/apple/example-package-fisheryates
 
-## Require System Libraries
+## Requiring System Libraries
 
 You can link against system libraries using the package manager. To do so, there
 needs to be a special package for each system library that contains a modulemap
@@ -139,7 +139,7 @@ print(options)
 ```
 
 To `import Clibgit`, the package manager requires that the libgit2 library has
-been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.).  The
+been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.). The
 following files from the libgit2 system-package are of interest:
 
     /usr/local/lib/libgit2.dylib      # .so on Linux
@@ -172,7 +172,7 @@ let package = Package(
 ```
 
 The `pkgConfig` parameter helps SwiftPM in figuring out the include and library
-search paths for the system library.  Note: If you don't want to use the `pkgConfig`
+search paths for the system library. Note: If you don't want to use the `pkgConfig`
 parameter you can pass the path of a directory containing the library using the
 `-L` flag in commandline when building your app:
 
@@ -192,7 +192,7 @@ Edit `module.modulemap` so it consists of the following:
 > contains more “Swifty” function wrappers around the raw C interface.
 
 Packages are Git repositories, tagged with semantic versions, containing a
-`Package.swift` file at their root.  Initializing the package created a
+`Package.swift` file at their root. Initializing the package created a
 `Package.swift` file, but to make it a usable package we need to initialize a
 Git repository with at least one version tag:
 
@@ -217,7 +217,7 @@ let package = Package(
 
 Here we used a relative URL to speed up initial development. If you push your
 module map package to a public repository you must change the above URL
-reference so that it is a full, qualified git URL.
+reference so that it is a full, qualified Git URL.
 
 Now if we type `swift build` in our example app directory we will create an
 executable:
@@ -228,9 +228,8 @@ executable:
     git_repository_init_options(version: 0, flags: 0, mode: 0, workdir_path: nil, description: nil, template_path: nil, initial_head: nil, origin_url: nil)
     example$
 
-
 Let’s see another example of using [IJG’s JPEG library](http://www.ijg.org)
-from an executable which has some caveats.
+from an executable, which has some caveats.
 
 Create a directory called `example`, and initialize it as a package that builds
 an executable:
@@ -248,7 +247,7 @@ let jpegData = jpeg_common_struct()
 print(jpegData)
 ```
 
-Install JPEG library using a system packager e.g `$ brew install jpeg`
+Install JPEG library using a system packager, e.g, `$ brew install jpeg`
 
 Create a directory called `CJPEG` next to the `example` directory and
 initialize it as a package that builds a system module:
@@ -273,8 +272,9 @@ it.
 
     $ echo '#include <stdio.h>' > shim.h 
 
-This is because `jpeglib.h` is not a correct module. You can also add `#include
-<stdio.h>` to the top of jpeglib.h and avoid creating `shim.h` file.
+This is because `jpeglib.h` is not a correct module, that is, it does not contain
+the required line `#include <stdio.h>`. Alternatively, you can add `#include <stdio.h>`
+to the top of jpeglib.h to avoid creating the `shim.h` file.
 
 Create a Git repository and tag it:
 
@@ -306,9 +306,9 @@ executable:
     jpeg_common_struct(err: nil, mem: nil, progress: nil, client_data: nil, is_decompressor: 0, global_state: 0)
     example$
 
-We have to specify path where the libjpeg is present using `-Xlinker` because
-there is no pkg-config file for it. We plan to provide solution to avoid passing
-the flag in commandline.
+We have to specify the path where the libjpeg is present using `-Xlinker` because
+there is no pkg-config file for it. We plan to provide a solution to avoid passing
+the flag in the command line.
 
 ### Packages That Provide Multiple Libraries
 
@@ -339,28 +339,26 @@ in the module-map because the headers `foo/bar.h` and `foo/baz.h` both include
 `foo/foo.h`. It is very important however that those headers do include their
 dependent headers, otherwise when the modules are imported into Swift the
 dependent modules will not get imported automatically and link errors will
-happen. If these link errors occur to consumers of a package that consumes your
-package the link errors can be especially difficult to debug.
-
+happen. If these link errors occur for consumers of a package that consumes your
+package, the link errors can be especially difficult to debug.
 
 ### Cross-platform Module Maps
 
 Module maps must contain absolute paths, thus they are not cross-platform. We
-intend to provide a solution for this in the package manager. Long term we hope
-that system libraries and system packagers will provide module maps and thus
-this component of the package manager will become redundant.
+intend to provide a solution for this in the package manager. In the long term,
+we hope that system libraries and system packagers will provide module maps and
+thus this component of the package manager will become redundant.
 
 *Notably* the above steps will not work if you installed JPEG and JasPer with
-[Homebrew](http://brew.sh) since the files will be installed to `/usr/local` for
+[Homebrew](http://brew.sh) since the files will be installed to `/usr/local`. For
 now adapt the paths, but as said, we plan to support basic relocations like
 these.
-
 
 ### Module Map Versioning
 
 Version the module maps semantically. The meaning of semantic version is less
 clear here, so use your best judgement. Do not follow the version of the system
-library the module map represents, version the module map(s) independently.
+library the module map represents; version the module map(s) independently.
 
 Follow the conventions of system packagers; for example, the debian package for
 python3 is called python3, as there is not a single package for python and
@@ -377,7 +375,7 @@ compiled with `xz` support, but it is not required. To provide a package that
 uses libarchive with xz you must make a `CArchive+CXz` package that depends on
 `CXz` and provides `CArchive`.
 
-## Packaging legacy code
+## Packaging Legacy Code
 
 You may be working with code that builds both as a package and not. For example,
 you may be packaging a project that also builds with Xcode.
@@ -391,7 +389,7 @@ import Foundation
 #endif
 ```
 
-## Handling version-specific logic
+## Handling Version-specific Logic
 
 The package manager is designed to support packages which work with a variety of
 Swift project versions, including both the language and the package manager
@@ -399,8 +397,8 @@ version.
 
 In most cases, if you want to support multiple Swift versions in a package you
 should do so by using the language-specific version checks available in the
-source code itself. However, in some circumstances this may become unmanageable;
-in particular, when the package manifest itself cannot be written to be Swift
+source code itself. However, in some circumstances this may become unmanageable,
+specifically, when the package manifest itself cannot be written to be Swift
 version agnostic (for example, because it optionally adopts new package manager
 features not present in older versions).
 
@@ -408,7 +406,7 @@ The package manager has support for a mechanism to allow Swift version-specific
 customizations for the both package manifest and the package versions which will
 be considered.
 
-### Version-specific tag selection
+### Version-specific Tag Selection
 
 The tags which define the versions of the package available for clients to use
 can _optionally_ be suffixed with a marker in the form of `@swift-3`. When the
@@ -436,8 +434,8 @@ This feature is intended for use in the following scenarios:
    same version numbers, but this requires substantial differences in the code.
    In this case, the author can maintain parallel tag sets for both versions.
 
-It is *not* expected the packages would ever use this feature unless absolutely
-necessary to support existing clients. In particular, packages *should not*
+It is *not* expected that the packages would ever use this feature unless absolutely
+necessary to support existing clients. Specifically, packages *should not*
 adopt this syntax for tagging versions supporting the _latest GM_ Swift
 version.
 
@@ -448,7 +446,7 @@ order of preference:
 2. `MAJOR.MINOR` (e.g., `1.2.0@swift-3.1`)
 3. `MAJOR` (e.g., `1.2.0@swift-3`)
 
-### Version-specific manifest selection
+### Version-specific Manifest Selection
 
 The package manager will additionally look for a version-specific marked
 manifest version when loading the particular version of a package, by searching
@@ -461,7 +459,7 @@ substantively different manifest file for this to be viable (e.g., due to
 changes in the manifest API).
 
 It is *not* expected the packages would ever use this feature unless absolutely
-necessary to support existing clients. In particular, packages *should not*
+necessary to support existing clients. Specifically, packages *should not*
 adopt this syntax for tagging versions supporting the _latest GM_ Swift
 version.
 
@@ -469,44 +467,44 @@ In case the current Swift version doesn't match any version-specific manifest,
 the package manager will pick the manifest with the most compatible tools
 version. For example, if there are three manifests:
 
-Package.swift (tools version 3.0)
-Package@swift-4.swift (tools version 4.0)
-Package@swift-4.2.swift (tools version 4.2)
+`Package.swift` (tools version 3.0)  
+`Package@swift-4.swift` (tools version 4.0)  
+`Package@swift-4.2.swift` (tools version 4.2)  
 
-The package manager will pick Package.swift on Swift 3, Package@swift-4.swift on
-Swift 4, Package@swift-4.2.swift on Swift 4.2 and above because its tools
+The package manager will pick `Package.swift` on Swift 3, `Package@swift-4.swift` on
+Swift 4, and `Package@swift-4.2.swift` on Swift 4.2 and above because its tools
 version will be most compatible with future version of the package manager.
 
-## Editable Packages
+## Editing a Package
 
 Swift package manager supports editing dependencies, when your work requires
 making a change to one of your dependencies (for example, to fix a bug, or add
-a new API). The package manager moves the dependency into a location under
+a new API). The package manager moves the dependency into a location under the
 `Packages/` directory where it can be edited.
 
 For the packages which are in the editable state, `swift build` will always use
-the exact sources in this directory to build, regardless of its state, git
+the exact sources in this directory to build, regardless of their state, Git
 repository status, tags, or the tag desired by dependency resolution. In other
 words, this will _just build_ against the sources that are present. When an
 editable package is present, it will be used to satisfy all instances of that
 package in the dependency graph. It is possible to edit all, some, or none of
 the packages in a dependency graph, without restriction.
 
-Editable packages are best used to do experimentation with dependency code or
+Editable packages are best used to do experimentation with dependency code, or to
 create and submit a patch in the dependency owner's repository (upstream).
 There are two ways to put a package in editable state:
 
     $ swift package edit Foo --branch bugFix
 
-This will create a branch called `bugFix` from currently resolved version and
-put the dependency Foo in `Packages/` directory. 
+This will create a branch called `bugFix` from the currently resolved version and
+put the dependency `Foo` in the `Packages/` directory.
 
     $ swift package edit Foo --revision 969c6a9
 
-This is similar to previous version except that the Package Manager will leave
+This is similar to the previous version, except that the Package Manager will leave
 the dependency at a detached HEAD on the specified revision.
 
-Note: If branch or revision option is not provided, the Package Manager will
+Note: If the branch or revision option is not provided, the Package Manager will
 checkout the currently resolved version on a detached HEAD.
 
 Once a package is in an editable state, you can navigate to the directory
@@ -518,7 +516,7 @@ You can end editing a package using `unedit` command:
     $ swift package unedit Foo
 
 This will remove the edited dependency from `Packages/` and put the originally
-resolved version back. 
+resolved version back.
 
 This command fails if there are uncommited changes or changes which are not
 pushed to the remote repository. If you want to discard these changes and
@@ -526,12 +524,11 @@ unedit, you can use the `--force` option:
 
     $ swift package unedit Foo --force
 
-
-## Top of Tree Development
+### Top of Tree Development
 
 This feature allows overriding a dependency with a local checkout on the
 filesystem. This checkout is completely unmanaged by the package manager and
-will be used as-is. The only requirement is — the package name in the
+will be used as-is. The only requirement is that the package name in the
 overridden checkout should not change. This is extremely useful when developing
 multiple packages in tandem or when working on packages alongside an
 application.
@@ -540,16 +537,16 @@ The command to attach (or create) a local checkout is:
 
     $ swift package edit <package name> --path <path/to/dependency>
 
-For e.g., if `Foo` depends on `Bar` and you have a checkout of `Bar` at
+For example, if `Foo` depends on `Bar` and you have a checkout of `Bar` at
 `/workspace/bar`:
 
     foo$ swift package edit Bar --path /workspace/bar
 
 A checkout of `Bar` will be created if it doesn't exist at the given path. If
-checkout a exists, package manager will validate the package name at the given
+a checkout exists, package manager will validate the package name at the given
 path and attach to it.
 
-The package manager will also create a symlink in `Packages/` directory to the
+The package manager will also create a symlink in the `Packages/` directory to the
 checkout path.
 
 Use unedit command to stop using the local checkout:
@@ -558,23 +555,23 @@ Use unedit command to stop using the local checkout:
     # Example:
     $ swift package unedit Bar
 
-## Resolved versions (Package.resolved file)
+## Resolving Versions (Package.resolved File)
 
-The package manager records the result of dependency resolution in
-a `Package.resolved` file in the top-level package, and when this file is
-already present in the top-level package it is used when performing dependency
+The package manager records the result of dependency resolution in a
+`Package.resolved` file in the top-level of the package, and when this file is
+already present in the top-level, it is used when performing dependency
 resolution, rather than the package manager finding the latest eligible version
 of each package. Running `swift package update` updates all dependencies to the
-latest eligible versions and update the `Package.resolved` file accordingly.
+latest eligible versions and updates the `Package.resolved` file accordingly.
 
 Resolved versions will always be recorded by the package manager. Some users may
 choose to add the Package.resolved file to their package's .gitignore file. When
 this file is checked in, it allows a team to coordinate on what versions of the
 dependencies they should use. If this file is gitignored, each user will
-separately choose when to get new versions based on when they run the swift
-package update command, and new users will start with the latest eligible
+separately choose when to get new versions based on when they run the `swift
+package update` command, and new users will start with the latest eligible
 version of each dependency. Either way, for a package which is a dependency of
-other packages (e.g. a library package), that package's `Package.resolved` file
+other packages (e.g., a library package), that package's `Package.resolved` file
 will not have any effect on its client packages.
 
 The `swift package resolve` command resolves the dependencies, taking into
@@ -582,24 +579,24 @@ account the current version restrictions in the `Package.swift` manifest and
 `Package.resolved` resolved versions file, and issuing an error if the graph
 cannot be resolved. For packages which have previously resolved versions
 recorded in the `Package.resolved` file, the resolve command will resolve to
-those versions as long as they are still eligible. If the resolved versions file
-changes (e.g.  because a teammate pushed a new version of the file) the next
+those versions as long as they are still eligible. If the resolved version's file
+changes (e.g., because a teammate pushed a new version of the file) the next
 resolve command will update packages to match that file. After a successful
 resolve command, the checked out versions of all dependencies and the versions
 recorded in the resolved versions file will match. In most cases the resolve
 command will perform no changes unless the `Package.swift` manifest or
 `Package.resolved` file have changed.
 
-Most SwiftPM commands will implicitly invoke the swift package resolve
+Most SwiftPM commands will implicitly invoke the `swift package resolve`
 functionality before running, and will cancel with an error if dependencies
 cannot be resolved.
 
-## Swift Tools Version
+## Setting the Swift Tools Version
 
 The tools version declares the minimum version of the Swift tools required to
 use the package, determines what version of the PackageDescription API should
-be used in the Package.swift manifest, and determines which Swift language
-compatibility version should be used to parse the Package.swift manifest.
+be used in the `Package.swift` manifest, and determines which Swift language
+compatibility version should be used to parse the `Package.swift` manifest.
 
 When resolving package dependencies, if the version of a dependency that would
 normally be chosen specifies a Swift tools version which is greater than the
@@ -612,19 +609,19 @@ use, a dependency resolution error will result.
 ### Swift Tools Version Specification
 
 The Swift tools version is specified by a special comment in the first line of
-the Package.swift manifest. To specify a tools version, a Package.swift file
+the `Package.swift` manifest. To specify a tools version, a `Package.swift` file
 must begin with the string `// swift-tools-version:`, followed by a version
 number specifier.
 
 The version number specifier follows the syntax defined by semantic versioning
 2.0, with an amendment that the patch version component is optional and
-considered to be 0 if not specified. The semver syntax allows for an optional
+considered to be 0 if not specified. The `semver` syntax allows for an optional
 pre-release version component or build version component; those components will
-be completely ignored by the package manager currently.  
+be completely ignored by the package manager currently.
 After the version number specifier, an optional `;` character may be present;
 it, and anything else after it until the end of the first line, will be ignored
 by this version of the package manager, but is reserved for the use of future
-versions of the package manager. 
+versions of the package manager.
 
 Some Examples:
 
@@ -650,59 +647,59 @@ The following Swift tools version commands are supported:
 
 ## Testing
 
-Use `swift test` tool to run tests of a Swift package. For more information on
+Use the `swift test` tool to run the tests of a Swift package. For more information on
 the test tool, run `swift test --help`.
 
 ## Running
 
-Use `swift run [executable [arguments...]]` tool to run an executable product of a Swift
+Use the `swift run [executable [arguments...]]` tool to run an executable product of a Swift
 package. The executable's name is optional when running without arguments and when there
 is only one executable product. For more information on the run tool, run
 `swift run --help`.
 
-## Build Configurations
+## Setting the Build Configuration
 
 SwiftPM allows two build configurations: Debug (default) and Release.
 
 ### Debug
 
-By default, running `swift build` will build in debug configuration.
+By default, running `swift build` will build in its debug configuration.
 Alternatively, you can also use `swift build -c debug`. The build artifacts are
-located in directory called `debug` under build folder.  A Swift target is built
-with following flags in debug mode:  
+located in a directory called `debug` under the build folder. A Swift target is built
+with the following flags in debug mode:
 
 * `-Onone`: Compile without any optimization.
 * `-g`: Generate debug information.
-* `-enable-testing`: Enable Swift compiler's testability feature.
+* `-enable-testing`: Enable the Swift compiler's testability feature.
 
-A C language target is build with following flags in debug mode:
+A C language target is built with the following flags in debug mode:
 
 * `-O0`: Compile without any optimization.
 * `-g`: Generate debug information.
 
 ### Release
 
-To build in release mode, type: `swift build -c release`. The build artifacts
-are located in directory called `release` under build folder.  A Swift target is
-built with following flags in release mode:  
+To build in release mode, type `swift build -c release`. The build artifacts
+are located in directory named `release` under the build folder. A Swift target is
+built with following flags in release mode:
 
 * `-O`: Compile with optimizations.
 * `-whole-module-optimization`: Optimize input files (per module) together
   instead of individually.
 
-A C language target is build with following flags in release mode:
+A C language target is built with following flags in release mode:
 
 * `-O2`: Compile with optimizations.
 
 ## Depending on Apple Modules
 
 Swift Package Manager includes a build system that can build for macOS and Linux.
-Xcode 11 integrates with libSwiftPM to provide support for iOS, watchOS, and tvOS platforms.
+Xcode 11 integrates with `libSwiftPM` to provide support for iOS, watchOS, and tvOS platforms.
 
-## C language targets
+## Creating C Language Targets
 
-The C language targets are similar to Swift targets except that the C language
-libraries should contain a directory named `include` to hold the public headers.  
+C language targets are similar to Swift targets, except that the C language
+libraries should contain a directory named `include` to hold the public headers.
 
 To allow a Swift target to import a C language target, add a [target
 dependency](#targets) in the manifest file. Swift Package Manager will
@@ -710,22 +707,22 @@ automatically generate a modulemap for each C language library target for these
 3 cases:
 
 * If `include/Foo/Foo.h` exists and `Foo` is the only directory under the
-  include directory then `include/Foo/Foo.h` becomes the umbrella header.
+  include directory, then `include/Foo/Foo.h` becomes the umbrella header.
 
 * If `include/Foo.h` exists and `include` contains no other subdirectory then
   `include/Foo.h` becomes the umbrella header.
 
-* Otherwise if the `include` directory only contains header files and no other
+* Otherwise, if the `include` directory only contains header files and no other
   subdirectory, it becomes the umbrella directory.
 
 In case of complicated `include` layouts, a custom `module.modulemap` can be
 provided inside `include`. SwiftPM will error out if it can not generate
-a modulemap w.r.t the above rules.
+a modulemap with respect to the above rules.
 
-For executable targets, only one valid C language main file is allowed i.e. it
+For executable targets, only one valid C language main file is allowed, e.g., it
 is invalid to have `main.c` and `main.cpp` in the same target.
 
-## Shell completion scripts
+## Using Shell Completion Scripts
 
 SwiftPM ships with completion scripts for both Bash and ZSH. These files should be generated in order to use them.
 
@@ -744,7 +741,7 @@ Alternatively, add the following commands to your `~/.bash_profile` file to dire
 ```bash
 # Source Swift completion
 if [ -n "`which swift`" ]; then
-	eval "`swift package completion-tool generate-bash-script`"
+    eval "`swift package completion-tool generate-bash-script`"
 fi
 ```
 
