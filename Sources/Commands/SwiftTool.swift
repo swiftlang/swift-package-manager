@@ -32,6 +32,19 @@ struct ChdirDeprecatedDiagnostic: DiagnosticData {
     )
 }
 
+struct UnsupportedFlagDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: UnsupportedFlagDiagnostic.self,
+        name: "org.swift.diags.\(UnsupportedFlagDiagnostic.self)",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< { $0.flag } <<< "is an *unsupported* option which can be removed at any time; do not rely on it"
+        }
+    )
+
+    let flag: String
+}
+
 /// Diagnostic error when the tool could not find a named product.
 struct ProductNotFoundDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
@@ -186,7 +199,15 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Get the current workspace root object.
     func getWorkspaceRoot() throws -> PackageGraphRootInput {
-        return try PackageGraphRootInput(packages: [getPackageRoot()])
+        let packages: [AbsolutePath]
+
+        if let workspace = options.multirootPackageDataFile {
+            packages = try XcodeWorkspaceLoader(diagnostics: diagnostics).load(workspace: workspace)
+        } else {
+            packages = [try getPackageRoot()]
+        }
+
+        return PackageGraphRootInput(packages: packages)
     }
 
     /// Path to the build directory.
@@ -280,6 +301,11 @@ public class SwiftTool<Options: ToolOptions> {
                 option: "--package-path", kind: PathArgument.self,
                 usage: "Change working directory before any other operation"),
             to: { $0.packagePath = $1.path })
+
+        binder.bind(
+            option: parser.add(
+                option: "--multiroot-data-file", kind: PathArgument.self, usage: nil),
+            to: { $0.multirootPackageDataFile = $1.path })
 
         binder.bindArray(
             option: parser.add(option: "--sanitize", kind: [Sanitizer].self,
@@ -377,6 +403,8 @@ public class SwiftTool<Options: ToolOptions> {
             // Parse the result.
             let result = try parser.parse(args)
 
+            try Self.postprocessArgParserResult(result: result, diagnostics: diagnostics)
+
             var options = Options()
             try binder.fill(parseResult: result, into: &options)
 
@@ -427,9 +455,15 @@ public class SwiftTool<Options: ToolOptions> {
         self.buildPath = getEnvBuildPath(workingDir: cwd) ??
             customBuildPath ??
             (packageRoot ?? cwd).appending(component: ".build")
+    }
 
-        if options.chdir != nil {
+    static func postprocessArgParserResult(result: ArgumentParser.Result, diagnostics: DiagnosticsEngine) throws {
+        if result.exists(arg: "--chdir") || result.exists(arg: "-C") {
             diagnostics.emit(data: ChdirDeprecatedDiagnostic())
+        }
+
+        if result.exists(arg: "--multiroot-data-file") {
+            diagnostics.emit(data: UnsupportedFlagDiagnostic(flag: "--multiroot-data-file"))
         }
     }
 
@@ -437,7 +471,17 @@ public class SwiftTool<Options: ToolOptions> {
         fatalError("Must be implemented by subclasses")
     }
 
+    func editablesPath() throws -> AbsolutePath {
+        if let multiRootPackageDataFile = options.multirootPackageDataFile {
+            return multiRootPackageDataFile.appending(component: "Packages")
+        }
+        return try getPackageRoot().appending(component: "Packages")
+    }
+
     func resolvedFilePath() throws -> AbsolutePath {
+        if let multiRootPackageDataFile = options.multirootPackageDataFile {
+            return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
+        }
         return try getPackageRoot().appending(component: "Package.resolved")
     }
 
@@ -448,6 +492,9 @@ public class SwiftTool<Options: ToolOptions> {
         }
 
         // Otherwise, use the default path.
+        if let multiRootPackageDataFile = options.multirootPackageDataFile {
+            return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
+        }
         return try getPackageRoot().appending(components: ".swiftpm", "config")
     }
 
@@ -471,11 +518,10 @@ public class SwiftTool<Options: ToolOptions> {
             return workspace
         }
         let delegate = ToolWorkspaceDelegate(self.stdoutStream)
-        let rootPackage = try getPackageRoot()
         let provider = GitRepositoryProvider(processSet: processSet)
         let workspace = Workspace(
             dataPath: buildPath,
-            editablesPath: rootPackage.appending(component: "Packages"),
+            editablesPath: try editablesPath(),
             pinsFile: try resolvedFilePath(),
             manifestLoader: try getManifestLoader(),
             toolsVersionLoader: ToolsVersionLoader(),
