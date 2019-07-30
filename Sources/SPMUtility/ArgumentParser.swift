@@ -613,6 +613,11 @@ public final class ArgumentParser {
             return typedValue
         }
 
+        /// Returns true if the given arg is present in the results.
+        public func exists(arg: String) -> Bool {
+            return results[arg] != nil
+        }
+
         /// Get the subparser which was chosen for the given parser.
         public func subparser(_ parser: ArgumentParser) -> String? {
             if parser === self.parser {

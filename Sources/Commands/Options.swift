@@ -29,6 +29,9 @@ public class ToolOptions {
     /// The custom working directory that the tool should operate in.
     public var packagePath: AbsolutePath?
 
+    /// The path to the file containing multiroot package data. This is currently Xcode's workspace file.
+    public var multirootPackageDataFile: AbsolutePath?
+
     /// Enable prefetching in resolver which will kick off parallel git cloning.
     public var shouldEnableResolverPrefetching = true
 
