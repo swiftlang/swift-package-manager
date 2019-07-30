@@ -65,6 +65,8 @@ final class XcodeWorkspaceLoader {
 
             if fs.exists(path.appending(component: Manifest.filename)) {
                 result.append(path)
+            } else {
+                diagnostics.emit(data: LoaderWarning(message: "ignoring non-package fileref \(path)"))
             }
         }
         return result

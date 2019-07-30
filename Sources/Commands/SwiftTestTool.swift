@@ -85,6 +85,7 @@ struct InvalidNumWorkersValueDiagnostic: DiagnosticData {
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
     case testsExecutableNotFound
+    case multipleTestProducts([String])
 }
 
 extension TestError: CustomStringConvertible {
@@ -94,6 +95,8 @@ extension TestError: CustomStringConvertible {
             return "no tests found; create a target in the 'Tests' directory"
         case .invalidListTestJSONData:
             return "invalid list test JSON structure"
+        case .multipleTestProducts(let products):
+            return "found multiple test products: \(products.joined(separator: ", ")); use --test-product to select one"
         }
     }
 }
@@ -151,6 +154,10 @@ public class TestToolOptions: ToolOptions {
 
     /// Path where the xUnit xml file should be generated.
     var xUnitOutput: AbsolutePath?
+
+    /// The test product to use. This is useful when there are multiple test products
+    /// to choose from (usually in multiroot packages).
+    public var testProduct: String?
 
     /// Returns the test case specifier if overridden in the env.
     private func testCaseSpecifierOverride() -> TestCaseSpecifier? {
@@ -426,8 +433,25 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             try build(plan: buildPlan, subset: .allIncludingTests)
         }
 
-        guard let testProduct = buildPlan.buildProducts.first(where: { $0.product.type == .test }) else {
+        // Find the test product.
+        let testProducts = buildPlan.buildProducts.filter{ $0.product.type == .test }
+        let testProduct: ProductBuildDescription
+        switch testProducts.count {
+        case 0:
             throw TestError.testsExecutableNotFound
+
+        case 1:
+            testProduct = testProducts[0]
+
+        default:
+            guard let testProductName = options.testProduct else {
+                throw TestError.multipleTestProducts(testProducts.map{ $0.product.name })
+            }
+            guard let selectedTestProduct = testProducts.first(where: { $0.product.name == testProductName }) else {
+                throw TestError.testsExecutableNotFound
+            }
+
+            testProduct = selectedTestProduct
         }
 
         // Go up the folder hierarchy until we find the .xctest bundle.
@@ -488,6 +512,10 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             option: parser.add(option: "--show-codecov-path", kind: Bool.self,
                 usage: "Print the path of the exported code coverage JSON file"),
             to: { $0.shouldPrintCodeCovPath = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--test-product", kind: String.self, usage: nil),
+            to: { $0.testProduct = $1 })
     }
 
     /// Locates XCTestHelper tool inside the libexec directory and bin directory.
