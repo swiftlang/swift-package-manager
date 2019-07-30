@@ -893,60 +893,62 @@ public class BuildPlan {
     private static func planLinuxMain(
         _ buildParameters: BuildParameters,
         _ graph: PackageGraph
-    ) throws -> (ResolvedTarget, SwiftTargetBuildDescription)? {
+    ) throws -> [(ResolvedProduct, SwiftTargetBuildDescription)] {
         guard buildParameters.triple.isLinux() else {
-            return nil
+            return []
         }
 
-        // Currently, there can be only one test product in a package graph.
-        guard let testProduct = graph.allProducts.first(where: { $0.type == .test }) else {
-            return nil
-        }
+        var result: [(ResolvedProduct, SwiftTargetBuildDescription)] = []
 
-        if !buildParameters.enableTestDiscovery {
-            guard let linuxMainTarget = testProduct.linuxMainTarget else {
-                throw Error.missingLinuxMain
+        for testProduct in graph.allProducts where testProduct.type == .test {
+            // Create the target description from the linux main if test discovery is off.
+            if !buildParameters.enableTestDiscovery {
+                guard let linuxMainTarget = testProduct.linuxMainTarget else {
+                    throw Error.missingLinuxMain
+                }
+
+                let desc = SwiftTargetBuildDescription(
+                    target: linuxMainTarget,
+                    buildParameters: buildParameters,
+                    isTestTarget: true
+                )
+
+                result.append((testProduct, desc))
+                continue
             }
 
-            let desc = SwiftTargetBuildDescription(
+            // We'll generate sources containing the test names as part of the build process.
+            let derivedTestListDir = buildParameters.buildPath.appending(components: "\(testProduct.name)Testlist.derived")
+            let mainFile = derivedTestListDir.appending(component: "main.swift")
+
+            var paths: [AbsolutePath] = []
+            paths.append(mainFile)
+            for testTarget in testProduct.targets {
+                let path = derivedTestListDir.appending(components: testTarget.name + ".swift")
+                paths.append(path)
+            }
+
+            let src = Sources(paths: paths, root: derivedTestListDir)
+
+            let swiftTarget = SwiftTarget(
+                testDiscoverySrc: src,
+                name: testProduct.name,
+                dependencies: testProduct.underlyingProduct.targets)
+            let linuxMainTarget = ResolvedTarget(
+                target: swiftTarget,
+                dependencies: testProduct.targets.map(ResolvedTarget.Dependency.target)
+            )
+
+            let target = SwiftTargetBuildDescription(
                 target: linuxMainTarget,
                 buildParameters: buildParameters,
-                isTestTarget: true
+                isTestTarget: true,
+                testDiscoveryTarget: true
             )
-            return (linuxMainTarget, desc)
+
+            result.append((testProduct, target))
         }
-
-        // We'll generate sources containing the test names as part of the build process.
-        let derivedTestListDir = buildParameters.buildPath.appending(components: "testlist.derived")
-        let mainFile = derivedTestListDir.appending(component: "main.swift")
-
-        var paths: [AbsolutePath] = []
-        paths.append(mainFile)
-        let testTargets = graph.rootPackages.flatMap{ $0.targets }.filter{ $0.type == .test }
-        for testTarget in testTargets {
-            let path = derivedTestListDir.appending(components: testTarget.name + ".swift")
-            paths.append(path)
-        }
-
-        let src = Sources(paths: paths, root: derivedTestListDir)
-
-        let swiftTarget = SwiftTarget(
-            testDiscoverySrc: src,
-            name: testProduct.name,
-            dependencies: testProduct.underlyingProduct.targets)
-        let linuxMainTarget = ResolvedTarget(
-            target: swiftTarget,
-            dependencies: testProduct.targets.map(ResolvedTarget.Dependency.target)
-        )
-
-        let target = SwiftTargetBuildDescription(
-            target: linuxMainTarget,
-            buildParameters: buildParameters,
-            isTestTarget: true,
-            testDiscoveryTarget: true
-        )
-
-        return (linuxMainTarget, target)
+        return result
     }
 
     /// Create a build plan with build parameters and a package graph.
@@ -1003,9 +1005,10 @@ public class BuildPlan {
         }
 
         // Plan the linux main target.
-        if let result = try Self.planLinuxMain(buildParameters, graph) {
-            targetMap[result.0] = .swift(result.1)
-            self.linuxMainTarget = result.0
+        let results = try Self.planLinuxMain(buildParameters, graph)
+        for result in results {
+            targetMap[result.1.target] = .swift(result.1)
+            linuxMainMap[result.0] = result.1.target
         }
 
         var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
@@ -1025,7 +1028,7 @@ public class BuildPlan {
         try plan()
     }
 
-    private var linuxMainTarget: ResolvedTarget?
+    private var linuxMainMap: [ResolvedProduct: ResolvedTarget] = [:]
 
     static func validateDeploymentVersionOfProductDependency(
         _ product: ResolvedProduct,
@@ -1173,7 +1176,7 @@ public class BuildPlan {
 
         if buildParameters.triple.isLinux() {
             if product.type == .test {
-                linuxMainTarget.map({ staticTargets.append($0) })
+                linuxMainMap[product].map{ staticTargets.append($0) }
             }
         }
 
