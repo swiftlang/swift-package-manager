@@ -1176,16 +1176,21 @@ def main():
             mkdir_p(libswiftdir)
             mkdir_p(libincludedir)
 
-            # Add libFoundation.
-            symlink_force(os.path.join(args.foundation_path, 'libFoundation.so'), libswiftdir)
+            for module in ["Foundation", "FoundationNetworking", "FoundationXML"]:
+                # Add the library.
+                symlink_force(os.path.join(args.foundation_path, 'lib' + module + '.so'), libswiftdir)
 
-            # Add Foundation's swiftmodule.
-            for module_file in ["Foundation.swiftmodule", "Foundation.swiftdoc"]:
-                symlink_force(os.path.join(args.foundation_path, 'swift', module_file), libincludedir)
+                # Add Foundation's swiftmodule.
+                for extension in [".swiftmodule", ".swiftdoc"]:
+                    symlink_force(os.path.join(args.foundation_path, 'swift', module + extension), libincludedir)
 
             # Add CoreFoundation "framework". This just contains the header and the modulemap.
             core_foundation_path = os.path.join(args.foundation_path,  "CoreFoundation.framework")
             symlink_force(core_foundation_path, libincludedir)
+            cf_url_session_path = os.path.join(args.foundation_path,  "CFURLSessionInterface.framework")
+            symlink_force(cf_url_session_path, libincludedir)
+            cf_xml_path = os.path.join(args.foundation_path,  "CFXMLInterface.framework")
+            symlink_force(cf_xml_path, libincludedir)
 
             # Add symlinks for dispatch.
             symlink_force(os.path.join(args.libdispatch_build_dir, 'libBlocksRuntime.so'), libswiftdir)
