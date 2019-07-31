@@ -72,31 +72,25 @@ func print(error: Any) {
 
 func print(diagnostic: Diagnostic, stdoutStream: OutputByteStream) {
 
-    let writer: InteractiveWriter
-
-    if diagnostic.behavior == .note {
-        writer = InteractiveWriter(stream: stdoutStream)
-    } else {
-        writer = InteractiveWriter.stderr
-    }
+    let writer = InteractiveWriter.stderr
 
     if !(diagnostic.location is UnknownLocation) {
-        writer.write(diagnostic.location.localizedDescription)
+        writer.write(diagnostic.location.description)
         writer.write(": ")
     }
 
-    switch diagnostic.behavior {
+    switch diagnostic.message.behavior {
     case .error:
         writer.write("error: ", inColor: .red, bold: true)
     case .warning:
         writer.write("warning: ", inColor: .yellow, bold: true)
     case .note:
-        break
+        writer.write("note: ", inColor: .yellow, bold: true)
     case .ignored:
-        return
+        break
     }
 
-    writer.write(diagnostic.localizedDescription)
+    writer.write(diagnostic.description)
     writer.write("\n")
 }
 

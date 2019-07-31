@@ -14,177 +14,7 @@ import SPMLLBuild
 import Dispatch
 import Foundation
 
-/// Diagnostic error when a llbuild command encounters an error.
-struct LLBuildCommandErrorDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildCommandErrorDiagnostic.self,
-        name: "org.swift.diags.llbuild-command-error",
-        defaultBehavior: .error,
-        description: { $0 <<< { $0.message } }
-    )
-
-    let message: String
-}
-
-/// Diagnostic warning when a llbuild command encounters a warning.
-struct LLBuildCommandWarningDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildCommandWarningDiagnostic.self,
-        name: "org.swift.diags.llbuild-command-warning",
-        defaultBehavior: .warning,
-        description: { $0 <<< { $0.message } }
-    )
-
-    let message: String
-}
-
-/// Diagnostic note when a llbuild command encounters a warning.
-struct LLBuildCommandNoteDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildCommandNoteDiagnostic.self,
-        name: "org.swift.diags.llbuild-command-note",
-        defaultBehavior: .note,
-        description: { $0 <<< { $0.message } }
-    )
-
-    let message: String
-}
-
-/// Diagnostic error when llbuild detects a cycle.
-struct LLBuildCycleErrorDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildCycleErrorDiagnostic.self,
-        name: "org.swift.diags.llbuild-cycle",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "build cycle detected: "
-            $0 <<< { $0.rules.map({ $0.key }).joined(separator: ", ") }
-        }
-    )
-
-    let rules: [BuildKey]
-}
-
-/// Diagnostic error from llbuild
-struct LLBuildErrorDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildErrorDiagnostic.self,
-        name: "org.swift.diags.llbuild-error",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< { $0.message }
-        }
-    )
-
-    let message: String
-}
-
-/// Diagnostic warning from llbuild
-struct LLBuildWarningDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildWarningDiagnostic.self,
-        name: "org.swift.diags.llbuild-warning",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< { $0.message }
-        }
-    )
-
-    let message: String
-}
-
-/// Diagnostic note from llbuild
-struct LLBuildNoteDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildNoteDiagnostic.self,
-        name: "org.swift.diags.llbuild-note",
-        defaultBehavior: .note,
-        description: {
-            $0 <<< { $0.message }
-        }
-    )
-
-    let message: String
-}
-
-/// Missing inptus from LLBuild
-struct LLBuildMissingInputs: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildMissingInputs.self,
-        name: "org.swift.diags.llbuild-missing-inputs",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "couldn't build "
-            $0 <<< { $0.output.key }
-            $0 <<< " because of missing inputs: "
-            $0 <<< { $0.inputs.map({ $0.key }).joined(separator: ", ") }
-        }
-    )
-
-    let output: BuildKey
-    let inputs: [BuildKey]
-}
-
-/// Multiple producers from LLBuild
-struct LLBuildMultipleProducers: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildMultipleProducers.self,
-        name: "org.swift.diags.llbuild-multiple-producers",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "couldn't build "
-            $0 <<< { $0.output.key }
-            $0 <<< " because of multiple producers: "
-            $0 <<< { $0.commands.map({ $0.description }).joined(separator: ", ") }
-        }
-    )
-
-    let output: BuildKey
-    let commands: [SPMLLBuild.Command]
-}
-
-/// Command error from LLBuild
-struct LLBuildCommandError: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildCommandError.self,
-        name: "org.swift.diags.llbuild-command-error",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "command "
-            $0 <<< { $0.command.description }
-            $0 <<< " failed: "
-            $0 <<< { $0.message }
-        }
-    )
-
-    let command: SPMLLBuild.Command
-    let message: String
-}
-
-/// Swift Compiler output parsing error
-struct SwiftCompilerOutputParsingError: DiagnosticData {
-    static let id = DiagnosticID(
-        type: SwiftCompilerOutputParsingError.self,
-        name: "org.swift.diags.swift-compiler-output-parsing-error",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "failed parsing the Swift compiler output: "
-            $0 <<< { $0.message }
-        }
-    )
-
-    let message: String
-}
-
-extension SPMLLBuild.Diagnostic: DiagnosticDataConvertible {
-    public var diagnosticData: DiagnosticData {
-        switch kind {
-        case .error: return LLBuildErrorDiagnostic(message: message)
-        case .warning: return LLBuildWarningDiagnostic(message: message)
-        case .note: return LLBuildNoteDiagnostic(message: message)
-        }
-    }
-}
+typealias Diagnostic = Basic.Diagnostic
 
 class CustomLLBuildCommand: ExternalCommand {
     let ctx: BuildExecutionContext
@@ -425,7 +255,15 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     }
 
     public func handleDiagnostic(_ diagnostic: SPMLLBuild.Diagnostic) {
-        diagnostics.emit(diagnostic)
+        switch diagnostic.kind {
+        case .note:
+            // FIXME: This isn't correct.
+            diagnostics.emit(warning: diagnostic.message)
+        case .warning:
+            diagnostics.emit(warning: diagnostic.message)
+        case .error:
+            diagnostics.emit(error: diagnostic.message)
+        }
     }
 
     public func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
@@ -470,15 +308,16 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     }
 
     public func commandHadError(_ command: SPMLLBuild.Command, message: String) {
-        diagnostics.emit(data: LLBuildCommandErrorDiagnostic(message: message))
+        diagnostics.emit(error: message)
     }
 
     public func commandHadNote(_ command: SPMLLBuild.Command, message: String) {
-        diagnostics.emit(data: LLBuildCommandNoteDiagnostic(message: message))
+        // FIXME: This is wrong.
+        diagnostics.emit(warning: message)
     }
 
     public func commandHadWarning(_ command: SPMLLBuild.Command, message: String) {
-        diagnostics.emit(data: LLBuildCommandWarningDiagnostic(message: message))
+        diagnostics.emit(warning: message)
     }
 
     public func commandCannotBuildOutputDueToMissingInputs(
@@ -486,18 +325,18 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         output: BuildKey,
         inputs: [BuildKey]
     ) {
-        diagnostics.emit(data: LLBuildMissingInputs(output: output, inputs: inputs))
+        diagnostics.emit(.missingInputs(output: output, inputs: inputs))
     }
 
     public func cannotBuildNodeDueToMultipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) {
-        diagnostics.emit(data: LLBuildMultipleProducers(output: output, commands: commands))
+        diagnostics.emit(.multipleProducers(output: output, commands: commands))
     }
 
     public func commandProcessStarted(_ command: SPMLLBuild.Command, process: ProcessHandle) {
     }
 
     public func commandProcessHadError(_ command: SPMLLBuild.Command, process: ProcessHandle, message: String) {
-        diagnostics.emit(data: LLBuildCommandError(command: command, message: message))
+        diagnostics.emit(.commandError(command: command, message: message))
     }
 
     public func commandProcessHadOutput(_ command: SPMLLBuild.Command, process: ProcessHandle, data: [UInt8]) {
@@ -522,7 +361,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     }
 
     public func cycleDetected(rules: [BuildKey]) {
-        diagnostics.emit(data: LLBuildCycleErrorDiagnostic(rules: rules))
+        diagnostics.emit(.cycleError(rules: rules))
     }
 
     public func shouldResolveCycle(rules: [BuildKey], candidate: BuildKey, action: CycleAction) -> Bool {
@@ -554,7 +393,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
 
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        diagnostics.emit(data: SwiftCompilerOutputParsingError(message: message))
+        diagnostics.emit(.swiftCompilerOutputParsingError(message))
         onCommmandFailure?()
     }
 
@@ -686,5 +525,29 @@ extension SwiftCompilerMessage {
         case .skipped, .began:
             return nil
         }
+    }
+}
+
+private extension Diagnostic.Message {
+    static func cycleError(rules: [BuildKey]) -> Diagnostic.Message {
+        .error("build cycle detected: " + rules.map{ $0.key }.joined(separator: ", "))
+    }
+
+    static func missingInputs(output: BuildKey, inputs: [BuildKey]) -> Diagnostic.Message {
+        let missingInputs = inputs.map{ $0.key }.joined(separator: ", ")
+        return .error("couldn't build \(output.key) because of missing inputs: \(missingInputs)")
+    }
+
+    static func multipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) -> Diagnostic.Message {
+        let producers = commands.map{ $0.description }.joined(separator: ", ")
+        return .error("couldn't build \(output.key) because of missing producers: \(producers)")
+    }
+
+    static func commandError(command: SPMLLBuild.Command, message: String) -> Diagnostic.Message {
+        .error("command \(command.description) failed: \(message)")
+    }
+
+    static func swiftCompilerOutputParsingError(_ error: String) -> Diagnostic.Message {
+        .error("failed parsing the Swift compiler output: \(error)")
     }
 }

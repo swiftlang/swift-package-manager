@@ -28,17 +28,6 @@ public enum PkgConfigError: Swift.Error, CustomStringConvertible {
     }
 }
 
-public struct PkgConfigExecutionDiagnostic: DiagnosticData {
-    public static let id = DiagnosticID(
-        type: PkgConfigExecutionDiagnostic.self,
-        name: "org.swift.diags.pkg-config-execution",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "failed to retrieve search paths with pkg-config; maybe pkg-config is not installed"
-        }
-    )
-}
-
 struct PCFileFinder {
     /// DiagnosticsEngine to emit warnings
     let diagnostics: DiagnosticsEngine
@@ -98,7 +87,7 @@ struct PCFileFinder {
         }
         if PCFileFinder.shouldEmitPkgConfigPathsDiagnostic {
             PCFileFinder.shouldEmitPkgConfigPathsDiagnostic = false
-            diagnostics.emit(data: PkgConfigExecutionDiagnostic())
+            diagnostics.emit(warning: "failed to retrieve search paths with pkg-config; maybe pkg-config is not installed")
         }
         throw PkgConfigError.couldNotFindConfigFile
     }

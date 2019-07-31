@@ -615,9 +615,6 @@ extension Workspace {
         // Create constraints based on root manifest and pins for the update resolution.
         updateConstraints += graphRoot.constraints(config: config)
 
-        // Record the start time of dependency resolution.
-        let resolutionStartTime = Date()
-
         // Resolve the dependencies.
         let resolver = createResolver()
         activeResolver = resolver
@@ -628,10 +625,6 @@ extension Workspace {
         activeResolver = nil
 
         guard !diagnostics.hasErrors else { return }
-
-        // Emit the time taken to perform dependency resolution.
-        let resolutionDuration = Date().timeIntervalSince(resolutionStartTime)
-        diagnostics.emit(data: WorkspaceDiagnostics.ResolverDurationNote(resolutionDuration))
 
         // Update the checkouts based on new dependency resolution.
         updateCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, diagnostics: diagnostics)
@@ -740,7 +733,8 @@ extension Workspace {
         // Check for duplicate root packages.
         let duplicateRoots = rootManifests.spm_findDuplicateElements(by: \.name)
         if !duplicateRoots.isEmpty {
-            diagnostics.emit(data: WorkspaceDiagnostics.DuplicateRoots(name: duplicateRoots[0][0].name))
+            let name = duplicateRoots[0][0].name
+            diagnostics.emit(error: "found multiple top-level packages named '\(name)'")
             return []
         }
 
@@ -761,9 +755,9 @@ extension Workspace {
         case .checkout(let checkoutState):
             return checkoutState
         case .edited:
-            diagnostics.emit(WorkspaceDiagnostics.DependencyAlreadyInEditMode(dependencyName: name))
+            diagnostics.emit(error: "dependency '\(name)' already in edit mode")
         case .local:
-            diagnostics.emit(WorkspaceDiagnostics.LocalDependencyEdited(dependencyName: name))
+            diagnostics.emit(error: "local dependency '\(name)' can't be edited")
         }
         return nil
     }
@@ -794,21 +788,17 @@ extension Workspace {
                 packagePath: destination, url: dependency.packageRef.repository.url, diagnostics: diagnostics)
 
             guard manifest?.name == packageName else {
-                let error = WorkspaceDiagnostics.MismatchingDestinationPackage(
-                    editPath: destination,
-                    expectedPackage: packageName,
-                    destinationPackage: manifest?.name)
-                return diagnostics.emit(error)
+                return diagnostics.emit(error: "package at '\(destination)' is \(manifest?.name ?? "<unknown>") but was expecting \(packageName)")
             }
 
             // Emit warnings for branch and revision, if they're present.
             if let checkoutBranch = checkoutBranch {
-                diagnostics.emit(WorkspaceDiagnostics.EditBranchNotCheckedOut(
+                diagnostics.emit(.editBranchNotCheckedOut(
                     packageName: packageName,
                     branchName: checkoutBranch))
             }
             if let revision = revision {
-                diagnostics.emit(WorkspaceDiagnostics.EditRevisionNotUsed(
+                diagnostics.emit(.editRevisionNotUsed(
                     packageName: packageName,
                     revisionIdentifier: revision.identifier))
             }
@@ -1226,7 +1216,7 @@ extension Workspace {
 
         let result = isResolutionRequired(root: graphRoot, dependencies: dependencies, pinsStore: pinsStore)
         if result.resolve {
-            diagnostics.emit(data: WorkspaceDiagnostics.RequiresResolution())
+            diagnostics.emit(error: "cannot update Package.resolved file because automatic resolution is disabled")
         }
 
         return currentManifests
@@ -1375,8 +1365,9 @@ extension Workspace {
                 // could mean that the dependency at fault has a different
                 // version of the manifest file which contains dependencies that
                 // have also changed their package references.
-                // FIXME: Emit diagnostic here.
-                diagnostics.emit(data: WorkspaceDiagnostics.OutdatedResolvedFile())
+
+                diagnostics.emit(error: "the Package.resolved file is most likely severely out-of-date and is preventing correct resolution; delete the resolved file and try again")
+
                 return updatedDependencyManifests
             }
         }
@@ -1397,9 +1388,9 @@ extension Workspace {
             if let override = rootManifests[manifest.name] {
                 let overrideIdentity = PackageReference.computeIdentity(packageURL: override.url)
                 let manifestIdentity = PackageReference.computeIdentity(packageURL: manifest.url)
-                let diagnostic = WorkspaceDiagnostics.PackageOverrideBasenameMismatch(
-                    packageName: manifest.name, packageIdentity: manifestIdentity, overrideIdentity: overrideIdentity)
-                diagnostics.emit(data: diagnostic)
+
+                diagnostics.emit(error: "unable to override package '\(manifest.name)' because its basename '\(manifestIdentity)' doesn't match directory name '\(overrideIdentity)'")
+
                 return true
             }
         }
@@ -1719,7 +1710,7 @@ extension Workspace {
             return bindings
 
         case .unsatisfiable(let dependencies, let pins):
-            diagnostics.emit(data: ResolverDiagnostics.Unsatisfiable(dependencies: dependencies, pins: pins))
+            diagnostics.emit(.error(ResolverDiagnostics.Unsatisfiable(dependencies: dependencies, pins: pins)))
             return []
 
         case .error(let error):
@@ -1759,7 +1750,7 @@ extension Workspace {
                 case .checkout(let checkoutState):
                     // If some checkout dependency has been removed, clone it again.
                     _ = try clone(package: dependency.packageRef, at: checkoutState)
-                    diagnostics.emit(WorkspaceDiagnostics.CheckedOutDependencyMissing(packageName: dependency.packageRef.identity))
+                    diagnostics.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.identity))
 
                 case .edited:
                     // If some edited dependency has been removed, mark it as unedited.
@@ -1769,7 +1760,7 @@ extension Workspace {
                     // of some other resolve operation (i.e. resolve, update, etc).
                     try unedit(dependency: dependency, forceRemove: true, diagnostics: diagnostics)
 
-                    diagnostics.emit(WorkspaceDiagnostics.EditedDependencyMissing(packageName: dependency.packageRef.identity))
+                    diagnostics.emit(.editedDependencyMissing(packageName: dependency.packageRef.identity))
 
                 case .local:
                     managedDependencies[forURL: dependency.packageRef.path] = nil

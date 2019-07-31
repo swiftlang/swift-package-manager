@@ -166,7 +166,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar")
+        XCTAssertEqual(diagnostics.diagnostics[0].description, "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar")
     }
 
     func testCycle2() throws {
@@ -192,7 +192,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "cyclic dependency declaration found: Foo -> Foo")
+        XCTAssertEqual(diagnostics.diagnostics[0].description, "cyclic dependency declaration found: Foo -> Foo")
     }
 
     // Make sure there is no error when we reference Test targets in a package and then
@@ -270,7 +270,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple targets named 'Bar' in: Bar, Foo")
+        XCTAssertEqual(diagnostics.diagnostics[0].description, "multiple targets named 'Bar' in: Bar, Foo")
     }
 
     func testMultipleDuplicateModules() throws {
@@ -716,7 +716,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.localizedDescription.contains("multiple products named 'Bar' in: Bar, Baz") }), "\(diagnostics.diagnostics)")
+        XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.description.contains("multiple products named 'Bar' in: Bar, Baz") }), "\(diagnostics.diagnostics)")
     }
 
     func testUnsafeFlags() throws {

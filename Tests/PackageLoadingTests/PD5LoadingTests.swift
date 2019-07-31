@@ -361,7 +361,7 @@ class PackageDescription5LoadingTests: XCTestCase {
                 diagnostics: diagnostics
             )
 
-            guard let diag = diagnostics.diagnostics.first?.data as? ManifestLoadingDiagnostic else {
+            guard let diag = diagnostics.diagnostics.first?.message.data as? ManifestLoadingDiagnostic else {
                 return XCTFail("Expected a diagnostic")
             }
             XCTAssertMatch(diag.output, .contains("warning: initialization of immutable value"))

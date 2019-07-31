@@ -242,44 +242,35 @@ public struct PkgConfigDiagnosticLocation: DiagnosticLocation {
         self.target = target
     }
 
-    public var localizedDescription: String {
+    public var description: String {
         return "'\(target)' \(pcFile).pc"
     }
 }
 
+// FIXME: Kill this.
 public struct PkgConfigGenericDiagnostic: DiagnosticData {
-    public static let id = DiagnosticID(
-        type: PkgConfigGenericDiagnostic.self,
-        name: "org.swift.diags.pkg-config-generic",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< { $0.error }
-        }
-    )
-
     public let error: String
 
     public init(error: String) {
         self.error = error
     }
+
+    public var description: String {
+        return error
+    }
 }
 
+// FIXME: Kill this.
 public struct PkgConfigHintDiagnostic: DiagnosticData {
-    public static let id = DiagnosticID(
-        type: PkgConfigHintDiagnostic.self,
-        name: "org.swift.diags.pkg-config-hint",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "you may be able to install" <<< { $0.pkgConfigName } <<< "using your system-packager:\n"
-            $0 <<< { $0.installText }
-        }
-    )
-
     public let pkgConfigName: String
     public let installText: String
 
     public init(pkgConfigName: String, installText: String) {
         self.pkgConfigName = pkgConfigName
         self.installText = installText
+    }
+
+    public var description: String {
+        return "you may be able to install \(pkgConfigName) using your system-packager:\n\(installText)"
     }
 }

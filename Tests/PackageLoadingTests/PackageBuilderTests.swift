@@ -1237,8 +1237,8 @@ class PackageBuilderTests: XCTestCase {
             result.checkProduct("foo-dy") { productResult in
                 productResult.check(type: .library(.dynamic), targets: ["foo"])
             }
-            result.checkDiagnostic("Ignoring duplicate product 'foo' (static)")
-            result.checkDiagnostic("Ignoring duplicate product 'foo' (dynamic)")
+            result.checkDiagnostic("ignoring duplicate product 'foo' (static)")
+            result.checkDiagnostic("ignoring duplicate product 'foo' (dynamic)")
         }
     }
 
@@ -1261,7 +1261,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "SystemModulePackage", type: .systemModule)
                 moduleResult.checkSources(root: "/")
             }
-            result.checkDiagnostic("Ignoring declared target(s) 'foo, bar' in the system package")
+            result.checkDiagnostic("ignoring declared target(s) 'foo, bar' in the system package")
         }
     }
 
@@ -1714,7 +1714,7 @@ final class PackageBuilderTester {
             result = .error(errorStr)
             uncheckedDiagnostics.insert(errorStr)
         }
-        uncheckedDiagnostics.formUnion(diagnostics.diagnostics.map({ $0.localizedDescription }))
+        uncheckedDiagnostics.formUnion(diagnostics.diagnostics.map({ $0.description }))
         body(self)
         validateDiagnostics(file: file, line: line)
         validateCheckedModules(file: file, line: line)

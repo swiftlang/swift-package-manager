@@ -69,11 +69,7 @@ final public class DiagnosticsEngineResult {
     fileprivate var uncheckedDiagnostics: [Diagnostic]
 
     init(_ engine: DiagnosticsEngine, ignoreNotes: Bool = false) {
-        if ignoreNotes {
-            self.uncheckedDiagnostics = engine.diagnostics.filter({ $0.behavior != .note })
-        } else {
-            self.uncheckedDiagnostics = engine.diagnostics
-        }
+        self.uncheckedDiagnostics = engine.diagnostics
     }
 
     public func check(
@@ -88,11 +84,11 @@ final public class DiagnosticsEngineResult {
             return XCTFail("No diagnostics left to check", file: file, line: line)
         }
 
-        let location = location ?? UnknownLocation.location.localizedDescription
+        let location = location ?? UnknownLocation.location.description
         let theDiagnostic = uncheckedDiagnostics.removeFirst()
 
-        diagnostic.check(input: theDiagnostic.localizedDescription, file: file, line: line)
-        XCTAssertEqual(theDiagnostic.behavior, behavior, file: file, line: line)
-        XCTAssertEqual(theDiagnostic.location.localizedDescription, location, file: file, line: line)
+        diagnostic.check(input: theDiagnostic.description, file: file, line: line)
+        XCTAssertEqual(theDiagnostic.message.behavior, behavior, file: file, line: line)
+        XCTAssertEqual(theDiagnostic.location.description, location, file: file, line: line)
     }
 }
