@@ -19,41 +19,6 @@ import Xcodeproj
 import Workspace
 import Foundation
 
-struct FetchDeprecatedDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: AnyDiagnostic.self,
-        name: "org.swift.diags.fetch-deprecated",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "'fetch' command is deprecated; use 'resolve' instead"
-        }
-    )
-}
-
-struct RequiredArgumentDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: RequiredArgumentDiagnostic.self,
-        name: "org.swift.diags.required-argument",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "missing required argument" <<< { "\($0.argument)" }
-        }
-    )
-
-    let argument: String
-}
-
-struct RequiredSubcommandDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: RequiredSubcommandDiagnostic.self,
-        name: "org.swift.diags.required-subcommand",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "missing required subcommand; use --help to list available subcommands"
-        }
-    )
-}
-
 /// swift-package tool namespace
 public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
@@ -74,7 +39,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .config:
             guard let configMode = options.configMode else {
-                diagnostics.emit(data: RequiredSubcommandDiagnostic())
+                diagnostics.emit(.missingRequiredSubcommand)
                 return
             }
 
@@ -84,7 +49,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             switch configMode {
             case .getMirror:
                 guard let packageURL = options.configOptions.packageURL else {
-                    diagnostics.emit(data: RequiredArgumentDiagnostic(argument: "--package-url"))
+                    diagnostics.emit(.missingRequiredArg("--package-url"))
                     return
                 }
 
@@ -98,7 +63,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             case .unsetMirror:
                 guard let packageOrMirror = options.configOptions.packageURL ?? options.configOptions.mirrorURL else {
-                    diagnostics.emit(data: RequiredArgumentDiagnostic(argument: "--package-url or --mirror-url"))
+                    diagnostics.emit(.missingRequiredArg("--package-url or --mirror-url"))
                     return
                 }
 
@@ -106,11 +71,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             case .setMirror:
                 guard let packageURL = options.configOptions.packageURL else {
-                    diagnostics.emit(data: RequiredArgumentDiagnostic(argument: "--package-url"))
+                    diagnostics.emit(.missingRequiredArg("--package-url"))
                     return
                 }
                 guard let mirrorURL = options.configOptions.mirrorURL else {
-                    diagnostics.emit(data: RequiredArgumentDiagnostic(argument: "--mirror-url"))
+                    diagnostics.emit(.missingRequiredArg("--mirror-url"))
                     return
                 }
 
@@ -192,7 +157,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             )
 
         case .fetch:
-            diagnostics.emit(data: FetchDeprecatedDiagnostic())
+            diagnostics.emit(warning: "'fetch' command is deprecated; use 'resolve' instead")
             try resolve()
 
         case .resolve:
@@ -750,5 +715,15 @@ extension PackageToolOptions.ConfigMode: StringEnumArgument {
 extension SwiftPackageTool: ToolName {
     static var toolName: String {
         return "swift package"
+    }
+}
+
+private extension Diagnostic.Message {
+    static var missingRequiredSubcommand: Diagnostic.Message {
+        .error("missing required subcommand; use --help to list available subcommands")
+    }
+
+    static func missingRequiredArg(_ argument: String) -> Diagnostic.Message {
+        .error("missing required argument \(argument)")
     }
 }

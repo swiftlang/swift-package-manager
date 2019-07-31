@@ -747,7 +747,7 @@ public final class ProductBuildDescription {
             // FIXME: This does not work for linux yet (SR-648).
             if buildParameters.shouldLinkStaticSwiftStdlib {
                 if buildParameters.triple.isDarwin() {
-                    diagnostics.emit(data: SwiftBackDeployLibrariesNote())
+                    diagnostics.emit(.swiftBackDeployError)
                 }
             }
             args += ["-emit-executable"]
@@ -1050,7 +1050,7 @@ public class BuildPlan {
         //
         // If the product's platform version is greater than ours, then it is incompatible.
         if productPlatform.version > targetPlatform.version {
-            diagnostics.emit(data: ProductRequiresHigherPlatformVersion(
+            diagnostics.emit(.productRequiresHigherPlatformVersion(
                 target: target,
                 targetPlatform: targetPlatform,
                 product: product.name,
@@ -1272,11 +1272,12 @@ public class BuildPlan {
         }
         // If there is no pc file on system and we have an available provider, emit a warning.
         if let provider = result.provider, result.couldNotFindConfigFile {
-            diagnostics.emit(data: PkgConfigHintDiagnostic(pkgConfigName: result.pkgConfigName, installText: provider.installText))
+            diagnostics.emit(.pkgConfigHint(pkgConfigName: result.pkgConfigName, installText: provider.installText))
         } else if let error = result.error {
             diagnostics.emit(
-                data: PkgConfigGenericDiagnostic(error: "\(error)"),
-                location: PkgConfigDiagnosticLocation(pcFile: result.pkgConfigName, target: target.name))
+                .warning(PkgConfigGenericDiagnostic(error: "\(error)")),
+                location: PkgConfigDiagnosticLocation(pcFile: result.pkgConfigName, target: target.name)
+            )
         }
         pkgConfigCache[target] = (result.cFlags, result.libs)
         return pkgConfigCache[target]!
@@ -1286,41 +1287,30 @@ public class BuildPlan {
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
 }
 
-struct ProductRequiresHigherPlatformVersion: DiagnosticData {
-    static let id = DiagnosticID(
-        type: ProductRequiresHigherPlatformVersion.self,
-        name: "org.swift.diags.\(ProductRequiresHigherPlatformVersion.self)",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "the" <<< { $0.target.type.rawValue } <<< { "'\($0.target.name)'" } <<< "requires"
-            $0 <<< { $0.targetPlatform.platform.name } <<< { "\($0.targetPlatform.version.versionString)," }
-            $0 <<< "but depends on the product" <<< { "'\($0.product)'" } <<< "which requires"
-            $0 <<< { $0.productPlatform.platform.name } <<< { "\($0.productPlatform.version.versionString);" }
-            $0 <<< "consider changing the" <<< { $0.target.type.rawValue } <<< { "'\($0.target.name)'" } <<< "to require"
-            $0 <<< { $0.productPlatform.platform.name } <<< { $0.productPlatform.version.versionString } <<< "or later,"
-            $0 <<< "or the product" <<< { "'\($0.product)'" } <<< "to require"
-            $0 <<< { $0.targetPlatform.platform.name } <<< { $0.targetPlatform.version.versionString } <<< "or earlier."
-    })
-
-    public let target: ResolvedTarget
-    public let targetPlatform: SupportedPlatform
-    public let product: String
-    public let productPlatform: SupportedPlatform
-
-    init(target: ResolvedTarget, targetPlatform: SupportedPlatform, product: String, productPlatform: SupportedPlatform) {
-        self.target = target
-        self.targetPlatform = targetPlatform
-        self.product = product
-        self.productPlatform = productPlatform
+private extension Diagnostic.Message {
+    static var swiftBackDeployError: Diagnostic.Message {
+        .warning("Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at https://developer.apple.com/download/more/")
     }
-}
 
-struct SwiftBackDeployLibrariesNote: DiagnosticData {
-    static let id = DiagnosticID(
-        type: SwiftBackDeployLibrariesNote.self,
-        name: "org.swift.diags.\(SwiftBackDeployLibrariesNote.self)",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at https://developer.apple.com/download/more/"
-    })
+    static func productRequiresHigherPlatformVersion(
+        target: ResolvedTarget,
+        targetPlatform: SupportedPlatform,
+        product: String,
+        productPlatform: SupportedPlatform
+    ) -> Diagnostic.Message {
+        .error("""
+            the \(target.type.rawValue) '\(target.name)' requires \
+            \(targetPlatform.platform.name) \(targetPlatform.version.versionString), \
+            but depends on the product '\(product)' which requires \
+            \(productPlatform.platform.name) \(productPlatform.version.versionString); \
+            consider changing the \(target.type.rawValue) '\(target.name)' to require \
+            \(productPlatform.platform.name) \(productPlatform.version.versionString) or later, \
+            or the product '\(product)' to require \
+            \(targetPlatform.platform.name) \(targetPlatform.version.versionString) or earlier.
+            """)
+    }
+
+    static func pkgConfigHint(pkgConfigName: String, installText: String) -> Diagnostic.Message {
+        .warning(PkgConfigHintDiagnostic(pkgConfigName: pkgConfigName, installText: installText))
+    }
 }

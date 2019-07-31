@@ -70,7 +70,7 @@ final class XcodeWorkspaceLoader {
             if fs.exists(path.appending(component: Manifest.filename)) {
                 result.append(path)
             } else {
-                diagnostics.emit(data: LoaderWarning(message: "ignoring non-package fileref \(path)"))
+                diagnostics.emit(warning: "ignoring non-package fileref \(path)")
             }
         }
         return result
@@ -98,26 +98,15 @@ final class XcodeWorkspaceLoader {
 
             let splitted = location.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
             guard splitted.count == 2 else {
-                diagnostics.emit(data: LoaderWarning(message: "location split count is not two: \(splitted)"))
+                diagnostics.emit(warning: "location split count is not two: \(splitted)")
                 return
             }
             guard let kind = Location.Kind(rawValue: splitted[0]) else {
-                diagnostics.emit(data: LoaderWarning(message: "Unknown kind \(splitted[0]) for location \(location)"))
+                diagnostics.emit(warning: "unknown kind \(splitted[0]) for location \(location)")
                 return
             }
 
             locations.append(Location(kind: kind, path: splitted[1]))
         }
-    }
-
-    struct LoaderWarning: DiagnosticData {
-        static let id = DiagnosticID(
-            type: LoaderWarning.self,
-            name: "org.swift.diags.\(LoaderWarning.self)",
-            defaultBehavior: .warning,
-            description: { $0 <<< { $0.message } }
-        )
-
-        let message: String
     }
 }

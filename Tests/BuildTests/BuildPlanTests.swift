@@ -1016,7 +1016,7 @@ final class BuildPlanTests: XCTestCase {
         _ = try BuildPlan(buildParameters: mockBuildParameters(),
             graph: graph, diagnostics: diagnostics, fileSystem: fileSystem)
 
-        XCTAssertTrue(diagnostics.diagnostics.contains(where: { ($0.data is PkgConfigHintDiagnostic) }))
+//        XCTAssertTrue(diagnostics.diagnostics.contains(where: { ($0.message.data is PkgConfigHintDiagnostic) }))
     }
 
     func testPkgConfigGenericDiagnostic() throws {
@@ -1046,11 +1046,11 @@ final class BuildPlanTests: XCTestCase {
         _ = try BuildPlan(buildParameters: mockBuildParameters(),
             graph: graph, diagnostics: diagnostics, fileSystem: fileSystem)
 
-        let diagnostic = diagnostics.diagnostics.first(where: { ($0.data is PkgConfigGenericDiagnostic) })!
+        let diagnostic = diagnostics.diagnostics.last!
 
-        XCTAssertEqual(diagnostic.localizedDescription, "couldn't find pc file")
-        XCTAssertEqual(diagnostic.behavior, .warning)
-        XCTAssertEqual(diagnostic.location.localizedDescription, "'BTarget' BTarget.pc")
+        XCTAssertEqual(diagnostic.message.text, "couldn't find pc file")
+        XCTAssertEqual(diagnostic.message.behavior, .warning)
+        XCTAssertEqual(diagnostic.location.description, "'BTarget' BTarget.pc")
     }
 
     func testWindowsTarget() throws {

@@ -14,38 +14,6 @@ import PackageLoading
 import PackageModel
 import SPMUtility
 
-struct UnusedDependencyDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: UnusedDependencyDiagnostic.self,
-        name: "org.swift.diags.unused-dependency",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "dependency" <<< { "'\($0.dependencyName)'" } <<< "is not used by any target"
-        })
-
-    public let dependencyName: String
-}
-
-struct ProductUsesUnsafeFlags: DiagnosticData {
-    static let id = DiagnosticID(
-        type: ProductUsesUnsafeFlags.self,
-        name: "org.swift.diags.\(ProductUsesUnsafeFlags.self)",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "the target" <<< { "'\($0.target)'" }
-            $0 <<< "in product" <<< { "'\($0.product)'" }
-            $0 <<< "contains unsafe build flags"
-        })
-
-    public let product: String
-    public let target: String
-
-    init(product: String, target: String) {
-        self.product = product
-        self.target = target
-    }
-}
-
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no targets.
     case noModules(Package)
@@ -223,7 +191,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
 
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
             if !dependencyIsUsed {
-                diagnostics.emit(data: UnusedDependencyDiagnostic(dependencyName: dependency.name))
+                diagnostics.emit(.unusedDependency(dependency.name))
             }
         }
     }
@@ -464,7 +432,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             let declarations = target.underlyingTarget.buildSettings.assignments.keys
             for decl in declarations {
                 if BuildSettings.Declaration.unsafeSettings.contains(decl) {
-                    diagnostics.emit(data: ProductUsesUnsafeFlags(product: product.name, target: target.name))
+                    diagnostics.emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
                     break
                 }
             }
@@ -522,5 +490,15 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
             targets: targets.map({ $0.construct() }),
             products: products.map({ $0.construct() })
         )
+    }
+}
+
+private extension Diagnostic.Message {
+    static func unusedDependency(_ name: String) -> Diagnostic.Message {
+        .warning("dependency '\(name)' is not used by any target")
+    }
+
+    static func productUsesUnsafeFlags(product: String, target: String) -> Diagnostic.Message {
+        .error("the target '\(target)' in product '\(product)' contains unsafe build flags")
     }
 }

@@ -21,76 +21,6 @@ import func Foundation.NSUserName
 import SPMLLBuild
 typealias Diagnostic = Basic.Diagnostic
 
-struct ChdirDeprecatedDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: AnyDiagnostic.self,
-        name: "org.swift.diags.chdir-deprecated",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "'--chdir/-C' option is deprecated; use '--package-path' instead"
-        }
-    )
-}
-
-struct UnsupportedFlagDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: UnsupportedFlagDiagnostic.self,
-        name: "org.swift.diags.\(UnsupportedFlagDiagnostic.self)",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< { $0.flag } <<< "is an *unsupported* option which can be removed at any time; do not rely on it"
-        }
-    )
-
-    let flag: String
-}
-
-/// Diagnostic error when the tool could not find a named product.
-struct ProductNotFoundDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: ProductNotFoundDiagnostic.self,
-        name: "org.swift.diags.product-not-found",
-        defaultBehavior: .error,
-        description: { $0 <<< "no product named" <<< { "'\($0.productName)'" } }
-    )
-
-    let productName: String
-}
-
-/// Diagnostic for non-existant working directory.
-struct WorkingDirNotFoundDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: WorkingDirNotFoundDiagnostic.self,
-        name: "org.swift.diags.cwd-not-found",
-        defaultBehavior: .error,
-        description: { $0 <<< "couldn't determine the current working directory" }
-    )
-}
-
-/// Warning when someone tries to build an automatic type product using --product option.
-struct ProductIsAutomaticDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: ProductIsAutomaticDiagnostic.self,
-        name: "org.swift.diags.product-is-automatic",
-        defaultBehavior: .warning,
-        description: { $0 <<< "'--product' cannot be used with the automatic product" <<< { "'\($0.productName)'." } <<< "Building the default target instead" }
-    )
-
-    let productName: String
-}
-
-/// Diagnostic error when the tool could not find a named target.
-struct TargetNotFoundDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: TargetNotFoundDiagnostic.self,
-        name: "org.swift.diags.target-not-found",
-        defaultBehavior: .error,
-        description: { $0 <<< "no target named" <<< { "'\($0.targetName)'" } }
-    )
-
-    let targetName: String
-}
-
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     /// The stream to use for reporting progress.
@@ -242,7 +172,7 @@ public class SwiftTool<Options: ToolOptions> {
     public init(toolName: String, usage: String, overview: String, args: [String], seeAlso: String? = nil) {
         // Capture the original working directory ASAP.
         guard let cwd = localFileSystem.currentWorkingDirectory else {
-            diagnostics.emit(data: WorkingDirNotFoundDiagnostic())
+            diagnostics.emit(error: "couldn't determine the current working directory")
             SwiftTool.exit(with: .failure)
         }
         originalWorkingDirectory = cwd
@@ -459,11 +389,11 @@ public class SwiftTool<Options: ToolOptions> {
 
     static func postprocessArgParserResult(result: ArgumentParser.Result, diagnostics: DiagnosticsEngine) throws {
         if result.exists(arg: "--chdir") || result.exists(arg: "-C") {
-            diagnostics.emit(data: ChdirDeprecatedDiagnostic())
+            diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
 
         if result.exists(arg: "--multiroot-data-file") {
-            diagnostics.emit(data: UnsupportedFlagDiagnostic(flag: "--multiroot-data-file"))
+            diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
         }
     }
 
@@ -783,19 +713,19 @@ extension BuildSubset {
             return LLBuildManifestGenerator.llbuildTestTargetName
         case .product(let productName):
             guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
-                diagnostics.emit(data: ProductNotFoundDiagnostic(productName: productName))
+                diagnostics.emit(error: "no product named '\(productName)'")
                 return nil
             }
             // If the product is automatic, we build the main target because automatic products
             // do not produce a binary right now.
             if product.type == .library(.automatic) {
-                diagnostics.emit(data: ProductIsAutomaticDiagnostic(productName: productName))
+                diagnostics.emit(warning: "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead")
                 return LLBuildManifestGenerator.llbuildMainTargetName
             }
             return product.getLLBuildTargetName(config: config)
         case .target(let targetName):
             guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
-                diagnostics.emit(data: TargetNotFoundDiagnostic(targetName: targetName))
+                diagnostics.emit(error: "no target named '\(targetName)'")
                 return nil
             }
             return target.getLLBuildTargetName(config: config)
@@ -871,4 +801,10 @@ extension BuildConfiguration: StringEnumArgument {
 /// the int. handler without requiring to initialize it.
 private final class BuildSystemRef {
     var buildSystem: BuildSystem?
+}
+
+extension Diagnostic.Message {
+    static func unsupportedFlag(_ flag: String) -> Diagnostic.Message {
+        .warning("\(flag) is an *unsupported* option which can be removed at any time; do not rely on it")
+    }
 }

@@ -81,7 +81,7 @@ final class BuildToolTests: XCTestCase {
             do {
                 let output = try execute(["--product", "lib1"], packagePath: fullPath)
                 try SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: fullPath)
-                XCTAssertTrue(output.contains("'--product' cannot be used with the automatic product 'lib1'. Building the default target instead"), output)
+                XCTAssertTrue(output.contains("'--product' cannot be used with the automatic product 'lib1'; building the default target instead"), output)
             }
 
             do {

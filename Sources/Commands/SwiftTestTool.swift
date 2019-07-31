@@ -18,70 +18,6 @@ import Workspace
 
 import func SPMLibc.exit
 
-
-/// Diagnostics info for deprecated `--specifier` option.
-struct SpecifierDeprecatedDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: SpecifierDeprecatedDiagnostic.self,
-        name: "org.swift.diags.specifier-deprecated",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "'--specifier' option is deprecated; use '--filter' instead"
-        }
-    )
-}
-
-struct LinuxTestDiscoveryDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LinuxTestDiscoveryDiagnostic.self,
-        name: "org.swift.diags.linux-test-discovery",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "can't discover tests on Linux; please use this option on macOS instead"
-        }
-    )
-}
-
-/// Diagnostic data for zero --filter matches.
-struct NoMatchingTestsWarning: DiagnosticData {
-    static let id = DiagnosticID(
-        type: NoMatchingTestsWarning.self,
-        name: "org.swift.diags.no-matching-tests",
-        defaultBehavior: .note,
-        description: {
-            $0 <<< "'--filter' predicate did not match any test case"
-        }
-    )
-}
-
-/// Diagnostic error when a command is run without its dependent command.
-struct DependentArgumentDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: DependentArgumentDiagnostic.self,
-        name: "org.swift.diags.dependent-argument",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< { "\($0.dependentArgument)" } <<< "must be used with" <<< { "\($0.requiredArgument)" }
-        }
-    )
-
-    let requiredArgument: String
-
-    let dependentArgument: String
-}
-
-/// Diagnostic error for unsatisfied --num-workers parameter
-struct InvalidNumWorkersValueDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: InvalidNumWorkersValueDiagnostic.self,
-        name: "org.swift.diags.invalid-numWorkers-value",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "'--num-workers' must be greater than zero"
-        }
-    )
-}
-
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
     case testsExecutableNotFound
@@ -249,7 +185,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         case .generateLinuxMain:
           #if os(Linux)
-            diagnostics.emit(data: LinuxTestDiscoveryDiagnostic())
+            diagnostics.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
           #endif
             let graph = try loadPackageGraph()
             let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: graph, diagnostics: diagnostics)
@@ -288,7 +224,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             case .regex, .specific, .skip:
                 // If old specifier `-s` option was used, emit deprecation notice.
                 if case .specific = options.testCaseSpecifier {
-                    diagnostics.emit(data: SpecifierDeprecatedDiagnostic())
+                    diagnostics.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
                 }
 
                 // Find the tests we need to run.
@@ -297,7 +233,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
                 // If there were no matches, emit a warning.
                 if tests.isEmpty {
-                    diagnostics.emit(data: NoMatchingTestsWarning())
+                    diagnostics.emit(.noMatchingTests)
                 }
 
                 // Finally, run the tests.
@@ -334,7 +270,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
-                diagnostics.emit(data: NoMatchingTestsWarning())
+                diagnostics.emit(.noMatchingTests)
                 return
             }
 
@@ -582,13 +518,12 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
             // The --num-worker option should be called with --parallel.
             guard options.mode == .runParallel else {
-                diagnostics.emit(
-                    data: DependentArgumentDiagnostic(requiredArgument: "--parallel", dependentArgument: "--num-workers"))
+                diagnostics.emit(error: "--num-workers must be used with --parallel")
                 throw Diagnostics.fatalError
             }
 
             guard workers > 0 else {
-                diagnostics.emit(data: InvalidNumWorkersValueDiagnostic())
+                diagnostics.emit(error: "'--num-workers' must be greater than zero")
                 throw Diagnostics.fatalError
             }
         }
@@ -1120,5 +1055,11 @@ final class XUnitGenerator {
         stream <<< "</testsuites>\n"
 
         try localFileSystem.writeFileContents(path, bytes: stream.bytes)
+    }
+}
+
+private extension Diagnostic.Message {
+    static var noMatchingTests: Diagnostic.Message {
+        .warning("'--filter' predicate did not match any test case")
     }
 }

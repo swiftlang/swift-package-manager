@@ -318,10 +318,7 @@ public final class PackageBuilder {
 
             // Diagnose broken symlinks.
             if fileSystem.isSymlink(path) {
-                diagnostics.emit(
-                    data: PackageBuilderDiagnostics.BrokenSymlinkDiagnostic(path: path),
-                    location: diagnosticLocation()
-                )
+                diagnostics.emit(.brokenSymlink(path), location: diagnosticLocation())
             }
 
             return false
@@ -382,7 +379,7 @@ public final class PackageBuilder {
             let targets = manifest.targets
             if !targets.isEmpty {
                 diagnostics.emit(
-                    data: PackageBuilderDiagnostics.SystemPackageDeclaresTargetsDiagnostic(targets: targets.map({ $0.name })),
+                    .systemPackageDeclaresTargets(targets: targets.map{ $0.name }),
                     location: diagnosticLocation()
                 )
             }
@@ -391,10 +388,7 @@ public final class PackageBuilder {
             switch manifest.manifestVersion {
             case .v4: break
             case .v4_2, .v5, .v5_1:
-                diagnostics.emit(
-                    data: PackageBuilderDiagnostics.SystemPackageDeprecatedDiagnostic(),
-                    location: diagnosticLocation()
-                )
+                diagnostics.emit(.systemPackageDeprecation, location: diagnosticLocation())
             }
 
             // Package contains a modulemap at the top level, so we assuming
@@ -496,9 +490,7 @@ public final class PackageBuilder {
 
             // Otherwise, if the path "exists" then the case in manifest differs from the case on the file system.
             if fileSystem.isDirectory(path) {
-                diagnostics.emit(
-                    data: PackageBuilderDiagnostics.TargetNameHasIncorrectCase(target: target.name),
-                    location: diagnosticLocation())
+                diagnostics.emit(.targetNameHasIncorrectCase(target: target.name), location: diagnosticLocation())
                 return path
             }
             throw ModuleError.moduleNotFound(target.name, target.type)
@@ -607,7 +599,7 @@ public final class PackageBuilder {
                 targets[createdTarget.name] = createdTarget
             } else {
                 emptyModules.insert(potentialModule.name)
-                diagnostics.emit(data: PackageBuilderDiagnostics.NoSources(targetPath: potentialModule.path.pathString, target: potentialModule.name))
+                diagnostics.emit(.targetHasNoSources(targetPath: potentialModule.path.pathString, target: potentialModule.name))
             }
         }
         return targets.values.map({ $0 })
@@ -650,7 +642,7 @@ public final class PackageBuilder {
         // Check for duplicate target dependencies by name
         let combinedDependencyNames = moduleDependencies.map { $0.name } + productDeps.map { $0.0 }
         combinedDependencyNames.spm_findDuplicates().forEach {
-            diagnostics.emit(data: PackageBuilderDiagnostics.DuplicateTargetDependencyDiagnostic(dependency: $0, target: potentialModule.name))
+            diagnostics.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name))
         }
 
         // Compute the path to public headers directory.
@@ -991,7 +983,7 @@ public final class PackageBuilder {
             let inserted = products.append(KeyedPair(product, key: product.name))
             if !inserted {
                 diagnostics.emit(
-                    data: PackageBuilderDiagnostics.DuplicateProduct(product: product),
+                    .duplicateProduct(product: product),
                     location: diagnosticLocation()
                 )
             }
@@ -1003,7 +995,7 @@ public final class PackageBuilder {
           #if os(Linux)
             // FIXME: Ignore C language test targets on linux for now.
             if target is ClangTarget {
-                diagnostics.emit(data: PackageBuilderDiagnostics.UnsupportedCTarget(
+                diagnostics.emit(.unsupportedCTestTarget(
                     package: manifest.name, target: target.name))
                 return false
             }
@@ -1082,7 +1074,7 @@ public final class PackageBuilder {
             if targets.contains(where: { $0 is SystemLibraryTarget }) {
                 if product.type != .library(.automatic) || targets.count != 1 {
                     diagnostics.emit(
-                        data: PackageBuilderDiagnostics.SystemPackageProductValidationDiagnostic(product: product.name),
+                        .systemPackageProductValidation(product: product.name),
                         location: diagnosticLocation()
                     )
                     continue
@@ -1097,7 +1089,7 @@ public final class PackageBuilder {
                 let executableTargets = targets.filter({ $0.type == .executable })
                 if executableTargets.count != 1 {
                     diagnostics.emit(
-                        data: PackageBuilderDiagnostics.InvalidExecutableProductDecl(product: product.name),
+                        .invalidExecutableProductDecl(product.name),
                         location: diagnosticLocation()
                     )
                     continue
@@ -1112,7 +1104,7 @@ public final class PackageBuilder {
             let libraryTargets = targets.filter({ $0.type == .library })
             if libraryTargets.isEmpty {
                 diagnostics.emit(
-                    data: PackageBuilderDiagnostics.ZeroLibraryProducts(),
+                    .noLibraryTargetsForREPL,
                     location: diagnosticLocation()
                 )
             } else {

@@ -71,7 +71,7 @@ public final class PinsStore {
         do {
             _ = try self.persistence.restoreState(self)
         } catch SimplePersistence.Error.restoreFailure {
-            throw WorkspaceDiagnostics.MalformedPackageResolved()
+            throw StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue")
         }
     }
 

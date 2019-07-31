@@ -40,18 +40,6 @@ extension RunError: CustomStringConvertible {
     }
 }
 
-struct RunFileDeprecatedDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: AnyDiagnostic.self,
-        name: "org.swift.diags.run-file-deprecated",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "'swift run file.swift' command to interpret swift files is deprecated;"
-            $0 <<< "use 'swift file.swift' instead"
-        }
-    )
-}
-
 public class RunToolOptions: ToolOptions {
     /// Returns the mode in with the tool command should run.
     var mode: RunMode {
@@ -120,7 +108,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
             if let executable = options.executable, isValidSwiftFilePath(executable) {
-                diagnostics.emit(data: RunFileDeprecatedDiagnostic())
+                diagnostics.emit(.runFileDeprecation)
                 // Redirect execution to the toolchain's swift executable.
                 let swiftInterpreterPath = try getToolchain().swiftInterpreter
                 // Prepend the script to interpret to the arguments.
@@ -137,7 +125,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             let product = try findProduct(in: plan.graph)
 
             if options.shouldBuildTests && !options.shouldBuild {
-                diagnostics.emit(data: MutuallyExclusiveArgumentsDiagnostic(arguments:
+                diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments:
                     [buildTestsOptionName, skipBuildOptionName]))
                 return
             }
@@ -243,5 +231,11 @@ fileprivate let skipBuildOptionName = "--skip-build"
 extension SwiftRunTool: ToolName {
     static var toolName: String {
         return "swift run"
+    }
+}
+
+private extension Diagnostic.Message {
+    static var runFileDeprecation: Diagnostic.Message {
+        .warning("'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead")
     }
 }

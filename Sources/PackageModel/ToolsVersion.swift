@@ -224,22 +224,6 @@ extension SwiftLanguageVersion: Codable {
 
 /// The diagnostic triggered when the package has a newer tools version than the installed tools.
 public struct RequireNewerTools: DiagnosticData, Swift.Error {
-    public static var id = DiagnosticID(
-        type: RequireNewerTools.self,
-        name: "org.swift.diags.workspace.\(RequireNewerTools.self)",
-        description: {
-            $0 <<< .substitution({
-                let `self` = $0 as! RequireNewerTools
-                var text = "package at '\(self.packagePath)'"
-                if let version = self.version {
-                    text += " @ \(version)"
-                }
-                return text
-            }, preference: .default)
-            $0 <<< "is using Swift tools version" <<< { $0.packageToolsVersion.description }
-            $0 <<< "but the installed version is" <<< { "\($0.installedToolsVersion.description)" }
-    })
-
     /// The path of the package.
     public let packagePath: String
 
@@ -263,26 +247,19 @@ public struct RequireNewerTools: DiagnosticData, Swift.Error {
         self.installedToolsVersion = installedToolsVersion
         self.packageToolsVersion = packageToolsVersion
     }
+
+    public var description: String {
+        var text = "package at '\(packagePath)'"
+        if let version = self.version {
+            text += " @ \(version)"
+        }
+        text += " is using Swift tools version \(packageToolsVersion.description) but the installed version is \(installedToolsVersion.description)"
+        return text
+    }
 }
 
 /// The diagnostic triggered when the package has an unsupported tools version.
 public struct UnsupportedToolsVersion: DiagnosticData, Swift.Error {
-    public static var id = DiagnosticID(
-        type: UnsupportedToolsVersion.self,
-        name: "org.swift.diags.workspace.\(UnsupportedToolsVersion.self)",
-        description: {
-            $0 <<< .substitution({
-                let `self` = $0 as! UnsupportedToolsVersion
-                var text = "package at '\(self.packagePath)'"
-                if let version = self.version {
-                    text += " @ \(version)"
-                }
-                return text
-            }, preference: .default)
-            $0 <<< "is using Swift tools version" <<< { $0.packageToolsVersion.description }
-            $0 <<< "which is no longer supported;" <<< { $0.hintString }
-    })
-
     /// The path of the package.
     public let packagePath: String
 
@@ -309,5 +286,14 @@ public struct UnsupportedToolsVersion: DiagnosticData, Swift.Error {
         self.version = version
         self.currentToolsVersion = currentToolsVersion
         self.packageToolsVersion = packageToolsVersion
+    }
+
+    public var description: String {
+        var text = "package at '\(self.packagePath)'"
+        if let version = self.version {
+            text += " @ \(version)"
+        }
+        text += " is using Swift tools version \(packageToolsVersion.description) which is no longer supported; \(hintString)"
+        return text
     }
 }
