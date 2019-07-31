@@ -1304,9 +1304,6 @@ extension Workspace {
         constraints += currentManifests.editedPackagesConstraints()
         constraints += graphRoot.constraints(config: config) + extraConstraints
 
-        // Record the start time of dependency resolution.
-        let resolutionStartTime = Date()
-
         // Perform dependency resolution.
         let resolverDiagnostics = DiagnosticsEngine()
         var resolver = createResolver()
@@ -1339,10 +1336,6 @@ extension Workspace {
                 return currentManifests
             }
         }
-
-        // Emit the time taken to perform dependency resolution.
-        let resolutionDuration = Date().timeIntervalSince(resolutionStartTime)
-        diagnostics.emit(data: WorkspaceDiagnostics.ResolverDurationNote(resolutionDuration))
 
         // Update the checkouts with dependency resolution result.
         updateCheckouts(root: graphRoot, updateResults: result, diagnostics: diagnostics)
