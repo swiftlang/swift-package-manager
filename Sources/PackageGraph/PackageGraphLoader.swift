@@ -97,7 +97,7 @@ public struct PackageGraphLoader {
         config: SwiftPMConfig = SwiftPMConfig(),
         externalManifests: [Manifest],
         requiredDependencies: Set<PackageReference> = [],
-        unsafeAllowedDependencies: Set<PackageReference> = [],
+        unsafeAllowedPackages: Set<PackageReference> = [],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
         shouldCreateMultipleTestProducts: Bool = false,
@@ -177,7 +177,7 @@ public struct PackageGraphLoader {
             config: config,
             manifestToPackage: manifestToPackage,
             rootManifestSet: rootManifestSet,
-            unsafeAllowedDependencies: unsafeAllowedDependencies,
+            unsafeAllowedPackages: unsafeAllowedPackages,
             diagnostics: diagnostics
         )
 
@@ -236,7 +236,7 @@ private func createResolvedPackages(
     manifestToPackage: [Manifest: Package],
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifestSet: Set<Manifest>,
-    unsafeAllowedDependencies: Set<PackageReference>,
+    unsafeAllowedPackages: Set<PackageReference>,
     diagnostics: DiagnosticsEngine
 ) -> [ResolvedPackage] {
 
@@ -245,7 +245,7 @@ private func createResolvedPackages(
         guard let package = manifestToPackage[$0] else {
             return nil
         }
-        let isAllowedToVendUnsafeProducts = unsafeAllowedDependencies.contains{ $0.path == package.manifest.url }
+        let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.path == package.manifest.url }
         return ResolvedPackageBuilder(package, isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts)
     })
 

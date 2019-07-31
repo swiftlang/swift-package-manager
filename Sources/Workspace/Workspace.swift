@@ -151,8 +151,8 @@ public class Workspace {
             return computePackageURLs().missing
         }
 
-        /// Returns the list of package dependencies which are allowed to vend products with unsafe flags.
-        func unsafeAllowedDependencies() -> Set<PackageReference> {
+        /// Returns the list of packages which are allowed to vend products with unsafe flags.
+        func unsafeAllowedPackages() -> Set<PackageReference> {
             var result = Set<PackageReference>()
 
             for dependency in dependencies {
@@ -168,6 +168,9 @@ public class Workspace {
                     result.insert(dependency.packageRef)
                 }
             }
+
+            // Root packages are always allowed to use unsafe flags.
+            result.formUnion(root.packageRefs)
 
             return result
         }
@@ -692,7 +695,7 @@ extension Workspace {
             config: config,
             externalManifests: externalManifests,
             requiredDependencies: manifests.computePackageURLs().required,
-            unsafeAllowedDependencies: manifests.unsafeAllowedDependencies(),
+            unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
             diagnostics: diagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,

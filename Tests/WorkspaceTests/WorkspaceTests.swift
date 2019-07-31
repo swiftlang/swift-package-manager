@@ -3103,6 +3103,16 @@ final class WorkspaceTests: XCTestCase {
             fs: fs,
             roots: [
                 TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar", settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+                TestPackage(
                     name: "Foo",
                     targets: [
                         TestTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
@@ -3142,7 +3152,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // We should only see errors about use of unsafe flag in the version-based dependency.
-        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+        workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
                result.check(diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"), behavior: .error)
            }
