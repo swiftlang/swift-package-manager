@@ -13,6 +13,10 @@ import SPMUtility
 import class PackageModel.Manifest
 import Foundation
 
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
+
 /// A bare minimum loader for Xcode workspaces.
 ///
 /// Warning: This is only useful for debugging workspaces that contain Swift packages.
