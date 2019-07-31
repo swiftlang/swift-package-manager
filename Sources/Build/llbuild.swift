@@ -137,34 +137,19 @@ public final class LLBuildManifestGenerator {
     }
 
     private func addTestFileGeneration(_ targets: inout Targets) {
-        var testTargets: [SwiftTargetBuildDescription] = []
-        var _testDiscoveryTarget: SwiftTargetBuildDescription?
-
         for target in plan.targets {
-            switch target {
-            case .swift(let target) where target.isTestTarget:
-                if target.testDiscoveryTarget {
-                    _testDiscoveryTarget = target
-                } else {
-                    testTargets.append(target)
-                }
-            default:
-                break
-            }
+            guard case .swift(let target) = target, target.isTestTarget, target.testDiscoveryTarget else { continue }
+            let testDiscoveryTarget = target
+
+            let testTargets = testDiscoveryTarget.target.dependencies.compactMap{ $0.target }.compactMap{ plan.targetMap[$0] }
+            let objectFiles = testTargets.flatMap{ $0.objects }.map{ $0.pathString }.sorted()
+            let outputs = testDiscoveryTarget.target.sources.paths
+            let tool = TestDiscoveryTool(inputs: objectFiles, outputs: outputs.map{ $0.pathString })
+
+            let cmdName = outputs.first{ $0.basename == "main.swift" }!.pathString
+            targets.allCommands.insert(Command(name: cmdName, tool: tool))
+            buildTimeCmdToolMap[cmdName] = tool
         }
-
-        // Nothing to do if we don't have the test discovery target.
-        guard let testDiscoveryTarget = _testDiscoveryTarget else {
-            return
-        }
-
-        let objectFiles = testTargets.flatMap{ $0.objects }.map{ $0.pathString }.sorted()
-        let outputs = testDiscoveryTarget.target.sources.paths
-        let tool = TestDiscoveryTool(inputs: objectFiles, outputs: outputs.map{ $0.pathString })
-
-        let cmdName = outputs.first{ $0.basename == "main.swift" }!.pathString
-        targets.allCommands.insert(Command(name: cmdName, tool: tool))
-        buildTimeCmdToolMap[cmdName] = tool
     }
 
     /// Map of command -> tool that is used during the build for in-process tools.
