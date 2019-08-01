@@ -239,7 +239,7 @@ public func loadPackageGraph(
 /// from different threads, the environment will neither be setup nor restored
 /// correctly.
 public func withCustomEnv(_ env: [String: String], body: () throws -> Void) throws {
-    let state = Array(env.keys).map({ ($0, Process.env[$0]) })
+    let state = Array(env.keys).map({ ($0, ProcessEnv.vars[$0]) })
     let restore = {
         for (key, value) in state {
             if let value = value {

@@ -15,8 +15,12 @@ import SPMLibc
 public enum ProcessEnv {
 
     /// Returns a dictionary containing the current environment.
-    public static var vars: [String: String] {
-        return ProcessInfo.processInfo.environment
+    public static var vars: [String: String] { _vars }
+    private static var _vars = ProcessInfo.processInfo.environment
+
+    /// Invalidate the cached env.
+    public static func invalidateEnv() {
+        _vars = ProcessInfo.processInfo.environment
     }
 
     /// Set the given key and value in the process's environment.
@@ -34,6 +38,7 @@ public enum ProcessEnv {
             throw SystemError.setenv(errno, key)
         }
       #endif
+        invalidateEnv()
     }
 
     /// Unset the give key in the process's environment.
@@ -49,6 +54,7 @@ public enum ProcessEnv {
             throw SystemError.unsetenv(errno, key)
         }
       #endif
+        invalidateEnv()
     }
 
     /// The current working directory of the process.

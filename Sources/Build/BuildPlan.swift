@@ -30,7 +30,7 @@ public struct BuildParameters {
     fileprivate var moduleCache: AbsolutePath {
         // FIXME: We use this hack to let swiftpm's functional test use shared
         // cache so it doesn't become painfully slow.
-        if let path = Process.env["SWIFTPM_TESTS_MODULECACHE"] {
+        if let path = ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] {
             return AbsolutePath(path)
         }
         return buildPath.appending(component: "ModuleCache")
@@ -324,7 +324,7 @@ public final class ClangTargetBuildDescription {
         //
         // This feature is not widely available in OSS clang. So, we only enable
         // index store for Apple's clang or if explicitly asked to.
-        if Process.env.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
+        if ProcessEnv.vars.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
             args += buildParameters.indexStoreArguments
         } else if buildParameters.triple.isDarwin(), (try? buildParameters.toolchain._isClangCompilerVendorApple()) == true {
             args += buildParameters.indexStoreArguments
@@ -525,7 +525,7 @@ public final class SwiftTargetBuildDescription {
 
         // Add arguments to colorize output if stdout is tty
         if buildParameters.isTTY {
-            if Process.env["SWIFTPM_USE_NEW_COLOR_DIAGNOSTICS"] != nil {
+            if ProcessEnv.vars["SWIFTPM_USE_NEW_COLOR_DIAGNOSTICS"] != nil {
                 args += ["-color-diagnostics"]
             } else {
                 args += ["-Xfrontend", "-color-diagnostics"]

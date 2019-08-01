@@ -159,6 +159,7 @@ public final class Process: ObjectIdentifierProtocol {
     public let verbose: Bool
 
     /// The current environment.
+    @available(*, deprecated, message: "use ProcessEnv.vars instead")
     static public var env: [String: String] {
         return ProcessInfo.processInfo.environment
     }
@@ -233,7 +234,7 @@ public final class Process: ObjectIdentifierProtocol {
     ///     continue running even if the parent is killed or interrupted. Default value is true.
     public init(
         arguments: [String],
-        environment: [String: String] = env,
+        environment: [String: String] = ProcessEnv.vars,
         outputRedirection: OutputRedirection = .collect,
         verbose: Bool = Process.verbose,
         startNewProcessGroup: Bool = true
@@ -256,7 +257,7 @@ public final class Process: ObjectIdentifierProtocol {
             }
             // FIXME: This can be cached.
             let envSearchPaths = getEnvSearchPaths(
-                pathString: Process.env["PATH"],
+                pathString: ProcessEnv.vars["PATH"],
                 currentWorkingDirectory: localFileSystem.currentWorkingDirectory
             )
             // Lookup and cache the executable path.
@@ -545,14 +546,14 @@ extension Process {
     ///     will be inherited.
     /// - Returns: The process result.
     @discardableResult
-    static public func popen(arguments: [String], environment: [String: String] = env) throws -> ProcessResult {
+    static public func popen(arguments: [String], environment: [String: String] = ProcessEnv.vars) throws -> ProcessResult {
         let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
         try process.launch()
         return try process.waitUntilExit()
     }
 
     @discardableResult
-    static public func popen(args: String..., environment: [String: String] = env) throws -> ProcessResult {
+    static public func popen(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> ProcessResult {
         return try Process.popen(arguments: args, environment: environment)
     }
 
@@ -564,7 +565,7 @@ extension Process {
     ///     will be inherited.
     /// - Returns: The process output (stdout + stderr).
     @discardableResult
-    static public func checkNonZeroExit(arguments: [String], environment: [String: String] = env) throws -> String {
+    static public func checkNonZeroExit(arguments: [String], environment: [String: String] = ProcessEnv.vars) throws -> String {
         let process = Process(arguments: arguments, environment: environment, outputRedirection: .collect)
         try process.launch()
         let result = try process.waitUntilExit()
@@ -576,11 +577,11 @@ extension Process {
     }
 
     @discardableResult
-    static public func checkNonZeroExit(args: String..., environment: [String: String] = env) throws -> String {
+    static public func checkNonZeroExit(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> String {
         return try checkNonZeroExit(arguments: args, environment: environment)
     }
 
-    public convenience init(args: String..., environment: [String: String] = env, outputRedirection: OutputRedirection = .collect) {
+    public convenience init(args: String..., environment: [String: String] = ProcessEnv.vars, outputRedirection: OutputRedirection = .collect) {
         self.init(arguments: args, environment: environment, outputRedirection: outputRedirection)
     }
 }

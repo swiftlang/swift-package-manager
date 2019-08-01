@@ -81,7 +81,7 @@ public struct Destination {
     public static func hostDestination(
         _ binDir: AbsolutePath? = nil,
         originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory,
-        environment: [String:String] = Process.env
+        environment: [String:String] = ProcessEnv.vars
     ) throws -> Destination {
         // Select the correct binDir.
         var customBinDir: AbsolutePath?
@@ -94,7 +94,7 @@ public struct Destination {
       #if os(macOS)
         // Get the SDK.
         let sdkPath: AbsolutePath
-        if let value = lookupExecutablePath(filename: Process.env["SDKROOT"]) {
+        if let value = lookupExecutablePath(filename: ProcessEnv.vars["SDKROOT"]) {
             sdkPath = value
         } else {
             // No value in env, so search for it.
@@ -131,7 +131,7 @@ public struct Destination {
     }
 
     /// Returns macosx sdk platform framework path.
-    public static func sdkPlatformFrameworkPath(environment: [String:String] = Process.env) -> AbsolutePath? {
+    public static func sdkPlatformFrameworkPath(environment: [String:String] = ProcessEnv.vars) -> AbsolutePath? {
         if let path = _sdkPlatformFrameworkPath {
             return path
         }
