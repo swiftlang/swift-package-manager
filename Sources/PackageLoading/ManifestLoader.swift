@@ -404,7 +404,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // FIXME: Workaround for the module cache bug that's been haunting Swift CI
             // <rdar://problem/48443680>
-            let moduleCachePath = Process.env["SWIFTPM_MODULECACHE_OVERRIDE"] ?? Process.env["SWIFTPM_TESTS_MODULECACHE"]
+            let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
 
             var cmd = [String]()
           #if os(macOS)

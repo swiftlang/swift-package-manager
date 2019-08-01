@@ -417,7 +417,7 @@ public class SwiftTool<Options: ToolOptions> {
 
     func configFilePath() throws -> AbsolutePath {
         // Look for the override in the environment.
-        if let envPath = Process.env["SWIFTPM_MIRROR_CONFIG"] {
+        if let envPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
             return try AbsolutePath(validating: envPath)
         }
 
@@ -753,8 +753,8 @@ private func findPackageRoot() -> AbsolutePath? {
 /// Returns the build path from the environment, if present.
 private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
     // Don't rely on build path from env for SwiftPM's own tests.
-    guard Process.env["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
-    guard let env = Process.env["SWIFTPM_BUILD_DIR"] else { return nil }
+    guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
+    guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
     return AbsolutePath(env, relativeTo: workingDir)
 }
 

@@ -166,7 +166,7 @@ public struct PkgConfig {
     }
 
     private static var envSearchPaths: [AbsolutePath] {
-        if let configPath = Process.env["PKG_CONFIG_PATH"] {
+        if let configPath = ProcessEnv.vars["PKG_CONFIG_PATH"] {
             return configPath.split(separator: ":").map({ AbsolutePath(String($0)) })
         }
         return []

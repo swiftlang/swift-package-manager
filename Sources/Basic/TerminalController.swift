@@ -94,7 +94,7 @@ public final class TerminalController {
 
     /// Computes the terminal type of the stream.
     public static func terminalType(_ stream: LocalFileOutputByteStream) -> TerminalType {
-        if Process.env["TERM"] == "dumb" {
+        if ProcessEnv.vars["TERM"] == "dumb" {
             return .dumb
         }
         let isTTY = isatty(fileno(stream.filePointer)) != 0
@@ -107,7 +107,7 @@ public final class TerminalController {
     /// - Returns: Current width of terminal if it was determinable.
     public static func terminalWidth() -> Int? {
         // Try to get from environment.
-        if let columns = Process.env["COLUMNS"], let width = Int(columns) {
+        if let columns = ProcessEnv.vars["COLUMNS"], let width = Int(columns) {
             return width
         }
 

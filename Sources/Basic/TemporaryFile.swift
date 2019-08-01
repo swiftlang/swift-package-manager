@@ -55,7 +55,7 @@ public func determineTempDirectory(_ dir: AbsolutePath? = nil) throws -> Absolut
 /// Returns temporary directory location by searching relevant env variables.
 /// Evaluates once per execution.
 private var cachedTempDirectory: AbsolutePath = {
-    return AbsolutePath(Process.env["TMPDIR"] ?? Process.env["TEMP"] ?? Process.env["TMP"] ?? "/tmp/")
+    return AbsolutePath(ProcessEnv.vars["TMPDIR"] ?? ProcessEnv.vars["TEMP"] ?? ProcessEnv.vars["TMP"] ?? "/tmp/")
 }()
 
 /// This class is basically a wrapper over posix's mkstemps() function to creates disposable files.

@@ -725,7 +725,7 @@ final class ParallelTestRunner {
         self.numJobs = numJobs
         self.diagnostics = diagnostics
 
-        if Process.env["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
+        if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
             progressAnimation = PercentProgressAnimation(stream: stdoutStream, header: "Testing:")
         } else {
             progressAnimation = NinjaProgressAnimation(stream: stdoutStream)
@@ -965,7 +965,7 @@ fileprivate func constructTestEnvironment(
     options: ToolOptions,
     buildParameters: BuildParameters
 ) throws -> [String: String] {
-    var env = Process.env
+    var env = ProcessEnv.vars
 
     // Add the code coverage related variables.
     if options.shouldEnableCodeCoverage {
