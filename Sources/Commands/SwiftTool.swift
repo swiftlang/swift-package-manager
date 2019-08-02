@@ -591,7 +591,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         // Run llbuild.
         assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest)")
-        try runLLBuild(plan: plan, bctx: bctx, manifest: manifest, llbuildTarget: llbuildTargetName)
+        try runLLBuild(bctx: bctx, manifest: manifest, llbuildTarget: llbuildTargetName)
 
         // Create backwards-compatibilty symlink to old build path.
         let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
@@ -601,7 +601,7 @@ public class SwiftTool<Options: ToolOptions> {
         try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
     }
 
-    private func runLLBuild(plan: BuildPlan, bctx: BuildExecutionContext, manifest: AbsolutePath, llbuildTarget: String) throws {
+    private func runLLBuild(bctx: BuildExecutionContext, manifest: AbsolutePath, llbuildTarget: String) throws {
         // Setup the build delegate.
         let isVerbose = verbosity != .concise
         let progressAnimation: ProgressAnimationProtocol = isVerbose ?
