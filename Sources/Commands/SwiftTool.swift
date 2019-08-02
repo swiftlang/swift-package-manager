@@ -582,7 +582,9 @@ public class SwiftTool<Options: ToolOptions> {
         let llbuild = LLBuildManifestGenerator(plan, client: "basic")
         try llbuild.generateManifest(at: manifest)
 
-        let bctx = BuildExecutionContext(plan, buildTimeCmdToolMap: llbuild.buildTimeCmdToolMap)
+        let buildDescription = BuildDescription(plan: plan)
+        let bctx = BuildExecutionContext(
+            plan.buildParameters, buildDescription: buildDescription, buildTimeCmdToolMap: llbuild.buildTimeCmdToolMap)
 
         // Run llbuild.
         assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest)")
@@ -604,7 +606,6 @@ public class SwiftTool<Options: ToolOptions> {
             NinjaProgressAnimation(stream: stdoutStream)
         let buildDelegate = BuildDelegate(
             bctx: bctx,
-            plan: plan,
             diagnostics: diagnostics,
             outputStream: stdoutStream,
             progressAnimation: progressAnimation)

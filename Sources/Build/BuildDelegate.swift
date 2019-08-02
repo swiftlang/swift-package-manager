@@ -164,20 +164,55 @@ private final class InProcessTool: Tool {
     }
 }
 
+/// Contains the description of the build that is needed during the execution.
+public struct BuildDescription: Codable {
+    typealias CommandName = String
+    typealias TargetName = String
+
+    /// The map of command to target names.
+    let allTargetMap: [CommandName: TargetName]
+
+    /// The map of command to target names for Swift targets.
+    let swiftTargetMap: [CommandName: TargetName]
+
+    public init(plan: BuildPlan) {
+        let buildConfig = plan.buildParameters.configuration.dirname
+
+        allTargetMap = Dictionary(uniqueKeysWithValues: plan.targetMap.keys.map{
+            ($0.getCommandName(config: buildConfig), $0.name)
+        })
+
+        swiftTargetMap = Dictionary(uniqueKeysWithValues: plan.targetMap.values.compactMap{
+            guard case .swift(let desc) = $0 else { return nil }
+            return (desc.target.getCommandName(config: buildConfig), desc.target.name)
+        })
+    }
+}
+
 /// The context available during build execution.
 public final class BuildExecutionContext {
 
     /// Mapping of command-name to its tool.
     let buildTimeCmdToolMap: [String: ToolProtocol]
 
+    /// Reference to the index store API.
     var indexStoreAPI: Result<IndexStoreAPI, AnyError> {
         indexStoreAPICache.getValue(self)
     }
 
+    /// The build parameters.
     let buildParameters: BuildParameters
 
-    public init(_ plan: BuildPlan, buildTimeCmdToolMap: [String: ToolProtocol]) {
-        self.buildParameters = plan.buildParameters
+    /// The build description.
+    let buildDescription: BuildDescription
+
+    public init(
+        _ buildParameters: BuildParameters,
+        buildDescription: BuildDescription,
+        buildTimeCmdToolMap: [String: ToolProtocol]
+    ) {
+        self.buildParameters = buildParameters
+        self.buildDescription = buildDescription
         self.buildTimeCmdToolMap = buildTimeCmdToolMap
     }
 
@@ -205,14 +240,16 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]
+
     /// Target name keyed by llbuild command name.
-    private let targetNames: [String: String]
+    private var targetNames: [String: String] {
+        buildExecutionContext.buildDescription.allTargetMap
+    }
 
     let buildExecutionContext: BuildExecutionContext
 
     public init(
         bctx: BuildExecutionContext,
-        plan: BuildPlan,
         diagnostics: DiagnosticsEngine,
         outputStream: OutputByteStream,
         progressAnimation: ProgressAnimationProtocol
@@ -223,18 +260,9 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.progressAnimation = progressAnimation
         self.buildExecutionContext = bctx
-
-        let buildConfig = plan.buildParameters.configuration.dirname
-
-        targetNames = Dictionary(uniqueKeysWithValues: plan.targetMap.map({ (target, description) in
-            return (target.getCommandName(config: buildConfig), target.name)
-        }))
-
-        swiftParsers = Dictionary(uniqueKeysWithValues: plan.targetMap.compactMap({ (target, description) in
-            guard case .swift = description else { return nil }
-            let parser = SwiftCompilerOutputParser(targetName: target.name, delegate: self)
-            return (target.getCommandName(config: buildConfig), parser)
-        }))
+        self.swiftParsers = bctx.buildDescription.swiftTargetMap.mapValues {
+            SwiftCompilerOutputParser(targetName: $0, delegate: self)
+        }
     }
 
     public var fs: SPMLLBuild.FileSystem? {
