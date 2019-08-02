@@ -12,7 +12,7 @@
 // for BuildSupport style logic yet.
 //
 /// Build-tool independent flags.
-public struct BuildFlags {
+public struct BuildFlags: Encodable {
 
     /// Flags to pass to the C compiler.
     public var cCompilerFlags: [String]

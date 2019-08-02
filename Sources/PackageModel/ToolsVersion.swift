@@ -14,7 +14,7 @@ import Foundation
 import SPMUtility
 
 /// Tools version represents version of the Swift toolchain.
-public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable {
+public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable, Encodable {
 
     public static let v3 = ToolsVersion(version: "3.1.0")
     public static let v4 = ToolsVersion(version: "4.0.0")

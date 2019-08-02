@@ -12,7 +12,7 @@ import Basic
 import SPMUtility
 
 /// Available runtime sanitizers.
-public enum Sanitizer: String {
+public enum Sanitizer: String, Encodable {
     case address
     case thread
     case undefined
@@ -28,7 +28,7 @@ public enum Sanitizer: String {
 }
 
 /// A set of enabled runtime sanitizers.
-public struct EnabledSanitizers {
+public struct EnabledSanitizers: Encodable {
     /// A set of enabled sanitizers.
     public let sanitizers: Set<Sanitizer>
 
@@ -56,6 +56,15 @@ public struct EnabledSanitizers {
 
     public var isEmpty: Bool {
         return sanitizers.isEmpty
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case sanitizers
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(sanitizers.sorted{ $0.rawValue < $1.rawValue }, forKey: .sanitizers)
     }
 }
 
