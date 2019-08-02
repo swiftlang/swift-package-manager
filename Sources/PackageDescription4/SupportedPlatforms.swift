@@ -19,19 +19,19 @@ public struct Platform: Encodable {
         self.name = name
     }
 
-    ///The macOS platform.
+    /// The macOS platform.
     public static let macOS: Platform = Platform(name: "macos")
 
-    ///The iOS platform.
+    /// The iOS platform.
     public static let iOS: Platform = Platform(name: "ios")
 
-    ///The tvOS platform.
+    /// The tvOS platform.
     public static let tvOS: Platform = Platform(name: "tvos")
 
-    ///The watchOS platform.
+    /// The watchOS platform.
     public static let watchOS: Platform = Platform(name: "watchos")
 
-    ///The Linux platform.
+    /// The Linux platform.
     public static let linux: Platform = Platform(name: "linux")
 }
 
