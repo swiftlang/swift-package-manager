@@ -559,7 +559,7 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.dematerialize()
     }
 
-    func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String? {
+    func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String {
         switch subset {
         case .allExcludingTests:
             return LLBuildManifestGenerator.llbuildMainTargetName
@@ -567,41 +567,44 @@ public class SwiftTool<Options: ToolOptions> {
             return LLBuildManifestGenerator.llbuildTestTargetName
         default:
             // FIXME: This is super unfortunate that we might need to load the package graph.
-            return try subset.llbuildTargetName(for: loadPackageGraph(), diagnostics: diagnostics, config: buildParameters.configuration.dirname)
+            let graph = try loadPackageGraph()
+            if let result = subset.llbuildTargetName(for: graph, diagnostics: diagnostics, config: buildParameters.configuration.dirname) {
+                return result
+            }
+            throw Diagnostics.fatalError
         }
     }
 
-    /// Build a subset of products and targets using swift-build-tool.
+    /// Build a subset of products and targets using llbuild.
     func build(plan: BuildPlan, subset: BuildSubset) throws {
-        guard let llbuildTargetName = subset.llbuildTargetName(for: plan.graph, diagnostics: diagnostics, config: plan.buildParameters.configuration.dirname) else {
-            return
-        }
-
-        let manifest = plan.buildParameters.llbuildManifest
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestGenerator(plan, client: "basic")
-        try llbuild.generateManifest(at: manifest)
+        try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
 
+        // Create the build description.
         let buildDescription = BuildDescription(plan: plan, testDiscoveryCommands: llbuild.testDiscoveryCommands)
 
-        let bctx = BuildExecutionContext(
-            plan.buildParameters,
-            buildDescription: buildDescription
-        )
+        // Finally, run the build.
+        try build(buildDescription: buildDescription, subset: subset)
+    }
+
+    func build(buildDescription: BuildDescription, subset: BuildSubset) throws {
+        let buildParameters = try self.buildParameters()
+        let bctx = BuildExecutionContext(buildParameters, buildDescription: buildDescription)
+        let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: buildParameters)
 
         // Run llbuild.
-        assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest)")
-        try runLLBuild(bctx: bctx, manifest: manifest, llbuildTarget: llbuildTargetName)
+        try runLLBuild(bctx: bctx, llbuildTarget: llbuildTargetName)
 
         // Create backwards-compatibilty symlink to old build path.
         let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
         if localFileSystem.exists(oldBuildPath) {
             try localFileSystem.removeFileTree(oldBuildPath)
         }
-        try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
+        try createSymlink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
     }
 
-    private func runLLBuild(bctx: BuildExecutionContext, manifest: AbsolutePath, llbuildTarget: String) throws {
+    private func runLLBuild(bctx: BuildExecutionContext, llbuildTarget: String) throws {
         // Setup the build delegate.
         let isVerbose = verbosity != .concise
         let progressAnimation: ProgressAnimationProtocol = isVerbose ?
@@ -618,6 +621,9 @@ public class SwiftTool<Options: ToolOptions> {
         if let jobs = options.jobs {
             BuildSystem.setSchedulerLaneWidth(width: jobs)
         }
+
+        let manifest = try self.buildParameters().llbuildManifest
+        assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest)")
         let buildSystem = BuildSystem(buildFile: manifest.pathString, databaseFile: databasePath, delegate: buildDelegate)
         self.buildSystemRef.buildSystem = buildSystem
         buildDelegate.onCommmandFailure = { buildSystem.cancel() }
