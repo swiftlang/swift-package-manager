@@ -148,12 +148,12 @@ public final class LLBuildManifestGenerator {
 
             let cmdName = outputs.first{ $0.basename == "main.swift" }!.pathString
             targets.allCommands.insert(Command(name: cmdName, tool: tool))
-            buildTimeCmdToolMap[cmdName] = tool
+            testDiscoveryCommands[cmdName] = tool
         }
     }
 
     /// Map of command -> tool that is used during the build for in-process tools.
-    public private(set) var buildTimeCmdToolMap: [String: ToolProtocol] = [:]
+    public private(set) var testDiscoveryCommands: [String: TestDiscoveryTool] = [:]
 
     /// Create a llbuild target for a product description.
     private func createProductTarget(_ buildProduct: ProductBuildDescription) -> Target {

@@ -131,7 +131,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
     }
 
     override func execute(_ command: SPMLLBuild.Command) -> Bool {
-        guard let tool = ctx.buildTimeCmdToolMap[command.name] else {
+        guard let tool = ctx.buildDescription.testDiscoveryCommands[command.name] else {
             print("command \(command.name) not registered")
             return false
         }
@@ -148,26 +148,22 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
 
 private final class InProcessTool: Tool {
     let ctx: BuildExecutionContext
+    let type: CustomLLBuildCommand.Type
 
-    init(_ ctx: BuildExecutionContext) {
+    init(_ ctx: BuildExecutionContext, type: CustomLLBuildCommand.Type) {
         self.ctx = ctx
+        self.type = type
     }
 
     func createCommand(_ name: String) -> ExternalCommand {
-        // FIXME: This should be able to dynamically look up the right command.
-        switch ctx.buildTimeCmdToolMap[name] {
-        case is TestDiscoveryTool:
-            return TestDiscoveryCommand(ctx)
-        default:
-            fatalError("Unhandled command \(name)")
-        }
+        return type.init(ctx)
     }
 }
 
 /// Contains the description of the build that is needed during the execution.
 public struct BuildDescription: Codable {
-    typealias CommandName = String
-    typealias TargetName = String
+    public typealias CommandName = String
+    public typealias TargetName = String
 
     /// The map of command to target names.
     let allTargetMap: [CommandName: TargetName]
@@ -175,7 +171,10 @@ public struct BuildDescription: Codable {
     /// The map of command to target names for Swift targets.
     let swiftTargetMap: [CommandName: TargetName]
 
-    public init(plan: BuildPlan) {
+    /// The map of test discovery commands.
+    let testDiscoveryCommands: [CommandName: TestDiscoveryTool]
+
+    public init(plan: BuildPlan, testDiscoveryCommands: [CommandName: TestDiscoveryTool]) {
         let buildConfig = plan.buildParameters.configuration.dirname
 
         allTargetMap = Dictionary(uniqueKeysWithValues: plan.targetMap.keys.map{
@@ -186,14 +185,13 @@ public struct BuildDescription: Codable {
             guard case .swift(let desc) = $0 else { return nil }
             return (desc.target.getCommandName(config: buildConfig), desc.target.name)
         })
+
+        self.testDiscoveryCommands = testDiscoveryCommands
     }
 }
 
 /// The context available during build execution.
 public final class BuildExecutionContext {
-
-    /// Mapping of command-name to its tool.
-    let buildTimeCmdToolMap: [String: ToolProtocol]
 
     /// Reference to the index store API.
     var indexStoreAPI: Result<IndexStoreAPI, AnyError> {
@@ -208,12 +206,10 @@ public final class BuildExecutionContext {
 
     public init(
         _ buildParameters: BuildParameters,
-        buildDescription: BuildDescription,
-        buildTimeCmdToolMap: [String: ToolProtocol]
+        buildDescription: BuildDescription
     ) {
         self.buildParameters = buildParameters
         self.buildDescription = buildDescription
-        self.buildTimeCmdToolMap = buildTimeCmdToolMap
     }
 
     // MARK:- Private
@@ -272,7 +268,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     public func lookupTool(_ name: String) -> Tool? {
         switch name {
         case TestDiscoveryTool.name:
-            return InProcessTool(buildExecutionContext)
+            return InProcessTool(buildExecutionContext, type: TestDiscoveryCommand.self)
         default:
             return nil
         }
