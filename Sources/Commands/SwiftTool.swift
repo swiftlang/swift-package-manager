@@ -588,6 +588,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         // Create the build description.
         let buildDescription = BuildDescription(plan: plan, testDiscoveryCommands: llbuild.testDiscoveryCommands)
+        try localFileSystem.createDirectory(plan.buildParameters.buildDescriptionPath.parentDirectory, recursive: true)
         try buildDescription.write(to: plan.buildParameters.buildDescriptionPath)
 
         // Finally, run the build.
