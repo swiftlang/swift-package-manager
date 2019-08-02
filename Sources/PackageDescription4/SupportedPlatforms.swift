@@ -19,11 +19,19 @@ public struct Platform: Encodable {
         self.name = name
     }
 
-    /// FIXME: add documentation
+    /// The macOS platform.
     public static let macOS: Platform = Platform(name: "macos")
+
+    /// The iOS platform.
     public static let iOS: Platform = Platform(name: "ios")
+
+    /// The tvOS platform.
     public static let tvOS: Platform = Platform(name: "tvos")
+
+    /// The watchOS platform.
     public static let watchOS: Platform = Platform(name: "watchos")
+
+    /// The Linux platform.
     public static let linux: Platform = Platform(name: "linux")
 }
 
