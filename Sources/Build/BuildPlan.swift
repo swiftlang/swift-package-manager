@@ -13,11 +13,11 @@ import SPMUtility
 import PackageModel
 import PackageGraph
 import PackageLoading
+import Foundation
 
-public struct BuildParameters {
-
+public struct BuildParameters: Encodable {
     /// Mode for the indexing-while-building feature.
-    public enum IndexStoreMode: Equatable {
+    public enum IndexStoreMode: String, Encodable {
         /// Index store should be enabled.
         case on
         /// Index store should be disabled.
@@ -64,7 +64,8 @@ public struct BuildParameters {
     }
 
     /// The toolchain.
-    public let toolchain: Toolchain
+    public var toolchain: Toolchain { _toolchain.toolchain }
+    private let _toolchain: _Toolchain
 
     /// Destination triple.
     public let triple: Triple
@@ -164,7 +165,7 @@ public struct BuildParameters {
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
-        self.toolchain = toolchain
+        self._toolchain = _Toolchain(toolchain: toolchain)
         self.triple = destinationTriple
         self.flags = flags
         self.toolsVersion = toolsVersion
@@ -222,6 +223,38 @@ public struct BuildParameters {
     /// Returns the scoped view of build settings for a given target.
     fileprivate func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
         return BuildSettings.Scope(target.underlyingTarget.buildSettings, boundCondition: (currentPlatform, configuration))
+    }
+
+    func hash() throws -> Data {
+        let encoder = JSONEncoder()
+        if #available(macOS 10.13, *) {
+            encoder.outputFormatting = [.sortedKeys]
+        }
+        return try encoder.encode(self)
+    }
+
+    /// A shim struct for toolchain so we can encode it without having to write encode(to:) for
+    /// entire BuildParameters by hand.
+    struct _Toolchain: Encodable {
+        let toolchain: Toolchain
+
+        enum CodingKeys: String, CodingKey {
+            case swiftCompiler
+            case clangCompiler
+            case extraCCFlags
+            case extraSwiftCFlags
+            case extraCPPFlags
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(toolchain.swiftCompiler, forKey: .swiftCompiler)
+            try container.encode(toolchain.getClangCompiler(), forKey: .clangCompiler)
+
+            try container.encode(toolchain.extraCCFlags, forKey: .extraCCFlags)
+            try container.encode(toolchain.extraSwiftCFlags, forKey: .extraSwiftCFlags)
+            try container.encode(toolchain.swiftCompiler, forKey: .swiftCompiler)
+        }
     }
 }
 

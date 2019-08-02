@@ -10,7 +10,7 @@
 
 import Basic
 
-public enum BuildConfiguration: String {
+public enum BuildConfiguration: String, Encodable {
     case debug
     case release
 
