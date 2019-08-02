@@ -326,6 +326,11 @@ public class SwiftTool<Options: ToolOptions> {
                usage: "Enable test discovery on platforms without Objective-C runtime"),
             to: { $0.enableTestDiscovery = $1 })
 
+        // Hidden option to force disable build planning.
+        binder.bind(
+            option: parser.add(option: "--skip-build-planning", kind: Bool.self, usage: nil),
+            to: { $0.skipBuildPlanning = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -583,6 +588,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         // Create the build description.
         let buildDescription = BuildDescription(plan: plan, testDiscoveryCommands: llbuild.testDiscoveryCommands)
+        try buildDescription.write(to: plan.buildParameters.buildDescriptionPath)
 
         // Finally, run the build.
         try build(buildDescription: buildDescription, subset: subset)

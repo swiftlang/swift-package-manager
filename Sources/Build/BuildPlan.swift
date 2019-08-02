@@ -147,6 +147,10 @@ public struct BuildParameters {
         return dataPath.appending(components: "..", configuration.dirname + ".yaml")
     }
 
+    public var buildDescriptionPath: AbsolutePath {
+        return buildPath.appending(components: "description.json")
+    }
+
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,

@@ -188,6 +188,19 @@ public struct BuildDescription: Codable {
 
         self.testDiscoveryCommands = testDiscoveryCommands
     }
+
+    public func write(to path: AbsolutePath) throws {
+        let encoder = JSONEncoder()
+        if #available(macOS 10.13, *) {
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        }
+        try localFileSystem.writeFileContents(path, bytes: ByteString(encoder.encode(self)))
+    }
+
+    public static func load(from path: AbsolutePath) throws -> BuildDescription {
+        let contents = try localFileSystem.readFileContents(path).contents
+        return try JSONDecoder().decode(BuildDescription.self, from: Data(contents))
+    }
 }
 
 /// The context available during build execution.
