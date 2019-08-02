@@ -38,14 +38,14 @@ struct PhonyTool: ToolProtocol {
     }
 }
 
-struct TestDiscoveryTool: ToolProtocol {
+public struct TestDiscoveryTool: ToolProtocol, Codable {
 
     static let name: String = "test-discovery-tool"
 
-    let inputs: [String]
-    let outputs: [String]
+    public let inputs: [String]
+    public let outputs: [String]
 
-    func append(to stream: OutputByteStream) {
+    public func append(to stream: OutputByteStream) {
         stream <<< "    tool: \(Self.name)\n"
         stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
         stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"

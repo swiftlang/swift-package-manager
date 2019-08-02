@@ -582,9 +582,12 @@ public class SwiftTool<Options: ToolOptions> {
         let llbuild = LLBuildManifestGenerator(plan, client: "basic")
         try llbuild.generateManifest(at: manifest)
 
-        let buildDescription = BuildDescription(plan: plan)
+        let buildDescription = BuildDescription(plan: plan, testDiscoveryCommands: llbuild.testDiscoveryCommands)
+
         let bctx = BuildExecutionContext(
-            plan.buildParameters, buildDescription: buildDescription, buildTimeCmdToolMap: llbuild.buildTimeCmdToolMap)
+            plan.buildParameters,
+            buildDescription: buildDescription
+        )
 
         // Run llbuild.
         assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest)")
