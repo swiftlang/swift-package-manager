@@ -142,24 +142,6 @@ public enum TestMode {
     case runParallel
 }
 
-/// Represents a test product which is built and is present on disk.
-private struct BuiltTestProduct {
-    /// The name of the package to which the test binary belongs.
-    let packageName: String
-
-    /// The path of the test binary.
-    let testBinary: AbsolutePath
-
-    /// The path of the test bundle.
-    var testBundle: AbsolutePath {
-        // Go up the folder hierarchy until we find the .xctest bundle.
-        sequence(
-            first: testBinary,
-            next: { $0.isRoot ? nil : $0.parentDirectory }
-        ).first{ $0.basename.hasSuffix(".xctest") }!
-    }
-}
-
 /// swift-test tool namespace
 public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
@@ -315,7 +297,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     }
 
     /// Processes the code coverage data and emits a json.
-    private func processCodeCoverage(_ testProduct: BuiltTestProduct) throws {
+    private func processCodeCoverage(_ testProduct: BuildDescription.BuiltTestProduct) throws {
         // Merge all the profraw files to produce a single profdata file.
         try mergeCodeCovRawDataFiles()
 
@@ -370,22 +352,18 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
     /// Builds the "test" target if enabled in options.
     ///
-    /// - Returns: The path to the test binary.
-    private func buildTestsIfNeeded(graph: PackageGraph? = nil) throws -> BuiltTestProduct {
-        let graph = try (graph ?? loadPackageGraph())
-        let buildPlan = try BuildPlan(
-            buildParameters: self.buildParameters(),
-            graph: graph,
-            diagnostics: diagnostics
-        )
-
+    /// - Returns: The built test product.
+    private func buildTestsIfNeeded(graph: PackageGraph? = nil) throws -> BuildDescription.BuiltTestProduct {
+        let buildDescription: BuildDescription
         if options.shouldBuildTests {
-            try build(plan: buildPlan, subset: .allIncludingTests)
+            buildDescription = try self.build(graph: graph, subset: .allIncludingTests)
+        } else {
+            buildDescription = try BuildDescription.load(from: buildParameters().buildDescriptionPath)
         }
 
         // Find the test product.
-        let testProducts = buildPlan.buildProducts.filter{ $0.product.type == .test }
-        let testProduct: ProductBuildDescription
+        let testProducts = buildDescription.builtTestProducts
+        let testProduct: BuildDescription.BuiltTestProduct
         switch testProducts.count {
         case 0:
             throw TestError.testsExecutableNotFound
@@ -395,17 +373,16 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         default:
             guard let testProductName = options.testProduct else {
-                throw TestError.multipleTestProducts(testProducts.map{ $0.product.name })
+                throw TestError.multipleTestProducts(testProducts.map{ $0.productName })
             }
-            guard let selectedTestProduct = testProducts.first(where: { $0.product.name == testProductName }) else {
+            guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
                 throw TestError.testsExecutableNotFound
             }
 
             testProduct = selectedTestProduct
         }
 
-        let package = graph.packages.first{ $0.products.contains(testProduct.product) }!
-        return BuiltTestProduct(packageName: package.name, testBinary: testProduct.binary)
+        return testProduct
     }
 
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<TestToolOptions>) {
