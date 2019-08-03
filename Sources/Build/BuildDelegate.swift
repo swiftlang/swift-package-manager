@@ -167,11 +167,35 @@ public struct BuildDescription: Codable {
     public typealias CommandName = String
     public typealias TargetName = String
 
+    /// Represents a test product which is built and is present on disk.
+    public struct BuiltTestProduct: Codable {
+        /// The name of the package to which the test binary belongs.
+        public let packageName: String
+
+        /// The test product name.
+        public let productName: String
+
+        /// The path of the test binary.
+        public let testBinary: AbsolutePath
+
+        /// The path of the test bundle.
+        public var testBundle: AbsolutePath {
+            // Go up the folder hierarchy until we find the .xctest bundle.
+            sequence(
+                first: testBinary,
+                next: { $0.isRoot ? nil : $0.parentDirectory }
+            ).first{ $0.basename.hasSuffix(".xctest") }!
+        }
+    }
+
     /// The map of command to target names for Swift targets.
     let swiftTargetMap: [CommandName: TargetName]
 
     /// The map of test discovery commands.
     let testDiscoveryCommands: [CommandName: TestDiscoveryTool]
+
+    /// The built test products.
+    public let builtTestProducts: [BuiltTestProduct]
 
     public init(plan: BuildPlan, testDiscoveryCommands: [CommandName: TestDiscoveryTool]) {
         let buildConfig = plan.buildParameters.configuration.dirname
@@ -182,6 +206,16 @@ public struct BuildDescription: Codable {
         })
 
         self.testDiscoveryCommands = testDiscoveryCommands
+
+        self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
+            // FIXME(perf): Provide faster lookups.
+            let package = plan.graph.packages.first{ $0.products.contains(desc.product) }!
+            return BuiltTestProduct(
+                packageName: package.name,
+                productName: desc.product.name,
+                testBinary: desc.binary
+            )
+        }
     }
 
     public func write(to path: AbsolutePath) throws {

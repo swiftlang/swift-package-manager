@@ -584,7 +584,8 @@ public class SwiftTool<Options: ToolOptions> {
         }
     }
 
-    func build(subset: BuildSubset) throws {
+    @discardableResult
+    func build(graph: PackageGraph? = nil, subset: BuildSubset) throws -> BuildDescription {
         let buildParameters = try self.buildParameters()
 
         let haveBuildManifestAndDescription =
@@ -594,7 +595,8 @@ public class SwiftTool<Options: ToolOptions> {
         // Run the build with the existing build description if we're asked to by-pass build planning.
         if options.skipBuildPlanning && haveBuildManifestAndDescription {
             let buildDescription = try BuildDescription.load(from: buildParameters.buildDescriptionPath)
-            return try build(buildDescription: buildDescription, subset: subset)
+            try build(buildDescription: buildDescription, subset: subset)
+            return buildDescription
         }
 
         // Perform steps for build manifest caching if we can enabled it.
@@ -613,17 +615,37 @@ public class SwiftTool<Options: ToolOptions> {
 
             // Use the build description on disk to perform the build. We trust the above build to
             // update the build description when needed.
-            let newBuildDescription = try BuildDescription.load(from: buildParameters.buildDescriptionPath)
-            return try build(buildDescription: newBuildDescription, subset: subset)
+            let buildDescription: BuildDescription
+
+            do {
+                buildDescription = try BuildDescription.load(from: buildParameters.buildDescriptionPath)
+            } catch {
+                // Silently regnerate the build description if we failed to decode (which could happen
+                // because the existing file was created by different version of swiftpm).
+                if !(error is DecodingError) {
+                    diagnostics.emit(warning: "failed to load the build description; running build planning\n    \(error)")
+                }
+                buildDescription = try planAndGenerateManifest(graph: graph)
+            }
+
+            try build(buildDescription: buildDescription, subset: subset)
+            return buildDescription
         }
 
         // Otherwise, plan and build.
+        let buildDescription = try planAndGenerateManifest(graph: graph)
+        try build(buildDescription: buildDescription, subset: subset)
+        return buildDescription
+    }
+
+    fileprivate func planAndGenerateManifest(graph: PackageGraph? = nil) throws -> BuildDescription {
+        let graph = try graph ?? loadPackageGraph()
         let plan = try BuildPlan(
-            buildParameters: buildParameters,
-            graph: loadPackageGraph(),
+            buildParameters: buildParameters(),
+            graph: graph,
             diagnostics: diagnostics
         )
-        try build(plan: plan, subset: subset)
+        return try generateLLBuildManifest(with: plan)
     }
 
     /// Creates and returns the build system.
@@ -675,9 +697,12 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     /// Build a subset of products and targets using llbuild.
-    func build(plan: BuildPlan, subset: BuildSubset) throws {
+    // FIXME: Eliminate this.
+    @discardableResult
+    func build(plan: BuildPlan, subset: BuildSubset) throws -> BuildDescription {
         let buildDescription = try generateLLBuildManifest(with: plan)
         try build(buildDescription: buildDescription, subset: subset)
+        return buildDescription
     }
 
     private func build(buildDescription: BuildDescription, subset: BuildSubset) throws {
@@ -846,12 +871,7 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
 extension SwiftTool: PackageStructureDelegate {
     public func packageStructureChanged() -> Bool {
         do {
-            let plan = try BuildPlan(
-                buildParameters: buildParameters(),
-                graph: loadPackageGraph(),
-                diagnostics: diagnostics
-            )
-            _ = try generateLLBuildManifest(with: plan)
+            _ = try planAndGenerateManifest()
         } catch Diagnostics.fatalError {
             return false
         } catch {
