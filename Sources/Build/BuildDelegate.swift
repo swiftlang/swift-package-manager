@@ -131,7 +131,9 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
     }
 
     override func execute(_ command: SPMLLBuild.Command) -> Bool {
-        guard let tool = ctx.buildDescription.testDiscoveryCommands[command.name] else {
+        // This tool will never run without the build description.
+        let buildDescription = ctx.buildDescription!
+        guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
             print("command \(command.name) not registered")
             return false
         }
@@ -165,9 +167,6 @@ public struct BuildDescription: Codable {
     public typealias CommandName = String
     public typealias TargetName = String
 
-    /// The map of command to target names.
-    let allTargetMap: [CommandName: TargetName]
-
     /// The map of command to target names for Swift targets.
     let swiftTargetMap: [CommandName: TargetName]
 
@@ -176,10 +175,6 @@ public struct BuildDescription: Codable {
 
     public init(plan: BuildPlan, testDiscoveryCommands: [CommandName: TestDiscoveryTool]) {
         let buildConfig = plan.buildParameters.configuration.dirname
-
-        allTargetMap = Dictionary(uniqueKeysWithValues: plan.targetMap.keys.map{
-            ($0.getCommandName(config: buildConfig), $0.name)
-        })
 
         swiftTargetMap = Dictionary(uniqueKeysWithValues: plan.targetMap.values.compactMap{
             guard case .swift(let desc) = $0 else { return nil }
@@ -194,7 +189,8 @@ public struct BuildDescription: Codable {
         if #available(macOS 10.13, *) {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         }
-        try localFileSystem.writeFileContents(path, bytes: ByteString(encoder.encode(self)))
+        let data = try encoder.encode(self)
+        try localFileSystem.writeFileContents(path, bytes: ByteString(data))
     }
 
     public static func load(from path: AbsolutePath) throws -> BuildDescription {
@@ -215,14 +211,22 @@ public final class BuildExecutionContext {
     let buildParameters: BuildParameters
 
     /// The build description.
-    let buildDescription: BuildDescription
+    ///
+    /// This is optional because we might not have a valid build description when performing the
+    /// build for PackageStructure target.
+    let buildDescription: BuildDescription?
+
+    /// The package structure delegate.
+    let packageStructureDelegate: PackageStructureDelegate
 
     public init(
         _ buildParameters: BuildParameters,
-        buildDescription: BuildDescription
+        buildDescription: BuildDescription? = nil,
+        packageStructureDelegate: PackageStructureDelegate
     ) {
         self.buildParameters = buildParameters
         self.buildDescription = buildDescription
+        self.packageStructureDelegate = packageStructureDelegate
     }
 
     // MARK:- Private
@@ -234,6 +238,30 @@ public final class BuildExecutionContext {
             let indexStoreLib = buildParameters.toolchain.toolchainLibDir.appending(component: "libIndexStore" + ext)
             return try IndexStoreAPI(dylib: indexStoreLib)
         }
+    }
+}
+
+public protocol PackageStructureDelegate {
+    func packageStructureChanged() -> Bool
+}
+
+final class PackageStructureCommand: CustomLLBuildCommand {
+
+    override func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
+        let encoder = JSONEncoder()
+        if #available(macOS 10.13, *) {
+            encoder.outputFormatting = [.sortedKeys]
+        }
+
+        // Include build parameters and process env in the signature.
+        var hash = Data()
+        hash += try! encoder.encode(self.ctx.buildParameters)
+        hash += try! encoder.encode(ProcessEnv.vars)
+        return [UInt8](hash)
+    }
+
+    override func execute(_ command: SPMLLBuild.Command) -> Bool {
+        return self.ctx.packageStructureDelegate.packageStructureChanged()
     }
 }
 
@@ -250,12 +278,8 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]
 
-    /// Target name keyed by llbuild command name.
-    private var targetNames: [String: String] {
-        buildExecutionContext.buildDescription.allTargetMap
-    }
-
-    let buildExecutionContext: BuildExecutionContext
+    /// The build execution context.
+    private let buildExecutionContext: BuildExecutionContext
 
     public init(
         bctx: BuildExecutionContext,
@@ -269,9 +293,9 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.progressAnimation = progressAnimation
         self.buildExecutionContext = bctx
-        self.swiftParsers = bctx.buildDescription.swiftTargetMap.mapValues {
+        self.swiftParsers = bctx.buildDescription?.swiftTargetMap.mapValues {
             SwiftCompilerOutputParser(targetName: $0, delegate: self)
-        }
+        } ?? [:]
     }
 
     public var fs: SPMLLBuild.FileSystem? {
@@ -282,6 +306,8 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         switch name {
         case TestDiscoveryTool.name:
             return InProcessTool(buildExecutionContext, type: TestDiscoveryCommand.self)
+        case PackageStructureTool.name:
+            return InProcessTool(buildExecutionContext, type: PackageStructureCommand.self)
         default:
             return nil
         }
@@ -338,7 +364,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         guard !swiftParsers.keys.contains(command.name) else { return }
 
         queue.async {
-            let targetName = self.targetNames[command.name]
+            let targetName = self.swiftParsers[command.name]?.targetName
             self.taskTracker.commandFinished(command, result: result, targetName: targetName)
             self.updateProgress()
         }
