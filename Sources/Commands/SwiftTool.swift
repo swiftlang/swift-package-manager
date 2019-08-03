@@ -331,6 +331,10 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--skip-build-planning", kind: Bool.self, usage: nil),
             to: { $0.skipBuildPlanning = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--enable-build-manifest-caching", kind: Bool.self, usage: nil),
+            to: { $0.enableBuildManifestCaching = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -564,7 +568,7 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.dematerialize()
     }
 
-    func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String {
+    private func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String {
         switch subset {
         case .allExcludingTests:
             return LLBuildManifestGenerator.llbuildMainTargetName
@@ -580,8 +584,85 @@ public class SwiftTool<Options: ToolOptions> {
         }
     }
 
-    /// Build a subset of products and targets using llbuild.
-    func build(plan: BuildPlan, subset: BuildSubset) throws {
+    func build(subset: BuildSubset) throws {
+        let buildParameters = try self.buildParameters()
+
+        let haveBuildManifestAndDescription =
+            localFileSystem.exists(buildParameters.llbuildManifest) &&
+            localFileSystem.exists(buildParameters.buildDescriptionPath)
+
+        // Run the build with the existing build description if we're asked to by-pass build planning.
+        if options.skipBuildPlanning && haveBuildManifestAndDescription {
+            let buildDescription = try BuildDescription.load(from: buildParameters.buildDescriptionPath)
+            return try build(buildDescription: buildDescription, subset: subset)
+        }
+
+        // Perform steps for build manifest caching if we can enabled it.
+        //
+        // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
+        let hasEditedPackages = try getActiveWorkspace().managedDependencies.values.contains{ $0.isEdited }
+        if options.enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages {
+            // Create the build system.
+            let buildSystem = try createBuildSystem()
+            buildSystemRef.buildSystem = buildSystem
+
+            // Build the package structure target which will re-generate the llbuild manifest, if necessary.
+            if !buildSystem.build(target: "PackageStructure") {
+                throw Diagnostics.fatalError
+            }
+
+            // Use the build description on disk to perform the build. We trust the above build to
+            // update the build description when needed.
+            let newBuildDescription = try BuildDescription.load(from: buildParameters.buildDescriptionPath)
+            return try build(buildDescription: newBuildDescription, subset: subset)
+        }
+
+        // Otherwise, plan and build.
+        let plan = try BuildPlan(
+            buildParameters: buildParameters,
+            graph: loadPackageGraph(),
+            diagnostics: diagnostics
+        )
+        try build(plan: plan, subset: subset)
+    }
+
+    /// Creates and returns the build system.
+    private func createBuildSystem(
+        with buildDescription: BuildDescription? = nil
+    ) throws -> BuildSystem {
+        // Figure out which progress bar we have to use during the build.
+        let isVerbose = verbosity != .concise
+        let progressAnimation: ProgressAnimationProtocol = isVerbose ?
+            MultiLineNinjaProgressAnimation(stream: stdoutStream) :
+            NinjaProgressAnimation(stream: stdoutStream)
+
+        // Setup the execution context.
+        let buildParameters = try self.buildParameters()
+        let bctx = BuildExecutionContext(
+            buildParameters,
+            buildDescription: buildDescription,
+            packageStructureDelegate: self
+        )
+
+        // Create the build delegate.
+        let buildDelegate = BuildDelegate(
+            bctx: bctx,
+            diagnostics: diagnostics,
+            outputStream: stdoutStream,
+            progressAnimation: progressAnimation)
+        buildDelegate.isVerbose = isVerbose
+
+        let databasePath = buildPath.appending(component: "build.db").pathString
+        let buildSystem = BuildSystem(
+            buildFile: buildParameters.llbuildManifest.pathString,
+            databaseFile: databasePath,
+            delegate: buildDelegate
+        )
+        buildDelegate.onCommmandFailure = { buildSystem.cancel() }
+        return buildSystem
+    }
+
+    private func generateLLBuildManifest(with plan: BuildPlan) throws -> BuildDescription {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestGenerator(plan, client: "basic")
         try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
@@ -590,18 +671,21 @@ public class SwiftTool<Options: ToolOptions> {
         let buildDescription = BuildDescription(plan: plan, testDiscoveryCommands: llbuild.testDiscoveryCommands)
         try localFileSystem.createDirectory(plan.buildParameters.buildDescriptionPath.parentDirectory, recursive: true)
         try buildDescription.write(to: plan.buildParameters.buildDescriptionPath)
+        return buildDescription
+    }
 
-        // Finally, run the build.
+    /// Build a subset of products and targets using llbuild.
+    func build(plan: BuildPlan, subset: BuildSubset) throws {
+        let buildDescription = try generateLLBuildManifest(with: plan)
         try build(buildDescription: buildDescription, subset: subset)
     }
 
-    func build(buildDescription: BuildDescription, subset: BuildSubset) throws {
+    private func build(buildDescription: BuildDescription, subset: BuildSubset) throws {
         let buildParameters = try self.buildParameters()
-        let bctx = BuildExecutionContext(buildParameters, buildDescription: buildDescription)
         let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: buildParameters)
 
         // Run llbuild.
-        try runLLBuild(bctx: bctx, llbuildTarget: llbuildTargetName)
+        try runLLBuild(buildDescription: buildDescription, llbuildTarget: llbuildTargetName)
 
         // Create backwards-compatibilty symlink to old build path.
         let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
@@ -611,34 +695,18 @@ public class SwiftTool<Options: ToolOptions> {
         try createSymlink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
     }
 
-    private func runLLBuild(bctx: BuildExecutionContext, llbuildTarget: String) throws {
-        // Setup the build delegate.
-        let isVerbose = verbosity != .concise
-        let progressAnimation: ProgressAnimationProtocol = isVerbose ?
-            MultiLineNinjaProgressAnimation(stream: stdoutStream) :
-            NinjaProgressAnimation(stream: stdoutStream)
-        let buildDelegate = BuildDelegate(
-            bctx: bctx,
-            diagnostics: diagnostics,
-            outputStream: stdoutStream,
-            progressAnimation: progressAnimation)
-        buildDelegate.isVerbose = isVerbose
+    private func runLLBuild(buildDescription: BuildDescription, llbuildTarget: String) throws {
+        // Create the build system.
+        let buildSystem = try createBuildSystem(with: buildDescription)
 
-        let databasePath = buildPath.appending(component: "build.db").pathString
-        if let jobs = options.jobs {
-            BuildSystem.setSchedulerLaneWidth(width: jobs)
-        }
-
-        let manifest = try self.buildParameters().llbuildManifest
-        assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest)")
-        let buildSystem = BuildSystem(buildFile: manifest.pathString, databaseFile: databasePath, delegate: buildDelegate)
+        // Store the build system reference so it can be cancelled in the singal handler.
         self.buildSystemRef.buildSystem = buildSystem
-        buildDelegate.onCommmandFailure = { buildSystem.cancel() }
 
+        // Perform the build.
         let success = buildSystem.build(target: llbuildTarget)
         self.buildSystemRef.buildSystem = nil
 
-        progressAnimation.complete(success: success)
+        buildSystem.buildDelegate.progressAnimation.complete(success: success)
         guard success else { throw Diagnostics.fatalError }
     }
 
@@ -722,7 +790,7 @@ enum BuildSubset {
 
 extension BuildSubset {
     /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine, config: String) -> String? {
+    fileprivate func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine, config: String) -> String? {
         switch self {
         case .allExcludingTests:
             return LLBuildManifestGenerator.llbuildMainTargetName
@@ -775,6 +843,25 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
     return AbsolutePath(env, relativeTo: workingDir)
 }
 
+extension SwiftTool: PackageStructureDelegate {
+    public func packageStructureChanged() -> Bool {
+        do {
+            let plan = try BuildPlan(
+                buildParameters: buildParameters(),
+                graph: loadPackageGraph(),
+                diagnostics: diagnostics
+            )
+            _ = try generateLLBuildManifest(with: plan)
+        } catch Diagnostics.fatalError {
+            return false
+        } catch {
+            diagnostics.emit(error)
+            return false
+        }
+        return true
+    }
+}
+
 /// Returns the sandbox profile to be used when parsing manifest on macOS.
 private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
     let stream = BufferedOutputByteStream()
@@ -818,6 +905,12 @@ extension BuildConfiguration: StringEnumArgument {
 /// the int. handler without requiring to initialize it.
 private final class BuildSystemRef {
     var buildSystem: BuildSystem?
+}
+
+extension BuildSystem {
+    fileprivate var buildDelegate: BuildDelegate {
+        self.delegate as! BuildDelegate
+    }
 }
 
 extension Diagnostic.Message {

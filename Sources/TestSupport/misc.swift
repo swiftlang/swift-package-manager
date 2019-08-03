@@ -143,6 +143,7 @@ private var globalSymbolInMainBinary = 0
 public func executeSwiftBuild(
     _ packagePath: AbsolutePath,
     configuration: Configuration = .Debug,
+    extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
@@ -155,6 +156,7 @@ public func executeSwiftBuild(
     case .Release:
         args.append("release")
     }
+    args += extraArgs
     args += Xcc.flatMap({ ["-Xcc", $0] })
     args += Xld.flatMap({ ["-Xlinker", $0] })
     args += Xswiftc.flatMap({ ["-Xswiftc", $0] })

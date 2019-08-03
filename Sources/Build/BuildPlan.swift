@@ -229,14 +229,6 @@ public struct BuildParameters: Encodable {
         return BuildSettings.Scope(target.underlyingTarget.buildSettings, boundCondition: (currentPlatform, configuration))
     }
 
-    func hash() throws -> Data {
-        let encoder = JSONEncoder()
-        if #available(macOS 10.13, *) {
-            encoder.outputFormatting = [.sortedKeys]
-        }
-        return try encoder.encode(self)
-    }
-
     /// A shim struct for toolchain so we can encode it without having to write encode(to:) for
     /// entire BuildParameters by hand.
     struct _Toolchain: Encodable {

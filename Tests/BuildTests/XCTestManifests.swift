@@ -39,6 +39,7 @@ extension IncrementalBuildTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__IncrementalBuildTests = [
+        ("testBuildManifestCaching", testBuildManifestCaching),
         ("testIncrementalSingleModuleCLibraryInSources", testIncrementalSingleModuleCLibraryInSources),
     ]
 }

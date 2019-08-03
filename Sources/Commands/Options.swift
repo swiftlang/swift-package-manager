@@ -86,5 +86,8 @@ public class ToolOptions {
     /// Whether to disable the build planning.
     public var skipBuildPlanning: Bool = false
 
+    /// Whether to enable llbuild manifest caching.
+    public var enableBuildManifestCaching: Bool = false
+
     public required init() {}
 }
