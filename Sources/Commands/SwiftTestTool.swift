@@ -142,6 +142,24 @@ public enum TestMode {
     case runParallel
 }
 
+/// Represents a test product which is built and is present on disk.
+private struct BuiltTestProduct {
+    /// The name of the package to which the test binary belongs.
+    let packageName: String
+
+    /// The path of the test binary.
+    let testBinary: AbsolutePath
+
+    /// The path of the test bundle.
+    var testBundle: AbsolutePath {
+        // Go up the folder hierarchy until we find the .xctest bundle.
+        sequence(
+            first: testBinary,
+            next: { $0.isRoot ? nil : $0.parentDirectory }
+        ).first{ $0.basename.hasSuffix(".xctest") }!
+    }
+}
+
 /// swift-test tool namespace
 public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
@@ -165,10 +183,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             print(Versioning.currentVersion.completeDisplayString)
 
         case .listTests:
-            let graph = try loadPackageGraph()
-            let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: graph, diagnostics: diagnostics)
-            let testPath = try buildTestsIfNeeded(buildPlan)
-            let testSuites = try getTestSuites(path: testPath)
+            let testProduct = try buildTestsIfNeeded()
+            let testSuites = try getTestSuites(path: testProduct.testBundle)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
             // Print the tests.
@@ -188,17 +204,14 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             diagnostics.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
           #endif
             let graph = try loadPackageGraph()
-            let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: graph, diagnostics: diagnostics)
-            let testPath = try buildTestsIfNeeded(buildPlan)
-            let testSuites = try getTestSuites(path: testPath)
+            let testProduct = try buildTestsIfNeeded(graph: graph)
+            let testSuites = try getTestSuites(path: testProduct.testBundle)
             let generator = LinuxMainGenerator(graph: graph, testSuites: testSuites)
             try generator.generate()
 
         case .runSerial:
             let toolchain = try getToolchain()
-            let graph = try loadPackageGraph()
-            let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: graph, diagnostics: diagnostics)
-            let testPath = try buildTestsIfNeeded(buildPlan)
+            let testProduct = try buildTestsIfNeeded()
             var ranSuccessfully = true
             let buildParameters = try self.buildParameters()
 
@@ -211,7 +224,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             switch options.testCaseSpecifier {
             case .none:
                 let runner = TestRunner(
-                    path: testPath,
+                    path: testProduct.testBundle,
                     xctestArg: nil,
                     processSet: processSet,
                     toolchain: toolchain,
@@ -228,7 +241,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 }
 
                 // Find the tests we need to run.
-                let testSuites = try getTestSuites(path: testPath)
+                let testSuites = try getTestSuites(path: testProduct.testBundle)
                 let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
                 // If there were no matches, emit a warning.
@@ -239,7 +252,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 // Finally, run the tests.
                 for test in tests {
                     let runner = TestRunner(
-                        path: testPath,
+                        path: testProduct.testBundle,
                         xctestArg: test.specifier,
                         processSet: processSet,
                         toolchain: toolchain,
@@ -256,15 +269,13 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             }
 
             if options.shouldEnableCodeCoverage {
-                try processCodeCoverage(buildPlan)
+                try processCodeCoverage(testProduct)
             }
 
         case .runParallel:
             let toolchain = try getToolchain()
-            let graph = try loadPackageGraph()
-            let buildPlan = try BuildPlan(buildParameters: self.buildParameters(), graph: graph, diagnostics: diagnostics)
-            let testPath = try buildTestsIfNeeded(buildPlan)
-            let testSuites = try getTestSuites(path: testPath)
+            let testProduct = try buildTestsIfNeeded()
+            let testSuites = try getTestSuites(path: testProduct.testBundle)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
             let buildParameters = try self.buildParameters()
 
@@ -282,7 +293,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
             // Run the tests using the parallel runner.
             let runner = ParallelTestRunner(
-                testPath: testPath,
+                testPath: testProduct.testBundle,
                 processSet: processSet,
                 toolchain: toolchain,
                 xUnitOutput: options.xUnitOutput,
@@ -298,26 +309,22 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             }
 
             if options.shouldEnableCodeCoverage {
-                try processCodeCoverage(buildPlan)
+                try processCodeCoverage(testProduct)
             }
         }
     }
 
     /// Processes the code coverage data and emits a json.
-    private func processCodeCoverage(_ buildPlan: BuildPlan) throws {
+    private func processCodeCoverage(_ testProduct: BuiltTestProduct) throws {
         // Merge all the profraw files to produce a single profdata file.
         try mergeCodeCovRawDataFiles()
 
-        // Get the test product.
-        guard let testProduct = buildPlan.buildProducts.first(where: { $0.product.type == .test }) else {
-            throw TestError.testsExecutableNotFound
-        }
-
+        let buildParameters = try self.buildParameters()
         // Export the codecov data as JSON.
         let jsonPath = codeCovAsJSONPath(
-            buildParameters: buildPlan.buildParameters,
-            packageName: buildPlan.graph.rootPackages[0].name)
-        try exportCodeCovAsJSON(to: jsonPath, testBinary: testProduct.binary)
+            buildParameters: buildParameters,
+            packageName: testProduct.packageName)
+        try exportCodeCovAsJSON(to: jsonPath, testBinary: testProduct.testBinary)
     }
 
     /// Merges all profraw profiles in codecoverage directory into default.profdata file.
@@ -364,7 +371,14 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     /// Builds the "test" target if enabled in options.
     ///
     /// - Returns: The path to the test binary.
-    private func buildTestsIfNeeded(_ buildPlan: BuildPlan) throws -> AbsolutePath {
+    private func buildTestsIfNeeded(graph: PackageGraph? = nil) throws -> BuiltTestProduct {
+        let graph = try (graph ?? loadPackageGraph())
+        let buildPlan = try BuildPlan(
+            buildParameters: self.buildParameters(),
+            graph: graph,
+            diagnostics: diagnostics
+        )
+
         if options.shouldBuildTests {
             try build(plan: buildPlan, subset: .allIncludingTests)
         }
@@ -390,12 +404,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             testProduct = selectedTestProduct
         }
 
-        // Go up the folder hierarchy until we find the .xctest bundle.
-        return sequence(first: testProduct.binary, next: {
-            $0.isRoot ? nil : $0.parentDirectory
-        }).first(where: {
-            $0.basename.hasSuffix(".xctest")
-        })!
+        let package = graph.packages.first{ $0.products.contains(testProduct.product) }!
+        return BuiltTestProduct(packageName: package.name, testBinary: testProduct.binary)
     }
 
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<TestToolOptions>) {
