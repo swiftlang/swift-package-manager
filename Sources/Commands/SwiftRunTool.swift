@@ -98,7 +98,8 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             let plan = try BuildPlan(buildParameters: buildParameters(), graph: packageGraph, diagnostics: diagnostics)
 
             // Build the package.
-            try build(plan: plan, subset: .allExcludingTests)
+            let buildDescription = try generateLLBuildManifest(with: plan)
+            try build(buildDescription: buildDescription, subset: .allExcludingTests)
 
             // Execute the REPL.
             let arguments = plan.createREPLArguments()
@@ -127,12 +128,13 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
                 return
             }
 
-            let productName = try findProductName(in: getBuildDescription())
+            let buildDescription = try getBuildDescription()
+            let productName = try findProductName(in: buildDescription)
 
             if options.shouldBuildTests {
-                try build(subset: .allIncludingTests)
+                try build(buildDescription: buildDescription, subset: .allIncludingTests)
             } else if options.shouldBuild {
-                try build(subset: .product(productName))
+                try build(buildDescription: buildDescription, subset: .product(productName))
             }
 
             let executablePath = try self.buildParameters().buildPath.appending(component: productName)

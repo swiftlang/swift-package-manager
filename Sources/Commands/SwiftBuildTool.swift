@@ -36,7 +36,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
           #endif
 
             guard let subset = options.buildSubset(diagnostics: diagnostics) else { return }
-            try build(subset: subset)
+            try build(buildDescription: getBuildDescription(), subset: subset)
 
         case .binPath:
             try print(buildParameters().buildPath.description)

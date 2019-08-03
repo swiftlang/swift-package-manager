@@ -354,11 +354,10 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     ///
     /// - Returns: The built test product.
     private func buildTestsIfNeeded(graph: PackageGraph? = nil) throws -> BuildDescription.BuiltTestProduct {
-        let buildDescription: BuildDescription
+        let buildDescription = try getBuildDescription(graph: graph)
+
         if options.shouldBuildTests {
-            buildDescription = try self.build(graph: graph, subset: .allIncludingTests)
-        } else {
-            buildDescription = try BuildDescription.load(from: buildParameters().buildDescriptionPath)
+            try build(buildDescription: buildDescription, subset: .allIncludingTests)
         }
 
         // Find the test product.
