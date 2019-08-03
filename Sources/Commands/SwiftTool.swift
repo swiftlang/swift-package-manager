@@ -326,11 +326,6 @@ public class SwiftTool<Options: ToolOptions> {
                usage: "Enable test discovery on platforms without Objective-C runtime"),
             to: { $0.enableTestDiscovery = $1 })
 
-        // Hidden option to force disable build planning.
-        binder.bind(
-            option: parser.add(option: "--skip-build-planning", kind: Bool.self, usage: nil),
-            to: { $0.skipBuildPlanning = $1 })
-
         binder.bind(
             option: parser.add(option: "--enable-build-manifest-caching", kind: Bool.self, usage: nil),
             to: { $0.enableBuildManifestCaching = $1 })
@@ -584,21 +579,6 @@ public class SwiftTool<Options: ToolOptions> {
         }
     }
 
-    @discardableResult
-    func build(graph: PackageGraph? = nil, subset: BuildSubset) throws -> BuildDescription {
-        // Run the build with the existing build description if we're asked to by-pass build planning.
-        if options.skipBuildPlanning {
-            let buildDescription = try BuildDescription.load(from: buildParameters().buildDescriptionPath)
-            try build(buildDescription: buildDescription, subset: subset)
-            return buildDescription
-        }
-
-        // Get the build description and build.
-        let buildDescription = try getBuildDescription(graph: graph)
-        try build(buildDescription: buildDescription, subset: subset)
-        return buildDescription
-    }
-
     func getBuildDescription(graph: PackageGraph? = nil) throws -> BuildDescription {
         let buildParameters = try self.buildParameters()
         let haveBuildManifestAndDescription =
@@ -683,7 +663,7 @@ public class SwiftTool<Options: ToolOptions> {
         return buildSystem
     }
 
-    private func generateLLBuildManifest(with plan: BuildPlan) throws -> BuildDescription {
+    func generateLLBuildManifest(with plan: BuildPlan) throws -> BuildDescription {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestGenerator(plan, client: "basic")
         try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
@@ -695,16 +675,7 @@ public class SwiftTool<Options: ToolOptions> {
         return buildDescription
     }
 
-    /// Build a subset of products and targets using llbuild.
-    // FIXME: Eliminate this.
-    @discardableResult
-    func build(plan: BuildPlan, subset: BuildSubset) throws -> BuildDescription {
-        let buildDescription = try generateLLBuildManifest(with: plan)
-        try build(buildDescription: buildDescription, subset: subset)
-        return buildDescription
-    }
-
-    private func build(buildDescription: BuildDescription, subset: BuildSubset) throws {
+    func build(buildDescription: BuildDescription, subset: BuildSubset) throws {
         let buildParameters = try self.buildParameters()
         let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: buildParameters)
 
