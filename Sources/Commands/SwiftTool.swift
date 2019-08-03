@@ -586,23 +586,30 @@ public class SwiftTool<Options: ToolOptions> {
 
     @discardableResult
     func build(graph: PackageGraph? = nil, subset: BuildSubset) throws -> BuildDescription {
-        let buildParameters = try self.buildParameters()
-
-        let haveBuildManifestAndDescription =
-            localFileSystem.exists(buildParameters.llbuildManifest) &&
-            localFileSystem.exists(buildParameters.buildDescriptionPath)
-
         // Run the build with the existing build description if we're asked to by-pass build planning.
-        if options.skipBuildPlanning && haveBuildManifestAndDescription {
-            let buildDescription = try BuildDescription.load(from: buildParameters.buildDescriptionPath)
+        if options.skipBuildPlanning {
+            let buildDescription = try BuildDescription.load(from: buildParameters().buildDescriptionPath)
             try build(buildDescription: buildDescription, subset: subset)
             return buildDescription
         }
+
+        // Get the build description and build.
+        let buildDescription = try getBuildDescription(graph: graph)
+        try build(buildDescription: buildDescription, subset: subset)
+        return buildDescription
+    }
+
+    func getBuildDescription(graph: PackageGraph? = nil) throws -> BuildDescription {
+        let buildParameters = try self.buildParameters()
+        let haveBuildManifestAndDescription =
+        localFileSystem.exists(buildParameters.llbuildManifest) &&
+        localFileSystem.exists(buildParameters.buildDescriptionPath)
 
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
         let hasEditedPackages = try getActiveWorkspace().managedDependencies.values.contains{ $0.isEdited }
+
         if options.enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages {
             // Create the build system.
             let buildSystem = try createBuildSystem()
@@ -613,29 +620,21 @@ public class SwiftTool<Options: ToolOptions> {
                 throw Diagnostics.fatalError
             }
 
-            // Use the build description on disk to perform the build. We trust the above build to
+            // Return the build description that's on disk. We trust the above build to
             // update the build description when needed.
-            let buildDescription: BuildDescription
-
             do {
-                buildDescription = try BuildDescription.load(from: buildParameters.buildDescriptionPath)
+                return try BuildDescription.load(from: buildParameters.buildDescriptionPath)
             } catch {
                 // Silently regnerate the build description if we failed to decode (which could happen
                 // because the existing file was created by different version of swiftpm).
                 if !(error is DecodingError) {
                     diagnostics.emit(warning: "failed to load the build description; running build planning\n    \(error)")
                 }
-                buildDescription = try planAndGenerateManifest(graph: graph)
             }
-
-            try build(buildDescription: buildDescription, subset: subset)
-            return buildDescription
         }
 
         // Otherwise, plan and build.
-        let buildDescription = try planAndGenerateManifest(graph: graph)
-        try build(buildDescription: buildDescription, subset: subset)
-        return buildDescription
+        return try planAndGenerateManifest(graph: graph)
     }
 
     fileprivate func planAndGenerateManifest(graph: PackageGraph? = nil) throws -> BuildDescription {
