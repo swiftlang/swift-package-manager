@@ -345,7 +345,7 @@ public protocol PackageContainerProvider {
 }
 
 /// An individual constraint onto a container.
-public struct PackageContainerConstraint: CustomStringConvertible, Equatable {
+public struct PackageContainerConstraint: CustomStringConvertible, Equatable, Hashable {
 
     /// The identifier for the container the constraint is on.
     public let identifier: PackageReference
