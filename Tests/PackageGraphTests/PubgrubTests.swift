@@ -24,8 +24,6 @@ import SourceControl
 //   - "package@1.0.0": equivalent to .exact("1.0.0")
 //   - "package^1.0.0": equivalent to .upToNextMajor("1.0.0")
 //   - "package-1.0.0-3.0.0": equivalent to .range("1.0.0"..<"3.0.0")
-//   - "package@branch": equivalent to .revision("branch")
-//   - "package": equivalent to .unversioned
 //
 // Mocking a dependency graph is easily achieved by using the builder API. It's
 // a global object in this module.
@@ -61,7 +59,7 @@ let bRef = PackageReference(identity: "b", path: "")
 let cRef = PackageReference(identity: "c", path: "")
 
 let rootRef = PackageReference(identity: "root", path: "")
-let rootCause = Incompatibility(Term(rootRef, .versionSet(.exact(v1))), root: rootRef)
+let rootCause = Incompatibility(Term(rootRef, .exact(v1)), root: rootRef)
 let _cause = Incompatibility("cause@0.0.0", root: rootRef)
 
 final class PubgrubTests: XCTestCase {
@@ -79,8 +77,6 @@ final class PubgrubTests: XCTestCase {
         XCTAssertTrue(a100.satisfies("a^1.0.0"))
         XCTAssertFalse(a100.satisfies("¬a^1.0.0"))
         XCTAssertFalse(a100.satisfies("a^2.0.0"))
-
-        XCTAssertFalse(a100.satisfies(Term(bRef, .unversioned)))
 
         XCTAssertFalse(Term("¬a@1.0.0").satisfies("¬a^1.0.0"))
         XCTAssertFalse(Term("¬a@1.0.0").satisfies("a^2.0.0"))
@@ -139,21 +135,11 @@ final class PubgrubTests: XCTestCase {
             Term("¬a@1.0.0"))
 
         // Check difference.
-        let anyA = Term("a", .versionSet(.any))
+        let anyA = Term("a", .any)
         XCTAssertNil(Term("a^1.0.0").difference(with: anyA))
 
-        let notEmptyA = Term(not: "a", .versionSet(.empty))
+        let notEmptyA = Term(not: "a", .empty)
         XCTAssertNil(Term("a^1.0.0").difference(with: notEmptyA))
-
-        // Any intersection including a revision should return nil.
-        XCTAssertNil(Term("a@1.0.0").intersect(with: Term("a@master")))
-        XCTAssertNil(Term("a^1.0.0").intersect(with: Term("a@master")))
-        XCTAssertNil(Term("a@master").intersect(with: Term("a@develop")))
-
-        XCTAssertEqual(Term("a@master").intersect(with: Term("a@master")), Term("a@master"))
-
-        XCTAssertEqual(Term("a").intersect(with: Term("a")), Term("a"))
-        XCTAssertEqual(Term("a").intersect(with: Term("¬a")), nil)
     }
 
     func testTermRelation() {
@@ -170,51 +156,22 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(Term("a^1.9.0").relation(with: "a@1.8.1"), .disjoint)
         XCTAssertEqual(Term("a^1.9.0").relation(with: "a@2.0.0"), .disjoint)
         XCTAssertEqual(Term("a^2.0.0").relation(with: "a@1.0.0"), .disjoint)
-        XCTAssertEqual(Term("a@1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(Term("a^1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(Term("a@master").relation(with: "a@1.0.0"), .subset)
-        XCTAssertEqual(Term("a@master").relation(with: "a^1.0.0"), .subset)
-        XCTAssertEqual(Term("a@master").relation(with: "a@master"), .subset)
-        XCTAssertEqual(Term("a@master").relation(with: "a@develop"), .disjoint)
 
         // First term is negative, second term is positive.
         XCTAssertEqual(Term("¬a^1.0.0").relation(with: "a@1.5.0"), .disjoint)
         XCTAssertEqual(Term("¬a^1.5.0").relation(with: "a^1.0.0"), .overlap)
         XCTAssertEqual(Term("¬a^2.0.0").relation(with: "a^1.5.0"), .overlap)
-        XCTAssertEqual(Term("¬a@1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(Term("¬a^1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(Term("¬a@master").relation(with: "a@1.0.0"), .overlap)
-        XCTAssertEqual(Term("¬a@master").relation(with: "a^1.0.0"), .overlap)
-        XCTAssertEqual(Term("¬a@master").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(Term("¬a@master").relation(with: "a@develop"), .overlap)
 
         // First term is positive, second term is negative.
         XCTAssertEqual(Term("a^2.0.0").relation(with: "¬a^1.0.0"), .subset)
         XCTAssertEqual(Term("a^1.5.0").relation(with: "¬a^1.0.0"), .disjoint)
         XCTAssertEqual(Term("a^1.0.0").relation(with: "¬a^1.5.0"), .overlap)
-        XCTAssertEqual(Term("a@1.0.0").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(Term("a^1.0.0").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(Term("a@master").relation(with: "¬a@1.0.0"), .disjoint)
-        XCTAssertEqual(Term("a@master").relation(with: "¬a^1.0.0"), .disjoint)
-        XCTAssertEqual(Term("a@master").relation(with: "¬a@master"), .disjoint)
-        XCTAssertEqual(Term("a@master").relation(with: "¬a@develop"), .subset)
         XCTAssertEqual(Term("a-1.0.0-2.0.0").relation(with: "¬a-1.0.0-1.2.0"), .overlap)
 
         // Both terms are negative.
         XCTAssertEqual(Term("¬a^1.0.0").relation(with: "¬a^1.5.0"), .subset)
         XCTAssertEqual(Term("¬a^2.0.0").relation(with: "¬a^1.0.0"), .overlap)
         XCTAssertEqual(Term("¬a^1.5.0").relation(with: "¬a^1.0.0"), .overlap)
-        XCTAssertEqual(Term("¬a@1.0.0").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(Term("¬a^1.0.0").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(Term("¬a@master").relation(with: "¬a@1.0.0"), .overlap)
-        XCTAssertEqual(Term("¬a@master").relation(with: "¬a^1.0.0"), .overlap)
-        XCTAssertEqual(Term("¬a@master").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(Term("¬a@master").relation(with: "¬a@develop"), .overlap)
-
-        // Check exact.
-        XCTAssertEqual(Term("a").relation(with: Term("a")), .subset)
-        XCTAssertEqual(Term("¬a").relation(with: Term("a")), .disjoint)
-        XCTAssertEqual(Term("a").relation(with: "a^1.5.0"), .subset)
     }
 
     func testTermIsValidDecision() {
@@ -235,14 +192,14 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(i1.terms.count, 2)
         let a1 = i1.terms.first { $0.package == "a" }
         let b1 = i1.terms.first { $0.package == "b" }
-        XCTAssertEqual(a1?.requirement, .versionSet(v1_5Range))
-        XCTAssertEqual(b1?.requirement, .versionSet(.exact(v1)))
+        XCTAssertEqual(a1?.requirement, v1_5Range)
+        XCTAssertEqual(b1?.requirement, .exact(v1))
 
         let i2 = Incompatibility(Term("¬a^1.0.0"), Term("a^2.0.0"),
                                  root: rootRef)
         XCTAssertEqual(i2.terms.count, 1)
         let a2 = i2.terms.first
-        XCTAssertEqual(a2?.requirement, .versionSet(v2Range))
+        XCTAssertEqual(a2?.requirement, v2Range)
     }
 
     func testSolutionPositive() {
@@ -252,22 +209,22 @@ final class PubgrubTests: XCTestCase {
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
         let a1 = s1._positive.first { $0.key.identity == "a" }?.value
-        XCTAssertEqual(a1?.requirement, .versionSet(v1_5Range))
+        XCTAssertEqual(a1?.requirement, v1_5Range)
         let b1 = s1._positive.first { $0.key.identity == "b" }?.value
-        XCTAssertEqual(b1?.requirement, .versionSet(.exact(v2)))
+        XCTAssertEqual(b1?.requirement, .exact(v2))
 
         let s2 = PartialSolution(assignments: [
             .derivation("¬a^1.5.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
         let a2 = s2._positive.first { $0.key.identity == "a" }?.value
-        XCTAssertEqual(a2?.requirement, .versionSet(.range(v1..<v1_5)))
+        XCTAssertEqual(a2?.requirement, .range(v1..<v1_5))
     }
 
     func testSolutionUndecided() {
         let solution = PartialSolution()
         solution.derive("a^1.0.0", cause: rootCause)
-        solution.decide("b", at: .version(v2))
+        solution.decide("b", at: v2)
         solution.derive("a^1.5.0", cause: rootCause)
         solution.derive("¬c^1.5.0", cause: rootCause)
         solution.derive("d^1.9.0", cause: rootCause)
@@ -283,8 +240,8 @@ final class PubgrubTests: XCTestCase {
         let b = Term("b@2.0.0")
 
         let solution = PartialSolution(assignments: [])
-        solution.decide(rootRef, at: .version(v1))
-        solution.decide(aRef, at: .version(v1))
+        solution.decide(rootRef, at: v1)
+        solution.decide(aRef, at: v1)
         solution.derive(b, cause: _cause)
         XCTAssertEqual(solution.decisionLevel, 1)
 
@@ -294,17 +251,17 @@ final class PubgrubTests: XCTestCase {
             .derivation(b, cause: _cause, decisionLevel: 1)
         ])
         XCTAssertEqual(solution.decisions, [
-            rootRef: .version(v1),
-            aRef: .version(v1),
+            rootRef: v1,
+            aRef: v1,
         ])
     }
 
     func testSolutionBacktrack() {
         // TODO: This should probably add derivations to cover that logic as well.
         let solution = PartialSolution()
-        solution.decide(aRef, at: .version(v1))
-        solution.decide(bRef, at: .version(v1))
-        solution.decide(cRef, at: .version(v1))
+        solution.decide(aRef, at: v1)
+        solution.decide(bRef, at: v1)
+        solution.decide(cRef, at: v1)
 
         XCTAssertEqual(solution.decisionLevel, 2)
         solution.backtrack(toDecisionLevel: 1)
@@ -317,14 +274,14 @@ final class PubgrubTests: XCTestCase {
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0),
         ])
         XCTAssertEqual(s1._positive["a"]?.requirement,
-                       .versionSet(v1Range))
+                       v1Range)
 
         let s2 = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.5.0", cause: _cause, decisionLevel: 0)
         ])
         XCTAssertEqual(s2._positive["a"]?.requirement,
-                       .versionSet(v1_5Range))
+                       v1_5Range)
     }
 
     func testResolverAddIncompatibility() {
@@ -368,7 +325,7 @@ final class PubgrubTests: XCTestCase {
         let solver1 = PubgrubDependencyResolver(emptyProvider, delegate)
         solver1.set(rootRef)
 
-        let notRoot = Incompatibility(Term(not: rootRef, .versionSet(.any)),
+        let notRoot = Incompatibility(Term(not: rootRef, .any),
                                       root: rootRef,
                                       cause: .root)
         solver1.add(notRoot, location: .topLevel)
@@ -420,16 +377,16 @@ final class PubgrubTests: XCTestCase {
         try solver1.propagate("a")
 
         // adding a satisfying term should result in a conflict
-        solver1.solution.decide(aRef, at: .version(v1))
+        solver1.solution.decide(aRef, at: v1)
         // FIXME: This leads to fatal error.
         // try solver1.propagate(aRef)
 
         // Unit propagation should derive a new assignment from almost satisfied incompatibilities.
         let solver2 = PubgrubDependencyResolver(emptyProvider, delegate)
-        solver2.add(Incompatibility(Term("root", .versionSet(.any)),
+        solver2.add(Incompatibility(Term("root", .any),
                                     Term("¬a@1.0.0"),
                                     root: rootRef), location: .topLevel)
-        solver2.solution.decide(rootRef, at: .version(v1))
+        solver2.solution.decide(rootRef, at: v1)
         XCTAssertEqual(solver2.solution.assignments.count, 1)
         try solver2.propagate(PackageReference(identity: "root", path: ""))
         XCTAssertEqual(solver2.solution.assignments.count, 2)
@@ -437,9 +394,9 @@ final class PubgrubTests: XCTestCase {
 
     func testSolutionFindSatisfiers() {
         let solution = PartialSolution()
-        solution.decide(rootRef, at: .version(v1)) // ← previous, but actually nil because this is the root decision
-        solution.derive(Term(aRef, .versionSet(.any)), cause: _cause) // ← satisfier
-        solution.decide(aRef, at: .version(v2))
+        solution.decide(rootRef, at: v1) // ← previous, but actually nil because this is the root decision
+        solution.derive(Term(aRef, .any), cause: _cause) // ← satisfier
+        solution.decide(aRef, at: v2)
         solution.derive("b^1.0.0", cause: _cause)
 
         XCTAssertEqual(solution.satisfier(for: Term("b^1.0.0")) .term, "b^1.0.0")
@@ -634,7 +591,7 @@ final class PubgrubTests: XCTestCase {
         builder.serve("bar", at: v1_5)
         builder.serve("bar", at: v2)
 
-        let resolver = builder.create()
+        let resolver = builder.create(log: true)
 
         let dependencies = builder.create(dependencies: [
             "foo": .unversioned,
@@ -648,13 +605,16 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
+
     func testUnversioned3() {
         builder.serve("foo", at: .unversioned)
         builder.serve("bar", at: v1, with: [
-            "foo": .versionSet(v1Range)
+//            "foo": .versionSet(v1Range),
+            "foo": .versionSet(.exact(v1))
+
         ])
 
-        let resolver = builder.create()
+        let resolver = builder.create(log: true)
         let dependencies = builder.create(dependencies: [
             "foo": .unversioned,
             "bar": .versionSet(v1Range)
@@ -673,7 +633,7 @@ final class PubgrubTests: XCTestCase {
             "foo": .versionSet(v1Range)
         ])
 
-        let resolver = builder.create()
+        let resolver = builder.create(log: true)
         let dependencies = builder.create(dependencies: [
             "foo": .unversioned,
             "bar": .revision("master")
@@ -693,7 +653,7 @@ final class PubgrubTests: XCTestCase {
             "foo": .revision("master")
         ])
 
-        let resolver = builder.create()
+        let resolver = builder.create(log: true)
         let dependencies = builder.create(dependencies: [
             "foo": .unversioned,
             "bar": .revision("master")
@@ -719,10 +679,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        AssertResult(result, [
-            ("foo", .unversioned),
-            ("bar", .revision("master"))
-        ])
+        guard let errorMsg = result.errorMsg else {
+            return
+        }
+        print(errorMsg)
     }
 
     func testUnversioned7() {
@@ -739,13 +699,39 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
+        print(result)
+        AssertResult(result, [
+            ("remote", .unversioned),
+            ("local", .unversioned)
+        ])
     }
 
     func testUnversioned8() {
+        // FIXME: This fails when you change the order.
+        builder.serve("entry", at: .unversioned, with: [
+            "remote": .versionSet(v1Range),
+            "local": .unversioned,
+        ])
+        builder.serve("local", at: .unversioned, with: [
+            "remote": .unversioned
+        ])
+        builder.serve("remote", at: .unversioned)
+        builder.serve("remote", at: v1)
+
+        let resolver = builder.create(log: true)
+        let dependencies = builder.create(dependencies: [
+            "entry": .unversioned,
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("entry", .unversioned),
+            ("local", .unversioned),
+            ("remote", .unversioned),
+        ])
+    }
+
+    func testUnversioned9() {
         // FIXME: This fails when you change the order.
         builder.serve("entry", at: .unversioned, with: [
             "local": .unversioned,
@@ -757,7 +743,7 @@ final class PubgrubTests: XCTestCase {
         builder.serve("remote", at: .unversioned)
         builder.serve("remote", at: v1)
 
-        let resolver = builder.create()
+        let resolver = builder.create(log: true)
         let dependencies = builder.create(dependencies: [
             "entry": .unversioned,
         ])
@@ -838,6 +824,49 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
+    func testResolutionWithOverridingBranchBasedDependency3() {
+        builder.serve("foo", at: .revision("master"), with: ["bar": .revision("master")])
+
+        builder.serve("bar", at: .revision("master"))
+        builder.serve("bar", at: v1)
+
+        builder.serve("baz", at: .revision("master"), with: ["bar": .versionSet(v1Range)])
+
+        let resolver = builder.create(log: true)
+        let dependencies = builder.create(dependencies: [
+            "foo": .revision("master"),
+            "baz": .revision("master"),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("foo", .revision("master")),
+            ("bar", .revision("master")),
+            ("baz", .revision("master")),
+        ])
+    }
+
+    func testResolutionWithOverridingBranchBasedDependency4() {
+        builder.serve("foo", at: .revision("master"), with: ["bar": .revision("master")])
+
+        builder.serve("bar", at: .revision("master"))
+        builder.serve("bar", at: v1)
+
+        builder.serve("baz", at: .revision("master"), with: ["bar": .revision("develop")])
+
+        let resolver = builder.create(log: true)
+        let dependencies = builder.create(dependencies: [
+            "foo": .revision("master"),
+            "baz": .revision("master"),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        guard let errorMsg = result.errorMsg else {
+            return
+        }
+        print(errorMsg)
+    }
+
     func testResolutionWithUnavailableRevision() {
         builder.serve("foo", at: .version(v1))
 
@@ -853,6 +882,7 @@ final class PubgrubTests: XCTestCase {
     func testResolutionWithRevisionConflict() {
         builder.serve("foo", at: .revision("master"), with: ["bar": .revision("master")])
         builder.serve("bar", at: .version(v1))
+        builder.serve("bar", at: .revision("master"))
 
         let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
@@ -861,14 +891,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
-        // XCTAssertEqual(diag, "Foo@master depends on bar@master, and because foo@master depends on bar@master and root depends on foo@master, version solving failed.")
-//        XCTAssertEqual(resolver.diagnosticBuilder.reportError(for: rootCause), """
-//        Because foo at master depends on bar at master and root depends on bar from 1.0.0, version solving has failed.
-//        """)
+        AssertResult(result, [
+            ("foo", .revision("master")),
+            ("bar", .revision("master")),
+        ])
     }
 
     func testResolutionLinearErrorReporting() {
@@ -1315,14 +1341,12 @@ extension Term: ExpressibleByStringLiteral {
         }
 
         var components: [String] = []
-        var requirement: PackageRequirement
+        var requirement: PackageRequirement?
 
         if value.contains("@") {
             components = value.split(separator: "@").map(String.init)
             if components[1].contains(".") {
                 requirement = .versionSet(.exact(Version(stringLiteral: components[1])))
-            } else {
-                requirement = .revision(components[1])
             }
         } else if value.contains("^") {
             components = value.split(separator: "^").map(String.init)
@@ -1333,15 +1357,15 @@ extension Term: ExpressibleByStringLiteral {
             assert(components.count == 3, "expected `name-lowerBound-upperBound`")
             let (lowerBound, upperBound) = (components[1], components[2])
             requirement = .versionSet(.range(Version(stringLiteral: lowerBound)..<Version(stringLiteral: upperBound)))
-        } else {
-            components = [value]
-            requirement = .unversioned
         }
 
         let packageReference = PackageReference(identity: components[0], path: "")
 
+        guard case let .versionSet(vs) = requirement! else {
+            fatalError()
+        }
         self.init(package: packageReference,
-                  requirement: requirement,
+                  requirement: vs,
                   isPositive: isPositive)
     }
 }
@@ -1361,12 +1385,18 @@ extension DependencyResolver.Result {
     var errorMsg: String? {
         switch self {
         case .error(let error):
-            guard let pubGrubError = error as? PubgrubDependencyResolver.PubgrubError,
-                case .unresolvable(let msg) = pubGrubError else {
+            switch error {
+            case let err as PubgrubDependencyResolver.PubgrubError:
+                guard case .unresolvable(let msg) = err else {
+                    XCTFail("Unexpected result \(self)")
+                    return nil
+                }
+                return msg
+            case let error as DependencyResolverError:
+                return error.description
+            default:
                 XCTFail("Unexpected result \(self)")
-                return nil
-            }
-            return msg
+        }
         default:
             XCTFail("Unexpected result \(self)")
         }
