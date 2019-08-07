@@ -15,21 +15,21 @@ import struct PackageModel.PackageReference
 /// A term represents a statement about a package that may be true or false.
 public struct Term: Equatable, Hashable {
     let package: PackageReference
-    let requirement: PackageRequirement
+    let requirement: VersionSetSpecifier
     let isPositive: Bool
 
-    init(package: PackageReference, requirement: PackageRequirement, isPositive: Bool) {
+    init(package: PackageReference, requirement: VersionSetSpecifier, isPositive: Bool) {
         self.package = package
         self.requirement = requirement
         self.isPositive = isPositive
     }
 
-    init(_ package: PackageReference, _ requirement: PackageRequirement) {
+    init(_ package: PackageReference, _ requirement: VersionSetSpecifier) {
         self.init(package: package, requirement: requirement, isPositive: true)
     }
 
     /// Create a new negative term.
-    init(not package: PackageReference, _ requirement: PackageRequirement) {
+    init(not package: PackageReference, _ requirement: VersionSetSpecifier) {
         self.init(package: package, requirement: requirement, isPositive: false)
     }
 
@@ -58,31 +58,14 @@ public struct Term: Equatable, Hashable {
     /// Create an intersection with a requirement and polarity returning a new
     /// term which represents the version constraints allowed by both the current
     /// and given term.
-    /// Returns `nil` if an intersection is not possible (possibly due to being
-    /// constrained on branches, revisions, local, etc. or entirely different packages).
+    ///
+    /// - returns: `nil` if an intersection is not possible.
     func intersect(
-        withRequirement requirement: PackageRequirement,
+        withRequirement requirement: VersionSetSpecifier,
         andPolarity otherIsPositive: Bool
     ) -> Term? {
-
-        // FIXME: Figure out if we need to handle more of these cases.
-        switch (self.requirement, requirement) {
-        case (.unversioned, .unversioned):
-            return self.isPositive == otherIsPositive ? self : nil
-        case (.revision(let lhs), .revision(let rhs)):
-            return self.isPositive == otherIsPositive && lhs == rhs ? self : nil
-        case (.revision, .versionSet):
-            return self.isPositive ? self : nil
-        default: break
-        }
-
-        // Intersections can only be calculated if both sides have version-based
-        // requirements. 
-        guard
-            case .versionSet(let lhs) = self.requirement,
-            case .versionSet(let rhs) = requirement else {
-            return nil
-        }
+        let lhs = self.requirement
+        let rhs = requirement
 
         let intersection: VersionSetSpecifier?
         let isPositive: Bool
@@ -111,18 +94,11 @@ public struct Term: Equatable, Hashable {
             return nil
         }
 
-        return Term(package: package, requirement: .versionSet(versionIntersection), isPositive: isPositive)
+        return Term(package: package, requirement: versionIntersection, isPositive: isPositive)
     }
 
     func difference(with other: Term) -> Term? {
         return self.intersect(with: other.inverse)
-    }
-
-    private func with(_ requirement: PackageRequirement) -> Term {
-        return Term(
-            package: self.package,
-            requirement: requirement,
-            isPositive: self.isPositive)
     }
 
     /// Verify if the term fulfills all requirements to be a valid choice for
@@ -195,48 +171,13 @@ public struct Term: Equatable, Hashable {
     }
 }
 
-extension PackageRequirement {
-    func containsAll(_ other: PackageRequirement) -> Bool {
-        switch (self, other) {
-        // Unversioned should be handled first.
-        case (.unversioned, .unversioned):
-            return true
-        case (_, .unversioned):
-            return true
-        case (.unversioned, _):
-            // FIXME: What is the answer here?
-            return false
-        case (.versionSet(let lhs), .versionSet(let rhs)):
-            return lhs.intersection(rhs) == rhs
-        case (.revision(let lhs), .revision(let rhs)):
-            return lhs == rhs
-        case (.revision, _):
-            return false
-        case (_, .revision):
-            return true
-        default:
-            fatalError("unhandled \(self), \(other)")
-        }
+extension VersionSetSpecifier {
+    fileprivate func containsAll(_ other: VersionSetSpecifier) -> Bool {
+        return self.intersection(other) == other
     }
 
-    func containsAny(_ other: PackageRequirement) -> Bool {
-        switch (self, other) {
-        // Unversioned should be handled first.
-        case (_, .unversioned):
-            return true
-        case (.unversioned, _):
-            return false
-        case (.versionSet(let lhs), .versionSet(let rhs)):
-            return lhs.intersection(rhs) != .empty
-        case (.revision(let lhs), .revision(let rhs)):
-            return lhs == rhs
-        case (.revision, _):
-            return false
-        case (_, .revision):
-            return true
-        default:
-            fatalError("unhandled \(self), \(other)")
-        }
+    fileprivate func containsAny(_ other: VersionSetSpecifier) -> Bool {
+        return self.intersection(other) != .empty
     }
 }
 
@@ -244,12 +185,8 @@ extension Term: CustomStringConvertible {
     public var description: String {
         let pkg = "\(package)"
         var req = ""
-        switch requirement {
-        case .unversioned:
-            req = "unversioned"
-        case .revision(let rev):
-            req = rev
-        case .versionSet(let vs):
+
+        let vs = requirement
             switch vs {
             case .any:
                 req = "*"
@@ -260,18 +197,12 @@ extension Term: CustomStringConvertible {
             case .range(let range):
                 req = range.description
             }
-        }
+
 
         if !isPositive {
             return "¬\(pkg) \(req)"
         }
         return "\(pkg) \(req)"
-    }
-}
-
-private extension Range where Bound == Version {
-    func contains(_ other: Range<Version>) -> Bool {
-        return contains(version: other.lowerBound) && contains(version: other.upperBound)
     }
 }
 
@@ -406,14 +337,7 @@ public struct Assignment: Equatable {
 
     /// An assignment made during decision making.
     static func decision(_ term: Term, decisionLevel: Int) -> Assignment {
-        switch term.requirement {
-        case .revision, .unversioned: break
-        case .versionSet(let vs):
-            if case .exact = vs {
-                break
-            }
-            assertionFailure("Cannot create a decision assignment with a non-exact version selection: \(vs)")
-        }
+        assert(term.requirement.isExact, "Cannot create a decision assignment with a non-exact version selection: \(term.requirement)")
 
         return self.init(
             term: term,
@@ -457,7 +381,7 @@ final class PartialSolution {
     private(set) var assignments: [Assignment]
 
     /// All known decisions.
-    private(set) var decisions: [PackageReference: BoundVersion] = [:]
+    private(set) var decisions: [PackageReference: Version] = [:]
 
     /// The intersection of all positive assignments for each package, minus any
     /// negative assignments that refer to that package.
@@ -495,9 +419,9 @@ final class PartialSolution {
 
     /// Create a new decision assignment and add it to the partial solution's
     /// list of known assignments.
-    func decide(_ package: PackageReference, at version: BoundVersion) {
+    func decide(_ package: PackageReference, at version: Version) {
         decisions[package] = version
-        let term = Term(package, version.toRequirement())
+        let term = Term(package, .exact(version))
         let decision = Assignment.decision(term, decisionLevel: decisionLevel)
         self.assignments.append(decision)
         register(decision)
@@ -592,7 +516,7 @@ final class PartialSolution {
 fileprivate func normalize(
     terms: [Term]) -> [Term] {
 
-    let dict = terms.reduce(into: OrderedDictionary<PackageReference, (req: PackageRequirement, polarity: Bool)>()) {
+    let dict = terms.reduce(into: OrderedDictionary<PackageReference, (req: VersionSetSpecifier, polarity: Bool)>()) {
         res, term in
         // Don't try to intersect if this is the first time we're seeing this package.
         guard let previous = res[term.package] else {
@@ -600,19 +524,17 @@ fileprivate func normalize(
             return
         }
 
-        let intersection = term.intersect(withRequirement: previous.req,
-                                          andPolarity: previous.polarity)
-        assert(intersection != nil, """
-            Attempting to create an incompatibility with terms for \(term.package) \
-            intersecting versions \(previous) and \(term.requirement). These are \
-            mutually exclusive and can't be intersected, making this incompatibility \
-            irrelevant.
-            """)
-        res[term.package] = (intersection!.requirement, intersection!.isPositive)
+        guard let intersection = term.intersect(withRequirement: previous.req, andPolarity: previous.polarity) else {
+            fatalError("""
+                Attempting to create an incompatibility with terms for \(term.package) \
+                intersecting versions \(previous) and \(term.requirement). These are \
+                mutually exclusive and can't be intersected, making this incompatibility \
+                irrelevant.
+                """)
+        }
+        res[term.package] = (intersection.requirement, intersection.isPositive)
     }
-    return dict.map { (pkg, req) in
-        Term(package: pkg, requirement: req.req, isPositive: req.polarity)
-    }
+    return dict.map { Term(package: $0, requirement: $1.req, isPositive: $1.polarity) }
 }
 
 /// A step the resolver takes to advance its progress, e.g. deriving a new assignment
@@ -779,8 +701,8 @@ public final class PubgrubDependencyResolver {
         delegate?.trace(.conflictResolution(step))
     }
 
-    func decide(_ package: PackageReference, version: BoundVersion, location: GeneralTraceStep.Location) {
-        let term = Term(package, version.toRequirement())
+    func decide(_ package: PackageReference, version: Version, location: GeneralTraceStep.Location) {
+        let term = Term(package, .exact(version))
         // FIXME: Shouldn't we check this _before_ making a decision?
         assert(term.isValidDecision(for: solution))
 
@@ -876,6 +798,159 @@ public final class PubgrubDependencyResolver {
         }
     }
 
+    struct VersionBasedConstraint {
+        let package: PackageReference
+        let requirement: VersionSetSpecifier
+
+        init(package: PackageReference, req: VersionSetSpecifier) {
+            self.package = package
+            self.requirement = req
+        }
+
+        init?(_ constaint: Constraint) {
+            switch constaint.requirement {
+            case .versionSet(let req):
+                self.package = constaint.identifier
+                self.requirement = req
+            case .revision:
+                return nil
+            case .unversioned:
+                return nil
+            }
+        }
+    }
+
+    private func processInputs(
+        with constraints: [Constraint]
+    ) throws -> (overriddenPackages: [PackageReference: BoundVersion], rootIncompatibilities: [Incompatibility]) {
+        let root = self.root!
+
+        // The list of constraints that we'll be working with. We start with the input constraints
+        // and process them in two phases. The first phase finds all unversioned constraints and
+        // the second phase discovers all branch-based constraints.
+        var constraints = OrderedSet(constraints)
+
+        // The list of packages that are overridden in the graph. A local package reference will
+        // always override any other kind of package reference and branch-based reference will override
+        // version-based reference.
+        var overridenPackages: [PackageReference: BoundVersion] = [:]
+
+        // The list of version-based references reachable via local and branch-based references.
+        // These are added as top-level incompatibilities since they always need to be statisfied.
+        // Some of these might be overridden as we discover local and branch-based references.
+        var versionBasedDependencies: [PackageReference: [VersionBasedConstraint]] = [:]
+
+        // Process unversioned constraints in first phase. We go through all of the unversioned packages
+        // and collect them and their dependencies. This gives us the complete list of unversioned
+        // packages in the graph since unversioned packages can only be refered by other
+        // unversioned packages.
+        while let constraint = constraints.first(where: { $0.requirement == .unversioned }) {
+            constraints.remove(constraint)
+
+            // Mark the package as overridden.
+            let package = constraint.identifier
+            overridenPackages[package] = .unversioned
+
+            // Process dependencies of this package.
+            //
+            // We collect all version-based dependencies in a separate structure so they can
+            // be process at the end. This allows us to override them when there is a non-version
+            // based (unversioned/branch-based) constraint present in the graph.
+            let container = try getContainer(for: package)
+            for dependency in try container.getUnversionedDependencies() {
+                if let versionedBasedConstraint = VersionBasedConstraint(dependency) {
+                    versionBasedDependencies[package, default: []].append(versionedBasedConstraint)
+                } else {
+                    constraints.append(dependency)
+                }
+            }
+        }
+
+        // Process revision-based constraints in the second phase. Here we do the similar processing
+        // as the first phase but we also ignore the constraints that are overriden due to
+        // presence of unversioned constraints.
+        while let constraint = constraints.first(where: { $0.requirement.isRevision }) {
+            guard case .revision(let revision) = constraint.requirement else { fatalError("Expected revision requirement") }
+            constraints.remove(constraint)
+            let package = constraint.identifier
+
+            // Check if there is an existing value for this package in the overridden packages.
+            switch overridenPackages[package] {
+                case .excluded?, .version?:
+                    // These values are not possible.
+                    fatalError("Unexpected value for overriden package \(package) in \(overridenPackages)")
+                case .unversioned?:
+                    // This package is overridden by an unversioned package so we can ignore this constraint.
+                    continue
+                case .revision(let existingRevision)?:
+                    // If this branch-based package was encountered before, ensure the references match.
+                    if existingRevision != revision {
+                        // FIXME: Improve diagnostics here.
+                        throw PubgrubError.unresolvable("Revision mismatch for \(package): \(existingRevision) \(revision)")
+                    }
+                case nil:
+                    break
+            }
+
+            // Mark the package as overridden.
+            overridenPackages[package] = .revision(revision)
+
+            // Process dependencies of this package, similar to the first phase but branch-based dependencies
+            // are not allowed to contain local/unversioned packages.
+            let container = try getContainer(for: package)
+            for dependency in try container.getDependencies(at: revision) {
+                switch dependency.requirement {
+                case .versionSet(let req):
+                    let versionedBasedConstraint = VersionBasedConstraint(package: dependency.identifier, req: req)
+                    versionBasedDependencies[package, default: []].append(versionedBasedConstraint)
+                case .revision:
+                    constraints.append(dependency)
+                case .unversioned:
+                    throw DependencyResolverError.revisionDependencyContainsLocalPackage(
+                        dependency: package.identity,
+                        localPackage: dependency.identifier.identity
+                    )
+                }
+            }
+        }
+
+        // At this point, we should be left with only version-based requirements in our constraints
+        // list. Add them to our version-based dependency list.
+        for dependency in constraints {
+            switch dependency.requirement {
+            case .versionSet(let req):
+                let versionedBasedConstraint = VersionBasedConstraint(package: dependency.identifier, req: req)
+                // FIXME: It would be better to record where this constraint came from, instead of just
+                // using root.
+                versionBasedDependencies[root, default: []].append(versionedBasedConstraint)
+            case .revision, .unversioned:
+                fatalError("Unexpected revision/unversioned requirement in the constraints list: \(constraints)")
+            }
+        }
+
+        // Finally, compute the root incompatibilities (which will be all version-based).
+        var rootIncompatibilities: [Incompatibility] = []
+        for (package, constraints) in versionBasedDependencies {
+            for constraint in constraints {
+                if overridenPackages.keys.contains(constraint.package) { continue }
+
+                let incompat = Incompatibility(
+                    Term(root, .exact("1.0.0")),
+                    Term(not: constraint.package, constraint.requirement),
+                    root: root,
+                    cause: .dependency(package: package))
+                rootIncompatibilities.append(incompat)
+            }
+        }
+
+        return (overridenPackages, rootIncompatibilities)
+    }
+
+    /// The list of packages that are overridden in the graph. A local package reference will
+    /// always override any other kind of package reference and branch-based reference will override
+    /// version-based reference.
+    private var overriddenPackages: [PackageReference: BoundVersion] = [:]
+
     /// Find a set of dependencies that fit the given constraints. If dependency
     /// resolution is unable to provide a result, an error is thrown.
     /// - Warning: It is expected that the root package reference has been set
@@ -892,52 +967,51 @@ public final class PubgrubDependencyResolver {
 
         self.root = root
 
+        // Add the root incompatibility.
         let rootIncompatibility = Incompatibility(
-            terms: [Term(not: root, .versionSet(.exact("1.0.0")))],
+            terms: [Term(not: root, .exact("1.0.0"))],
             cause: .root
         )
         add(rootIncompatibility, location: .topLevel)
 
-        // Handle root, e.g. add dependencies and root decision.
-        //
-        // We add the dependencies before deciding on a version for root
-        // to avoid inserting the wrong decision level.
-        for dependency in pins + constraints {
-            let incompatibility = Incompatibility(
-                Term(root, .versionSet(.exact("1.0.0"))),
-                Term(not: dependency.identifier, dependency.requirement),
-                root: root, cause: .dependency(package: root))
-            add(incompatibility, location: .topLevel)
+        let inputs = try processInputs(with: pins + constraints)
+        self.overriddenPackages = inputs.overriddenPackages
+
+        // Add all the root incompatibilities.
+        for incompat in inputs.rootIncompatibilities {
+            add(incompat, location: .topLevel)
         }
-        decide(root, version: .version("1.0.0"), location: .topLevel)
+
+        // Decide root at v1.
+        decide(root, version: "1.0.0", location: .topLevel)
 
         try run()
 
         let decisions = solution.assignments.filter { $0.isDecision }
-        let finalAssignments: [(container: PackageReference, binding: BoundVersion)] = try decisions.compactMap { assignment in
+        var finalAssignments: [(container: PackageReference, binding: BoundVersion)] = try decisions.compactMap { assignment in
             guard assignment.term.package != root else {
                 return nil
             }
 
             var boundVersion: BoundVersion
             switch assignment.term.requirement {
-            case .versionSet(.exact(let version)):
+            case .exact(let version):
                 boundVersion = .version(version)
-            case .revision(let rev):
-                boundVersion = .revision(rev)
-            case .versionSet(.range):
-                // FIXME: A new requirement type that makes having a range here impossible feels like the correct thing to do.
-                fatalError("Solution should not contain version ranges.")
-            case .unversioned, .versionSet(.any):
-                boundVersion = .unversioned
-            case .versionSet(.empty):
-                fatalError("Solution should not contain empty versionSet requirement.")
+            case .range, .any, .empty:
+                fatalError("unexpected requirement value for assignment \(assignment.term)")
             }
 
             let container = try getContainer(for: assignment.term.package)
             let identifier = try container.getUpdatedIdentifier(at: boundVersion)
 
             return (identifier, boundVersion)
+        }
+
+        // Add overriden packages to the result.
+        for (package, boundVersion) in overriddenPackages {
+            let container = try getContainer(for: package)
+            let identifier = try container.getUpdatedIdentifier(at: boundVersion)
+            finalAssignments.append((identifier, boundVersion))
         }
 
         log(finalAssignments)
@@ -1215,72 +1289,47 @@ public final class PubgrubDependencyResolver {
     }
 
     /// Returns the best available version for a given term.
-    func getBestAvailableVersion(for term: Term) throws -> BoundVersion? {
+    func getBestAvailableVersion(for term: Term) throws -> Version? {
         assert(term.isPositive, "Expected term to be positive")
         let container = try getContainer(for: term.package)
 
-        switch term.requirement {
-        case .versionSet(let versionSet):
-            let availableVersions = container.versions(filter: { versionSet.contains($0) } )
-            let version = availableVersions.first { _ in true }
-            return version.map(BoundVersion.version)
-        case .revision(let rev):
-            return .revision(rev)
-        case .unversioned:
-            return .unversioned
-        }
+        let versionSet = term.requirement
+        let availableVersions = container.versions(filter: { versionSet.contains($0) } )
+        return availableVersions.first { _ in true }
     }
 
     /// Returns the incompatibilities of a package at the given version.
     func incompatibilites(
         for package: PackageReference,
-        at version: BoundVersion
+        at version: Version
     ) throws -> [Incompatibility] {
         let container = try getContainer(for: package)
-
-        switch version {
-        case .version(let version):
-            return try container.getDependencies(at: version).map { dep -> Incompatibility in
-                var terms: OrderedSet<Term> = []
-
-                guard case .versionSet = dep.requirement else {
-                    fatalError("Expected \(dep) to be pinned to a version set, not \(dep.requirement).")
-                }
-
-                // FIXME:
-                //
-                // If the selected version is the latest version, Pubgrub
-                // represents the term as having an unbounded upper range.
-                // We can't represent that here (currently), so we're
-                // pretending that it goes to the next nonexistent major
-                // version.
-                //
-                // FIXME: This is completely wrong when a dependencies change
-                // across version. It leads to us not being able to diagnose
-                // resolution errors properly. We only end up showing the
-                // the problem with the oldest version.
-                let nextMajor = Version(version.major + 1, 0, 0)
-                terms.append(Term(container.identifier, .versionSet(.range(version..<nextMajor))))
-                terms.append(Term(not: dep.identifier, dep.requirement))
-                return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
+        return try container.getDependencies(at: version).compactMap { dep -> Incompatibility? in
+            guard case .versionSet(let vs) = dep.requirement else {
+                fatalError("Expected \(dep) to be pinned to a version set, not \(dep.requirement).")
             }
-        case .unversioned:
-            return try container.getUnversionedDependencies().map { dep -> Incompatibility in
-                var terms: OrderedSet<Term> = []
-                terms.append(Term(container.identifier, .unversioned))
-                terms.append(Term(not: dep.identifier, dep.requirement))
-                return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
-            }
-        case .revision(let revision):
-            return try container.getDependencies(at: revision).map { dep -> Incompatibility in
-                var terms: OrderedSet<Term> = []
-                terms.append(Term(container.identifier, .revision(revision)))
-                terms.append(Term(not: dep.identifier, dep.requirement))
 
-                return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
+            if overriddenPackages.keys.contains(dep.identifier) {
+                return nil
             }
-        case .excluded:
-            fatalError("Generating incompatibilities for an excluded version is unsupported.")
+
+            var terms: OrderedSet<Term> = []
+            // FIXME:
+            //
+            // If the selected version is the latest version, Pubgrub
+            // represents the term as having an unbounded upper range.
+            // We can't represent that here (currently), so we're
+            // pretending that it goes to the next nonexistent major
+            // version.
+            //
+            // FIXME: This is completely wrong when a dependencies change
+            // across version. It leads to us not being able to diagnose
+            // resolution errors properly. We only end up showing the
+            // the problem with the oldest version.
+            let nextMajor = Version(version.major + 1, 0, 0)
+            terms.append(Term(container.identifier, .range(version..<nextMajor)))
+            terms.append(Term(not: dep.identifier, vs))
+            return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
         }
     }
 
@@ -1564,9 +1613,7 @@ final class DiagnosticReportBuilder {
     private func description(for term: Term) -> String {
         let name = term.package.name ?? term.package.identity
 
-        switch term.requirement {
-        case .versionSet(let vs):
-            switch vs {
+            switch term.requirement {
             case .any: return "any version of \(name)"
             case .empty: return "no version of \(name)"
             case .exact(let version):
@@ -1584,10 +1631,7 @@ final class DiagnosticReportBuilder {
                     return "\(name) \(range.description)"
                 }
             }
-        case .revision(let rev): return "\(name) @\(rev)"
-        case .unversioned: return "\(name)"
         }
-    }
 
     /// Write a given output message to a stream. The message should describe
     /// the incompatibility and how it as derived. If `isNumbered` is true, a
@@ -1608,16 +1652,43 @@ final class DiagnosticReportBuilder {
 }
 
 extension BoundVersion {
-    fileprivate func toRequirement() -> PackageRequirement {
+    fileprivate func toRequirement() -> VersionSetSpecifier {
         switch self {
         case .version(let version):
-            return .versionSet(.exact(version))
-        case .excluded:
+            return .exact(version)
+        case .excluded, .unversioned, .revision:
             fatalError("Cannot create package requirement from excluded version.")
-        case .unversioned:
-            return .unversioned
-        case .revision(let revision):
-            return .revision(revision)
+        }
+    }
+}
+
+extension VersionSetSpecifier {
+    fileprivate var isExact: Bool {
+        switch self {
+        case .any, .empty, .range:
+            return false
+        case .exact:
+            return true
+        }
+    }
+}
+
+extension PackageRequirement {
+    fileprivate var isVersionSet: Bool {
+        switch self {
+        case .versionSet:
+            return true
+        case .revision, .unversioned:
+            return false
+        }
+    }
+
+    fileprivate var isRevision: Bool {
+        switch self {
+        case .versionSet, .unversioned:
+            return false
+        case .revision:
+            return true
         }
     }
 }
