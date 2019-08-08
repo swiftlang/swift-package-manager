@@ -292,6 +292,9 @@ extension Incompatibility {
         /// There exists no version to fulfill the specified requirement.
         case noAvailableVersion
 
+        /// A version-based dependency contains unversioned-based dependency.
+        case versionBasedDependencyContainsUnversionedDependency(versionedDependency: String, unversionedDependency: String)
+
         var isConflict: Bool {
             if case .conflict = self { return true }
             return false
@@ -1197,6 +1200,10 @@ public final class PubgrubDependencyResolver {
         return incompatibility.terms.count == 1 && incompatibility.terms.first?.package == root
     }
 
+    struct DependencyIncompatibilityError: Swift.Error {
+        let cause: Incompatibility.Cause
+    }
+
     func makeDecision() throws -> PackageReference? {
         let undecided = solution.undecided
 
@@ -1216,7 +1223,23 @@ public final class PubgrubDependencyResolver {
         }
 
         // Add all of this version's dependencies as incompatibilities.
-        let depIncompatibilities = try incompatibilites(for: pkgTerm.package, at: version)
+        let depIncompatibilities: [Incompatibility]
+        do {
+            depIncompatibilities = try incompatibilites(for: pkgTerm.package, at: version)
+        } catch let error as DependencyIncompatibilityError {
+
+            let requirement: VersionSetSpecifier
+            switch pkgTerm.requirement {
+            case .any, .empty, .exact:
+                requirement = pkgTerm.requirement
+            case .range(let range):
+                // FIXME: This isn't really correct. How do we figure out the exact upper bound?
+                requirement = .range(version..<range.upperBound)
+            }
+
+            add(Incompatibility(Term(pkgTerm.package, requirement), root: root!, cause: error.cause), location: .decisionMaking)
+            return pkgTerm.package
+        }
 
         var haveConflict = false
         for incompatibility in depIncompatibilities {
@@ -1306,7 +1329,10 @@ public final class PubgrubDependencyResolver {
         let container = try getContainer(for: package)
         return try container.getDependencies(at: version).compactMap { dep -> Incompatibility? in
             guard case .versionSet(let vs) = dep.requirement else {
-                fatalError("Expected \(dep) to be pinned to a version set, not \(dep.requirement).")
+                throw DependencyIncompatibilityError(
+                    cause: .versionBasedDependencyContainsUnversionedDependency(
+                        versionedDependency: package.identity,
+                        unversionedDependency: dep.identifier.identity))
             }
 
             if overriddenPackages.keys.contains(dep.identifier) {
@@ -1543,7 +1569,10 @@ final class DiagnosticReportBuilder {
             let package = incompatibility.terms.first!
             assert(package.isPositive)
             return "\(package.package.identity) is \(package.requirement)"
-        default: break
+        case .conflict:
+            break
+        case .versionBasedDependencyContainsUnversionedDependency(let versionedDependency, let unversionedDependency):
+            return "package '\(versionedDependency)' is required using a version-based requirement and it depends on unversion package '\(unversionedDependency)'"
         }
 
         if isFailure(incompatibility) {

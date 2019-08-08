@@ -428,7 +428,7 @@ final class PubgrubTests: XCTestCase {
         builder.serve("b", at: v1_1)
         builder.serve("b", at: v2)
 
-        let resolver = builder.create()
+        let resolver = builder.create(log: true)
         let dependencies = builder.create(dependencies: [
             "a": .versionSet(v1Range),
             "b": .versionSet(v1Range),
@@ -1068,6 +1068,50 @@ final class PubgrubTests: XCTestCase {
             ("http-client", .version(v1)),
             ("boring-ssl", .version(v1)),
         ])
+    }
+
+    func testNonVersionDependencyInVersionDependency1() {
+        builder.serve("foo", at: v1_1, with: [
+            "bar": .revision("master")
+        ])
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies, pins: [])
+
+        guard let errorMsg = result.errorMsg else { return }
+        print(errorMsg)
+    }
+
+    func testNonVersionDependencyInVersionDependency2() {
+        builder.serve("foo", at: v1_1, with: [
+            "bar": .revision("master")
+        ])
+        builder.serve("foo", at: v1)
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies, pins: [])
+
+        AssertResult(result, [
+            ("foo", .version(v1)),
+        ])
+    }
+
+    func testNonVersionDependencyInVersionDependency3() {
+        builder.serve("foo", at: v1, with: [
+            "bar": .unversioned
+        ])
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(.exact(v1)),
+        ])
+        let result = resolver.solve(dependencies: dependencies, pins: [])
+
+        guard let errorMsg = result.errorMsg else { return }
+        print(errorMsg)
     }
 }
 
