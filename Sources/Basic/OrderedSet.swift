@@ -89,6 +89,20 @@ public struct OrderedSet<E: Hashable>: Equatable, Collection {
         array.removeAll(keepingCapacity: keepCapacity)
         set.removeAll(keepingCapacity: keepCapacity)
     }
+
+    /// Remove the given element.
+    ///
+    /// - returns: An element equal to member if member is contained in the set; otherwise, nil.
+    @discardableResult
+    public mutating func remove(_ element: Element) -> Element? {
+        let _removedElement = set.remove(element)
+        guard let removedElement = _removedElement else { return nil }
+
+        let idx = array.index(of: element)!
+        array.remove(at: idx)
+
+        return removedElement
+    }
 }
 
 extension OrderedSet: ExpressibleByArrayLiteral {

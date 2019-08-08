@@ -49,5 +49,10 @@ class OrderedSetTests: XCTestCase {
         XCTAssertEqual(set.count, 0)
         XCTAssertTrue(set.isEmpty)
         XCTAssertEqual(set.contents, [])
+
+        set.append("Hello")
+        XCTAssertEqual(set.remove("Hello"), "Hello")
+        XCTAssertEqual(set.remove("Hello"), nil)
+        XCTAssertEqual(set.remove("cool"), nil)
     }
 }
