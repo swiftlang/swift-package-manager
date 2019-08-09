@@ -71,22 +71,16 @@ public struct Term: Equatable, Hashable {
         let isPositive: Bool
         switch (self.isPositive, otherIsPositive) {
         case (false, false):
-            if case .range(let lhs) = lhs, case .range(let rhs) = rhs {
-                let lower = min(lhs.lowerBound, rhs.lowerBound)
-                let upper = max(lhs.upperBound, rhs.upperBound)
-                intersection = .range(lower..<upper)
-            } else {
-                intersection = lhs.intersection(rhs)
-            }
+            intersection = lhs.union(rhs)
             isPositive = false
         case (true, true):
             intersection = lhs.intersection(rhs)
             isPositive = true
         case (true, false):
-            intersection = lhs.intersection(withInverse: rhs)
+            intersection = lhs.difference(rhs)
             isPositive = true
         case (false, true):
-            intersection = rhs.intersection(withInverse: lhs)
+            intersection = rhs.difference(lhs)
             isPositive = true
         }
 
@@ -184,20 +178,7 @@ extension VersionSetSpecifier {
 extension Term: CustomStringConvertible {
     public var description: String {
         let pkg = "\(package)"
-        var req = ""
-
-        let vs = requirement
-            switch vs {
-            case .any:
-                req = "*"
-            case .empty:
-                req = "()"
-            case .exact(let v):
-                req = v.description
-            case .range(let range):
-                req = range.description
-            }
-
+        let req = requirement.description
 
         if !isPositive {
             return "¬\(pkg) \(req)"
@@ -224,7 +205,10 @@ public struct Incompatibility: Equatable, Hashable {
     }
 
     init(_ terms: OrderedSet<Term>, root: PackageReference, cause: Cause) {
-        assert(terms.count > 0, "An incompatibility must contain at least one term.")
+        if terms.isEmpty {
+            self.init(terms: terms, cause: cause)
+            return
+        }
 
         // Remove the root package from generated incompatibilities, since it will
         // always be selected.
@@ -1000,7 +984,7 @@ public final class PubgrubDependencyResolver {
             switch assignment.term.requirement {
             case .exact(let version):
                 boundVersion = .version(version)
-            case .range, .any, .empty:
+            case .range, .any, .empty, .ranges:
                 fatalError("unexpected requirement value for assignment \(assignment.term)")
             }
 
@@ -1197,7 +1181,7 @@ public final class PubgrubDependencyResolver {
     /// failed, meaning this incompatibility is either empty or only for the root
     /// package.
     private func isCompleteFailure(_ incompatibility: Incompatibility) -> Bool {
-        return incompatibility.terms.count == 1 && incompatibility.terms.first?.package == root
+        return incompatibility.terms.isEmpty || (incompatibility.terms.count == 1 && incompatibility.terms.first?.package == root)
     }
 
     struct DependencyIncompatibilityError: Swift.Error {
@@ -1230,7 +1214,7 @@ public final class PubgrubDependencyResolver {
 
             let requirement: VersionSetSpecifier
             switch pkgTerm.requirement {
-            case .any, .empty, .exact:
+            case .any, .empty, .exact, .ranges:
                 requirement = pkgTerm.requirement
             case .range(let range):
                 // FIXME: This isn't really correct. How do we figure out the exact upper bound?
@@ -1353,6 +1337,7 @@ public final class PubgrubDependencyResolver {
             // resolution errors properly. We only end up showing the
             // the problem with the oldest version.
             let nextMajor = Version(version.major + 1, 0, 0)
+//            terms.append(Term(container.identifier, .exact(version)))
             terms.append(Term(container.identifier, .range(version..<nextMajor)))
             terms.append(Term(not: dep.identifier, vs))
             return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
@@ -1659,6 +1644,9 @@ final class DiagnosticReportBuilder {
                 } else {
                     return "\(name) \(range.description)"
                 }
+
+            case .ranges(let ranges):
+                return "\(name) \(ranges)"
             }
         }
 
@@ -1694,7 +1682,7 @@ extension BoundVersion {
 extension VersionSetSpecifier {
     fileprivate var isExact: Bool {
         switch self {
-        case .any, .empty, .range:
+        case .any, .empty, .range, .ranges:
             return false
         case .exact:
             return true
@@ -1719,5 +1707,11 @@ extension PackageRequirement {
         case .revision:
             return true
         }
+    }
+}
+
+extension Version {
+    func nextPatch() -> Version {
+        return Version(major, minor, patch + 1)
     }
 }

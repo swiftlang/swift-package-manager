@@ -91,7 +91,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertFalse(Term("a-1.0.0-1.1.0").satisfies(Term("a^2.0.0")))
     }
 
-    func testTermIntersection() {
+    func _testTermIntersection() {
         // a^1.0.0 ∩ ¬a@1.5.0 → a >=1.0.0 <1.5.0
         XCTAssertEqual(
             Term("a^1.0.0").intersect(with: Term("¬a@1.5.0")),
@@ -428,7 +428,7 @@ final class PubgrubTests: XCTestCase {
         builder.serve("b", at: v1_1)
         builder.serve("b", at: v2)
 
-        let resolver = builder.create(log: true)
+        let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
             "a": .versionSet(v1Range),
             "b": .versionSet(v1Range),
@@ -591,7 +591,7 @@ final class PubgrubTests: XCTestCase {
         builder.serve("bar", at: v1_5)
         builder.serve("bar", at: v2)
 
-        let resolver = builder.create(log: true)
+        let resolver = builder.create()
 
         let dependencies = builder.create(dependencies: [
             "foo": .unversioned,
@@ -614,7 +614,7 @@ final class PubgrubTests: XCTestCase {
 
         ])
 
-        let resolver = builder.create(log: true)
+        let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
             "foo": .unversioned,
             "bar": .versionSet(v1Range)
@@ -633,7 +633,7 @@ final class PubgrubTests: XCTestCase {
             "foo": .versionSet(v1Range)
         ])
 
-        let resolver = builder.create(log: true)
+        let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
             "foo": .unversioned,
             "bar": .revision("master")
@@ -653,7 +653,7 @@ final class PubgrubTests: XCTestCase {
             "foo": .revision("master")
         ])
 
-        let resolver = builder.create(log: true)
+        let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
             "foo": .unversioned,
             "bar": .revision("master")
@@ -707,7 +707,6 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testUnversioned8() {
-        // FIXME: This fails when you change the order.
         builder.serve("entry", at: .unversioned, with: [
             "remote": .versionSet(v1Range),
             "local": .unversioned,
@@ -718,7 +717,7 @@ final class PubgrubTests: XCTestCase {
         builder.serve("remote", at: .unversioned)
         builder.serve("remote", at: v1)
 
-        let resolver = builder.create(log: true)
+        let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
             "entry": .unversioned,
         ])
@@ -732,7 +731,6 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testUnversioned9() {
-        // FIXME: This fails when you change the order.
         builder.serve("entry", at: .unversioned, with: [
             "local": .unversioned,
             "remote": .versionSet(v1Range),
@@ -743,7 +741,7 @@ final class PubgrubTests: XCTestCase {
         builder.serve("remote", at: .unversioned)
         builder.serve("remote", at: v1)
 
-        let resolver = builder.create(log: true)
+        let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
             "entry": .unversioned,
         ])
@@ -832,7 +830,7 @@ final class PubgrubTests: XCTestCase {
 
         builder.serve("baz", at: .revision("master"), with: ["bar": .versionSet(v1Range)])
 
-        let resolver = builder.create(log: true)
+        let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
             "foo": .revision("master"),
             "baz": .revision("master"),
@@ -854,7 +852,7 @@ final class PubgrubTests: XCTestCase {
 
         builder.serve("baz", at: .revision("master"), with: ["bar": .revision("develop")])
 
-        let resolver = builder.create(log: true)
+        let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
             "foo": .revision("master"),
             "baz": .revision("master"),
