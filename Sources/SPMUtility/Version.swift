@@ -249,6 +249,10 @@ extension Range where Bound == Version {
             }
         }
 
+        if lowerBound == version {
+            return true
+        }
+
         // Otherwise, apply normal contains rules.
         return version >= lowerBound && version < upperBound
     }
