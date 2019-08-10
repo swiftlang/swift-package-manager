@@ -363,8 +363,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     public func handleDiagnostic(_ diagnostic: SPMLLBuild.Diagnostic) {
         switch diagnostic.kind {
         case .note:
-            // FIXME: This isn't correct.
-            diagnostics.emit(warning: diagnostic.message)
+            diagnostics.emit(note: diagnostic.message)
         case .warning:
             diagnostics.emit(warning: diagnostic.message)
         case .error:
