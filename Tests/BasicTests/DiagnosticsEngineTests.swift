@@ -82,14 +82,16 @@ class DiagnosticsEngineTests: XCTestCase {
             location: location
         )
         diagnostics.emit(.error(StringDiagnostic("diag 2")), location: location)
+        diagnostics.emit(.note(StringDiagnostic("diag 3")), location: location)
         diagnostics.emit(.error(StringDiagnostic("end")), location: location)
 
-        XCTAssertEqual(handledDiagnostics.count, 3)
+        XCTAssertEqual(handledDiagnostics.count, 4)
         for diagnostic in handledDiagnostics {
             XCTAssertEqual(diagnostic.location.description, location.description)
         }
         XCTAssertEqual(handledDiagnostics[0].description, "literal foo, bar 2 str bar str")
         XCTAssertEqual(handledDiagnostics[1].description, "diag 2")
-        XCTAssertEqual(handledDiagnostics[2].description, "end")
+        XCTAssertEqual(handledDiagnostics[2].description, "diag 3")
+        XCTAssertEqual(handledDiagnostics[3].description, "end")
     }
 }

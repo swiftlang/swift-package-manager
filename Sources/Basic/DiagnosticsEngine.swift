@@ -160,12 +160,20 @@ extension Diagnostic.Message {
         .init(data: data, behavior: .warning)
     }
 
+    public static func note(_ data: DiagnosticData) -> Diagnostic.Message {
+        .init(data: data, behavior: .note)
+    }
+
     public static func error(_ str: String) -> Diagnostic.Message {
         .error(StringDiagnostic(str))
     }
 
     public static func warning(_ str: String) -> Diagnostic.Message {
         .warning(StringDiagnostic(str))
+    }
+
+    public static func note(_ str: String) -> Diagnostic.Message {
+        .note(StringDiagnostic(str))
     }
 }
 
