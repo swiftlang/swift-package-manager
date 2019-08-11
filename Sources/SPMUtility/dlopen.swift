@@ -29,7 +29,7 @@ public final class DLHandle {
     public func close() throws {
         if let handle = rawValue {
           #if os(Windows)
-            guard FreeLibrary(handle) != 0 else {
+            guard FreeLibrary(handle) else {
                 throw DLError.close("Failed to FreeLibrary: \(GetLastError())")
             }
           #else
