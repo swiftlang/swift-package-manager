@@ -218,10 +218,13 @@ public final class TemporaryDirectory {
 
     /// Remove the temporary file before deallocating.
     deinit {
-        if shouldRemoveTreeOnDeinit {
+        let isEmptyDirectory: (String) -> Bool = { path in
+            guard let contents = try? FileManager.default.contentsOfDirectory(atPath: path) else { return false }
+            return contents.isEmpty
+        }
+
+        if shouldRemoveTreeOnDeinit || isEmptyDirectory(path.pathString) {
             _ = try? FileManager.default.removeItem(atPath: path.pathString)
-        } else {
-            rmdir(path.pathString)
         }
     }
 }
