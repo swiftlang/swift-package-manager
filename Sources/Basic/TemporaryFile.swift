@@ -161,8 +161,12 @@ private extension MakeDirectoryError {
             self = .permissionDenied
         case SPMLibc.ELOOP, SPMLibc.ENOENT, SPMLibc.ENOTDIR:
             self = .unresolvablePathComponent
-        case SPMLibc.ENOMEM, SPMLibc.EDQUOT:
+        case SPMLibc.ENOMEM:
             self = .outOfMemory
+#if !os(Windows)
+        case SPMLibc.EDQUOT:
+            self = .outOfMemory
+#endif
         default:
             self = .other(errno)
         }
