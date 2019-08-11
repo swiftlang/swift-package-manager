@@ -214,11 +214,7 @@ public final class TemporaryDirectory {
 
     /// Remove the temporary file before deallocating.
     deinit {
-        if shouldRemoveTreeOnDeinit {
-            _ = try? FileManager.default.removeItem(atPath: path.pathString)
-        } else {
-            rmdir(path.pathString)
-        }
+        _ = try? FileManager.default.removeItem(atPath: path.pathString)
     }
 }
 
