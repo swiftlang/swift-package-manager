@@ -13,7 +13,6 @@ import XCTest
 import TestSupport
 import Basic
 import SPMUtility
-import func SPMLibc.sleep
 
 
 /// Functional tests of incremental builds.  These are fairly ad hoc at this
