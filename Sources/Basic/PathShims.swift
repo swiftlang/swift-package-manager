@@ -17,22 +17,11 @@
  while making it fairly easy to find those calls later.
 */
 
-import SPMLibc
 import Foundation
 
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
-    let pathStr = path.pathString
-
-    // FIXME: We can't use FileManager's destinationOfSymbolicLink because
-    // that implements readlink and not realpath.
-    if let resultPtr = SPMLibc.realpath(pathStr, nil) {
-        let result = String(cString: resultPtr)
-        // FIXME: We should measure if it's really more efficient to compare the strings first.
-        return result == pathStr ? path : AbsolutePath(result)
-    }
-
-    return path
+    return AbsolutePath(path.pathString.resolvingSymlinksInPath)
 }
 
 /// Creates a new, empty directory at `path`.  If needed, any non-existent ancestor paths are also created.  If there is
