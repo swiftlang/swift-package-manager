@@ -248,6 +248,7 @@ public struct BuildParameters: Encodable {
             try container.encode(toolchain.getClangCompiler(), forKey: .clangCompiler)
 
             try container.encode(toolchain.extraCCFlags, forKey: .extraCCFlags)
+            try container.encode(toolchain.extraCPPFlags, forKey: .extraCPPFlags)
             try container.encode(toolchain.extraSwiftCFlags, forKey: .extraSwiftCFlags)
             try container.encode(toolchain.swiftCompiler, forKey: .swiftCompiler)
         }
