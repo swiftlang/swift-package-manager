@@ -191,7 +191,12 @@ public final class IndexStoreAPI {
 
     public init(dylib path: AbsolutePath) throws {
         self.path = path
-        self.dylib = try dlopen(path.pathString, mode: [.lazy, .local, .first, .deepBind])
+#if os(Windows)
+        let flags: DLOpenFlags = []
+#else
+        let flags: DLOpenFlags = [.lazy, .local, .first, .deepBind]
+#endif
+        self.dylib = try dlopen(path.pathString, mode: flags)
 
         func dlsym_required<T>(_ handle: DLHandle, symbol: String) throws -> T {
             guard let sym: T = dlsym(handle, symbol: symbol) else {
