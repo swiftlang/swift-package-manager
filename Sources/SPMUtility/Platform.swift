@@ -57,6 +57,7 @@ public enum Platform {
     }
     private static var _darwinCacheDirectories: [AbsolutePath]?
 
+#if os(macOS)
     /// Returns the value of given path variable using `getconf` utility.
     ///
     /// - Note: This method returns `nil` if the value is an invalid path.
@@ -69,4 +70,5 @@ public enum Platform {
         guard value.hasSuffix(AbsolutePath.root.pathString) else { return nil }
         return resolveSymlinks(AbsolutePath(value))
     }
+#endif
 }
