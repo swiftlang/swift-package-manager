@@ -11,6 +11,7 @@
 import SPMLibc
 import class Foundation.FileHandle
 import class Foundation.FileManager
+import func Foundation.NSTemporaryDirectory
 
 public enum TempFileError: Swift.Error {
     /// Could not create a unique temporary filename.
@@ -45,18 +46,13 @@ private extension TempFileError {
 /// - Returns: Path to directory in which temporary file should be created.
 public func determineTempDirectory(_ dir: AbsolutePath? = nil) throws -> AbsolutePath {
     // FIXME: Add other platform specific locations.
-    let tmpDir = dir ?? cachedTempDirectory
+    let tmpDir = dir ?? AbsolutePath(NSTemporaryDirectory())
     guard localFileSystem.isDirectory(tmpDir) else {
         throw TempFileError.couldNotFindTmpDir
     }
     return tmpDir
 }
 
-/// Returns temporary directory location by searching relevant env variables.
-/// Evaluates once per execution.
-private var cachedTempDirectory: AbsolutePath = {
-    return AbsolutePath(ProcessEnv.vars["TMPDIR"] ?? ProcessEnv.vars["TEMP"] ?? ProcessEnv.vars["TMP"] ?? "/tmp/")
-}()
 
 /// This class is basically a wrapper over posix's mkstemps() function to creates disposable files.
 /// The file is deleted as soon as the object of this class is deallocated.
