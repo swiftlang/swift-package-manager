@@ -53,6 +53,57 @@ public func determineTempDirectory(_ dir: AbsolutePath? = nil) throws -> Absolut
     return tmpDir
 }
 
+// NOTE: These two functions are lifted from Foundation.  They are not part of
+// the public interface from Foundation, so we have replicated them here to
+// provide a platform agnostic way to create temporary files and directories on
+// platforms which do not provide `mkstemp` or `mkdtemp` (e.g. Windows).
+
+private func _NSCreateTemporaryFile(_ template: String) throws -> (Int32, String) {
+#if os(Windows)
+  var buffer: [WCHAR] = Array<WCHAR>(repeating: 0, count: template.length)
+  _ = template.withCString(encodedAs: UTF16.self, { wcscpy(&buffer, $0) })
+  _ = _wmktemp(&buffer)
+
+  let handle: HANDLE =
+      CreateFileW(&buffer, GENERIC_READ | DWORD(GENERIC_WRITE),
+                  DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+                  nil, DWORD(OPEN_EXISTING), DWORD(FILE_ATTRIBUTE_NORMAL), nil)
+  guard handle != INVALID_HANDLE_VALUE else { return (-1, "") }
+
+  // Don't close handle, fd is transfered ownership
+  let fd: Int32 = _open_osfhandle(intptr_t(bitPattern: handle), 0)
+  let result: String = String(decodingCString: &buffer, as: UTF16.self)
+  return (fd, result)
+#else
+  let count: Int = Int(PATH_MAX) + 1
+  var buffer: [CChar] = Array<CChar>(repeating: 0, count: count)
+  let _ = template.getFileSystemRepresentation(&buffer, maxLength: count)
+  let fd: Int32 = mkstemp(&buffer)
+  guard fd != -1 else { throw TempFileError(errno: errno) }
+  let result: String = FileManager.default.string(withFileSystemRepresentation: buffer, length: strlen(buffer))
+  return (fd, result)
+#endif
+}
+
+private func _NSCreateTemporaryDirectory(_ template: String) throws -> String {
+#if os(Windows)
+  var buffer: [WCHAR] = Array<WCHAR>(repeating: 0, count: template.length)
+  _ = template.withCString(encodedAs: UTF16.self, { wcscpy(&buffer, $0) })
+  _ = _wmktemp(&buffer)
+  let location: String = String(decodingCString: &buffer, as: UTF16.self)
+
+  try FileManager.default.createDirectory(atPath: location, withIntermediateDirectories: false)
+  return location
+#else
+  let count: Int = Int(PATH_MAX) + 1
+  var buffer: [CChar] = Array<CChar>(repeating: 0, count: count)
+  let _ = template.getFileSystemRepresentation(&buffer, maxLength: count)
+  if SPMLibc.mkdtemp(&buffer) == nil {
+    throw MakeDirectoryError(errno: errno)
+  }
+  return FileManager.default.string(withFileSystemRepresentation: buffer, length: strlen(buffer))
+#endif
+}
 
 /// This class is basically a wrapper over posix's mkstemps() function to creates disposable files.
 /// The file is deleted as soon as the object of this class is deallocated.
@@ -100,16 +151,10 @@ public final class TemporaryFile {
         // Construct path to the temporary file.
         let path = self.dir.appending(RelativePath(prefix + ".XXXXXX" + suffix))
 
-        // Convert path to a C style string terminating with null char to be an valid input
-        // to mkstemps method. The XXXXXX in this string will be replaced by a random string
-        // which will be the actual path to the temporary file.
-        var template = [UInt8](path.pathString.utf8).map({ Int8($0) }) + [Int8(0)]
+        let (fd, location) = try _NSCreateTemporaryFile(path.pathString)
 
-        fd = SPMLibc.mkstemps(&template, Int32(suffix.utf8.count))
-        // If mkstemps failed then throw error.
-        if fd == -1 { throw TempFileError(errno: errno) }
-
-        self.path = AbsolutePath(String(cString: template))
+        self.fd = fd
+        self.path = AbsolutePath(location)
         fileHandle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
     }
 
@@ -200,16 +245,8 @@ public final class TemporaryDirectory {
         // Construct path to the temporary directory.
         let path = try determineTempDirectory(dir).appending(RelativePath(prefix + ".XXXXXX"))
 
-        // Convert path to a C style string terminating with null char to be an valid input
-        // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
-        // which will be the actual path to the temporary directory.
-        var template = [UInt8](path.pathString.utf8).map({ Int8($0) }) + [Int8(0)]
-
-        if SPMLibc.mkdtemp(&template) == nil {
-            throw MakeDirectoryError(errno: errno)
-        }
-
-        self.path = AbsolutePath(String(cString: template))
+        let location = try? _NSCreateTemporaryDirectory(path.pathString)
+        self.path = AbsolutePath(location!)
     }
 
     /// Remove the temporary file before deallocating.
