@@ -101,12 +101,13 @@ public struct AbsolutePath: Hashable {
     /// Convenience initializer that verifies that the path is absolute.
     public init(validating path: String) throws {
         switch path.first {
-        case "/":
-            self.init(path)
         case "~":
             throw PathValidationError.startsWithTilde(path)
         default:
-            throw PathValidationError.invalidAbsolutePath(path)
+            guard (path as NSString).isAbsolutePath else {
+              throw PathValidationError.invalidAbsolutePath(path)
+            }
+            self.init(path)
         }
     }
 
@@ -561,10 +562,7 @@ private func mayNeedNormalization(absolute string: String) -> Bool {
 ///
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(absolute string: String) -> String {
-    precondition(string.first == "/", "Failure normalizing \(string), absolute paths should start with '/'")
-
-    // At this point we expect to have a path separator as first character.
-    assert(string.first == "/")
+    precondition((string as NSString).isAbsolutePath, "Failure normalizing \(string)")
 
     // Fast path.
     if !mayNeedNormalization(absolute: string) {
