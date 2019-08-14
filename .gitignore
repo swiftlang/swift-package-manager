@@ -5,6 +5,7 @@ xcuserdata
 *~
 \#*
 .\#*
+.*.sw[nop]
 *.xcscmblueprint
 /default.profraw
 *.xcodeproj
