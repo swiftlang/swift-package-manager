@@ -455,7 +455,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             XCTAssertEqual(urls, ["/foo/path/to/foo1", "/foo1", "/foo1.git", "/foo2.git", "/foo2.git"])
         }
     }
-    
+
     func testNotAbsoluteDependencyPath() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -472,7 +472,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             ]
         )
         """
-        
+
         do {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail("Unexpected success")

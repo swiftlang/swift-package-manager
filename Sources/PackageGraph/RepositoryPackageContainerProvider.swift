@@ -275,7 +275,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             return isValid
         }))
     }
-    
+
     /// The opened repository.
     let repository: Repository
 
