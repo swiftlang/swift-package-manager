@@ -888,7 +888,19 @@ public final class PubgrubDependencyResolver {
             // Process dependencies of this package, similar to the first phase but branch-based dependencies
             // are not allowed to contain local/unversioned packages.
             let container = try getContainer(for: package)
-            for dependency in try container.getDependencies(at: revision) {
+
+            // If there is a pin for this revision-based dependency, get
+            // the dependencies at the pinned revision instead of using
+            // latest commit on that branch. Note that if this revision-based dependency is
+            // already a commit, then its pin entry doesn't matter in practice.
+            let revisionForDependencies: String
+            if let pin = pinsStore?.pinsMap[package.identity], pin.state.branch == revision {
+                revisionForDependencies = pin.state.revision.identifier
+            } else {
+                revisionForDependencies = revision
+            }
+
+            for dependency in try container.getDependencies(at: revisionForDependencies) {
                 switch dependency.requirement {
                 case .versionSet(let req):
                     let versionedBasedConstraint = VersionBasedConstraint(package: dependency.identifier, req: req)

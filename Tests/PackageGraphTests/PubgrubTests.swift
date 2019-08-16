@@ -1167,12 +1167,41 @@ final class PubgrubTests: XCTestCase {
             ("c", .version(v1))
         ])
     }
+
+    func testBranchedBasedPin() {
+        // This test ensures that we get the SHA listed in Package.resolved for branch-based
+        // dependencies.
+        builder.serve("a", at: .revision("develop-sha-1"))
+        builder.serve("b", at: .revision("master-sha-2"))
+
+        let resolver = builder.create(log: true)
+        let dependencies = builder.create(dependencies: [
+            "a": .revision("develop"),
+            "b": .revision("master"),
+        ])
+
+        let pinsStore = builder.create(pinsStore: [
+            "a": .branch("develop", revision: "develop-sha-1"),
+            "b": .branch("master", revision: "master-sha-2"),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+
+        AssertResult(result, [
+            ("a", .revision("develop")),
+            ("b", .revision("master")),
+        ])
+    }
 }
 
 fileprivate extension CheckoutState {
     /// Creates a checkout state with the given version and a mocked revision.
     static func version(_ version: Version) -> CheckoutState {
         CheckoutState(revision: Revision(identifier: "<fake-ident>"), version: version)
+    }
+
+    static func branch(_ branch: String, revision: String) -> CheckoutState {
+        CheckoutState(revision: Revision(identifier: revision), branch: branch)
     }
 }
 
