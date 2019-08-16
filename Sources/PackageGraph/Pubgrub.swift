@@ -690,7 +690,12 @@ public final class PubgrubDependencyResolver {
 
             // If version solving failing, build the user-facing diagnostic.
             if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause {
-                let diagnostic = diagnosticBuilder.reportError(for: rootCause)
+                let builder = DiagnosticReportBuilder(
+                    root: root!,
+                    incompatibilities: incompatibilities
+                )
+
+                let diagnostic = builder.reportError(for: rootCause)
                 error = PubgrubError.unresolvable(diagnostic)
             }
 
@@ -1156,16 +1161,6 @@ public final class PubgrubDependencyResolver {
         return pkgTerm.package
     }
 
-    // MARK: - Error Reporting
-
-    // FIXME: Convert this into a method.
-    var diagnosticBuilder: DiagnosticReportBuilder {
-        return DiagnosticReportBuilder(
-            root: root!,
-            incompatibilities: incompatibilities
-        )
-    }
-
     /// Returns the best available version for a given term.
     func getBestAvailableVersion(for term: Term) throws -> Version? {
         assert(term.isPositive, "Expected term to be positive")
@@ -1522,54 +1517,6 @@ final class DiagnosticReportBuilder {
     }
 }
 
-extension BoundVersion {
-    fileprivate func toRequirement() -> VersionSetSpecifier {
-        switch self {
-        case .version(let version):
-            return .exact(version)
-        case .excluded, .unversioned, .revision:
-            fatalError("Cannot create package requirement from excluded version.")
-        }
-    }
-}
-
-extension VersionSetSpecifier {
-    fileprivate var isExact: Bool {
-        switch self {
-        case .any, .empty, .range, .ranges:
-            return false
-        case .exact:
-            return true
-        }
-    }
-}
-
-extension PackageRequirement {
-    fileprivate var isVersionSet: Bool {
-        switch self {
-        case .versionSet:
-            return true
-        case .revision, .unversioned:
-            return false
-        }
-    }
-
-    fileprivate var isRevision: Bool {
-        switch self {
-        case .versionSet, .unversioned:
-            return false
-        case .revision:
-            return true
-        }
-    }
-}
-
-extension Version {
-    func nextPatch() -> Version {
-        return Version(major, minor, patch + 1)
-    }
-}
-
 // MARK:- Container Management
 
 /// An utility class around PackageContainerProvider that allows "prefetching" the containers
@@ -1645,6 +1592,30 @@ private final class ContainerProvider {
                     }
                 }
             }
+        }
+    }
+}
+
+// MARK:- Misc Extensions
+
+extension VersionSetSpecifier {
+    fileprivate var isExact: Bool {
+        switch self {
+        case .any, .empty, .range, .ranges:
+            return false
+        case .exact:
+            return true
+        }
+    }
+}
+
+extension PackageRequirement {
+    fileprivate var isRevision: Bool {
+        switch self {
+        case .versionSet, .unversioned:
+            return false
+        case .revision:
+            return true
         }
     }
 }
