@@ -555,13 +555,18 @@ public final class PubgrubDependencyResolver {
     private var pinsStore: PinsStore?
 
     /// The container provider used to load package containers.
-    private let provider: ContainerProvider
+    private lazy var provider: ContainerProvider = {
+        ContainerProvider(self.packageContainerProvider, skipUpdate: self.skipUpdate, pinsStore: self.pinsStore)
+    }()
 
     /// The resolver's delegate.
     let delegate: DependencyResolverDelegate?
 
     /// Skip updating containers while fetching them.
     private let skipUpdate: Bool
+
+    /// Reference to the package container provider.
+    private let packageContainerProvider: PackageContainerProvider
 
     /// Should resolver prefetch the containers.
     private let isPrefetchingEnabled: Bool
@@ -624,7 +629,7 @@ public final class PubgrubDependencyResolver {
         traceFile: AbsolutePath? = nil,
         traceStream: OutputByteStream? = nil
     ) {
-        self.provider = ContainerProvider(provider, skipUpdate: skipUpdate)
+        self.packageContainerProvider = provider
         self.delegate = delegate
         self.isPrefetchingEnabled = isPrefetchingEnabled
         self.skipUpdate = skipUpdate
@@ -762,7 +767,7 @@ public final class PubgrubDependencyResolver {
             // be process at the end. This allows us to override them when there is a non-version
             // based (unversioned/branch-based) constraint present in the graph.
             let container = try provider.getContainer(for: package)
-            for dependency in try container.getUnversionedDependencies() {
+            for dependency in try container.packageContainer.getUnversionedDependencies() {
                 if let versionedBasedConstraint = VersionBasedConstraint(dependency) {
                     versionBasedDependencies[package, default: []].append(versionedBasedConstraint)
                 } else {
@@ -815,7 +820,7 @@ public final class PubgrubDependencyResolver {
                 revisionForDependencies = revision
             }
 
-            for dependency in try container.getDependencies(at: revisionForDependencies) {
+            for dependency in try container.packageContainer.getDependencies(at: revisionForDependencies) {
                 switch dependency.requirement {
                 case .versionSet(let req):
                     let versionedBasedConstraint = VersionBasedConstraint(package: dependency.identifier, req: req)
@@ -921,7 +926,7 @@ public final class PubgrubDependencyResolver {
             }
 
             let container = try provider.getContainer(for: assignment.term.package)
-            let identifier = try container.getUpdatedIdentifier(at: boundVersion)
+            let identifier = try container.packageContainer.getUpdatedIdentifier(at: boundVersion)
 
             return (identifier, boundVersion)
         }
@@ -929,7 +934,7 @@ public final class PubgrubDependencyResolver {
         // Add overriden packages to the result.
         for (package, boundVersion) in overriddenPackages {
             let container = try provider.getContainer(for: package)
-            let identifier = try container.getUpdatedIdentifier(at: boundVersion)
+            let identifier = try container.packageContainer.getUpdatedIdentifier(at: boundVersion)
             finalAssignments.append((identifier, boundVersion))
         }
 
@@ -1128,14 +1133,15 @@ public final class PubgrubDependencyResolver {
         // constraints that we have so far on the package.
         let pkgTerm = undecided.first!
 
+        let container = try provider.getContainer(for: pkgTerm.package)
         // Get the best available version for this package.
-        guard let version = try getBestAvailableVersion(for: pkgTerm) else {
+        guard let version = try container.getBestAvailableVersion(for: pkgTerm) else {
             add(Incompatibility(pkgTerm, root: root!, cause: .noAvailableVersion), location: .decisionMaking)
             return pkgTerm.package
         }
 
         // Add all of this version's dependencies as incompatibilities.
-        let depIncompatibilities = try incompatibilites(for: pkgTerm.package, at: version)
+        let depIncompatibilities = try container.incompatibilites(at: version, overriddenPackages: overriddenPackages, root: root!)
 
         var haveConflict = false
         for incompatibility in depIncompatibilities {
@@ -1159,65 +1165,6 @@ public final class PubgrubDependencyResolver {
         }
 
         return pkgTerm.package
-    }
-
-    /// Returns the best available version for a given term.
-    func getBestAvailableVersion(for term: Term) throws -> Version? {
-        assert(term.isPositive, "Expected term to be positive")
-        let container = try provider.getContainer(for: term.package)
-
-        var versionSet = term.requirement
-
-        // Restrict the selection to the pinned version if is allowed by the current requirements.
-        if let pinnedVersion = self.pinsStore?.pinsMap[term.package.identity]?.state.version {
-            if versionSet.contains(pinnedVersion) {
-                versionSet = .exact(pinnedVersion)
-            }
-        }
-
-        let availableVersions = container.versions(filter: { versionSet.contains($0) } )
-        return availableVersions.first { _ in true }
-    }
-
-    /// Returns the incompatibilities of a package at the given version.
-    func incompatibilites(
-        for package: PackageReference,
-        at version: Version
-    ) throws -> [Incompatibility] {
-        let container = try provider.getContainer(for: package)
-
-        // Compute the list of incomaptibilites for this package version.
-        var incompatibilities: [Incompatibility] = []
-
-        for dep in try container.getDependencies(at: version) {
-            // Version-based packages are not allowed to contain unversioned dependencies.
-            guard case .versionSet(let vs) = dep.requirement else {
-                let cause: Incompatibility.Cause = .versionBasedDependencyContainsUnversionedDependency(
-                    versionedDependency: package.identity,
-                    unversionedDependency: dep.identifier.identity)
-                return [Incompatibility(Term(package, .exact(version)), root: root!, cause: cause)]
-            }
-
-            // Skip if this package is overriden.
-            if overriddenPackages.keys.contains(dep.identifier) {
-                continue
-            }
-
-            var terms: OrderedSet<Term> = []
-            // FIXME: Implement bound computation.
-            //
-            // FIXME: We need to detect if this is the pinned version and skip bound computation
-            // in that case since that version is likely to work.
-            let nextMajor = Version(version.major + 1, 0, 0)
-            terms.append(Term(container.identifier, .range(version..<nextMajor)))
-            terms.append(Term(not: dep.identifier, vs))
-
-            incompatibilities.append(
-                Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
-            )
-        }
-
-        return incompatibilities
     }
 }
 
@@ -1519,6 +1466,82 @@ final class DiagnosticReportBuilder {
 
 // MARK:- Container Management
 
+/// A container for an individual package. This enhances PackageContainer to add PubGrub specific
+/// logic which is mostly related to computing incompatibilities at a particular version.
+private final class PubGrubPackageContainer {
+
+    /// The underlying package container.
+    let packageContainer: PackageContainer
+
+    /// Reference to the pins store.
+    let pinsStore: PinsStore?
+
+    var package: PackageReference {
+        packageContainer.identifier
+    }
+
+    init(_ container: PackageContainer, pinsStore: PinsStore?) {
+        self.packageContainer = container
+        self.pinsStore = pinsStore
+    }
+
+    /// Returns the best available version for a given term.
+    func getBestAvailableVersion(for term: Term) throws -> Version? {
+        assert(term.isPositive, "Expected term to be positive")
+        var versionSet = term.requirement
+
+        // Restrict the selection to the pinned version if is allowed by the current requirements.
+        if let pinnedVersion = self.pinsStore?.pinsMap[term.package.identity]?.state.version {
+            if versionSet.contains(pinnedVersion) {
+                versionSet = .exact(pinnedVersion)
+            }
+        }
+
+        let availableVersions = packageContainer.versions(filter: { versionSet.contains($0) } )
+        return availableVersions.first { _ in true }
+    }
+
+    /// Returns the incompatibilities of a package at the given version.
+    func incompatibilites(
+        at version: Version,
+        overriddenPackages: [PackageReference: BoundVersion],
+        root: PackageReference
+    ) throws -> [Incompatibility] {
+        // Compute the list of incomaptibilites for this package version.
+        var incompatibilities: [Incompatibility] = []
+
+        for dep in try packageContainer.getDependencies(at: version) {
+            // Version-based packages are not allowed to contain unversioned dependencies.
+            guard case .versionSet(let vs) = dep.requirement else {
+                let cause: Incompatibility.Cause = .versionBasedDependencyContainsUnversionedDependency(
+                    versionedDependency: package.identity,
+                    unversionedDependency: dep.identifier.identity)
+                return [Incompatibility(Term(package, .exact(version)), root: root, cause: cause)]
+            }
+
+            // Skip if this package is overriden.
+            if overriddenPackages.keys.contains(dep.identifier) {
+                continue
+            }
+
+            var terms: OrderedSet<Term> = []
+            // FIXME: Implement bound computation.
+            //
+            // FIXME: We need to detect if this is the pinned version and skip bound computation
+            // in that case since that version is likely to work.
+            let nextMajor = Version(version.major + 1, 0, 0)
+            terms.append(Term(packageContainer.identifier, .range(version..<nextMajor)))
+            terms.append(Term(not: dep.identifier, vs))
+
+            incompatibilities.append(
+                Incompatibility(terms, root: root, cause: .dependency(package: packageContainer.identifier))
+            )
+        }
+
+        return incompatibilities
+    }
+}
+
 /// An utility class around PackageContainerProvider that allows "prefetching" the containers
 /// in parallel. The basic idea is to kick off container fetching before starting the resolution
 /// by using the list of URLs from the Package.resolved file.
@@ -1529,22 +1552,26 @@ private final class ContainerProvider {
     /// Wheather to perform update (git fetch) on existing cloned repositories or not.
     let skipUpdate: Bool
 
-    init(_ provider: PackageContainerProvider, skipUpdate: Bool) {
+    /// Reference to the pins store.
+    let pinsStore: PinsStore?
+
+    init(_ provider: PackageContainerProvider, skipUpdate: Bool, pinsStore: PinsStore?) {
         self.provider = provider
         self.skipUpdate = skipUpdate
+        self.pinsStore = pinsStore
     }
 
     /// Condition for container management structures.
     private let fetchCondition = Condition()
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [PackageReference: Basic.Result<PackageContainer, AnyError>] = [:]
+    private var _fetchedContainers: [PackageReference: Basic.Result<PubGrubPackageContainer, AnyError>] = [:]
 
     /// The set of containers requested so far.
     private var _prefetchingContainers: Set<PackageReference> = []
 
     /// Get the container for the given identifier, loading it if necessary.
-    func getContainer(for identifier: PackageReference) throws -> PackageContainer {
+    func getContainer(for identifier: PackageReference) throws -> PubGrubPackageContainer {
         return try fetchCondition.whileLocked {
             // Return the cached container, if available.
             if let container = _fetchedContainers[identifier] {
@@ -1563,8 +1590,9 @@ private final class ContainerProvider {
 
             // Otherwise, fetch the container synchronously.
             let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
-            self._fetchedContainers[identifier] = Basic.Result(container)
-            return container
+            let pubGrubContainer = PubGrubPackageContainer(container, pinsStore: pinsStore)
+            self._fetchedContainers[identifier] = Basic.Result(pubGrubContainer)
+            return pubGrubContainer
         }
     }
 
@@ -1586,7 +1614,10 @@ private final class ContainerProvider {
                     self.fetchCondition.whileLocked {
                         // Update the structures and signal any thread waiting
                         // on prefetching to finish.
-                        self._fetchedContainers[identifier] = container
+                        let pubGrubContainer = container.map {
+                            PubGrubPackageContainer($0, pinsStore: self.pinsStore)
+                        }
+                        self._fetchedContainers[identifier] = pubGrubContainer
                         self._prefetchingContainers.remove(identifier)
                         self.fetchCondition.signal()
                     }
