@@ -423,3 +423,9 @@ extension VersionSetSpecifier: CustomStringConvertible {
         }
     }
 }
+
+extension Version {
+    fileprivate func nextPatch() -> Version {
+        return Version(major, minor, patch + 1)
+    }
+}
