@@ -1201,10 +1201,6 @@ public final class PubgrubDependencyResolver {
         return incompatibility.terms.isEmpty || (incompatibility.terms.count == 1 && incompatibility.terms.first?.package == root)
     }
 
-    struct DependencyIncompatibilityError: Swift.Error {
-        let cause: Incompatibility.Cause
-    }
-
     func makeDecision() throws -> PackageReference? {
         let undecided = solution.undecided
 
@@ -1224,23 +1220,7 @@ public final class PubgrubDependencyResolver {
         }
 
         // Add all of this version's dependencies as incompatibilities.
-        let depIncompatibilities: [Incompatibility]
-        do {
-            depIncompatibilities = try incompatibilites(for: pkgTerm.package, at: version)
-        } catch let error as DependencyIncompatibilityError {
-
-            let requirement: VersionSetSpecifier
-            switch pkgTerm.requirement {
-            case .any, .empty, .exact, .ranges:
-                requirement = pkgTerm.requirement
-            case .range(let range):
-                // FIXME: This isn't really correct. How do we figure out the exact upper bound?
-                requirement = .range(version..<range.upperBound)
-            }
-
-            add(Incompatibility(Term(pkgTerm.package, requirement), root: root!, cause: error.cause), location: .decisionMaking)
-            return pkgTerm.package
-        }
+        let depIncompatibilities = try incompatibilites(for: pkgTerm.package, at: version)
 
         var haveConflict = false
         for incompatibility in depIncompatibilities {
@@ -1305,14 +1285,12 @@ public final class PubgrubDependencyResolver {
         var incompatibilities: [Incompatibility] = []
 
         for dep in try container.getDependencies(at: version) {
-            // Version-based packages are not allowed to contain unversioned dependencies,
-            // throw if we encounter any. Note that this is added as an incompatibility
-            // during decision making so we don't abort the resolution because of this.
+            // Version-based packages are not allowed to contain unversioned dependencies.
             guard case .versionSet(let vs) = dep.requirement else {
-                throw DependencyIncompatibilityError(
-                    cause: .versionBasedDependencyContainsUnversionedDependency(
-                        versionedDependency: package.identity,
-                        unversionedDependency: dep.identifier.identity))
+                let cause: Incompatibility.Cause = .versionBasedDependencyContainsUnversionedDependency(
+                    versionedDependency: package.identity,
+                    unversionedDependency: dep.identifier.identity)
+                return [Incompatibility(Term(package, .exact(version)), root: root!, cause: cause)]
             }
 
             // Skip if this package is overriden.
