@@ -619,7 +619,7 @@ public final class PubgrubDependencyResolver {
     private var pinsStore: PinsStore?
 
     /// The container provider used to load package containers.
-    let provider: PackageContainerProvider
+    private let provider: ContainerProvider
 
     /// The resolver's delegate.
     let delegate: DependencyResolverDelegate?
@@ -713,7 +713,7 @@ public final class PubgrubDependencyResolver {
         traceFile: AbsolutePath? = nil,
         traceStream: OutputByteStream? = nil
     ) {
-        self.provider = provider
+        self.provider = ContainerProvider(provider, skipUpdate: skipUpdate)
         self.delegate = delegate
         self.isPrefetchingEnabled = isPrefetchingEnabled
         self.skipUpdate = skipUpdate
@@ -846,7 +846,7 @@ public final class PubgrubDependencyResolver {
             // We collect all version-based dependencies in a separate structure so they can
             // be process at the end. This allows us to override them when there is a non-version
             // based (unversioned/branch-based) constraint present in the graph.
-            let container = try getContainer(for: package)
+            let container = try provider.getContainer(for: package)
             for dependency in try container.getUnversionedDependencies() {
                 if let versionedBasedConstraint = VersionBasedConstraint(dependency) {
                     versionBasedDependencies[package, default: []].append(versionedBasedConstraint)
@@ -887,7 +887,7 @@ public final class PubgrubDependencyResolver {
 
             // Process dependencies of this package, similar to the first phase but branch-based dependencies
             // are not allowed to contain local/unversioned packages.
-            let container = try getContainer(for: package)
+            let container = try provider.getContainer(for: package)
 
             // If there is a pin for this revision-based dependency, get
             // the dependencies at the pinned revision instead of using
@@ -1005,7 +1005,7 @@ public final class PubgrubDependencyResolver {
                 fatalError("unexpected requirement value for assignment \(assignment.term)")
             }
 
-            let container = try getContainer(for: assignment.term.package)
+            let container = try provider.getContainer(for: assignment.term.package)
             let identifier = try container.getUpdatedIdentifier(at: boundVersion)
 
             return (identifier, boundVersion)
@@ -1013,7 +1013,7 @@ public final class PubgrubDependencyResolver {
 
         // Add overriden packages to the result.
         for (package, boundVersion) in overriddenPackages {
-            let container = try getContainer(for: package)
+            let container = try provider.getContainer(for: package)
             let identifier = try container.getUpdatedIdentifier(at: boundVersion)
             finalAssignments.append((identifier, boundVersion))
         }
@@ -1276,46 +1276,10 @@ public final class PubgrubDependencyResolver {
         )
     }
 
-    // MARK: - Container Management
-
-    /// Condition for container management structures.
-    private let fetchCondition = Condition()
-
-    /// The list of fetched containers.
-    private var _fetchedContainers: [PackageReference: Basic.Result<PackageContainer, AnyError>] = [:]
-
-    /// The set of containers requested so far.
-    private var _prefetchingContainers: Set<PackageReference> = []
-
-    /// Get the container for the given identifier, loading it if necessary.
-    fileprivate func getContainer(for identifier: PackageReference) throws -> PackageContainer {
-        return try fetchCondition.whileLocked {
-            // Return the cached container, if available.
-            if let container = _fetchedContainers[identifier] {
-                return try container.dematerialize()
-            }
-
-            // If this container is being prefetched, wait for that to complete.
-            while _prefetchingContainers.contains(identifier) {
-                fetchCondition.wait()
-            }
-
-            // The container may now be available in our cache if it was prefetched.
-            if let container = _fetchedContainers[identifier] {
-                return try container.dematerialize()
-            }
-
-            // Otherwise, fetch the container synchronously.
-            let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
-            self._fetchedContainers[identifier] = Basic.Result(container)
-            return container
-        }
-    }
-
     /// Returns the best available version for a given term.
     func getBestAvailableVersion(for term: Term) throws -> Version? {
         assert(term.isPositive, "Expected term to be positive")
-        let container = try getContainer(for: term.package)
+        let container = try provider.getContainer(for: term.package)
 
         var versionSet = term.requirement
 
@@ -1335,7 +1299,7 @@ public final class PubgrubDependencyResolver {
         for package: PackageReference,
         at version: Version
     ) throws -> [Incompatibility] {
-        let container = try getContainer(for: package)
+        let container = try provider.getContainer(for: package)
 
         // Compute the list of incomaptibilites for this package version.
         var incompatibilities: [Incompatibility] = []
@@ -1371,33 +1335,6 @@ public final class PubgrubDependencyResolver {
         }
 
         return incompatibilities
-    }
-
-    /// Starts prefetching the given containers.
-    private func prefetch(containers identifiers: [PackageReference]) {
-        fetchCondition.whileLocked {
-            // Process each container.
-            for identifier in identifiers {
-                // Skip if we're already have this container or are pre-fetching it.
-                guard _fetchedContainers[identifier] == nil,
-                    !_prefetchingContainers.contains(identifier) else {
-                        continue
-                }
-
-                // Otherwise, record that we're prefetching this container.
-                _prefetchingContainers.insert(identifier)
-
-                provider.getContainer(for: identifier, skipUpdate: skipUpdate) { container in
-                    self.fetchCondition.whileLocked {
-                        // Update the structures and signal any thread waiting
-                        // on prefetching to finish.
-                        self._fetchedContainers[identifier] = container
-                        self._prefetchingContainers.remove(identifier)
-                        self.fetchCondition.signal()
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -1742,5 +1679,84 @@ extension PackageRequirement {
 extension Version {
     func nextPatch() -> Version {
         return Version(major, minor, patch + 1)
+    }
+}
+
+// MARK:- Container Management
+
+/// An utility class around PackageContainerProvider that allows "prefetching" the containers
+/// in parallel. The basic idea is to kick off container fetching before starting the resolution
+/// by using the list of URLs from the Package.resolved file.
+private final class ContainerProvider {
+    /// The actual package container provider.
+    let provider: PackageContainerProvider
+
+    /// Wheather to perform update (git fetch) on existing cloned repositories or not.
+    let skipUpdate: Bool
+
+    init(_ provider: PackageContainerProvider, skipUpdate: Bool) {
+        self.provider = provider
+        self.skipUpdate = skipUpdate
+    }
+
+    /// Condition for container management structures.
+    private let fetchCondition = Condition()
+
+    /// The list of fetched containers.
+    private var _fetchedContainers: [PackageReference: Basic.Result<PackageContainer, AnyError>] = [:]
+
+    /// The set of containers requested so far.
+    private var _prefetchingContainers: Set<PackageReference> = []
+
+    /// Get the container for the given identifier, loading it if necessary.
+    func getContainer(for identifier: PackageReference) throws -> PackageContainer {
+        return try fetchCondition.whileLocked {
+            // Return the cached container, if available.
+            if let container = _fetchedContainers[identifier] {
+                return try container.dematerialize()
+            }
+
+            // If this container is being prefetched, wait for that to complete.
+            while _prefetchingContainers.contains(identifier) {
+                fetchCondition.wait()
+            }
+
+            // The container may now be available in our cache if it was prefetched.
+            if let container = _fetchedContainers[identifier] {
+                return try container.dematerialize()
+            }
+
+            // Otherwise, fetch the container synchronously.
+            let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
+            self._fetchedContainers[identifier] = Basic.Result(container)
+            return container
+        }
+    }
+
+    /// Starts prefetching the given containers.
+    private func prefetch(containers identifiers: [PackageReference]) {
+        fetchCondition.whileLocked {
+            // Process each container.
+            for identifier in identifiers {
+                // Skip if we're already have this container or are pre-fetching it.
+                guard _fetchedContainers[identifier] == nil,
+                    !_prefetchingContainers.contains(identifier) else {
+                        continue
+                }
+
+                // Otherwise, record that we're prefetching this container.
+                _prefetchingContainers.insert(identifier)
+
+                provider.getContainer(for: identifier, skipUpdate: skipUpdate) { container in
+                    self.fetchCondition.whileLocked {
+                        // Update the structures and signal any thread waiting
+                        // on prefetching to finish.
+                        self._fetchedContainers[identifier] = container
+                        self._prefetchingContainers.remove(identifier)
+                        self.fetchCondition.signal()
+                    }
+                }
+            }
+        }
     }
 }
