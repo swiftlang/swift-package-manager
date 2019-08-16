@@ -524,70 +524,6 @@ fileprivate func normalize(
     return dict.map { Term(package: $0, requirement: $1.req, isPositive: $1.polarity) }
 }
 
-/// A step the resolver takes to advance its progress, e.g. deriving a new assignment
-/// or creating a new incompatibility based on a package's dependencies.
-public struct GeneralTraceStep: CustomStringConvertible {
-    /// The traced value, e.g. an incompatibility or term.
-    public let value: Traceable
-
-    /// How this value came to be.
-    public let type: StepType
-
-    /// Where this value was created.
-    public let location: Location
-
-    /// A previous step that caused this step.
-    public let cause: String?
-
-    /// The solution's current decision level.
-    public let decisionLevel: Int
-
-    /// A step can either store an incompatibility or a decided or derived
-    /// assignment's term.
-    public enum StepType: String {
-        case incompatibility
-        case decision
-        case derivation
-    }
-
-    /// The location a step is created at.
-    public enum Location: String {
-        case topLevel = "top level"
-        case unitPropagation = "unit propagation"
-        case decisionMaking = "decision making"
-        case conflictResolution = "conflict resolution"
-    }
-
-    public var description: String {
-        return "\(value) \(type) \(location) \(cause ?? "<nocause>") \(decisionLevel)"
-    }
-}
-
-/// A step the resolver takes during conflict resolution.
-public struct ConflictResolutionTraceStep: CustomStringConvertible {
-
-    /// The conflicted incompatibility.
-    public let incompatibility: Incompatibility
-
-    public let term: Term
-
-    /// The satisfying assignment.
-    public let satisfier: Assignment
-
-    public var description: String {
-        return "Conflict: \(incompatibility) \(term) \(satisfier)"
-    }
-}
-
-public enum TraceStep {
-    case general(GeneralTraceStep)
-    case conflictResolution(ConflictResolutionTraceStep)
-}
-
-public protocol Traceable: CustomStringConvertible {}
-extension Incompatibility: Traceable {}
-extension Term: Traceable {}
-
 /// The solver that is able to transitively resolve a set of package constraints
 /// specified by a root package.
 public final class PubgrubDependencyResolver {
@@ -647,6 +583,13 @@ public final class PubgrubDependencyResolver {
         self.solution.root = root
     }
 
+    enum LogLocation: String {
+        case topLevel = "top level"
+        case unitPropagation = "unit propagation"
+        case decisionMaking = "decision making"
+        case conflictResolution = "conflict resolution"
+    }
+
     private func log(_ assignments: [(container: PackageReference, binding: BoundVersion)]) {
         log("solved:")
         for (container, binding) in assignments {
@@ -661,47 +604,15 @@ public final class PubgrubDependencyResolver {
         }
     }
 
-    func trace(
-        value: Traceable,
-        type: GeneralTraceStep.StepType,
-        location: GeneralTraceStep.Location,
-        cause: String?
-    ) {
-        let step = GeneralTraceStep(
-            value: value,
-            type: type,
-            location: location,
-            cause: cause,
-            decisionLevel: solution.decisionLevel
-        )
-        delegate?.trace(.general(step))
-    }
-
-    /// Trace a conflict resolution step.
-    func trace(
-        incompatibility: Incompatibility,
-        term: Term,
-        satisfier: Assignment
-    ) {
-        let step = ConflictResolutionTraceStep(
-            incompatibility: incompatibility,
-            term: term,
-            satisfier: satisfier
-        )
-        delegate?.trace(.conflictResolution(step))
-    }
-
-    func decide(_ package: PackageReference, version: Version, location: GeneralTraceStep.Location) {
+    func decide(_ package: PackageReference, version: Version) {
         let term = Term(package, .exact(version))
         // FIXME: Shouldn't we check this _before_ making a decision?
         assert(term.isValidDecision(for: solution))
 
-        trace(value: term, type: .decision, location: location, cause: nil)
         solution.decide(package, at: version)
     }
 
-    func derive(_ term: Term, cause: Incompatibility, location: GeneralTraceStep.Location) {
-        trace(value: term, type: .derivation, location: location, cause: nil)
+    func derive(_ term: Term, cause: Incompatibility) {
         solution.derive(term, cause: cause)
     }
 
@@ -732,9 +643,8 @@ public final class PubgrubDependencyResolver {
     }
 
     /// Add a new incompatibility to the list of known incompatibilities.
-    func add(_ incompatibility: Incompatibility, location: GeneralTraceStep.Location) {
+    func add(_ incompatibility: Incompatibility, location: LogLocation) {
         log("incompat: \(incompatibility) \(location)")
-        trace(value: incompatibility, type: .incompatibility, location: location, cause: nil)
         for package in incompatibility.terms.map({ $0.package }) {
             if let incompats = incompatibilities[package] {
                 if !incompats.contains(incompatibility) {
@@ -987,7 +897,7 @@ public final class PubgrubDependencyResolver {
         }
 
         // Decide root at v1.
-        decide(root, version: "1.0.0", location: .topLevel)
+        decide(root, version: "1.0.0")
 
         try run()
 
@@ -1105,7 +1015,7 @@ public final class PubgrubDependencyResolver {
         }
 
         log("derived: \(unsatisfiedTerm.inverse)")
-        derive(unsatisfiedTerm.inverse, cause: incompatibility, location: .unitPropagation)
+        derive(unsatisfiedTerm.inverse, cause: incompatibility)
 
         return .almostSatisfied(package: unsatisfiedTerm.package)
     }
@@ -1240,7 +1150,7 @@ public final class PubgrubDependencyResolver {
         // Decide this version if there was no conflict with its dependencies.
         if !haveConflict {
             log("decision: \(pkgTerm.package)@\(version)")
-            decide(pkgTerm.package, version: version, location: .decisionMaking)
+            decide(pkgTerm.package, version: version)
         }
 
         return pkgTerm.package
