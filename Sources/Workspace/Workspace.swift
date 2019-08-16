@@ -93,7 +93,7 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     }
 }
 
-fileprivate enum PackageResolver {
+private enum PackageResolver {
     case pubgrub(PubgrubDependencyResolver)
     case legacy(DependencyResolver)
 
@@ -108,6 +108,12 @@ fileprivate enum PackageResolver {
         case .legacy(let resolver):
             return resolver.resolve(dependencies: dependencies, pins: pins)
         }
+    }
+
+    /// Returns true if the resolver is PubGrub.
+    var isPubGrub: Bool {
+        if case .pubgrub = self { return true }
+        return false
     }
 }
 
@@ -1303,7 +1309,7 @@ extension Workspace {
 
         // Perform dependency resolution.
         let resolverDiagnostics = DiagnosticsEngine()
-        var resolver = createResolver()
+        let resolver = createResolver()
         activeResolver = resolver
 
         var result = resolveDependencies(
@@ -1319,16 +1325,11 @@ extension Workspace {
         //
         // FIXME: We should only do this if resolver emits "unresolvable" error.
         if resolverDiagnostics.hasErrors {
-            // If there are no pins, merge diagnostics and return now.
-            if validPins.isEmpty {
+            // If there are no pins or if we're using pubgrub (since pubgrub can
+            // handle pins natively), merge diagnostics and return now.
+            if validPins.isEmpty || resolver.isPubGrub {
                 diagnostics.merge(resolverDiagnostics)
                 return currentManifests
-            }
-
-            // Re-using an instance of the new resolver will likely cause some
-            // unexpected side effects.
-            if case .pubgrub = resolver {
-                resolver = createResolver()
             }
 
             // Run using the same resolver so we don't re-add the containers, we already have.
