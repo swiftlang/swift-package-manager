@@ -250,13 +250,6 @@ public struct PackageContainerConstraint: CustomStringConvertible, Equatable, Ha
 
 /// Delegate interface for dependency resoler status.
 public protocol DependencyResolverDelegate {
-
-    /// Collect diagnostic information for a step the resolver takes.
-    func trace(_ step: TraceStep)
-}
-
-public extension DependencyResolverDelegate {
-    func trace(_ step: TraceStep) { }
 }
 
 // FIXME: This should be nested, but cannot be currently.
