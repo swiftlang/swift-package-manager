@@ -13,7 +13,8 @@ add_library(PackageGraph
   PackageGraphRoot.swift
   Pubgrub.swift
   RawPackageConstraints.swift
-  RepositoryPackageContainerProvider.swift)
+  RepositoryPackageContainerProvider.swift
+  VersionSetSpecifier.swift)
 target_link_libraries(PackageGraph PUBLIC
   Basic
   PackageLoading
