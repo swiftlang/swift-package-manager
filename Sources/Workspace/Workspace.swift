@@ -97,10 +97,14 @@ fileprivate enum PackageResolver {
     case pubgrub(PubgrubDependencyResolver)
     case legacy(DependencyResolver)
 
-    func resolve(dependencies: [PackageContainerConstraint], pins: [PackageContainerConstraint]) -> DependencyResolver.Result {
+    func resolve(
+        dependencies: [PackageContainerConstraint],
+        pins: [PackageContainerConstraint],
+        pinsStore: PinsStore?
+    ) -> DependencyResolver.Result {
         switch self {
         case .pubgrub(let resolver):
-            return resolver.solve(dependencies: dependencies, pins: pins)
+            return resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
         case .legacy(let resolver):
             return resolver.resolve(dependencies: dependencies, pins: pins)
         }
@@ -619,7 +623,7 @@ extension Workspace {
         let resolver = createResolver()
         activeResolver = resolver
 
-        let updateResults = resolveDependencies(resolver: resolver, dependencies: updateConstraints, diagnostics: diagnostics)
+        let updateResults = resolveDependencies(resolver: resolver, dependencies: updateConstraints, pinsStore: nil, diagnostics: diagnostics)
 
         // Reset the active resolver.
         activeResolver = nil
@@ -1303,7 +1307,11 @@ extension Workspace {
         activeResolver = resolver
 
         var result = resolveDependencies(
-            resolver: resolver, dependencies: constraints, pins: validPins, diagnostics: resolverDiagnostics)
+            resolver: resolver,
+            dependencies: constraints,
+            pins: validPins,
+            pinsStore: pinsStore,
+            diagnostics: resolverDiagnostics)
         activeResolver = nil
 
         // If we fail, we just try again without any pins because the pins might
@@ -1324,7 +1332,7 @@ extension Workspace {
             }
 
             // Run using the same resolver so we don't re-add the containers, we already have.
-            result = resolveDependencies(resolver: resolver, dependencies: constraints, diagnostics: diagnostics)
+            result = resolveDependencies(resolver: resolver, dependencies: constraints, pinsStore: pinsStore, diagnostics: diagnostics)
             guard !diagnostics.hasErrors else {
                 return currentManifests
             }
@@ -1700,9 +1708,10 @@ extension Workspace {
         resolver: PackageResolver,
         dependencies: [RepositoryPackageConstraint],
         pins: [RepositoryPackageConstraint] = [],
+        pinsStore: PinsStore?,
         diagnostics: DiagnosticsEngine
     ) -> [(container: PackageReference, binding: BoundVersion)] {
-        let result = resolver.resolve(dependencies: dependencies, pins: pins)
+        let result = resolver.resolve(dependencies: dependencies, pins: pins, pinsStore: pinsStore)
 
         // Take an action based on the result.
         switch result {
