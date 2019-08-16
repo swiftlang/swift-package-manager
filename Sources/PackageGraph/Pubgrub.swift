@@ -1336,7 +1336,14 @@ public final class PubgrubDependencyResolver {
         at version: Version
     ) throws -> [Incompatibility] {
         let container = try getContainer(for: package)
-        return try container.getDependencies(at: version).compactMap { dep -> Incompatibility? in
+
+        // Compute the list of incomaptibilites for this package version.
+        var incompatibilities: [Incompatibility] = []
+
+        for dep in try container.getDependencies(at: version) {
+            // Version-based packages are not allowed to contain unversioned dependencies,
+            // throw if we encounter any. Note that this is added as an incompatibility
+            // during decision making so we don't abort the resolution because of this.
             guard case .versionSet(let vs) = dep.requirement else {
                 throw DependencyIncompatibilityError(
                     cause: .versionBasedDependencyContainsUnversionedDependency(
@@ -1344,29 +1351,26 @@ public final class PubgrubDependencyResolver {
                         unversionedDependency: dep.identifier.identity))
             }
 
+            // Skip if this package is overriden.
             if overriddenPackages.keys.contains(dep.identifier) {
-                return nil
+                continue
             }
 
             var terms: OrderedSet<Term> = []
-            // FIXME:
+            // FIXME: Implement bound computation.
             //
-            // If the selected version is the latest version, Pubgrub
-            // represents the term as having an unbounded upper range.
-            // We can't represent that here (currently), so we're
-            // pretending that it goes to the next nonexistent major
-            // version.
-            //
-            // FIXME: This is completely wrong when a dependencies change
-            // across version. It leads to us not being able to diagnose
-            // resolution errors properly. We only end up showing the
-            // the problem with the oldest version.
+            // FIXME: We need to detect if this is the pinned version and skip bound computation
+            // in that case since that version is likely to work.
             let nextMajor = Version(version.major + 1, 0, 0)
-//            terms.append(Term(container.identifier, .exact(version)))
             terms.append(Term(container.identifier, .range(version..<nextMajor)))
             terms.append(Term(not: dep.identifier, vs))
-            return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
+
+            incompatibilities.append(
+                Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
+            )
         }
+
+        return incompatibilities
     }
 
     /// Starts prefetching the given containers.
