@@ -980,7 +980,7 @@ final class PubgrubTests: XCTestCase {
         ])
         addDeps()
         let resolver1 = builder.create()
-        _ = resolver1.solve(dependencies: dependencies1, pins: [])
+        _ = resolver1.solve(dependencies: dependencies1)
 
         let dependencies2 = builder.create(dependencies: [
             "foo": .versionSet(v1Range),
@@ -988,7 +988,7 @@ final class PubgrubTests: XCTestCase {
         ])
         addDeps()
         let resolver2 = builder.create()
-        _ = resolver2.solve(dependencies: dependencies2, pins: [])
+        _ = resolver2.solve(dependencies: dependencies2)
     }
 
     func testConflict3() {
@@ -1000,7 +1000,7 @@ final class PubgrubTests: XCTestCase {
             "config": .versionSet(v2Range),
             "foo": .versionSet(v1Range),
         ])
-        let result = resolver.solve(dependencies: dependencies, pins: [])
+        let result = resolver.solve(dependencies: dependencies)
 
         guard let errorMsg = result.errorMsg else {
             return
@@ -1024,7 +1024,7 @@ final class PubgrubTests: XCTestCase {
             "swift-nio": .revision("master"),
             "swift-nio-ssl": .revision("master"),
         ])
-        let result = resolver.solve(dependencies: dependencies, pins: [])
+        let result = resolver.solve(dependencies: dependencies)
 
         AssertResult(result, [
             ("swift-nio-ssl", .revision("master")),
@@ -1057,7 +1057,7 @@ final class PubgrubTests: XCTestCase {
             "http-client": .versionSet(v1Range),
             "boring-ssl": .versionSet(v1Range),
         ])
-        let result = resolver.solve(dependencies: dependencies, pins: [])
+        let result = resolver.solve(dependencies: dependencies)
 
         AssertResult(result, [
             ("swift-nio-ssl", .revision("master")),
@@ -1076,7 +1076,7 @@ final class PubgrubTests: XCTestCase {
         let dependencies = builder.create(dependencies: [
             "foo": .versionSet(v1Range),
         ])
-        let result = resolver.solve(dependencies: dependencies, pins: [])
+        let result = resolver.solve(dependencies: dependencies)
 
         guard let errorMsg = result.errorMsg else { return }
         print(errorMsg)
@@ -1091,7 +1091,7 @@ final class PubgrubTests: XCTestCase {
         let dependencies = builder.create(dependencies: [
             "foo": .versionSet(v1Range),
         ])
-        let result = resolver.solve(dependencies: dependencies, pins: [])
+        let result = resolver.solve(dependencies: dependencies)
 
         AssertResult(result, [
             ("foo", .version(v1)),
@@ -1106,7 +1106,7 @@ final class PubgrubTests: XCTestCase {
         let dependencies = builder.create(dependencies: [
             "foo": .versionSet(.exact(v1)),
         ])
-        let result = resolver.solve(dependencies: dependencies, pins: [])
+        let result = resolver.solve(dependencies: dependencies)
 
         guard let errorMsg = result.errorMsg else { return }
         print(errorMsg)

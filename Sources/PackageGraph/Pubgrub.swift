@@ -769,9 +769,9 @@ public final class PubgrubDependencyResolver {
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(dependencies: [Constraint], pins: [Constraint] = []) -> Result {
+    public func solve(dependencies: [Constraint], pinsStore: PinsStore? = nil) -> Result {
         do {
-            return try .success(solve(constraints: dependencies, pins: pins))
+            return try .success(solve(constraints: dependencies, pinsStore: pinsStore))
         } catch {
             var error = error
 
@@ -943,7 +943,8 @@ public final class PubgrubDependencyResolver {
     /// - Warning: It is expected that the root package reference has been set
     ///            before this is called.
     private func solve(
-        constraints: [Constraint], pins: [Constraint] = []
+        constraints: [Constraint],
+        pinsStore: PinsStore?
     ) throws -> [(container: PackageReference, binding: BoundVersion)] {
         let root = PackageReference(
             identity: "<synthesized-root>",
@@ -961,7 +962,7 @@ public final class PubgrubDependencyResolver {
         )
         add(rootIncompatibility, location: .topLevel)
 
-        let inputs = try processInputs(with: pins + constraints)
+        let inputs = try processInputs(with: constraints)
         self.overriddenPackages = inputs.overriddenPackages
 
         // Add all the root incompatibilities.
