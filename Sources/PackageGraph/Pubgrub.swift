@@ -615,6 +615,9 @@ public final class PubgrubDependencyResolver {
     /// The root package reference.
     private(set) var root: PackageReference?
 
+    /// Reference to the pins store, if provided.
+    private var pinsStore: PinsStore?
+
     /// The container provider used to load package containers.
     let provider: PackageContainerProvider
 
@@ -954,6 +957,7 @@ public final class PubgrubDependencyResolver {
         )
 
         self.root = root
+        self.pinsStore = pinsStore
 
         // Add the root incompatibility.
         let rootIncompatibility = Incompatibility(
@@ -1301,7 +1305,15 @@ public final class PubgrubDependencyResolver {
         assert(term.isPositive, "Expected term to be positive")
         let container = try getContainer(for: term.package)
 
-        let versionSet = term.requirement
+        var versionSet = term.requirement
+
+        // Restrict the selection to the pinned version if is allowed by the current requirements.
+        if let pinnedVersion = self.pinsStore?.pinsMap[term.package.identity]?.state.version {
+            if versionSet.contains(pinnedVersion) {
+                versionSet = .exact(pinnedVersion)
+            }
+        }
+
         let availableVersions = container.versions(filter: { versionSet.contains($0) } )
         return availableVersions.first { _ in true }
     }

@@ -1111,6 +1111,69 @@ final class PubgrubTests: XCTestCase {
         guard let errorMsg = result.errorMsg else { return }
         print(errorMsg)
     }
+
+    func testTrivialPinStore() {
+        builder.serve("a", at: v1, with: ["b": .versionSet(v1Range)])
+        builder.serve("a", at: v1_1)
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v1_1)
+        builder.serve("b", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(v1Range),
+        ])
+
+        let pinsStore = builder.create(pinsStore: [
+            "a": .version(v1),
+            "b": .version(v1),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version(v1))
+        ])
+    }
+
+    func testPartialPins() {
+        // This checks that we can drop pins that are not valid anymore but still keep the ones
+        // which fit the constraints.
+        builder.serve("a", at: v1, with: ["b": .versionSet(v1Range)])
+        builder.serve("a", at: v1_1)
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v1_1)
+        builder.serve("c", at: v1, with: ["b": .versionSet(.range(v1_1..<v2))])
+
+        let resolver = builder.create(log: true)
+        let dependencies = builder.create(dependencies: [
+            "c": .versionSet(v1Range),
+            "a": .versionSet(v1Range),
+        ])
+
+        // Here b is pinned to v1 but its requirement is now 1.1.0..<2.0.0 in the graph
+        // due to addition of a new dependency.
+        let pinsStore = builder.create(pinsStore: [
+            "a": .version(v1),
+            "b": .version(v1),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version(v1_1)),
+            ("c", .version(v1))
+        ])
+    }
+}
+
+fileprivate extension CheckoutState {
+    /// Creates a checkout state with the given version and a mocked revision.
+    static func version(_ version: Version) -> CheckoutState {
+        CheckoutState(revision: Revision(identifier: "<fake-ident>"), version: version)
+    }
 }
 
 /// Asserts that the listed packages are present in the bindings with their
@@ -1356,6 +1419,19 @@ class DependencyGraphBuilder {
         }
         container.dependencies[version.description] = packageDependencies
         self.containers[package] = container
+    }
+
+    /// Creates a pins store with the given pins.
+    func create(pinsStore pins: [String: CheckoutState]) -> PinsStore {
+        let fs = InMemoryFileSystem()
+        let store = try! PinsStore(pinsFile: AbsolutePath("/tmp/Package.resolved"), fileSystem: fs)
+
+        for (package, state) in pins {
+            store.pin(packageRef: reference(for: package), state: state)
+        }
+
+        try! store.saveState()
+        return store
     }
 
     func create(log: Bool = false) -> PubgrubDependencyResolver {
