@@ -340,6 +340,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertNil(try solver1.makeDecision())
 
         let a = MockContainer(name: aRef, dependenciesByVersion: [
+            "0.0.0": [],
             v1: [(package: bRef, requirement: v1Range)]
         ])
 
@@ -1131,6 +1132,10 @@ final class PubgrubTests: XCTestCase {
 
         let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
 
+        // Since a was pinned, we shouldn't have computed bounds for its incomaptibilities.
+        let aIncompat = resolver.positiveIncompatibilities(for: builder.reference(for: "a"))![0]
+        XCTAssertEqual(aIncompat.terms[0].requirement, .exact("1.0.0"))
+
         AssertResult(result, [
             ("a", .version(v1)),
             ("b", .version(v1))
@@ -1301,6 +1306,15 @@ public class MockContainer: PackageContainer {
         return AnySequence(versions)
     }
 
+    public var reversedVersions: [Version] {
+        var versions: [Version] = []
+        for version in self._versions {
+            guard case .version(let v) = version else { continue }
+            versions.append(v)
+        }
+        return versions
+    }
+
     public func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
         requestedVersions.insert(version)
         return try getDependencies(at: version.description)
@@ -1400,7 +1414,7 @@ class DependencyGraphBuilder {
     private var containers: [String: MockContainer] = [:]
     private var references: [String: PackageReference] = [:]
 
-    private func reference(for packageName: String) -> PackageReference {
+    func reference(for packageName: String) -> PackageReference {
         if let reference = self.references[packageName] {
             return reference
         }

@@ -1485,13 +1485,18 @@ private final class PubGrubPackageContainer {
         self.pinsStore = pinsStore
     }
 
+    /// Returns the pinned version for this package, if any.
+    var pinnedVersion: Version? {
+        return pinsStore?.pinsMap[packageContainer.identifier.identity]?.state.version
+    }
+
     /// Returns the best available version for a given term.
     func getBestAvailableVersion(for term: Term) throws -> Version? {
         assert(term.isPositive, "Expected term to be positive")
         var versionSet = term.requirement
 
         // Restrict the selection to the pinned version if is allowed by the current requirements.
-        if let pinnedVersion = self.pinsStore?.pinsMap[term.package.identity]?.state.version {
+        if let pinnedVersion = self.pinnedVersion {
             if versionSet.contains(pinnedVersion) {
                 versionSet = .exact(pinnedVersion)
             }
@@ -1507,12 +1512,10 @@ private final class PubGrubPackageContainer {
         overriddenPackages: [PackageReference: BoundVersion],
         root: PackageReference
     ) throws -> [Incompatibility] {
-        // Compute the list of incomaptibilites for this package version.
-        var incompatibilities: [Incompatibility] = []
-
+        var dependencies: [PackageContainerConstraint] = []
         for dep in try packageContainer.getDependencies(at: version) {
             // Version-based packages are not allowed to contain unversioned dependencies.
-            guard case .versionSet(let vs) = dep.requirement else {
+            guard case .versionSet = dep.requirement else {
                 let cause: Incompatibility.Cause = .versionBasedDependencyContainsUnversionedDependency(
                     versionedDependency: package.identity,
                     unversionedDependency: dep.identifier.identity)
@@ -1524,21 +1527,112 @@ private final class PubGrubPackageContainer {
                 continue
             }
 
-            var terms: OrderedSet<Term> = []
-            // FIXME: Implement bound computation.
-            //
-            // FIXME: We need to detect if this is the pinned version and skip bound computation
-            // in that case since that version is likely to work.
-            let nextMajor = Version(version.major + 1, 0, 0)
-            terms.append(Term(packageContainer.identifier, .range(version..<nextMajor)))
-            terms.append(Term(not: dep.identifier, vs))
-
-            incompatibilities.append(
-                Incompatibility(terms, root: root, cause: .dependency(package: packageContainer.identifier))
-            )
+            // Skip if we already emitted incompatibilities for this dependency such that the selected
+            // falls within the previously computed bounds.
+            if emittedIncompatibilities[dep.identifier]?.contains(version) != true {
+                dependencies.append(dep)
+            }
         }
 
-        return incompatibilities
+        // Emit the dependencies at the pinned version if we haven't emitted anything else yet.
+        if version == pinnedVersion && emittedIncompatibilities.isEmpty {
+            // We don't need to emit anything if we already emitted the incompatibilities at the
+            // pinned version.
+            if self.emittedPinnedVersionIncompatibilities { return [] }
+
+            self.emittedPinnedVersionIncompatibilities = true
+
+            // Since the pinned version is most likely to succeed, we don't compute bounds for its
+            // incompatibilities.
+            return dependencies.map {
+                guard case .versionSet(let vs) = $0.requirement else { fatalError("Unexpected unversioned requirement: \($0)") }
+                var terms: OrderedSet<Term> = []
+                terms.append(Term(packageContainer.identifier, .exact(version)))
+                terms.append(Term(not: $0.identifier, vs))
+                return Incompatibility(terms, root: root, cause: .dependency(package: packageContainer.identifier))
+            }
+        }
+
+        let (lowerBounds, upperBounds) = computeBounds(dependencies, from: version)
+
+        return dependencies.map {
+            var terms: OrderedSet<Term> = []
+            let lowerBound = lowerBounds[$0.identifier] ?? "0.0.0"
+            let upperBound = upperBounds[$0.identifier] ?? Version(version.major + 1, 0, 0)
+            assert(lowerBound < upperBound)
+
+            // We only have version-based requirements at this point.
+            guard case .versionSet(let vs) = $0.requirement else { fatalError("Unexpected unversioned requirement: \($0)") }
+
+            let requirement: VersionSetSpecifier = .range(lowerBound..<upperBound)
+            terms.append(Term(packageContainer.identifier, requirement))
+            terms.append(Term(not: $0.identifier, vs))
+
+            // Make a record for this dependency so we don't have to recompute the bounds when the selected version falls within the bounds.
+            emittedIncompatibilities[$0.identifier] = requirement.union(emittedIncompatibilities[$0.identifier] ?? .empty)
+
+            return Incompatibility(terms, root: root, cause: .dependency(package: packageContainer.identifier))
+        }
+    }
+
+    /// The map of dependencies to version set that indicates the versions that have had their
+    /// incompatibilities emitted.
+    private var emittedIncompatibilities: [PackageReference: VersionSetSpecifier] = [:]
+
+    /// Whether we've emitted the incompatibilities for the pinned versions.
+    private var emittedPinnedVersionIncompatibilities: Bool = false
+
+    /// Method for computing bounds of the given dependencies.
+    ///
+    /// This will return a dictionary which contains mapping of a package dependency to its bound.
+    /// If a dependency is absent in the dictionary, it is present in all versions of the package
+    /// above or below the given version. As with regular version ranges, the lower bound is
+    /// inclusive and the upper bound is exclusive.
+    private func computeBounds(
+        _ dependencies: [PackageContainerConstraint],
+        from fromVersion: Version
+    ) -> (lowerBounds: [PackageReference: Version], upperBounds: [PackageReference: Version]) {
+        func computeBounds(with versionsToIterate: AnyCollection<Version>, upperBound: Bool) -> [PackageReference: Version] {
+            var result: [PackageReference: Version] = [:]
+            var prev = fromVersion
+
+            for version in versionsToIterate {
+                // Get the dependencies at this version.
+                let currentDependencies = (try? packageContainer.getDependencies(at: version)) ?? []
+
+                // FIXME: We need to detect incompatible tools version here and bailout if that's the case.
+
+                // Record this version as the bound for our list of dependencies, if appropriate.
+                for dependency in dependencies where !result.keys.contains(dependency.identifier) {
+                    if currentDependencies.first(where: { $0.identifier == dependency.identifier }) != dependency {
+                        // Record this version as the bound if we're finding upper bounds since
+                        // upper bound is exclusive and record the previous version if we're
+                        // finding the lower bound since that is inclusive.
+                        result[dependency.identifier] = upperBound ? version : prev
+                    }
+                }
+
+                // We're done if we found bounds for all of our dependencies.
+                if result.count == dependencies.count {
+                    break
+                }
+
+                prev = version
+            }
+
+            return result
+        }
+
+        let versions: [Version] = packageContainer.reversedVersions.reversed()
+
+        // This is guaranteed to be present.
+        let idx = versions.index(of: fromVersion)!
+
+        // Compute upper and lower bounds for the dependencies.
+        let upperBounds = computeBounds(with: AnyCollection(versions.dropFirst(idx + 1)), upperBound: true)
+        let lowerBounds = computeBounds(with: AnyCollection(versions.dropLast(versions.count - idx).reversed()), upperBound: false)
+
+        return (lowerBounds, upperBounds)
     }
 }
 

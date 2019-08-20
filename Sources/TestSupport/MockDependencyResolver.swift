@@ -105,6 +105,10 @@ public class MockPackageContainer: PackageContainer {
         return AnySequence(_versions.filter(isIncluded))
     }
 
+    public var reversedVersions: [Version] {
+        return _versions
+    }
+
     public func getDependencies(at version: Version) -> [MockPackageConstraint] {
         requestedVersions.insert(version)
         return getDependencies(at: version.description)
