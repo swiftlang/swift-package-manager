@@ -169,6 +169,10 @@ public protocol PackageContainer {
     /// if the previous one did not satisfy all constraints.
     func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version>
 
+    /// Get the list of versions in the repository sorted in the reverse order, that is the latest
+    /// version appears first.
+    var reversedVersions: [Version] { get }
+
     // FIXME: We should perhaps define some particularly useful error codes
     // here, so the resolver can handle errors more meaningfully.
     //

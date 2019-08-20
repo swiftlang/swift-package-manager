@@ -135,6 +135,10 @@ public class BasePackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
+    public var reversedVersions: [Version] {
+        fatalError("This should never be called")
+    }
+
     public func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
@@ -263,7 +267,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     /// The available version list (in reverse order).
     public override func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
-        return AnySequence(reversedVersions.filter(isIncluded).lazy.filter({
+        return AnySequence(_reversedVersions.filter(isIncluded).lazy.filter({
             // If we have the result cached, return that.
             if let result = self.validToolsVersionsCache[$0] {
                 return result
@@ -276,6 +280,8 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         }))
     }
 
+    public override var reversedVersions: [Version] { _reversedVersions }
+
     /// The opened repository.
     let repository: Repository
 
@@ -283,7 +289,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     let knownVersions: [Version: String]
 
     /// The versions in the repository sorted by latest first.
-    let reversedVersions: [Version]
+    let _reversedVersions: [Version]
 
     /// The cached dependency information.
     private var dependenciesCache: [String: (Manifest, [RepositoryPackageConstraint])] = [:]
@@ -314,7 +320,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         })
 
         self.knownVersions = knownVersions
-        self.reversedVersions = [Version](knownVersions.keys).sorted().reversed()
+        self._reversedVersions = [Version](knownVersions.keys).sorted().reversed()
         super.init(
             identifier,
             config: config,
