@@ -279,6 +279,9 @@ extension Incompatibility {
         /// A version-based dependency contains unversioned-based dependency.
         case versionBasedDependencyContainsUnversionedDependency(versionedDependency: String, unversionedDependency: String)
 
+        /// The package's tools version is incompatible.
+        case incompatibleToolsVersion
+
         var isConflict: Bool {
             if case .conflict = self { return true }
             return false
@@ -1354,6 +1357,9 @@ final class DiagnosticReportBuilder {
             break
         case .versionBasedDependencyContainsUnversionedDependency(let versionedDependency, let unversionedDependency):
             return "package '\(versionedDependency)' is required using a version-based requirement and it depends on unversion package '\(unversionedDependency)'"
+        case .incompatibleToolsVersion:
+            let package = incompatibility.terms.first!
+            return "\(package.package.identity) contains incompatible tools version"
         }
 
         if isFailure(incompatibility) {
@@ -1502,8 +1508,8 @@ private final class PubGrubPackageContainer {
             }
         }
 
-        let availableVersions = packageContainer.versions(filter: { versionSet.contains($0) } )
-        return availableVersions.first { _ in true }
+        // Return the highest version that is allowed by the input requirement.
+        return packageContainer.reversedVersions.first{ versionSet.contains($0) }
     }
 
     /// Returns the incompatibilities of a package at the given version.
@@ -1512,6 +1518,11 @@ private final class PubGrubPackageContainer {
         overriddenPackages: [PackageReference: BoundVersion],
         root: PackageReference
     ) throws -> [Incompatibility] {
+        // FIXME: It would be nice to compute bounds for this as well.
+        if !packageContainer.isToolsVersionCompatible(at: version) {
+            return [Incompatibility(Term(package, .exact(version)), root: root, cause: .incompatibleToolsVersion)]
+        }
+
         var dependencies: [PackageContainerConstraint] = []
         for dep in try packageContainer.getDependencies(at: version) {
             // Version-based packages are not allowed to contain unversioned dependencies.
@@ -1597,18 +1608,24 @@ private final class PubGrubPackageContainer {
             var prev = fromVersion
 
             for version in versionsToIterate {
+                let bound = upperBound ? version : prev
+
+                // If we hit a version which doesn't have a compatible tools version then that's the boundary.
+                let isToolsVersionCompatible = packageContainer.isToolsVersionCompatible(at: version)
+
                 // Get the dependencies at this version.
                 let currentDependencies = (try? packageContainer.getDependencies(at: version)) ?? []
 
-                // FIXME: We need to detect incompatible tools version here and bailout if that's the case.
-
                 // Record this version as the bound for our list of dependencies, if appropriate.
                 for dependency in dependencies where !result.keys.contains(dependency.identifier) {
-                    if currentDependencies.first(where: { $0.identifier == dependency.identifier }) != dependency {
+                    // Record the bound if the tools version isn't compatible at the current version.
+                    if !isToolsVersionCompatible {
+                        result[dependency.identifier] = bound
+                    } else if currentDependencies.first(where: { $0.identifier == dependency.identifier }) != dependency {
                         // Record this version as the bound if we're finding upper bounds since
                         // upper bound is exclusive and record the previous version if we're
                         // finding the lower bound since that is inclusive.
-                        result[dependency.identifier] = upperBound ? version : prev
+                        result[dependency.identifier] = bound
                     }
                 }
 

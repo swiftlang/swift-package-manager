@@ -1197,6 +1197,63 @@ final class PubgrubTests: XCTestCase {
             ("b", .revision("master")),
         ])
     }
+
+    func testIncompatibleToolsVersion1() {
+        builder.serve("a", at: v1, isToolsVersionCompatible: false)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(v1Range),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        guard let errorMsg = result.errorMsg else {
+            return
+        }
+
+        print(errorMsg)
+    }
+
+    func testIncompatibleToolsVersion2() {
+        builder.serve("a", at: v1_1, isToolsVersionCompatible: false)
+        builder.serve("a", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(v1Range),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+        ])
+    }
+
+    func testIncompatibleToolsVersion3() {
+        builder.serve("a", at: v1_1, with: [
+            "b": .versionSet(v1Range)
+        ])
+        builder.serve("a", at: v1, isToolsVersionCompatible: false)
+
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(v1Range),
+            "b": .versionSet(v2Range),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        guard let errorMsg = result.errorMsg else {
+            return
+        }
+
+        print(errorMsg)
+    }
 }
 
 fileprivate extension CheckoutState {
@@ -1293,6 +1350,9 @@ public class MockContainer: PackageContainer {
         return name
     }
 
+    /// The list of versions that have incompatible tools version.
+    var incompatibleToolsVersions: [Version] = []
+
     public var _versions: [BoundVersion]
 
     public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
@@ -1313,6 +1373,10 @@ public class MockContainer: PackageContainer {
             versions.append(v)
         }
         return versions
+    }
+
+    public func isToolsVersionCompatible(at version: Version) -> Bool {
+        return !incompatibleToolsVersions.contains(version)
     }
 
     public func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
@@ -1434,18 +1498,28 @@ class DependencyGraphBuilder {
     func serve(
         _ package: String,
         at version: Version,
+        isToolsVersionCompatible: Bool = true,
         with dependencies: OrderedDictionary<String, PackageRequirement> = [:]
     ) {
-        serve(package, at: .version(version), with: dependencies)
+        serve(package, at: .version(version), isToolsVersionCompatible: isToolsVersionCompatible, with: dependencies)
     }
 
     func serve(
         _ package: String,
         at version: BoundVersion,
+        isToolsVersionCompatible: Bool = true,
         with dependencies: OrderedDictionary<String, PackageRequirement> = [:]
     ) {
         let packageReference = reference(for: package)
         let container = self.containers[package] ?? MockContainer(name: packageReference)
+
+        if !isToolsVersionCompatible {
+            if case .version(let v) = version {
+                container.incompatibleToolsVersions.append(v)
+            } else {
+                fatalError("Setting incompatible tools version on non-versions is not currently supported")
+            }
+        }
 
         container._versions.append(version)
         container._versions = container._versions

@@ -162,6 +162,9 @@ public protocol PackageContainer {
     /// The identifier for the package.
     var identifier: PackageReference { get }
 
+    /// Returns true if the tools version is compatible at the given version.
+    func isToolsVersionCompatible(at version: Version) -> Bool
+
     /// Get the list of versions which are available for the package.
     ///
     /// The list will be returned in sorted order, with the latest version *first*.

@@ -129,6 +129,10 @@ public class MockPackageContainer: PackageContainer {
         return name
     }
 
+    public func isToolsVersionCompatible(at version: Version) -> Bool {
+        return true
+    }
+
     public convenience init(
         name: String,
         dependenciesByVersion: [Version: [(container: String, versionRequirement: VersionSetSpecifier)]]
