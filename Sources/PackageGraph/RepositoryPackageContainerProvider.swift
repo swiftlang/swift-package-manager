@@ -155,6 +155,10 @@ public class BasePackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
+    public func isToolsVersionCompatible(at version: Version) -> Bool {
+        fatalError("This should never be called")
+    }
+
     fileprivate init(
         _ identifier: Identifier,
         config: SwiftPMConfig,
@@ -463,5 +467,9 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         } catch {
             return false
         }
+    }
+
+    public override func isToolsVersionCompatible(at version: Version) -> Bool {
+        return (try? self.toolsVersion(for: version)).flatMap(self.isValidToolsVersion(_:)) ?? false
     }
 }
