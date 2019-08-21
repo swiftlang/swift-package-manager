@@ -1712,7 +1712,10 @@ extension Workspace {
         pinsStore: PinsStore?,
         diagnostics: DiagnosticsEngine
     ) -> [(container: PackageReference, binding: BoundVersion)] {
+
+        os_signpost(.begin, log: .swiftpm, name: SignpostName.resolution)
         let result = resolver.resolve(dependencies: dependencies, pins: pins, pinsStore: pinsStore)
+        os_signpost(.end, log: .swiftpm, name: SignpostName.resolution)
 
         // Take an action based on the result.
         switch result {
