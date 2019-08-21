@@ -28,6 +28,7 @@ add_library(Basic
   LazyCache.swift
   Lock.swift
   misc.swift
+  OSLog.swift
   ObjectIdentifierProtocol.swift
   OrderedDictionary.swift
   OrderedSet.swift
