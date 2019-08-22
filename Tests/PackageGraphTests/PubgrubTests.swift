@@ -491,7 +491,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func DISABLED_testCycle1() {
+    func testCycle1() {
         builder.serve("foo", at: v1_1, with: ["foo": .versionSet(v1Range)])
 
         let resolver = builder.create()
@@ -500,12 +500,12 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard case .error = result else {
-            return XCTFail("Expected a cycle")
-        }
+        AssertResult(result, [
+            ("foo", .version(v1_1)),
+        ])
     }
 
-    func DISABLED_testCycle2() {
+    func testCycle2() {
         builder.serve("foo", at: v1_1, with: ["bar": .versionSet(v1Range)])
         builder.serve("bar", at: v1, with: ["baz": .versionSet(v1Range)])
         builder.serve("baz", at: v1, with: ["bam": .versionSet(v1Range)])
@@ -517,9 +517,12 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard case .error = result else {
-            return XCTFail("Expected a cycle")
-        }
+        AssertResult(result, [
+            ("foo", .version(v1_1)),
+            ("bar", .version(v1)),
+            ("baz", .version(v1)),
+            ("bam", .version(v1)),
+        ])
     }
 
     func testLocalPackageCycle() {
