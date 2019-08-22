@@ -1132,9 +1132,13 @@ public final class PubgrubDependencyResolver {
             return nil
         }
 
-        // FIXME: We should choose a package with least available versions for the
-        // constraints that we have so far on the package.
-        let pkgTerm = undecided.first!
+        // Prefer packages with least number of versions that fit the current requirements so we
+        // get conflicts (if any) sooner.
+        let pkgTerm = try undecided.min {
+            let count1 = try provider.getContainer(for: $0.package).versionCount($0.requirement)
+            let count2 = try provider.getContainer(for: $1.package).versionCount($1.requirement)
+            return count1 < count2
+        }!
 
         let container = try provider.getContainer(for: pkgTerm.package)
         // Get the best available version for this package.
@@ -1494,6 +1498,14 @@ private final class PubGrubPackageContainer {
     /// Returns the pinned version for this package, if any.
     var pinnedVersion: Version? {
         return pinsStore?.pinsMap[packageContainer.identifier.identity]?.state.version
+    }
+
+    /// Returns the numbers of versions that are satisfied by the given version requirement.
+    func versionCount(_ requirement: VersionSetSpecifier) -> Int {
+        if let pinnedVersion = self.pinnedVersion, requirement.contains(pinnedVersion) {
+            return 1
+        }
+        return packageContainer.reversedVersions.filter(requirement.contains).count
     }
 
     /// Returns the best available version for a given term.
