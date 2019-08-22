@@ -305,25 +305,24 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> String {
         let result: ManifestParseResult
+        let pathOrContents: ManifestPathOrContents
 
-        // If we were given a filesystem, load via a temporary file.
-        //
-        // This is currently used when doing dependency resolution as we
-        // get the manifest file from GitFileSystem. We should cache these
-        // by using the hash of the contents as the key.
         if let fs = fs {
-            let contents = try fs.readFileContents(inputPath)
-            let tmpFile = try TemporaryFile(suffix: ".swift")
-            try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
-            result = parse(packageIdentity: packageIdentity, path: tmpFile.path, manifestVersion: manifestVersion)
-        } else if !self.isManifestCachingEnabled {
-            // Load directly if manifest caching is not enabled.
-            result = parse(packageIdentity: packageIdentity, path: inputPath, manifestVersion: manifestVersion)
+            let contents = try fs.readFileContents(inputPath).contents
+            pathOrContents = .contents(contents)
         } else {
-            // Otherwise load via llbuild.
+            pathOrContents = .path(inputPath)
+        }
+
+        if !self.isManifestCachingEnabled {
+            // Load directly if manifest caching is not enabled.
+            result = parse(
+                packageIdentity: packageIdentity,
+                pathOrContents: pathOrContents, manifestVersion: manifestVersion)
+        } else {
             let key = ManifestLoadRule.RuleKey(
                 packageIdentity: packageIdentity,
-                path: inputPath, manifestVersion: manifestVersion)
+                pathOrContents: pathOrContents, manifestVersion: manifestVersion)
             result = try getEngine().build(key: key)
         }
 
@@ -376,7 +375,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     /// Parse the manifest at the given path to JSON.
     fileprivate func parse(
         packageIdentity: String,
-        path manifestPath: AbsolutePath,
+        pathOrContents: ManifestPathOrContents,
         manifestVersion: ManifestVersion
     ) -> ManifestParseResult {
 
@@ -463,6 +462,21 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         var manifestParseResult = ManifestParseResult()
         do {
+            // Compute the manifest path.
+            let manifestPath: AbsolutePath
+
+            // A variable to keep the temporary file alive in this scope.
+            var tmpFile: TemporaryFile?
+
+            switch pathOrContents {
+            case .path(let path):
+                manifestPath = path
+            case .contents(let contents):
+                tmpFile = try TemporaryFile(suffix: ".swift")
+                try localFileSystem.writeFileContents(tmpFile!.path, bytes: ByteString(contents))
+                manifestPath = tmpFile!.path
+            }
+
             try _parse(
                 path: manifestPath,
                 manifestVersion: manifestVersion,
@@ -645,7 +659,7 @@ final class ManifestLoadRule: LLBuildRule {
         typealias BuildRule = ManifestLoadRule
 
         let packageIdentity: String
-        let path: AbsolutePath
+        let pathOrContents: ManifestPathOrContents
         let manifestVersion: ManifestVersion
     }
 
@@ -666,7 +680,9 @@ final class ManifestLoadRule: LLBuildRule {
         engine.taskNeedsInput(ProcessEnvRule.RuleKey(), inputID: 1)
 
         engine.taskNeedsInput(SwiftPMVersionRule.RuleKey(), inputID: 2)
-        engine.taskNeedsInput(FileInfoRule.RuleKey(path: key.path), inputID: 3)
+        if case .path(let path) = key.pathOrContents {
+            engine.taskNeedsInput(FileInfoRule.RuleKey(path: path), inputID: 3)
+        }
     }
 
     override func isResultValid(_ priorValue: Value) -> Bool {
@@ -680,7 +696,7 @@ final class ManifestLoadRule: LLBuildRule {
     override func inputsAvailable(_ engine: LLTaskBuildEngine) {
         let value = loader.parse(
             packageIdentity: key.packageIdentity,
-            path: key.path, manifestVersion: key.manifestVersion)
+            pathOrContents: key.pathOrContents, manifestVersion: key.manifestVersion)
         engine.taskIsComplete(value)
     }
 }
@@ -783,5 +799,47 @@ final class SwiftPMVersionRule: LLBuildRule {
         // string to make this rule more correct.
         let version = Versioning.currentVersion.displayString
         engine.taskIsComplete(RuleValue(version: version))
+    }
+}
+
+/// Enum to represent either the manifest path or its content.
+private enum ManifestPathOrContents {
+    case path(AbsolutePath)
+    case contents([UInt8])
+}
+
+extension ManifestPathOrContents: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case path
+        case contents
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .path:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let a1 = try unkeyedValues.decode(AbsolutePath.self)
+            self = .path(a1)
+        case .contents:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let a1 = try unkeyedValues.decode([UInt8].self)
+            self = .contents(a1)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .path(a1):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .path)
+            try unkeyedContainer.encode(a1)
+        case let .contents(a1):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .contents)
+            try unkeyedContainer.encode(a1)
+        }
     }
 }
