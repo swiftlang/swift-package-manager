@@ -458,8 +458,10 @@ public class GitRepository: Repository, WorkingCheckout {
             specifier = treeish
         }
         let response = try queue.sync {
-            try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.pathString, "rev-parse", "--verify", specifier).spm_chomp()
+            try cachedHashes.memo(key: specifier) {
+                try Process.checkNonZeroExit(
+                    args: Git.tool, "-C", path.pathString, "rev-parse", "--verify", specifier).spm_chomp()
+            }
         }
         if let hash = Hash(response) {
             return hash
@@ -479,9 +481,11 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Read a tree object.
     func read(tree hash: Hash) throws -> Tree {
         // Get the contents using `ls-tree`.
-        let treeInfo = try queue.sync {
-            try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.pathString, "ls-tree", hash.bytes.description)
+        let treeInfo: String = try queue.sync {
+            try cachedTrees.memo(key: hash) {
+                try Process.checkNonZeroExit(
+                    args: Git.tool, "-C", self.path.pathString, "ls-tree", hash.bytes.description)
+            }
         }
 
         var contents: [Tree.Entry] = []
@@ -532,15 +536,39 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Read a blob object.
     func read(blob hash: Hash) throws -> ByteString {
         return try queue.sync {
-            // Get the contents using `cat-file`.
-            //
-            // FIXME: We need to get the raw bytes back, not a String.
-            let output = try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.pathString, "cat-file", "-p", hash.bytes.description)
-            return ByteString(encodingAsUTF8: output)
+            try cachedBlobs.memo(key: hash) {
+                // Get the contents using `cat-file`.
+                //
+                // FIXME: We need to get the raw bytes back, not a String.
+                let output = try Process.checkNonZeroExit(
+                    args: Git.tool, "-C", path.pathString, "cat-file", "-p", hash.bytes.description)
+                return ByteString(encodingAsUTF8: output)
+            }
         }
     }
+
+    /// Dictionary for memoizing results of git calls that are not expected to change.
+    private var cachedHashes: [String: String] = [:]
+    private var cachedBlobs: [Hash: ByteString] = [:]
+    private var cachedTrees: [Hash: String] = [:]
 }
+
+private extension Dictionary {
+    // Maybe lift to Basic or Utility.
+    /// Memoize the value returned by the given closure.
+    mutating func memo(
+        key: Key,
+        _ closure: () throws -> Value
+    ) rethrows -> Value {
+        if let value = self[key] {
+            return value
+        }
+        let value = try closure()
+        self[key] = value
+        return value
+    }
+}
+
 /// A `git` file system view.
 ///
 /// The current implementation is based on lazily caching data with no eviction
