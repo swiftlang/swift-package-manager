@@ -522,6 +522,54 @@ final class PubgrubTests: XCTestCase {
         }
     }
 
+    func testLocalPackageCycle() {
+        builder.serve("foo", at: .unversioned, with: [
+            "bar": .unversioned,
+        ])
+        builder.serve("bar", at: .unversioned, with: [
+            "baz": .unversioned,
+        ])
+        builder.serve("baz", at: .unversioned, with: [
+            "foo": .unversioned,
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .unversioned,
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("foo", .unversioned),
+            ("bar", .unversioned),
+            ("baz", .unversioned),
+        ])
+    }
+
+    func testBranchBasedPackageCycle() {
+        builder.serve("foo", at: .revision("develop"), with: [
+            "bar": .revision("develop"),
+        ])
+        builder.serve("bar", at: .revision("develop"), with: [
+            "baz": .revision("develop"),
+        ])
+        builder.serve("baz", at: .revision("develop"), with: [
+            "foo": .revision("develop"),
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .revision("develop"),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("foo", .revision("develop")),
+            ("bar", .revision("develop")),
+            ("baz", .revision("develop")),
+        ])
+    }
+
     func testMissingVersion() {
         builder.serve("foopkg", at: v1_1)
 

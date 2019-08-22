@@ -773,7 +773,9 @@ public final class PubgrubDependencyResolver {
             for dependency in try container.packageContainer.getUnversionedDependencies() {
                 if let versionedBasedConstraint = VersionBasedConstraint(dependency) {
                     versionBasedDependencies[package, default: []].append(versionedBasedConstraint)
-                } else {
+                } else if !overridenPackages.keys.contains(dependency.identifier) {
+                    // Add the constraint if its not already present. This will ensure we don't
+                    // end up looping infinitely due to a cycle (which are diagnosed seperately).
                     constraints.append(dependency)
                 }
             }
@@ -800,6 +802,9 @@ public final class PubgrubDependencyResolver {
                     if existingRevision != revision {
                         // FIXME: Improve diagnostics here.
                         throw PubgrubError.unresolvable("Revision mismatch for \(package): \(existingRevision) \(revision)")
+                    } else {
+                        // Otherwise, continue since we've already processed this constraint. Any cycles will be diagnosed separately.
+                        continue
                     }
                 case nil:
                     break
