@@ -54,6 +54,7 @@ extension PubgrubTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__PubgrubTests = [
+        ("testBranchBasedPackageCycle", testBranchBasedPackageCycle),
         ("testBranchedBasedPin", testBranchedBasedPin),
         ("testBranchOverriding3", testBranchOverriding3),
         ("testBranchOverriding4", testBranchOverriding4),
@@ -64,6 +65,7 @@ extension PubgrubTests {
         ("testIncompatibleToolsVersion1", testIncompatibleToolsVersion1),
         ("testIncompatibleToolsVersion2", testIncompatibleToolsVersion2),
         ("testIncompatibleToolsVersion3", testIncompatibleToolsVersion3),
+        ("testLocalPackageCycle", testLocalPackageCycle),
         ("testMissingVersion", testMissingVersion),
         ("testNonExistentPackage", testNonExistentPackage),
         ("testNonVersionDependencyInVersionDependency1", testNonVersionDependencyInVersionDependency1),
