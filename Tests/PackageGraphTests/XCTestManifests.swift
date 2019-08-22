@@ -60,6 +60,8 @@ extension PubgrubTests {
         ("testConflict1", testConflict1),
         ("testConflict2", testConflict2),
         ("testConflict3", testConflict3),
+        ("testCycle1", testCycle1),
+        ("testCycle2", testCycle2),
         ("testIncompatibilityNormalizeTermsOnInit", testIncompatibilityNormalizeTermsOnInit),
         ("testIncompatibleToolsVersion1", testIncompatibleToolsVersion1),
         ("testIncompatibleToolsVersion2", testIncompatibleToolsVersion2),
