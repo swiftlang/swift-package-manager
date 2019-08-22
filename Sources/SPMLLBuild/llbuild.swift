@@ -95,7 +95,7 @@ public final class LLBuildEngine {
         return T.BuildValue(value)
     }
 
-    public func attachDB(path: String, schemaVersion: Int = 1) throws {
+    public func attachDB(path: String, schemaVersion: Int = 2) throws {
         try engine.attachDB(path: path, schemaVersion: schemaVersion)
     }
 

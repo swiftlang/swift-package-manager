@@ -609,6 +609,53 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         }
     }
 
+    func testContentBasedCaching() throws {
+        mktmpdir { path in
+            let stream = BufferedOutputByteStream()
+            stream <<< """
+                import PackageDescription
+                let package = Package(
+                    name: "Trivial",
+                    targets: [
+                        .target(name: "foo"),
+                    ]
+                )
+                """
+
+            let delegate = ManifestTestDelegate()
+
+            let manifestLoader = ManifestLoader(
+                manifestResources: Resources.default, cacheDir: path, delegate: delegate)
+
+            func check(loader: ManifestLoader) throws {
+                let fs = InMemoryFileSystem()
+                let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+                try fs.writeFileContents(manifestPath, bytes: stream.bytes)
+
+                let m = try manifestLoader.load(
+                    package: AbsolutePath.root,
+                    baseURL: "/foo",
+                    manifestVersion: .v4_2,
+                    fileSystem: fs)
+
+                XCTAssertEqual(m.name, "Trivial")
+            }
+
+            try check(loader: manifestLoader)
+            XCTAssertEqual(delegate.loaded.count, 1)
+            XCTAssertEqual(delegate.parsed.count, 1)
+
+            try check(loader: manifestLoader)
+            XCTAssertEqual(delegate.loaded.count, 2)
+            XCTAssertEqual(delegate.parsed.count, 1)
+
+            stream <<< "\n\n"
+            try check(loader: manifestLoader)
+            XCTAssertEqual(delegate.loaded.count, 3)
+            XCTAssertEqual(delegate.parsed.count, 2)
+        }
+    }
+
     func testLLBuildEngineErrors() {
         mktmpdir { path in
             let fs = localFileSystem
