@@ -1305,6 +1305,44 @@ final class PubgrubTests: XCTestCase {
 
         print(errorMsg)
     }
+
+    func testIncompatibleToolsVersion4() {
+        builder.serve("a", at: "3.2.1", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.2", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.3", isToolsVersionCompatible: false)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.range("3.2.0"..<"4.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        guard let errorMsg = result.errorMsg else {
+            return
+        }
+
+        print(errorMsg)
+    }
+
+    func testIncompatibleToolsVersion5() {
+        builder.serve("a", at: "3.2.0", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.1", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.2", isToolsVersionCompatible: false)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.range("3.2.0"..<"4.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        guard let errorMsg = result.errorMsg else {
+            return
+        }
+
+        print(errorMsg)
+    }
 }
 
 fileprivate extension CheckoutState {
