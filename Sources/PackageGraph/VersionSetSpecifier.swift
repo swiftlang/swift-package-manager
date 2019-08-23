@@ -242,9 +242,15 @@ extension VersionSetSpecifier {
                     if range.lowerBound == range.upperBound {
                         continue
                     }
-                    result.append(exact.nextPatch()..<range.upperBound)
+
+                    if exact.nextPatch() < range.upperBound {
+                        result.append(exact.nextPatch()..<range.upperBound)
+                    }
                 } else {
-                    result += [range.lowerBound..<exact, exact.nextPatch()..<range.upperBound]
+                    result += [range.lowerBound..<exact]
+                    if exact.nextPatch() < range.upperBound {
+                        result += [exact.nextPatch()..<range.upperBound]
+                    }
                 }
             }
             return .union(from: result)
