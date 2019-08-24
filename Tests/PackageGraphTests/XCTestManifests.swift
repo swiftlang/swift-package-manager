@@ -67,6 +67,8 @@ extension PubgrubTests {
         ("testIncompatibleToolsVersion1", testIncompatibleToolsVersion1),
         ("testIncompatibleToolsVersion2", testIncompatibleToolsVersion2),
         ("testIncompatibleToolsVersion3", testIncompatibleToolsVersion3),
+        ("testIncompatibleToolsVersion4", testIncompatibleToolsVersion4),
+        ("testIncompatibleToolsVersion5", testIncompatibleToolsVersion5),
         ("testLocalPackageCycle", testLocalPackageCycle),
         ("testMissingVersion", testMissingVersion),
         ("testNonExistentPackage", testNonExistentPackage),
