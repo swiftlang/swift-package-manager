@@ -416,7 +416,12 @@ extension VersionSetSpecifier: CustomStringConvertible {
         case .empty:
             return "empty"
         case .ranges(let ranges):
-            return ranges.description
+            return "{" + ranges.map{
+                if $0.lowerBound == $0.upperBound {
+                    return $0.lowerBound.description
+                }
+                return $0.lowerBound.description + "..<" + $0.upperBound.description
+            }.joined(separator: ", ") + "}"
         case .range(let range):
             var upperBound = range.upperBound
             // Patch the version range representation. This shouldn't be
