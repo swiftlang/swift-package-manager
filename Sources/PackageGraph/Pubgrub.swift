@@ -1355,20 +1355,20 @@ final class DiagnosticReportBuilder {
             assert(incompatibility.terms.count == 1)
             let package = incompatibility.terms.first!
             assert(package.isPositive)
-            return "no versions of \(package.package.identity) match the requirement \(package.requirement)"
+            return "no versions of \(package.package.lastPathComponent) match the requirement \(package.requirement)"
         case .root:
             // FIXME: This will never happen I think.
             assert(incompatibility.terms.count == 1)
             let package = incompatibility.terms.first!
             assert(package.isPositive)
-            return "\(package.package.identity) is \(package.requirement)"
+            return "\(package.package.lastPathComponent) is \(package.requirement)"
         case .conflict:
             break
         case .versionBasedDependencyContainsUnversionedDependency(let versionedDependency, let unversionedDependency):
             return "package '\(versionedDependency)' is required using a version-based requirement and it depends on unversion package '\(unversionedDependency)'"
         case .incompatibleToolsVersion:
             let package = incompatibility.terms.first!
-            return "\(package.package.identity) contains incompatible tools version"
+            return "\(package.package.lastPathComponent) \(package.requirement) contains incompatible tools version"
         }
 
         if isFailure(incompatibility) {
@@ -1380,21 +1380,21 @@ final class DiagnosticReportBuilder {
         let terms = incompatibility.terms
         if terms.count == 1 {
             let term = terms.first!
-            return "\(term) is " + (term.isPositive ? "forbidden" : "required")
+            return "\(term.package.lastPathComponent) \(term.requirement) is " + (term.isPositive ? "forbidden" : "required")
         } else if terms.count == 2 {
             let term1 = terms.first!
             let term2 = terms.last!
             if term1.isPositive == term2.isPositive {
                 if term1.isPositive {
-                    return "\(term1.package.identity) is incompatible with \(term2.package.identity)";
+                    return "\(term1.package.lastPathComponent) is incompatible with \(term2.package.lastPathComponent)";
                 } else {
-                    return "either \(term1.package.identity) or \(term2)"
+                    return "either \(term1.package.lastPathComponent) or \(term2)"
                 }
             }
         }
 
-        let positive = terms.filter{ $0.isPositive }.map{ $0.package.identity }
-        let negative = terms.filter{ !$0.isPositive }.map{ $0.package.identity }
+        let positive = terms.filter{ $0.isPositive }.map{ $0.package.lastPathComponent }
+        let negative = terms.filter{ !$0.isPositive }.map{ $0.package.lastPathComponent }
         if !positive.isEmpty && !negative.isEmpty {
             if positive.count == 1 {
                 return "\(positive[0]) requires \(negative.joined(separator: " or "))";
@@ -1436,30 +1436,23 @@ final class DiagnosticReportBuilder {
     }
 
     private func description(for term: Term) -> String {
-        let name = term.package.name ?? term.package.identity
+        let name = term.package.name ?? term.package.lastPathComponent
 
-            switch term.requirement {
-            case .any: return "any version of \(name)"
-            case .empty: return "no version of \(name)"
-            case .exact(let version):
-                // For the root package, don't output the useless version 1.0.0.
-                if term.package == rootPackage {
-                    return "root"
-                }
-                return "\(name) @\(version)"
-            case .range(let range):
-                let upper = range.upperBound
-                let nextMajor = Version(range.lowerBound.major + 1, 0, 0)
-                if upper == nextMajor {
-                    return "\(name) ^\(range.lowerBound)"
-                } else {
-                    return "\(name) \(range.description)"
-                }
-
-            case .ranges(let ranges):
-                return "\(name) \(ranges)"
+        switch term.requirement {
+        case .any: return "any version of \(name)"
+        case .empty: return "no version of \(name)"
+        case .exact(let version):
+            // For the root package, don't output the useless version 1.0.0.
+            if term.package == rootPackage {
+                return "root"
             }
+            return "\(name) @\(version)"
+        case .range(let range):
+            return "\(name) \(range.description)"
+        case .ranges(let ranges):
+            return "\(name) \(ranges)"
         }
+    }
 
     /// Write a given output message to a stream. The message should describe
     /// the incompatibility and how it as derived. If `isNumbered` is true, a
