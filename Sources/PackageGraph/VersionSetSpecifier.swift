@@ -355,7 +355,11 @@ extension VersionSetSpecifier {
                     continue
                 }
 
-                let diff = VersionSetSpecifier.range(currentLHS).difference(.range(currentRHS))
+                var diff = VersionSetSpecifier.range(currentLHS).difference(.range(currentRHS))
+                // Transform exact to a range so it is handled in the range case below.
+                if case .exact(let v) = diff {
+                    diff = .range(v..<v.nextPatch())
+                }
 
                 switch diff {
                 case .empty:
