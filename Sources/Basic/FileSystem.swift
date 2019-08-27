@@ -354,16 +354,17 @@ private class LocalFileSystem: FileSystem {
         if !atomically {
             return try writeFileContents(path, bytes: bytes)
         }
-        let temp = try TemporaryFile(dir: path.parentDirectory, deleteOnClose: false)
-        do {
-            try writeFileContents(temp.path, bytes: bytes)
-            try FileManager.default.moveItem(atPath: temp.path.pathString, toPath: path.pathString)
-        } catch {
-            // Write or rename failed, delete the temporary file.
-            // Rethrow the original error, however, as that's the
-            // root cause of the failure.
-            _ = try? self.removeFileTree(temp.path)
-            throw error
+        try withTemporaryFile(dir: path.parentDirectory, deleteOnClose: false) { temp in
+            do {
+                try writeFileContents(temp.path, bytes: bytes)
+                try FileManager.default.moveItem(atPath: temp.path.pathString, toPath: path.pathString)
+            } catch {
+                // Write or rename failed, delete the temporary file.
+                // Rethrow the original error, however, as that's the
+                // root cause of the failure.
+                _ = try? self.removeFileTree(temp.path)
+                throw error
+            }
         }
     }
 

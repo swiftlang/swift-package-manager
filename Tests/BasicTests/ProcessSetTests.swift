@@ -40,23 +40,25 @@ class ProcessSetTests: XCTestCase {
         let t = Thread {
             do {
                 // Launch the script and notify main thread.
-                let tempFile = try TemporaryFile()
-                let waitFile = tempFile.path
-                let process = Process(args: self.script(scriptName), waitFile.pathString)
-                try processSet.add(process)
-                try process.launch()
-                guard waitForFile(waitFile) else {
-                    return XCTFail("Couldn't launch the process")
-                }
-                threadStartCondition.whileLocked {
-                    processLaunched = true
-                    threadStartCondition.signal()
-                }
-                let result = try process.waitUntilExit()
-                // Ensure we did termiated due to signal.
-                switch result.exitStatus {
-                case .signalled: break
-                default: XCTFail("Expected to exit via signal")
+                try withTemporaryFile { tempFile in
+                    let waitFile = tempFile.path
+                    let process = Process(args: self.script(scriptName), waitFile.pathString)
+                    try processSet.add(process)
+                    try process.launch()
+                    guard waitForFile(waitFile) else {
+                        XCTFail("Couldn't launch the process")
+                        return
+                    }
+                    threadStartCondition.whileLocked {
+                        processLaunched = true
+                        threadStartCondition.signal()
+                    }
+                    let result = try process.waitUntilExit()
+                    // Ensure we did termiated due to signal.
+                    switch result.exitStatus {
+                    case .signalled: break
+                    default: XCTFail("Expected to exit via signal")
+                    }
                 }
             } catch {
                 XCTFail("Error \(String(describing: error))")

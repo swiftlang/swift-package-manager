@@ -418,29 +418,29 @@ public class GitRepository: Repository, WorkingCheckout {
         return try queue.sync {
             let stringPaths = paths.map({ $0.pathString })
 
-            let pathsFile = try TemporaryFile()
-            try localFileSystem.writeFileContents(pathsFile.path) {
-                for path in paths {
-                    $0 <<< path.pathString <<< "\0"
+            return try withTemporaryFile { pathsFile in
+                try localFileSystem.writeFileContents(pathsFile.path) {
+                    for path in paths {
+                        $0 <<< path.pathString <<< "\0"
+                    }
                 }
+
+                let args = [
+                    Git.tool, "-C", self.path.pathString.spm_shellEscaped(),
+                    "check-ignore", "-z", "--stdin",
+                    "<", pathsFile.path.pathString.spm_shellEscaped()
+                ]
+                let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
+                let result = try Process.popen(arguments: argsWithSh)
+                let output = try result.output.dematerialize()
+
+                let outputs: [String] = output.split(separator: 0).map({ String(decoding: $0, as: Unicode.UTF8.self) })
+
+                guard result.exitStatus == .terminated(code: 0) || result.exitStatus == .terminated(code: 1) else {
+                    throw GitInterfaceError.fatalError
+                }
+                return stringPaths.map(outputs.contains)
             }
-
-            let args = [
-                Git.tool, "-C", self.path.pathString.spm_shellEscaped(),
-                "check-ignore", "-z", "--stdin",
-                "<", pathsFile.path.pathString.spm_shellEscaped()
-            ]
-            let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
-            let result = try Process.popen(arguments: argsWithSh)
-            let output = try result.output.dematerialize()
-
-            let outputs: [String] = output.split(separator: 0).map({ String(decoding: $0, as: Unicode.UTF8.self) })
-
-            guard result.exitStatus == .terminated(code: 0) || result.exitStatus == .terminated(code: 1) else {
-                throw GitInterfaceError.fatalError
-            }
-
-            return stringPaths.map(outputs.contains)
         }
     }
 

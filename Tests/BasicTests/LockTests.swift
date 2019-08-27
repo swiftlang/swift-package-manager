@@ -29,22 +29,23 @@ class LockTests: XCTestCase {
 
     func testFileLock() throws {
         // Shared resource file.
-        let sharedResource = try TemporaryFile()
-        // Directory where lock file should be created.
-        let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
+        try withTemporaryFile { sharedResource in
+            // Directory where lock file should be created.
+            try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+                // Run the same executable multiple times and
+                // we can expect the final result to be sum of the
+                // contents we write in the shared file.
+                let N = 10
+                let threads = (1...N).map { idx in
+                    return Thread {
+                        _ = try! SwiftPMProduct.TestSupportExecutable.execute(["fileLockTest", tempDirPath.pathString, sharedResource.path.pathString, String(idx)])
+                    }
+                }
+                threads.forEach { $0.start() }
+                threads.forEach { $0.join() }
 
-        // Run the same executable multiple times and
-        // we can expect the final result to be sum of the
-        // contents we write in the shared file.
-        let N = 10
-        let threads = (1...N).map { idx in
-            return Thread {
-                _ = try! SwiftPMProduct.TestSupportExecutable.execute(["fileLockTest", tempDir.path.pathString, sharedResource.path.pathString, String(idx)])
+                XCTAssertEqual(try localFileSystem.readFileContents(sharedResource.path).description, String((N * (N + 1) / 2 )))
             }
         }
-        threads.forEach { $0.start() }
-        threads.forEach { $0.join() }
-
-        XCTAssertEqual(try localFileSystem.readFileContents(sharedResource.path).description, String((N * (N + 1) / 2 )))
     }
 }
