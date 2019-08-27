@@ -440,48 +440,46 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += [manifestPath.pathString]
 
             // Create and open a temporary file to write json to.
-            let file = try TemporaryFile()
-            // Pass the fd in arguments.
-            cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
+            try withTemporaryFile { file in
+                // Pass the fd in arguments.
+                cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
 
-            // Run the command.
-            let result = try Process.popen(arguments: cmd)
-            let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle()
-            manifestParseResult.compilerOutput = output
+                // Run the command.
+                let result = try Process.popen(arguments: cmd)
+                let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle()
+                manifestParseResult.compilerOutput = output
 
-            // Return now if there was an error.
-            if result.exitStatus != .terminated(code: 0) {
-                return
+                // Return now if there was an error.
+                if result.exitStatus != .terminated(code: 0) {
+                    return
+                }
+
+                guard let json = try localFileSystem.readFileContents(file.path).validDescription else {
+                    throw StringError("the manifest has invalid encoding")
+                }
+                manifestParseResult.parsedManifest = json
             }
-
-            guard let json = try localFileSystem.readFileContents(file.path).validDescription else {
-                throw StringError("the manifest has invalid encoding")
-            }
-            manifestParseResult.parsedManifest = json
         }
 
         var manifestParseResult = ManifestParseResult()
         do {
-            // Compute the manifest path.
-            let manifestPath: AbsolutePath
-
-            // A variable to keep the temporary file alive in this scope.
-            var tmpFile: TemporaryFile?
-
             switch pathOrContents {
             case .path(let path):
-                manifestPath = path
+                try _parse(
+                    path: path,
+                    manifestVersion: manifestVersion,
+                    manifestParseResult: &manifestParseResult
+                )
             case .contents(let contents):
-                tmpFile = try TemporaryFile(suffix: ".swift")
-                try localFileSystem.writeFileContents(tmpFile!.path, bytes: ByteString(contents))
-                manifestPath = tmpFile!.path
+                try withTemporaryFile(suffix: ".swift") { tempFile in
+                  try localFileSystem.writeFileContents(tempFile.path, bytes: ByteString(contents))
+                  try _parse(
+                      path: tempFile.path,
+                      manifestVersion: manifestVersion,
+                      manifestParseResult: &manifestParseResult
+                  )
+                }
             }
-
-            try _parse(
-                path: manifestPath,
-                manifestVersion: manifestVersion,
-                manifestParseResult: &manifestParseResult
-            )
         } catch {
             assert(manifestParseResult.parsedManifest == nil)
             manifestParseResult.errorOutput = error.localizedDescription

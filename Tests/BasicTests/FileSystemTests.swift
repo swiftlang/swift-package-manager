@@ -20,67 +20,68 @@ class FileSystemTests: XCTestCase {
 
     func testLocalBasics() throws {
         let fs = Basic.localFileSystem
+        try! withTemporaryFile { file in
+            try! withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+                // exists()
+                XCTAssert(fs.exists(AbsolutePath("/")))
+                XCTAssert(!fs.exists(AbsolutePath("/does-not-exist")))
 
-        // exists()
-        XCTAssert(fs.exists(AbsolutePath("/")))
-        XCTAssert(!fs.exists(AbsolutePath("/does-not-exist")))
+                // isFile()
+                XCTAssertTrue(fs.exists(file.path))
+                XCTAssertTrue(fs.isFile(file.path))
+                XCTAssertEqual(try fs.getFileInfo(file.path).fileType, .typeRegular)
+                XCTAssertFalse(fs.isDirectory(file.path))
+                XCTAssertFalse(fs.isFile(AbsolutePath("/does-not-exist")))
+                XCTAssertFalse(fs.isSymlink(AbsolutePath("/does-not-exist")))
+                XCTAssertThrowsError(try fs.getFileInfo(AbsolutePath("/does-not-exist")))
 
-        // isFile()
-        let file = try! TemporaryFile()
-        XCTAssertTrue(fs.exists(file.path))
-        XCTAssertTrue(fs.isFile(file.path))
-        XCTAssertEqual(try fs.getFileInfo(file.path).fileType, .typeRegular)
-        XCTAssertFalse(fs.isDirectory(file.path))
-        XCTAssertFalse(fs.isFile(AbsolutePath("/does-not-exist")))
-        XCTAssertFalse(fs.isSymlink(AbsolutePath("/does-not-exist")))
-        XCTAssertThrowsError(try fs.getFileInfo(AbsolutePath("/does-not-exist")))
+                // isSymlink()
+                let sym = tempDirPath.appending(component: "hello")
+                try! createSymlink(sym, pointingAt: file.path)
+                XCTAssertTrue(fs.isSymlink(sym))
+                XCTAssertTrue(fs.isFile(sym))
+                XCTAssertEqual(try fs.getFileInfo(sym).fileType, .typeSymbolicLink)
+                XCTAssertFalse(fs.isDirectory(sym))
 
-        // isSymlink()
-        let tempDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
-        let sym = tempDir.path.appending(component: "hello")
-        try! createSymlink(sym, pointingAt: file.path)
-        XCTAssertTrue(fs.isSymlink(sym))
-        XCTAssertTrue(fs.isFile(sym))
-        XCTAssertEqual(try fs.getFileInfo(sym).fileType, .typeSymbolicLink)
-        XCTAssertFalse(fs.isDirectory(sym))
+                // isExecutableFile
+                let executable = tempDirPath.appending(component: "exec-foo")
+                let executableSym = tempDirPath.appending(component: "exec-sym")
+                try! createSymlink(executableSym, pointingAt: executable)
+                let stream = BufferedOutputByteStream()
+                stream <<< """
+                    #!/bin/sh
+                    set -e
+                    exit
 
-        // isExecutableFile
-        let executable = tempDir.path.appending(component: "exec-foo")
-        let executableSym = tempDir.path.appending(component: "exec-sym")
-        try! createSymlink(executableSym, pointingAt: executable)
-        let stream = BufferedOutputByteStream()
-        stream <<< """
-            #!/bin/sh
-            set -e
-            exit
+                    """
+                try! localFileSystem.writeFileContents(executable, bytes: stream.bytes)
+                try! Process.checkNonZeroExit(args: "chmod", "+x", executable.pathString)
+                XCTAssertTrue(fs.isExecutableFile(executable))
+                XCTAssertTrue(fs.isExecutableFile(executableSym))
+                XCTAssertTrue(fs.isSymlink(executableSym))
+                XCTAssertFalse(fs.isExecutableFile(sym))
+                XCTAssertFalse(fs.isExecutableFile(file.path))
+                XCTAssertFalse(fs.isExecutableFile(AbsolutePath("/does-not-exist")))
+                XCTAssertFalse(fs.isExecutableFile(AbsolutePath("/")))
 
-            """
-        try! localFileSystem.writeFileContents(executable, bytes: stream.bytes)
-        try! Process.checkNonZeroExit(args: "chmod", "+x", executable.pathString)
-        XCTAssertTrue(fs.isExecutableFile(executable))
-        XCTAssertTrue(fs.isExecutableFile(executableSym))
-        XCTAssertTrue(fs.isSymlink(executableSym))
-        XCTAssertFalse(fs.isExecutableFile(sym))
-        XCTAssertFalse(fs.isExecutableFile(file.path))
-        XCTAssertFalse(fs.isExecutableFile(AbsolutePath("/does-not-exist")))
-        XCTAssertFalse(fs.isExecutableFile(AbsolutePath("/")))
+                // isDirectory()
+                XCTAssert(fs.isDirectory(AbsolutePath("/")))
+                XCTAssert(!fs.isDirectory(AbsolutePath("/does-not-exist")))
 
-        // isDirectory()
-        XCTAssert(fs.isDirectory(AbsolutePath("/")))
-        XCTAssert(!fs.isDirectory(AbsolutePath("/does-not-exist")))
+                // getDirectoryContents()
+                do {
+                    _ = try fs.getDirectoryContents(AbsolutePath("/does-not-exist"))
+                    XCTFail("Unexpected success")
+                } catch {
+                    XCTAssertEqual(error.localizedDescription, "The folder “does-not-exist” doesn’t exist.")
+                }
 
-        // getDirectoryContents()
-        do {
-            _ = try fs.getDirectoryContents(AbsolutePath("/does-not-exist"))
-            XCTFail("Unexpected success")
-        } catch {
-            XCTAssertEqual(error.localizedDescription, "The folder “does-not-exist” doesn’t exist.")
+                let thisDirectoryContents = try! fs.getDirectoryContents(AbsolutePath(#file).parentDirectory)
+                XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == "." }))
+                XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == ".." }))
+                XCTAssertTrue(thisDirectoryContents.contains(where: { $0 == AbsolutePath(#file).basename }))
+            }
         }
-
-        let thisDirectoryContents = try! fs.getDirectoryContents(AbsolutePath(#file).parentDirectory)
-        XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == "." }))
-        XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == ".." }))
-        XCTAssertTrue(thisDirectoryContents.contains(where: { $0 == AbsolutePath(#file).basename }))
     }
 
     func testLocalExistsSymlink() throws {
@@ -117,93 +118,95 @@ class FileSystemTests: XCTestCase {
     func testLocalCreateDirectory() throws {
         let fs = Basic.localFileSystem
 
-        let tmpDir = try TemporaryDirectory(prefix: #function, removeTreeOnDeinit: true)
-        do {
-            let testPath = tmpDir.path.appending(component: "new-dir")
-            XCTAssert(!fs.exists(testPath))
-            try fs.createDirectory(testPath)
-            try fs.createDirectory(testPath)
-            XCTAssert(fs.exists(testPath))
-            XCTAssert(fs.isDirectory(testPath))
-        }
+        try withTemporaryDirectory(prefix: #function, removeTreeOnDeinit: true) { tmpDirPath in
+            do {
+                let testPath = tmpDirPath.appending(component: "new-dir")
+                XCTAssert(!fs.exists(testPath))
+                try fs.createDirectory(testPath)
+                try fs.createDirectory(testPath)
+                XCTAssert(fs.exists(testPath))
+                XCTAssert(fs.isDirectory(testPath))
+            }
 
-        do {
-            let testPath = tmpDir.path.appending(components: "another-new-dir", "with-a-subdir")
-            XCTAssert(!fs.exists(testPath))
-            try fs.createDirectory(testPath, recursive: true)
-            XCTAssert(fs.exists(testPath))
-            XCTAssert(fs.isDirectory(testPath))
+            do {
+                let testPath = tmpDirPath.appending(components: "another-new-dir", "with-a-subdir")
+                XCTAssert(!fs.exists(testPath))
+                try fs.createDirectory(testPath, recursive: true)
+                XCTAssert(fs.exists(testPath))
+                XCTAssert(fs.isDirectory(testPath))
+            }
         }
     }
 
     func testLocalReadWriteFile() throws {
         let fs = Basic.localFileSystem
 
-        let tmpDir = try TemporaryDirectory(prefix: #function, removeTreeOnDeinit: true)
-        // Check read/write of a simple file.
-        let testData = (0..<1000).map { $0.description }.joined(separator: ", ")
-        let filePath = tmpDir.path.appending(component: "test-data.txt")
-        try! fs.writeFileContents(filePath, bytes: ByteString(testData))
-        XCTAssertTrue(fs.isFile(filePath))
-        let data = try! fs.readFileContents(filePath)
-        XCTAssertEqual(data, ByteString(testData))
+        try withTemporaryDirectory(prefix: #function, removeTreeOnDeinit: true) { tmpDirPath in
+            // Check read/write of a simple file.
+            let testData = (0..<1000).map { $0.description }.joined(separator: ", ")
+            let filePath = tmpDirPath.appending(component: "test-data.txt")
+            try! fs.writeFileContents(filePath, bytes: ByteString(testData))
+            XCTAssertTrue(fs.isFile(filePath))
+            let data = try! fs.readFileContents(filePath)
+            XCTAssertEqual(data, ByteString(testData))
 
-        // Atomic writes
-        let inMemoryFilePath = AbsolutePath("/file.text")
-        XCTAssertNoThrow(try Basic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: true))
-        XCTAssertNoThrow(try Basic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: false))
-        // Local file system does support atomic writes, so it doesn't throw.
-        let byteString = ByteString(testData)
-        let filePath1 = tmpDir.path.appending(components: "test-data-1.txt")
-        XCTAssertNoThrow(try fs.writeFileContents(filePath1, bytes: byteString, atomically: false))
-        let read1 = try fs.readFileContents(filePath1)
-        XCTAssertEqual(read1, byteString)
+            // Atomic writes
+            let inMemoryFilePath = AbsolutePath("/file.text")
+            XCTAssertNoThrow(try Basic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: true))
+            XCTAssertNoThrow(try Basic.InMemoryFileSystem(files: [:]).writeFileContents(inMemoryFilePath, bytes: ByteString(testData), atomically: false))
+            // Local file system does support atomic writes, so it doesn't throw.
+            let byteString = ByteString(testData)
+            let filePath1 = tmpDirPath.appending(components: "test-data-1.txt")
+            XCTAssertNoThrow(try fs.writeFileContents(filePath1, bytes: byteString, atomically: false))
+            let read1 = try fs.readFileContents(filePath1)
+            XCTAssertEqual(read1, byteString)
 
-        let filePath2 = tmpDir.path.appending(components: "test-data-2.txt")
-        XCTAssertNoThrow(try fs.writeFileContents(filePath2, bytes: byteString, atomically: true))
-        let read2 = try fs.readFileContents(filePath2)
-        XCTAssertEqual(read2, byteString)
+            let filePath2 = tmpDirPath.appending(components: "test-data-2.txt")
+            XCTAssertNoThrow(try fs.writeFileContents(filePath2, bytes: byteString, atomically: true))
+            let read2 = try fs.readFileContents(filePath2)
+            XCTAssertEqual(read2, byteString)
 
-        // Check overwrite of a file.
-        try! fs.writeFileContents(filePath, bytes: "Hello, new world!")
-        XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
+            // Check overwrite of a file.
+            try! fs.writeFileContents(filePath, bytes: "Hello, new world!")
+            XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
 
-        // Check read/write of a directory.
-        XCTAssertThrows(FileSystemError.ioError) {
-            _ = try fs.readFileContents(filePath.parentDirectory)
-        }
-        XCTAssertThrows(FileSystemError.isDirectory) {
-            try fs.writeFileContents(filePath.parentDirectory, bytes: [])
-        }
-        XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
+            // Check read/write of a directory.
+            XCTAssertThrows(FileSystemError.ioError) {
+                _ = try fs.readFileContents(filePath.parentDirectory)
+            }
+            XCTAssertThrows(FileSystemError.isDirectory) {
+                try fs.writeFileContents(filePath.parentDirectory, bytes: [])
+            }
+            XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
 
-        // Check read/write against root.
-        XCTAssertThrows(FileSystemError.ioError) {
-            _ = try fs.readFileContents(AbsolutePath("/"))
-        }
-        XCTAssertThrows(FileSystemError.isDirectory) {
-            try fs.writeFileContents(AbsolutePath("/"), bytes: [])
-        }
-        XCTAssert(fs.exists(filePath))
+            // Check read/write against root.
+            XCTAssertThrows(FileSystemError.ioError) {
+                _ = try fs.readFileContents(AbsolutePath("/"))
+            }
+            XCTAssertThrows(FileSystemError.isDirectory) {
+                try fs.writeFileContents(AbsolutePath("/"), bytes: [])
+            }
+            XCTAssert(fs.exists(filePath))
 
-        // Check read/write into a non-directory.
-        XCTAssertThrows(FileSystemError.notDirectory) {
-            _ = try fs.readFileContents(filePath.appending(component: "not-possible"))
-        }
-        XCTAssertThrows(FileSystemError.notDirectory) {
-            try fs.writeFileContents(filePath.appending(component: "not-possible"), bytes: [])
-        }
-        XCTAssert(fs.exists(filePath))
+            // Check read/write into a non-directory.
+            XCTAssertThrows(FileSystemError.notDirectory) {
+                _ = try fs.readFileContents(filePath.appending(component: "not-possible"))
+            }
+            XCTAssertThrows(FileSystemError.notDirectory) {
+                try fs.writeFileContents(filePath.appending(component: "not-possible"), bytes: [])
+            }
+            XCTAssert(fs.exists(filePath))
 
-        // Check read/write into a missing directory.
-        let missingDir = tmpDir.path.appending(components: "does", "not", "exist")
-        XCTAssertThrows(FileSystemError.noEntry) {
-            _ = try fs.readFileContents(missingDir)
+            // Check read/write into a missing directory.
+            let missingDir = tmpDirPath.appending(components: "does", "not", "exist")
+            XCTAssertThrows(FileSystemError.noEntry) {
+                _ = try fs.readFileContents(missingDir)
+            }
+            XCTAssertThrows(FileSystemError.noEntry) {
+                try fs.writeFileContents(missingDir, bytes: [])
+            }
+            XCTAssert(!fs.exists(missingDir))
         }
-        XCTAssertThrows(FileSystemError.noEntry) {
-            try fs.writeFileContents(missingDir, bytes: [])
-        }
-        XCTAssert(!fs.exists(missingDir))
     }
 
     func testRemoveFileTree() throws {

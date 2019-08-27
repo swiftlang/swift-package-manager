@@ -42,44 +42,45 @@ public func fixture(
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
-        let tmpDir = try TemporaryDirectory(prefix: copyName)
+        try withTemporaryDirectory(prefix: copyName) { tmpDirPath in
 
-        defer {
-            // Unblock and remove the tmp dir on deinit.
-            try? localFileSystem.chmod(.userWritable, path: tmpDir.path, options: [.recursive])
-            try? localFileSystem.removeFileTree(tmpDir.path)
-        }
-
-        // Construct the expected path of the fixture.
-        // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-        let fixtureDir = AbsolutePath(#file).appending(RelativePath("../../../Fixtures")).appending(fixtureSubpath)
-
-        // Check that the fixture is really there.
-        guard localFileSystem.isDirectory(fixtureDir) else {
-            XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
-            return
-        }
-
-        // The fixture contains either a checkout or just a Git directory.
-        if localFileSystem.isFile(fixtureDir.appending(component: "Package.swift")) {
-            // It's a single package, so copy the whole directory as-is.
-            let dstDir = tmpDir.path.appending(component: copyName)
-            try systemQuietly("cp", "-R", "-H", fixtureDir.pathString, dstDir.pathString)
-
-            // Invoke the block, passing it the path of the copied fixture.
-            try body(dstDir)
-        } else {
-            // Copy each of the package directories and construct a git repo in it.
-            for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {
-                let srcDir = fixtureDir.appending(component: fileName)
-                guard localFileSystem.isDirectory(srcDir) else { continue }
-                let dstDir = tmpDir.path.appending(component: fileName)
-                try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
-                initGitRepo(dstDir, tag: "1.2.3", addFile: false)
+            defer {
+                // Unblock and remove the tmp dir on deinit.
+                try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                try? localFileSystem.removeFileTree(tmpDirPath)
             }
 
-            // Invoke the block, passing it the path of the copied fixture.
-            try body(tmpDir.path)
+            // Construct the expected path of the fixture.
+            // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
+            let fixtureDir = AbsolutePath(#file).appending(RelativePath("../../../Fixtures")).appending(fixtureSubpath)
+
+            // Check that the fixture is really there.
+            guard localFileSystem.isDirectory(fixtureDir) else {
+                XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
+                return
+            }
+
+            // The fixture contains either a checkout or just a Git directory.
+            if localFileSystem.isFile(fixtureDir.appending(component: "Package.swift")) {
+                // It's a single package, so copy the whole directory as-is.
+                let dstDir = tmpDirPath.appending(component: copyName)
+                try systemQuietly("cp", "-R", "-H", fixtureDir.pathString, dstDir.pathString)
+
+                // Invoke the block, passing it the path of the copied fixture.
+                try body(dstDir)
+            } else {
+                // Copy each of the package directories and construct a git repo in it.
+                for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {
+                    let srcDir = fixtureDir.appending(component: fileName)
+                    guard localFileSystem.isDirectory(srcDir) else { continue }
+                    let dstDir = tmpDirPath.appending(component: fileName)
+                    try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
+                    initGitRepo(dstDir, tag: "1.2.3", addFile: false)
+                }
+
+                // Invoke the block, passing it the path of the copied fixture.
+                try body(tmpDirPath)
+            }
         }
     } catch SwiftPMProductError.executionFailure(let error, let output, let stderr) {
         print("**** FAILURE EXECUTING SUBPROCESS ****")
@@ -176,13 +177,14 @@ public func mktmpdir(
             .replacingOccurrences(of: "(", with: "")
             .replacingOccurrences(of: ")", with: "")
             .replacingOccurrences(of: ".", with: "")
-        let tmpDir = try TemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)")
-        defer {
-            // Unblock and remove the tmp dir on deinit.
-            try? localFileSystem.chmod(.userWritable, path: tmpDir.path, options: [.recursive])
-            try? localFileSystem.removeFileTree(tmpDir.path)
+        try withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
+            defer {
+                // Unblock and remove the tmp dir on deinit.
+                try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                try? localFileSystem.removeFileTree(tmpDirPath)
+            }
+            try body(tmpDirPath)
         }
-        try body(tmpDir.path)
     } catch {
         XCTFail("\(error)", file: file, line: line)
     }

@@ -154,37 +154,38 @@ class OutputByteStreamTests: XCTestCase {
     }
 
     func testLocalFileStream() throws {
-        let tempFile = try TemporaryFile()
+        try withTemporaryFile { tempFile in
 
-        func read() -> String? {
-            return try! localFileSystem.readFileContents(tempFile.path).validDescription
+            func read() -> String? {
+                return try! localFileSystem.readFileContents(tempFile.path).validDescription
+            }
+
+            let stream = try LocalFileOutputByteStream(tempFile.path)
+            stream <<< "Hello"
+            stream.flush()
+            XCTAssertEqual(read(), "Hello")
+
+            stream <<< " World"
+            try stream.close()
+
+            XCTAssertEqual(read(), "Hello World")
         }
-
-        let stream = try LocalFileOutputByteStream(tempFile.path)
-        stream <<< "Hello"
-        stream.flush()
-        XCTAssertEqual(read(), "Hello")
-
-        stream <<< " World"
-        try stream.close()
-
-        XCTAssertEqual(read(), "Hello World")
     }
 
     func testLocalFileStreamArraySliceUnbuffered() throws {
-        let tempFile = try TemporaryFile()
+        try withTemporaryFile { tempFile in
+            let bytes1k = [UInt8](repeating: 0, count: 1 << 10)
 
-        let bytes1k = [UInt8](repeating: 0, count: 1 << 10)
+            func read() -> ByteString? {
+                return try! localFileSystem.readFileContents(tempFile.path)
+            }
 
-        func read() -> ByteString? {
-            return try! localFileSystem.readFileContents(tempFile.path)
+            let stream = try LocalFileOutputByteStream(tempFile.path, buffered: false)
+            stream.write(bytes1k)
+            stream.flush()
+            XCTAssertEqual(read()!.contents, bytes1k)
+            try stream.close()
         }
-
-        let stream = try LocalFileOutputByteStream(tempFile.path, buffered: false)
-        stream.write(bytes1k)
-        stream.flush()
-        XCTAssertEqual(read()!.contents, bytes1k)
-        try stream.close()
     }
 
     func testThreadSafeStream() {

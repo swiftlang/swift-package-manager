@@ -131,16 +131,14 @@ private class MockResolverDelegate: DependencyResolverDelegate, RepositoryManage
 }
 
 private struct MockDependencyResolver {
-    let tmpDir: TemporaryDirectory
     let repositories: MockRepositories
     let delegate: MockResolverDelegate
     private let resolver: DependencyResolver
 
-    init(repositories: MockRepository...) {
-        self.tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
+    init(directory: AbsolutePath, repositories: MockRepository...) {
         self.repositories = MockRepositories(repositories: repositories)
         self.delegate = MockResolverDelegate()
-        let repositoryManager = RepositoryManager(path: self.tmpDir.path, provider: self.repositories, delegate: self.delegate)
+        let repositoryManager = RepositoryManager(path: directory, provider: self.repositories, delegate: self.delegate)
         let provider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager, manifestLoader: self.repositories.manifestLoader)
         self.resolver = DependencyResolver(provider, delegate)
@@ -209,25 +207,28 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     manifestVersion: .v4
                 )
             ])
-        let resolver = MockDependencyResolver(repositories: repoA, repoB)
 
-        let constraints = [
-            RepositoryPackageConstraint(
-                container: repoA.packageRef,
-                versionRequirement: v1Range)
-        ]
-        let result: [(PackageReference, Version)] = try resolver.resolve(constraints: constraints).compactMap {
-            guard case .version(let version) = $0.binding else {
-                XCTFail("Unexpecting non version binding \($0.binding)")
-                return nil
+        try! withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDirPath in
+            let resolver = MockDependencyResolver(directory: tmpDirPath, repositories: repoA, repoB)
+
+            let constraints = [
+                RepositoryPackageConstraint(
+                    container: repoA.packageRef,
+                    versionRequirement: v1Range)
+            ]
+            let result: [(PackageReference, Version)] = try resolver.resolve(constraints: constraints).compactMap {
+                guard case .version(let version) = $0.binding else {
+                    XCTFail("Unexpecting non version binding \($0.binding)")
+                    return nil
+                }
+                return ($0.container, version)
             }
-            return ($0.container, version)
+            XCTAssertEqual(result, [
+                    repoA.packageRef: v1,
+                    repoB.packageRef: v2,
+                ])
+            XCTAssertEqual(resolver.delegate.fetched, [repoA.specifier, repoB.specifier])
         }
-        XCTAssertEqual(result, [
-                repoA.packageRef: v1,
-                repoB.packageRef: v2,
-            ])
-        XCTAssertEqual(resolver.delegate.fetched, [repoA.specifier, repoB.specifier])
     }
 
     func testVprefixVersions() throws {

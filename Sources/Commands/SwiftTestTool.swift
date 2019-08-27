@@ -475,17 +475,18 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     fileprivate func getTestSuites(path: AbsolutePath) throws -> [TestSuite] {
         // Run the correct tool.
       #if os(macOS)
-        let tempFile = try TemporaryFile()
-        let args = [SwiftTestTool.xctestHelperPath().pathString, path.pathString, tempFile.path.pathString]
-        var env = try constructTestEnvironment(toolchain: try getToolchain(), options: self.options, buildParameters: self.buildParameters())
-        // Add the sdk platform path if we have it. If this is not present, we
-        // might always end up failing.
-        if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPath() {
-            env["DYLD_FRAMEWORK_PATH"] = sdkPlatformFrameworksPath.pathString
+        let data: String = try withTemporaryFile { tempFile in
+            let args = [SwiftTestTool.xctestHelperPath().pathString, path.pathString, tempFile.path.pathString]
+            var env = try constructTestEnvironment(toolchain: try getToolchain(), options: self.options, buildParameters: self.buildParameters())
+            // Add the sdk platform path if we have it. If this is not present, we
+            // might always end up failing.
+            if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPath() {
+                env["DYLD_FRAMEWORK_PATH"] = sdkPlatformFrameworksPath.pathString
+            }
+            try Process.checkNonZeroExit(arguments: args, environment: env)
+            // Read the temporary file's content.
+            return try localFileSystem.readFileContents(tempFile.path).validDescription ?? ""
         }
-        try Process.checkNonZeroExit(arguments: args, environment: env)
-        // Read the temporary file's content.
-        let data = try localFileSystem.readFileContents(tempFile.path).validDescription ?? ""
       #else
         let args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args)

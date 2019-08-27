@@ -45,13 +45,14 @@ class ProcessTests: XCTestCase {
         XCTAssertEqual(try Process.popen(arguments: ["echo", "hello"]).utf8Output(), "hello\n")
 
         // Test buffer larger than that allocated.
-        let file = try TemporaryFile()
-        let count = 10_000
-        let stream = BufferedOutputByteStream()
-        stream <<< Format.asRepeating(string: "a", count: count)
-        try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
-        let outputCount = try Process.popen(args: "cat", file.path.pathString).utf8Output().count
-        XCTAssert(outputCount == count)
+        try withTemporaryFile { file in
+            let count = 10_000
+            let stream = BufferedOutputByteStream()
+            stream <<< Format.asRepeating(string: "a", count: count)
+            try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
+            let outputCount = try Process.popen(args: "cat", file.path.pathString).utf8Output().count
+            XCTAssert(outputCount == count)
+        }
     }
 
     func testCheckNonZeroExit() throws {
