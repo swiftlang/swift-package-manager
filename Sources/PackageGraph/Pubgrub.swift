@@ -801,7 +801,7 @@ public final class PubgrubDependencyResolver {
                     // If this branch-based package was encountered before, ensure the references match.
                     if existingRevision != revision {
                         // FIXME: Improve diagnostics here.
-                        throw PubgrubError.unresolvable("Revision mismatch for \(package): \(existingRevision) \(revision)")
+                        throw PubgrubError.unresolvable("\(package.lastPathComponent) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
                     } else {
                         // Otherwise, continue since we've already processed this constraint. Any cycles will be diagnosed separately.
                         continue
@@ -1386,8 +1386,8 @@ final class DiagnosticReportBuilder {
             }
         }
 
-        let positive = terms.filter{ $0.isPositive }.map{ $0.package.lastPathComponent }
-        let negative = terms.filter{ !$0.isPositive }.map{ $0.package.lastPathComponent }
+        let positive = terms.filter{ $0.isPositive }.map{ "\($0.package.lastPathComponent) \($0.requirement)" }
+        let negative = terms.filter{ !$0.isPositive }.map{ "\($0.package.lastPathComponent) \($0.requirement)" }
         if !positive.isEmpty && !negative.isEmpty {
             if positive.count == 1 {
                 return "\(positive[0]) requires \(negative.joined(separator: " or "))";
@@ -1439,7 +1439,7 @@ final class DiagnosticReportBuilder {
             if term.package == rootPackage {
                 return "root"
             }
-            return "\(name) @\(version)"
+            return "\(name) \(version)"
         case .range(let range):
             return "\(name) \(range.description)"
         case .ranges(let ranges):
@@ -1762,5 +1762,12 @@ extension PackageRequirement {
         case .revision:
             return true
         }
+    }
+}
+
+extension PackageReference {
+    /// Returns the last path component of the path (without .git suffix, if present).
+    fileprivate var lastPathComponent: String {
+        return String(path.split(separator: "/").last!).spm_dropGitSuffix()
     }
 }
