@@ -145,12 +145,6 @@ public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConv
     /// a git repository.
     public let isLocal: Bool
 
-    /// Returns the last path component of the path (without .git suffix, if present).
-    public var lastPathComponent: String {
-        guard path.count > 0 else { return "" }
-        return String(path.split(separator: "/").last!).spm_dropGitSuffix()
-    }
-
     /// Create a package reference given its identity and repository.
     public init(identity: String, path: String, name: String? = nil, isLocal: Bool = false) {
         assert(identity == identity.lowercased(), "The identity is expected to be lowercased")

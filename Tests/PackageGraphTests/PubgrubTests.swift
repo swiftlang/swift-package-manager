@@ -582,12 +582,7 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
-        // Because root depends on foo^1.0.0 which doesn't match any versions, version solving failed.
-//        XCTAssertEqual(diag, "Because no versions of foopkg match the requirement 2.0.0..<3.0.0 and root depends on foopkg^2.0.0, version solving has failed.")
+        XCTAssertEqual(result.errorMsg, "because no versions of foopkg match the requirement 2.0.0..<3.0.0 and root depends on foopkg 2.0.0..<3.0.0, version solving failed.")
     }
 
     func testResolutionNonExistentVersion() {
@@ -599,11 +594,7 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
-//        XCTAssertEqual(diag, "Because no versions of package match the requirement 1.0.0 and root depends on package@1.0.0, version solving has failed.")
+        XCTAssertEqual(result.errorMsg, "because no versions of package match the requirement 1.0.0 and root depends on package 1.0.0, version solving failed.")
     }
 
     func testNonExistentPackage() {
@@ -731,10 +722,7 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
+        XCTAssertEqual(result.errorMsg, "package 'bar' is required using a revision-based requirement and it depends on local package 'foo', which is not supported")
     }
 
     func testUnversioned7() {
@@ -751,7 +739,6 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        print(result)
         AssertResult(result, [
             ("remote", .unversioned),
             ("local", .unversioned)
@@ -911,10 +898,7 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
+        XCTAssertEqual(result.errorMsg, "bar is required using two different revision-based requirements (master and develop), which is not supported")
     }
 
     func testResolutionWithUnavailableRevision() {
@@ -963,10 +947,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
+        XCTAssertEqual(result.errorMsg, """
+            because foo 0.0.0..<2.0.0 depends on bar 2.0.0..<3.0.0 and bar 0.0.0..<3.0.0 depends on baz 3.0.0..<4.0.0, foo 0.0.0..<2.0.0 requires baz 3.0.0..<4.0.0.
+            And because root depends on foo 1.0.0..<2.0.0 and root depends on baz 1.0.0..<2.0.0, version solving failed.
+            """)
     }
 
     func testResolutionBranchingErrorReporting() {
@@ -991,10 +975,14 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
+        XCTAssertEqual(result.errorMsg, """
+          because a 0.0.0..<2.0.0 depends on b 2.0.0..<3.0.0 and foo 0.0.0..<1.1.0 depends on a 1.0.0..<2.0.0, foo 0.0.0..<1.1.0 requires b 2.0.0..<3.0.0.
+             (1) So, because foo 0.0.0..<1.1.0 depends on b 1.0.0..<2.0.0, foo 0.0.0..<1.1.0 is forbidden.
+          because x 0.0.0..<2.0.0 depends on y 2.0.0..<3.0.0 and foo 1.1.0..<2.0.0 depends on x 1.0.0..<2.0.0, foo 1.1.0..<2.0.0 requires y 2.0.0..<3.0.0.
+          And because foo 1.1.0..<2.0.0 depends on y 1.0.0..<2.0.0, foo 1.1.0..<2.0.0 is forbidden.
+          And because foo 0.0.0..<1.1.0 is forbidden (1), foo 0.0.0..<2.0.0 is forbidden.
+          And because root depends on foo 1.0.0..<2.0.0, version solving failed.
+        """)
     }
 
     func testConflict1() {
@@ -1010,13 +998,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
-
-        // Expected:
-        // "Because foo depends on config from 1.0.0 and bar depends on config from 2.0.0, foo from 1.0.0 isn't valid and version solving has failed."
+        XCTAssertEqual(result.errorMsg, """
+            because bar 0.0.0..<2.0.0 depends on config 2.0.0..<3.0.0 and foo 0.0.0..<2.0.0 depends on config 1.0.0..<2.0.0, bar is incompatible with foo.
+            And because root depends on foo 1.0.0..<2.0.0 and root depends on bar 1.0.0..<2.0.0, version solving failed.
+            """)
     }
 
     func testConflict2() {
@@ -1032,7 +1017,12 @@ final class PubgrubTests: XCTestCase {
         ])
         addDeps()
         let resolver1 = builder.create()
-        _ = resolver1.solve(dependencies: dependencies1)
+        let result1 = resolver1.solve(dependencies: dependencies1)
+
+        XCTAssertEqual(result1.errorMsg, """
+            because foo 0.0.0..<2.0.0 depends on config 1.0.0..<2.0.0 and root depends on config 2.0.0..<3.0.0, foo 0.0.0..<2.0.0 is forbidden.
+            And because root depends on foo 1.0.0..<2.0.0, version solving failed.
+            """)
 
         let dependencies2 = builder.create(dependencies: [
             "foo": .versionSet(v1Range),
@@ -1040,7 +1030,12 @@ final class PubgrubTests: XCTestCase {
         ])
         addDeps()
         let resolver2 = builder.create()
-        _ = resolver2.solve(dependencies: dependencies2)
+        let result2 = resolver2.solve(dependencies: dependencies2)
+
+        XCTAssertEqual(result2.errorMsg, """
+            because foo 0.0.0..<2.0.0 depends on config 1.0.0..<2.0.0 and root depends on foo 1.0.0..<2.0.0, config 1.0.0..<2.0.0 is required.
+            And because root depends on config 2.0.0..<3.0.0, version solving failed.
+            """)
     }
 
     func testConflict3() {
@@ -1054,10 +1049,7 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
+        XCTAssertEqual(result.errorMsg, "because no versions of config match the requirement 2.0.0..<3.0.0 and root depends on config 2.0.0..<3.0.0, version solving failed.")
     }
 
     func testBranchOverriding3() {
@@ -1130,8 +1122,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else { return }
-        print(errorMsg)
+        XCTAssertEqual(result.errorMsg, """
+            because no versions of foo match the requirement {1.0.0..<1.1.0, 1.1.1..<2.0.0} and package 'foo' is required using a version-based requirement and it depends on unversion package 'bar', foo 1.0.0..<2.0.0 is forbidden.
+            And because root depends on foo 1.0.0..<2.0.0, version solving failed.
+            """)
     }
 
     func testNonVersionDependencyInVersionDependency2() {
@@ -1160,8 +1154,7 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else { return }
-        print(errorMsg)
+        XCTAssertEqual(result.errorMsg, "because package 'foo' is required using a version-based requirement and it depends on unversion package 'bar' and root depends on foo 1.0.0, version solving failed.")
     }
 
     func testTrivialPinStore() {
@@ -1202,7 +1195,7 @@ final class PubgrubTests: XCTestCase {
         builder.serve("b", at: v1_1)
         builder.serve("c", at: v1, with: ["b": .versionSet(.range(v1_1..<v2))])
 
-        let resolver = builder.create(log: true)
+        let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
             "c": .versionSet(v1Range),
             "a": .versionSet(v1Range),
@@ -1230,7 +1223,7 @@ final class PubgrubTests: XCTestCase {
         builder.serve("a", at: .revision("develop-sha-1"))
         builder.serve("b", at: .revision("master-sha-2"))
 
-        let resolver = builder.create(log: true)
+        let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
             "a": .revision("develop"),
             "b": .revision("master"),
@@ -1259,11 +1252,10 @@ final class PubgrubTests: XCTestCase {
 
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-
-        print(errorMsg)
+        XCTAssertEqual(result.errorMsg, """
+            because no versions of a match the requirement 1.0.1..<2.0.0 and a 1.0.0 contains incompatible tools version, a 1.0.0..<2.0.0 is forbidden.
+            And because root depends on a 1.0.0..<2.0.0, version solving failed.
+            """)
     }
 
     func testIncompatibleToolsVersion2() {
@@ -1299,11 +1291,11 @@ final class PubgrubTests: XCTestCase {
 
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-
-        print(errorMsg)
+        XCTAssertEqual(result.errorMsg, """
+            because no versions of a match the requirement 1.0.1..<1.1.0 and a 1.0.0 contains incompatible tools version, a 1.0.0..<1.1.0 is forbidden.
+            And because a 1.1.0..<2.0.0 depends on b 1.0.0..<2.0.0, a 1.0.0..<2.0.0 requires b 1.0.0..<2.0.0.
+            And because root depends on a 1.0.0..<2.0.0 and root depends on b 2.0.0..<3.0.0, version solving failed.
+            """)
     }
 
     func testIncompatibleToolsVersion4() {
@@ -1318,11 +1310,11 @@ final class PubgrubTests: XCTestCase {
 
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-
-        print(errorMsg)
+        XCTAssertEqual(result.errorMsg, """
+            because no versions of a match the requirement {3.2.0..<3.2.1, 3.2.4..<4.0.0} and a 3.2.1 contains incompatible tools version, a {3.2.0..<3.2.2, 3.2.4..<4.0.0} is forbidden.
+            And because a 3.2.2 contains incompatible tools version, a {3.2.0..<3.2.3, 3.2.4..<4.0.0} is forbidden.
+            And because a 3.2.3 contains incompatible tools version and root depends on a 3.2.0..<4.0.0, version solving failed.
+            """)
     }
 
     func testIncompatibleToolsVersion5() {
@@ -1337,11 +1329,11 @@ final class PubgrubTests: XCTestCase {
 
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-
-        print(errorMsg)
+        XCTAssertEqual(result.errorMsg, """
+            because no versions of a match the requirement 3.2.3..<4.0.0 and a 3.2.0 contains incompatible tools version, a {3.2.0, 3.2.3..<4.0.0} is forbidden.
+            And because a 3.2.0 contains incompatible tools version and a 3.2.1 contains incompatible tools version, a {3.2.0..<3.2.2, 3.2.3..<4.0.0} is forbidden.
+            And because a 3.2.2 contains incompatible tools version and root depends on a 3.2.0..<4.0.0, version solving failed.
+            """)
     }
 }
 
@@ -1571,7 +1563,7 @@ class DependencyGraphBuilder {
         if let reference = self.references[packageName] {
             return reference
         }
-        let newReference = PackageReference(identity: packageName, path: "")
+        let newReference = PackageReference(identity: packageName, path: "/" + packageName)
         self.references[packageName] = newReference
         return newReference
     }
