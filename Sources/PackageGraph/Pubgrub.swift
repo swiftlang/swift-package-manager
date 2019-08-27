@@ -1358,10 +1358,10 @@ final class DiagnosticReportBuilder {
         case .conflict:
             break
         case .versionBasedDependencyContainsUnversionedDependency(let versionedDependency, let unversionedDependency):
-            return "package '\(versionedDependency)' is required using a version-based requirement and it depends on unversion package '\(unversionedDependency)'"
+            return "package \(versionedDependency) is required using a version-based requirement and it depends on unversion package \(unversionedDependency)"
         case .incompatibleToolsVersion:
-            let package = incompatibility.terms.first!
-            return "\(package.package.lastPathComponent) \(package.requirement) contains incompatible tools version"
+            let term = incompatibility.terms.first!
+            return "\(description(for: term)) contains incompatible tools version"
         }
 
         if isFailure(incompatibility) {
@@ -1373,7 +1373,7 @@ final class DiagnosticReportBuilder {
         let terms = incompatibility.terms
         if terms.count == 1 {
             let term = terms.first!
-            return "\(term.package.lastPathComponent) \(term.requirement) is " + (term.isPositive ? "forbidden" : "required")
+            return "\(description(for: term)) is " + (term.isPositive ? "forbidden" : "required")
         } else if terms.count == 2 {
             let term1 = terms.first!
             let term2 = terms.last!
@@ -1386,8 +1386,8 @@ final class DiagnosticReportBuilder {
             }
         }
 
-        let positive = terms.filter{ $0.isPositive }.map{ "\($0.package.lastPathComponent) \($0.requirement)" }
-        let negative = terms.filter{ !$0.isPositive }.map{ "\($0.package.lastPathComponent) \($0.requirement)" }
+        let positive = terms.filter{ $0.isPositive }.map(description(for:))
+        let negative = terms.filter{ !$0.isPositive }.map(description(for:))
         if !positive.isEmpty && !negative.isEmpty {
             if positive.count == 1 {
                 return "\(positive[0]) requires \(negative.joined(separator: " or "))";
@@ -1432,7 +1432,7 @@ final class DiagnosticReportBuilder {
         let name = term.package.name ?? term.package.lastPathComponent
 
         switch term.requirement {
-        case .any: return "any version of \(name)"
+        case .any: return "every version of \(name)"
         case .empty: return "no version of \(name)"
         case .exact(let version):
             // For the root package, don't output the useless version 1.0.0.
@@ -1443,6 +1443,12 @@ final class DiagnosticReportBuilder {
         case .range(let range):
             return "\(name) \(range.description)"
         case .ranges(let ranges):
+            let ranges = "{" + ranges.map{
+                if $0.lowerBound == $0.upperBound {
+                    return $0.lowerBound.description
+                }
+                return $0.lowerBound.description + "..<" + $0.upperBound.description
+            }.joined(separator: ", ") + "}"
             return "\(name) \(ranges)"
         }
     }

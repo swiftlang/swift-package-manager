@@ -1123,7 +1123,7 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because no versions of foo match the requirement {1.0.0..<1.1.0, 1.1.1..<2.0.0} and package 'foo' is required using a version-based requirement and it depends on unversion package 'bar', foo 1.0.0..<2.0.0 is forbidden.
+            because no versions of foo match the requirement {1.0.0..<1.1.0, 1.1.1..<2.0.0} and package foo is required using a version-based requirement and it depends on unversion package bar, foo 1.0.0..<2.0.0 is forbidden.
             And because root depends on foo 1.0.0..<2.0.0, version solving failed.
             """)
     }
@@ -1154,7 +1154,7 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        XCTAssertEqual(result.errorMsg, "because package 'foo' is required using a version-based requirement and it depends on unversion package 'bar' and root depends on foo 1.0.0, version solving failed.")
+        XCTAssertEqual(result.errorMsg, "because package foo is required using a version-based requirement and it depends on unversion package bar and root depends on foo 1.0.0, version solving failed.")
     }
 
     func testTrivialPinStore() {
