@@ -975,14 +975,7 @@ public final class PubgrubDependencyResolver {
 
         while !changed.isEmpty {
             let package = changed.removeFirst()
-
-            // According to the experience of pub developers, conflict
-            // resolution produces more general incompatibilities later on
-            // making it advantageous to check those first.
             loop: for incompatibility in positiveIncompatibilities(for: package)?.reversed() ?? [] {
-                // FIXME: This needs to find set relation for each term in the incompatibility since
-                // that matters. For e.g., 1.1.0..<2.0.0 won't satisfy 1.0.0..<2.0.0 but they're
-                // overlapping.
                 let result = propagate(incompatibility: incompatibility)
 
                 switch result {
@@ -1045,7 +1038,7 @@ public final class PubgrubDependencyResolver {
     }
 
     func _resolve(conflict: Incompatibility) throws -> Incompatibility {
-        log("conflict: \(conflict)");
+        log("conflict: \(conflict)")
         // Based on:
         // https://github.com/dart-lang/pub/tree/master/doc/solver.md#conflict-resolution
         // https://github.com/dart-lang/pub/blob/master/lib/src/solver/version_solver.dart#L201
