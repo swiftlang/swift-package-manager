@@ -198,7 +198,7 @@ extension VersionSetSpecifier {
     public func difference(_ rhs: VersionSetSpecifier) -> VersionSetSpecifier {
         switch (self, rhs) {
         case (_, .any):
-            return self
+            return .empty
         case (.any, _):
             fatalError()
         case (.empty, _):
