@@ -573,30 +573,6 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testMissingVersion() {
-        builder.serve("foopkg", at: v1_1)
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "foopkg": .versionSet(v2Range),
-        ])
-        let result = resolver.solve(dependencies: dependencies)
-
-        XCTAssertEqual(result.errorMsg, "because no versions of foopkg match the requirement 2.0.0..<3.0.0 and root depends on foopkg 2.0.0..<3.0.0, version solving failed.")
-    }
-
-    func testResolutionNonExistentVersion() {
-        builder.serve("package", at: v2)
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "package": .versionSet(.exact(v1))
-        ])
-        let result = resolver.solve(dependencies: dependencies)
-
-        XCTAssertEqual(result.errorMsg, "because no versions of package match the requirement 1.0.0 and root depends on package 1.0.0, version solving failed.")
-    }
-
     func testNonExistentPackage() {
         let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
@@ -648,13 +624,10 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-
     func testUnversioned3() {
         builder.serve("foo", at: .unversioned)
         builder.serve("bar", at: v1, with: [
-//            "foo": .versionSet(v1Range),
             "foo": .versionSet(.exact(v1))
-
         ])
 
         let resolver = builder.create()
@@ -707,22 +680,6 @@ final class PubgrubTests: XCTestCase {
             ("foo", .unversioned),
             ("bar", .revision("master"))
         ])
-    }
-
-    func testUnversioned6() {
-        builder.serve("foo", at: .unversioned)
-        builder.serve("bar", at: .revision("master"), with: [
-            "foo": .unversioned
-        ])
-
-        let resolver = builder.create()
-
-        let dependencies = builder.create(dependencies: [
-            "bar": .revision("master")
-        ])
-        let result = resolver.solve(dependencies: dependencies)
-
-        XCTAssertEqual(result.errorMsg, "package 'bar' is required using a revision-based requirement and it depends on local package 'foo', which is not supported")
     }
 
     func testUnversioned7() {
@@ -883,24 +840,6 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testResolutionWithOverridingBranchBasedDependency4() {
-        builder.serve("foo", at: .revision("master"), with: ["bar": .revision("master")])
-
-        builder.serve("bar", at: .revision("master"))
-        builder.serve("bar", at: v1)
-
-        builder.serve("baz", at: .revision("master"), with: ["bar": .revision("develop")])
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "foo": .revision("master"),
-            "baz": .revision("master"),
-        ])
-        let result = resolver.solve(dependencies: dependencies)
-
-        XCTAssertEqual(result.errorMsg, "bar is required using two different revision-based requirements (master and develop), which is not supported")
-    }
-
     func testResolutionWithUnavailableRevision() {
         builder.serve("foo", at: .version(v1))
 
@@ -929,6 +868,326 @@ final class PubgrubTests: XCTestCase {
             ("foo", .revision("master")),
             ("bar", .revision("master")),
         ])
+    }
+
+    func testBranchOverriding3() {
+        builder.serve("swift-nio", at: v1)
+        builder.serve("swift-nio", at: .revision("master"))
+        builder.serve("swift-nio-ssl", at: .revision("master"), with: [
+            "swift-nio": .versionSet(v2Range),
+        ])
+        builder.serve("foo", at: "1.0.0", with: [
+            "swift-nio": .versionSet(v1Range),
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+            "swift-nio": .revision("master"),
+            "swift-nio-ssl": .revision("master"),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("swift-nio-ssl", .revision("master")),
+            ("swift-nio", .revision("master")),
+            ("foo", .version(v1))
+        ])
+    }
+
+    func testBranchOverriding4() {
+        builder.serve("swift-nio", at: v1)
+        builder.serve("swift-nio", at: .revision("master"))
+        builder.serve("swift-nio-ssl", at: .revision("master"), with: [
+            "swift-nio": .versionSet(v2Range),
+        ])
+        builder.serve("nio-postgres", at: .revision("master"), with: [
+            "swift-nio": .revision("master"),
+            "swift-nio-ssl": .revision("master"),
+        ])
+        builder.serve("http-client", at: v1, with: [
+            "swift-nio": .versionSet(v1Range),
+            "boring-ssl": .versionSet(v1Range),
+        ])
+        builder.serve("boring-ssl", at: v1, with: [
+            "swift-nio": .versionSet(v1Range),
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "nio-postgres": .revision("master"),
+            "http-client": .versionSet(v1Range),
+            "boring-ssl": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("swift-nio-ssl", .revision("master")),
+            ("swift-nio", .revision("master")),
+            ("nio-postgres", .revision("master")),
+            ("http-client", .version(v1)),
+            ("boring-ssl", .version(v1)),
+        ])
+    }
+
+    func testNonVersionDependencyInVersionDependency2() {
+        builder.serve("foo", at: v1_1, with: [
+            "bar": .revision("master")
+        ])
+        builder.serve("foo", at: v1)
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("foo", .version(v1)),
+        ])
+    }
+
+    func testTrivialPinStore() {
+        builder.serve("a", at: v1, with: ["b": .versionSet(v1Range)])
+        builder.serve("a", at: v1_1)
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v1_1)
+        builder.serve("b", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(v1Range),
+        ])
+
+        let pinsStore = builder.create(pinsStore: [
+            "a": .version(v1),
+            "b": .version(v1),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+
+        // Since a was pinned, we shouldn't have computed bounds for its incomaptibilities.
+        let aIncompat = resolver.positiveIncompatibilities(for: builder.reference(for: "a"))![0]
+        XCTAssertEqual(aIncompat.terms[0].requirement, .exact("1.0.0"))
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version(v1))
+        ])
+    }
+
+    func testPartialPins() {
+        // This checks that we can drop pins that are not valid anymore but still keep the ones
+        // which fit the constraints.
+        builder.serve("a", at: v1, with: ["b": .versionSet(v1Range)])
+        builder.serve("a", at: v1_1)
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v1_1)
+        builder.serve("c", at: v1, with: ["b": .versionSet(.range(v1_1..<v2))])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "c": .versionSet(v1Range),
+            "a": .versionSet(v1Range),
+        ])
+
+        // Here b is pinned to v1 but its requirement is now 1.1.0..<2.0.0 in the graph
+        // due to addition of a new dependency.
+        let pinsStore = builder.create(pinsStore: [
+            "a": .version(v1),
+            "b": .version(v1),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version(v1_1)),
+            ("c", .version(v1))
+        ])
+    }
+
+    func testBranchedBasedPin() {
+        // This test ensures that we get the SHA listed in Package.resolved for branch-based
+        // dependencies.
+        builder.serve("a", at: .revision("develop-sha-1"))
+        builder.serve("b", at: .revision("master-sha-2"))
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .revision("develop"),
+            "b": .revision("master"),
+        ])
+
+        let pinsStore = builder.create(pinsStore: [
+            "a": .branch("develop", revision: "develop-sha-1"),
+            "b": .branch("master", revision: "master-sha-2"),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+
+        AssertResult(result, [
+            ("a", .revision("develop")),
+            ("b", .revision("master")),
+        ])
+    }
+
+    func testIncompatibleToolsVersion2() {
+        builder.serve("a", at: v1_1, isToolsVersionCompatible: false)
+        builder.serve("a", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(v1Range),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+        ])
+    }
+}
+
+final class PubGrubTestsBasicGraphs: XCTestCase {
+    func testSimple1() {
+        builder.serve("a", at: v1, with: [
+            "aa": .versionSet(.exact("1.0.0")),
+            "ab": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("aa", at: v1)
+        builder.serve("ab", at: v1)
+        builder.serve("b", at: v1, with: [
+            "ba": .versionSet(.exact("1.0.0")),
+            "bb": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("ba", at: v1)
+        builder.serve("bb", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.exact("1.0.0")),
+            "b": .versionSet(.exact("1.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("aa", .version(v1)),
+            ("ab", .version(v1)),
+            ("b", .version(v1)),
+            ("ba", .version(v1)),
+            ("bb", .version(v1)),
+        ])
+    }
+
+    func testSharedDependency1() {
+        builder.serve("a", at: v1, with: [
+            "shared": .versionSet(.range("2.0.0"..<"4.0.0")),
+        ])
+        builder.serve("b", at: v1, with: [
+            "shared": .versionSet(.range("3.0.0"..<"5.0.0")),
+        ])
+        builder.serve("shared", at: "2.0.0")
+        builder.serve("shared", at: "3.0.0")
+        builder.serve("shared", at: "3.6.9")
+        builder.serve("shared", at: "4.0.0")
+        builder.serve("shared", at: "5.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.exact("1.0.0")),
+            "b": .versionSet(.exact("1.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version(v1)),
+            ("shared", .version("3.6.9")),
+        ])
+    }
+
+    func testSharedDependency2() {
+        builder.serve("foo", at: "1.0.0")
+        builder.serve("foo", at: "1.0.1", with: [
+            "bang": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("foo", at: "1.0.2", with: [
+            "whoop": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("foo", at: "1.0.3", with: [
+            "zoop": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("bar", at: "1.0.0", with: [
+            "foo": .versionSet(.range("0.0.0"..<"1.0.2")),
+        ])
+        builder.serve("bang", at: "1.0.0")
+        builder.serve("whoop", at: "1.0.0")
+        builder.serve("zoop", at: "1.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(.range("0.0.0"..<"1.0.3")),
+            "bar": .versionSet(.exact("1.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+        AssertResult(result, [
+            ("foo", .version("1.0.1")),
+            ("bar", .version(v1)),
+            ("bang", .version(v1)),
+        ])
+    }
+
+    func testFallbacksToOlderVersion() {
+        builder.serve("foo", at: "1.0.0")
+        builder.serve("foo", at: "2.0.0")
+        builder.serve("bar", at: "1.0.0")
+        builder.serve("bar", at: "2.0.0", with: [
+            "baz": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("baz", at: "1.0.0", with: [
+            "foo": .versionSet(.exact("2.0.0")),
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "bar": .versionSet(.range("0.0.0"..<"5.0.0")),
+            "foo": .versionSet(.exact("1.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+        AssertResult(result, [
+            ("foo", .version(v1)),
+            ("bar", .version(v1)),
+        ])
+    }
+}
+
+final class PubGrubDiagnosticsTests: XCTestCase {
+
+    func testMissingVersion() {
+        builder.serve("foopkg", at: v1_1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foopkg": .versionSet(v2Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, "because no versions of foopkg match the requirement 2.0.0..<3.0.0 and root depends on foopkg 2.0.0..<3.0.0, version solving failed.")
+    }
+
+    func testResolutionNonExistentVersion() {
+        builder.serve("package", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "package": .versionSet(.exact(v1))
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, "because no versions of package match the requirement 1.0.0 and root depends on package 1.0.0, version solving failed.")
     }
 
     func testResolutionLinearErrorReporting() {
@@ -1052,64 +1311,38 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(result.errorMsg, "because no versions of config match the requirement 2.0.0..<3.0.0 and root depends on config 2.0.0..<3.0.0, version solving failed.")
     }
 
-    func testBranchOverriding3() {
-        builder.serve("swift-nio", at: v1)
-        builder.serve("swift-nio", at: .revision("master"))
-        builder.serve("swift-nio-ssl", at: .revision("master"), with: [
-            "swift-nio": .versionSet(v2Range),
-        ])
-        builder.serve("foo", at: "1.0.0", with: [
-            "swift-nio": .versionSet(v1Range),
+    func testUnversioned6() {
+        builder.serve("foo", at: .unversioned)
+        builder.serve("bar", at: .revision("master"), with: [
+            "foo": .unversioned
         ])
 
         let resolver = builder.create()
+
         let dependencies = builder.create(dependencies: [
-            "foo": .versionSet(v1Range),
-            "swift-nio": .revision("master"),
-            "swift-nio-ssl": .revision("master"),
+            "bar": .revision("master")
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        AssertResult(result, [
-            ("swift-nio-ssl", .revision("master")),
-            ("swift-nio", .revision("master")),
-            ("foo", .version(v1))
-        ])
+        XCTAssertEqual(result.errorMsg, "package 'bar' is required using a revision-based requirement and it depends on local package 'foo', which is not supported")
     }
 
-    func testBranchOverriding4() {
-        builder.serve("swift-nio", at: v1)
-        builder.serve("swift-nio", at: .revision("master"))
-        builder.serve("swift-nio-ssl", at: .revision("master"), with: [
-            "swift-nio": .versionSet(v2Range),
-        ])
-        builder.serve("nio-postgres", at: .revision("master"), with: [
-            "swift-nio": .revision("master"),
-            "swift-nio-ssl": .revision("master"),
-        ])
-        builder.serve("http-client", at: v1, with: [
-            "swift-nio": .versionSet(v1Range),
-            "boring-ssl": .versionSet(v1Range),
-        ])
-        builder.serve("boring-ssl", at: v1, with: [
-            "swift-nio": .versionSet(v1Range),
-        ])
+    func testResolutionWithOverridingBranchBasedDependency4() {
+        builder.serve("foo", at: .revision("master"), with: ["bar": .revision("master")])
+
+        builder.serve("bar", at: .revision("master"))
+        builder.serve("bar", at: v1)
+
+        builder.serve("baz", at: .revision("master"), with: ["bar": .revision("develop")])
 
         let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
-            "nio-postgres": .revision("master"),
-            "http-client": .versionSet(v1Range),
-            "boring-ssl": .versionSet(v1Range),
+            "foo": .revision("master"),
+            "baz": .revision("master"),
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        AssertResult(result, [
-            ("swift-nio-ssl", .revision("master")),
-            ("swift-nio", .revision("master")),
-            ("nio-postgres", .revision("master")),
-            ("http-client", .version(v1)),
-            ("boring-ssl", .version(v1)),
-        ])
+        XCTAssertEqual(result.errorMsg, "bar is required using two different revision-based requirements (master and develop), which is not supported")
     }
 
     func testNonVersionDependencyInVersionDependency1() {
@@ -1128,22 +1361,6 @@ final class PubgrubTests: XCTestCase {
             """)
     }
 
-    func testNonVersionDependencyInVersionDependency2() {
-        builder.serve("foo", at: v1_1, with: [
-            "bar": .revision("master")
-        ])
-        builder.serve("foo", at: v1)
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "foo": .versionSet(v1Range),
-        ])
-        let result = resolver.solve(dependencies: dependencies)
-
-        AssertResult(result, [
-            ("foo", .version(v1)),
-        ])
-    }
-
     func testNonVersionDependencyInVersionDependency3() {
         builder.serve("foo", at: v1, with: [
             "bar": .unversioned
@@ -1155,91 +1372,6 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, "because package foo is required using a version-based requirement and it depends on unversion package bar and root depends on foo 1.0.0, version solving failed.")
-    }
-
-    func testTrivialPinStore() {
-        builder.serve("a", at: v1, with: ["b": .versionSet(v1Range)])
-        builder.serve("a", at: v1_1)
-        builder.serve("b", at: v1)
-        builder.serve("b", at: v1_1)
-        builder.serve("b", at: v2)
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "a": .versionSet(v1Range),
-        ])
-
-        let pinsStore = builder.create(pinsStore: [
-            "a": .version(v1),
-            "b": .version(v1),
-        ])
-
-        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
-
-        // Since a was pinned, we shouldn't have computed bounds for its incomaptibilities.
-        let aIncompat = resolver.positiveIncompatibilities(for: builder.reference(for: "a"))![0]
-        XCTAssertEqual(aIncompat.terms[0].requirement, .exact("1.0.0"))
-
-        AssertResult(result, [
-            ("a", .version(v1)),
-            ("b", .version(v1))
-        ])
-    }
-
-    func testPartialPins() {
-        // This checks that we can drop pins that are not valid anymore but still keep the ones
-        // which fit the constraints.
-        builder.serve("a", at: v1, with: ["b": .versionSet(v1Range)])
-        builder.serve("a", at: v1_1)
-        builder.serve("b", at: v1)
-        builder.serve("b", at: v1_1)
-        builder.serve("c", at: v1, with: ["b": .versionSet(.range(v1_1..<v2))])
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "c": .versionSet(v1Range),
-            "a": .versionSet(v1Range),
-        ])
-
-        // Here b is pinned to v1 but its requirement is now 1.1.0..<2.0.0 in the graph
-        // due to addition of a new dependency.
-        let pinsStore = builder.create(pinsStore: [
-            "a": .version(v1),
-            "b": .version(v1),
-        ])
-
-        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
-
-        AssertResult(result, [
-            ("a", .version(v1)),
-            ("b", .version(v1_1)),
-            ("c", .version(v1))
-        ])
-    }
-
-    func testBranchedBasedPin() {
-        // This test ensures that we get the SHA listed in Package.resolved for branch-based
-        // dependencies.
-        builder.serve("a", at: .revision("develop-sha-1"))
-        builder.serve("b", at: .revision("master-sha-2"))
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "a": .revision("develop"),
-            "b": .revision("master"),
-        ])
-
-        let pinsStore = builder.create(pinsStore: [
-            "a": .branch("develop", revision: "develop-sha-1"),
-            "b": .branch("master", revision: "master-sha-2"),
-        ])
-
-        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
-
-        AssertResult(result, [
-            ("a", .revision("develop")),
-            ("b", .revision("master")),
-        ])
     }
 
     func testIncompatibleToolsVersion1() {
@@ -1256,22 +1388,6 @@ final class PubgrubTests: XCTestCase {
             because no versions of a match the requirement 1.0.1..<2.0.0 and a 1.0.0 contains incompatible tools version, a >=1.0.0 is forbidden.
             And because root depends on a 1.0.0..<2.0.0, version solving failed.
             """)
-    }
-
-    func testIncompatibleToolsVersion2() {
-        builder.serve("a", at: v1_1, isToolsVersionCompatible: false)
-        builder.serve("a", at: v1)
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "a": .versionSet(v1Range),
-        ])
-
-        let result = resolver.solve(dependencies: dependencies)
-
-        AssertResult(result, [
-            ("a", .version(v1)),
-        ])
     }
 
     func testIncompatibleToolsVersion3() {
@@ -1334,6 +1450,257 @@ final class PubgrubTests: XCTestCase {
             And because a 3.2.0 contains incompatible tools version and a 3.2.1 contains incompatible tools version, a {3.2.0..<3.2.2, 3.2.3..<4.0.0} is forbidden.
             And because a 3.2.2 contains incompatible tools version and root depends on a 3.2.0..<4.0.0, version solving failed.
             """)
+    }
+
+    func testConflict4() {
+        builder.serve("foo", at: v1, with: [
+            "shared": .versionSet(.range("2.0.0"..<"3.0.0")),
+        ])
+        builder.serve("bar", at: v1, with: [
+            "shared": .versionSet(.range("2.9.0"..<"4.0.0")),
+        ])
+        builder.serve("shared", at: "2.5.0")
+        builder.serve("shared", at: "3.5.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "bar": .versionSet(.exact(v1)),
+            "foo": .versionSet(.exact(v1)),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because every version of bar depends on shared 2.9.0..<4.0.0 and no versions of shared match the requirement 2.9.0..<3.0.0, every version of bar requires shared 3.0.0..<4.0.0.
+            And because every version of foo depends on shared 2.0.0..<3.0.0, foo is incompatible with bar.
+            And because root depends on bar 1.0.0 and root depends on foo 1.0.0, version solving failed.
+            """)
+    }
+
+    func testConflict5() {
+        builder.serve("a", at: v1, with: [
+            "b": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("a", at: "2.0.0", with: [
+            "b": .versionSet(.exact("2.0.0")),
+        ])
+        builder.serve("b", at: "1.0.0", with: [
+            "a": .versionSet(.exact("2.0.0")),
+        ])
+        builder.serve("b", at: "2.0.0", with: [
+            "a": .versionSet(.exact("1.0.0")),
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "b": .versionSet(.range("0.0.0"..<"5.0.0")),
+            "a": .versionSet(.range("0.0.0"..<"5.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because no versions of a match the requirement 3.0.0..<5.0.0 and a <2.0.0 depends on b 1.0.0, a {0.0.0..<2.0.0, 3.0.0..<5.0.0} requires b 1.0.0.
+            And because b <2.0.0 depends on a 2.0.0, a {0.0.0..<2.0.0, 3.0.0..<5.0.0} is forbidden.
+            because b >=2.0.0 depends on a 1.0.0 and a >=2.0.0 depends on b 2.0.0, a >=2.0.0 is forbidden.
+            Thus, a is forbidden.
+            And because root depends on a 0.0.0..<5.0.0, version solving failed.
+            """)
+    }
+}
+
+final class PubGrubBacktrackTests: XCTestCase {
+    func testBacktrack1() {
+        builder.serve("a", at: v1)
+        builder.serve("a", at: "2.0.0", with: [
+            "b": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("b", at: "1.0.0", with: [
+            "a": .versionSet(.exact("1.0.0")),
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.range("1.0.0"..<"3.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+        ])
+    }
+
+    func testBacktrack2() {
+        builder.serve("a", at: v1)
+        builder.serve("a", at: "2.0.0", with: [
+            "c": .versionSet(.range("1.0.0"..<"2.0.0")),
+        ])
+
+        builder.serve("b", at: "1.0.0", with: [
+            "c": .versionSet(.range("2.0.0"..<"3.0.0")),
+        ])
+        builder.serve("b", at: "2.0.0", with: [
+            "c": .versionSet(.range("3.0.0"..<"4.0.0")),
+        ])
+
+        builder.serve("c", at: "1.0.0")
+        builder.serve("c", at: "2.0.0")
+        builder.serve("c", at: "3.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.range("1.0.0"..<"3.0.0")),
+            "b": .versionSet(.range("1.0.0"..<"3.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version("2.0.0")),
+            ("c", .version("3.0.0")),
+        ])
+    }
+
+    func testBacktrack3() {
+        builder.serve("a", at: "1.0.0", with: [
+            "x": .versionSet(.range("1.0.0"..<"5.0.0")),
+        ])
+        builder.serve("b", at: "1.0.0", with: [
+            "x": .versionSet(.range("0.0.0"..<"2.0.0")),
+        ])
+
+        builder.serve("c", at: "1.0.0")
+        builder.serve("c", at: "2.0.0", with: [
+            "a": .versionSet(.range("0.0.0"..<"5.0.0")),
+            "b": .versionSet(.range("0.0.0"..<"5.0.0")),
+        ])
+
+        builder.serve("x", at: "0.0.0")
+        builder.serve("x", at: "2.0.0")
+        builder.serve("x", at: "1.0.0", with: [
+            "y": .versionSet(.exact(v1)),
+        ])
+
+        builder.serve("y", at: "1.0.0")
+        builder.serve("y", at: "2.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "c": .versionSet(.range("1.0.0"..<"3.0.0")),
+            "y": .versionSet(.range("2.0.0"..<"3.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("c", .version(v1)),
+            ("y", .version("2.0.0")),
+        ])
+    }
+
+    func testBacktrack4() {
+        builder.serve("a", at: "1.0.0", with: [
+            "x": .versionSet(.range("1.0.0"..<"5.0.0")),
+        ])
+        builder.serve("b", at: "1.0.0", with: [
+            "x": .versionSet(.range("0.0.0"..<"2.0.0")),
+        ])
+
+        builder.serve("c", at: "1.0.0")
+        builder.serve("c", at: "2.0.0", with: [
+            "a": .versionSet(.range("0.0.0"..<"5.0.0")),
+            "b": .versionSet(.range("0.0.0"..<"5.0.0")),
+        ])
+
+        builder.serve("x", at: "0.0.0")
+        builder.serve("x", at: "2.0.0")
+        builder.serve("x", at: "1.0.0", with: [
+            "y": .versionSet(.exact(v1)),
+        ])
+
+        builder.serve("y", at: "1.0.0")
+        builder.serve("y", at: "2.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "c": .versionSet(.range("1.0.0"..<"3.0.0")),
+            "y": .versionSet(.range("2.0.0"..<"3.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("c", .version(v1)),
+            ("y", .version("2.0.0")),
+        ])
+    }
+
+    func testBacktrack5() {
+        builder.serve("foo", at: "1.0.0", with: [
+            "bar": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("foo", at: "2.0.0", with: [
+            "bar": .versionSet(.exact("2.0.0")),
+        ])
+        builder.serve("foo", at: "3.0.0", with: [
+            "bar": .versionSet(.exact("3.0.0")),
+        ])
+
+        builder.serve("bar", at: "1.0.0", with: [
+            "baz": .versionSet(.range("0.0.0"..<"3.0.0")),
+        ])
+        builder.serve("bar", at: "2.0.0", with: [
+            "baz": .versionSet(.exact("3.0.0")),
+        ])
+        builder.serve("bar", at: "3.0.0", with: [
+            "baz": .versionSet(.exact("3.0.0")),
+        ])
+
+        builder.serve("baz", at: "1.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(.range("1.0.0"..<"4.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("foo", .version(v1)),
+            ("bar", .version("1.0.0")),
+            ("baz", .version("1.0.0")),
+        ])
+    }
+
+    func testBacktrack6() {
+        builder.serve("a", at: "1.0.0")
+        builder.serve("a", at: "2.0.0")
+        builder.serve("b", at: "1.0.0", with: [
+            "a": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("c", at: "1.0.0", with: [
+            "b": .versionSet(.range("0.0.0"..<"3.0.0")),
+        ])
+        builder.serve("d", at: "1.0.0")
+        builder.serve("d", at: "2.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.range("1.0.0"..<"4.0.0")),
+            "c": .versionSet(.range("1.0.0"..<"4.0.0")),
+            "d": .versionSet(.range("1.0.0"..<"4.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version(v1)),
+            ("c", .version(v1)),
+            ("d", .version("2.0.0")),
+        ])
     }
 }
 
