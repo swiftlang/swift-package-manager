@@ -700,7 +700,8 @@ public final class PubgrubDependencyResolver {
             if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause {
                 let builder = DiagnosticReportBuilder(
                     root: root!,
-                    incompatibilities: incompatibilities
+                    incompatibilities: incompatibilities,
+                    provider: provider
                 )
 
                 let diagnostic = builder.reportError(for: rootCause)
@@ -1173,17 +1174,19 @@ public final class PubgrubDependencyResolver {
     }
 }
 
-final class DiagnosticReportBuilder {
+private final class DiagnosticReportBuilder {
     let rootPackage: PackageReference
     let incompatibilities: [PackageReference: [Incompatibility]]
 
     private var lines: [(String, Int)] = []
     private var derivations: [Incompatibility: Int] = [:]
     private var lineNumbers: [Incompatibility: Int] = [:]
+    private let provider: ContainerProvider
 
-    init(root: PackageReference, incompatibilities: [PackageReference: [Incompatibility]]) {
+    init(root: PackageReference, incompatibilities: [PackageReference: [Incompatibility]], provider: ContainerProvider) {
         self.rootPackage = root
         self.incompatibilities = incompatibilities
+        self.provider = provider
     }
 
     func reportError(for incompatibility: Incompatibility) -> String {
@@ -1341,7 +1344,7 @@ final class DiagnosticReportBuilder {
             assert(depender.isPositive)
             assert(!dependee.isPositive)
 
-            let dependerDesc = description(for: depender)
+            let dependerDesc = description(for: depender, normalizeRange: true)
             let dependeeDesc = description(for: dependee)
             return "\(dependerDesc) depends on \(dependeeDesc)"
         case .noAvailableVersion:
@@ -1368,12 +1371,11 @@ final class DiagnosticReportBuilder {
             return "version solving failed"
         }
 
-        // FIXME: Need to show requirements for some of these.
-
         let terms = incompatibility.terms
         if terms.count == 1 {
             let term = terms.first!
-            return "\(description(for: term)) is " + (term.isPositive ? "forbidden" : "required")
+            let prefix = hasEffectivelyAnyRequirement(term) ? term.package.lastPathComponent : description(for: term, normalizeRange: true)
+            return "\(prefix) is " + (term.isPositive ? "forbidden" : "required")
         } else if terms.count == 2 {
             let term1 = terms.first!
             let term2 = terms.last!
@@ -1386,11 +1388,12 @@ final class DiagnosticReportBuilder {
             }
         }
 
-        let positive = terms.filter{ $0.isPositive }.map(description(for:))
-        let negative = terms.filter{ !$0.isPositive }.map(description(for:))
+        let positive = terms.filter{ $0.isPositive }.map{ description(for: $0) }
+        let negative = terms.filter{ !$0.isPositive }.map{ description(for: $0) }
         if !positive.isEmpty && !negative.isEmpty {
             if positive.count == 1 {
-                return "\(positive[0]) requires \(negative.joined(separator: " or "))";
+                let positiveTerm = terms.first{ $0.isPositive }!
+                return "\(description(for: positiveTerm, normalizeRange: true)) requires \(negative.joined(separator: " or "))";
             } else {
                 return "if \(positive.joined(separator: " and ")) then \(negative.joined(separator: " or "))";
             }
@@ -1398,6 +1401,23 @@ final class DiagnosticReportBuilder {
             return "one of \(positive.joined(separator: " or ")) must be true"
         } else {
             return "one of \(negative.joined(separator: " or ")) must be true"
+        }
+    }
+
+    /// Returns true if the requirement on this term is effectively "any" because of either the actual
+    /// `any` requirement or because the version range is large enough to fit all current available versions.
+    private func hasEffectivelyAnyRequirement(_ term: Term) -> Bool {
+        switch term.requirement {
+        case .any:
+            return true
+        case .empty, .exact, .ranges:
+            return false
+        case .range(let range):
+            guard let container = try? provider.getContainer(for: term.package) else {
+                return false
+            }
+            let bounds = container.computeBounds(for: range)
+            return !bounds.includesLowerBound && !bounds.includesUpperBound
         }
     }
 
@@ -1428,7 +1448,7 @@ final class DiagnosticReportBuilder {
         return incompatibility.terms.count == 1 && incompatibility.terms.first?.package.identity == "<synthesized-root>"
     }
 
-    private func description(for term: Term) -> String {
+    private func description(for term: Term, normalizeRange: Bool = false) -> String {
         let name = term.package.name ?? term.package.lastPathComponent
 
         switch term.requirement {
@@ -1441,7 +1461,20 @@ final class DiagnosticReportBuilder {
             }
             return "\(name) \(version)"
         case .range(let range):
-            return "\(name) \(range.description)"
+            guard normalizeRange, let container = try? provider.getContainer(for: term.package) else {
+                return "\(name) \(range.description)"
+            }
+
+            switch container.computeBounds(for: range) {
+            case (true, true):
+                return "\(name) \(range.description)"
+            case (false, false):
+                return "every version of \(name)"
+            case (true, false):
+                return "\(name) >=\(range.lowerBound)"
+            case (false, true):
+                return "\(name) <\(range.upperBound)"
+            }
         case .ranges(let ranges):
             let ranges = "{" + ranges.map{
                 if $0.lowerBound == $0.upperBound {
@@ -1503,6 +1536,27 @@ private final class PubGrubPackageContainer {
             return 1
         }
         return packageContainer.reversedVersions.filter(requirement.contains).count
+    }
+
+    /// Computes the bounds of the given range against the versions available in the package.
+    ///
+    /// `includesLowerBound` is `false` if range's lower bound is less than or equal to the lowest available version.
+    /// Similarly, `includesUpperBound` is `false` if range's upper bound is greater than or equal to the highest available version.
+    func computeBounds(for range: Range<Version>) -> (includesLowerBound: Bool, includesUpperBound: Bool) {
+        var includeLowerBound = true
+        var includeUpperBound = true
+
+        let versions = packageContainer.reversedVersions
+
+        if let last = versions.last, range.lowerBound < last {
+            includeLowerBound = false
+        }
+
+        if let first = versions.first, range.upperBound > first {
+            includeUpperBound = false
+        }
+
+        return (includeLowerBound, includeUpperBound)
     }
 
     /// Returns the best available version for a given term.

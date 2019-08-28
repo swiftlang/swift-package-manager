@@ -948,7 +948,7 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because foo 0.0.0..<2.0.0 depends on bar 2.0.0..<3.0.0 and bar 0.0.0..<3.0.0 depends on baz 3.0.0..<4.0.0, foo 0.0.0..<2.0.0 requires baz 3.0.0..<4.0.0.
+            because every version of foo depends on bar 2.0.0..<3.0.0 and every version of bar depends on baz 3.0.0..<4.0.0, every version of foo requires baz 3.0.0..<4.0.0.
             And because root depends on foo 1.0.0..<2.0.0 and root depends on baz 1.0.0..<2.0.0, version solving failed.
             """)
     }
@@ -976,11 +976,11 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-          because a 0.0.0..<2.0.0 depends on b 2.0.0..<3.0.0 and foo 0.0.0..<1.1.0 depends on a 1.0.0..<2.0.0, foo 0.0.0..<1.1.0 requires b 2.0.0..<3.0.0.
-             (1) So, because foo 0.0.0..<1.1.0 depends on b 1.0.0..<2.0.0, foo 0.0.0..<1.1.0 is forbidden.
-          because x 0.0.0..<2.0.0 depends on y 2.0.0..<3.0.0 and foo 1.1.0..<2.0.0 depends on x 1.0.0..<2.0.0, foo 1.1.0..<2.0.0 requires y 2.0.0..<3.0.0.
-          And because foo 1.1.0..<2.0.0 depends on y 1.0.0..<2.0.0, foo 1.1.0..<2.0.0 is forbidden.
-          And because foo 0.0.0..<1.1.0 is forbidden (1), foo 0.0.0..<2.0.0 is forbidden.
+          because every version of a depends on b 2.0.0..<3.0.0 and foo <1.1.0 depends on a 1.0.0..<2.0.0, foo <1.1.0 requires b 2.0.0..<3.0.0.
+             (1) So, because foo <1.1.0 depends on b 1.0.0..<2.0.0, foo <1.1.0 is forbidden.
+          because every version of x depends on y 2.0.0..<3.0.0 and foo >=1.1.0 depends on x 1.0.0..<2.0.0, foo >=1.1.0 requires y 2.0.0..<3.0.0.
+          And because foo >=1.1.0 depends on y 1.0.0..<2.0.0, foo >=1.1.0 is forbidden.
+          And because foo <1.1.0 is forbidden (1), foo is forbidden.
           And because root depends on foo 1.0.0..<2.0.0, version solving failed.
         """)
     }
@@ -999,7 +999,7 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because bar 0.0.0..<2.0.0 depends on config 2.0.0..<3.0.0 and foo 0.0.0..<2.0.0 depends on config 1.0.0..<2.0.0, bar is incompatible with foo.
+            because every version of bar depends on config 2.0.0..<3.0.0 and every version of foo depends on config 1.0.0..<2.0.0, bar is incompatible with foo.
             And because root depends on foo 1.0.0..<2.0.0 and root depends on bar 1.0.0..<2.0.0, version solving failed.
             """)
     }
@@ -1020,7 +1020,7 @@ final class PubgrubTests: XCTestCase {
         let result1 = resolver1.solve(dependencies: dependencies1)
 
         XCTAssertEqual(result1.errorMsg, """
-            because foo 0.0.0..<2.0.0 depends on config 1.0.0..<2.0.0 and root depends on config 2.0.0..<3.0.0, foo 0.0.0..<2.0.0 is forbidden.
+            because every version of foo depends on config 1.0.0..<2.0.0 and root depends on config 2.0.0..<3.0.0, foo is forbidden.
             And because root depends on foo 1.0.0..<2.0.0, version solving failed.
             """)
 
@@ -1033,7 +1033,7 @@ final class PubgrubTests: XCTestCase {
         let result2 = resolver2.solve(dependencies: dependencies2)
 
         XCTAssertEqual(result2.errorMsg, """
-            because foo 0.0.0..<2.0.0 depends on config 1.0.0..<2.0.0 and root depends on foo 1.0.0..<2.0.0, config 1.0.0..<2.0.0 is required.
+            because every version of foo depends on config 1.0.0..<2.0.0 and root depends on foo 1.0.0..<2.0.0, config 1.0.0..<2.0.0 is required.
             And because root depends on config 2.0.0..<3.0.0, version solving failed.
             """)
     }
@@ -1123,7 +1123,7 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because no versions of foo match the requirement {1.0.0..<1.1.0, 1.1.1..<2.0.0} and package foo is required using a version-based requirement and it depends on unversion package bar, foo 1.0.0..<2.0.0 is forbidden.
+            because no versions of foo match the requirement {1.0.0..<1.1.0, 1.1.1..<2.0.0} and package foo is required using a version-based requirement and it depends on unversion package bar, foo is forbidden.
             And because root depends on foo 1.0.0..<2.0.0, version solving failed.
             """)
     }
@@ -1253,7 +1253,7 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because no versions of a match the requirement 1.0.1..<2.0.0 and a 1.0.0 contains incompatible tools version, a 1.0.0..<2.0.0 is forbidden.
+            because no versions of a match the requirement 1.0.1..<2.0.0 and a 1.0.0 contains incompatible tools version, a >=1.0.0 is forbidden.
             And because root depends on a 1.0.0..<2.0.0, version solving failed.
             """)
     }
@@ -1293,7 +1293,7 @@ final class PubgrubTests: XCTestCase {
 
         XCTAssertEqual(result.errorMsg, """
             because no versions of a match the requirement 1.0.1..<1.1.0 and a 1.0.0 contains incompatible tools version, a 1.0.0..<1.1.0 is forbidden.
-            And because a 1.1.0..<2.0.0 depends on b 1.0.0..<2.0.0, a 1.0.0..<2.0.0 requires b 1.0.0..<2.0.0.
+            And because a >=1.1.0 depends on b 1.0.0..<2.0.0, a >=1.0.0 requires b 1.0.0..<2.0.0.
             And because root depends on a 1.0.0..<2.0.0 and root depends on b 2.0.0..<3.0.0, version solving failed.
             """)
     }
