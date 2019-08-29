@@ -1364,7 +1364,7 @@ private final class DiagnosticReportBuilder {
             return "package \(versionedDependency) is required using a version-based requirement and it depends on unversion package \(unversionedDependency)"
         case .incompatibleToolsVersion:
             let term = incompatibility.terms.first!
-            return "\(description(for: term)) contains incompatible tools version"
+            return "\(description(for: term, normalizeRange: true)) contains incompatible tools version"
         }
 
         if isFailure(incompatibility) {
@@ -1575,6 +1575,55 @@ private final class PubGrubPackageContainer {
         return packageContainer.reversedVersions.first{ versionSet.contains($0) }
     }
 
+    /// Compute the bounds of incompatible tools version starting from the given version.
+    private func computeIncompatibleToolsVersionBounds(fromVersion: Version) -> VersionSetSpecifier {
+        assert(!packageContainer.isToolsVersionCompatible(at: fromVersion))
+        let versions: [Version] = packageContainer.reversedVersions.reversed()
+
+        // This is guaranteed to be present.
+        let idx = versions.index(of: fromVersion)!
+
+        var lowerBound = fromVersion
+        var upperBound = fromVersion
+
+        for version in versions.dropFirst(idx + 1) {
+            let isToolsVersionCompatible = packageContainer.isToolsVersionCompatible(at: version)
+            if isToolsVersionCompatible {
+                break
+            }
+            upperBound = version
+        }
+
+        for version in versions.dropLast(versions.count - idx).reversed() {
+            let isToolsVersionCompatible = packageContainer.isToolsVersionCompatible(at: version)
+            if isToolsVersionCompatible {
+                break
+            }
+            lowerBound = version
+        }
+
+        // If lower and upper bounds didn't change then this is the sole incompatible version.
+        if lowerBound == upperBound {
+            return .exact(lowerBound)
+        }
+
+        // If lower bound is the first version then we can use 0 as the sentinel. This
+        // will end up producing a better diagnostic since we can omit the lower bound.
+        if lowerBound == versions.first {
+            lowerBound = "0.0.0"
+        }
+
+        if upperBound == versions.last {
+            // If upper bound is the last version then we can use the next major version as the sentinel.
+            // This will end up producing a better diagnostic since we can omit the upper bound.
+            upperBound = Version(upperBound.major + 1, 0, 0)
+        } else {
+            // Use the next patch since the upper bound needs to be inclusive here.
+            upperBound = upperBound.nextPatch()
+        }
+        return .range(lowerBound..<upperBound.nextPatch())
+    }
+
     /// Returns the incompatibilities of a package at the given version.
     func incompatibilites(
         at version: Version,
@@ -1583,7 +1632,8 @@ private final class PubGrubPackageContainer {
     ) throws -> [Incompatibility] {
         // FIXME: It would be nice to compute bounds for this as well.
         if !packageContainer.isToolsVersionCompatible(at: version) {
-            return [Incompatibility(Term(package, .exact(version)), root: root, cause: .incompatibleToolsVersion)]
+            let requirement = computeIncompatibleToolsVersionBounds(fromVersion: version)
+            return [Incompatibility(Term(package, requirement), root: root, cause: .incompatibleToolsVersion)]
         }
 
         var dependencies: [PackageContainerConstraint] = []

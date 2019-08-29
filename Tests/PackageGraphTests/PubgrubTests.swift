@@ -1427,9 +1427,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because no versions of a match the requirement {3.2.0..<3.2.1, 3.2.4..<4.0.0} and a 3.2.1 contains incompatible tools version, a {3.2.0..<3.2.2, 3.2.4..<4.0.0} is forbidden.
-            And because a 3.2.2 contains incompatible tools version, a {3.2.0..<3.2.3, 3.2.4..<4.0.0} is forbidden.
-            And because a 3.2.3 contains incompatible tools version and root depends on a 3.2.0..<4.0.0, version solving failed.
+            because every version of a contains incompatible tools version and root depends on a 3.2.0..<4.0.0, version solving failed.
             """)
     }
 
@@ -1446,9 +1444,29 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because no versions of a match the requirement 3.2.3..<4.0.0 and a 3.2.0 contains incompatible tools version, a {3.2.0, 3.2.3..<4.0.0} is forbidden.
-            And because a 3.2.0 contains incompatible tools version and a 3.2.1 contains incompatible tools version, a {3.2.0..<3.2.2, 3.2.3..<4.0.0} is forbidden.
-            And because a 3.2.2 contains incompatible tools version and root depends on a 3.2.0..<4.0.0, version solving failed.
+            because every version of a contains incompatible tools version and root depends on a 3.2.0..<4.0.0, version solving failed.
+            """)
+    }
+
+    func testIncompatibleToolsVersion6() {
+        builder.serve("a", at: "3.2.1", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.0", with: [
+            "b": .versionSet(v1Range),
+        ])
+        builder.serve("a", at: "3.2.2", isToolsVersionCompatible: false)
+        builder.serve("b", at: "1.0.0", isToolsVersionCompatible: false)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.range("3.2.0"..<"4.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because no versions of b match the requirement 1.0.1..<2.0.0 and b 1.0.0 contains incompatible tools version, b >=1.0.0 is forbidden.
+            And because a <3.2.1 depends on b 1.0.0..<2.0.0, a <3.2.1 is forbidden.
+            And because a >=3.2.1 contains incompatible tools version and root depends on a 3.2.0..<4.0.0, version solving failed.
             """)
     }
 

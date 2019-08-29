@@ -77,6 +77,7 @@ extension PubGrubDiagnosticsTests {
         ("testIncompatibleToolsVersion3", testIncompatibleToolsVersion3),
         ("testIncompatibleToolsVersion4", testIncompatibleToolsVersion4),
         ("testIncompatibleToolsVersion5", testIncompatibleToolsVersion5),
+        ("testIncompatibleToolsVersion6", testIncompatibleToolsVersion6),
         ("testMissingVersion", testMissingVersion),
         ("testNonVersionDependencyInVersionDependency1", testNonVersionDependencyInVersionDependency1),
         ("testNonVersionDependencyInVersionDependency3", testNonVersionDependencyInVersionDependency3),
