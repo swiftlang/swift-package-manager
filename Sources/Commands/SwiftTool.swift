@@ -305,8 +305,13 @@ public class SwiftTool<Options: ToolOptions> {
 
         binder.bind(
             option: parser.add(option: "--enable-pubgrub-resolver", kind: Bool.self,
-                               usage: "[Experimental] Enable the new Pubgrub dependency resolver"),
+                usage: "Enable the new Pubgrub dependency resolver"),
             to: { $0.enablePubgrubResolver = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--use-legacy-resolver", kind: Bool.self,
+                usage: "Use the legacy dependency resolver"),
+            to: { $0.enablePubgrubResolver = !$1 })
 
         binder.bind(
             option: parser.add(option: "--enable-parseable-module-interfaces", kind: Bool.self),
