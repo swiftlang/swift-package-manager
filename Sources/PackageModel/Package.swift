@@ -8,11 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 
 // Re-export Version from PackageModel, since it is a key part of the model.
-@_exported import struct SPMUtility.Version
+@_exported import struct TSCUtility.Version
 
 /// The basic package representation.
 ///

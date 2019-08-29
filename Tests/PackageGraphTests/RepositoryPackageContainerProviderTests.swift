@@ -10,13 +10,13 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import PackageLoading
 import PackageModel
 @testable import PackageGraph
 import SourceControl
 
-import TestSupport
+import SPMTestSupport
 
 private class MockRepository: Repository {
     /// The fake URL of the repository.

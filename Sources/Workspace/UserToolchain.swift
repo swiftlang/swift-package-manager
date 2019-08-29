@@ -8,11 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
+import TSCBasic
 import Build
 import PackageLoading
 import protocol Build.Toolchain
-import SPMUtility
+import TSCUtility
 
 #if os(macOS)
 private let whichArgs: [String] = ["xcrun", "--find"]

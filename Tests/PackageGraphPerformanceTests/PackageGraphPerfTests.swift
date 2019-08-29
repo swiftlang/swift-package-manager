@@ -10,10 +10,10 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import PackageGraph
 import PackageModel
-import TestSupport
+import SPMTestSupport
 
 class PackageGraphPerfTests: XCTestCasePerf {
 

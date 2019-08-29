@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import PackageModel
 import PackageLoading
-import SPMUtility
+import TSCUtility
 
 /// Write the given tools version at the given path.
 ///

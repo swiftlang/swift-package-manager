@@ -8,12 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import PackageGraph
 import PackageModel
 import PackageLoading
 import SourceControl
-import SPMUtility
+import TSCUtility
 
 public struct XcodeprojOptions {
     /// The build flags.

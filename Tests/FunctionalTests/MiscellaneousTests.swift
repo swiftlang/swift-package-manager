@@ -9,16 +9,16 @@
 */
 
 import XCTest
-import TestSupport
-import Basic
+import SPMTestSupport
+import TSCBasic
 import PackageModel
-import SPMUtility
-import SPMLibc
+import TSCUtility
+import TSCLibc
 import class Foundation.ProcessInfo
 import class Foundation.Thread
 import Workspace
 
-typealias ProcessID = Basic.Process.ProcessID
+typealias ProcessID = TSCBasic.Process.ProcessID
 
 class MiscellaneousTestCase: XCTestCase {
 

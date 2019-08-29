@@ -9,7 +9,7 @@
 */
 
 import Foundation
-import Basic
+import TSCBasic
 
 extension ProductType: Codable {
     private enum CodingKeys: String, CodingKey {

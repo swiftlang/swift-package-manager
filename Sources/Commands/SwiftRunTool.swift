@@ -8,9 +8,9 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import Build
-import SPMUtility
+import TSCUtility
 import PackageGraph
 import PackageModel
 

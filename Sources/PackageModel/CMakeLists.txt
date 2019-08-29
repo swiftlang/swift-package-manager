@@ -18,8 +18,8 @@ add_library(PackageModel
   Target.swift
   ToolsVersion.swift)
 target_link_libraries(PackageModel PUBLIC
-  Basic
-  SPMUtility)
+  TSCBasic
+  TSCUtility)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageModel PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

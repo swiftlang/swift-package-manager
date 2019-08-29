@@ -10,8 +10,8 @@
 
 import XCTest
 
-import TestSupport
-import Basic
+import SPMTestSupport
+import TSCBasic
 @testable import Commands
 import Workspace
 

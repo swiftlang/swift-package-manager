@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 
 /// Specifies a repository address.
 public struct RepositorySpecifier: Hashable {

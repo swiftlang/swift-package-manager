@@ -10,9 +10,9 @@
 
 import XCTest
 import Commands
-import TestSupport
-import Basic
-import SPMUtility
+import SPMTestSupport
+import TSCBasic
+import TSCUtility
 import Workspace
 
 class BuildPerfTests: XCTestCasePerf {

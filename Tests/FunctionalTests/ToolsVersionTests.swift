@@ -10,9 +10,9 @@
 
 import XCTest
 
-import Basic
-import SPMUtility
-import TestSupport
+import TSCBasic
+import TSCUtility
+import SPMTestSupport
 import Commands
 import PackageModel
 import SourceControl

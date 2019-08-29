@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 
 /// The type of product.
 public enum ProductType: CustomStringConvertible, Equatable {

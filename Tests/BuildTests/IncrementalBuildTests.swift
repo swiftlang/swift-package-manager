@@ -10,9 +10,9 @@
 
 import XCTest
 
-import TestSupport
-import Basic
-import SPMUtility
+import SPMTestSupport
+import TSCBasic
+import TSCUtility
 
 
 /// Functional tests of incremental builds.  These are fairly ad hoc at this

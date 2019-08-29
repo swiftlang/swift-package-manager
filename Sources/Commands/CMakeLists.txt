@@ -22,11 +22,11 @@ add_library(Commands
   SwiftTool.swift
   WatchmanHelper.swift)
 target_link_libraries(Commands PUBLIC
-  Basic
+  TSCBasic
   Build
   PackageGraph
   SourceControl
-  SPMUtility
+  TSCUtility
   Xcodeproj
   Workspace)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet

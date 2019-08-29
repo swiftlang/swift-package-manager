@@ -213,7 +213,7 @@ let package = Package(
         .target(
             name: "Paper",
             dependencies: [
-                "Basic",
+                "TSCBasic",
                 .target(name: "Utility"),
                 .product(name: "AnotherExamplePackage"),
             ])

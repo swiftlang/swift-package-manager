@@ -9,8 +9,8 @@
 */
 
 import Foundation
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 import func POSIX.exit
 
 import SPMPackageEditor

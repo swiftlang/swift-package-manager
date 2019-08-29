@@ -13,8 +13,8 @@ add_library(SourceControl
   RepositoryManager.swift
   SwiftPMConfig.swift)
 target_link_libraries(SourceControl PUBLIC
-  Basic
-  SPMUtility)
+  TSCBasic
+  TSCUtility)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SourceControl PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

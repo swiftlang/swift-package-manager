@@ -8,18 +8,18 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
+import TSCBasic
 import Build
 import PackageLoading
 import PackageGraph
 import PackageModel
 import SourceControl
-import SPMUtility
+import TSCUtility
 import Workspace
-import SPMLibc
+import TSCLibc
 import func Foundation.NSUserName
 import SPMLLBuild
-typealias Diagnostic = Basic.Diagnostic
+typealias Diagnostic = TSCBasic.Diagnostic
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
@@ -97,7 +97,7 @@ extension ToolName {
 private final class DiagnosticsEngineHandler {
 
     /// The standard output stream.
-    var stdoutStream = Basic.stdoutStream
+    var stdoutStream = TSCBasic.stdoutStream
 
     /// The default instance.
     static let `default` = DiagnosticsEngineHandler()
@@ -164,7 +164,7 @@ public class SwiftTool<Options: ToolOptions> {
     var executionStatus: ExecutionStatus = .success
 
     /// The stream to print standard output on.
-    fileprivate var stdoutStream: OutputByteStream = Basic.stdoutStream
+    fileprivate var stdoutStream: OutputByteStream = TSCBasic.stdoutStream
 
     /// Create an instance of this tool.
     ///
@@ -498,8 +498,8 @@ public class SwiftTool<Options: ToolOptions> {
     /// Exit the tool with the given execution status.
     private static func exit(with status: ExecutionStatus) -> Never {
         switch status {
-        case .success: SPMLibc.exit(0)
-        case .failure: SPMLibc.exit(1)
+        case .success: TSCLibc.exit(0)
+        case .failure: TSCLibc.exit(1)
         }
     }
 
@@ -510,8 +510,8 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Start redirecting the standard output stream to the standard error stream.
     func redirectStdoutToStderr() {
-        self.stdoutStream = Basic.stderrStream
-        DiagnosticsEngineHandler.default.stdoutStream = Basic.stderrStream
+        self.stdoutStream = TSCBasic.stderrStream
+        DiagnosticsEngineHandler.default.stdoutStream = TSCBasic.stderrStream
     }
 
     /// Resolve the dependencies.

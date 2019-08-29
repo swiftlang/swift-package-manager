@@ -10,15 +10,15 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import PackageLoading
 import PackageModel
 import PackageGraph
 import SourceControl
-import SPMUtility
+import TSCUtility
 @testable import Workspace
 
-import TestSupport
+import SPMTestSupport
 
 final class WorkspaceTests: XCTestCase {
 

@@ -17,7 +17,7 @@ add_library(Build
   ToolProtocol.swift
   Triple.swift)
 target_link_libraries(Build PUBLIC
-  Basic
+  TSCBasic
   PackageGraph)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Build PROPERTIES

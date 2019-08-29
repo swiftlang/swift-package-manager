@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 
 /// Represents a fully resolved target. All the dependencies for the target are resolved.
 public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProtocol {

@@ -10,7 +10,7 @@
 
 import XCTest
 
-import TestSupport
+import SPMTestSupport
 import Commands
 
 final class TestToolTests: XCTestCase {

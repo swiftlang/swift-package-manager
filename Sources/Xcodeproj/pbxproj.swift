@@ -8,11 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import PackageGraph
 import PackageModel
 import PackageLoading
-import SPMUtility
+import TSCUtility
 
 /// Errors encounter during Xcode project generation
 public enum ProjectGenerationError: Swift.Error {

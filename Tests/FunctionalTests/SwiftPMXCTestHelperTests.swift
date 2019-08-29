@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import TestSupport
+import TSCBasic
+import SPMTestSupport
 import XCTest
-import SPMUtility
+import TSCUtility
 import Commands
 import Workspace
 

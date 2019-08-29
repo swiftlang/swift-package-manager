@@ -17,9 +17,9 @@ add_library(PackageLoading
   ToolsVersionLoader.swift
   UserManifestResources.swift)
 target_link_libraries(PackageLoading PUBLIC
-  Basic
+  TSCBasic
   PackageModel
-  SPMUtility
+  TSCUtility
   SPMLLBuild)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageLoading PROPERTIES

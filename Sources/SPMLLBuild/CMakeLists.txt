@@ -9,8 +9,8 @@
 add_library(SPMLLBuild
   llbuild.swift)
 target_link_libraries(SPMLLBuild PUBLIC
-  Basic
-  SPMUtility)
+  TSCBasic
+  TSCUtility)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SPMLLBuild PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

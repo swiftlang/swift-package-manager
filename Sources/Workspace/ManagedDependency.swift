@@ -8,11 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
+import TSCBasic
 import PackageGraph
 import PackageModel
 import SourceControl
-import SPMUtility
+import TSCUtility
 
 /// An individual managed dependency.
 ///

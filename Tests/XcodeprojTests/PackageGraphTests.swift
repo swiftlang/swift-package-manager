@@ -10,9 +10,9 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import PackageGraph
-import TestSupport
+import SPMTestSupport
 import PackageModel
 @testable import Xcodeproj
 

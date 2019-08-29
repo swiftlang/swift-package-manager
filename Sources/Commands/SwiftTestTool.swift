@@ -10,13 +10,13 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 import class Foundation.ProcessInfo
 
-import Basic
+import TSCBasic
 import Build
-import SPMUtility
+import TSCUtility
 import PackageGraph
 import Workspace
 
-import func SPMLibc.exit
+import func TSCLibc.exit
 
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
@@ -469,7 +469,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     /// - Parameters:
     ///     - path: Path to the XCTest bundle(macOS) or executable(Linux).
     ///
-    /// - Throws: TestError, SystemError, SPMUtility.Error
+    /// - Throws: TestError, SystemError, TSCUtility.Error
     ///
     /// - Returns: Array of TestSuite
     fileprivate func getTestSuites(path: AbsolutePath) throws -> [TestSuite] {
@@ -786,7 +786,7 @@ final class ParallelTestRunner {
 
         // List of processed tests.
         var processedTests: [TestResult] = []
-        let processedTestsLock = Basic.Lock()
+        let processedTestsLock = TSCBasic.Lock()
 
         // Report (consume) the tests which have finished running.
         while let result = finishedTests.dequeue() {

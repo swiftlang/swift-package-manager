@@ -25,7 +25,7 @@
 
 import Foundation
 
-import Basic
+import TSCBasic
 import PackageModel
 import PackageLoading
 

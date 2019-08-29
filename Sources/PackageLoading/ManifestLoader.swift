@@ -8,12 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import PackageModel
-import SPMUtility
+import TSCUtility
 import SPMLLBuild
 import class Foundation.ProcessInfo
-public typealias FileSystem = Basic.FileSystem
+public typealias FileSystem = TSCBasic.FileSystem
 
 public enum ManifestParseError: Swift.Error {
     /// The manifest contains invalid format.
@@ -738,7 +738,7 @@ final class FileInfoRule: LLBuildRule {
         let path: AbsolutePath
     }
 
-    typealias RuleValue = Result<Basic.FileInfo, StringError>
+    typealias RuleValue = Result<TSCBasic.FileInfo, StringError>
 
     override class var ruleName: String { return "\(FileInfoRule.self)" }
 

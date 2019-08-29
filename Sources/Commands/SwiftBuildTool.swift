@@ -9,8 +9,8 @@
 */
 
 import Build
-import SPMUtility
-import Basic
+import TSCUtility
+import TSCBasic
 import PackageGraph
 
 /// swift-build tool namespace

@@ -17,8 +17,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "OBJ_638"
-               BuildableName = "BasicPerformanceTests.xctest"
-               BlueprintName = "BasicPerformanceTests"
+               BuildableName = "TSCBasicPerformanceTests.xctest"
+               BlueprintName = "TSCBasicPerformanceTests"
                ReferencedContainer = "container:SwiftPM.xcodeproj">
             </BuildableReference>
          </TestableReference>
