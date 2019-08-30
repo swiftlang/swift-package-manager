@@ -261,6 +261,7 @@ class Target(object):
             other_args.extend(["-Xcc", "-F" + args.foundation_path])
             import_paths.append(os.path.join(args.foundation_path, "swift"))
         if args.libdispatch_build_dir:
+            import_paths.append(os.path.join(args.libdispatch_build_dir, 'lib'))
             import_paths.append(os.path.join(args.libdispatch_build_dir, "src"))
             import_paths.append(os.path.join(args.libdispatch_build_dir, "src", "swift"))
         if args.libdispatch_source_dir:
@@ -579,8 +580,10 @@ class llbuild(object):
                     link_command.extend(["-L", self.args.foundation_path])
                 if self.args.libdispatch_build_dir:
                     link_command.extend(['-L', self.args.libdispatch_build_dir,
+                                         '-L', os.path.join(self.args.libdispatch_build_dir, 'lib'),
                                          '-Xlinker', '-lBlocksRuntime'])
-                    link_command.extend(["-L", os.path.join(self.args.libdispatch_build_dir, "src")])
+                    link_command.extend(['-L', os.path.join(self.args.libdispatch_build_dir, "src"),
+                                         '-L', os.path.join(self.args.libdispatch_build_dir, 'lib')])
 
                 # Add llbuild link flags.
                 link_command.extend(llbuild_link_args(self.args))
@@ -1193,9 +1196,12 @@ def main():
             symlink_force(cf_xml_path, libincludedir)
 
             # Add symlinks for dispatch.
-            symlink_force(os.path.join(args.libdispatch_build_dir, 'libBlocksRuntime.so'), libswiftdir)
-            symlink_force(os.path.join(args.libdispatch_build_dir, "src", "libdispatch.so"), libswiftdir)
-            symlink_force(os.path.join(args.libdispatch_build_dir, "src", "libswiftDispatch.so"), libswiftdir)
+            for library in ['libBlocksRuntime.so', 'libdispatch.so', 'libswiftDispatch.so']:
+              for subdir in ['lib', 'src', '']:
+                path = os.path.join(args.libdispatch_build_dir, subdir, library)
+                if os.path.exists(path):
+                  symlink_force(path, libswiftdir)
+                  break
 
             # Add swiftmodules.
             for module_file in ["Dispatch.swiftmodule", "Dispatch.swiftdoc"]:
