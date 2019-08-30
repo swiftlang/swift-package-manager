@@ -15,7 +15,7 @@
 /// - Returns: The value wrapped by the async method's result.
 /// - Throws: The error wrapped by the async method's result
 public func await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -> Void) -> Void) throws -> T {
-    return try await(body).dematerialize()
+    return try await(body).get()
 }
 
 public func await<T>(_ body: (@escaping (T) -> Void) -> Void) -> T {

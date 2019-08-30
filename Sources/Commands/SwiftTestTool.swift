@@ -347,7 +347,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             testBinary.pathString
         ]
         let result = try Process.popen(arguments: args)
-        try localFileSystem.writeFileContents(path, bytes: ByteString(result.output.dematerialize()))
+        try localFileSystem.writeFileContents(path, bytes: ByteString(result.output.get()))
     }
 
     /// Builds the "test" target if enabled in options.

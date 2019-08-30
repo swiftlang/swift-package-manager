@@ -607,24 +607,7 @@ private func sandboxProfile(_ cacheDirs: [AbsolutePath] = []) -> String {
     return stream.bytes.description
 }
 
-extension Result where ErrorType == StringError {
-    /// Create an instance of Result<Value, StringError>.
-    ///
-    /// Errors will be encoded as StringError using their description.
-    init(string body: () throws -> Value) {
-        do {
-            self = .success(try body())
-        } catch let error as StringError {
-            self = .failure(error)
-        } catch {
-            self = .failure(StringError(String(describing: error)))
-        }
-    }
-}
-
 // MARK:- Caching support.
-
-extension Result: LLBuildValue where Value: Codable, ErrorType: Codable {}
 
 final class ManifestCacheDelegate: LLBuildEngineDelegate {
 
@@ -738,7 +721,7 @@ final class FileInfoRule: LLBuildRule {
         let path: AbsolutePath
     }
 
-    typealias RuleValue = Result<TSCBasic.FileInfo, StringError>
+    typealias RuleValue = CodableResult<TSCBasic.FileInfo, StringError>
 
     override class var ruleName: String { return "\(FileInfoRule.self)" }
 
@@ -753,10 +736,10 @@ final class FileInfoRule: LLBuildRule {
         let priorValue = RuleValue(priorValue)
 
         // Always rebuild if we had a failure.
-        if case .failure = priorValue {
+        if case .failure = priorValue.result {
             return false
         }
-        return getFileInfo(key.path) == priorValue
+        return getFileInfo(key.path).result == priorValue.result
     }
 
     override func inputsAvailable(_ engine: LLTaskBuildEngine) {
@@ -764,7 +747,7 @@ final class FileInfoRule: LLBuildRule {
     }
 
     private func getFileInfo(_ path: AbsolutePath) -> RuleValue {
-        return RuleValue(string: {
+        return RuleValue(body: {
             try localFileSystem.getFileInfo(key.path)
         })
     }
@@ -841,3 +824,5 @@ extension ManifestPathOrContents: Codable {
         }
     }
 }
+
+extension CodableResult: LLBuildValue { }

@@ -428,7 +428,7 @@ final class PartialSolution {
         }
 
         let newTerm = _negative[pkg].flatMap{ term.intersect(with: $0) } ?? term
-        
+
         if newTerm.isPositive {
             _negative[pkg] = nil
             _positive[pkg] = newTerm
@@ -994,7 +994,7 @@ public final class PubgrubDependencyResolver {
 
                     changed.removeAll(keepingCapacity: false)
                     changed.append(pkg)
-                    
+
                     break loop
                 case .almostSatisfied(let package):
                     changed.append(package)
@@ -1789,7 +1789,7 @@ private final class ContainerProvider {
     private let fetchCondition = Condition()
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [PackageReference: TSCBasic.Result<PubGrubPackageContainer, AnyError>] = [:]
+    private var _fetchedContainers: [PackageReference: Result<PubGrubPackageContainer, AnyError>] = [:]
 
     /// The set of containers requested so far.
     private var _prefetchingContainers: Set<PackageReference> = []
@@ -1799,7 +1799,7 @@ private final class ContainerProvider {
         return try fetchCondition.whileLocked {
             // Return the cached container, if available.
             if let container = _fetchedContainers[identifier] {
-                return try container.dematerialize()
+                return try container.get()
             }
 
             // If this container is being prefetched, wait for that to complete.
@@ -1809,13 +1809,13 @@ private final class ContainerProvider {
 
             // The container may now be available in our cache if it was prefetched.
             if let container = _fetchedContainers[identifier] {
-                return try container.dematerialize()
+                return try container.get()
             }
 
             // Otherwise, fetch the container synchronously.
             let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
             let pubGrubContainer = PubGrubPackageContainer(container, pinsStore: pinsStore)
-            self._fetchedContainers[identifier] = TSCBasic.Result(pubGrubContainer)
+            self._fetchedContainers[identifier] = .success(pubGrubContainer)
             return pubGrubContainer
         }
     }

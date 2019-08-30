@@ -89,12 +89,12 @@ public struct ProcessResult: CustomStringConvertible {
     
     /// Converts stdout output bytes to string, assuming they're UTF8.
     public func utf8Output() throws -> String {
-        return String(decoding: try output.dematerialize(), as: Unicode.UTF8.self)
+        return String(decoding: try output.get(), as: Unicode.UTF8.self)
     }
 
     /// Converts stderr output bytes to string, assuming they're UTF8.
     public func utf8stderrOutput() throws -> String {
-        return String(decoding: try stderrOutput.dematerialize(), as: Unicode.UTF8.self)
+        return String(decoding: try stderrOutput.get(), as: Unicode.UTF8.self)
     }
 
     public var description: String {
@@ -201,10 +201,10 @@ public final class Process: ObjectIdentifierProtocol {
   #endif
 
     /// If redirected, stdout result and reference to the thread reading the output.
-    private var stdout: (result: Result<[UInt8], AnyError>, thread: Thread?) = (Result([]), nil)
+    private var stdout: (result: Result<[UInt8], AnyError>, thread: Thread?) = (.success([]), nil)
 
     /// If redirected, stderr result and reference to the thread reading the output.
-    private var stderr: (result: Result<[UInt8], AnyError>, thread: Thread?) = (Result([]), nil)
+    private var stderr: (result: Result<[UInt8], AnyError>, thread: Thread?) = (.success([]), nil)
 
     /// Queue to protect concurrent reads.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.process")
@@ -516,7 +516,7 @@ public final class Process: ObjectIdentifierProtocol {
         // Close the read end of the output pipe.
         close(fd)
         // Construct the output result.
-        return error.map(Result.init) ?? Result(out)
+        return error.map(Result.init) ?? .success(out)
     }
   #endif
 

@@ -212,7 +212,7 @@ public struct MockPackagesProvider: PackageContainerProvider {
         completion: @escaping (Result<PackageContainer, AnyError>
     ) -> Void) {
         DispatchQueue.global().async {
-            completion(self.containersByIdentifier[identifier].map(Result.init) ??
+            completion(self.containersByIdentifier[identifier].map{ .success($0) } ??
                 Result(MockLoadingError.unknownModule))
         }
     }

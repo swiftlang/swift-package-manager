@@ -271,7 +271,7 @@ public class RepositoryManager {
                         try self.provider.fetch(repository: handle.repository, to: repositoryPath)
                         // Update status to available.
                         handle.status = .available
-                        result = Result(handle)
+                        result = .success(handle)
                     } catch {
                         handle.status = .error
                         fetchError = error
