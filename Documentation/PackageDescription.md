@@ -762,7 +762,7 @@ A linker build setting.
 ///   - condition: A condition which will restrict when the build setting applies.
 public static func linkedLibrary(_ library: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting
 
-/// Declare linkage to a framework.
+/// Declare linkage to a system framework.
 ///
 /// This setting is most useful when the framework can't be linked
 /// automatically (for example, C++ based frameworks and non-modular

@@ -288,7 +288,7 @@ public struct LinkerSetting: Encodable {
         return LinkerSetting(name: "linkedLibrary", value: [library], condition: condition)
     }
 
-    /// Declare linkage to a framework.
+    /// Declare linkage to a system framework.
     ///
     /// This setting is most useful when the framework can't be linked
     /// automatically, such as C++ based frameworks and non-modular
