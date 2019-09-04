@@ -86,12 +86,7 @@ class TemporaryFileTests: XCTestCase {
     }
     
     func testNonStandardASCIIName() throws {
-        let dir = try determineTempDirectory().appending(component: "Héllo")
-        try localFileSystem.createDirectory(dir)
-        defer {
-            try? localFileSystem.removeFileTree(dir)
-        }
-        try withTemporaryFile(dir: dir) { file in
+        try withTemporaryFile(prefix: "Héllo") { file in
             XCTAssertTrue(localFileSystem.isFile(file.path))
         }
     }
