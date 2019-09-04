@@ -406,6 +406,7 @@ extension TemporaryFileTests {
         ("testCanCreateUniqueTempFiles", testCanCreateUniqueTempFiles),
         ("testLeaks", testLeaks),
         ("testNoCleanupTemporaryFile", testNoCleanupTemporaryFile),
+        ("testNonStandardASCIIName", testNonStandardASCIIName),
     ]
 }
 

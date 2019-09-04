@@ -84,6 +84,17 @@ class TemporaryFileTests: XCTestCase {
         XCTAssertFalse(localFileSystem.isFile(filePathOne))
         XCTAssertFalse(localFileSystem.isFile(filePathTwo))
     }
+    
+    func testNonStandardASCIIName() throws {
+        let dir = try determineTempDirectory().appending(component: "Héllo")
+        try localFileSystem.createDirectory(dir)
+        defer {
+            try? localFileSystem.removeFileTree(dir)
+        }
+        try withTemporaryFile(dir: dir) { file in
+            XCTAssertTrue(localFileSystem.isFile(file.path))
+        }
+    }
 
     func testBasicTemporaryDirectory() throws {
         // Test can create and remove temp directory.

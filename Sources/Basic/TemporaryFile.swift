@@ -86,7 +86,7 @@ public struct TemporaryFile {
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkstemps method. The XXXXXX in this string will be replaced by a random string
         // which will be the actual path to the temporary file.
-        var template = [UInt8](path.pathString.utf8).map({ Int8($0) }) + [Int8(0)]
+        var template = Array(path.pathString.utf8CString)
 
         fd = SPMLibc.mkstemps(&template, Int32(suffix.utf8.count))
         // If mkstemps failed then throw error.
