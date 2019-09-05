@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-@_exported import Basic
-@_exported import SPMUtility
+@_exported import TSCBasic
+@_exported import TSCUtility
 
 @_exported import PackageGraph
 @_exported import PackageLoading

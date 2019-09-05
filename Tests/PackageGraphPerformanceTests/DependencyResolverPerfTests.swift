@@ -10,15 +10,15 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import PackageModel
 import PackageGraph
 import PackageLoading
 import SourceControl
 
-import struct SPMUtility.Version
+import struct TSCUtility.Version
 
-import TestSupport
+import SPMTestSupport
 
 private let v1: Version = "1.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")

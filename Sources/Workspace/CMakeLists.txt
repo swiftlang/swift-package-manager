@@ -17,7 +17,7 @@ add_library(Workspace
   Workspace.swift
   misc.swift)
 target_link_libraries(Workspace PUBLIC
-  Basic
+  TSCBasic
   Build
   PackageGraph
   PackageModel

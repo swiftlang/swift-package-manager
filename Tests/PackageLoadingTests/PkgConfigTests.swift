@@ -10,11 +10,11 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import PackageModel
 import PackageLoading
-import SPMUtility
-import TestSupport
+import TSCUtility
+import SPMTestSupport
 
 extension SystemLibraryTarget {
     convenience init(pkgConfig: String, providers: [SystemPackageProviderDescription] = []) {

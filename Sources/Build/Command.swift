@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 
 /// A command represents an atomic unit of build system work.
 struct Command {

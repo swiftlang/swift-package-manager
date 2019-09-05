@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 
 /// Available runtime sanitizers.
 public enum Sanitizer: String, Encodable {

@@ -10,10 +10,10 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import SourceControl
 
-import TestSupport
+import SPMTestSupport
 
 @testable import class SourceControl.RepositoryManager
 

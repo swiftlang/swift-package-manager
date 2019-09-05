@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 
 /// The supported manifest versions.
 public enum ManifestVersion: String, Codable, CustomStringConvertible {
@@ -119,7 +119,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         platforms: [PlatformDescription],
         path: AbsolutePath,
         url: String,
-        version: SPMUtility.Version? = nil,
+        version: TSCUtility.Version? = nil,
         manifestVersion: ManifestVersion,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
@@ -316,11 +316,11 @@ public struct PackageDependencyDescription: Equatable, Codable {
         case branch(String)
         case localPackage
 
-        public static func upToNextMajor(from version: SPMUtility.Version) -> Requirement {
+        public static func upToNextMajor(from version: TSCUtility.Version) -> Requirement {
             return .range(version..<Version(version.major + 1, 0, 0))
         }
 
-        public static func upToNextMinor(from version: SPMUtility.Version) -> Requirement {
+        public static func upToNextMinor(from version: TSCUtility.Version) -> Requirement {
             return .range(version..<Version(version.major, version.minor + 1, 0))
         }
 

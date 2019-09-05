@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 
 /// A grouping of related source files.
 public struct Sources {

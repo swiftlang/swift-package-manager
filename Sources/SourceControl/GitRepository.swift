@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import Dispatch
-import SPMUtility
+import TSCUtility
 
 public struct GitCloneError: Swift.Error, CustomStringConvertible {
 
@@ -554,7 +554,7 @@ public class GitRepository: Repository, WorkingCheckout {
 }
 
 private extension Dictionary {
-    // Maybe lift to Basic or Utility.
+    // Maybe lift to TSCBasic or TSCUtility.
     /// Memoize the value returned by the given closure.
     mutating func memo(
         key: Key,

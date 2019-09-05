@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import Dispatch
-import SPMUtility
+import TSCUtility
 import class Foundation.NSUUID
 
 /// The error encountered during in memory git repository operations.

@@ -10,11 +10,11 @@
 
 import Dispatch
 
-import Basic
+import TSCBasic
 import PackageLoading
 import PackageModel
 import SourceControl
-import SPMUtility
+import TSCUtility
 
 /// Adaptor for exposing repositories as PackageContainerProvider instances.
 ///

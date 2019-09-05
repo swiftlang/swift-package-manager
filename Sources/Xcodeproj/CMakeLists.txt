@@ -15,7 +15,7 @@ add_library(Xcodeproj
   XcodeProjectModel.swift
   XcodeProjectModelSerialization.swift)
 target_link_libraries(Xcodeproj PUBLIC
-  Basic
+  TSCBasic
   PackageGraph)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Xcodeproj PROPERTIES

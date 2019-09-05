@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import struct SPMUtility.Version
-import Basic
+import struct TSCUtility.Version
+import TSCBasic
 import struct PackageModel.PackageReference
 
 /// A term represents a statement about a package that may be true or false.
@@ -1789,7 +1789,7 @@ private final class ContainerProvider {
     private let fetchCondition = Condition()
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [PackageReference: Basic.Result<PubGrubPackageContainer, AnyError>] = [:]
+    private var _fetchedContainers: [PackageReference: TSCBasic.Result<PubGrubPackageContainer, AnyError>] = [:]
 
     /// The set of containers requested so far.
     private var _prefetchingContainers: Set<PackageReference> = []
@@ -1815,7 +1815,7 @@ private final class ContainerProvider {
             // Otherwise, fetch the container synchronously.
             let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
             let pubGrubContainer = PubGrubPackageContainer(container, pinsStore: pinsStore)
-            self._fetchedContainers[identifier] = Basic.Result(pubGrubContainer)
+            self._fetchedContainers[identifier] = TSCBasic.Result(pubGrubContainer)
             return pubGrubContainer
         }
     }

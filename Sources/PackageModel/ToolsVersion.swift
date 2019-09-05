@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 
 import Foundation
-import SPMUtility
+import TSCUtility
 
 /// Tools version represents version of the Swift toolchain.
 public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable, Encodable {

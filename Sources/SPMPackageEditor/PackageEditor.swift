@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import SPMUtility
-import Basic
+import TSCUtility
+import TSCBasic
 import SourceControl
 import PackageLoading
 import PackageModel
@@ -55,7 +55,7 @@ public final class PackageEditor {
         }
 
         // If the input URL is a path, force the requirement to be a local package.
-        if SPMUtility.URL.scheme(options.url) == nil {
+        if TSCUtility.URL.scheme(options.url) == nil {
             assert(options.requirement == nil || options.requirement == .localPackage)
             options.requirement = .localPackage
         }

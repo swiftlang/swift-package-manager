@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import Foundation
 import PackageLoading
 import PackageModel
 import PackageGraph
 import SourceControl
-import SPMUtility
+import TSCUtility
 
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: class {
@@ -966,7 +966,7 @@ extension Workspace {
     }
 }
 
-// MARK: - Utility Functions
+// MARK: - TSCUtility Functions
 
 extension Workspace {
 

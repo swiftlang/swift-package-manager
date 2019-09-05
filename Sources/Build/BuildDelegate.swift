@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 import SPMLLBuild
 import Dispatch
 import Foundation
 
-typealias Diagnostic = Basic.Diagnostic
+typealias Diagnostic = TSCBasic.Diagnostic
 
 class CustomLLBuildCommand: ExternalCommand {
     let ctx: BuildExecutionContext

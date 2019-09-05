@@ -10,13 +10,13 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import PackageGraph
 import SourceControl
 
-import struct SPMUtility.Version
+import struct TSCUtility.Version
 
-import TestSupport
+import SPMTestSupport
 
 // FIXME: We have no @testable way to import generic structures.
 @testable import PackageGraph

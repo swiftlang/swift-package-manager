@@ -8,12 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import PackageLoading
 import PackageModel
 import SourceControl
-import SPMUtility
-import func SPMLibc.exit
+import TSCUtility
+import func TSCLibc.exit
 import Workspace
 
 enum Error: Swift.Error {

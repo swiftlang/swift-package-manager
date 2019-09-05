@@ -18,11 +18,11 @@ add_library(PackageGraph
   RepositoryPackageContainerProvider.swift
   VersionSetSpecifier.swift)
 target_link_libraries(PackageGraph PUBLIC
-  Basic
+  TSCBasic
   PackageLoading
   PackageModel
   SourceControl
-  SPMUtility)
+  TSCUtility)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageGraph PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

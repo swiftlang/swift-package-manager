@@ -10,11 +10,11 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import Commands
-import TestSupport
+import SPMTestSupport
 import PackageModel
-import SPMUtility
+import TSCUtility
 import Xcodeproj
 
 class FunctionalTests: XCTestCase {

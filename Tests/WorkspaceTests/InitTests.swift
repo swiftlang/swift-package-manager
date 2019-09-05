@@ -9,15 +9,15 @@
  */
 
 import XCTest
-import TestSupport
-import Basic
+import SPMTestSupport
+import TSCBasic
 import PackageModel
 import Workspace
 import Commands
 
 class InitTests: XCTestCase {
 
-    // MARK: Basic package creation for each package type.
+    // MARK: TSCBasic package creation for each package type.
     
     func testInitPackageEmpty() throws {
         mktmpdir { tmpPath in

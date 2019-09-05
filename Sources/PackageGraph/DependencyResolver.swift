@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import struct PackageModel.PackageReference
-import struct SPMUtility.Version
+import struct TSCUtility.Version
 import class Foundation.NSDate
 
 public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
@@ -1207,7 +1207,7 @@ public class DependencyResolver {
     }
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [PackageReference: Basic.Result<Container, AnyError>] = [:]
+    private var _fetchedContainers: [PackageReference: TSCBasic.Result<Container, AnyError>] = [:]
 
     /// The set of containers requested so far.
     private var _prefetchingContainers: Set<PackageReference> = []
@@ -1232,7 +1232,7 @@ public class DependencyResolver {
 
             // Otherwise, fetch the container synchronously.
             let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
-            self._fetchedContainers[identifier] = Basic.Result(container)
+            self._fetchedContainers[identifier] = TSCBasic.Result(container)
             return container
         }
     }

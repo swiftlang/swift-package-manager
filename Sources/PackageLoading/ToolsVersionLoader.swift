@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import PackageModel
-import SPMUtility
+import TSCUtility
 import Foundation
 
 /// Protocol for the manifest loader interface.

@@ -398,7 +398,7 @@ def parse_manifest():
             try:
                 return next(a for a in targets if a.name == targetName)
             except StopIteration:
-                error("Couldn't find target", targetName)
+                error("Couldn't find target %s which is a dependency of %s" % (targetName, target.name))
         target.dependencies = list(map(convert, target.dependencies))
 
     # Construct the dependency graph, and convert each Target's dependencies
@@ -423,7 +423,7 @@ def parse_manifest():
 # Hard-coded target definition.
 g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 g_source_root = os.path.join(g_project_root, "Sources")
-g_ignored_targets = ["swiftpm-xctest-helper", "TestSupport", "TestSupportExecutable"]
+g_ignored_targets = ["swiftpm-xctest-helper", "SPMTestSupport", "TSCTestSupport", "TSCTestSupportExecutable"]
 (targets, products) = parse_manifest()
 product_map = dict((p.name, p) for p in products)
 

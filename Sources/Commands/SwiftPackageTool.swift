@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import Build
 import PackageModel
 import PackageLoading
 import PackageGraph
 import SourceControl
-import SPMUtility
+import TSCUtility
 import Xcodeproj
 import Workspace
 import Foundation

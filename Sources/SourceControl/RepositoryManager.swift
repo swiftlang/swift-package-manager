@@ -11,8 +11,8 @@
 import Dispatch
 import class Foundation.OperationQueue
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 
 /// Delegate to notify clients about actions being performed by RepositoryManager.
 public protocol RepositoryManagerDelegate: class {

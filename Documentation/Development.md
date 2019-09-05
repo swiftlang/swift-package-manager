@@ -105,7 +105,7 @@ $ cd swiftpm
 $ .build/x86_64-apple-macosx/debug/spm build
 
 # Run a single test.
-$ .build/x86_64-apple-macosx/debug/spm test --filter BasicTests.GraphAlgorithmsTests/testCycleDetection
+$ .build/x86_64-apple-macosx/debug/spm test --filter PackageGraphTests.DependencyResolverTests/testBasics
 ```
 
 Note: If you make any changes to the `PackageDescription` runtime-related targets,
@@ -202,3 +202,7 @@ to skip a list of tests. This value of the variable is either a file path that c
 newline separated list of tests to skip, or a colon-separated list of tests.
 
 This is only a development feature and should be considered _unsupported_.
+
+## Making changes in TSC targets
+
+All targets with the prefix TSC define the interface for the tools support core. Those APIs might be used in other projects as well and need to be updated in this repository by copying their sources directories to the TSC repository. The repository can be found [here](https://github.com/apple/swift-tools-support-core).

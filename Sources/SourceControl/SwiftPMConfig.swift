@@ -10,8 +10,8 @@
 
 import Foundation
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 
 // FIXME: We may want to move this class to some other layer once we start
 // supporting more things than just mirrors.

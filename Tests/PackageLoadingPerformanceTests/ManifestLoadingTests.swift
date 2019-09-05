@@ -10,8 +10,8 @@
 
 import XCTest
 
-import Basic
-import TestSupport
+import TSCBasic
+import SPMTestSupport
 import PackageLoading
 
 class ManifestLoadingPerfTests: XCTestCasePerf {

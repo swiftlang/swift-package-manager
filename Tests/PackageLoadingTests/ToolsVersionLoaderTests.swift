@@ -10,12 +10,12 @@
 
 import XCTest
 
-import Basic
-import TestSupport
+import TSCBasic
+import SPMTestSupport
 
 import PackageModel
 import PackageLoading
-import SPMUtility
+import TSCUtility
 
 class ToolsVersionLoaderTests: XCTestCase {
 

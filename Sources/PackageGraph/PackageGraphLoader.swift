@@ -8,11 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
+import TSCBasic
 import SourceControl
 import PackageLoading
 import PackageModel
-import SPMUtility
+import TSCUtility
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no targets.

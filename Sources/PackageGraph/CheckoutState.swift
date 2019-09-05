@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
+import TSCBasic
 import SourceControl
-import SPMUtility
+import TSCUtility
 
 /// A checkout state represents the current state of a repository.
 ///

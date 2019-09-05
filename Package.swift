@@ -3,7 +3,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -23,10 +23,10 @@ let package = Package(
             name: "SwiftPM",
             type: .dynamic,
             targets: [
-                "clibc",
-                "SPMLibc",
-                "Basic",
-                "SPMUtility",
+                "TSCclibc",
+                "TSCLibc",
+                "TSCBasic",
+                "TSCUtility",
                 "SourceControl",
                 "SPMLLBuild",
                 "PackageModel",
@@ -40,10 +40,10 @@ let package = Package(
         .library(
             name: "SwiftPM-auto",
             targets: [
-                "clibc",
-                "SPMLibc",
-                "Basic",
-                "SPMUtility",
+                "TSCclibc",
+                "TSCLibc",
+                "TSCBasic",
+                "TSCUtility",
                 "SourceControl",
                 "SPMLLBuild",
                 "PackageModel",
@@ -61,12 +61,12 @@ let package = Package(
         // APIs are implementation details of the package manager. Depend on it
         // at your own risk.
         .library(
-            name: "SPMUtility",
+            name: "TSCUtility",
             targets: [
-                "clibc",
-                "SPMLibc",
-                "Basic",
-                "SPMUtility",
+                "TSCclibc",
+                "TSCLibc",
+                "TSCBasic",
+                "TSCUtility",
             ]
         ),
     ],
@@ -78,72 +78,76 @@ let package = Package(
             name: "PackageDescription4",
             dependencies: []),
 
-        // MARK: Support libraries
+        // MARK: Tools support core targets
+        // keep up to date with https://github.com/apple/swift-tools-support-core
 
         .target(
             /** Shim target to import missing C headers in Darwin and Glibc modulemap. */
-            name: "clibc",
+            name: "TSCclibc",
             dependencies: []),
         .target(
             /** Cross-platform access to bare `libc` functionality. */
-            name: "SPMLibc",
-            dependencies: ["clibc"]),
+            name: "TSCLibc",
+            dependencies: ["TSCclibc"]),
         .target(
-            /** Basic support library */
-            name: "Basic",
-            dependencies: ["SPMLibc"]),
+            /** TSCBasic support library */
+            name: "TSCBasic",
+            dependencies: ["TSCLibc"]),
         .target(
-            /** Abstractions for common operations, should migrate to Basic */
-            name: "SPMUtility",
-            dependencies: ["Basic"]),
+            /** Abstractions for common operations, should migrate to TSCBasic */
+            name: "TSCUtility",
+            dependencies: ["TSCBasic"]),
+        
+        // MARK: SwiftPM specific support libraries
+        
         .target(
             /** Source control operations */
             name: "SourceControl",
-            dependencies: ["Basic", "SPMUtility"]),
+            dependencies: ["TSCBasic", "TSCUtility"]),
         .target(
             /** Shim for llbuild library */
             name: "SPMLLBuild",
-            dependencies: ["Basic", "SPMUtility"]),
+            dependencies: ["TSCBasic", "TSCUtility"]),
 
         // MARK: Project Model
 
         .target(
             /** Primitive Package model objects */
             name: "PackageModel",
-            dependencies: ["Basic", "SPMUtility"]),
+            dependencies: ["TSCBasic", "TSCUtility"]),
         .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
-            dependencies: ["Basic", "PackageModel", "SPMUtility", "SPMLLBuild"]),
+            dependencies: ["TSCBasic", "PackageModel", "TSCUtility", "SPMLLBuild"]),
 
         // MARK: Package Dependency Resolution
 
         .target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
-            dependencies: ["Basic", "PackageLoading", "PackageModel", "SourceControl", "SPMUtility"]),
+            dependencies: ["TSCBasic", "PackageLoading", "PackageModel", "SourceControl", "TSCUtility"]),
 
         // MARK: Package Manager Functionality
 
         .target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["Basic", "PackageGraph"]),
+            dependencies: ["TSCBasic", "PackageGraph"]),
         .target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
-            dependencies: ["Basic", "PackageGraph"]),
+            dependencies: ["TSCBasic", "PackageGraph"]),
         .target(
             /** High level functionality */
             name: "Workspace",
-            dependencies: ["Basic", "Build", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
+            dependencies: ["TSCBasic", "Build", "PackageGraph", "PackageModel", "SourceControl", "TSCUtility", "Xcodeproj"]),
 
         // MARK: Commands
 
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["Basic", "Build", "PackageGraph", "SourceControl", "SPMUtility", "Xcodeproj", "Workspace"]),
+            dependencies: ["TSCBasic", "Build", "PackageGraph", "SourceControl", "TSCUtility", "Xcodeproj", "Workspace"]),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -168,66 +172,76 @@ let package = Package(
         // MARK: Additional Test Dependencies
 
         .target(
-            /** Test support library */
-            name: "TestSupport",
-            dependencies: ["Basic", "PackageGraph", "PackageLoading", "SourceControl", "SPMUtility", "Commands"]),
+            /** Generic test support library */
+            name: "TSCTestSupport",
+            dependencies: ["TSCBasic", "TSCUtility"]),
         .target(
             /** Test support executable */
-            name: "TestSupportExecutable",
-            dependencies: ["Basic", "SPMUtility"]),
+            name: "TSCTestSupportExecutable",
+            dependencies: ["TSCBasic", "TSCUtility"]),
+        .target(
+            /** SwiftPM test support library */
+            name: "SPMTestSupport",
+            dependencies: ["TSCTestSupport", "PackageGraph", "PackageLoading", "SourceControl", "Commands"]),
 
+        // MARK: Tools support core tests
+        // keep up to date with https://github.com/apple/swift-tools-support-core
+        
         .testTarget(
-            name: "BasicTests",
-            dependencies: ["TestSupport", "TestSupportExecutable"]),
+            name: "TSCBasicTests",
+            dependencies: ["TSCTestSupport", "TSCTestSupportExecutable"]),
         .testTarget(
-            name: "BasicPerformanceTests",
-            dependencies: ["Basic", "TestSupport"]),
+            name: "TSCBasicPerformanceTests",
+            dependencies: ["TSCBasic", "TSCTestSupport"]),
+        .testTarget(
+            name: "TSCTestSupportTests",
+            dependencies: ["TSCTestSupport"]),
+        .testTarget(
+            name: "TSCUtilityTests",
+            dependencies: ["TSCUtility", "TSCTestSupport", "TSCTestSupportExecutable"]),
+        
+        // MARK: SwiftPM tests
+        
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "TestSupport"]),
+            dependencies: ["Build", "SPMTestSupport"]),
         .testTarget(
             name: "CommandsTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "TestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "SPMTestSupport"]),
         .testTarget(
             name: "WorkspaceTests",
-            dependencies: ["Workspace", "TestSupport"]),
+            dependencies: ["Workspace", "SPMTestSupport"]),
         .testTarget(
             name: "FunctionalTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "Basic", "SPMUtility", "PackageModel", "TestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "TSCBasic", "TSCUtility", "PackageModel", "SPMTestSupport"]),
         .testTarget(
             name: "FunctionalPerformanceTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "TestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "SPMTestSupport"]),
         .testTarget(
             name: "PackageDescription4Tests",
             dependencies: ["PackageDescription4"]),
         .testTarget(
             name: "PackageLoadingTests",
-            dependencies: ["PackageLoading", "TestSupport"],
+            dependencies: ["PackageLoading", "SPMTestSupport"],
             exclude: ["Inputs"]),
         .testTarget(
             name: "PackageLoadingPerformanceTests",
-            dependencies: ["PackageLoading", "TestSupport"]),
+            dependencies: ["PackageLoading", "SPMTestSupport"]),
         .testTarget(
             name: "PackageModelTests",
             dependencies: ["PackageModel"]),
         .testTarget(
             name: "PackageGraphTests",
-            dependencies: ["PackageGraph", "TestSupport"]),
+            dependencies: ["PackageGraph", "SPMTestSupport"]),
         .testTarget(
             name: "PackageGraphPerformanceTests",
-            dependencies: ["PackageGraph", "TestSupport"]),
+            dependencies: ["PackageGraph", "SPMTestSupport"]),
         .testTarget(
             name: "SourceControlTests",
-            dependencies: ["SourceControl", "TestSupport"]),
-        .testTarget(
-            name: "TestSupportTests",
-            dependencies: ["TestSupport"]),
-        .testTarget(
-            name: "UtilityTests",
-            dependencies: ["SPMUtility", "TestSupport", "TestSupportExecutable"]),
+            dependencies: ["SourceControl", "SPMTestSupport"]),
         .testTarget(
             name: "XcodeprojTests",
-            dependencies: ["Xcodeproj", "TestSupport"]),
+            dependencies: ["Xcodeproj", "SPMTestSupport"]),
     ],
     swiftLanguageVersions: [.v4_2]
 )
@@ -262,7 +276,7 @@ if ProcessInfo.processInfo.environment["SWIFTPM_BUILD_PACKAGE_EDITOR"] != nil {
     package.targets += [
         .target(name: "SPMPackageEditor", dependencies: ["Workspace", "SwiftSyntax"]),
         .target(name: "swiftpm-manifest-tool", dependencies: ["SPMPackageEditor"]),
-        .testTarget(name: "SPMPackageEditorTests", dependencies: ["SPMPackageEditor", "TestSupport"]),
+        .testTarget(name: "SPMPackageEditorTests", dependencies: ["SPMPackageEditor", "SPMTestSupport"]),
     ]
     package.dependencies += [
         .package(path: "../swift-syntax"),
