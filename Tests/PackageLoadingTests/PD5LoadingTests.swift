@@ -371,7 +371,7 @@ class PackageDescription5LoadingTests: XCTestCase {
     }
 
     func testInvalidBuildSettings() throws {
-        let stream = BufferedOutputByteStream()
+        var stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
             let package = Package(
@@ -392,6 +392,27 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTFail("Unexpected success")
         } catch ManifestParseError.runtimeManifestErrors(let errors) {
             XCTAssertEqual(errors, ["the build setting 'headerSearchPath' contains invalid component(s): $(BYE) $(SRCROOT) $(HELLO)"])
+        }
+
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "Foo",
+                       cSettings: []
+                   ),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch ManifestParseError.runtimeManifestErrors(let errors) {
+            XCTAssertEqual(errors, ["cSettings cannot be an empty array; provide at least one setting or remove it"])
         }
     }
 }

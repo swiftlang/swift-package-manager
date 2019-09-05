@@ -108,17 +108,17 @@ extension ManifestBuilder {
         for tool in TargetBuildSettingDescription.Tool.allCases {
             let key = tool.rawValue + "Settings"
             if let settingsJSON = try? json.getJSON(key) {
-                settings += try parseBuildSettings(settingsJSON, tool: tool)
+                settings += try parseBuildSettings(settingsJSON, tool: tool, settingName: key)
             }
         }
         return settings
     }
 
-    func parseBuildSettings(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> [TargetBuildSettingDescription.Setting] {
+    func parseBuildSettings(_ json: JSON, tool: TargetBuildSettingDescription.Tool, settingName: String) throws -> [TargetBuildSettingDescription.Setting] {
 
         let declaredSettings = try json.getArray()
         if declaredSettings.isEmpty {
-            throw ManifestParseError.runtimeManifestErrors(["empty list not supported"])
+            throw ManifestParseError.runtimeManifestErrors(["\(settingName) cannot be an empty array; provide at least one setting or remove it"])
         }
 
         return try declaredSettings.map({
