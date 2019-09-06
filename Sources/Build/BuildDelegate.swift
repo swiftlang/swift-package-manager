@@ -77,7 +77,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         assert(tool is TestDiscoveryTool, "Unexpected tool \(tool)")
 
         let index = ctx.buildParameters.indexStore
-        let api = try ctx.indexStoreAPI.dematerialize()
+        let api = try ctx.indexStoreAPI.get()
         let store = try IndexStore.open(store: index, api: api)
 
         // FIXME: We can speed this up by having one llbuild command per object file.

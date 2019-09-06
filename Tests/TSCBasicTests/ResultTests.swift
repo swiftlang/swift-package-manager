@@ -24,55 +24,10 @@ private enum OtherDummyError: Swift.Error {
 
 class ResultTests: XCTestCase {
 
-    func testBasics() throws {
-
-        func doSomething(right: Bool) -> Result<String, DummyError> {
-            if right {
-                return Result("All OK.")
-            }
-            return Result(DummyError.somethingWentWrong)
-        }
-        // Success.
-        switch doSomething(right: true) {
-        case .success(let string):
-            XCTAssertEqual(string, "All OK.")
-        case .failure(let error):
-            XCTFail("Unexpected failure: \(error)")
-        }
-
-        // Error.
-        switch doSomething(right: false) {
-        case .success(let string):
-            XCTFail("Unexpected success: \(string)")
-        case .failure(let error):
-            XCTAssertEqual(error, DummyError.somethingWentWrong)
-        }
-
-        // Test dematerialize.
-        XCTAssertEqual(try doSomething(right: true).dematerialize(), "All OK.")
-        do {
-            _ = try doSomething(right: false).dematerialize()
-            XCTFail("Unexpected success")
-        } catch DummyError.somethingWentWrong {}
-
-        func should(`throw`: Bool) throws -> Int {
-            if `throw` {
-                throw DummyError.somethingWentWrong
-            }
-            return 1
-        }
-
-        // Test closure.
-        let result: Result<Int, DummyError> = try Result {
-            return try should(throw: false)
-        }
-        XCTAssertEqual(try result.dematerialize(), 1)
-    }
-
     func testAnyError() {
         func doSomething(right: Bool) -> Result<String, AnyError> {
             if right {
-                return Result("All OK.")
+                return .success("All OK.")
             }
             return Result(DummyError.somethingWentWrong)
         }
@@ -123,14 +78,6 @@ class ResultTests: XCTestCase {
         }
     }
 
-    func testMap() throws {
-        XCTAssertEqual(try Result<String, DummyError>("Hello").map { $0 + " World" }.dematerialize(), "Hello World")
-
-        XCTAssertThrows(DummyError.somethingWentWrong) {
-            _ = try Result<String, DummyError>(.somethingWentWrong).map { $0 + " World" }.dematerialize()
-        }
-    }
-
     func testMapAny() throws {
         func throwing(_ shouldThrow: Bool) throws -> String {
             if shouldThrow {
@@ -140,11 +87,11 @@ class ResultTests: XCTestCase {
         }
 
         // We should be able to map when we have value in result and our closure doesn't throw.
-        let success = Result<String, AnyError>("Hello").mapAny { value -> String in
+        let success = Result<String, AnyError>.success("Hello").mapAny { value -> String in
             let second = try throwing(false)
             return value + second
         }
-        XCTAssertEqual(try success.dematerialize(), "Hello World")
+        XCTAssertEqual(try success.get(), "Hello World")
 
         // We don't have a value, closure shouldn't matter.
         let failure1 = Result<String, AnyError>(DummyError.somethingWentWrong).mapAny { value -> String in
@@ -152,40 +99,16 @@ class ResultTests: XCTestCase {
             return value + second
         }
         XCTAssertThrowsAny(DummyError.somethingWentWrong) {
-            _ = try failure1.dematerialize()
+            _ = try failure1.get()
         }
 
         // We have a value, but our closure throws.
-        let failure2 = Result<String, AnyError>("Hello").mapAny { value -> String in
+        let failure2 = Result<String, AnyError>.success("Hello").mapAny { value -> String in
             let second = try throwing(true)
             return value + second
         }
         XCTAssertThrowsAny(DummyError.somethingWentWrong) {
-            _ = try failure2.dematerialize()
-        }
-    }
-
-    func testFlatMap() throws {
-        XCTAssertEqual(try Result<String, DummyError>("Hello").flatMap { .success($0.utf8.count ) }.dematerialize(), 5)
-
-        XCTAssertThrows(DummyError.somethingWentWrong) {
-            _ = try Result<String, DummyError>.failure(.somethingWentWrong).flatMap { .success($0 + " World") }.dematerialize()
-        }
-
-        XCTAssertThrows(DummyError.somethingWentWrong) {
-            _ = try Result<String, DummyError>.failure(.somethingWentWrong).flatMap { (x: String) -> Result<String, DummyError> in
-                XCTFail("should not be executed")
-                return .success(x + " World")
-            }.dematerialize()
-        }
-
-        XCTAssertThrows(DummyError.somethingWentWrong) {
-            _ = try Result<String, DummyError>("Hello").flatMap { String -> Result<Int, DummyError> in .failure(.somethingWentWrong) }.dematerialize()
-        }
-
-        XCTAssertThrows(OtherDummyError.somethingElseWentWrong) {
-            _ = try Result<String, OtherDummyError>.failure(.somethingElseWentWrong)
-                .flatMap { String -> Result<String, OtherDummyError> in .failure(.andYetAnotherThingToGoWrong) }.dematerialize()
+            _ = try failure2.get()
         }
     }
 }

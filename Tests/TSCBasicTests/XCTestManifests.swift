@@ -344,9 +344,6 @@ extension ResultTests {
     // to regenerate.
     static let __allTests__ResultTests = [
         ("testAnyError", testAnyError),
-        ("testBasics", testBasics),
-        ("testFlatMap", testFlatMap),
-        ("testMap", testMap),
         ("testMapAny", testMapAny),
     ]
 }

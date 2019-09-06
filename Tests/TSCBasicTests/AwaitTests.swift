@@ -21,7 +21,7 @@ class AwaitTests: XCTestCase {
 
     func async(_ param: String, _ completion: @escaping (Result<String, AnyError>) -> Void) {
         DispatchQueue.global().async {
-            completion(Result(param))
+            completion(.success(param))
         }
     }
 

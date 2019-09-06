@@ -41,7 +41,7 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
         case (.unsatisfiable, _):
             return false
         case (.cycle(let lhs), .cycle(let rhs)):
-            return lhs == rhs 
+            return lhs == rhs
         case (.cycle, _):
             return false
         case (.incompatibleConstraints(let lDependency, let lRevisions),
@@ -168,7 +168,7 @@ public protocol PackageContainer {
     /// Get the list of versions which are available for the package.
     ///
     /// The list will be returned in sorted order, with the latest version *first*.
-    /// All versions will not be requested at once. Resolver will request the next one only 
+    /// All versions will not be requested at once. Resolver will request the next one only
     /// if the previous one did not satisfy all constraints.
     func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version>
 
@@ -749,7 +749,7 @@ public class DependencyResolver {
 
     /// Cache for subtree resolutions.
     private var _resolveSubtreeCache: [ResolveSubtreeCacheKey: AnySequence<VersionAssignmentSet>] = [:]
-    
+
     /// Puts the resolver in incomplete mode.
     ///
     /// In this mode, no new containers will be requested from the provider.
@@ -952,7 +952,7 @@ public class DependencyResolver {
         if allExclusions.isEmpty, let assignments = _resolveSubtreeCache[cacheKey] {
             return assignments
         }
-        
+
         func validVersions(_ container: Container, in versionSet: VersionSetSpecifier) -> AnySequence<Version> {
             let exclusions = allExclusions[container.identifier] ?? Set()
             return AnySequence(container.versions(filter: {
@@ -1201,13 +1201,13 @@ public class DependencyResolver {
     public var containers: [PackageReference: Container] {
         return fetchCondition.whileLocked({
             _fetchedContainers.spm_flatMapValues({
-                try? $0.dematerialize()
+                try? $0.get()
             })
         })
     }
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [PackageReference: TSCBasic.Result<Container, AnyError>] = [:]
+    private var _fetchedContainers: [PackageReference: Swift.Result<Container, AnyError>] = [:]
 
     /// The set of containers requested so far.
     private var _prefetchingContainers: Set<PackageReference> = []
@@ -1217,7 +1217,7 @@ public class DependencyResolver {
         return try fetchCondition.whileLocked {
             // Return the cached container, if available.
             if let container = _fetchedContainers[identifier] {
-                return try container.dematerialize()
+                return try container.get()
             }
 
             // If this container is being prefetched, wait for that to complete.
@@ -1227,12 +1227,12 @@ public class DependencyResolver {
 
             // The container may now be available in our cache if it was prefetched.
             if let container = _fetchedContainers[identifier] {
-                return try container.dematerialize()
+                return try container.get()
             }
 
             // Otherwise, fetch the container synchronously.
             let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
-            self._fetchedContainers[identifier] = TSCBasic.Result(container)
+            self._fetchedContainers[identifier] = .success(container)
             return container
         }
     }

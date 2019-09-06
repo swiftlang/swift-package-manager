@@ -2042,6 +2042,6 @@ public final class LoadableResult<Value> {
 
     /// Load and return the value.
     public func load() throws -> Value {
-        return try loadResult().dematerialize()
+        return try loadResult().get()
     }
 }

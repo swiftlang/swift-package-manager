@@ -438,7 +438,7 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     func getSwiftPMConfig() throws -> SwiftPMConfig {
-        return try _swiftpmConfig.dematerialize()
+        return try _swiftpmConfig.get()
     }
     private lazy var _swiftpmConfig: Result<SwiftPMConfig, AnyError> = {
         return Result(anyError: { SwiftPMConfig(path: try configFilePath()) })
@@ -561,11 +561,11 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Returns the user toolchain to compile the actual product.
     func getToolchain() throws -> UserToolchain {
-        return try _destinationToolchain.dematerialize()
+        return try _destinationToolchain.get()
     }
 
     func getManifestLoader() throws -> ManifestLoader {
-        return try _manifestLoader.dematerialize()
+        return try _manifestLoader.get()
     }
 
     private func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String {
@@ -712,7 +712,7 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Return the build parameters.
     func buildParameters() throws -> BuildParameters {
-        return try _buildParameters.dematerialize()
+        return try _buildParameters.get()
     }
     private lazy var _buildParameters: Result<BuildParameters, AnyError> = {
         return Result(anyError: {
@@ -759,7 +759,7 @@ public class SwiftTool<Options: ToolOptions> {
         return Result(anyError: {
             try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
-                manifestResources: self._hostToolchain.dematerialize().manifestResources,
+                manifestResources: self._hostToolchain.get().manifestResources,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
                 cacheDir: self.options.shouldDisableManifestCaching ? nil : self.buildPath
             )

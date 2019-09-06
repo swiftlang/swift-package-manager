@@ -432,7 +432,7 @@ public class GitRepository: Repository, WorkingCheckout {
                 ]
                 let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
                 let result = try Process.popen(arguments: argsWithSh)
-                let output = try result.output.dematerialize()
+                let output = try result.output.get()
 
                 let outputs: [String] = output.split(separator: 0).map({ String(decoding: $0, as: Unicode.UTF8.self) })
 
