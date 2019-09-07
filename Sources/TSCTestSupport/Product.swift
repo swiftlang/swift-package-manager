@@ -97,6 +97,9 @@ extension Product {
         environment["SWIFTPM_TESTS_MODULECACHE"] = self.path.parentDirectory.pathString
         environment["SDKROOT"] = nil
 
+        // Unset the internal env variable that allows skipping certain tests.
+        environment["_SWIFTPM_SKIP_TESTS_LIST"] = nil
+
         var completeArgs = [path.pathString]
         if let packagePath = packagePath {
             completeArgs += ["--package-path", packagePath.pathString]
