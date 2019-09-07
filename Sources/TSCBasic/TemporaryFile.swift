@@ -45,14 +45,23 @@ private extension TempFileError {
 ///
 /// - Returns: Path to directory in which temporary file should be created.
 public func determineTempDirectory(_ dir: AbsolutePath? = nil) throws -> AbsolutePath {
-    // FIXME: Add other platform specific locations.
-    let tmpDir = dir ?? AbsolutePath(NSTemporaryDirectory())
+    let tmpDir = dir ?? cachedTempDirectory
     guard localFileSystem.isDirectory(tmpDir) else {
         throw TempFileError.couldNotFindTmpDir
     }
     return tmpDir
 }
 
+/// Returns temporary directory location by searching relevant env variables.
+///
+/// Evaluates once per execution.
+private var cachedTempDirectory: AbsolutePath = {
+    let override = ProcessEnv.vars["TMPDIR"] ?? ProcessEnv.vars["TEMP"] ?? ProcessEnv.vars["TMP"]
+    if let path = override.flatMap({ try? AbsolutePath(validating: $0) }) {
+        return path
+    }
+    return AbsolutePath(NSTemporaryDirectory())
+}()
 
 /// The closure argument of the `body` closue of `withTemporaryFile`.
 public struct TemporaryFile {
