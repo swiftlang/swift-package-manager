@@ -507,19 +507,31 @@ public final class SwiftTargetBuildDescription {
     /// True if this is the test discovery target.
     public let testDiscoveryTarget: Bool
 
+    /// The filesystem to operate on.
+    let fs: FileSystem
+
+    /// The modulemap file for this target, if any.
+    private(set) var moduleMap: AbsolutePath?
+
     /// Create a new target description with target and build parameters.
     init(
         target: ResolvedTarget,
         buildParameters: BuildParameters,
         isTestTarget: Bool? = nil,
-        testDiscoveryTarget: Bool = false
-    ) {
+        testDiscoveryTarget: Bool = false,
+        fs: FileSystem = localFileSystem
+    ) throws {
         assert(target.underlyingTarget is SwiftTarget, "underlying target type mismatch \(target)")
         self.target = target
         self.buildParameters = buildParameters
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
         self.isTestTarget = isTestTarget ?? (target.type == .test)
         self.testDiscoveryTarget = testDiscoveryTarget
+        self.fs = fs
+
+        if shouldEmitObjCCompatibilityHeader {
+            self.moduleMap = try self.generateModuleMap()
+        }
     }
 
     /// The arguments needed to compile this target.
@@ -548,6 +560,11 @@ public final class SwiftTargetBuildDescription {
         args += buildParameters.sanitizers.compileSwiftFlags()
         args += ["-parseable-output"]
 
+        // Emit the ObjC compatibility header if enabled.
+        if shouldEmitObjCCompatibilityHeader {
+            args += ["-emit-objc-header", "-emit-objc-header-path", objCompatibilityHeaderPath.pathString]
+        }
+
         // Add arguments needed for code coverage if it is enabled.
         if buildParameters.enableCodeCoverage {
             args += ["-profile-coverage-mapping", "-profile-generate"]
@@ -573,6 +590,37 @@ public final class SwiftTargetBuildDescription {
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
         return args
+    }
+
+    /// Returns true if ObjC compatibility header should be emitted.
+    private var shouldEmitObjCCompatibilityHeader: Bool {
+        return buildParameters.triple.isDarwin() && target.type == .library
+    }
+
+    /// Generates the module map for the Swift target and returns its path.
+    private func generateModuleMap() throws -> AbsolutePath {
+        let path = tempsPath.appending(component: moduleMapFilename)
+
+        let stream = BufferedOutputByteStream()
+        stream <<< "module \(target.c99name) {\n"
+        stream <<< "    header \"" <<< objCompatibilityHeaderPath.pathString <<< "\"\n"
+        stream <<< "    requires objc\n"
+        stream <<< "}\n"
+
+        // Return early if the contents are identical.
+        if fs.isFile(path), try fs.readFileContents(path) == stream.bytes {
+            return path
+        }
+
+        try fs.createDirectory(path.parentDirectory, recursive: true)
+        try fs.writeFileContents(path, bytes: stream.bytes)
+
+        return path
+    }
+
+    /// Returns the path to the ObjC compatibility header for this Swift target.
+    var objCompatibilityHeaderPath: AbsolutePath {
+        return tempsPath.appending(component: "\(target.name)-Swift.h")
     }
 
     /// Returns the build flags from the declared build settings.
@@ -937,7 +985,7 @@ public class BuildPlan {
                     throw Error.missingLinuxMain
                 }
 
-                let desc = SwiftTargetBuildDescription(
+                let desc = try SwiftTargetBuildDescription(
                     target: linuxMainTarget,
                     buildParameters: buildParameters,
                     isTestTarget: true
@@ -969,7 +1017,7 @@ public class BuildPlan {
                 dependencies: testProduct.targets.map(ResolvedTarget.Dependency.target)
             )
 
-            let target = SwiftTargetBuildDescription(
+            let target = try SwiftTargetBuildDescription(
                 target: linuxMainTarget,
                 buildParameters: buildParameters,
                 isTestTarget: true,
@@ -1011,7 +1059,7 @@ public class BuildPlan {
 
              switch target.underlyingTarget {
              case is SwiftTarget:
-                 targetMap[target] = .swift(SwiftTargetBuildDescription(target: target, buildParameters: buildParameters))
+                 targetMap[target] = try .swift(SwiftTargetBuildDescription(target: target, buildParameters: buildParameters, fs: fileSystem))
              case is ClangTarget:
                 targetMap[target] = try .clang(ClangTargetBuildDescription(
                     target: target,
@@ -1217,6 +1265,13 @@ public class BuildPlan {
     private func plan(clangTarget: ClangTargetBuildDescription) {
         for dependency in clangTarget.target.recursiveDependencies() {
             switch dependency.underlyingTarget {
+            case is SwiftTarget:
+                if case let .swift(dependencyTargetDescription)? = targetMap[dependency] {
+                    if let moduleMap = dependencyTargetDescription.moduleMap {
+                        clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
+                    }
+                }
+
             case let target as ClangTarget where target.type == .library:
                 // Setup search paths for C dependencies:
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
