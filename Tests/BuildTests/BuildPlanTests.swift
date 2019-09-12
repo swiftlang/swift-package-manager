@@ -311,8 +311,12 @@ final class BuildPlanTests: XCTestCase {
 
         args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=exe",
-            "-I", "/Pkg/Sources/exe/include", "-I", "/Pkg/Sources/lib/include", "-I", "/ExtPkg/Sources/extlib/include",
-            "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
+            "-I", "/Pkg/Sources/exe/include", "-I", "/Pkg/Sources/lib/include",
+            "-fmodule-map-file=/path/to/build/debug/lib.build/module.modulemap",
+            "-I", "/ExtPkg/Sources/extlib/include",
+            "-fmodule-map-file=/path/to/build/debug/extlib.build/module.modulemap",
+            "-fmodules-cache-path=/path/to/build/debug/ModuleCache",
+        ]
         XCTAssertEqual(exe.basicArguments(), args)
         XCTAssertEqual(exe.objects, [AbsolutePath("/path/to/build/debug/exe.build/main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)

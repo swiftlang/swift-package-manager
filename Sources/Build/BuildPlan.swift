@@ -1220,6 +1220,13 @@ public class BuildPlan {
             case let target as ClangTarget where target.type == .library:
                 // Setup search paths for C dependencies:
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
+
+                // Add the modulemap of the dependency if it has one.
+                if case let .clang(dependencyTargetDescription)? = targetMap[dependency] {
+                    if let moduleMap = dependencyTargetDescription.moduleMap {
+                        clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
+                    }
+                }
             case let target as SystemLibraryTarget:
                 clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 clangTarget.additionalFlags += pkgConfig(for: target).cFlags
