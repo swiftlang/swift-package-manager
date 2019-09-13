@@ -1949,7 +1949,9 @@ extension Workspace {
             // annoying. Maybe we should make an SPI on the provider for
             // this?
             let container = try await { containerProvider.getContainer(for: package, skipUpdate: true, completion: $0) } as! RepositoryPackageContainer
-            let tag = container.getTag(for: version)!
+            guard let tag = container.getTag(for: version) else {
+                throw StringError("Internal error: please file a bug at https://bugs.swift.org with this info -- unable to get tag for \(package) \(version); available versions \(container.reversedVersions)")
+            }
             let revision = try container.getRevision(forTag: tag)
             checkoutState = CheckoutState(revision: revision, version: version)
 
