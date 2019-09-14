@@ -27,7 +27,7 @@ final class PkgConfigParserTests: XCTestCase {
                 "exec_prefix": "/usr/local/Cellar/gtk+3/3.18.9",
                 "targets": "quartz",
                 "pcfiledir": parser.pcFile.parentDirectory.pathString,
-                "pc_sysrootdir": Process.env["PKG_CONFIG_PATH"] ?? "/"
+                "pc_sysrootdir": "/"
             ])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk", "cairo", "cairo-gobject", "gdk-pixbuf-2.0", "gio-2.0"])
             XCTAssertEqual(parser.privateDependencies, ["atk", "epoxy", "gio-unix-2.0"])
@@ -38,7 +38,12 @@ final class PkgConfigParserTests: XCTestCase {
 
     func testEmptyCFlags() {
         try! loadPCFile("empty_cflags.pc") { parser in
-            XCTAssertEqual(parser.variables, ["prefix": "/usr/local/bin", "exec_prefix": "/usr/local/bin", "pcfiledir": parser.pcFile.parentDirectory.pathString])
+            XCTAssertEqual(parser.variables, [
+                "prefix": "/usr/local/bin",
+                "exec_prefix": "/usr/local/bin",
+                "pcfiledir": parser.pcFile.parentDirectory.pathString,
+                "pc_sysrootdir": "/"
+            ])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk"])
             XCTAssertEqual(parser.cFlags, [])
             XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lgtk-3"])
@@ -47,7 +52,13 @@ final class PkgConfigParserTests: XCTestCase {
 
     func testVariableinDependency() {
         try! loadPCFile("deps_variable.pc") { parser in
-            XCTAssertEqual(parser.variables, ["prefix": "/usr/local/bin", "exec_prefix": "/usr/local/bin", "my_dep": "atk", "pcfiledir": parser.pcFile.parentDirectory.pathString])
+            XCTAssertEqual(parser.variables, [
+                "prefix": "/usr/local/bin", 
+                "exec_prefix": "/usr/local/bin", 
+                "my_dep": "atk", 
+                "pcfiledir": parser.pcFile.parentDirectory.pathString,
+                "pc_sysrootdir": "/"
+            ])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk"])
             XCTAssertEqual(parser.cFlags, ["-I"])
             XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lgtk-3"])
@@ -65,7 +76,13 @@ final class PkgConfigParserTests: XCTestCase {
 
     func testEscapedSpaces() {
         try! loadPCFile("escaped_spaces.pc") { parser in
-            XCTAssertEqual(parser.variables, ["prefix": "/usr/local/bin", "exec_prefix": "/usr/local/bin", "my_dep": "atk", "pcfiledir": parser.pcFile.parentDirectory.pathString])
+            XCTAssertEqual(parser.variables, [
+                "prefix": "/usr/local/bin",
+                "exec_prefix": "/usr/local/bin",
+                "my_dep": "atk",
+                "pcfiledir": parser.pcFile.parentDirectory.pathString,
+                "pc_sysrootdir": "/"
+            ])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk"])
             XCTAssertEqual(parser.cFlags, ["-I/usr/local/Wine Cellar/gtk+3/3.18.9/include/gtk-3.0", "-I/after/extra/spaces"])
             XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lgtk 3", "-wantareal\\here", "-one\\", "-two"])
