@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 import PackageModel
 
 extension ManifestBuilder {
@@ -37,15 +37,8 @@ extension ManifestBuilder {
             return nil
         }
 
-        /// Parse the versioned value.
-        let versionedValues = try versionJSON.map({ try VersionedValue(json: $0) })
-
-        return try versionedValues.map { versionedValue in
-            // Validate that this versioned value is supported by the current
-            // manifest version.
-            try versionedValue.validate(for: self.manifestVersion)
-
-            return try SwiftLanguageVersion(string: String(json: versionedValue.value))!
+        return try versionJSON.map {
+            try SwiftLanguageVersion(string: String(json: $0))!
         }
     }
 
@@ -54,12 +47,8 @@ extension ManifestBuilder {
             return []
         }
 
-        /// Ensure that platforms API is used in the right manifest version.
-        let versionedPlatforms = try VersionedValue(json: platformsJSON)
-        try versionedPlatforms.validate(for: self.manifestVersion)
-
         // Get the declared platform list.
-        let declaredPlatforms = try versionedPlatforms.value.getArray()
+        let declaredPlatforms = try platformsJSON.getArray()
 
         // Empty list is not supported.
         if declaredPlatforms.isEmpty {
@@ -72,12 +61,7 @@ extension ManifestBuilder {
         for platformJSON in declaredPlatforms {
             // Parse the version and validate that it can be used in the current
             // manifest version.
-            let versionJSON = try platformJSON.getJSON("version")
-            let versionedVersion = try VersionedValue(json: versionJSON)
-            try versionedVersion.validate(for: self.manifestVersion)
-
-            // Get the actual value of the version.
-            let version = try String(json: versionedVersion.value)
+            let version: String = try platformJSON.get("version")
 
             // Get the platform name.
             let platformName: String = try platformJSON.getJSON("platform").get("name")
@@ -131,10 +115,8 @@ extension ManifestBuilder {
     }
 
     func parseBuildSettings(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> [TargetBuildSettingDescription.Setting] {
-        let versionedValue = try VersionedValue(json: json)
-        try versionedValue.validate(for: self.manifestVersion)
 
-        let declaredSettings = try versionedValue.value.getArray()
+        let declaredSettings = try json.getArray()
         if declaredSettings.isEmpty {
             throw ManifestParseError.runtimeManifestErrors(["empty list not supported"])
         }
@@ -153,12 +135,26 @@ extension ManifestBuilder {
             condition = try parseCondition(conditionJSON)
         }
 
+        let value = try json.get([String].self, forKey: "value")
+
+        // Diagnose invalid values.
+        for item in value {
+            let groups = Self.invalidValueRegex.matchGroups(in: item).flatMap{ $0 }
+            if !groups.isEmpty {
+                let error = "the build setting '\(name)' contains invalid component(s): \(groups.joined(separator: " "))"
+                throw ManifestParseError.runtimeManifestErrors([error])
+            }
+        }
+
         return .init(
             tool: tool, name: name,
-            value: try json.get("value"),
+            value: value,
             condition: condition
         )
     }
+
+    /// Looks for Xcode-style build setting macros "$()".
+    private static let invalidValueRegex = try! RegEx(pattern: #"(\$\(.*?\))"#)
 
     func parseCondition(_ json: JSON) throws -> TargetBuildSettingDescription.Condition {
         let platformNames: [String]? = try? json.getArray("platforms").map({ try $0.get("name") })
@@ -166,29 +162,6 @@ extension ManifestBuilder {
             platformNames: platformNames ?? [],
             config: try? json.get("config").get("config")
         )
-    }
-}
-
-struct VersionedValue: JSONMappable {
-    let supportedVersions: [ManifestVersion]
-    let value: JSON
-    let api: String
-
-    init(json: JSON) throws {
-        self.api = try json.get(String.self, forKey: "api")
-        self.value = try json.getJSON("value")
-
-        let supportedVersionsJSON = try json.get([String].self, forKey: "supportedVersions")
-        self.supportedVersions = supportedVersionsJSON.map({ ManifestVersion(rawValue: $0)! })
-    }
-
-    func validate(for manifestVersion: ManifestVersion) throws {
-        if !supportedVersions.contains(manifestVersion) {
-            throw ManifestParseError.unsupportedAPI(
-                api: api,
-                supportedVersions: supportedVersions
-            )
-        }
     }
 }
 

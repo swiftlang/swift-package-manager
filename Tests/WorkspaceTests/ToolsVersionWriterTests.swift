@@ -10,7 +10,7 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import PackageModel
 import Workspace
 

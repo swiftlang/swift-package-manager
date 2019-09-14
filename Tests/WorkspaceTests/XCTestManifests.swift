@@ -6,6 +6,7 @@ extension InitTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__InitTests = [
+        ("testInitManifest", testInitManifest),
         ("testInitPackageEmpty", testInitPackageEmpty),
         ("testInitPackageExecutable", testInitPackageExecutable),
         ("testInitPackageLibrary", testInitPackageLibrary),
@@ -56,6 +57,7 @@ extension WorkspaceTests {
         ("testDuplicateRootPackages", testDuplicateRootPackages),
         ("testEditDependency", testEditDependency),
         ("testForceResolveToResolvedVersions", testForceResolveToResolvedVersions),
+        ("testForceResolveToResolvedVersionsLocalPackage", testForceResolveToResolvedVersionsLocalPackage),
         ("testGraphRootDependencies", testGraphRootDependencies),
         ("testInterpreterFlags", testInterpreterFlags),
         ("testIsResolutionRequired", testIsResolutionRequired),
@@ -73,13 +75,17 @@ extension WorkspaceTests {
         ("testResolve", testResolve),
         ("testResolvedFileUpdate", testResolvedFileUpdate),
         ("testResolverCanHaveError", testResolverCanHaveError),
+        ("testRevisionDepOnLocal", testRevisionDepOnLocal),
         ("testRevisionVersionSwitch", testRevisionVersionSwitch),
         ("testRootAsDependency1", testRootAsDependency1),
         ("testRootAsDependency2", testRootAsDependency2),
         ("testRootPackagesOverride", testRootPackagesOverride),
+        ("testRootPackagesOverrideBasenameMismatch", testRootPackagesOverrideBasenameMismatch),
+        ("testSimpleAPI", testSimpleAPI),
         ("testSkipUpdate", testSkipUpdate),
         ("testToolsVersionRootPackages", testToolsVersionRootPackages),
         ("testTransitiveDependencySwitchWithSameIdentity", testTransitiveDependencySwitchWithSameIdentity),
+        ("testUnsafeFlags", testUnsafeFlags),
         ("testUpdate", testUpdate),
     ]
 }

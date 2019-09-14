@@ -10,8 +10,8 @@
 
 import XCTest
 
-import Basic
-import TestSupport
+import TSCBasic
+import SPMTestSupport
 import PackageLoading
 
 class ManifestLoadingPerfTests: XCTestCasePerf {
@@ -34,7 +34,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
         write(trivialManifest) { path in
             measure {
                 for _ in 0..<N {
-                    let manifest = try! self.manifestLoader.load(package: path, baseURL: "/", manifestVersion: .v4)
+                    let manifest = try! self.manifestLoader.load(package: path, baseURL: "/Trivial", manifestVersion: .v4)
                     XCTAssertEqual(manifest.name, "Trivial")
                 }
             }
@@ -60,7 +60,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
         write(manifest) { path in
             measure {
                 for _ in 0..<N {
-                    let manifest = try! self.manifestLoader.load(package: path, baseURL: "/", manifestVersion: .v4)
+                    let manifest = try! self.manifestLoader.load(package: path, baseURL: "/Trivial", manifestVersion: .v4)
                     XCTAssertEqual(manifest.name, "Foo")
                 }
             }

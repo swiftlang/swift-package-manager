@@ -1,6 +1,6 @@
-import Basic
+import TSCBasic
 import Build
-import SPMUtility
+import TSCUtility
 
 public enum DestinationError: Swift.Error {
     /// Couldn't find the Xcode installation.
@@ -22,7 +22,7 @@ extension DestinationError: CustomStringConvertible {
 }
 
 /// The compilation destination, has information about everything that's required for a certain destination.
-public struct Destination {
+public struct Destination: Encodable {
 
     /// The clang/LLVM triple describing the target OS and architecture.
     ///
@@ -81,16 +81,20 @@ public struct Destination {
     public static func hostDestination(
         _ binDir: AbsolutePath? = nil,
         originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory,
-        environment: [String:String] = Process.env
+        environment: [String:String] = ProcessEnv.vars
     ) throws -> Destination {
         // Select the correct binDir.
-        let binDir = binDir ?? Destination.hostBinDir(
+        var customBinDir: AbsolutePath?
+      #if DEBUG
+        customBinDir = ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"].flatMap{ try? AbsolutePath(validating: $0) }
+      #endif
+        let binDir = customBinDir ?? binDir ?? Destination.hostBinDir(
             originalWorkingDirectory: originalWorkingDirectory)
 
       #if os(macOS)
         // Get the SDK.
         let sdkPath: AbsolutePath
-        if let value = lookupExecutablePath(filename: Process.env["SDKROOT"]) {
+        if let value = lookupExecutablePath(filename: ProcessEnv.vars["SDKROOT"]) {
             sdkPath = value
         } else {
             // No value in env, so search for it.
@@ -127,7 +131,7 @@ public struct Destination {
     }
 
     /// Returns macosx sdk platform framework path.
-    public static func sdkPlatformFrameworkPath(environment: [String:String] = Process.env) -> AbsolutePath? {
+    public static func sdkPlatformFrameworkPath(environment: [String:String] = ProcessEnv.vars) -> AbsolutePath? {
         if let path = _sdkPlatformFrameworkPath {
             return path
         }

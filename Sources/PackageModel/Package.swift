@@ -8,11 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 
 // Re-export Version from PackageModel, since it is a key part of the model.
-@_exported import struct SPMUtility.Version
+@_exported import struct TSCUtility.Version
 
 /// The basic package representation.
 ///
@@ -94,7 +94,7 @@ extension Package.Error: CustomStringConvertible {
    public var description: String {
         switch self {
         case .noManifest(let baseURL, let version):
-            var string = "\(baseURL) has no manifest"
+            var string = "\(baseURL) has no Package.swift manifest"
             if let version = version {
                 string += " for version \(version)"
             }

@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 import Build
 import PackageModel
 
@@ -28,6 +28,9 @@ public class ToolOptions {
 
     /// The custom working directory that the tool should operate in.
     public var packagePath: AbsolutePath?
+
+    /// The path to the file containing multiroot package data. This is currently Xcode's workspace file.
+    public var multirootPackageDataFile: AbsolutePath?
 
     /// Enable prefetching in resolver which will kick off parallel git cloning.
     public var shouldEnableResolverPrefetching = true
@@ -50,9 +53,6 @@ public class ToolOptions {
     /// If should link the Swift stdlib statically.
     public var shouldLinkStaticSwiftStdlib = false
 
-    /// If should enable building with llbuild library.
-    public var shouldEnableLLBuildLibrary = true
-
     /// Skip updating dependencies from their remote during a resolution.
     public var skipDependencyUpdate = false
 
@@ -68,14 +68,23 @@ public class ToolOptions {
     /// The mode to use for indexing-while-building feature.
     public var indexStoreMode: BuildParameters.IndexStoreMode = .auto
 
-    /// Enable the experimental new dependency resolver based on Pubgrub.
-    public var enablePubgrubResolver = false
+    /// Enable the new dependency resolver based on Pubgrub.
+    public var enablePubgrubResolver: Bool = true
 
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     public var shouldEnableParseableModuleInterfaces = false
 
     /// Write dependency resolver trace to a file.
     public var enableResolverTrace = false
+
+    /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
+    public var jobs: UInt32? = nil
+
+    /// Whether to enable test discovery on platforms without Objective-C runtime.
+    public var enableTestDiscovery: Bool = false
+
+    /// Whether to enable llbuild manifest caching.
+    public var enableBuildManifestCaching: Bool = false
 
     public required init() {}
 }

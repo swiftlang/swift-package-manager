@@ -33,15 +33,18 @@ except ImportError:
 import argparse
 import codecs
 import copy
+import distutils.dir_util
+import distutils.file_util
 import errno
 import json
+import multiprocessing
 import os
 import pipes
 import platform
 import re
-import stat
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -117,7 +120,7 @@ def get_current_sha(project_root):
     except:
         return None
 
-g_num_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
+g_num_cpus = multiprocessing.cpu_count()
 g_default_sysroot = None
 if platform.system() == 'Darwin':
     g_platform_path = subprocess.check_output(
@@ -228,6 +231,7 @@ class Target(object):
         link_input_nodes.append(compile_swift_node)
 
         other_args.extend(["-swift-version", "4"])
+        other_args.extend(["-module-cache-path", os.path.join(args.sandbox_path, "ModuleCache")])
         
         print("  %s:" % json.dumps(compile_swift_node), file=output)
         print("    tool: swift-compiler", file=output)
@@ -257,6 +261,7 @@ class Target(object):
             other_args.extend(["-Xcc", "-F" + args.foundation_path])
             import_paths.append(os.path.join(args.foundation_path, "swift"))
         if args.libdispatch_build_dir:
+            import_paths.append(os.path.join(args.libdispatch_build_dir, 'lib'))
             import_paths.append(os.path.join(args.libdispatch_build_dir, "src"))
             import_paths.append(os.path.join(args.libdispatch_build_dir, "src", "swift"))
         if args.libdispatch_source_dir:
@@ -285,6 +290,8 @@ class Target(object):
                                      link_input_nodes, predecessor_node):
 
         common_args = ["-fobjc-arc", "-fmodule-name=%s" % self.module_name()]
+        common_args.extend(["-fmodules-cache-path=%s" % os.path.join(args.sandbox_path, "ModuleCache")])
+
         if platform.system() == 'Darwin':
             common_args.extend(["-arch", "x86_64", "-mmacosx-version-min=10.10"])
 
@@ -303,7 +310,7 @@ class Target(object):
 
             link_input_nodes.append(object_path)
 
-            args = ["clang"]
+            args = [args.clang_path]
             args.extend(common_args)
             args.extend([deps_path, "-c", source,"-o", object_path])
 
@@ -391,7 +398,7 @@ def parse_manifest():
             try:
                 return next(a for a in targets if a.name == targetName)
             except StopIteration:
-                error("Couldn't find target", targetName)
+                error("Couldn't find target %s which is a dependency of %s" % (targetName, target.name))
         target.dependencies = list(map(convert, target.dependencies))
 
     # Construct the dependency graph, and convert each Target's dependencies
@@ -416,7 +423,7 @@ def parse_manifest():
 # Hard-coded target definition.
 g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 g_source_root = os.path.join(g_project_root, "Sources")
-g_ignored_targets = ["swiftpm-xctest-helper", "TestSupport", "TestSupportExecutable"]
+g_ignored_targets = ["swiftpm-xctest-helper", "SPMTestSupport", "TSCTestSupport", "TSCTestSupportExecutable"]
 (targets, products) = parse_manifest()
 product_map = dict((p.name, p) for p in products)
 
@@ -573,8 +580,10 @@ class llbuild(object):
                     link_command.extend(["-L", self.args.foundation_path])
                 if self.args.libdispatch_build_dir:
                     link_command.extend(['-L', self.args.libdispatch_build_dir,
+                                         '-L', os.path.join(self.args.libdispatch_build_dir, 'lib'),
                                          '-Xlinker', '-lBlocksRuntime'])
-                    link_command.extend(["-L", os.path.join(self.args.libdispatch_build_dir, "src")])
+                    link_command.extend(['-L', os.path.join(self.args.libdispatch_build_dir, "src"),
+                                         '-L', os.path.join(self.args.libdispatch_build_dir, 'lib')])
 
                 # Add llbuild link flags.
                 link_command.extend(llbuild_link_args(self.args))
@@ -652,10 +661,10 @@ def process_runtime_libraries(build, args, lib_path):
     runtime_swiftdoc_path = os.path.join(
         lib_path, "PackageDescription.swiftdoc")
 
-    cmd = ["rsync", "-a", module_input_path, runtime_module_path]
-    subprocess.check_call(cmd)
-    cmd = ["rsync", "-a", swiftdoc_input_path, runtime_swiftdoc_path]
-    subprocess.check_call(cmd)
+    distutils.file_util.copy_file(module_input_path, runtime_module_path,
+        update=1)
+    distutils.file_util.copy_file(swiftdoc_input_path, runtime_swiftdoc_path,
+        update=1)
 
     if platform.system() == 'Darwin':
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.dylib")
@@ -663,7 +672,12 @@ def process_runtime_libraries(build, args, lib_path):
                runtime_lib_path,
                "-Xlinker", "-all_load",
                input_lib_path,
+               "-sdk", args.sysroot,
                "-target", "x86_64-apple-macosx10.10"]
+    elif platform.system() == 'Windows':
+        runtime_lib_path = os.path.join(lib_path, "PackageDescription.dll")
+        cmd = [args.swiftc_path, "-emit-library", "-o", runtime_lib_path,
+               "-Xlinker", input_lib_path]
     else:
         # We include an RPATH entry so that the Swift libraries can be found
         # relative to where it will be installed (in 'lib/swift/pm/<version>/...').
@@ -674,10 +688,12 @@ def process_runtime_libraries(build, args, lib_path):
                "-Xlinker", "--no-whole-archive", "-lswiftGlibc",
                "-Xlinker", "-rpath=$ORIGIN/../../linux"]
 
-        # We need to pass one swift file here to bypass the "no input files"
-        # error.
-        tf = tempfile.NamedTemporaryFile(suffix=".swift")
-        cmd += [tf.name]
+    # We need to pass one swift file here to bypass the "no input files"
+    # error.
+    tf = tempfile.NamedTemporaryFile(suffix=".swift")
+    cmd += [tf.name]
+
+    cmd.extend(["-module-cache-path", os.path.join(args.sandbox_path, "ModuleCache")])
 
     subprocess.check_call(cmd)
     return (runtime_module_path, runtime_swiftdoc_path, runtime_lib_path)
@@ -727,6 +743,23 @@ def get_llbuild_source_path():
         return llbuild_path
     note("clone llbuild next to swiftpm directory; see development docs: https://github.com/apple/swift-package-manager/blob/master/Documentation/Development.md#using-trunk-snapshot")
     error("unable to find llbuild source directory at %s" % llbuild_path)
+
+def get_clang_path():
+    try:
+        if os.getenv("CC"):
+            clang_path=os.path.realpath(os.getenv("CC"))
+            return clang_path
+        elif platform.system() == 'Darwin':
+            return subprocess.check_output(["xcrun", "--find", "clang"],
+                stderr=subprocess.PIPE, universal_newlines=True).strip()
+        elif  platform.system() == 'Windows':
+            return subprocess.check_output(["where", "clang"],
+                stderr=subprocess.PIPE, universal_newlines=True).strip()
+        else:
+            return subprocess.check_output(["which", "clang"],
+            universal_newlines=True).strip()
+    except:
+        error("unable to find 'clang' tool for bootstrap build")
 
 def get_swiftc_path():
     try:
@@ -973,6 +1006,7 @@ def main():
 
     if not args.swiftc_path:
         args.swiftc_path = get_swiftc_path()
+    args.clang_path = get_clang_path()
 
     args.swift_stdlib_path = os.path.normpath(
         os.path.join(os.path.dirname(os.path.realpath(args.swiftc_path)), "..",
@@ -1023,11 +1057,14 @@ def main():
             build_target = 'aarch64-unknown-linux'
         else:
             raise SystemExit("ERROR: unsupported machine:",platform.machine())
+    elif platform.system() == 'Windows':
+        build_target = 'x86_64-unknown-windows-msvc'
     else:
-        raise SystemExit("ERROR: unsupported system:",platform.system())
+        raise SystemExit("ERROR: unsupported system:",platform.system(), platform.machine())
 
     build_path = os.path.join(g_project_root, args.build_path)
     sandbox_path = os.path.join(build_path, ".bootstrap")
+    args.sandbox_path = sandbox_path
     target_path = os.path.join(build_path, build_target)
 
     libdir = os.path.join(target_path, "lib")
@@ -1122,6 +1159,7 @@ def main():
     def make_fake_toolchain():
         symlink_force(args.swiftc_path, os.path.join(bindir, "swift"))
         symlink_force(args.swiftc_path, os.path.join(bindir, "swiftc"))
+        symlink_force(args.clang_path, os.path.join(bindir, "clang"))
         symlink_force(args.sbt_path, os.path.join(bindir, "swift-build-tool"))
         symlink_force(os.path.join(sandbox_path, "bin", "swift-build"),
                       bootstrapped_product)
@@ -1141,21 +1179,29 @@ def main():
             mkdir_p(libswiftdir)
             mkdir_p(libincludedir)
 
-            # Add libFoundation.
-            symlink_force(os.path.join(args.foundation_path, 'libFoundation.so'), libswiftdir)
+            for module in ["Foundation", "FoundationNetworking", "FoundationXML"]:
+                # Add the library.
+                symlink_force(os.path.join(args.foundation_path, 'lib' + module + '.so'), libswiftdir)
 
-            # Add Foundation's swiftmodule.
-            for module_file in ["Foundation.swiftmodule", "Foundation.swiftdoc"]:
-                symlink_force(os.path.join(args.foundation_path, 'swift', module_file), libincludedir)
+                # Add Foundation's swiftmodule.
+                for extension in [".swiftmodule", ".swiftdoc"]:
+                    symlink_force(os.path.join(args.foundation_path, 'swift', module + extension), libincludedir)
 
             # Add CoreFoundation "framework". This just contains the header and the modulemap.
             core_foundation_path = os.path.join(args.foundation_path,  "CoreFoundation.framework")
             symlink_force(core_foundation_path, libincludedir)
+            cf_url_session_path = os.path.join(args.foundation_path,  "CFURLSessionInterface.framework")
+            symlink_force(cf_url_session_path, libincludedir)
+            cf_xml_path = os.path.join(args.foundation_path,  "CFXMLInterface.framework")
+            symlink_force(cf_xml_path, libincludedir)
 
             # Add symlinks for dispatch.
-            symlink_force(os.path.join(args.libdispatch_build_dir, 'libBlocksRuntime.so'), libswiftdir)
-            symlink_force(os.path.join(args.libdispatch_build_dir, "src", "libdispatch.so"), libswiftdir)
-            symlink_force(os.path.join(args.libdispatch_build_dir, "src", "libswiftDispatch.so"), libswiftdir)
+            for library in ['libBlocksRuntime.so', 'libdispatch.so', 'libswiftDispatch.so']:
+              for subdir in ['lib', 'src', '']:
+                path = os.path.join(args.libdispatch_build_dir, subdir, library)
+                if os.path.exists(path):
+                  symlink_force(path, libswiftdir)
+                  break
 
             # Add swiftmodules.
             for module_file in ["Dispatch.swiftmodule", "Dispatch.swiftdoc"]:
@@ -1165,7 +1211,7 @@ def main():
 
             # Add XCTest.
             for module_file in ["XCTest.swiftmodule", "XCTest.swiftdoc"]:
-                symlink_force(os.path.join(args.xctest_path, module_file), libincludedir)
+                symlink_force(os.path.join(args.xctest_path, 'swift', module_file), libincludedir)
             symlink_force(os.path.join(args.xctest_path, "libXCTest.so"), libswiftdir)
 
             return (libswiftdir, libincludedir)
@@ -1220,14 +1266,17 @@ def main():
         build_flags.extend(["-Xswiftc", "-F%s" % args.llbuild_build_dir])
 
     # Embed rpath to find llbuild library or framework at runtime.
+    llbuild_libs_rpaths = []
     if args.llbuild_link_framework:
-        llbuild_libs_rpath = "@executable_path/../../../../../SharedFrameworks"
+        llbuild_libs_rpaths.append("@executable_path/../../../../../SharedFrameworks")
+        llbuild_libs_rpaths.append("@executable_path/../lib/swift/pm/llbuild")
     else:
         if platform.system() == 'Darwin':
-            llbuild_libs_rpath = "@executable_path/../lib/swift/pm/llbuild"
+            llbuild_libs_rpaths.append("@executable_path/../lib/swift/pm/llbuild")
         else:
-            llbuild_libs_rpath = "$ORIGIN/../lib/swift/pm/llbuild"
-    build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", llbuild_libs_rpath])
+            llbuild_libs_rpaths.append("$ORIGIN/../lib/swift/pm/llbuild")
+    for rpath in llbuild_libs_rpaths:
+        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", rpath])
 
     # Add llbuild link flags.
     build_flags.extend(llbuild_link_args(args))

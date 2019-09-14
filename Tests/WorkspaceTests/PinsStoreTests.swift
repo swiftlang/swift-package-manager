@@ -10,11 +10,11 @@
 
 import XCTest
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 import PackageModel
-import PackageGraph
-import TestSupport
+@testable import PackageGraph
+import SPMTestSupport
 import SourceControl
 @testable import Workspace
 

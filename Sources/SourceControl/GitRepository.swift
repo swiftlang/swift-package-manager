@@ -8,12 +8,24 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import Dispatch
-import SPMUtility
+import TSCUtility
 
-public enum GitRepositoryProviderError: Swift.Error {
-    case gitCloneFailure(errorOutput: String)
+public struct GitCloneError: Swift.Error, CustomStringConvertible {
+
+    /// The repository that was being cloned.
+    public let repository: String
+
+    /// The process result.
+    public let result: ProcessResult
+
+    public var description: String {
+        let stdout = (try? result.utf8Output()) ?? ""
+        let stderr = (try? result.utf8stderrOutput()) ?? ""
+        let output = (stdout + stderr).spm_chomp().spm_multilineIndent(count: 4)
+        return "Failed to clone \(repository):\n\(output)"
+    }
 }
 
 /// A `git` repository provider.
@@ -42,14 +54,16 @@ public class GitRepositoryProvider: RepositoryProvider {
             args: Git.tool, "clone", "--mirror", repository.url, path.pathString, environment: Git.environment)
         // Add to process set.
         try processSet?.add(process)
-        // Launch the process.
+
         try process.launch()
-        // Block until cloning completes.
         let result = try process.waitUntilExit()
+
         // Throw if cloning failed.
         guard result.exitStatus == .terminated(code: 0) else {
-            let errorOutput = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle() ?? ""
-            throw GitRepositoryProviderError.gitCloneFailure(errorOutput: errorOutput)
+            throw GitCloneError(
+                repository: repository.url,
+                result: result
+            )
         }
     }
 
@@ -404,29 +418,29 @@ public class GitRepository: Repository, WorkingCheckout {
         return try queue.sync {
             let stringPaths = paths.map({ $0.pathString })
 
-            let pathsFile = try TemporaryFile()
-            try localFileSystem.writeFileContents(pathsFile.path) {
-                for path in paths {
-                    $0 <<< path.pathString <<< "\0"
+            return try withTemporaryFile { pathsFile in
+                try localFileSystem.writeFileContents(pathsFile.path) {
+                    for path in paths {
+                        $0 <<< path.pathString <<< "\0"
+                    }
                 }
+
+                let args = [
+                    Git.tool, "-C", self.path.pathString.spm_shellEscaped(),
+                    "check-ignore", "-z", "--stdin",
+                    "<", pathsFile.path.pathString.spm_shellEscaped()
+                ]
+                let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
+                let result = try Process.popen(arguments: argsWithSh)
+                let output = try result.output.dematerialize()
+
+                let outputs: [String] = output.split(separator: 0).map({ String(decoding: $0, as: Unicode.UTF8.self) })
+
+                guard result.exitStatus == .terminated(code: 0) || result.exitStatus == .terminated(code: 1) else {
+                    throw GitInterfaceError.fatalError
+                }
+                return stringPaths.map(outputs.contains)
             }
-
-            let args = [
-                Git.tool, "-C", self.path.pathString.spm_shellEscaped(),
-                "check-ignore", "-z", "--stdin",
-                "<", pathsFile.path.pathString.spm_shellEscaped()
-            ]
-            let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
-            let result = try Process.popen(arguments: argsWithSh)
-            let output = try result.output.dematerialize()
-
-            let outputs: [String] = output.split(separator: 0).map({ String(decoding: $0, as: Unicode.UTF8.self) })
-
-            guard result.exitStatus == .terminated(code: 0) || result.exitStatus == .terminated(code: 1) else {
-                throw GitInterfaceError.fatalError
-            }
-
-            return stringPaths.map(outputs.contains)
         }
     }
 
@@ -444,8 +458,10 @@ public class GitRepository: Repository, WorkingCheckout {
             specifier = treeish
         }
         let response = try queue.sync {
-            try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.pathString, "rev-parse", "--verify", specifier).spm_chomp()
+            try cachedHashes.memo(key: specifier) {
+                try Process.checkNonZeroExit(
+                    args: Git.tool, "-C", path.pathString, "rev-parse", "--verify", specifier).spm_chomp()
+            }
         }
         if let hash = Hash(response) {
             return hash
@@ -465,9 +481,11 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Read a tree object.
     func read(tree hash: Hash) throws -> Tree {
         // Get the contents using `ls-tree`.
-        let treeInfo = try queue.sync {
-            try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.pathString, "ls-tree", hash.bytes.description)
+        let treeInfo: String = try queue.sync {
+            try cachedTrees.memo(key: hash) {
+                try Process.checkNonZeroExit(
+                    args: Git.tool, "-C", self.path.pathString, "ls-tree", hash.bytes.description)
+            }
         }
 
         var contents: [Tree.Entry] = []
@@ -518,15 +536,39 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Read a blob object.
     func read(blob hash: Hash) throws -> ByteString {
         return try queue.sync {
-            // Get the contents using `cat-file`.
-            //
-            // FIXME: We need to get the raw bytes back, not a String.
-            let output = try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.pathString, "cat-file", "-p", hash.bytes.description)
-            return ByteString(encodingAsUTF8: output)
+            try cachedBlobs.memo(key: hash) {
+                // Get the contents using `cat-file`.
+                //
+                // FIXME: We need to get the raw bytes back, not a String.
+                let output = try Process.checkNonZeroExit(
+                    args: Git.tool, "-C", path.pathString, "cat-file", "-p", hash.bytes.description)
+                return ByteString(encodingAsUTF8: output)
+            }
         }
     }
+
+    /// Dictionary for memoizing results of git calls that are not expected to change.
+    private var cachedHashes: [String: String] = [:]
+    private var cachedBlobs: [Hash: ByteString] = [:]
+    private var cachedTrees: [Hash: String] = [:]
 }
+
+private extension Dictionary {
+    // Maybe lift to TSCBasic or TSCUtility.
+    /// Memoize the value returned by the given closure.
+    mutating func memo(
+        key: Key,
+        _ closure: () throws -> Value
+    ) rethrows -> Value {
+        if let value = self[key] {
+            return value
+        }
+        let value = try closure()
+        self[key] = value
+        return value
+    }
+}
+
 /// A `git` file system view.
 ///
 /// The current implementation is based on lazily caching data with no eviction
@@ -698,14 +740,5 @@ private class GitFileSystemView: FileSystem {
 
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         throw FileSystemError.unsupported
-    }
-}
-
-extension GitRepositoryProviderError: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .gitCloneFailure(let errorOutput):
-            return "failed to clone; \(errorOutput)"
-        }
     }
 }

@@ -8,20 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 import Xcodeproj
-
-struct WatchmanMissingDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: WatchmanMissingDiagnostic.self,
-        name: "org.swift.diags.watchman-missing",
-        description: {
-            $0 <<< "this feature requires 'watchman' to work"
-            $0 <<< "\n\n    installation instructions for 'watchman' are available at https://facebook.github.io/watchman/docs/install.html#buildinstall"
-        }
-    )
-}
 
 final class WatchmanHelper {
 
@@ -96,7 +85,7 @@ final class WatchmanHelper {
         if let toolPath = Process.findExecutable(WatchmanHelper.watchmanMakeTool) {
             return toolPath
         }
-        diagnostics.emit(data: WatchmanMissingDiagnostic())
+        diagnostics.emit(error: "this feature requires 'watchman' to work\n\n\n    installation instructions for 'watchman' are available at https://facebook.github.io/watchman/docs/install.html#buildinstall")
         throw Diagnostics.fatalError
     }
 }

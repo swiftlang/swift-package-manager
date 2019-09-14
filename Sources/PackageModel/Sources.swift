@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 
 /// A grouping of related source files.
 public struct Sources {
@@ -81,7 +81,7 @@ public enum SupportedLanguageExtension: String {
         switch manifestVersion {
         case .v4, .v4_2:
             return alwaysValidExts
-        case .v5:
+        case .v5, .v5_1:
             return alwaysValidExts.union(assemblyExtensions)
         }
     }

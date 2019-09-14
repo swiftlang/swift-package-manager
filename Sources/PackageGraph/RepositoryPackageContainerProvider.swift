@@ -10,11 +10,11 @@
 
 import Dispatch
 
-import Basic
+import TSCBasic
 import PackageLoading
 import PackageModel
 import SourceControl
-import SPMUtility
+import TSCUtility
 
 /// Adaptor for exposing repositories as PackageContainerProvider instances.
 ///
@@ -135,6 +135,10 @@ public class BasePackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
+    public var reversedVersions: [Version] {
+        fatalError("This should never be called")
+    }
+
     public func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
@@ -151,6 +155,10 @@ public class BasePackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
+    public func isToolsVersionCompatible(at version: Version) -> Bool {
+        fatalError("This should never be called")
+    }
+
     fileprivate init(
         _ identifier: Identifier,
         config: SwiftPMConfig,
@@ -163,6 +171,10 @@ public class BasePackageContainer: PackageContainer {
         self.manifestLoader = manifestLoader
         self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
+    }
+
+    public var _isRemoteContainer: Bool? {
+        return nil
     }
 }
 
@@ -259,7 +271,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     /// The available version list (in reverse order).
     public override func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
-        return AnySequence(reversedVersions.filter(isIncluded).lazy.filter({
+        return AnySequence(_reversedVersions.filter(isIncluded).lazy.filter({
             // If we have the result cached, return that.
             if let result = self.validToolsVersionsCache[$0] {
                 return result
@@ -271,7 +283,9 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             return isValid
         }))
     }
-    
+
+    public override var reversedVersions: [Version] { _reversedVersions }
+
     /// The opened repository.
     let repository: Repository
 
@@ -279,7 +293,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     let knownVersions: [Version: String]
 
     /// The versions in the repository sorted by latest first.
-    let reversedVersions: [Version]
+    let _reversedVersions: [Version]
 
     /// The cached dependency information.
     private var dependenciesCache: [String: (Manifest, [RepositoryPackageConstraint])] = [:]
@@ -310,7 +324,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         })
 
         self.knownVersions = knownVersions
-        self.reversedVersions = [Version](knownVersions.keys).sorted().reversed()
+        self._reversedVersions = [Version](knownVersions.keys).sorted().reversed()
         super.init(
             identifier,
             config: config,
@@ -322,6 +336,10 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     public var description: String {
         return "RepositoryPackageContainer(\(identifier.repository.url.debugDescription))"
+    }
+
+    public override var _isRemoteContainer: Bool? {
+        return true
     }
 
     public func getTag(for version: Version) -> String? {
@@ -391,25 +409,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         at revision: Revision,
         version: Version? = nil
     ) throws -> (Manifest, [RepositoryPackageConstraint]) {
-        let fs = try repository.openFileView(revision: revision)
-
-        let packageURL = identifier.repository.url
-
-        // Load the tools version.
-        let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)
-
-        // Validate the tools version.
-        try toolsVersion.validateToolsVersion(
-            self.currentToolsVersion, version: revision.identifier, packagePath: packageURL)
-
-        // Load the manifest.
-        let manifest = try manifestLoader.load(
-            package: AbsolutePath.root,
-            baseURL: packageURL,
-            version: version,
-            manifestVersion: toolsVersion.manifestVersion,
-            fileSystem: fs)
-
+        let manifest = try loadManifest(at: revision, version: version)
         return (manifest, manifest.dependencyConstraints(config: config))
     }
 
@@ -419,24 +419,21 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     }
 
     public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
-        let identifier: String
+        let revision: Revision
+        var version: Version?
         switch boundVersion {
-        case .version(let version):
-            identifier = version.description
-        case .revision(let revision):
-            identifier = revision
+        case .version(let v):
+            let tag = knownVersions[v]!
+            version = v
+            revision = try repository.resolveRevision(tag: tag)
+        case .revision(let identifier):
+            revision = try repository.resolveRevision(identifier: identifier)
         case .unversioned, .excluded:
             assertionFailure("Unexpected type requirement \(boundVersion)")
             return self.identifier
         }
 
-        // FIXME: We expect by the time this method is called, we would already have the
-        // manifest in the cache. We can probably get rid of this requirement once we implement
-        // proper manifest caching.
-        guard let manifest = dependenciesCache[identifier]?.0 else {
-            assertionFailure("Unexpected missing cache")
-            return self.identifier
-        }
+        let manifest = try loadManifest(at: revision, version: version)
         return self.identifier.with(newName: manifest.name)
     }
 
@@ -449,5 +446,29 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         } catch {
             return false
         }
+    }
+
+    public override func isToolsVersionCompatible(at version: Version) -> Bool {
+        return (try? self.toolsVersion(for: version)).flatMap(self.isValidToolsVersion(_:)) ?? false
+    }
+
+    private func loadManifest(at revision: Revision, version: Version?) throws -> Manifest {
+        let fs = try repository.openFileView(revision: revision)
+        let packageURL = identifier.repository.url
+
+        // Load the tools version.
+        let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)
+
+        // Validate the tools version.
+        try toolsVersion.validateToolsVersion(
+            self.currentToolsVersion, version: revision.identifier, packagePath: packageURL)
+
+        // Load the manifest.
+        return try manifestLoader.load(
+            package: AbsolutePath.root,
+            baseURL: packageURL,
+            version: version,
+            manifestVersion: toolsVersion.manifestVersion,
+            fileSystem: fs)
     }
 }

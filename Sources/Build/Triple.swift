@@ -16,7 +16,7 @@
 /// @see Destination.target
 /// @see https://github.com/apple/swift-llvm/blob/stable/include/llvm/ADT/Triple.h
 ///
-public struct Triple {
+public struct Triple: Encodable {
     public let tripleString: String
 
     public let arch: Arch
@@ -30,7 +30,7 @@ public struct Triple {
         case unknownOS
     }
 
-    public enum Arch: String {
+    public enum Arch: String, Encodable {
         case x86_64
         case i686
         case powerpc64le
@@ -40,12 +40,12 @@ public struct Triple {
         case arm
     }
 
-    public enum Vendor: String {
+    public enum Vendor: String, Encodable {
         case unknown
         case apple
     }
 
-    public enum OS: String {
+    public enum OS: String, Encodable {
         case darwin
         case macOS = "macosx"
         case linux
@@ -59,7 +59,7 @@ public struct Triple {
         ]
     }
 
-    public enum ABI: String {
+    public enum ABI: String, Encodable {
         case unknown
         case android = "androideabi"
     }

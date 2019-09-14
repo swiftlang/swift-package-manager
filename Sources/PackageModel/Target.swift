@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 
 public class Target: ObjectIdentifierProtocol {
     /// The target kind.
@@ -78,6 +78,19 @@ public class SwiftTarget: Target {
 
     /// The file name of linux main file.
     public static let linuxMainBasename = "LinuxMain.swift"
+
+    public init(testDiscoverySrc: Sources, name: String, dependencies: [Target]) {
+        self.swiftVersion = .v5
+
+        super.init(
+            name: name,
+            platforms: [],
+            type: .executable,
+            sources: testDiscoverySrc,
+            dependencies: dependencies,
+            buildSettings: .init()
+        )
+    }
 
     /// Create an executable Swift target from linux main test manifest file.
     init(linuxMain: AbsolutePath, name: String, dependencies: [Target]) {

@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import PackageModel
-import SPMUtility
+import TSCUtility
 import class Foundation.ProcessInfo
 
 /// Describes a tool which can be understood by llbuild's BuildSystem library.
-protocol ToolProtocol {
+public protocol ToolProtocol {
     /// The list of inputs to declare.
     var inputs: [String] { get }
 
@@ -35,6 +35,39 @@ struct PhonyTool: ToolProtocol {
         stream <<< "    tool: phony\n"
         stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
         stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
+    }
+}
+
+public struct TestDiscoveryTool: ToolProtocol, Codable {
+
+    static let name: String = "test-discovery-tool"
+
+    public let inputs: [String]
+    public let outputs: [String]
+
+    public func append(to stream: OutputByteStream) {
+        stream <<< "    tool: \(Self.name)\n"
+        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
+    }
+}
+
+/// Package strcuture tool is used to determine if the package has changed in some way
+/// that requires regenerating the build manifest file. This allows us to skip a lot of
+/// redundent work (package graph loading, build planning, manifest generation) during
+/// incremental builds.
+struct PackageStructureTool: ToolProtocol {
+    static let name: String = "package-structure-tool"
+
+    let inputs: [String]
+    let outputs: [String]
+
+    func append(to stream: OutputByteStream) {
+        stream <<< "    tool: \(Self.name)\n"
+        stream <<< "    description: Planning build\n"
+        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
+        stream <<< "    allow-missing-inputs: true\n"
     }
 }
 

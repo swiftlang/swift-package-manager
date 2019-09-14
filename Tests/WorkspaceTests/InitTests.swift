@@ -9,15 +9,15 @@
  */
 
 import XCTest
-import TestSupport
-import Basic
+import SPMTestSupport
+import TSCBasic
 import PackageModel
 import Workspace
 import Commands
 
 class InitTests: XCTestCase {
 
-    // MARK: Basic package creation for each package type.
+    // MARK: TSCBasic package creation for each package type.
     
     func testInitPackageEmpty() throws {
         mktmpdir { tmpPath in
@@ -164,48 +164,76 @@ class InitTests: XCTestCase {
             XCTAssert(fs.exists(path.appending(component: "module.modulemap")))
         }
     }
+
+    func testInitManifest() throws {
+        mktmpdir { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending(component: "Foo")
+            let name = path.basename
+            try fs.createDirectory(path)
+
+            // Create the package
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.manifest)
+            var progressMessages = [String]()
+            initPackage.progressReporter = { message in
+                progressMessages.append(message)
+            }
+            try initPackage.writePackageStructure()
+
+            // Not picky about the specific progress messages, just checking that we got some.
+            XCTAssert(progressMessages.count > 0)
+
+            // Verify basic file system content that we expect in the package
+            let manifest = path.appending(component: "Package.swift")
+            XCTAssertTrue(fs.exists(manifest))
+            let manifestContents = try localFileSystem.readFileContents(manifest).description
+            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
+            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+        }
+    }
     
     // MARK: Special case testing
     
     func testInitPackageNonc99Directory() throws {
-        let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
-        XCTAssertTrue(localFileSystem.isDirectory(tempDir.path))
-        
-        // Create a directory with non c99name.
-        let packageRoot = tempDir.path.appending(component: "some-package")
-        let packageName = packageRoot.basename
-        try localFileSystem.createDirectory(packageRoot)
-        XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
-        
-        // Create the package
-        let initPackage = try InitPackage(name: packageName, destinationPath: packageRoot, packageType: InitPackage.PackageType.library)
-        initPackage.progressReporter = { message in
-        }
-        try initPackage.writePackageStructure()
+        try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+            XCTAssertTrue(localFileSystem.isDirectory(tempDirPath))
+            
+            // Create a directory with non c99name.
+            let packageRoot = tempDirPath.appending(component: "some-package")
+            let packageName = packageRoot.basename
+            try localFileSystem.createDirectory(packageRoot)
+            XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
+            
+            // Create the package
+            let initPackage = try InitPackage(name: packageName, destinationPath: packageRoot, packageType: InitPackage.PackageType.library)
+            initPackage.progressReporter = { message in
+            }
+            try initPackage.writePackageStructure()
 
-        // Try building it.
-        XCTAssertBuilds(packageRoot)
-        XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.host.target.tripleString, "debug", "some_package.swiftmodule"))
+            // Try building it.
+            XCTAssertBuilds(packageRoot)
+            XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.host.target.tripleString, "debug", "some_package.swiftmodule"))
+        }
     }
     
     func testNonC99NameExecutablePackage() throws {
-        let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
-        XCTAssertTrue(localFileSystem.isDirectory(tempDir.path))
-        
-        let packageRoot = tempDir.path.appending(component: "Foo")
-        try localFileSystem.createDirectory(packageRoot)
-        XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
-        
-        // Create package with non c99name.
-        let initPackage = try InitPackage(name: "package-name", destinationPath: packageRoot, packageType: InitPackage.PackageType.executable)
-        try initPackage.writePackageStructure()
-        
-        #if os(macOS)
-          XCTAssertSwiftTest(packageRoot)
-        #else
-          XCTAssertBuilds(packageRoot)
-        #endif
-        
+        try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+            XCTAssertTrue(localFileSystem.isDirectory(tempDirPath))
+            
+            let packageRoot = tempDirPath.appending(component: "Foo")
+            try localFileSystem.createDirectory(packageRoot)
+            XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
+            
+            // Create package with non c99name.
+            let initPackage = try InitPackage(name: "package-name", destinationPath: packageRoot, packageType: InitPackage.PackageType.executable)
+            try initPackage.writePackageStructure()
+            
+            #if os(macOS)
+              XCTAssertSwiftTest(packageRoot)
+            #else
+              XCTAssertBuilds(packageRoot)
+            #endif
+        }
     }
 
     private func packageWithNameAndDependencies(with name: String) -> String {

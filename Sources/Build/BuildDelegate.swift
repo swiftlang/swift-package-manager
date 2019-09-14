@@ -8,181 +8,303 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 import SPMLLBuild
 import Dispatch
 import Foundation
 
-/// Diagnostic error when a llbuild command encounters an error.
-struct LLBuildCommandErrorDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildCommandErrorDiagnostic.self,
-        name: "org.swift.diags.llbuild-command-error",
-        defaultBehavior: .error,
-        description: { $0 <<< { $0.message } }
-    )
+typealias Diagnostic = TSCBasic.Diagnostic
 
-    let message: String
+class CustomLLBuildCommand: ExternalCommand {
+    let ctx: BuildExecutionContext
+
+    required init(_ ctx: BuildExecutionContext) {
+        self.ctx = ctx
+    }
+
+    func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
+        return []
+    }
+
+    func execute(_ command: SPMLLBuild.Command) -> Bool {
+        fatalError("subclass responsibility")
+    }
 }
 
-/// Diagnostic warning when a llbuild command encounters a warning.
-struct LLBuildCommandWarningDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildCommandWarningDiagnostic.self,
-        name: "org.swift.diags.llbuild-command-warning",
-        defaultBehavior: .warning,
-        description: { $0 <<< { $0.message } }
-    )
+final class TestDiscoveryCommand: CustomLLBuildCommand {
 
-    let message: String
-}
+    private func write(
+        tests: [IndexStore.TestCaseClass],
+        forModule module: String,
+        to path: AbsolutePath
+    ) throws {
+        let stream = try LocalFileOutputByteStream(path)
 
-/// Diagnostic note when a llbuild command encounters a warning.
-struct LLBuildCommandNoteDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildCommandNoteDiagnostic.self,
-        name: "org.swift.diags.llbuild-command-note",
-        defaultBehavior: .note,
-        description: { $0 <<< { $0.message } }
-    )
+        stream <<< "import XCTest" <<< "\n"
+        stream <<< "@testable import " <<< module <<< "\n"
 
-    let message: String
-}
-
-/// Diagnostic error when llbuild detects a cycle.
-struct LLBuildCycleErrorDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildCycleErrorDiagnostic.self,
-        name: "org.swift.diags.llbuild-cycle",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "build cycle detected: "
-            $0 <<< { $0.rules.map({ $0.key }).joined(separator: ", ") }
+        for klass in tests {
+            stream <<< "\n"
+            stream <<< "fileprivate extension " <<< klass.name <<< " {" <<< "\n"
+            stream <<< indent(4) <<< "static let __allTests__\(klass.name) = [" <<< "\n"
+            for method in klass.methods {
+                let method = method.hasSuffix("()") ? String(method.dropLast(2)) : method
+                stream <<< indent(8) <<< "(\"\(method)\", \(method))," <<< "\n"
+            }
+            stream <<< indent(4) <<< "]" <<< "\n"
+            stream <<< "}" <<< "\n"
         }
-    )
 
-    let rules: [BuildKey]
+        stream <<< """
+        func __allTests_\(module)() -> [XCTestCaseEntry] {
+            return [\n
+        """
+
+        for klass in tests {
+            stream <<< indent(8) <<< "testCase(\(klass.name).__allTests__\(klass.name)),\n"
+        }
+
+        stream <<< """
+            ]
+        }
+        """
+
+        stream.flush()
+    }
+
+    private func execute(with tool: ToolProtocol) throws {
+        assert(tool is TestDiscoveryTool, "Unexpected tool \(tool)")
+
+        let index = ctx.buildParameters.indexStore
+        let api = try ctx.indexStoreAPI.dematerialize()
+        let store = try IndexStore.open(store: index, api: api)
+
+        // FIXME: We can speed this up by having one llbuild command per object file.
+        let tests = try tool.inputs.flatMap {
+            try store.listTests(inObjectFile: AbsolutePath($0))
+        }
+
+        let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0) }
+        let testsByModule = Dictionary(grouping: tests, by: { $0.module })
+
+        func isMainFile(_ path: AbsolutePath) -> Bool {
+            return path.basename == "main.swift"
+        }
+
+        // Write one file for each test module.
+        //
+        // We could write everything in one file but that can easily run into type conflicts due
+        // in complex packages with large number of test targets.
+        for file in outputs {
+            if isMainFile(file) { continue }
+
+            // FIXME: This is relying on implementation detail of the output but passing the
+            // the context all the way through is not worth it right now.
+            let module = file.basenameWithoutExt
+
+            guard let tests = testsByModule[module] else {
+                // This module has no tests so just write an empty file for it.
+                try localFileSystem.writeFileContents(file, bytes: "")
+                continue
+            }
+            try write(tests: tests, forModule: module, to: file)
+        }
+
+        // Write the main file.
+        let mainFile = outputs.first(where: isMainFile)!
+        let stream = try LocalFileOutputByteStream(mainFile)
+
+        stream <<< "import XCTest" <<< "\n\n"
+        stream <<< "var tests = [XCTestCaseEntry]()" <<< "\n"
+        for module in testsByModule.keys {
+            stream <<< "tests += __allTests_\(module)()" <<< "\n"
+        }
+        stream <<< "\n"
+        stream <<< "XCTMain(tests)" <<< "\n"
+
+        stream.flush()
+    }
+
+    private func indent(_ spaces: Int) -> ByteStreamable {
+        return Format.asRepeating(string: " ", count: spaces)
+    }
+
+    override func execute(_ command: SPMLLBuild.Command) -> Bool {
+        // This tool will never run without the build description.
+        let buildDescription = ctx.buildDescription!
+        guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
+            print("command \(command.name) not registered")
+            return false
+        }
+        do {
+            try execute(with: tool)
+        } catch {
+            // FIXME: Shouldn't use "print" here.
+            print("error:", error)
+            return false
+        }
+        return true
+    }
 }
 
-/// Diagnostic error from llbuild
-struct LLBuildErrorDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildErrorDiagnostic.self,
-        name: "org.swift.diags.llbuild-error",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< { $0.message }
-        }
-    )
+private final class InProcessTool: Tool {
+    let ctx: BuildExecutionContext
+    let type: CustomLLBuildCommand.Type
 
-    let message: String
+    init(_ ctx: BuildExecutionContext, type: CustomLLBuildCommand.Type) {
+        self.ctx = ctx
+        self.type = type
+    }
+
+    func createCommand(_ name: String) -> ExternalCommand {
+        return type.init(ctx)
+    }
 }
 
-/// Diagnostic warning from llbuild
-struct LLBuildWarningDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildWarningDiagnostic.self,
-        name: "org.swift.diags.llbuild-warning",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< { $0.message }
-        }
-    )
+/// Contains the description of the build that is needed during the execution.
+public struct BuildDescription: Codable {
+    public typealias CommandName = String
+    public typealias TargetName = String
 
-    let message: String
+    /// Represents a test product which is built and is present on disk.
+    public struct BuiltTestProduct: Codable {
+        /// The name of the package to which the test binary belongs.
+        public let packageName: String
+
+        /// The test product name.
+        public let productName: String
+
+        /// The path of the test binary.
+        public let testBinary: AbsolutePath
+
+        /// The path of the test bundle.
+        public var testBundle: AbsolutePath {
+            // Go up the folder hierarchy until we find the .xctest bundle.
+            sequence(
+                first: testBinary,
+                next: { $0.isRoot ? nil : $0.parentDirectory }
+            ).first{ $0.basename.hasSuffix(".xctest") }!
+        }
+    }
+
+    /// The map of command to target names for Swift targets.
+    let swiftTargetMap: [CommandName: TargetName]
+
+    /// The map of test discovery commands.
+    let testDiscoveryCommands: [CommandName: TestDiscoveryTool]
+
+    /// The built test products.
+    public let builtTestProducts: [BuiltTestProduct]
+
+    /// The list of executable products in the package graph.
+    public let allExecutables: [String]
+
+    /// The list of executable products in the root package.
+    public let rootExecutables: [String]
+
+    public init(plan: BuildPlan, testDiscoveryCommands: [CommandName: TestDiscoveryTool]) {
+        let buildConfig = plan.buildParameters.configuration.dirname
+
+        swiftTargetMap = Dictionary(uniqueKeysWithValues: plan.targetMap.values.compactMap{
+            guard case .swift(let desc) = $0 else { return nil }
+            return (desc.target.getCommandName(config: buildConfig), desc.target.name)
+        })
+
+        self.testDiscoveryCommands = testDiscoveryCommands
+
+        self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
+            // FIXME(perf): Provide faster lookups.
+            let package = plan.graph.packages.first{ $0.products.contains(desc.product) }!
+            return BuiltTestProduct(
+                packageName: package.name,
+                productName: desc.product.name,
+                testBinary: desc.binary
+            )
+        }
+
+        self.allExecutables = plan.graph.allProducts.filter{ $0.type == .executable }.map{ $0.name }
+        self.rootExecutables = plan.graph.rootPackages.flatMap{ $0.products }.filter{ $0.type == .executable }.map{ $0.name }
+    }
+
+    public func write(to path: AbsolutePath) throws {
+        let encoder = JSONEncoder()
+        if #available(macOS 10.13, *) {
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        }
+        let data = try encoder.encode(self)
+        try localFileSystem.writeFileContents(path, bytes: ByteString(data))
+    }
+
+    public static func load(from path: AbsolutePath) throws -> BuildDescription {
+        let contents = try localFileSystem.readFileContents(path).contents
+        return try JSONDecoder().decode(BuildDescription.self, from: Data(contents))
+    }
 }
 
-/// Diagnostic note from llbuild
-struct LLBuildNoteDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildNoteDiagnostic.self,
-        name: "org.swift.diags.llbuild-note",
-        defaultBehavior: .note,
-        description: {
-            $0 <<< { $0.message }
-        }
-    )
+/// The context available during build execution.
+public final class BuildExecutionContext {
 
-    let message: String
+    /// Reference to the index store API.
+    var indexStoreAPI: Result<IndexStoreAPI, AnyError> {
+        indexStoreAPICache.getValue(self)
+    }
+
+    /// The build parameters.
+    let buildParameters: BuildParameters
+
+    /// The build description.
+    ///
+    /// This is optional because we might not have a valid build description when performing the
+    /// build for PackageStructure target.
+    let buildDescription: BuildDescription?
+
+    /// The package structure delegate.
+    let packageStructureDelegate: PackageStructureDelegate
+
+    public init(
+        _ buildParameters: BuildParameters,
+        buildDescription: BuildDescription? = nil,
+        packageStructureDelegate: PackageStructureDelegate
+    ) {
+        self.buildParameters = buildParameters
+        self.buildDescription = buildDescription
+        self.packageStructureDelegate = packageStructureDelegate
+    }
+
+    // MARK:- Private
+
+    private var indexStoreAPICache = LazyCache(createIndexStoreAPI)
+    private func createIndexStoreAPI() -> Result<IndexStoreAPI, AnyError> {
+        Result {
+            let ext = buildParameters.triple.dynamicLibraryExtension
+            let indexStoreLib = buildParameters.toolchain.toolchainLibDir.appending(component: "libIndexStore" + ext)
+            return try IndexStoreAPI(dylib: indexStoreLib)
+        }
+    }
 }
 
-/// Missing inptus from LLBuild
-struct LLBuildMissingInputs: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildMissingInputs.self,
-        name: "org.swift.diags.llbuild-missing-inputs",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "couldn't build "
-            $0 <<< { $0.output.key }
-            $0 <<< " because of missing inputs: "
-            $0 <<< { $0.inputs.map({ $0.key }).joined(separator: ", ") }
-        }
-    )
-
-    let output: BuildKey
-    let inputs: [BuildKey]
+public protocol PackageStructureDelegate {
+    func packageStructureChanged() -> Bool
 }
 
-/// Multiple producers from LLBuild
-struct LLBuildMultipleProducers: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildMultipleProducers.self,
-        name: "org.swift.diags.llbuild-multiple-producers",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "couldn't build "
-            $0 <<< { $0.output.key }
-            $0 <<< " because of multiple producers: "
-            $0 <<< { $0.commands.map({ $0.description }).joined(separator: ", ") }
+final class PackageStructureCommand: CustomLLBuildCommand {
+
+    override func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
+        let encoder = JSONEncoder()
+        if #available(macOS 10.13, *) {
+            encoder.outputFormatting = [.sortedKeys]
         }
-    )
 
-    let output: BuildKey
-    let commands: [SPMLLBuild.Command]
-}
+        // Include build parameters and process env in the signature.
+        var hash = Data()
+        hash += try! encoder.encode(self.ctx.buildParameters)
+        hash += try! encoder.encode(ProcessEnv.vars)
+        return [UInt8](hash)
+    }
 
-/// Command error from LLBuild
-struct LLBuildCommandError: DiagnosticData {
-    static let id = DiagnosticID(
-        type: LLBuildCommandError.self,
-        name: "org.swift.diags.llbuild-command-error",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "command "
-            $0 <<< { $0.command.description }
-            $0 <<< " failed: "
-            $0 <<< { $0.message }
-        }
-    )
-
-    let command: SPMLLBuild.Command
-    let message: String
-}
-
-/// Swift Compiler output parsing error
-struct SwiftCompilerOutputParsingError: DiagnosticData {
-    static let id = DiagnosticID(
-        type: SwiftCompilerOutputParsingError.self,
-        name: "org.swift.diags.swift-compiler-output-parsing-error",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "failed parsing the Swift compiler output: "
-            $0 <<< { $0.message }
-        }
-    )
-
-    let message: String
-}
-
-extension SPMLLBuild.Diagnostic: DiagnosticDataConvertible {
-    public var diagnosticData: DiagnosticData {
-        switch kind {
-        case .error: return LLBuildErrorDiagnostic(message: message)
-        case .warning: return LLBuildWarningDiagnostic(message: message)
-        case .note: return LLBuildNoteDiagnostic(message: message)
-        }
+    override func execute(_ command: SPMLLBuild.Command) -> Bool {
+        return self.ctx.packageStructureDelegate.packageStructureChanged()
     }
 }
 
@@ -198,11 +320,12 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]
-    /// Target name keyed by llbuild command name.
-    private let targetNames: [String: String]
+
+    /// The build execution context.
+    private let buildExecutionContext: BuildExecutionContext
 
     public init(
-        plan: BuildPlan,
+        bctx: BuildExecutionContext,
         diagnostics: DiagnosticsEngine,
         outputStream: OutputByteStream,
         progressAnimation: ProgressAnimationProtocol
@@ -212,18 +335,10 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.progressAnimation = progressAnimation
-
-        let buildConfig = plan.buildParameters.configuration.dirname
-
-        targetNames = Dictionary(uniqueKeysWithValues: plan.targetMap.map({ (target, description) in
-            return (target.getCommandName(config: buildConfig), target.name)
-        }))
-
-        swiftParsers = Dictionary(uniqueKeysWithValues: plan.targetMap.compactMap({ (target, description) in
-            guard case .swift = description else { return nil }
-            let parser = SwiftCompilerOutputParser(targetName: target.name, delegate: self)
-            return (target.getCommandName(config: buildConfig), parser)
-        }))
+        self.buildExecutionContext = bctx
+        self.swiftParsers = bctx.buildDescription?.swiftTargetMap.mapValues {
+            SwiftCompilerOutputParser(targetName: $0, delegate: self)
+        } ?? [:]
     }
 
     public var fs: SPMLLBuild.FileSystem? {
@@ -231,7 +346,14 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     }
 
     public func lookupTool(_ name: String) -> Tool? {
-        return nil
+        switch name {
+        case TestDiscoveryTool.name:
+            return InProcessTool(buildExecutionContext, type: TestDiscoveryCommand.self)
+        case PackageStructureTool.name:
+            return InProcessTool(buildExecutionContext, type: PackageStructureCommand.self)
+        default:
+            return nil
+        }
     }
 
     public func hadCommandFailure() {
@@ -239,7 +361,14 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     }
 
     public func handleDiagnostic(_ diagnostic: SPMLLBuild.Diagnostic) {
-        diagnostics.emit(diagnostic)
+        switch diagnostic.kind {
+        case .note:
+            diagnostics.emit(note: diagnostic.message)
+        case .warning:
+            diagnostics.emit(warning: diagnostic.message)
+        case .error:
+            diagnostics.emit(error: diagnostic.message)
+        }
     }
 
     public func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
@@ -277,22 +406,23 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         guard !swiftParsers.keys.contains(command.name) else { return }
 
         queue.async {
-            let targetName = self.targetNames[command.name]
+            let targetName = self.swiftParsers[command.name]?.targetName
             self.taskTracker.commandFinished(command, result: result, targetName: targetName)
             self.updateProgress()
         }
     }
 
     public func commandHadError(_ command: SPMLLBuild.Command, message: String) {
-        diagnostics.emit(data: LLBuildCommandErrorDiagnostic(message: message))
+        diagnostics.emit(error: message)
     }
 
     public func commandHadNote(_ command: SPMLLBuild.Command, message: String) {
-        diagnostics.emit(data: LLBuildCommandNoteDiagnostic(message: message))
+        // FIXME: This is wrong.
+        diagnostics.emit(warning: message)
     }
 
     public func commandHadWarning(_ command: SPMLLBuild.Command, message: String) {
-        diagnostics.emit(data: LLBuildCommandWarningDiagnostic(message: message))
+        diagnostics.emit(warning: message)
     }
 
     public func commandCannotBuildOutputDueToMissingInputs(
@@ -300,18 +430,18 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         output: BuildKey,
         inputs: [BuildKey]
     ) {
-        diagnostics.emit(data: LLBuildMissingInputs(output: output, inputs: inputs))
+        diagnostics.emit(.missingInputs(output: output, inputs: inputs))
     }
 
     public func cannotBuildNodeDueToMultipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) {
-        diagnostics.emit(data: LLBuildMultipleProducers(output: output, commands: commands))
+        diagnostics.emit(.multipleProducers(output: output, commands: commands))
     }
 
     public func commandProcessStarted(_ command: SPMLLBuild.Command, process: ProcessHandle) {
     }
 
     public func commandProcessHadError(_ command: SPMLLBuild.Command, process: ProcessHandle, message: String) {
-        diagnostics.emit(data: LLBuildCommandError(command: command, message: message))
+        diagnostics.emit(.commandError(command: command, message: message))
     }
 
     public func commandProcessHadOutput(_ command: SPMLLBuild.Command, process: ProcessHandle, data: [UInt8]) {
@@ -336,7 +466,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     }
 
     public func cycleDetected(rules: [BuildKey]) {
-        diagnostics.emit(data: LLBuildCycleErrorDiagnostic(rules: rules))
+        diagnostics.emit(.cycleError(rules: rules))
     }
 
     public func shouldResolveCycle(rules: [BuildKey], candidate: BuildKey, action: CycleAction) -> Bool {
@@ -368,7 +498,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
 
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        diagnostics.emit(data: SwiftCompilerOutputParsingError(message: message))
+        diagnostics.emit(.swiftCompilerOutputParsingError(message))
         onCommmandFailure?()
     }
 
@@ -412,6 +542,8 @@ fileprivate struct CommandTaskTracker {
             finishedCount += 1
         case .cancelled, .failed:
             break
+        default:
+            break
         }
     }
     
@@ -430,7 +562,7 @@ fileprivate struct CommandTaskTracker {
             }
 
             finishedCount += 1
-        case .signalled, .skipped:
+        case .unparsableOutput, .signalled, .skipped:
             break
         }
     }
@@ -480,9 +612,10 @@ fileprivate struct CommandTaskTracker {
 
 extension SwiftCompilerMessage {
     fileprivate var verboseProgressText: String? {
-        if case .began(let info) = kind {
+        switch kind {
+        case .began(let info):
             return ([info.commandExecutable] + info.commandArguments).joined(separator: " ")
-        } else {
+        case .skipped, .finished, .signalled, .unparsableOutput:
             return nil
         }
     }
@@ -492,8 +625,34 @@ extension SwiftCompilerMessage {
         case .finished(let info),
              .signalled(let info):
             return info.output
-        default:
+        case .unparsableOutput(let output):
+            return output
+        case .skipped, .began:
             return nil
         }
+    }
+}
+
+private extension Diagnostic.Message {
+    static func cycleError(rules: [BuildKey]) -> Diagnostic.Message {
+        .error("build cycle detected: " + rules.map{ $0.key }.joined(separator: ", "))
+    }
+
+    static func missingInputs(output: BuildKey, inputs: [BuildKey]) -> Diagnostic.Message {
+        let missingInputs = inputs.map{ $0.key }.joined(separator: ", ")
+        return .error("couldn't build \(output.key) because of missing inputs: \(missingInputs)")
+    }
+
+    static func multipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) -> Diagnostic.Message {
+        let producers = commands.map{ $0.description }.joined(separator: ", ")
+        return .error("couldn't build \(output.key) because of missing producers: \(producers)")
+    }
+
+    static func commandError(command: SPMLLBuild.Command, message: String) -> Diagnostic.Message {
+        .error("command \(command.description) failed: \(message)")
+    }
+
+    static func swiftCompilerOutputParsingError(_ error: String) -> Diagnostic.Message {
+        .error("failed parsing the Swift compiler output: \(error)")
     }
 }

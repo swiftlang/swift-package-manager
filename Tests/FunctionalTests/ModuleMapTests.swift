@@ -10,15 +10,15 @@
 
 import XCTest
 import Commands
-import TestSupport
-import Basic
-import SPMUtility
+import SPMTestSupport
+import TSCBasic
+import TSCUtility
 import Workspace
 
 class ModuleMapsTestCase: XCTestCase {
 
     private func fixture(name: String, cModuleName: String, rootpkg: String, body: @escaping (AbsolutePath, [String]) throws -> Void) {
-        TestSupport.fixture(name: name) { prefix in
+        SPMTestSupport.fixture(name: name) { prefix in
             let input = prefix.appending(components: cModuleName, "C", "foo.c")
             let outdir = prefix.appending(components: rootpkg, ".build", Destination.host.target.tripleString, "debug")
             try makeDirectories(outdir)

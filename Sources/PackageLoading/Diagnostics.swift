@@ -8,172 +8,72 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 import PackageModel
 
-public enum PackageBuilderDiagnostics {
-
-    /// A target in a package contains no sources.
-    public struct NoSources: DiagnosticData {
-        public static let id = DiagnosticID(
-            type: NoSources.self,
-            name: "org.swift.diags.pkg-builder.nosources",
-            defaultBehavior: .warning,
-            description: {
-                $0 <<< "target" <<< { "'\($0.target)'" }
-                $0 <<< "in package" <<< { "'\($0.package)'" }
-                $0 <<< "contains no valid source files"
-            }
-        )
-
-        /// The name of the package.
-        public let package: String
-
-        /// The name of the target which has no sources.
-        public let target: String
+extension Diagnostic.Message {
+    static func targetHasNoSources(targetPath: String, target: String) -> Diagnostic.Message {
+        .warning("Source files for target \(target) should be located under \(targetPath)")
     }
 
-    /// C language test target on linux is not supported.
-    public struct UnsupportedCTarget: DiagnosticData {
-        public static let id = DiagnosticID(
-            type: UnsupportedCTarget.self,
-            name: "org.swift.diags.pkg-builder.nosources",
-            defaultBehavior: .warning,
-            description: {
-                $0 <<< "ignoring target" <<< { "'\($0.target)'" }
-                $0 <<< "in package" <<< { "'\($0.package)';" }
-                $0 <<< "C language in tests is not yet supported"
-            }
-        )
-
-        /// The name of the package.
-        public let package: String
-
-        /// The name of the target which has no sources.
-        public let target: String
+    static func manifestLoading(output: String, diagnosticFile: AbsolutePath?) -> Diagnostic.Message {
+        .warning(ManifestLoadingDiagnostic(output: output, diagnosticFile: diagnosticFile))
     }
 
-    public struct DuplicateProduct: DiagnosticData {
-        public static let id = DiagnosticID(
-            type: DuplicateProduct.self,
-            name: "org.swift.diags.pkg-builder.dup-product",
-            defaultBehavior: .warning,
-            description: {
-                $0 <<< "Ignoring duplicate product" <<< { "'\($0.product.name)'" }
-                $0 <<< .substitution({
-                    let `self` = $0 as! DuplicateProduct
-                    switch self.product.type {
-                    case .library(.automatic):
-                        return ""
-                    case .executable, .test: fallthrough
-                    case .library(.dynamic), .library(.static):
-                         return "(\(self.product.type))"
-                    }
-                }, preference: .default)
-            }
-        )
-
-        public let product: Product
+    static func targetNameHasIncorrectCase(target: String) -> Diagnostic.Message {
+        .warning("the target name \(target) has different case on the filesystem and the Package.swift manifest file")
     }
 
-    public struct DuplicateTargetDependencyDiagnostic: DiagnosticData {
-        public static let id = DiagnosticID(
-            type: DuplicateTargetDependencyDiagnostic.self,
-            name: "org.swift.diags.pkg-builder.dup-target-dependency",
-            defaultBehavior: .warning,
-            description: {
-                $0 <<< "invalid duplicate target dependency declaration" <<< { "'\($0.dependency)'" }
-                    <<< "in target" <<< { "'\($0.target)'" }
-        })
-
-        public let dependency: String
-        public let target: String
+    static func unsupportedCTestTarget(package: String, target: String) -> Diagnostic.Message {
+        .warning("ignoring target '\(target)' in package '\(package)'; C language in tests is not yet supported")
     }
 
-    struct SystemPackageDeprecatedDiagnostic: DiagnosticData {
-        static let id = DiagnosticID(
-            type: SystemPackageDeprecatedDiagnostic.self,
-            name: "org.swift.diags.pkg-builder.sys-pkg-deprecated",
-            defaultBehavior: .warning,
-            description: {
-                $0 <<< "system packages are deprecated;"
-                $0 <<< "use system library targets instead"
-            }
-        )
+    static func duplicateProduct(product: Product) -> Diagnostic.Message {
+        let typeString: String
+        switch product.type {
+        case .library(.automatic):
+            typeString = ""
+        case .executable, .test,
+             .library(.dynamic), .library(.static):
+            typeString = " (\(product.type))"
+        }
+
+        return .warning("ignoring duplicate product '\(product.name)'\(typeString)")
     }
 
-    struct SystemPackageDeclaresTargetsDiagnostic: DiagnosticData {
-        static let id = DiagnosticID(
-            type: SystemPackageDeclaresTargetsDiagnostic.self,
-            name: "org.swift.diags.pkg-builder.sys-pkg-decl-targets",
-            defaultBehavior: .warning,
-            description: {
-                $0 <<< "Ignoring declared target(s)" <<< { "'\($0.targets.joined(separator: ", "))'" } <<< "in the system package"
-            }
-        )
-
-        let targets: [String]
+    static func duplicateTargetDependency(dependency: String, target: String) -> Diagnostic.Message {
+        .warning("invalid duplicate target dependency declaration '\(dependency)' in target '\(target)'")
     }
 
-    struct SystemPackageProductValidationDiagnostic: DiagnosticData {
-        static let id = DiagnosticID(
-            type: SystemPackageProductValidationDiagnostic.self,
-            name: "org.swift.diags.pkg-builder.sys-pkg-product-validation",
-            description: {
-                $0 <<< "system library product" <<< { $0.product } <<< "shouldn't have a type and contain only one target"
-            }
-        )
-
-        let product: String
+    static var systemPackageDeprecation: Diagnostic.Message {
+        .warning("system packages are deprecated; use system library targets instead")
     }
 
-    struct InvalidExecutableProductDecl: DiagnosticData {
-        static let id = DiagnosticID(
-            type: InvalidExecutableProductDecl.self,
-            name: "org.swift.diags.pkg-builder.invalid-exec-product",
-            description: {
-                $0 <<< "executable product" <<< { "'" + $0.product + "'" } <<< "should have exactly one executable target"
-            }
-        )
-
-        let product: String
+    static func systemPackageDeclaresTargets(targets: [String]) -> Diagnostic.Message {
+        .warning("ignoring declared target(s) '\(targets.joined(separator: ", "))' in the system package")
     }
 
-    struct ZeroLibraryProducts: DiagnosticData {
-        static let id = DiagnosticID(
-            type: ZeroLibraryProducts.self,
-            name: "org.swift.diags.pkg-builder.\(ZeroLibraryProducts.self)",
-            description: {
-                $0 <<< "unable to synthesize a REPL product as there are no library targets in the package"
-            }
-        )
+    static func systemPackageProductValidation(product: String) -> Diagnostic.Message {
+        .error("system library product \(product) shouldn't have a type and contain only one target")
     }
 
-    struct BrokenSymlinkDiagnostic: DiagnosticData {
-        static let id = DiagnosticID(
-            type: BrokenSymlinkDiagnostic.self,
-            name: "org.swift.diags.pkg-builder.broken-symlink",
-            defaultBehavior: .warning,
-            description: {
-                $0 <<< "ignoring broken symlink" <<< { $0.path.description }
-            }
-        )
+    static func invalidExecutableProductDecl(_ product: String) -> Diagnostic.Message {
+        .error("executable product '\(product)' should have exactly one executable target")
+    }
 
-        let path: AbsolutePath
+    static var noLibraryTargetsForREPL: Diagnostic.Message {
+        .error("unable to synthesize a REPL product as there are no library targets in the package")
+    }
+
+    static func brokenSymlink(_ path: AbsolutePath) -> Diagnostic.Message {
+        .warning("ignoring broken symlink \(path)")
     }
 }
 
 public struct ManifestLoadingDiagnostic: DiagnosticData {
-    public static let id = DiagnosticID(
-        type: ManifestLoadingDiagnostic.self,
-        name: "org.swift.diags.pkg-loading.manifest-output",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< { $0.output }
-        }
-    )
-
     public let output: String
     public let diagnosticFile: AbsolutePath?
+
+    public var description: String { output }
 }

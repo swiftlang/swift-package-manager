@@ -10,15 +10,15 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import PackageLoading
 import PackageModel
 import PackageGraph
 import SourceControl
-import SPMUtility
+import TSCUtility
 @testable import Workspace
 
-import TestSupport
+import SPMTestSupport
 
 final class WorkspaceTests: XCTestCase {
 
@@ -743,7 +743,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         workspace.checkPackageGraph(deps: deps) { (_, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("dependency graph is unresolvable;"), behavior: .error)
+                result.check(diagnostic: .contains("the package dependency graph could not be resolved; possibly because of these requirements"), behavior: .error)
             }
         }
         // There should be no extra fetches.
@@ -1481,7 +1481,7 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkPackageGraph(roots: ["Baz"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Baz' is using Swift tools version 3.1.0 which is no longer supported; use 4.0.0 or newer instead"), behavior: .error, location: "/tmp/ws/roots/Baz")
+                result.check(diagnostic: .equal("package at '/tmp/ws/roots/Baz' is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version"), behavior: .error, location: "/tmp/ws/roots/Baz")
             }
         }
     }
@@ -2928,6 +2928,234 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testForceResolveToResolvedVersionsLocalPackage() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .localPackage),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: [nil]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .local)
+        }
+    }
+
+    func testSimpleAPI() throws {
+        // This verifies that the simplest possible loading APIs are available for package clients.
+
+        // This checkout of the SwiftPM package.
+        let package = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+
+        // Clients must locate the corresponding “swiftc” exectuable themselves for now.
+        // (This just uses the same one used by all the other tests.)
+        let swiftCompiler = Resources.default.swiftCompiler
+
+        // From here the API should be simple and straightforward:
+        let diagnostics = DiagnosticsEngine()
+        let manifest = try ManifestLoader.loadManifest(
+            packagePath: package, swiftCompiler: swiftCompiler)
+        let loadedPackage = try PackageBuilder.loadPackage(
+            packagePath: package, swiftCompiler: swiftCompiler, diagnostics: diagnostics)
+        let graph = try Workspace.loadGraph(
+            packagePath: package, swiftCompiler: swiftCompiler, diagnostics: diagnostics)
+
+        XCTAssertEqual(manifest.name, "SwiftPM")
+        XCTAssertEqual(loadedPackage.name, "SwiftPM")
+        XCTAssert(graph.reachableProducts.contains(where: { $0.name == "SwiftPM" }))
+    }
+
+    func testRevisionDepOnLocal() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .branch("develop")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Local", requirement: .localPackage),
+                    ],
+                    versions: ["develop"]
+                ),
+                TestPackage(
+                    name: "Local",
+                    targets: [
+                        TestTarget(name: "Local"),
+                    ],
+                    products: [
+                        TestProduct(name: "Local", targets: ["Local"]),
+                    ],
+                    versions: [nil]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"]) { (_, diagnostics) in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .equal("package 'foo' is required using a revision-based requirement and it depends on local package 'local', which is not supported"), behavior: .error)
+            }
+        }
+    }
+
+	func testRootPackagesOverrideBasenameMismatch() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Baz",
+                    path: "Overridden/bazzz-master",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Baz",
+                    path: "bazzz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "bazzz", requirement: .exact("1.0.0")),
+        ]
+
+        workspace.checkPackageGraph(roots: ["Overridden/bazzz-master"], deps: deps) { (graph, diagnostics) in
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(diagnostic: .equal("unable to override package 'Baz' because its basename 'bazzz' doesn't match directory name 'bazzz-master'"), behavior: .error)
+            }
+        }
+    }
+
+    func testUnsafeFlags() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar", settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .localPackage),
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar", settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz", dependencies: ["Bar"], settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ]
+        )
+
+        // We should only see errors about use of unsafe flag in the version-based dependency.
+        workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { (graph, diagnostics) in
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+               result.check(diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"), behavior: .error)
+           }
         }
     }
 }

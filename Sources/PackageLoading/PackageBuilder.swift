@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import PackageModel
-import SPMUtility
+import TSCUtility
 
 /// An error in the structure or layout of a package.
 public enum ModuleError: Swift.Error {
@@ -24,8 +24,8 @@ public enum ModuleError: Swift.Error {
     /// Indicates two targets with the same name and their corresponding packages.
     case duplicateModule(String, [String])
 
-    /// One or more referenced targets could not be found.
-    case modulesNotFound([String])
+    /// The eferenced target could not be found.
+    case moduleNotFound(String, TargetDescription.TargetType)
 
     /// Invalid custom path.
     case invalidCustomPath(target: String, path: String)
@@ -67,9 +67,9 @@ extension ModuleError: CustomStringConvertible {
         case .duplicateModule(let name, let packages):
             let packages = packages.joined(separator: ", ")
             return "multiple targets named '\(name)' in: \(packages)"
-        case .modulesNotFound(let targets):
-            let targets = targets.joined(separator: ", ")
-            return "could not find source files for target(s): \(targets); use the 'path' property in the Swift 4 manifest to set a custom target path"
+        case .moduleNotFound(let target, let type):
+            let folderName = type == .test ? "Tests" : "Sources"
+            return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
         case .invalidLayout(let type):
             return "package has unsupported layout; \(type)"
         case .invalidManifestConfig(let package, let message):
@@ -231,6 +231,28 @@ public final class PackageBuilder {
         self.createREPLProduct = createREPLProduct
     }
 
+    /// Loads a package from a package repository using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///     - packagePath: The absolute path of the package root.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
+    ///         Its associated resources will be used by the loader.
+    public static func loadPackage(
+        packagePath: AbsolutePath,
+        swiftCompiler: AbsolutePath,
+        diagnostics: DiagnosticsEngine,
+        isRootPackage: Bool = true) throws -> Package {
+
+        let manifest = try ManifestLoader.loadManifest(
+            packagePath: packagePath, swiftCompiler: swiftCompiler)
+        let builder = PackageBuilder(
+            manifest: manifest,
+            path: packagePath,
+            diagnostics: diagnostics,
+            isRootPackage: isRootPackage)
+        return try builder.construct()
+    }
+
     /// Build a new package following the conventions.
     public func construct() throws -> Package {
         let targets = try constructTargets()
@@ -296,10 +318,7 @@ public final class PackageBuilder {
 
             // Diagnose broken symlinks.
             if fileSystem.isSymlink(path) {
-                diagnostics.emit(
-                    data: PackageBuilderDiagnostics.BrokenSymlinkDiagnostic(path: path),
-                    location: diagnosticLocation()
-                )
+                diagnostics.emit(.brokenSymlink(path), location: diagnosticLocation())
             }
 
             return false
@@ -360,7 +379,7 @@ public final class PackageBuilder {
             let targets = manifest.targets
             if !targets.isEmpty {
                 diagnostics.emit(
-                    data: PackageBuilderDiagnostics.SystemPackageDeclaresTargetsDiagnostic(targets: targets.map({ $0.name })),
+                    .systemPackageDeclaresTargets(targets: targets.map{ $0.name }),
                     location: diagnosticLocation()
                 )
             }
@@ -368,11 +387,8 @@ public final class PackageBuilder {
             // Emit deprecation notice.
             switch manifest.manifestVersion {
             case .v4: break
-            case .v4_2, .v5:
-                diagnostics.emit(
-                    data: PackageBuilderDiagnostics.SystemPackageDeprecatedDiagnostic(),
-                    location: diagnosticLocation()
-                )
+            case .v4_2, .v5, .v5_1:
+                diagnostics.emit(.systemPackageDeprecation, location: diagnosticLocation())
             }
 
             // Package contains a modulemap at the top level, so we assuming
@@ -421,10 +437,23 @@ public final class PackageBuilder {
         return (targetDir, testTargetDir)
     }
 
+    struct PredefinedTargetDirectory {
+        let path: AbsolutePath
+        let contents: [String]
+
+        init(fs: FileSystem, path: AbsolutePath) {
+            self.path = path
+            self.contents = (try? fs.getDirectoryContents(path)) ?? []
+        }
+    }
+
     /// Construct targets according to PackageDescription 4 conventions.
     fileprivate func constructV4Targets() throws -> [Target] {
         // Select the correct predefined directory list.
         let predefinedDirs = findPredefinedTargetDirectory()
+
+        let predefinedTargetDirectory = PredefinedTargetDirectory(fs: fileSystem, path: packagePath.appending(component: predefinedDirs.targetDir))
+        let predefinedTestTargetDirectory = PredefinedTargetDirectory(fs: fileSystem, path: packagePath.appending(component: predefinedDirs.testTargetDir))
 
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
@@ -451,12 +480,20 @@ public final class PackageBuilder {
             }
 
             // Check if target is present in the predefined directory.
-            let predefinedDir = target.isTest ? predefinedDirs.testTargetDir : predefinedDirs.targetDir
-            let path = packagePath.appending(components: predefinedDir, target.name)
-            if fileSystem.isDirectory(path) {
+            let predefinedDir = target.isTest ? predefinedTestTargetDirectory : predefinedTargetDirectory
+            let path = predefinedDir.path.appending(component: target.name)
+
+            // Return the path if the predefined directory contains it.
+            if predefinedDir.contents.contains(target.name) {
                 return path
             }
-            throw ModuleError.modulesNotFound([target.name])
+
+            // Otherwise, if the path "exists" then the case in manifest differs from the case on the file system.
+            if fileSystem.isDirectory(path) {
+                diagnostics.emit(.targetNameHasIncorrectCase(target: target.name), location: diagnosticLocation())
+                return path
+            }
+            throw ModuleError.moduleNotFound(target.name, target.type)
         }
 
         // Create potential targets.
@@ -474,8 +511,8 @@ public final class PackageBuilder {
         let allReferencedModules = manifest.allReferencedModules()
         let potentialModulesName = Set(potentialModules.map({ $0.name }))
         let missingModules = allReferencedModules.subtracting(potentialModulesName).intersection(allReferencedModules)
-        guard missingModules.isEmpty else {
-            throw ModuleError.modulesNotFound(missingModules.map({ $0 }))
+        if let missingModule = missingModules.first {
+            throw ModuleError.moduleNotFound(missingModule, potentialModules.first(where: { $0.name == missingModule })?.type ?? .regular)
         }
 
         let targetItems = manifest.targets.map({ ($0.name, $0 as TargetDescription) })
@@ -562,7 +599,7 @@ public final class PackageBuilder {
                 targets[createdTarget.name] = createdTarget
             } else {
                 emptyModules.insert(potentialModule.name)
-                diagnostics.emit(data: PackageBuilderDiagnostics.NoSources(package: manifest.name, target: potentialModule.name))
+                diagnostics.emit(.targetHasNoSources(targetPath: potentialModule.path.pathString, target: potentialModule.name))
             }
         }
         return targets.values.map({ $0 })
@@ -605,12 +642,12 @@ public final class PackageBuilder {
         // Check for duplicate target dependencies by name
         let combinedDependencyNames = moduleDependencies.map { $0.name } + productDeps.map { $0.0 }
         combinedDependencyNames.spm_findDuplicates().forEach {
-            diagnostics.emit(data: PackageBuilderDiagnostics.DuplicateTargetDependencyDiagnostic(dependency: $0, target: potentialModule.name))
+            diagnostics.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name))
         }
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget?.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
-        let publicHeadersPath = potentialModule.path.appending(RelativePath(publicHeaderComponent))
+        let publicHeadersPath = potentialModule.path.appending(try RelativePath(validating: publicHeaderComponent))
         guard publicHeadersPath.contains(potentialModule.path) else {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
@@ -946,7 +983,7 @@ public final class PackageBuilder {
             let inserted = products.append(KeyedPair(product, key: product.name))
             if !inserted {
                 diagnostics.emit(
-                    data: PackageBuilderDiagnostics.DuplicateProduct(product: product),
+                    .duplicateProduct(product: product),
                     location: diagnosticLocation()
                 )
             }
@@ -958,7 +995,7 @@ public final class PackageBuilder {
           #if os(Linux)
             // FIXME: Ignore C language test targets on linux for now.
             if target is ClangTarget {
-                diagnostics.emit(data: PackageBuilderDiagnostics.UnsupportedCTarget(
+                diagnostics.emit(.unsupportedCTestTarget(
                     package: manifest.name, target: target.name))
                 return false
             }
@@ -1037,7 +1074,7 @@ public final class PackageBuilder {
             if targets.contains(where: { $0 is SystemLibraryTarget }) {
                 if product.type != .library(.automatic) || targets.count != 1 {
                     diagnostics.emit(
-                        data: PackageBuilderDiagnostics.SystemPackageProductValidationDiagnostic(product: product.name),
+                        .systemPackageProductValidation(product: product.name),
                         location: diagnosticLocation()
                     )
                     continue
@@ -1052,7 +1089,7 @@ public final class PackageBuilder {
                 let executableTargets = targets.filter({ $0.type == .executable })
                 if executableTargets.count != 1 {
                     diagnostics.emit(
-                        data: PackageBuilderDiagnostics.InvalidExecutableProductDecl(product: product.name),
+                        .invalidExecutableProductDecl(product.name),
                         location: diagnosticLocation()
                     )
                     continue
@@ -1067,7 +1104,7 @@ public final class PackageBuilder {
             let libraryTargets = targets.filter({ $0.type == .library })
             if libraryTargets.isEmpty {
                 diagnostics.emit(
-                    data: PackageBuilderDiagnostics.ZeroLibraryProducts(),
+                    .noLibraryTargetsForREPL,
                     location: diagnosticLocation()
                 )
             } else {

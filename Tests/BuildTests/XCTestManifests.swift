@@ -17,6 +17,7 @@ extension BuildPlanTests {
         ("testCppModule", testCppModule),
         ("testDynamicProducts", testDynamicProducts),
         ("testExecAsDependency", testExecAsDependency),
+        ("testExecBuildTimeDependency", testExecBuildTimeDependency),
         ("testExtraBuildFlags", testExtraBuildFlags),
         ("testIndexStore", testIndexStore),
         ("testNonReachableProductsAndTargets", testNonReachableProductsAndTargets),
@@ -38,6 +39,7 @@ extension IncrementalBuildTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__IncrementalBuildTests = [
+        ("testBuildManifestCaching", testBuildManifestCaching),
         ("testIncrementalSingleModuleCLibraryInSources", testIncrementalSingleModuleCLibraryInSources),
     ]
 }

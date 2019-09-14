@@ -10,15 +10,15 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import PackageModel
 import PackageGraph
 import PackageLoading
 import SourceControl
 
-import struct SPMUtility.Version
+import struct TSCUtility.Version
 
-import TestSupport
+import SPMTestSupport
 
 private let v1: Version = "1.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
@@ -209,16 +209,32 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
         try runPackageTest(name: "kitura.json", N: 100)
     }
 
+    func testKituraPubGrub_X100() throws {
+        try runPackageTestPubGrub(name: "kitura.json", N: 100)
+    }
+
     func testZewoHTTPServer_X100() throws {
         try runPackageTest(name: "ZewoHTTPServer.json", N: 100)
+    }
+
+    func testZewoPubGrub_X100() throws {
+        try runPackageTestPubGrub(name: "ZewoHTTPServer.json", N: 100)
     }
 
     func testPerfectHTTPServer_X100() throws {
         try runPackageTest(name: "PerfectHTTPServer.json", N: 100)
     }
 
+    func testPerfectPubGrub_X100() throws {
+        try runPackageTestPubGrub(name: "PerfectHTTPServer.json", N: 100)
+    }
+
     func testSourceKitten_X1000() throws {
         try runPackageTest(name: "SourceKitten.json", N: 1000)
+    }
+
+    func testSourceKittenPubGrub_X100() throws {
+        try runPackageTestPubGrub(name: "SourceKitten.json", N: 100)
     }
 
     func runPackageTest(name: String, N: Int = 1) throws {
@@ -230,6 +246,32 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
                 let resolver = MockDependencyResolver(provider, MockResolverDelegate())
                 let result = try! resolver.resolveToVersion(constraints: graph.constraints)
                 graph.checkResult(result)
+            }
+        }
+    }
+
+    func runPackageTestPubGrub(name: String, N: Int = 1) throws {
+        let graph = try mockGraph(for: name)
+        let provider = MockPackagesProvider(containers: graph.containers)
+
+        measure {
+            for _ in 0 ..< N {
+                let resolver = PubgrubDependencyResolver(provider)
+                switch resolver.solve(dependencies: graph.constraints) {
+                case .success(let result):
+                    let result: [(container: String, version: Version)] = result.compactMap {
+                        guard case .version(let version) = $0.binding else {
+                            XCTFail("Unexpected result")
+                            return nil
+                        }
+                        return ($0.container.identity, version)
+                    }
+                    graph.checkResult(result)
+
+                case .unsatisfiable, .error:
+                    XCTFail("Unexpected result")
+                    return
+                }
             }
         }
     }

@@ -8,51 +8,16 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import Build
 import PackageModel
 import PackageLoading
 import PackageGraph
 import SourceControl
-import SPMUtility
+import TSCUtility
 import Xcodeproj
 import Workspace
 import Foundation
-
-struct FetchDeprecatedDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: AnyDiagnostic.self,
-        name: "org.swift.diags.fetch-deprecated",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "'fetch' command is deprecated; use 'resolve' instead"
-        }
-    )
-}
-
-struct RequiredArgumentDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: RequiredArgumentDiagnostic.self,
-        name: "org.swift.diags.required-argument",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "missing required argument" <<< { "\($0.argument)" }
-        }
-    )
-
-    let argument: String
-}
-
-struct RequiredSubcommandDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: RequiredSubcommandDiagnostic.self,
-        name: "org.swift.diags.required-subcommand",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "missing required subcommand; use --help to list available subcommands"
-        }
-    )
-}
 
 /// swift-package tool namespace
 public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
@@ -74,7 +39,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .config:
             guard let configMode = options.configMode else {
-                diagnostics.emit(data: RequiredSubcommandDiagnostic())
+                diagnostics.emit(.missingRequiredSubcommand)
                 return
             }
 
@@ -84,7 +49,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             switch configMode {
             case .getMirror:
                 guard let packageURL = options.configOptions.packageURL else {
-                    diagnostics.emit(data: RequiredArgumentDiagnostic(argument: "--package-url"))
+                    diagnostics.emit(.missingRequiredArg("--package-url"))
                     return
                 }
 
@@ -98,7 +63,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             case .unsetMirror:
                 guard let packageOrMirror = options.configOptions.packageURL ?? options.configOptions.mirrorURL else {
-                    diagnostics.emit(data: RequiredArgumentDiagnostic(argument: "--package-url or --mirror-url"))
+                    diagnostics.emit(.missingRequiredArg("--package-url or --mirror-url"))
                     return
                 }
 
@@ -106,11 +71,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             case .setMirror:
                 guard let packageURL = options.configOptions.packageURL else {
-                    diagnostics.emit(data: RequiredArgumentDiagnostic(argument: "--package-url"))
+                    diagnostics.emit(.missingRequiredArg("--package-url"))
                     return
                 }
                 guard let mirrorURL = options.configOptions.mirrorURL else {
-                    diagnostics.emit(data: RequiredArgumentDiagnostic(argument: "--mirror-url"))
+                    diagnostics.emit(.missingRequiredArg("--mirror-url"))
                     return
                 }
 
@@ -129,6 +94,55 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             }
             try initPackage.writePackageStructure()
 
+        case .format:
+            // Look for swift-format binary.
+            // FIXME: This should be moved to user toolchain.
+            let swiftFormatInEnv = lookupExecutablePath(filename: ProcessEnv.vars["SWIFT_FORMAT"])
+            guard let swiftFormat = swiftFormatInEnv ?? Process.findExecutable("swift-format") else {
+                print("error: Could not find swift-format in PATH or SWIFT_FORMAT")
+                throw Diagnostics.fatalError
+            }
+
+            // Get the root package.
+            let workspace = try getActiveWorkspace()
+            let root = try getWorkspaceRoot()
+            let manifest = workspace.loadRootManifests(
+                packages: root.packages, diagnostics: diagnostics)[0]
+
+            let builder = PackageBuilder(
+                manifest: manifest,
+                path: try getPackageRoot(),
+                diagnostics: diagnostics,
+                isRootPackage: true
+            )
+            let package = try builder.construct()
+
+            // Use the user provided flags or default to formatting mode.
+            let formatOptions = options.swiftFormatFlags ?? ["--mode", "format", "--in-place"]
+
+            // Process each target in the root package.
+            for target in package.targets {
+                for file in target.sources.paths {
+                    // Only process Swift sources.
+                    guard let ext = file.extension, ext == SupportedLanguageExtension.swift.rawValue else {
+                        continue
+                    }
+
+                    let args = [swiftFormat.pathString] + formatOptions + [file.pathString]
+                    print("Running:", args.map{ $0.spm_shellEscaped() }.joined(separator: " "))
+
+                    let result = try Process.popen(arguments: args)
+                    let output = try (result.utf8Output() + result.utf8stderrOutput())
+
+                    if result.exitStatus != .terminated(code: 0) {
+                        print("Non-zero exit", result.exitStatus)
+                    }
+                    if !output.isEmpty {
+                        print(output)
+                    }
+                }
+            }
+
         case .clean:
             try getActiveWorkspace().clean(with: diagnostics)
 
@@ -143,7 +157,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             )
 
         case .fetch:
-            diagnostics.emit(data: FetchDeprecatedDiagnostic())
+            diagnostics.emit(warning: "'fetch' command is deprecated; use 'resolve' instead")
             try resolve()
 
         case .resolve:
@@ -208,7 +222,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             case .set(let value):
                 guard let toolsVersion = ToolsVersion(string: value) else {
                     // FIXME: Probably lift this error defination to ToolsVersion.
-                    throw ToolsVersionLoader.Error.malformed(specifier: value, file: pkg)
+                    throw ToolsVersionLoader.Error.malformed(specifier: value, currentToolsVersion: .currentToolsVersion)
                 }
                 try writeToolsVersion(at: pkg, version: toolsVersion, fs: localFileSystem)
 
@@ -265,8 +279,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .describe:
             let workspace = try getActiveWorkspace()
             let root = try getWorkspaceRoot()
-            let manifest = workspace.loadRootManifests(
-                packages: root.packages, diagnostics: diagnostics)[0]
+            let manifests = workspace.loadRootManifests(
+                packages: root.packages, diagnostics: diagnostics)
+            guard let manifest = manifests.first else { return }
 
             let builder = PackageBuilder(
                 manifest: manifest,
@@ -280,8 +295,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .dumpPackage:
             let workspace = try getActiveWorkspace()
             let root = try getWorkspaceRoot()
-            let manifest = workspace.loadRootManifests(
-                packages: root.packages, diagnostics: diagnostics)[0]
+            let manifests = workspace.loadRootManifests(
+                packages: root.packages, diagnostics: diagnostics)
+            guard let manifest = manifests.first else { return }
 
             let encoder = JSONEncoder()
             encoder.userInfo[Manifest.dumpPackageKey] = true
@@ -357,13 +373,20 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
         parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
 
+        let formatParser = parser.add(subparser: PackageMode.format.rawValue, overview: "")
+        binder.bindArray(
+            option: formatParser.add(
+                option: "--", kind: [String].self, strategy: .remaining,
+                usage: "Pass flag through to the swift-format tool"),
+            to: { $0.swiftFormatFlags = $1 })
+
         let initPackageParser = parser.add(
             subparser: PackageMode.initPackage.rawValue,
             overview: "Initialize a new package")
         binder.bind(
             option: initPackageParser.add(
                 option: "--type", kind: InitPackage.PackageType.self,
-                usage: "empty|library|executable|system-module"),
+                usage: "empty|library|executable|system-module|manifest"),
             to: { $0.initMode = $1 })
 
         binder.bind(
@@ -612,11 +635,15 @@ public class PackageToolOptions: ToolOptions {
         var mirrorURL: String?
     }
     var configOptions = ConfigOptions()
+
+    /// Custom flags for swift-format tool.
+    var swiftFormatFlags: [String]? = nil
 }
 
 public enum PackageMode: String, StringEnumArgument {
     case clean
     case config
+    case format = "_format"
     case describe
     case dumpPackage = "dump-package"
     case edit
@@ -688,5 +715,15 @@ extension PackageToolOptions.ConfigMode: StringEnumArgument {
 extension SwiftPackageTool: ToolName {
     static var toolName: String {
         return "swift package"
+    }
+}
+
+private extension Diagnostic.Message {
+    static var missingRequiredSubcommand: Diagnostic.Message {
+        .error("missing required subcommand; use --help to list available subcommands")
+    }
+
+    static func missingRequiredArg(_ argument: String) -> Diagnostic.Message {
+        .error("missing required argument \(argument)")
     }
 }

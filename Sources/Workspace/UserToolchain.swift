@@ -8,34 +8,22 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
+import TSCBasic
 import Build
 import PackageLoading
 import protocol Build.Toolchain
-import SPMUtility
+import TSCUtility
 
 #if os(macOS)
 private let whichArgs: [String] = ["xcrun", "--find"]
 #else
 private let whichArgs = ["which"]
 #endif
-
-/// Concrete object for manifest resource provider.
-public struct UserManifestResources: ManifestResourceProvider {
-    public let swiftCompiler: AbsolutePath
-    public let libDir: AbsolutePath
-    public let sdkRoot: AbsolutePath?
-
-    public init(
-        swiftCompiler: AbsolutePath,
-        libDir: AbsolutePath,
-        sdkRoot: AbsolutePath? = nil
-    ) {
-        self.swiftCompiler = swiftCompiler
-        self.libDir = libDir
-        self.sdkRoot = sdkRoot
-    }
-}
+#if os(Windows)
+private let hostExecutableSuffix = ".exe"
+#else
+private let hostExecutableSuffix = ""
+#endif
 
 // FIXME: This is messy and needs a redesign.
 public final class UserToolchain: Toolchain {
@@ -56,16 +44,13 @@ public final class UserToolchain: Toolchain {
 
     /// Path of the `swift` interpreter.
     public var swiftInterpreter: AbsolutePath {
-        return swiftCompiler.parentDirectory.appending(component: "swift")
+        return swiftCompiler.parentDirectory.appending(component: "swift" + hostExecutableSuffix)
     }
 
     /// Path to the xctest utility.
     ///
     /// This is only present on macOS.
     public let xctest: AbsolutePath?
-
-    /// Path to llbuild.
-    public let llbuild: AbsolutePath
 
     /// The compilation destination object.
     public let destination: Destination
@@ -97,7 +82,7 @@ public final class UserToolchain: Toolchain {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path = path else { return }
             guard localFileSystem.isExecutableFile(path) else {
-                throw InvalidToolchainDiagnostic("could not find the `swiftc` at expected path \(path)")
+                throw InvalidToolchainDiagnostic("could not find the `swiftc\(hostExecutableSuffix)` at expected path \(path)")
             }
         }
 
@@ -112,13 +97,13 @@ public final class UserToolchain: Toolchain {
         // We require there is at least one valid swift compiler, either in the
         // bin dir or SWIFT_EXEC.
         let resolvedBinDirCompiler: AbsolutePath
-        let binDirCompiler = binDir.appending(component: "swiftc")
+        let binDirCompiler = binDir.appending(component: "swiftc" + hostExecutableSuffix)
         if localFileSystem.isExecutableFile(binDirCompiler) {
             resolvedBinDirCompiler = binDirCompiler
         } else if let SWIFT_EXEC = SWIFT_EXEC {
             resolvedBinDirCompiler = SWIFT_EXEC
         } else {
-            throw InvalidToolchainDiagnostic("could not find the `swiftc` at expected path \(binDirCompiler)")
+            throw InvalidToolchainDiagnostic("could not find the `swiftc\(hostExecutableSuffix)` at expected path \(binDirCompiler)")
         }
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
@@ -127,7 +112,7 @@ public final class UserToolchain: Toolchain {
     }
 
     private static func lookup(variable: String, searchPaths: [AbsolutePath]) -> AbsolutePath? {
-        return lookupExecutablePath(filename: Process.env[variable], searchPaths: searchPaths)
+        return lookupExecutablePath(filename: ProcessEnv.vars[variable], searchPaths: searchPaths)
     }
 
     /// Environment to use when looking up tools.
@@ -146,30 +131,35 @@ public final class UserToolchain: Toolchain {
             return toolPath
         }
 
-        // Otherwise, lookup the tool on the system.
+        // Then, check the toolchain.
+        do {
+            let toolPath = destination.binDir.appending(component: "clang" + hostExecutableSuffix)
+            if localFileSystem.exists(toolPath) {
+                _clangCompiler = toolPath
+                return toolPath
+            }
+        }
+
+        // Otherwise, lookup it up on the system.
         let arguments = whichArgs + ["clang"]
         let foundPath = try Process.checkNonZeroExit(arguments: arguments, environment: processEnvironment).spm_chomp()
         guard !foundPath.isEmpty else {
             throw InvalidToolchainDiagnostic("could not find clang")
         }
         let toolPath = try AbsolutePath(validating: foundPath)
-
-        // If we found clang using xcrun, assume the vendor is Apple.
-        // FIXME: This might not be the best way to determine this.
-        #if os(macOS)
-            __isClangCompilerVendorApple = true
-        #endif
-
         _clangCompiler = toolPath
         return toolPath
     }
     private var _clangCompiler: AbsolutePath?
-    private var __isClangCompilerVendorApple: Bool?
 
     public func _isClangCompilerVendorApple() throws -> Bool? {
-        // The boolean gets computed as a side-effect of lookup for clang compiler.
-        _ = try getClangCompiler()
-        return __isClangCompilerVendorApple
+        // Assume the vendor is Apple on macOS.
+        // FIXME: This might not be the best way to determine this.
+      #if os(macOS)
+        return true
+      #else
+        return false
+      #endif
     }
 
     /// Returns the path to llvm-cov tool.
@@ -190,13 +180,13 @@ public final class UserToolchain: Toolchain {
         return toolPath
     }
 
-    public init(destination: Destination, environment: [String: String] = Process.env) throws {
+    public init(destination: Destination, environment: [String: String] = ProcessEnv.vars) throws {
         self.destination = destination
         self.processEnvironment = environment
 
         // Get the search paths from PATH.
         let searchPaths = getEnvSearchPaths(
-            pathString: Process.env["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+            pathString: ProcessEnv.vars["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
 
         self.envSearchPaths = searchPaths
 
@@ -205,13 +195,6 @@ public final class UserToolchain: Toolchain {
 
         let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) })
         self.swiftCompiler = swiftCompilers.compile
-
-        // Look for llbuild in bin dir.
-        llbuild = binDir.appending(component: "swift-build-tool")
-        guard localFileSystem.exists(llbuild) else {
-            throw InvalidToolchainDiagnostic("could not find `llbuild` at expected path \(llbuild)")
-        }
-
 
         // We require xctest to exist on macOS.
       #if os(macOS)
@@ -222,19 +205,20 @@ public final class UserToolchain: Toolchain {
         self.xctest = nil
       #endif
 
-        self.extraSwiftCFlags = [
-            "-sdk", destination.sdk.pathString
-        ] + destination.extraSwiftCFlags
+        self.extraSwiftCFlags = (destination.target.isDarwin()
+                                    ? ["-sdk", destination.sdk.pathString]
+                                    : [])
+                                  + destination.extraSwiftCFlags
 
         self.extraCCFlags = [
             destination.target.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
         ] + destination.extraCCFlags
 
         // Compute the path of directory containing the PackageDescription libraries.
-        var pdLibDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+        var pdLibDir = UserManifestResources.libDir(forBinDir: binDir)
 
         // Look for an override in the env.
-        if let pdLibDirEnvStr = Process.env["SWIFTPM_PD_LIBS"] {
+        if let pdLibDirEnvStr = ProcessEnv.vars["SWIFTPM_PD_LIBS"] {
             // We pick the first path which exists in a colon seperated list.
             let paths = pdLibDirEnvStr.split(separator: ":").map(String.init)
             for pathString in paths {

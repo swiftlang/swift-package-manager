@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
+import TSCBasic
 import PackageModel
 
 /// Create an initial template package.
 public final class InitPackage {
     /// The tool version to be used for new packages.
-    public static let newPackageToolsVersion = ToolsVersion(version: "5.0.0")
+    public static let newPackageToolsVersion = ToolsVersion(version: "5.1.0")
     
     /// Represents a package type for the purposes of initialization.
     public enum PackageType: String, CustomStringConvertible {
@@ -22,6 +22,7 @@ public final class InitPackage {
         case library = "library"
         case executable = "executable"
         case systemModule = "system-module"
+        case manifest = "manifest"
 
         public var description: String {
             return rawValue
@@ -63,6 +64,11 @@ public final class InitPackage {
         // FIXME: We should form everything we want to write, then validate that
         // none of it exists, and then act.
         try writeManifestFile()
+
+        if packageType == .manifest {
+            return
+        }
+
         try writeREADMEFile()
         try writeGitIgnore()
         try writeSources()
@@ -96,7 +102,7 @@ public final class InitPackage {
                     name: "\(pkgname)"
                 """)
 
-            if packageType == .library {
+            if packageType == .library || packageType == .manifest {
                 pkgParams.append("""
                     products: [
                         // Products define the executables and libraries produced by a package, and make them visible to other packages.
@@ -114,7 +120,7 @@ public final class InitPackage {
                     ]
                 """)
 
-            if packageType == .library || packageType == .executable {
+            if packageType == .library || packageType == .executable || packageType == .manifest {
                 pkgParams.append("""
                     targets: [
                         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -170,13 +176,14 @@ public final class InitPackage {
                 /.build
                 /Packages
                 /*.xcodeproj
+                xcuserdata/
 
                 """
         }
     }
 
     private func writeSources() throws {
-        if packageType == .systemModule {
+        if packageType == .systemModule || packageType == .manifest {
             return
         }
         let sources = destinationPath.appending(component: "Sources")
@@ -210,7 +217,7 @@ public final class InitPackage {
                     print("Hello, world!")
 
                     """
-            case .systemModule, .empty:
+            case .systemModule, .empty, .manifest:
                 fatalError("invalid")
             }
         }
@@ -249,7 +256,7 @@ public final class InitPackage {
         try makeDirectories(tests)
 
         switch packageType {
-        case .systemModule, .empty: break
+        case .systemModule, .empty, .manifest: break
         case .library, .executable:
             try writeLinuxMain(testsPath: tests)
             try writeTestFileStubs(testsPath: tests)
@@ -356,7 +363,7 @@ public final class InitPackage {
 
         let testClassFile = testModule.appending(RelativePath("\(moduleName)Tests.swift"))
         switch packageType {
-        case .systemModule, .empty: break
+        case .systemModule, .empty, .manifest: break
         case .library:
             try writeLibraryTestsFile(testClassFile)
         case .executable:

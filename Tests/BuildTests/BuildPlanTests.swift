@@ -10,9 +10,9 @@
 
 import XCTest
 
-import Basic
-import SPMUtility
-import TestSupport
+import TSCBasic
+import TSCUtility
+import SPMTestSupport
 import PackageModel
 import PackageLoading
 
@@ -111,9 +111,10 @@ final class BuildPlanTests: XCTestCase {
         let linkArguments = [
             "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe",
-            "-static-stdlib", "-emit-executable",
+            "-emit-executable",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-target", "x86_64-apple-macosx10.10",
         ]
       #else
         let linkArguments = [
@@ -122,10 +123,19 @@ final class BuildPlanTests: XCTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
+            "-target", "x86_64-unknown-linux",
         ]
       #endif
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), linkArguments)
+
+      #if os(macOS)
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: .contains("can be downloaded"), behavior: .warning)
+        }
+      #else
+        XCTAssertNoDiagnostics(diagnostics)
+      #endif
     }
 
     func testBasicExtPackages() throws {
@@ -218,6 +228,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", "/path/to/build/release/exe", "-module-name", "exe", "-emit-executable",
             "@/path/to/build/release/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-target", "x86_64-apple-macosx10.10",
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -225,6 +236,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", "/path/to/build/release/exe", "-module-name", "exe", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/release/exe.product/Objects.LinkFileList",
+            "-target", "x86_64-unknown-linux",
         ])
       #endif
     }
@@ -310,7 +322,8 @@ final class BuildPlanTests: XCTestCase {
             "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-runtime-compatibility-version", "none",
+            "-target", "x86_64-apple-macosx10.10",
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -318,6 +331,8 @@ final class BuildPlanTests: XCTestCase {
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
+            "-runtime-compatibility-version", "none",
+            "-target", "x86_64-unknown-linux",
         ])
       #endif
 
@@ -366,7 +381,8 @@ final class BuildPlanTests: XCTestCase {
             "/fake/path/to/swiftc", "-lc++", "-g", "-L", "/path/to/build/debug", "-o",
             "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-runtime-compatibility-version", "none",
+            "-target", "x86_64-apple-macosx10.10",
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -374,6 +390,8 @@ final class BuildPlanTests: XCTestCase {
             "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
+            "-runtime-compatibility-version", "none",
+            "-target", "x86_64-unknown-linux",
         ])
       #endif
 
@@ -438,6 +456,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-target", "x86_64-apple-macosx10.10",
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -445,6 +464,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
+            "-target", "x86_64-unknown-linux",
         ])
       #endif
     }
@@ -579,6 +599,7 @@ final class BuildPlanTests: XCTestCase {
             "PkgPackageTests", "-Xlinker", "-bundle",
             "@/path/to/build/debug/PkgPackageTests.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-target", "x86_64-apple-macosx10.10",
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
@@ -586,6 +607,7 @@ final class BuildPlanTests: XCTestCase {
             "/path/to/build/debug/PkgPackageTests.xctest", "-module-name", "PkgPackageTests", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/PkgPackageTests.product/Objects.LinkFileList",
+            "-target", "x86_64-unknown-linux",
         ])
       #endif
     }
@@ -629,6 +651,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-target", "x86_64-apple-macosx10.10",
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -636,6 +659,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
+            "-target", "x86_64-unknown-linux",
         ])
       #endif
     }
@@ -720,6 +744,7 @@ final class BuildPlanTests: XCTestCase {
            "-o", "/path/to/build/debug/Foo", "-module-name", "Foo", "-lBar-Baz", "-emit-executable",
             "@/path/to/build/debug/Foo.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-target", "x86_64-apple-macosx10.10",
         ])
 
         XCTAssertEqual(barLinkArgs, [
@@ -727,6 +752,7 @@ final class BuildPlanTests: XCTestCase {
             "/path/to/build/debug/libBar-Baz.dylib",
             "-module-name", "Bar_Baz", "-emit-library",
             "@/path/to/build/debug/Bar-Baz.product/Objects.LinkFileList",
+            "-target", "x86_64-apple-macosx10.10",
         ])
       #else
         XCTAssertEqual(fooLinkArgs, [
@@ -734,6 +760,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", "/path/to/build/debug/Foo", "-module-name", "Foo", "-lBar-Baz", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/Foo.product/Objects.LinkFileList",
+            "-target", "x86_64-unknown-linux",
         ])
 
         XCTAssertEqual(barLinkArgs, [
@@ -742,6 +769,7 @@ final class BuildPlanTests: XCTestCase {
             "-module-name", "Bar_Baz", "-emit-library",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/Bar-Baz.product/Objects.LinkFileList",
+            "-target", "x86_64-unknown-linux",
         ])
       #endif
 
@@ -791,6 +819,7 @@ final class BuildPlanTests: XCTestCase {
                 "-o", "/path/to/build/debug/liblib.dylib", "-module-name", "lib",
                 "-emit-library",
                 "@/path/to/build/debug/lib.product/Objects.LinkFileList",
+                "-target", "x86_64-apple-macosx10.10",
             ]
         #else
             let linkArguments = [
@@ -798,6 +827,7 @@ final class BuildPlanTests: XCTestCase {
                 "-o", "/path/to/build/debug/liblib.so", "-module-name", "lib",
                 "-emit-library", "-Xlinker", "-rpath=$ORIGIN",
                 "@/path/to/build/debug/lib.product/Objects.LinkFileList",
+                "-target", "x86_64-unknown-linux",
             ]
         #endif
 
@@ -857,12 +887,12 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
 
     #if os(macOS)
-        XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lc++", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.dylib", "-module-name", "lib", "-emit-library", "@/path/to/build/debug/lib.product/Objects.LinkFileList"])
+        XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lc++", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.dylib", "-module-name", "lib", "-emit-library", "@/path/to/build/debug/lib.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", "x86_64-apple-macosx10.10"])
             
-        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "@/path/to/build/debug/exe.product/Objects.LinkFileList", "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",])
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "@/path/to/build/debug/exe.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", "x86_64-apple-macosx10.10"])
     #else
-        XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lstdc++", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.so", "-module-name", "lib", "-emit-library", "-Xlinker", "-rpath=$ORIGIN", "@/path/to/build/debug/lib.product/Objects.LinkFileList"])
-        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath=$ORIGIN", "@/path/to/build/debug/exe.product/Objects.LinkFileList"])
+        XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lstdc++", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.so", "-module-name", "lib", "-emit-library", "-Xlinker", "-rpath=$ORIGIN", "@/path/to/build/debug/lib.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", "x86_64-unknown-linux"])
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath=$ORIGIN", "@/path/to/build/debug/exe.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", "x86_64-unknown-linux"])
     #endif
     }
 
@@ -986,7 +1016,7 @@ final class BuildPlanTests: XCTestCase {
         _ = try BuildPlan(buildParameters: mockBuildParameters(),
             graph: graph, diagnostics: diagnostics, fileSystem: fileSystem)
 
-        XCTAssertTrue(diagnostics.diagnostics.contains(where: { ($0.data is PkgConfigHintDiagnostic) }))
+//        XCTAssertTrue(diagnostics.diagnostics.contains(where: { ($0.message.data is PkgConfigHintDiagnostic) }))
     }
 
     func testPkgConfigGenericDiagnostic() throws {
@@ -1016,11 +1046,11 @@ final class BuildPlanTests: XCTestCase {
         _ = try BuildPlan(buildParameters: mockBuildParameters(),
             graph: graph, diagnostics: diagnostics, fileSystem: fileSystem)
 
-        let diagnostic = diagnostics.diagnostics.first(where: { ($0.data is PkgConfigGenericDiagnostic) })!
+        let diagnostic = diagnostics.diagnostics.last!
 
-        XCTAssertEqual(diagnostic.localizedDescription, "couldn't find pc file")
-        XCTAssertEqual(diagnostic.behavior, .warning)
-        XCTAssertEqual(diagnostic.location.localizedDescription, "'BTarget' BTarget.pc")
+        XCTAssertEqual(diagnostic.message.text, "couldn't find pc file")
+        XCTAssertEqual(diagnostic.message.behavior, .warning)
+        XCTAssertEqual(diagnostic.location.description, "'BTarget' BTarget.pc")
     }
 
     func testWindowsTarget() throws {
@@ -1065,6 +1095,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe.exe",
             "-module-name", "exe", "-emit-executable",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
+             "-target", "x86_64-unknown-windows-msvc",
             ])
     }
 
@@ -1222,7 +1253,12 @@ final class BuildPlanTests: XCTestCase {
         }
 
         DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-            result.check(diagnostic: .contains("the product 'BLibrary' requires minimum platform version 10.14 for macos platform"), behavior: .error)
+            let diagnosticMessage = """
+            the library 'ATarget' requires macos 10.13, but depends on the product 'BLibrary' which requires macos 10.14; \
+            consider changing the library 'ATarget' to require macos 10.14 or later, or the product 'BLibrary' to require \
+            macos 10.13 or earlier.
+            """
+            result.check(diagnostic: .contains(diagnosticMessage), behavior: .error)
         }
     }
 
@@ -1390,6 +1426,56 @@ final class BuildPlanTests: XCTestCase {
 
         let exe = try result.buildProduct(for: "exe").linkArguments()
         XCTAssertMatch(exe, [.anySequence, "-L", "/path/to/foo", "-L/path/to/foo", "-Xlinker", "-rpath=foo", "-Xlinker", "-rpath", "-Xlinker", "foo", "-L", "/fake/path/lib"])
+    }
+
+    func testExecBuildTimeDependency() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/PkgA/Sources/exe/main.swift",
+            "/PkgA/Sources/swiftlib/lib.swift",
+            "/PkgB/Sources/PkgB/PkgB.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/PkgB", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "PkgA",
+                    path: "/PkgA",
+                    url: "/PkgA",
+                    products: [
+                        ProductDescription(name: "swiftlib", targets: ["swiftlib"]),
+                        ProductDescription(name: "exe", type: .executable, targets: ["exe"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: []),
+                        TargetDescription(name: "swiftlib", dependencies: ["exe"]),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "PkgB",
+                    path: "/PkgB",
+                    url: "/PkgB",
+                    dependencies: [
+                        PackageDependencyDescription(url: "/PkgA", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "PkgB", dependencies: ["swiftlib"]),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let plan = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs)
+
+        mktmpdir { path in
+            let yaml = path.appending(component: "debug.yaml")
+            let llbuild = LLBuildManifestGenerator(plan, client: "swift-build")
+            try llbuild.generateManifest(at: yaml)
+            let contents = try localFileSystem.readFileContents(yaml).description
+            XCTAssertTrue(contents.contains("""
+                    module-output-path: "/path/to/build/debug/swiftlib.swiftmodule"
+                    inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/exe"]
+                """), contents)
+        }
     }
 }
 

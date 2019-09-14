@@ -10,7 +10,7 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import PackageLoading
 import PackageModel
 import SourceControl
@@ -24,8 +24,6 @@ import SourceControl
 //   - "package@1.0.0": equivalent to .exact("1.0.0")
 //   - "package^1.0.0": equivalent to .upToNextMajor("1.0.0")
 //   - "package-1.0.0-3.0.0": equivalent to .range("1.0.0"..<"3.0.0")
-//   - "package@branch": equivalent to .revision("branch")
-//   - "package": equivalent to .unversioned
 //
 // Mocking a dependency graph is easily achieved by using the builder API. It's
 // a global object in this module.
@@ -61,7 +59,7 @@ let bRef = PackageReference(identity: "b", path: "")
 let cRef = PackageReference(identity: "c", path: "")
 
 let rootRef = PackageReference(identity: "root", path: "")
-let rootCause = Incompatibility(Term(rootRef, .versionSet(.exact(v1))), root: rootRef)
+let rootCause = Incompatibility(Term(rootRef, .exact(v1)), root: rootRef)
 let _cause = Incompatibility("cause@0.0.0", root: rootRef)
 
 final class PubgrubTests: XCTestCase {
@@ -80,8 +78,6 @@ final class PubgrubTests: XCTestCase {
         XCTAssertFalse(a100.satisfies("¬a^1.0.0"))
         XCTAssertFalse(a100.satisfies("a^2.0.0"))
 
-        XCTAssertFalse(a100.satisfies(Term(bRef, .unversioned)))
-
         XCTAssertFalse(Term("¬a@1.0.0").satisfies("¬a^1.0.0"))
         XCTAssertFalse(Term("¬a@1.0.0").satisfies("a^2.0.0"))
         XCTAssertTrue(Term("¬a^1.0.0").satisfies("¬a@1.0.0"))
@@ -95,7 +91,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertFalse(Term("a-1.0.0-1.1.0").satisfies(Term("a^2.0.0")))
     }
 
-    func testTermIntersection() {
+    func _testTermIntersection() {
         // a^1.0.0 ∩ ¬a@1.5.0 → a >=1.0.0 <1.5.0
         XCTAssertEqual(
             Term("a^1.0.0").intersect(with: Term("¬a@1.5.0")),
@@ -139,21 +135,11 @@ final class PubgrubTests: XCTestCase {
             Term("¬a@1.0.0"))
 
         // Check difference.
-        let anyA = Term("a", .versionSet(.any))
+        let anyA = Term("a", .any)
         XCTAssertNil(Term("a^1.0.0").difference(with: anyA))
 
-        let notEmptyA = Term(not: "a", .versionSet(.empty))
+        let notEmptyA = Term(not: "a", .empty)
         XCTAssertNil(Term("a^1.0.0").difference(with: notEmptyA))
-
-        // Any intersection including a revision should return nil.
-        XCTAssertNil(Term("a@1.0.0").intersect(with: Term("a@master")))
-        XCTAssertNil(Term("a^1.0.0").intersect(with: Term("a@master")))
-        XCTAssertNil(Term("a@master").intersect(with: Term("a@develop")))
-
-        XCTAssertEqual(Term("a@master").intersect(with: Term("a@master")), Term("a@master"))
-
-        XCTAssertEqual(Term("a").intersect(with: Term("a")), Term("a"))
-        XCTAssertEqual(Term("a").intersect(with: Term("¬a")), nil)
     }
 
     func testTermRelation() {
@@ -170,51 +156,22 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(Term("a^1.9.0").relation(with: "a@1.8.1"), .disjoint)
         XCTAssertEqual(Term("a^1.9.0").relation(with: "a@2.0.0"), .disjoint)
         XCTAssertEqual(Term("a^2.0.0").relation(with: "a@1.0.0"), .disjoint)
-        XCTAssertEqual(Term("a@1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(Term("a^1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(Term("a@master").relation(with: "a@1.0.0"), .subset)
-        XCTAssertEqual(Term("a@master").relation(with: "a^1.0.0"), .subset)
-        XCTAssertEqual(Term("a@master").relation(with: "a@master"), .subset)
-        XCTAssertEqual(Term("a@master").relation(with: "a@develop"), .disjoint)
 
         // First term is negative, second term is positive.
         XCTAssertEqual(Term("¬a^1.0.0").relation(with: "a@1.5.0"), .disjoint)
         XCTAssertEqual(Term("¬a^1.5.0").relation(with: "a^1.0.0"), .overlap)
         XCTAssertEqual(Term("¬a^2.0.0").relation(with: "a^1.5.0"), .overlap)
-        XCTAssertEqual(Term("¬a@1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(Term("¬a^1.0.0").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(Term("¬a@master").relation(with: "a@1.0.0"), .overlap)
-        XCTAssertEqual(Term("¬a@master").relation(with: "a^1.0.0"), .overlap)
-        XCTAssertEqual(Term("¬a@master").relation(with: "a@master"), .disjoint)
-        XCTAssertEqual(Term("¬a@master").relation(with: "a@develop"), .overlap)
 
         // First term is positive, second term is negative.
         XCTAssertEqual(Term("a^2.0.0").relation(with: "¬a^1.0.0"), .subset)
         XCTAssertEqual(Term("a^1.5.0").relation(with: "¬a^1.0.0"), .disjoint)
         XCTAssertEqual(Term("a^1.0.0").relation(with: "¬a^1.5.0"), .overlap)
-        XCTAssertEqual(Term("a@1.0.0").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(Term("a^1.0.0").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(Term("a@master").relation(with: "¬a@1.0.0"), .disjoint)
-        XCTAssertEqual(Term("a@master").relation(with: "¬a^1.0.0"), .disjoint)
-        XCTAssertEqual(Term("a@master").relation(with: "¬a@master"), .disjoint)
-        XCTAssertEqual(Term("a@master").relation(with: "¬a@develop"), .subset)
         XCTAssertEqual(Term("a-1.0.0-2.0.0").relation(with: "¬a-1.0.0-1.2.0"), .overlap)
 
         // Both terms are negative.
         XCTAssertEqual(Term("¬a^1.0.0").relation(with: "¬a^1.5.0"), .subset)
         XCTAssertEqual(Term("¬a^2.0.0").relation(with: "¬a^1.0.0"), .overlap)
         XCTAssertEqual(Term("¬a^1.5.0").relation(with: "¬a^1.0.0"), .overlap)
-        XCTAssertEqual(Term("¬a@1.0.0").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(Term("¬a^1.0.0").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(Term("¬a@master").relation(with: "¬a@1.0.0"), .overlap)
-        XCTAssertEqual(Term("¬a@master").relation(with: "¬a^1.0.0"), .overlap)
-        XCTAssertEqual(Term("¬a@master").relation(with: "¬a@master"), .subset)
-        XCTAssertEqual(Term("¬a@master").relation(with: "¬a@develop"), .overlap)
-
-        // Check exact.
-        XCTAssertEqual(Term("a").relation(with: Term("a")), .subset)
-        XCTAssertEqual(Term("¬a").relation(with: Term("a")), .disjoint)
-        XCTAssertEqual(Term("a").relation(with: "a^1.5.0"), .subset)
     }
 
     func testTermIsValidDecision() {
@@ -235,14 +192,14 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(i1.terms.count, 2)
         let a1 = i1.terms.first { $0.package == "a" }
         let b1 = i1.terms.first { $0.package == "b" }
-        XCTAssertEqual(a1?.requirement, .versionSet(v1_5Range))
-        XCTAssertEqual(b1?.requirement, .versionSet(.exact(v1)))
+        XCTAssertEqual(a1?.requirement, v1_5Range)
+        XCTAssertEqual(b1?.requirement, .exact(v1))
 
         let i2 = Incompatibility(Term("¬a^1.0.0"), Term("a^2.0.0"),
                                  root: rootRef)
         XCTAssertEqual(i2.terms.count, 1)
         let a2 = i2.terms.first
-        XCTAssertEqual(a2?.requirement, .versionSet(v2Range))
+        XCTAssertEqual(a2?.requirement, v2Range)
     }
 
     func testSolutionPositive() {
@@ -252,22 +209,22 @@ final class PubgrubTests: XCTestCase {
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
         let a1 = s1._positive.first { $0.key.identity == "a" }?.value
-        XCTAssertEqual(a1?.requirement, .versionSet(v1_5Range))
+        XCTAssertEqual(a1?.requirement, v1_5Range)
         let b1 = s1._positive.first { $0.key.identity == "b" }?.value
-        XCTAssertEqual(b1?.requirement, .versionSet(.exact(v2)))
+        XCTAssertEqual(b1?.requirement, .exact(v2))
 
         let s2 = PartialSolution(assignments: [
             .derivation("¬a^1.5.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
         let a2 = s2._positive.first { $0.key.identity == "a" }?.value
-        XCTAssertEqual(a2?.requirement, .versionSet(.range(v1..<v1_5)))
+        XCTAssertEqual(a2?.requirement, .range(v1..<v1_5))
     }
 
     func testSolutionUndecided() {
         let solution = PartialSolution()
         solution.derive("a^1.0.0", cause: rootCause)
-        solution.decide("b", at: .version(v2))
+        solution.decide("b", at: v2)
         solution.derive("a^1.5.0", cause: rootCause)
         solution.derive("¬c^1.5.0", cause: rootCause)
         solution.derive("d^1.9.0", cause: rootCause)
@@ -283,8 +240,8 @@ final class PubgrubTests: XCTestCase {
         let b = Term("b@2.0.0")
 
         let solution = PartialSolution(assignments: [])
-        solution.decide(rootRef, at: .version(v1))
-        solution.decide(aRef, at: .version(v1))
+        solution.decide(rootRef, at: v1)
+        solution.decide(aRef, at: v1)
         solution.derive(b, cause: _cause)
         XCTAssertEqual(solution.decisionLevel, 1)
 
@@ -294,17 +251,17 @@ final class PubgrubTests: XCTestCase {
             .derivation(b, cause: _cause, decisionLevel: 1)
         ])
         XCTAssertEqual(solution.decisions, [
-            rootRef: .version(v1),
-            aRef: .version(v1),
+            rootRef: v1,
+            aRef: v1,
         ])
     }
 
     func testSolutionBacktrack() {
         // TODO: This should probably add derivations to cover that logic as well.
         let solution = PartialSolution()
-        solution.decide(aRef, at: .version(v1))
-        solution.decide(bRef, at: .version(v1))
-        solution.decide(cRef, at: .version(v1))
+        solution.decide(aRef, at: v1)
+        solution.decide(bRef, at: v1)
+        solution.decide(cRef, at: v1)
 
         XCTAssertEqual(solution.decisionLevel, 2)
         solution.backtrack(toDecisionLevel: 1)
@@ -317,14 +274,14 @@ final class PubgrubTests: XCTestCase {
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0),
         ])
         XCTAssertEqual(s1._positive["a"]?.requirement,
-                       .versionSet(v1Range))
+                       v1Range)
 
         let s2 = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.5.0", cause: _cause, decisionLevel: 0)
         ])
         XCTAssertEqual(s2._positive["a"]?.requirement,
-                       .versionSet(v1_5Range))
+                       v1_5Range)
     }
 
     func testResolverAddIncompatibility() {
@@ -368,7 +325,7 @@ final class PubgrubTests: XCTestCase {
         let solver1 = PubgrubDependencyResolver(emptyProvider, delegate)
         solver1.set(rootRef)
 
-        let notRoot = Incompatibility(Term(not: rootRef, .versionSet(.any)),
+        let notRoot = Incompatibility(Term(not: rootRef, .any),
                                       root: rootRef,
                                       cause: .root)
         solver1.add(notRoot, location: .topLevel)
@@ -383,6 +340,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertNil(try solver1.makeDecision())
 
         let a = MockContainer(name: aRef, dependenciesByVersion: [
+            "0.0.0": [],
             v1: [(package: bRef, requirement: v1Range)]
         ])
 
@@ -420,16 +378,16 @@ final class PubgrubTests: XCTestCase {
         try solver1.propagate("a")
 
         // adding a satisfying term should result in a conflict
-        solver1.solution.decide(aRef, at: .version(v1))
+        solver1.solution.decide(aRef, at: v1)
         // FIXME: This leads to fatal error.
         // try solver1.propagate(aRef)
 
         // Unit propagation should derive a new assignment from almost satisfied incompatibilities.
         let solver2 = PubgrubDependencyResolver(emptyProvider, delegate)
-        solver2.add(Incompatibility(Term("root", .versionSet(.any)),
+        solver2.add(Incompatibility(Term("root", .any),
                                     Term("¬a@1.0.0"),
                                     root: rootRef), location: .topLevel)
-        solver2.solution.decide(rootRef, at: .version(v1))
+        solver2.solution.decide(rootRef, at: v1)
         XCTAssertEqual(solver2.solution.assignments.count, 1)
         try solver2.propagate(PackageReference(identity: "root", path: ""))
         XCTAssertEqual(solver2.solution.assignments.count, 2)
@@ -437,9 +395,9 @@ final class PubgrubTests: XCTestCase {
 
     func testSolutionFindSatisfiers() {
         let solution = PartialSolution()
-        solution.decide(rootRef, at: .version(v1)) // ← previous, but actually nil because this is the root decision
-        solution.derive(Term(aRef, .versionSet(.any)), cause: _cause) // ← satisfier
-        solution.decide(aRef, at: .version(v2))
+        solution.decide(rootRef, at: v1) // ← previous, but actually nil because this is the root decision
+        solution.derive(Term(aRef, .any), cause: _cause) // ← satisfier
+        solution.decide(aRef, at: v2)
         solution.derive("b^1.0.0", cause: _cause)
 
         XCTAssertEqual(solution.satisfier(for: Term("b^1.0.0")) .term, "b^1.0.0")
@@ -533,7 +491,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func DISABLED_testCycle1() {
+    func testCycle1() {
         builder.serve("foo", at: v1_1, with: ["foo": .versionSet(v1Range)])
 
         let resolver = builder.create()
@@ -542,12 +500,12 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard case .error = result else {
-            return XCTFail("Expected a cycle")
-        }
+        AssertResult(result, [
+            ("foo", .version(v1_1)),
+        ])
     }
 
-    func DISABLED_testCycle2() {
+    func testCycle2() {
         builder.serve("foo", at: v1_1, with: ["bar": .versionSet(v1Range)])
         builder.serve("bar", at: v1, with: ["baz": .versionSet(v1Range)])
         builder.serve("baz", at: v1, with: ["bam": .versionSet(v1Range)])
@@ -559,42 +517,60 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard case .error = result else {
-            return XCTFail("Expected a cycle")
-        }
+        AssertResult(result, [
+            ("foo", .version(v1_1)),
+            ("bar", .version(v1)),
+            ("baz", .version(v1)),
+            ("bam", .version(v1)),
+        ])
     }
 
-    func testMissingVersion() {
-        builder.serve("foopkg", at: v1_1)
+    func testLocalPackageCycle() {
+        builder.serve("foo", at: .unversioned, with: [
+            "bar": .unversioned,
+        ])
+        builder.serve("bar", at: .unversioned, with: [
+            "baz": .unversioned,
+        ])
+        builder.serve("baz", at: .unversioned, with: [
+            "foo": .unversioned,
+        ])
 
         let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
-            "foopkg": .versionSet(v2Range),
+            "foo": .unversioned,
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
-        // Because root depends on foo^1.0.0 which doesn't match any versions, version solving failed.
-//        XCTAssertEqual(diag, "Because no versions of foopkg match the requirement 2.0.0..<3.0.0 and root depends on foopkg^2.0.0, version solving has failed.")
+        AssertResult(result, [
+            ("foo", .unversioned),
+            ("bar", .unversioned),
+            ("baz", .unversioned),
+        ])
     }
 
-    func testResolutionNonExistentVersion() {
-        builder.serve("package", at: v2)
+    func testBranchBasedPackageCycle() {
+        builder.serve("foo", at: .revision("develop"), with: [
+            "bar": .revision("develop"),
+        ])
+        builder.serve("bar", at: .revision("develop"), with: [
+            "baz": .revision("develop"),
+        ])
+        builder.serve("baz", at: .revision("develop"), with: [
+            "foo": .revision("develop"),
+        ])
 
         let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
-            "package": .versionSet(.exact(v1))
+            "foo": .revision("develop"),
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
-//        XCTAssertEqual(diag, "Because no versions of package match the requirement 1.0.0 and root depends on package@1.0.0, version solving has failed.")
+        AssertResult(result, [
+            ("foo", .revision("develop")),
+            ("bar", .revision("develop")),
+            ("baz", .revision("develop")),
+        ])
     }
 
     func testNonExistentPackage() {
@@ -651,7 +627,7 @@ final class PubgrubTests: XCTestCase {
     func testUnversioned3() {
         builder.serve("foo", at: .unversioned)
         builder.serve("bar", at: v1, with: [
-            "foo": .versionSet(v1Range)
+            "foo": .versionSet(.exact(v1))
         ])
 
         let resolver = builder.create()
@@ -706,25 +682,6 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testUnversioned6() {
-        builder.serve("foo", at: .unversioned)
-        builder.serve("bar", at: .revision("master"), with: [
-            "foo": .unversioned
-        ])
-
-        let resolver = builder.create()
-
-        let dependencies = builder.create(dependencies: [
-            "bar": .revision("master")
-        ])
-        let result = resolver.solve(dependencies: dependencies)
-
-        AssertResult(result, [
-            ("foo", .unversioned),
-            ("bar", .revision("master"))
-        ])
-    }
-
     func testUnversioned7() {
         builder.serve("local", at: .unversioned, with: [
             "remote": .unversioned
@@ -739,14 +696,37 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
+        AssertResult(result, [
+            ("remote", .unversioned),
+            ("local", .unversioned)
+        ])
     }
 
     func testUnversioned8() {
-        // FIXME: This fails when you change the order.
+        builder.serve("entry", at: .unversioned, with: [
+            "remote": .versionSet(v1Range),
+            "local": .unversioned,
+        ])
+        builder.serve("local", at: .unversioned, with: [
+            "remote": .unversioned
+        ])
+        builder.serve("remote", at: .unversioned)
+        builder.serve("remote", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "entry": .unversioned,
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("entry", .unversioned),
+            ("local", .unversioned),
+            ("remote", .unversioned),
+        ])
+    }
+
+    func testUnversioned9() {
         builder.serve("entry", at: .unversioned, with: [
             "local": .unversioned,
             "remote": .versionSet(v1Range),
@@ -838,6 +818,28 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
+    func testResolutionWithOverridingBranchBasedDependency3() {
+        builder.serve("foo", at: .revision("master"), with: ["bar": .revision("master")])
+
+        builder.serve("bar", at: .revision("master"))
+        builder.serve("bar", at: v1)
+
+        builder.serve("baz", at: .revision("master"), with: ["bar": .versionSet(v1Range)])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .revision("master"),
+            "baz": .revision("master"),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("foo", .revision("master")),
+            ("bar", .revision("master")),
+            ("baz", .revision("master")),
+        ])
+    }
+
     func testResolutionWithUnavailableRevision() {
         builder.serve("foo", at: .version(v1))
 
@@ -853,6 +855,7 @@ final class PubgrubTests: XCTestCase {
     func testResolutionWithRevisionConflict() {
         builder.serve("foo", at: .revision("master"), with: ["bar": .revision("master")])
         builder.serve("bar", at: .version(v1))
+        builder.serve("bar", at: .revision("master"))
 
         let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
@@ -861,127 +864,10 @@ final class PubgrubTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
-        // XCTAssertEqual(diag, "Foo@master depends on bar@master, and because foo@master depends on bar@master and root depends on foo@master, version solving failed.")
-//        XCTAssertEqual(resolver.diagnosticBuilder.reportError(for: rootCause), """
-//        Because foo at master depends on bar at master and root depends on bar from 1.0.0, version solving has failed.
-//        """)
-    }
-
-    func testResolutionLinearErrorReporting() {
-        builder.serve("foo", at: v1, with: ["bar": .versionSet(v2Range)])
-        builder.serve("bar", at: v2, with: ["baz": .versionSet(.range("3.0.0"..<"4.0.0"))])
-        builder.serve("baz", at: v1)
-        builder.serve("baz", at: "3.0.0")
-
-        // root transitively depends on a version of baz that's not compatible
-        // with root's constraint.
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "foo": .versionSet(v1Range),
-            "baz": .versionSet(v1Range),
+        AssertResult(result, [
+            ("foo", .revision("master")),
+            ("bar", .revision("master")),
         ])
-        let result = resolver.solve(dependencies: dependencies)
-
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
-    }
-
-    func testResolutionBranchingErrorReporting() {
-        builder.serve("foo", at: v1, with: [
-            "a": .versionSet(v1Range),
-            "b": .versionSet(v1Range)
-        ])
-        builder.serve("foo", at: v1_1, with: [
-            "x": .versionSet(v1Range),
-            "y": .versionSet(v1Range)
-        ])
-        builder.serve("a", at: v1, with: ["b": .versionSet(v2Range)])
-        builder.serve("b", at: v1)
-        builder.serve("b", at: v2)
-        builder.serve("x", at: v1, with: ["y": .versionSet(v2Range)])
-        builder.serve("y", at: v1)
-        builder.serve("y", at: v2)
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "foo": .versionSet(v1Range),
-        ])
-        let result = resolver.solve(dependencies: dependencies)
-
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
-    }
-
-    func testConflict1() {
-        builder.serve("foo", at: v1, with: ["config": .versionSet(v1Range)])
-        builder.serve("bar", at: v1, with: ["config": .versionSet(v2Range)])
-        builder.serve("config", at: v1)
-        builder.serve("config", at: v2)
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "foo": .versionSet(v1Range),
-            "bar": .versionSet(v1Range)
-        ])
-        let result = resolver.solve(dependencies: dependencies)
-
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
-
-        // Expected:
-        // "Because foo depends on config from 1.0.0 and bar depends on config from 2.0.0, foo from 1.0.0 isn't valid and version solving has failed."
-    }
-
-    func testConflict2() {
-        func addDeps() {
-            builder.serve("foo", at: v1, with: ["config": .versionSet(v1Range)])
-            builder.serve("config", at: v1)
-            builder.serve("config", at: v2)
-        }
-
-        let dependencies1 = builder.create(dependencies: [
-            "config": .versionSet(v2Range),
-            "foo": .versionSet(v1Range),
-        ])
-        addDeps()
-        let resolver1 = builder.create()
-        _ = resolver1.solve(dependencies: dependencies1, pins: [])
-
-        let dependencies2 = builder.create(dependencies: [
-            "foo": .versionSet(v1Range),
-            "config": .versionSet(v2Range),
-        ])
-        addDeps()
-        let resolver2 = builder.create()
-        _ = resolver2.solve(dependencies: dependencies2, pins: [])
-    }
-
-    func testConflict3() {
-        builder.serve("foo", at: v1, with: ["config": .versionSet(v1Range)])
-        builder.serve("config", at: v1)
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "config": .versionSet(v2Range),
-            "foo": .versionSet(v1Range),
-        ])
-        let result = resolver.solve(dependencies: dependencies, pins: [])
-
-        guard let errorMsg = result.errorMsg else {
-            return
-        }
-        print(errorMsg)
     }
 
     func testBranchOverriding3() {
@@ -1000,7 +886,7 @@ final class PubgrubTests: XCTestCase {
             "swift-nio": .revision("master"),
             "swift-nio-ssl": .revision("master"),
         ])
-        let result = resolver.solve(dependencies: dependencies, pins: [])
+        let result = resolver.solve(dependencies: dependencies)
 
         AssertResult(result, [
             ("swift-nio-ssl", .revision("master")),
@@ -1033,7 +919,7 @@ final class PubgrubTests: XCTestCase {
             "http-client": .versionSet(v1Range),
             "boring-ssl": .versionSet(v1Range),
         ])
-        let result = resolver.solve(dependencies: dependencies, pins: [])
+        let result = resolver.solve(dependencies: dependencies)
 
         AssertResult(result, [
             ("swift-nio-ssl", .revision("master")),
@@ -1042,6 +928,808 @@ final class PubgrubTests: XCTestCase {
             ("http-client", .version(v1)),
             ("boring-ssl", .version(v1)),
         ])
+    }
+
+    func testNonVersionDependencyInVersionDependency2() {
+        builder.serve("foo", at: v1_1, with: [
+            "bar": .revision("master")
+        ])
+        builder.serve("foo", at: v1)
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("foo", .version(v1)),
+        ])
+    }
+
+    func testTrivialPinStore() {
+        builder.serve("a", at: v1, with: ["b": .versionSet(v1Range)])
+        builder.serve("a", at: v1_1)
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v1_1)
+        builder.serve("b", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(v1Range),
+        ])
+
+        let pinsStore = builder.create(pinsStore: [
+            "a": .version(v1),
+            "b": .version(v1),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+
+        // Since a was pinned, we shouldn't have computed bounds for its incomaptibilities.
+        let aIncompat = resolver.positiveIncompatibilities(for: builder.reference(for: "a"))![0]
+        XCTAssertEqual(aIncompat.terms[0].requirement, .exact("1.0.0"))
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version(v1))
+        ])
+    }
+
+    func testPartialPins() {
+        // This checks that we can drop pins that are not valid anymore but still keep the ones
+        // which fit the constraints.
+        builder.serve("a", at: v1, with: ["b": .versionSet(v1Range)])
+        builder.serve("a", at: v1_1)
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v1_1)
+        builder.serve("c", at: v1, with: ["b": .versionSet(.range(v1_1..<v2))])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "c": .versionSet(v1Range),
+            "a": .versionSet(v1Range),
+        ])
+
+        // Here b is pinned to v1 but its requirement is now 1.1.0..<2.0.0 in the graph
+        // due to addition of a new dependency.
+        let pinsStore = builder.create(pinsStore: [
+            "a": .version(v1),
+            "b": .version(v1),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version(v1_1)),
+            ("c", .version(v1))
+        ])
+    }
+
+    func testBranchedBasedPin() {
+        // This test ensures that we get the SHA listed in Package.resolved for branch-based
+        // dependencies.
+        builder.serve("a", at: .revision("develop-sha-1"))
+        builder.serve("b", at: .revision("master-sha-2"))
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .revision("develop"),
+            "b": .revision("master"),
+        ])
+
+        let pinsStore = builder.create(pinsStore: [
+            "a": .branch("develop", revision: "develop-sha-1"),
+            "b": .branch("master", revision: "master-sha-2"),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+
+        AssertResult(result, [
+            ("a", .revision("develop")),
+            ("b", .revision("master")),
+        ])
+    }
+
+    func testIncompatibleToolsVersion2() {
+        builder.serve("a", at: v1_1, isToolsVersionCompatible: false)
+        builder.serve("a", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(v1Range),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+        ])
+    }
+}
+
+final class PubGrubTestsBasicGraphs: XCTestCase {
+    func testSimple1() {
+        builder.serve("a", at: v1, with: [
+            "aa": .versionSet(.exact("1.0.0")),
+            "ab": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("aa", at: v1)
+        builder.serve("ab", at: v1)
+        builder.serve("b", at: v1, with: [
+            "ba": .versionSet(.exact("1.0.0")),
+            "bb": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("ba", at: v1)
+        builder.serve("bb", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.exact("1.0.0")),
+            "b": .versionSet(.exact("1.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("aa", .version(v1)),
+            ("ab", .version(v1)),
+            ("b", .version(v1)),
+            ("ba", .version(v1)),
+            ("bb", .version(v1)),
+        ])
+    }
+
+    func testSharedDependency1() {
+        builder.serve("a", at: v1, with: [
+            "shared": .versionSet(.range("2.0.0"..<"4.0.0")),
+        ])
+        builder.serve("b", at: v1, with: [
+            "shared": .versionSet(.range("3.0.0"..<"5.0.0")),
+        ])
+        builder.serve("shared", at: "2.0.0")
+        builder.serve("shared", at: "3.0.0")
+        builder.serve("shared", at: "3.6.9")
+        builder.serve("shared", at: "4.0.0")
+        builder.serve("shared", at: "5.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.exact("1.0.0")),
+            "b": .versionSet(.exact("1.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version(v1)),
+            ("shared", .version("3.6.9")),
+        ])
+    }
+
+    func testSharedDependency2() {
+        builder.serve("foo", at: "1.0.0")
+        builder.serve("foo", at: "1.0.1", with: [
+            "bang": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("foo", at: "1.0.2", with: [
+            "whoop": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("foo", at: "1.0.3", with: [
+            "zoop": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("bar", at: "1.0.0", with: [
+            "foo": .versionSet(.range("0.0.0"..<"1.0.2")),
+        ])
+        builder.serve("bang", at: "1.0.0")
+        builder.serve("whoop", at: "1.0.0")
+        builder.serve("zoop", at: "1.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(.range("0.0.0"..<"1.0.3")),
+            "bar": .versionSet(.exact("1.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+        AssertResult(result, [
+            ("foo", .version("1.0.1")),
+            ("bar", .version(v1)),
+            ("bang", .version(v1)),
+        ])
+    }
+
+    func testFallbacksToOlderVersion() {
+        builder.serve("foo", at: "1.0.0")
+        builder.serve("foo", at: "2.0.0")
+        builder.serve("bar", at: "1.0.0")
+        builder.serve("bar", at: "2.0.0", with: [
+            "baz": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("baz", at: "1.0.0", with: [
+            "foo": .versionSet(.exact("2.0.0")),
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "bar": .versionSet(.range("0.0.0"..<"5.0.0")),
+            "foo": .versionSet(.exact("1.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+        AssertResult(result, [
+            ("foo", .version(v1)),
+            ("bar", .version(v1)),
+        ])
+    }
+}
+
+final class PubGrubDiagnosticsTests: XCTestCase {
+
+    func testMissingVersion() {
+        builder.serve("foopkg", at: v1_1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foopkg": .versionSet(v2Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, "because no versions of foopkg match the requirement 2.0.0..<3.0.0 and root depends on foopkg 2.0.0..<3.0.0, version solving failed.")
+    }
+
+    func testResolutionNonExistentVersion() {
+        builder.serve("package", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "package": .versionSet(.exact(v1))
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, "because no versions of package match the requirement 1.0.0 and root depends on package 1.0.0, version solving failed.")
+    }
+
+    func testResolutionLinearErrorReporting() {
+        builder.serve("foo", at: v1, with: ["bar": .versionSet(v2Range)])
+        builder.serve("bar", at: v2, with: ["baz": .versionSet(.range("3.0.0"..<"4.0.0"))])
+        builder.serve("baz", at: v1)
+        builder.serve("baz", at: "3.0.0")
+
+        // root transitively depends on a version of baz that's not compatible
+        // with root's constraint.
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+            "baz": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because every version of foo depends on bar 2.0.0..<3.0.0 and every version of bar depends on baz 3.0.0..<4.0.0, every version of foo requires baz 3.0.0..<4.0.0.
+            And because root depends on foo 1.0.0..<2.0.0 and root depends on baz 1.0.0..<2.0.0, version solving failed.
+            """)
+    }
+
+    func testResolutionBranchingErrorReporting() {
+        builder.serve("foo", at: v1, with: [
+            "a": .versionSet(v1Range),
+            "b": .versionSet(v1Range)
+        ])
+        builder.serve("foo", at: v1_1, with: [
+            "x": .versionSet(v1Range),
+            "y": .versionSet(v1Range)
+        ])
+        builder.serve("a", at: v1, with: ["b": .versionSet(v2Range)])
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v2)
+        builder.serve("x", at: v1, with: ["y": .versionSet(v2Range)])
+        builder.serve("y", at: v1)
+        builder.serve("y", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+          because every version of a depends on b 2.0.0..<3.0.0 and foo <1.1.0 depends on a 1.0.0..<2.0.0, foo <1.1.0 requires b 2.0.0..<3.0.0.
+             (1) So, because foo <1.1.0 depends on b 1.0.0..<2.0.0, foo <1.1.0 is forbidden.
+          because every version of x depends on y 2.0.0..<3.0.0 and foo >=1.1.0 depends on x 1.0.0..<2.0.0, foo >=1.1.0 requires y 2.0.0..<3.0.0.
+          And because foo >=1.1.0 depends on y 1.0.0..<2.0.0, foo >=1.1.0 is forbidden.
+          And because foo <1.1.0 is forbidden (1), foo is forbidden.
+          And because root depends on foo 1.0.0..<2.0.0, version solving failed.
+        """)
+    }
+
+    func testConflict1() {
+        builder.serve("foo", at: v1, with: ["config": .versionSet(v1Range)])
+        builder.serve("bar", at: v1, with: ["config": .versionSet(v2Range)])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+            "bar": .versionSet(v1Range)
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because every version of bar depends on config 2.0.0..<3.0.0 and every version of foo depends on config 1.0.0..<2.0.0, bar is incompatible with foo.
+            And because root depends on foo 1.0.0..<2.0.0 and root depends on bar 1.0.0..<2.0.0, version solving failed.
+            """)
+    }
+
+    func testConflict2() {
+        func addDeps() {
+            builder.serve("foo", at: v1, with: ["config": .versionSet(v1Range)])
+            builder.serve("config", at: v1)
+            builder.serve("config", at: v2)
+        }
+
+        let dependencies1 = builder.create(dependencies: [
+            "config": .versionSet(v2Range),
+            "foo": .versionSet(v1Range),
+        ])
+        addDeps()
+        let resolver1 = builder.create()
+        let result1 = resolver1.solve(dependencies: dependencies1)
+
+        XCTAssertEqual(result1.errorMsg, """
+            because every version of foo depends on config 1.0.0..<2.0.0 and root depends on config 2.0.0..<3.0.0, foo is forbidden.
+            And because root depends on foo 1.0.0..<2.0.0, version solving failed.
+            """)
+
+        let dependencies2 = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+            "config": .versionSet(v2Range),
+        ])
+        addDeps()
+        let resolver2 = builder.create()
+        let result2 = resolver2.solve(dependencies: dependencies2)
+
+        XCTAssertEqual(result2.errorMsg, """
+            because every version of foo depends on config 1.0.0..<2.0.0 and root depends on foo 1.0.0..<2.0.0, config 1.0.0..<2.0.0 is required.
+            And because root depends on config 2.0.0..<3.0.0, version solving failed.
+            """)
+    }
+
+    func testConflict3() {
+        builder.serve("foo", at: v1, with: ["config": .versionSet(v1Range)])
+        builder.serve("config", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "config": .versionSet(v2Range),
+            "foo": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, "because no versions of config match the requirement 2.0.0..<3.0.0 and root depends on config 2.0.0..<3.0.0, version solving failed.")
+    }
+
+    func testUnversioned6() {
+        builder.serve("foo", at: .unversioned)
+        builder.serve("bar", at: .revision("master"), with: [
+            "foo": .unversioned
+        ])
+
+        let resolver = builder.create()
+
+        let dependencies = builder.create(dependencies: [
+            "bar": .revision("master")
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, "package 'bar' is required using a revision-based requirement and it depends on local package 'foo', which is not supported")
+    }
+
+    func testResolutionWithOverridingBranchBasedDependency4() {
+        builder.serve("foo", at: .revision("master"), with: ["bar": .revision("master")])
+
+        builder.serve("bar", at: .revision("master"))
+        builder.serve("bar", at: v1)
+
+        builder.serve("baz", at: .revision("master"), with: ["bar": .revision("develop")])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .revision("master"),
+            "baz": .revision("master"),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, "bar is required using two different revision-based requirements (master and develop), which is not supported")
+    }
+
+    func testNonVersionDependencyInVersionDependency1() {
+        builder.serve("foo", at: v1_1, with: [
+            "bar": .revision("master")
+        ])
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(v1Range),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because no versions of foo match the requirement {1.0.0..<1.1.0, 1.1.1..<2.0.0} and package foo is required using a version-based requirement and it depends on unversion package bar, foo is forbidden.
+            And because root depends on foo 1.0.0..<2.0.0, version solving failed.
+            """)
+    }
+
+    func testNonVersionDependencyInVersionDependency3() {
+        builder.serve("foo", at: v1, with: [
+            "bar": .unversioned
+        ])
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(.exact(v1)),
+        ])
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, "because package foo is required using a version-based requirement and it depends on unversion package bar and root depends on foo 1.0.0, version solving failed.")
+    }
+
+    func testIncompatibleToolsVersion1() {
+        builder.serve("a", at: v1, isToolsVersionCompatible: false)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(v1Range),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because no versions of a match the requirement 1.0.1..<2.0.0 and a 1.0.0 contains incompatible tools version, a >=1.0.0 is forbidden.
+            And because root depends on a 1.0.0..<2.0.0, version solving failed.
+            """)
+    }
+
+    func testIncompatibleToolsVersion3() {
+        builder.serve("a", at: v1_1, with: [
+            "b": .versionSet(v1Range)
+        ])
+        builder.serve("a", at: v1, isToolsVersionCompatible: false)
+
+        builder.serve("b", at: v1)
+        builder.serve("b", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(v1Range),
+            "b": .versionSet(v2Range),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because no versions of a match the requirement 1.0.1..<1.1.0 and a 1.0.0 contains incompatible tools version, a 1.0.0..<1.1.0 is forbidden.
+            And because a >=1.1.0 depends on b 1.0.0..<2.0.0, a >=1.0.0 requires b 1.0.0..<2.0.0.
+            And because root depends on a 1.0.0..<2.0.0 and root depends on b 2.0.0..<3.0.0, version solving failed.
+            """)
+    }
+
+    func testIncompatibleToolsVersion4() {
+        builder.serve("a", at: "3.2.1", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.2", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.3", isToolsVersionCompatible: false)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.range("3.2.0"..<"4.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because every version of a contains incompatible tools version and root depends on a 3.2.0..<4.0.0, version solving failed.
+            """)
+    }
+
+    func testIncompatibleToolsVersion5() {
+        builder.serve("a", at: "3.2.0", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.1", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.2", isToolsVersionCompatible: false)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.range("3.2.0"..<"4.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because every version of a contains incompatible tools version and root depends on a 3.2.0..<4.0.0, version solving failed.
+            """)
+    }
+
+    func testIncompatibleToolsVersion6() {
+        builder.serve("a", at: "3.2.1", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.0", with: [
+            "b": .versionSet(v1Range),
+        ])
+        builder.serve("a", at: "3.2.2", isToolsVersionCompatible: false)
+        builder.serve("b", at: "1.0.0", isToolsVersionCompatible: false)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.range("3.2.0"..<"4.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because no versions of b match the requirement 1.0.1..<2.0.0 and b 1.0.0 contains incompatible tools version, b >=1.0.0 is forbidden.
+            And because a <3.2.1 depends on b 1.0.0..<2.0.0, a <3.2.1 is forbidden.
+            And because a >=3.2.1 contains incompatible tools version and root depends on a 3.2.0..<4.0.0, version solving failed.
+            """)
+    }
+
+    func testConflict4() {
+        builder.serve("foo", at: v1, with: [
+            "shared": .versionSet(.range("2.0.0"..<"3.0.0")),
+        ])
+        builder.serve("bar", at: v1, with: [
+            "shared": .versionSet(.range("2.9.0"..<"4.0.0")),
+        ])
+        builder.serve("shared", at: "2.5.0")
+        builder.serve("shared", at: "3.5.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "bar": .versionSet(.exact(v1)),
+            "foo": .versionSet(.exact(v1)),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because every version of bar depends on shared 2.9.0..<4.0.0 and no versions of shared match the requirement 2.9.0..<3.0.0, every version of bar requires shared 3.0.0..<4.0.0.
+            And because every version of foo depends on shared 2.0.0..<3.0.0, foo is incompatible with bar.
+            And because root depends on bar 1.0.0 and root depends on foo 1.0.0, version solving failed.
+            """)
+    }
+
+    func testConflict5() {
+        builder.serve("a", at: v1, with: [
+            "b": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("a", at: "2.0.0", with: [
+            "b": .versionSet(.exact("2.0.0")),
+        ])
+        builder.serve("b", at: "1.0.0", with: [
+            "a": .versionSet(.exact("2.0.0")),
+        ])
+        builder.serve("b", at: "2.0.0", with: [
+            "a": .versionSet(.exact("1.0.0")),
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "b": .versionSet(.range("0.0.0"..<"5.0.0")),
+            "a": .versionSet(.range("0.0.0"..<"5.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            because no versions of a match the requirement 3.0.0..<5.0.0 and a <2.0.0 depends on b 1.0.0, a {0.0.0..<2.0.0, 3.0.0..<5.0.0} requires b 1.0.0.
+            And because b <2.0.0 depends on a 2.0.0, a {0.0.0..<2.0.0, 3.0.0..<5.0.0} is forbidden.
+            because b >=2.0.0 depends on a 1.0.0 and a >=2.0.0 depends on b 2.0.0, a >=2.0.0 is forbidden.
+            Thus, a is forbidden.
+            And because root depends on a 0.0.0..<5.0.0, version solving failed.
+            """)
+    }
+}
+
+final class PubGrubBacktrackTests: XCTestCase {
+    func testBacktrack1() {
+        builder.serve("a", at: v1)
+        builder.serve("a", at: "2.0.0", with: [
+            "b": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("b", at: "1.0.0", with: [
+            "a": .versionSet(.exact("1.0.0")),
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.range("1.0.0"..<"3.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+        ])
+    }
+
+    func testBacktrack2() {
+        builder.serve("a", at: v1)
+        builder.serve("a", at: "2.0.0", with: [
+            "c": .versionSet(.range("1.0.0"..<"2.0.0")),
+        ])
+
+        builder.serve("b", at: "1.0.0", with: [
+            "c": .versionSet(.range("2.0.0"..<"3.0.0")),
+        ])
+        builder.serve("b", at: "2.0.0", with: [
+            "c": .versionSet(.range("3.0.0"..<"4.0.0")),
+        ])
+
+        builder.serve("c", at: "1.0.0")
+        builder.serve("c", at: "2.0.0")
+        builder.serve("c", at: "3.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.range("1.0.0"..<"3.0.0")),
+            "b": .versionSet(.range("1.0.0"..<"3.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version("2.0.0")),
+            ("c", .version("3.0.0")),
+        ])
+    }
+
+    func testBacktrack3() {
+        builder.serve("a", at: "1.0.0", with: [
+            "x": .versionSet(.range("1.0.0"..<"5.0.0")),
+        ])
+        builder.serve("b", at: "1.0.0", with: [
+            "x": .versionSet(.range("0.0.0"..<"2.0.0")),
+        ])
+
+        builder.serve("c", at: "1.0.0")
+        builder.serve("c", at: "2.0.0", with: [
+            "a": .versionSet(.range("0.0.0"..<"5.0.0")),
+            "b": .versionSet(.range("0.0.0"..<"5.0.0")),
+        ])
+
+        builder.serve("x", at: "0.0.0")
+        builder.serve("x", at: "2.0.0")
+        builder.serve("x", at: "1.0.0", with: [
+            "y": .versionSet(.exact(v1)),
+        ])
+
+        builder.serve("y", at: "1.0.0")
+        builder.serve("y", at: "2.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "c": .versionSet(.range("1.0.0"..<"3.0.0")),
+            "y": .versionSet(.range("2.0.0"..<"3.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("c", .version(v1)),
+            ("y", .version("2.0.0")),
+        ])
+    }
+
+    func testBacktrack4() {
+        builder.serve("a", at: "1.0.0", with: [
+            "x": .versionSet(.range("1.0.0"..<"5.0.0")),
+        ])
+        builder.serve("b", at: "1.0.0", with: [
+            "x": .versionSet(.range("0.0.0"..<"2.0.0")),
+        ])
+
+        builder.serve("c", at: "1.0.0")
+        builder.serve("c", at: "2.0.0", with: [
+            "a": .versionSet(.range("0.0.0"..<"5.0.0")),
+            "b": .versionSet(.range("0.0.0"..<"5.0.0")),
+        ])
+
+        builder.serve("x", at: "0.0.0")
+        builder.serve("x", at: "2.0.0")
+        builder.serve("x", at: "1.0.0", with: [
+            "y": .versionSet(.exact(v1)),
+        ])
+
+        builder.serve("y", at: "1.0.0")
+        builder.serve("y", at: "2.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "c": .versionSet(.range("1.0.0"..<"3.0.0")),
+            "y": .versionSet(.range("2.0.0"..<"3.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("c", .version(v1)),
+            ("y", .version("2.0.0")),
+        ])
+    }
+
+    func testBacktrack5() {
+        builder.serve("foo", at: "1.0.0", with: [
+            "bar": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("foo", at: "2.0.0", with: [
+            "bar": .versionSet(.exact("2.0.0")),
+        ])
+        builder.serve("foo", at: "3.0.0", with: [
+            "bar": .versionSet(.exact("3.0.0")),
+        ])
+
+        builder.serve("bar", at: "1.0.0", with: [
+            "baz": .versionSet(.range("0.0.0"..<"3.0.0")),
+        ])
+        builder.serve("bar", at: "2.0.0", with: [
+            "baz": .versionSet(.exact("3.0.0")),
+        ])
+        builder.serve("bar", at: "3.0.0", with: [
+            "baz": .versionSet(.exact("3.0.0")),
+        ])
+
+        builder.serve("baz", at: "1.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": .versionSet(.range("1.0.0"..<"4.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("foo", .version(v1)),
+            ("bar", .version("1.0.0")),
+            ("baz", .version("1.0.0")),
+        ])
+    }
+
+    func testBacktrack6() {
+        builder.serve("a", at: "1.0.0")
+        builder.serve("a", at: "2.0.0")
+        builder.serve("b", at: "1.0.0", with: [
+            "a": .versionSet(.exact("1.0.0")),
+        ])
+        builder.serve("c", at: "1.0.0", with: [
+            "b": .versionSet(.range("0.0.0"..<"3.0.0")),
+        ])
+        builder.serve("d", at: "1.0.0")
+        builder.serve("d", at: "2.0.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": .versionSet(.range("1.0.0"..<"4.0.0")),
+            "c": .versionSet(.range("1.0.0"..<"4.0.0")),
+            "d": .versionSet(.range("1.0.0"..<"4.0.0")),
+        ])
+
+        let result = resolver.solve(dependencies: dependencies)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version(v1)),
+            ("c", .version(v1)),
+            ("d", .version("2.0.0")),
+        ])
+    }
+}
+
+fileprivate extension CheckoutState {
+    /// Creates a checkout state with the given version and a mocked revision.
+    static func version(_ version: Version) -> CheckoutState {
+        CheckoutState(revision: Revision(identifier: "<fake-ident>"), version: version)
+    }
+
+    static func branch(_ branch: String, revision: String) -> CheckoutState {
+        CheckoutState(revision: Revision(identifier: revision), branch: branch)
     }
 }
 
@@ -1128,6 +1816,9 @@ public class MockContainer: PackageContainer {
         return name
     }
 
+    /// The list of versions that have incompatible tools version.
+    var incompatibleToolsVersions: [Version] = []
+
     public var _versions: [BoundVersion]
 
     public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
@@ -1139,6 +1830,19 @@ public class MockContainer: PackageContainer {
             }
         }
         return AnySequence(versions)
+    }
+
+    public var reversedVersions: [Version] {
+        var versions: [Version] = []
+        for version in self._versions {
+            guard case .version(let v) = version else { continue }
+            versions.append(v)
+        }
+        return versions
+    }
+
+    public func isToolsVersionCompatible(at version: Version) -> Bool {
+        return !incompatibleToolsVersions.contains(version)
     }
 
     public func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
@@ -1240,11 +1944,11 @@ class DependencyGraphBuilder {
     private var containers: [String: MockContainer] = [:]
     private var references: [String: PackageReference] = [:]
 
-    private func reference(for packageName: String) -> PackageReference {
+    func reference(for packageName: String) -> PackageReference {
         if let reference = self.references[packageName] {
             return reference
         }
-        let newReference = PackageReference(identity: packageName, path: "")
+        let newReference = PackageReference(identity: packageName, path: "/" + packageName)
         self.references[packageName] = newReference
         return newReference
     }
@@ -1260,18 +1964,28 @@ class DependencyGraphBuilder {
     func serve(
         _ package: String,
         at version: Version,
+        isToolsVersionCompatible: Bool = true,
         with dependencies: OrderedDictionary<String, PackageRequirement> = [:]
     ) {
-        serve(package, at: .version(version), with: dependencies)
+        serve(package, at: .version(version), isToolsVersionCompatible: isToolsVersionCompatible, with: dependencies)
     }
 
     func serve(
         _ package: String,
         at version: BoundVersion,
+        isToolsVersionCompatible: Bool = true,
         with dependencies: OrderedDictionary<String, PackageRequirement> = [:]
     ) {
         let packageReference = reference(for: package)
         let container = self.containers[package] ?? MockContainer(name: packageReference)
+
+        if !isToolsVersionCompatible {
+            if case .version(let v) = version {
+                container.incompatibleToolsVersions.append(v)
+            } else {
+                fatalError("Setting incompatible tools version on non-versions is not currently supported")
+            }
+        }
 
         container._versions.append(version)
         container._versions = container._versions
@@ -1288,6 +2002,19 @@ class DependencyGraphBuilder {
         }
         container.dependencies[version.description] = packageDependencies
         self.containers[package] = container
+    }
+
+    /// Creates a pins store with the given pins.
+    func create(pinsStore pins: [String: CheckoutState]) -> PinsStore {
+        let fs = InMemoryFileSystem()
+        let store = try! PinsStore(pinsFile: AbsolutePath("/tmp/Package.resolved"), fileSystem: fs)
+
+        for (package, state) in pins {
+            store.pin(packageRef: reference(for: package), state: state)
+        }
+
+        try! store.saveState()
+        return store
     }
 
     func create(log: Bool = false) -> PubgrubDependencyResolver {
@@ -1315,14 +2042,12 @@ extension Term: ExpressibleByStringLiteral {
         }
 
         var components: [String] = []
-        var requirement: PackageRequirement
+        var requirement: PackageRequirement?
 
         if value.contains("@") {
             components = value.split(separator: "@").map(String.init)
             if components[1].contains(".") {
                 requirement = .versionSet(.exact(Version(stringLiteral: components[1])))
-            } else {
-                requirement = .revision(components[1])
             }
         } else if value.contains("^") {
             components = value.split(separator: "^").map(String.init)
@@ -1333,15 +2058,15 @@ extension Term: ExpressibleByStringLiteral {
             assert(components.count == 3, "expected `name-lowerBound-upperBound`")
             let (lowerBound, upperBound) = (components[1], components[2])
             requirement = .versionSet(.range(Version(stringLiteral: lowerBound)..<Version(stringLiteral: upperBound)))
-        } else {
-            components = [value]
-            requirement = .unversioned
         }
 
         let packageReference = PackageReference(identity: components[0], path: "")
 
+        guard case let .versionSet(vs) = requirement! else {
+            fatalError()
+        }
         self.init(package: packageReference,
-                  requirement: requirement,
+                  requirement: vs,
                   isPositive: isPositive)
     }
 }
@@ -1361,12 +2086,18 @@ extension DependencyResolver.Result {
     var errorMsg: String? {
         switch self {
         case .error(let error):
-            guard let pubGrubError = error as? PubgrubDependencyResolver.PubgrubError,
-                case .unresolvable(let msg) = pubGrubError else {
+            switch error {
+            case let err as PubgrubDependencyResolver.PubgrubError:
+                guard case .unresolvable(let msg) = err else {
+                    XCTFail("Unexpected result \(self)")
+                    return nil
+                }
+                return msg
+            case let error as DependencyResolverError:
+                return error.description
+            default:
                 XCTFail("Unexpected result \(self)")
-                return nil
-            }
-            return msg
+        }
         default:
             XCTFail("Unexpected result \(self)")
         }

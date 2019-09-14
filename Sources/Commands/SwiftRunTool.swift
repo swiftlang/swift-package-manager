@@ -8,9 +8,9 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import Build
-import SPMUtility
+import TSCUtility
 import PackageGraph
 import PackageModel
 
@@ -38,18 +38,6 @@ extension RunError: CustomStringConvertible {
             return "multiple executable products available: \(joinedExecutables)"
         }
     }
-}
-
-struct RunFileDeprecatedDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: AnyDiagnostic.self,
-        name: "org.swift.diags.run-file-deprecated",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "'swift run file.swift' command to interpret swift files is deprecated;"
-            $0 <<< "use 'swift file.swift' instead"
-        }
-    )
 }
 
 public class RunToolOptions: ToolOptions {
@@ -110,7 +98,8 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             let plan = try BuildPlan(buildParameters: buildParameters(), graph: packageGraph, diagnostics: diagnostics)
 
             // Build the package.
-            try build(plan: plan, subset: .allExcludingTests)
+            let buildDescription = try generateLLBuildManifest(with: plan)
+            try build(buildDescription: buildDescription, subset: .allExcludingTests)
 
             // Execute the REPL.
             let arguments = plan.createREPLArguments()
@@ -120,7 +109,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
             if let executable = options.executable, isValidSwiftFilePath(executable) {
-                diagnostics.emit(data: RunFileDeprecatedDiagnostic())
+                diagnostics.emit(.runFileDeprecation)
                 // Redirect execution to the toolchain's swift executable.
                 let swiftInterpreterPath = try getToolchain().swiftInterpreter
                 // Prepend the script to interpret to the arguments.
@@ -133,53 +122,49 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             // to ignore swiftpm's output and only care about the tool's output.
             self.redirectStdoutToStderr()
 
-            let plan = try BuildPlan(buildParameters: self.buildParameters(), graph: loadPackageGraph(), diagnostics: diagnostics)
-            let product = try findProduct(in: plan.graph)
-
             if options.shouldBuildTests && !options.shouldBuild {
-                diagnostics.emit(data: MutuallyExclusiveArgumentsDiagnostic(arguments:
+                diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments:
                     [buildTestsOptionName, skipBuildOptionName]))
                 return
             }
 
+            let buildDescription = try getBuildDescription()
+            let productName = try findProductName(in: buildDescription)
+
             if options.shouldBuildTests {
-                try build(plan: plan, subset: .allIncludingTests)
+                try build(buildDescription: buildDescription, subset: .allIncludingTests)
             } else if options.shouldBuild {
-                try build(plan: plan, subset: .product(product.name))
+                try build(buildDescription: buildDescription, subset: .product(productName))
             }
 
-            let executablePath = plan.buildParameters.buildPath.appending(component: product.name)
+            let executablePath = try self.buildParameters().buildPath.appending(component: productName)
             try run(executablePath, arguments: options.arguments)
         }
     }
 
     /// Returns the path to the correct executable based on options.
-    private func findProduct(in graph: PackageGraph) throws -> ResolvedProduct {
+    private func findProductName(in buildDescription: BuildDescription) throws -> String {
         if let executable = options.executable {
-            // If the exectuable is explicitly specified, search through all products.
-            guard let executableProduct = graph.allProducts.first(where: {
-                $0.type == .executable && $0.name == executable
-            }) else {
+            guard buildDescription.allExecutables.contains(executable) else {
                 throw RunError.executableNotFound(executable)
             }
-
-            return executableProduct
-        } else {
-            // If the executable is implicit, search through root products.
-            let rootExecutables = graph.rootPackages.flatMap({ $0.products }).filter({ $0.type == .executable })
-
-            // Error out if the package contains no executables.
-            guard rootExecutables.count > 0 else {
-                throw RunError.noExecutableFound
-            }
-
-            // Only implicitly deduce the executable if it is the only one.
-            guard rootExecutables.count == 1 else {
-                throw RunError.multipleExecutables(rootExecutables.map({ $0.name }))
-            }
-
-            return rootExecutables[0]
+            return executable
         }
+
+        // If the executable is implicit, search through root products.
+        let rootExecutables = buildDescription.rootExecutables
+
+        // Error out if the package contains no executables.
+        guard rootExecutables.count > 0 else {
+            throw RunError.noExecutableFound
+        }
+
+        // Only implicitly deduce the executable if it is the only one.
+        guard rootExecutables.count == 1 else {
+            throw RunError.multipleExecutables(rootExecutables)
+        }
+
+        return rootExecutables[0]
     }
 
     /// Executes the executable at the specified path.
@@ -243,5 +228,11 @@ fileprivate let skipBuildOptionName = "--skip-build"
 extension SwiftRunTool: ToolName {
     static var toolName: String {
         return "swift run"
+    }
+}
+
+private extension Diagnostic.Message {
+    static var runFileDeprecation: Diagnostic.Message {
+        .warning("'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead")
     }
 }

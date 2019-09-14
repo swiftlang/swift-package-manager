@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 import PackageModel
 import PackageGraph
 
 /// llbuild manifest file generator for a build plan.
-public struct LLBuildManifestGenerator {
+public final class LLBuildManifestGenerator {
 
     /// The name of the llbuild target that builds all products and targets (excluding tests).
     public static let llbuildMainTargetName = "main"
@@ -28,10 +28,18 @@ public struct LLBuildManifestGenerator {
     /// The manifest client name.
     public let client: String
 
+    /// The nodes with custom attributes.
+    private var nodes: [Node] = []
+
     /// Create a new generator with a build plan.
     public init(_ plan: BuildPlan, client: String) {
         self.plan = plan
         self.client = client
+    }
+
+    private struct Node {
+        var value: String
+        var isDirectoryStructure: Bool
     }
 
     /// A structure for targets in the manifest.
@@ -49,10 +57,14 @@ public struct LLBuildManifestGenerator {
         }
 
         /// All commands.
-        private(set) var allCommands = SortedArray<Command>(areInIncreasingOrder: <)
+        var allCommands = SortedArray<Command>(areInIncreasingOrder: <)
 
         /// Other targets.
         private var otherTargets: [Target] = []
+
+        mutating func addOtherTarget(_ target: Target) {
+            otherTargets.append(target)
+        }
 
         /// Append a command.
         mutating func append(_ target: Target, buildByDefault: Bool, isTest: Bool) {
@@ -86,6 +98,8 @@ public struct LLBuildManifestGenerator {
     public func generateManifest(at path: AbsolutePath) throws {
         var targets = Targets()
 
+        addPackageStructureCommand(&targets)
+
         // Create commands for all target description in the plan.
         for (target, description) in plan.targetMap {
             switch description {
@@ -100,6 +114,8 @@ public struct LLBuildManifestGenerator {
                     isTest: description.isTestTarget)
             }
         }
+
+        addTestFileGeneration(&targets)
 
         // Create command for all products in the plan.
         for (product, description) in plan.productMap {
@@ -124,6 +140,16 @@ public struct LLBuildManifestGenerator {
 
         stream <<< "default: " <<< Format.asJSON(targets.main.name) <<< "\n"
 
+        if !nodes.isEmpty {
+            stream <<< "nodes: \n"
+        }
+        for node in nodes {
+            stream <<< "  " <<< Format.asJSON(node.value) <<< ":\n"
+            if node.isDirectoryStructure {
+                stream <<< "    is-directory-structure: true\n"
+            }
+        }
+
         stream <<< "commands: \n"
         for command in targets.allCommands.sorted(by: { $0.name < $1.name }) {
             stream <<< "  " <<< Format.asJSON(command.name) <<< ":\n"
@@ -133,6 +159,56 @@ public struct LLBuildManifestGenerator {
 
         try localFileSystem.writeFileContents(path, bytes: stream.bytes)
     }
+
+    private func addTestFileGeneration(_ targets: inout Targets) {
+        for target in plan.targets {
+            guard case .swift(let target) = target, target.isTestTarget, target.testDiscoveryTarget else { continue }
+            let testDiscoveryTarget = target
+
+            let testTargets = testDiscoveryTarget.target.dependencies.compactMap{ $0.target }.compactMap{ plan.targetMap[$0] }
+            let objectFiles = testTargets.flatMap{ $0.objects }.map{ $0.pathString }.sorted()
+            let outputs = testDiscoveryTarget.target.sources.paths
+            let tool = TestDiscoveryTool(inputs: objectFiles, outputs: outputs.map{ $0.pathString })
+
+            let cmdName = outputs.first{ $0.basename == "main.swift" }!.pathString
+            targets.allCommands.insert(Command(name: cmdName, tool: tool))
+            testDiscoveryCommands[cmdName] = tool
+        }
+    }
+
+    private func addPackageStructureCommand(_ targets: inout Targets) {
+        var inputs: [String] = []
+
+        for package in plan.graph.rootPackages {
+            let directoryStructureInputs = package.targets.map {
+                $0.sources.root.pathString + "/"
+            }.sorted()
+            self.nodes += directoryStructureInputs.map{ Node(value: $0, isDirectoryStructure: true) }
+
+            inputs = directoryStructureInputs
+
+            // FIXME: Need to handle version-specific manifests.
+            inputs += [package.manifest.path.pathString]
+
+            // FIXME: This won't be the location of Package.resolved for multiroot packages.
+            inputs += [package.path.appending(component: "Package.resolved").pathString]
+
+            // FIXME: Add config file as an input
+        }
+
+        let name = "<PackageStructure>"
+        let tool = PackageStructureTool(inputs: inputs, outputs: [name])
+        let cmd = Command(name: name, tool: tool)
+
+        var target = Target(name: "PackageStructure")
+        target.outputs += tool.outputs
+        targets.addOtherTarget(target)
+
+        targets.allCommands.insert(cmd)
+    }
+
+    /// Map of command -> tool that is used during the build for in-process tools.
+    public private(set) var testDiscoveryCommands: [String: TestDiscoveryTool] = [:]
 
     /// Create a llbuild target for a product description.
     private func createProductTarget(_ buildProduct: ProductBuildDescription) -> Target {
@@ -169,6 +245,19 @@ public struct LLBuildManifestGenerator {
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.
             if target.underlyingTarget is SystemLibraryTarget { return }
+
+            // Depend on the binary for executable targets.
+            if target.type == .executable {
+                // FIXME: Optimize.
+                let _product = plan.graph.allProducts.first {
+                    $0.type == .executable && $0.executableModule == target
+                }
+                if let product = _product {
+                    inputs += [plan.productMap[product]!.binary.pathString]
+                }
+                return
+            }
+
             switch plan.targetMap[target] {
             case .swift(let target)?:
                 inputs.insert(target.moduleOutputPath.pathString)

@@ -8,14 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 
 /// The supported manifest versions.
 public enum ManifestVersion: String, Codable, CustomStringConvertible {
     case v4
     case v4_2
     case v5
+    case v5_1
 
     /// The Swift language version to use when parsing the manifest file.
     public var swiftLanguageVersion: SwiftLanguageVersion {
@@ -30,6 +31,7 @@ public enum ManifestVersion: String, Codable, CustomStringConvertible {
         case .v4: return .v4
         case .v4_2: return .v4_2
         case .v5: return .v5
+        case .v5_1: return .v5
         }
     }
 
@@ -38,6 +40,7 @@ public enum ManifestVersion: String, Codable, CustomStringConvertible {
         case .v4: return "4"
         case .v4_2: return "4.2"
         case .v5: return "5"
+        case .v5_1: return "5.1"
         }
     }
 
@@ -46,7 +49,7 @@ public enum ManifestVersion: String, Codable, CustomStringConvertible {
         switch self {
         case .v4:
             return RelativePath("4")
-        case .v4_2, .v5:
+        case .v4_2, .v5, .v5_1:
             // PackageDescription 4.2 and 5 are source compatible so they're contained in the same dylib.
             return RelativePath("4_2")
         }
@@ -116,7 +119,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         platforms: [PlatformDescription],
         path: AbsolutePath,
         url: String,
-        version: SPMUtility.Version? = nil,
+        version: TSCUtility.Version? = nil,
         manifestVersion: ManifestVersion,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
@@ -313,11 +316,11 @@ public struct PackageDependencyDescription: Equatable, Codable {
         case branch(String)
         case localPackage
 
-        public static func upToNextMajor(from version: SPMUtility.Version) -> Requirement {
+        public static func upToNextMajor(from version: TSCUtility.Version) -> Requirement {
             return .range(version..<Version(version.major + 1, 0, 0))
         }
 
-        public static func upToNextMinor(from version: SPMUtility.Version) -> Requirement {
+        public static func upToNextMinor(from version: TSCUtility.Version) -> Requirement {
             return .range(version..<Version(version.major, version.minor + 1, 0))
         }
 

@@ -8,43 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
+import TSCBasic
 import SourceControl
 import PackageLoading
 import PackageModel
-import SPMUtility
-
-struct UnusedDependencyDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: UnusedDependencyDiagnostic.self,
-        name: "org.swift.diags.unused-dependency",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "dependency" <<< { "'\($0.dependencyName)'" } <<< "is not used by any target"
-        })
-
-    public let dependencyName: String
-}
-
-struct ProductUsesUnsafeFlags: DiagnosticData {
-    static let id = DiagnosticID(
-        type: ProductUsesUnsafeFlags.self,
-        name: "org.swift.diags.\(ProductUsesUnsafeFlags.self)",
-        defaultBehavior: .error,
-        description: {
-            $0 <<< "the target" <<< { "'\($0.target)'" }
-            $0 <<< "in product" <<< { "'\($0.product)'" }
-            $0 <<< "contains unsafe build flags"
-        })
-
-    public let product: String
-    public let target: String
-
-    init(product: String, target: String) {
-        self.product = product
-        self.target = target
-    }
-}
+import TSCUtility
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no targets.
@@ -54,7 +22,7 @@ enum PackageGraphError: Swift.Error {
     case cycleDetected((path: [Manifest], cycle: [Manifest]))
 
     /// The product dependency not found.
-    case productDependencyNotFound(name: String, package: String?)
+    case productDependencyNotFound(name: String, target: String)
 
     /// The product dependency was found but the package name did not match.
     case productDependencyIncorrectPackage(name: String, package: String)
@@ -74,8 +42,8 @@ extension PackageGraphError: CustomStringConvertible {
                 (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0].name
 
-        case .productDependencyNotFound(let name, _):
-            return "product dependency '\(name)' not found"
+        case .productDependencyNotFound(let name, let target):
+            return "Product '\(name)' not found. It is required by target '\(target)'."
 
         case .productDependencyIncorrectPackage(let name, let package):
             return "product dependency '\(name)' in package '\(package)' not found"
@@ -97,6 +65,7 @@ public struct PackageGraphLoader {
         config: SwiftPMConfig = SwiftPMConfig(),
         externalManifests: [Manifest],
         requiredDependencies: Set<PackageReference> = [],
+        unsafeAllowedPackages: Set<PackageReference> = [],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
         shouldCreateMultipleTestProducts: Bool = false,
@@ -176,6 +145,7 @@ public struct PackageGraphLoader {
             config: config,
             manifestToPackage: manifestToPackage,
             rootManifestSet: rootManifestSet,
+            unsafeAllowedPackages: unsafeAllowedPackages,
             diagnostics: diagnostics
         )
 
@@ -221,7 +191,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
 
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
             if !dependencyIsUsed {
-                diagnostics.emit(data: UnusedDependencyDiagnostic(dependencyName: dependency.name))
+                diagnostics.emit(.unusedDependency(dependency.name))
             }
         }
     }
@@ -234,6 +204,7 @@ private func createResolvedPackages(
     manifestToPackage: [Manifest: Package],
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifestSet: Set<Manifest>,
+    unsafeAllowedPackages: Set<PackageReference>,
     diagnostics: DiagnosticsEngine
 ) -> [ResolvedPackage] {
 
@@ -242,7 +213,8 @@ private func createResolvedPackages(
         guard let package = manifestToPackage[$0] else {
             return nil
         }
-        return ResolvedPackageBuilder(package)
+        let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.path == package.manifest.url }
+        return ResolvedPackageBuilder(package, isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts)
     })
 
     // Create a map of package builders keyed by the package identity.
@@ -274,7 +246,7 @@ private func createResolvedPackages(
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
         packageBuilder.products = package.products.map({
-            ResolvedProductBuilder(product: $0, targets: $0.targets.map({ targetMap[$0]! }))
+            ResolvedProductBuilder(product: $0, packageBuilder: packageBuilder, targets: $0.targets.map({ targetMap[$0]! }))
         })
     }
 
@@ -346,7 +318,7 @@ private func createResolvedPackages(
                     // found errors when there are more important errors to
                     // resolve (like authentication issues).
                     if !diagnostics.hasErrors {
-                        let error = PackageGraphError.productDependencyNotFound(name: productRef.name, package: productRef.package)
+                        let error = PackageGraphError.productDependencyNotFound(name: productRef.name, target: targetBuilder.target.name)
                         diagnostics.emit(error, location: diagnosticLocation())
                     }
                     continue
@@ -411,6 +383,8 @@ private class ResolvedBuilder<T>: ObjectIdentifierProtocol {
 
 /// Builder for resolved product.
 private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
+    /// The reference to its package.
+    unowned let packageBuilder: ResolvedPackageBuilder
 
     /// The product reference.
     let product: Product
@@ -418,8 +392,9 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
     /// The target builders in the product.
     let targets: [ResolvedTargetBuilder]
 
-    init(product: Product, targets: [ResolvedTargetBuilder]) {
+    init(product: Product, packageBuilder: ResolvedPackageBuilder, targets: [ResolvedTargetBuilder]) {
         self.product = product
+        self.packageBuilder = packageBuilder
         self.targets = targets
     }
 
@@ -451,13 +426,13 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         self.diagnostics = diagnostics
     }
 
-    func validateProductDependency(_ product: ResolvedProduct) {
+    func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) {
         // Diagnose if any target in this product uses an unsafe flag.
         for target in product.targets {
             let declarations = target.underlyingTarget.buildSettings.assignments.keys
             for decl in declarations {
                 if BuildSettings.Declaration.unsafeSettings.contains(decl) {
-                    diagnostics.emit(data: ProductUsesUnsafeFlags(product: product.name, target: target.name))
+                    diagnostics.emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
                     break
                 }
             }
@@ -472,8 +447,9 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         for dependency in productDeps {
             let product = dependency.construct()
 
-            // FIXME: Should we not add the dependency if validation fails?
-            validateProductDependency(product)
+            if !dependency.packageBuilder.isAllowedToVendUnsafeProducts {
+                diagnoseInvalidUseOfUnsafeFlags(product)
+            }
 
             deps.append(.product(product))
         }
@@ -500,8 +476,11 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []
 
-    init(_ package: Package) {
+    let isAllowedToVendUnsafeProducts: Bool
+
+    init(_ package: Package, isAllowedToVendUnsafeProducts: Bool) {
         self.package = package
+        self.isAllowedToVendUnsafeProducts = isAllowedToVendUnsafeProducts
     }
 
     override func constructImpl() -> ResolvedPackage {
@@ -511,5 +490,15 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
             targets: targets.map({ $0.construct() }),
             products: products.map({ $0.construct() })
         )
+    }
+}
+
+private extension Diagnostic.Message {
+    static func unusedDependency(_ name: String) -> Diagnostic.Message {
+        .warning("dependency '\(name)' is not used by any target")
+    }
+
+    static func productUsesUnsafeFlags(product: String, target: String) -> Diagnostic.Message {
+        .error("the target '\(target)' in product '\(product)' contains unsafe build flags")
     }
 }

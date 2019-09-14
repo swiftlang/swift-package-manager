@@ -39,6 +39,7 @@ extension PackageBuilderTests {
         ("testExecutableAsADep", testExecutableAsADep),
         ("testInvalidHeaderSearchPath", testInvalidHeaderSearchPath),
         ("testInvalidManifestConfigForNonSystemModules", testInvalidManifestConfigForNonSystemModules),
+        ("testInvalidPublicHeadersPath", testInvalidPublicHeadersPath),
         ("testLinuxMain", testLinuxMain),
         ("testLinuxMainError", testLinuxMainError),
         ("testLinuxMainSearch", testLinuxMainSearch),
@@ -91,6 +92,7 @@ extension PackageDescription4_2LoadingTests {
         ("testBuildSettings", testBuildSettings),
         ("testCacheInvalidationOnEnv", testCacheInvalidationOnEnv),
         ("testCaching", testCaching),
+        ("testContentBasedCaching", testContentBasedCaching),
         ("testDuplicateDependencyDecl", testDuplicateDependencyDecl),
         ("testLLBuildEngineErrors", testLLBuildEngineErrors),
         ("testNotAbsoluteDependencyPath", testNotAbsoluteDependencyPath),
@@ -110,6 +112,7 @@ extension PackageDescription5LoadingTests {
     static let __allTests__PackageDescription5LoadingTests = [
         ("testBasics", testBasics),
         ("testBuildSettings", testBuildSettings),
+        ("testInvalidBuildSettings", testInvalidBuildSettings),
         ("testPlatforms", testPlatforms),
         ("testSerializedDiagnostics", testSerializedDiagnostics),
         ("testSwiftLanguageVersion", testSwiftLanguageVersion),

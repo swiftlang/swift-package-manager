@@ -8,28 +8,28 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import struct SPMUtility.Version
-import Basic
+import struct TSCUtility.Version
+import TSCBasic
 import struct PackageModel.PackageReference
 
 /// A term represents a statement about a package that may be true or false.
 public struct Term: Equatable, Hashable {
     let package: PackageReference
-    let requirement: PackageRequirement
+    let requirement: VersionSetSpecifier
     let isPositive: Bool
 
-    init(package: PackageReference, requirement: PackageRequirement, isPositive: Bool) {
+    init(package: PackageReference, requirement: VersionSetSpecifier, isPositive: Bool) {
         self.package = package
         self.requirement = requirement
         self.isPositive = isPositive
     }
 
-    init(_ package: PackageReference, _ requirement: PackageRequirement) {
+    init(_ package: PackageReference, _ requirement: VersionSetSpecifier) {
         self.init(package: package, requirement: requirement, isPositive: true)
     }
 
     /// Create a new negative term.
-    init(not package: PackageReference, _ requirement: PackageRequirement) {
+    init(not package: PackageReference, _ requirement: VersionSetSpecifier) {
         self.init(package: package, requirement: requirement, isPositive: false)
     }
 
@@ -58,52 +58,29 @@ public struct Term: Equatable, Hashable {
     /// Create an intersection with a requirement and polarity returning a new
     /// term which represents the version constraints allowed by both the current
     /// and given term.
-    /// Returns `nil` if an intersection is not possible (possibly due to being
-    /// constrained on branches, revisions, local, etc. or entirely different packages).
+    ///
+    /// - returns: `nil` if an intersection is not possible.
     func intersect(
-        withRequirement requirement: PackageRequirement,
+        withRequirement requirement: VersionSetSpecifier,
         andPolarity otherIsPositive: Bool
     ) -> Term? {
-
-        // FIXME: Figure out if we need to handle more of these cases.
-        switch (self.requirement, requirement) {
-        case (.unversioned, .unversioned):
-            return self.isPositive == otherIsPositive ? self : nil
-        case (.revision(let lhs), .revision(let rhs)):
-            return self.isPositive == otherIsPositive && lhs == rhs ? self : nil
-        case (.revision, .versionSet):
-            return self.isPositive ? self : nil
-        default: break
-        }
-
-        // Intersections can only be calculated if both sides have version-based
-        // requirements. 
-        guard
-            case .versionSet(let lhs) = self.requirement,
-            case .versionSet(let rhs) = requirement else {
-            return nil
-        }
+        let lhs = self.requirement
+        let rhs = requirement
 
         let intersection: VersionSetSpecifier?
         let isPositive: Bool
         switch (self.isPositive, otherIsPositive) {
         case (false, false):
-            if case .range(let lhs) = lhs, case .range(let rhs) = rhs {
-                let lower = min(lhs.lowerBound, rhs.lowerBound)
-                let upper = max(lhs.upperBound, rhs.upperBound)
-                intersection = .range(lower..<upper)
-            } else {
-                intersection = lhs.intersection(rhs)
-            }
+            intersection = lhs.union(rhs)
             isPositive = false
         case (true, true):
             intersection = lhs.intersection(rhs)
             isPositive = true
         case (true, false):
-            intersection = lhs.intersection(withInverse: rhs)
+            intersection = lhs.difference(rhs)
             isPositive = true
         case (false, true):
-            intersection = rhs.intersection(withInverse: lhs)
+            intersection = rhs.difference(lhs)
             isPositive = true
         }
 
@@ -111,18 +88,11 @@ public struct Term: Equatable, Hashable {
             return nil
         }
 
-        return Term(package: package, requirement: .versionSet(versionIntersection), isPositive: isPositive)
+        return Term(package: package, requirement: versionIntersection, isPositive: isPositive)
     }
 
     func difference(with other: Term) -> Term? {
         return self.intersect(with: other.inverse)
-    }
-
-    private func with(_ requirement: PackageRequirement) -> Term {
-        return Term(
-            package: self.package,
-            requirement: requirement,
-            isPositive: self.isPositive)
     }
 
     /// Verify if the term fulfills all requirements to be a valid choice for
@@ -195,83 +165,25 @@ public struct Term: Equatable, Hashable {
     }
 }
 
-extension PackageRequirement {
-    func containsAll(_ other: PackageRequirement) -> Bool {
-        switch (self, other) {
-        // Unversioned should be handled first.
-        case (.unversioned, .unversioned):
-            return true
-        case (_, .unversioned):
-            return true
-        case (.unversioned, _):
-            // FIXME: What is the answer here?
-            return false
-        case (.versionSet(let lhs), .versionSet(let rhs)):
-            return lhs.intersection(rhs) == rhs
-        case (.revision(let lhs), .revision(let rhs)):
-            return lhs == rhs
-        case (.revision, _):
-            return false
-        case (_, .revision):
-            return true
-        default:
-            fatalError("unhandled \(self), \(other)")
-        }
+extension VersionSetSpecifier {
+    fileprivate func containsAll(_ other: VersionSetSpecifier) -> Bool {
+        return self.intersection(other) == other
     }
 
-    func containsAny(_ other: PackageRequirement) -> Bool {
-        switch (self, other) {
-        // Unversioned should be handled first.
-        case (_, .unversioned):
-            return true
-        case (.unversioned, _):
-            return false
-        case (.versionSet(let lhs), .versionSet(let rhs)):
-            return lhs.intersection(rhs) != .empty
-        case (.revision(let lhs), .revision(let rhs)):
-            return lhs == rhs
-        case (.revision, _):
-            return false
-        case (_, .revision):
-            return true
-        default:
-            fatalError("unhandled \(self), \(other)")
-        }
+    fileprivate func containsAny(_ other: VersionSetSpecifier) -> Bool {
+        return self.intersection(other) != .empty
     }
 }
 
 extension Term: CustomStringConvertible {
     public var description: String {
         let pkg = "\(package)"
-        var req = ""
-        switch requirement {
-        case .unversioned:
-            req = "unversioned"
-        case .revision(let rev):
-            req = rev
-        case .versionSet(let vs):
-            switch vs {
-            case .any:
-                req = "*"
-            case .empty:
-                req = "()"
-            case .exact(let v):
-                req = v.description
-            case .range(let range):
-                req = range.description
-            }
-        }
+        let req = requirement.description
 
         if !isPositive {
             return "¬\(pkg) \(req)"
         }
         return "\(pkg) \(req)"
-    }
-}
-
-private extension Range where Bound == Version {
-    func contains(_ other: Range<Version>) -> Bool {
-        return contains(version: other.lowerBound) && contains(version: other.upperBound)
     }
 }
 
@@ -293,7 +205,10 @@ public struct Incompatibility: Equatable, Hashable {
     }
 
     init(_ terms: OrderedSet<Term>, root: PackageReference, cause: Cause) {
-        assert(terms.count > 0, "An incompatibility must contain at least one term.")
+        if terms.isEmpty {
+            self.init(terms: terms, cause: cause)
+            return
+        }
 
         // Remove the root package from generated incompatibilities, since it will
         // always be selected.
@@ -361,6 +276,12 @@ extension Incompatibility {
         /// There exists no version to fulfill the specified requirement.
         case noAvailableVersion
 
+        /// A version-based dependency contains unversioned-based dependency.
+        case versionBasedDependencyContainsUnversionedDependency(versionedDependency: String, unversionedDependency: String)
+
+        /// The package's tools version is incompatible.
+        case incompatibleToolsVersion
+
         var isConflict: Bool {
             if case .conflict = self { return true }
             return false
@@ -406,14 +327,7 @@ public struct Assignment: Equatable {
 
     /// An assignment made during decision making.
     static func decision(_ term: Term, decisionLevel: Int) -> Assignment {
-        switch term.requirement {
-        case .revision, .unversioned: break
-        case .versionSet(let vs):
-            if case .exact = vs {
-                break
-            }
-            assertionFailure("Cannot create a decision assignment with a non-exact version selection: \(vs)")
-        }
+        assert(term.requirement.isExact, "Cannot create a decision assignment with a non-exact version selection: \(term.requirement)")
 
         return self.init(
             term: term,
@@ -457,7 +371,7 @@ final class PartialSolution {
     private(set) var assignments: [Assignment]
 
     /// All known decisions.
-    private(set) var decisions: [PackageReference: BoundVersion] = [:]
+    private(set) var decisions: [PackageReference: Version] = [:]
 
     /// The intersection of all positive assignments for each package, minus any
     /// negative assignments that refer to that package.
@@ -495,9 +409,9 @@ final class PartialSolution {
 
     /// Create a new decision assignment and add it to the partial solution's
     /// list of known assignments.
-    func decide(_ package: PackageReference, at version: BoundVersion) {
+    func decide(_ package: PackageReference, at version: Version) {
         decisions[package] = version
-        let term = Term(package, version.toRequirement())
+        let term = Term(package, .exact(version))
         let decision = Assignment.decision(term, decisionLevel: decisionLevel)
         self.assignments.append(decision)
         register(decision)
@@ -592,7 +506,7 @@ final class PartialSolution {
 fileprivate func normalize(
     terms: [Term]) -> [Term] {
 
-    let dict = terms.reduce(into: OrderedDictionary<PackageReference, (req: PackageRequirement, polarity: Bool)>()) {
+    let dict = terms.reduce(into: OrderedDictionary<PackageReference, (req: VersionSetSpecifier, polarity: Bool)>()) {
         res, term in
         // Don't try to intersect if this is the first time we're seeing this package.
         guard let previous = res[term.package] else {
@@ -600,84 +514,18 @@ fileprivate func normalize(
             return
         }
 
-        let intersection = term.intersect(withRequirement: previous.req,
-                                          andPolarity: previous.polarity)
-        assert(intersection != nil, """
-            Attempting to create an incompatibility with terms for \(term.package) \
-            intersecting versions \(previous) and \(term.requirement). These are \
-            mutually exclusive and can't be intersected, making this incompatibility \
-            irrelevant.
-            """)
-        res[term.package] = (intersection!.requirement, intersection!.isPositive)
+        guard let intersection = term.intersect(withRequirement: previous.req, andPolarity: previous.polarity) else {
+            fatalError("""
+                Attempting to create an incompatibility with terms for \(term.package) \
+                intersecting versions \(previous) and \(term.requirement). These are \
+                mutually exclusive and can't be intersected, making this incompatibility \
+                irrelevant.
+                """)
+        }
+        res[term.package] = (intersection.requirement, intersection.isPositive)
     }
-    return dict.map { (pkg, req) in
-        Term(package: pkg, requirement: req.req, isPositive: req.polarity)
-    }
+    return dict.map { Term(package: $0, requirement: $1.req, isPositive: $1.polarity) }
 }
-
-/// A step the resolver takes to advance its progress, e.g. deriving a new assignment
-/// or creating a new incompatibility based on a package's dependencies.
-public struct GeneralTraceStep: CustomStringConvertible {
-    /// The traced value, e.g. an incompatibility or term.
-    public let value: Traceable
-
-    /// How this value came to be.
-    public let type: StepType
-
-    /// Where this value was created.
-    public let location: Location
-
-    /// A previous step that caused this step.
-    public let cause: String?
-
-    /// The solution's current decision level.
-    public let decisionLevel: Int
-
-    /// A step can either store an incompatibility or a decided or derived
-    /// assignment's term.
-    public enum StepType: String {
-        case incompatibility
-        case decision
-        case derivation
-    }
-
-    /// The location a step is created at.
-    public enum Location: String {
-        case topLevel = "top level"
-        case unitPropagation = "unit propagation"
-        case decisionMaking = "decision making"
-        case conflictResolution = "conflict resolution"
-    }
-
-    public var description: String {
-        return "\(value) \(type) \(location) \(cause ?? "<nocause>") \(decisionLevel)"
-    }
-}
-
-/// A step the resolver takes during conflict resolution.
-public struct ConflictResolutionTraceStep: CustomStringConvertible {
-
-    /// The conflicted incompatibility.
-    public let incompatibility: Incompatibility
-
-    public let term: Term
-
-    /// The satisfying assignment.
-    public let satisfier: Assignment
-
-    public var description: String {
-        return "Conflict: \(incompatibility) \(term) \(satisfier)"
-    }
-}
-
-public enum TraceStep {
-    case general(GeneralTraceStep)
-    case conflictResolution(ConflictResolutionTraceStep)
-}
-
-public protocol Traceable: CustomStringConvertible {}
-extension Incompatibility: Traceable {}
-extension Term: Traceable {}
 
 /// The solver that is able to transitively resolve a set of package constraints
 /// specified by a root package.
@@ -706,14 +554,22 @@ public final class PubgrubDependencyResolver {
     /// The root package reference.
     private(set) var root: PackageReference?
 
+    /// Reference to the pins store, if provided.
+    private var pinsStore: PinsStore?
+
     /// The container provider used to load package containers.
-    let provider: PackageContainerProvider
+    private lazy var provider: ContainerProvider = {
+        ContainerProvider(self.packageContainerProvider, skipUpdate: self.skipUpdate, pinsStore: self.pinsStore)
+    }()
 
     /// The resolver's delegate.
     let delegate: DependencyResolverDelegate?
 
     /// Skip updating containers while fetching them.
     private let skipUpdate: Bool
+
+    /// Reference to the package container provider.
+    private let packageContainerProvider: PackageContainerProvider
 
     /// Should resolver prefetch the containers.
     private let isPrefetchingEnabled: Bool
@@ -735,6 +591,13 @@ public final class PubgrubDependencyResolver {
         self.solution.root = root
     }
 
+    enum LogLocation: String {
+        case topLevel = "top level"
+        case unitPropagation = "unit propagation"
+        case decisionMaking = "decision making"
+        case conflictResolution = "conflict resolution"
+    }
+
     private func log(_ assignments: [(container: PackageReference, binding: BoundVersion)]) {
         log("solved:")
         for (container, binding) in assignments {
@@ -749,47 +612,15 @@ public final class PubgrubDependencyResolver {
         }
     }
 
-    func trace(
-        value: Traceable,
-        type: GeneralTraceStep.StepType,
-        location: GeneralTraceStep.Location,
-        cause: String?
-    ) {
-        let step = GeneralTraceStep(
-            value: value,
-            type: type,
-            location: location,
-            cause: cause,
-            decisionLevel: solution.decisionLevel
-        )
-        delegate?.trace(.general(step))
-    }
-
-    /// Trace a conflict resolution step.
-    func trace(
-        incompatibility: Incompatibility,
-        term: Term,
-        satisfier: Assignment
-    ) {
-        let step = ConflictResolutionTraceStep(
-            incompatibility: incompatibility,
-            term: term,
-            satisfier: satisfier
-        )
-        delegate?.trace(.conflictResolution(step))
-    }
-
-    func decide(_ package: PackageReference, version: BoundVersion, location: GeneralTraceStep.Location) {
-        let term = Term(package, version.toRequirement())
+    func decide(_ package: PackageReference, version: Version) {
+        let term = Term(package, .exact(version))
         // FIXME: Shouldn't we check this _before_ making a decision?
         assert(term.isValidDecision(for: solution))
 
-        trace(value: term, type: .decision, location: location, cause: nil)
         solution.decide(package, at: version)
     }
 
-    func derive(_ term: Term, cause: Incompatibility, location: GeneralTraceStep.Location) {
-        trace(value: term, type: .derivation, location: location, cause: nil)
+    func derive(_ term: Term, cause: Incompatibility) {
         solution.derive(term, cause: cause)
     }
 
@@ -801,7 +632,7 @@ public final class PubgrubDependencyResolver {
         traceFile: AbsolutePath? = nil,
         traceStream: OutputByteStream? = nil
     ) {
-        self.provider = provider
+        self.packageContainerProvider = provider
         self.delegate = delegate
         self.isPrefetchingEnabled = isPrefetchingEnabled
         self.skipUpdate = skipUpdate
@@ -820,9 +651,8 @@ public final class PubgrubDependencyResolver {
     }
 
     /// Add a new incompatibility to the list of known incompatibilities.
-    func add(_ incompatibility: Incompatibility, location: GeneralTraceStep.Location) {
+    func add(_ incompatibility: Incompatibility, location: LogLocation) {
         log("incompat: \(incompatibility) \(location)")
-        trace(value: incompatibility, type: .incompatibility, location: location, cause: nil)
         for package in incompatibility.terms.map({ $0.package }) {
             if let incompats = incompatibilities[package] {
                 if !incompats.contains(incompatibility) {
@@ -860,15 +690,21 @@ public final class PubgrubDependencyResolver {
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(dependencies: [Constraint], pins: [Constraint] = []) -> Result {
+    public func solve(dependencies: [Constraint], pinsStore: PinsStore? = nil) -> Result {
         do {
-            return try .success(solve(constraints: dependencies, pins: pins))
+            return try .success(solve(constraints: dependencies, pinsStore: pinsStore))
         } catch {
             var error = error
 
             // If version solving failing, build the user-facing diagnostic.
             if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause {
-                let diagnostic = diagnosticBuilder.reportError(for: rootCause)
+                let builder = DiagnosticReportBuilder(
+                    root: root!,
+                    incompatibilities: incompatibilities,
+                    provider: provider
+                )
+
+                let diagnostic = builder.reportError(for: rootCause)
                 error = PubgrubError.unresolvable(diagnostic)
             }
 
@@ -876,12 +712,183 @@ public final class PubgrubDependencyResolver {
         }
     }
 
+    struct VersionBasedConstraint {
+        let package: PackageReference
+        let requirement: VersionSetSpecifier
+
+        init(package: PackageReference, req: VersionSetSpecifier) {
+            self.package = package
+            self.requirement = req
+        }
+
+        init?(_ constaint: Constraint) {
+            switch constaint.requirement {
+            case .versionSet(let req):
+                self.package = constaint.identifier
+                self.requirement = req
+            case .revision:
+                return nil
+            case .unversioned:
+                return nil
+            }
+        }
+    }
+
+    private func processInputs(
+        with constraints: [Constraint]
+    ) throws -> (overriddenPackages: [PackageReference: BoundVersion], rootIncompatibilities: [Incompatibility]) {
+        let root = self.root!
+
+        // The list of constraints that we'll be working with. We start with the input constraints
+        // and process them in two phases. The first phase finds all unversioned constraints and
+        // the second phase discovers all branch-based constraints.
+        var constraints = OrderedSet(constraints)
+
+        // The list of packages that are overridden in the graph. A local package reference will
+        // always override any other kind of package reference and branch-based reference will override
+        // version-based reference.
+        var overridenPackages: [PackageReference: BoundVersion] = [:]
+
+        // The list of version-based references reachable via local and branch-based references.
+        // These are added as top-level incompatibilities since they always need to be statisfied.
+        // Some of these might be overridden as we discover local and branch-based references.
+        var versionBasedDependencies: [PackageReference: [VersionBasedConstraint]] = [:]
+
+        // Process unversioned constraints in first phase. We go through all of the unversioned packages
+        // and collect them and their dependencies. This gives us the complete list of unversioned
+        // packages in the graph since unversioned packages can only be refered by other
+        // unversioned packages.
+        while let constraint = constraints.first(where: { $0.requirement == .unversioned }) {
+            constraints.remove(constraint)
+
+            // Mark the package as overridden.
+            let package = constraint.identifier
+            overridenPackages[package] = .unversioned
+
+            // Process dependencies of this package.
+            //
+            // We collect all version-based dependencies in a separate structure so they can
+            // be process at the end. This allows us to override them when there is a non-version
+            // based (unversioned/branch-based) constraint present in the graph.
+            let container = try provider.getContainer(for: package)
+            for dependency in try container.packageContainer.getUnversionedDependencies() {
+                if let versionedBasedConstraint = VersionBasedConstraint(dependency) {
+                    versionBasedDependencies[package, default: []].append(versionedBasedConstraint)
+                } else if !overridenPackages.keys.contains(dependency.identifier) {
+                    // Add the constraint if its not already present. This will ensure we don't
+                    // end up looping infinitely due to a cycle (which are diagnosed seperately).
+                    constraints.append(dependency)
+                }
+            }
+        }
+
+        // Process revision-based constraints in the second phase. Here we do the similar processing
+        // as the first phase but we also ignore the constraints that are overriden due to
+        // presence of unversioned constraints.
+        while let constraint = constraints.first(where: { $0.requirement.isRevision }) {
+            guard case .revision(let revision) = constraint.requirement else { fatalError("Expected revision requirement") }
+            constraints.remove(constraint)
+            let package = constraint.identifier
+
+            // Check if there is an existing value for this package in the overridden packages.
+            switch overridenPackages[package] {
+                case .excluded?, .version?:
+                    // These values are not possible.
+                    fatalError("Unexpected value for overriden package \(package) in \(overridenPackages)")
+                case .unversioned?:
+                    // This package is overridden by an unversioned package so we can ignore this constraint.
+                    continue
+                case .revision(let existingRevision)?:
+                    // If this branch-based package was encountered before, ensure the references match.
+                    if existingRevision != revision {
+                        // FIXME: Improve diagnostics here.
+                        throw PubgrubError.unresolvable("\(package.lastPathComponent) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
+                    } else {
+                        // Otherwise, continue since we've already processed this constraint. Any cycles will be diagnosed separately.
+                        continue
+                    }
+                case nil:
+                    break
+            }
+
+            // Mark the package as overridden.
+            overridenPackages[package] = .revision(revision)
+
+            // Process dependencies of this package, similar to the first phase but branch-based dependencies
+            // are not allowed to contain local/unversioned packages.
+            let container = try provider.getContainer(for: package)
+
+            // If there is a pin for this revision-based dependency, get
+            // the dependencies at the pinned revision instead of using
+            // latest commit on that branch. Note that if this revision-based dependency is
+            // already a commit, then its pin entry doesn't matter in practice.
+            let revisionForDependencies: String
+            if let pin = pinsStore?.pinsMap[package.identity], pin.state.branch == revision {
+                revisionForDependencies = pin.state.revision.identifier
+            } else {
+                revisionForDependencies = revision
+            }
+
+            for dependency in try container.packageContainer.getDependencies(at: revisionForDependencies) {
+                switch dependency.requirement {
+                case .versionSet(let req):
+                    let versionedBasedConstraint = VersionBasedConstraint(package: dependency.identifier, req: req)
+                    versionBasedDependencies[package, default: []].append(versionedBasedConstraint)
+                case .revision:
+                    constraints.append(dependency)
+                case .unversioned:
+                    throw DependencyResolverError.revisionDependencyContainsLocalPackage(
+                        dependency: package.identity,
+                        localPackage: dependency.identifier.identity
+                    )
+                }
+            }
+        }
+
+        // At this point, we should be left with only version-based requirements in our constraints
+        // list. Add them to our version-based dependency list.
+        for dependency in constraints {
+            switch dependency.requirement {
+            case .versionSet(let req):
+                let versionedBasedConstraint = VersionBasedConstraint(package: dependency.identifier, req: req)
+                // FIXME: It would be better to record where this constraint came from, instead of just
+                // using root.
+                versionBasedDependencies[root, default: []].append(versionedBasedConstraint)
+            case .revision, .unversioned:
+                fatalError("Unexpected revision/unversioned requirement in the constraints list: \(constraints)")
+            }
+        }
+
+        // Finally, compute the root incompatibilities (which will be all version-based).
+        var rootIncompatibilities: [Incompatibility] = []
+        for (package, constraints) in versionBasedDependencies {
+            for constraint in constraints {
+                if overridenPackages.keys.contains(constraint.package) { continue }
+
+                let incompat = Incompatibility(
+                    Term(root, .exact("1.0.0")),
+                    Term(not: constraint.package, constraint.requirement),
+                    root: root,
+                    cause: .dependency(package: package))
+                rootIncompatibilities.append(incompat)
+            }
+        }
+
+        return (overridenPackages, rootIncompatibilities)
+    }
+
+    /// The list of packages that are overridden in the graph. A local package reference will
+    /// always override any other kind of package reference and branch-based reference will override
+    /// version-based reference.
+    private var overriddenPackages: [PackageReference: BoundVersion] = [:]
+
     /// Find a set of dependencies that fit the given constraints. If dependency
     /// resolution is unable to provide a result, an error is thrown.
     /// - Warning: It is expected that the root package reference has been set
     ///            before this is called.
     private func solve(
-        constraints: [Constraint], pins: [Constraint] = []
+        constraints: [Constraint],
+        pinsStore: PinsStore?
     ) throws -> [(container: PackageReference, binding: BoundVersion)] {
         let root = PackageReference(
             identity: "<synthesized-root>",
@@ -891,53 +898,53 @@ public final class PubgrubDependencyResolver {
         )
 
         self.root = root
+        self.pinsStore = pinsStore
 
+        // Add the root incompatibility.
         let rootIncompatibility = Incompatibility(
-            terms: [Term(not: root, .versionSet(.exact("1.0.0")))],
+            terms: [Term(not: root, .exact("1.0.0"))],
             cause: .root
         )
         add(rootIncompatibility, location: .topLevel)
 
-        // Handle root, e.g. add dependencies and root decision.
-        //
-        // We add the dependencies before deciding on a version for root
-        // to avoid inserting the wrong decision level.
-        for dependency in pins + constraints {
-            let incompatibility = Incompatibility(
-                Term(root, .versionSet(.exact("1.0.0"))),
-                Term(not: dependency.identifier, dependency.requirement),
-                root: root, cause: .dependency(package: root))
-            add(incompatibility, location: .topLevel)
+        let inputs = try processInputs(with: constraints)
+        self.overriddenPackages = inputs.overriddenPackages
+
+        // Add all the root incompatibilities.
+        for incompat in inputs.rootIncompatibilities {
+            add(incompat, location: .topLevel)
         }
-        decide(root, version: .version("1.0.0"), location: .topLevel)
+
+        // Decide root at v1.
+        decide(root, version: "1.0.0")
 
         try run()
 
         let decisions = solution.assignments.filter { $0.isDecision }
-        let finalAssignments: [(container: PackageReference, binding: BoundVersion)] = try decisions.compactMap { assignment in
+        var finalAssignments: [(container: PackageReference, binding: BoundVersion)] = try decisions.compactMap { assignment in
             guard assignment.term.package != root else {
                 return nil
             }
 
             var boundVersion: BoundVersion
             switch assignment.term.requirement {
-            case .versionSet(.exact(let version)):
+            case .exact(let version):
                 boundVersion = .version(version)
-            case .revision(let rev):
-                boundVersion = .revision(rev)
-            case .versionSet(.range):
-                // FIXME: A new requirement type that makes having a range here impossible feels like the correct thing to do.
-                fatalError("Solution should not contain version ranges.")
-            case .unversioned, .versionSet(.any):
-                boundVersion = .unversioned
-            case .versionSet(.empty):
-                fatalError("Solution should not contain empty versionSet requirement.")
+            case .range, .any, .empty, .ranges:
+                fatalError("unexpected requirement value for assignment \(assignment.term)")
             }
 
-            let container = try getContainer(for: assignment.term.package)
-            let identifier = try container.getUpdatedIdentifier(at: boundVersion)
+            let container = try provider.getContainer(for: assignment.term.package)
+            let identifier = try container.packageContainer.getUpdatedIdentifier(at: boundVersion)
 
             return (identifier, boundVersion)
+        }
+
+        // Add overriden packages to the result.
+        for (package, boundVersion) in overriddenPackages {
+            let container = try provider.getContainer(for: package)
+            let identifier = try container.packageContainer.getUpdatedIdentifier(at: boundVersion)
+            finalAssignments.append((identifier, boundVersion))
         }
 
         log(finalAssignments)
@@ -969,14 +976,7 @@ public final class PubgrubDependencyResolver {
 
         while !changed.isEmpty {
             let package = changed.removeFirst()
-
-            // According to the experience of pub developers, conflict
-            // resolution produces more general incompatibilities later on
-            // making it advantageous to check those first.
             loop: for incompatibility in positiveIncompatibilities(for: package)?.reversed() ?? [] {
-                // FIXME: This needs to find set relation for each term in the incompatibility since
-                // that matters. For e.g., 1.1.0..<2.0.0 won't satisfy 1.0.0..<2.0.0 but they're
-                // overlapping.
                 let result = propagate(incompatibility: incompatibility)
 
                 switch result {
@@ -1027,7 +1027,7 @@ public final class PubgrubDependencyResolver {
         }
 
         log("derived: \(unsatisfiedTerm.inverse)")
-        derive(unsatisfiedTerm.inverse, cause: incompatibility, location: .unitPropagation)
+        derive(unsatisfiedTerm.inverse, cause: incompatibility)
 
         return .almostSatisfied(package: unsatisfiedTerm.package)
     }
@@ -1039,7 +1039,7 @@ public final class PubgrubDependencyResolver {
     }
 
     func _resolve(conflict: Incompatibility) throws -> Incompatibility {
-        log("conflict: \(conflict)");
+        log("conflict: \(conflict)")
         // Based on:
         // https://github.com/dart-lang/pub/tree/master/doc/solver.md#conflict-resolution
         // https://github.com/dart-lang/pub/blob/master/lib/src/solver/version_solver.dart#L201
@@ -1120,7 +1120,7 @@ public final class PubgrubDependencyResolver {
     /// failed, meaning this incompatibility is either empty or only for the root
     /// package.
     private func isCompleteFailure(_ incompatibility: Incompatibility) -> Bool {
-        return incompatibility.terms.count == 1 && incompatibility.terms.first?.package == root
+        return incompatibility.terms.isEmpty || (incompatibility.terms.count == 1 && incompatibility.terms.first?.package == root)
     }
 
     func makeDecision() throws -> PackageReference? {
@@ -1131,18 +1131,23 @@ public final class PubgrubDependencyResolver {
             return nil
         }
 
-        // FIXME: We should choose a package with least available versions for the
-        // constraints that we have so far on the package.
-        let pkgTerm = undecided.first!
+        // Prefer packages with least number of versions that fit the current requirements so we
+        // get conflicts (if any) sooner.
+        let pkgTerm = try undecided.min {
+            let count1 = try provider.getContainer(for: $0.package).versionCount($0.requirement)
+            let count2 = try provider.getContainer(for: $1.package).versionCount($1.requirement)
+            return count1 < count2
+        }!
 
+        let container = try provider.getContainer(for: pkgTerm.package)
         // Get the best available version for this package.
-        guard let version = try getBestAvailableVersion(for: pkgTerm) else {
+        guard let version = try container.getBestAvailableVersion(for: pkgTerm) else {
             add(Incompatibility(pkgTerm, root: root!, cause: .noAvailableVersion), location: .decisionMaking)
             return pkgTerm.package
         }
 
         // Add all of this version's dependencies as incompatibilities.
-        let depIncompatibilities = try incompatibilites(for: pkgTerm.package, at: version)
+        let depIncompatibilities = try container.incompatibilites(at: version, overriddenPackages: overriddenPackages, root: root!)
 
         var haveConflict = false
         for incompatibility in depIncompatibilities {
@@ -1162,167 +1167,26 @@ public final class PubgrubDependencyResolver {
         // Decide this version if there was no conflict with its dependencies.
         if !haveConflict {
             log("decision: \(pkgTerm.package)@\(version)")
-            decide(pkgTerm.package, version: version, location: .decisionMaking)
+            decide(pkgTerm.package, version: version)
         }
 
         return pkgTerm.package
     }
-
-    // MARK: - Error Reporting
-
-    // FIXME: Convert this into a method.
-    var diagnosticBuilder: DiagnosticReportBuilder {
-        return DiagnosticReportBuilder(
-            root: root!,
-            incompatibilities: incompatibilities
-        )
-    }
-
-    // MARK: - Container Management
-
-    /// Condition for container management structures.
-    private let fetchCondition = Condition()
-
-    /// The list of fetched containers.
-    private var _fetchedContainers: [PackageReference: Basic.Result<PackageContainer, AnyError>] = [:]
-
-    /// The set of containers requested so far.
-    private var _prefetchingContainers: Set<PackageReference> = []
-
-    /// Get the container for the given identifier, loading it if necessary.
-    fileprivate func getContainer(for identifier: PackageReference) throws -> PackageContainer {
-        return try fetchCondition.whileLocked {
-            // Return the cached container, if available.
-            if let container = _fetchedContainers[identifier] {
-                return try container.dematerialize()
-            }
-
-            // If this container is being prefetched, wait for that to complete.
-            while _prefetchingContainers.contains(identifier) {
-                fetchCondition.wait()
-            }
-
-            // The container may now be available in our cache if it was prefetched.
-            if let container = _fetchedContainers[identifier] {
-                return try container.dematerialize()
-            }
-
-            // Otherwise, fetch the container synchronously.
-            let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
-            self._fetchedContainers[identifier] = Basic.Result(container)
-            return container
-        }
-    }
-
-    /// Returns the best available version for a given term.
-    func getBestAvailableVersion(for term: Term) throws -> BoundVersion? {
-        assert(term.isPositive, "Expected term to be positive")
-        let container = try getContainer(for: term.package)
-
-        switch term.requirement {
-        case .versionSet(let versionSet):
-            let availableVersions = container.versions(filter: { versionSet.contains($0) } )
-            let version = availableVersions.first { _ in true }
-            return version.map(BoundVersion.version)
-        case .revision(let rev):
-            return .revision(rev)
-        case .unversioned:
-            return .unversioned
-        }
-    }
-
-    /// Returns the incompatibilities of a package at the given version.
-    func incompatibilites(
-        for package: PackageReference,
-        at version: BoundVersion
-    ) throws -> [Incompatibility] {
-        let container = try getContainer(for: package)
-
-        switch version {
-        case .version(let version):
-            return try container.getDependencies(at: version).map { dep -> Incompatibility in
-                var terms: OrderedSet<Term> = []
-
-                guard case .versionSet = dep.requirement else {
-                    fatalError("Expected \(dep) to be pinned to a version set, not \(dep.requirement).")
-                }
-
-                // FIXME:
-                //
-                // If the selected version is the latest version, Pubgrub
-                // represents the term as having an unbounded upper range.
-                // We can't represent that here (currently), so we're
-                // pretending that it goes to the next nonexistent major
-                // version.
-                //
-                // FIXME: This is completely wrong when a dependencies change
-                // across version. It leads to us not being able to diagnose
-                // resolution errors properly. We only end up showing the
-                // the problem with the oldest version.
-                let nextMajor = Version(version.major + 1, 0, 0)
-                terms.append(Term(container.identifier, .versionSet(.range(version..<nextMajor))))
-                terms.append(Term(not: dep.identifier, dep.requirement))
-                return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
-            }
-        case .unversioned:
-            return try container.getUnversionedDependencies().map { dep -> Incompatibility in
-                var terms: OrderedSet<Term> = []
-                terms.append(Term(container.identifier, .unversioned))
-                terms.append(Term(not: dep.identifier, dep.requirement))
-                return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
-            }
-        case .revision(let revision):
-            return try container.getDependencies(at: revision).map { dep -> Incompatibility in
-                var terms: OrderedSet<Term> = []
-                terms.append(Term(container.identifier, .revision(revision)))
-                terms.append(Term(not: dep.identifier, dep.requirement))
-
-                return Incompatibility(terms, root: root!, cause: .dependency(package: container.identifier))
-            }
-        case .excluded:
-            fatalError("Generating incompatibilities for an excluded version is unsupported.")
-        }
-    }
-
-    /// Starts prefetching the given containers.
-    private func prefetch(containers identifiers: [PackageReference]) {
-        fetchCondition.whileLocked {
-            // Process each container.
-            for identifier in identifiers {
-                // Skip if we're already have this container or are pre-fetching it.
-                guard _fetchedContainers[identifier] == nil,
-                    !_prefetchingContainers.contains(identifier) else {
-                        continue
-                }
-
-                // Otherwise, record that we're prefetching this container.
-                _prefetchingContainers.insert(identifier)
-
-                provider.getContainer(for: identifier, skipUpdate: skipUpdate) { container in
-                    self.fetchCondition.whileLocked {
-                        // Update the structures and signal any thread waiting
-                        // on prefetching to finish.
-                        self._fetchedContainers[identifier] = container
-                        self._prefetchingContainers.remove(identifier)
-                        self.fetchCondition.signal()
-                    }
-                }
-            }
-        }
-    }
 }
 
-final class DiagnosticReportBuilder {
+private final class DiagnosticReportBuilder {
     let rootPackage: PackageReference
     let incompatibilities: [PackageReference: [Incompatibility]]
 
     private var lines: [(String, Int)] = []
     private var derivations: [Incompatibility: Int] = [:]
     private var lineNumbers: [Incompatibility: Int] = [:]
+    private let provider: ContainerProvider
 
-    init(root: PackageReference, incompatibilities: [PackageReference: [Incompatibility]]) {
+    init(root: PackageReference, incompatibilities: [PackageReference: [Incompatibility]], provider: ContainerProvider) {
         self.rootPackage = root
         self.incompatibilities = incompatibilities
+        self.provider = provider
     }
 
     func reportError(for incompatibility: Incompatibility) -> String {
@@ -1480,50 +1344,56 @@ final class DiagnosticReportBuilder {
             assert(depender.isPositive)
             assert(!dependee.isPositive)
 
-            let dependerDesc = description(for: depender)
+            let dependerDesc = description(for: depender, normalizeRange: true)
             let dependeeDesc = description(for: dependee)
             return "\(dependerDesc) depends on \(dependeeDesc)"
         case .noAvailableVersion:
             assert(incompatibility.terms.count == 1)
             let package = incompatibility.terms.first!
             assert(package.isPositive)
-            return "no versions of \(package.package.identity) match the requirement \(package.requirement)"
+            return "no versions of \(package.package.lastPathComponent) match the requirement \(package.requirement)"
         case .root:
             // FIXME: This will never happen I think.
             assert(incompatibility.terms.count == 1)
             let package = incompatibility.terms.first!
             assert(package.isPositive)
-            return "\(package.package.identity) is \(package.requirement)"
-        default: break
+            return "\(package.package.lastPathComponent) is \(package.requirement)"
+        case .conflict:
+            break
+        case .versionBasedDependencyContainsUnversionedDependency(let versionedDependency, let unversionedDependency):
+            return "package \(versionedDependency) is required using a version-based requirement and it depends on unversion package \(unversionedDependency)"
+        case .incompatibleToolsVersion:
+            let term = incompatibility.terms.first!
+            return "\(description(for: term, normalizeRange: true)) contains incompatible tools version"
         }
 
         if isFailure(incompatibility) {
             return "version solving failed"
         }
 
-        // FIXME: Need to show requirements for some of these.
-
         let terms = incompatibility.terms
         if terms.count == 1 {
             let term = terms.first!
-            return "\(term) is " + (term.isPositive ? "forbidden" : "required")
+            let prefix = hasEffectivelyAnyRequirement(term) ? term.package.lastPathComponent : description(for: term, normalizeRange: true)
+            return "\(prefix) is " + (term.isPositive ? "forbidden" : "required")
         } else if terms.count == 2 {
             let term1 = terms.first!
             let term2 = terms.last!
             if term1.isPositive == term2.isPositive {
                 if term1.isPositive {
-                    return "\(term1.package.identity) is incompatible with \(term2.package.identity)";
+                    return "\(term1.package.lastPathComponent) is incompatible with \(term2.package.lastPathComponent)";
                 } else {
-                    return "either \(term1.package.identity) or \(term2)"
+                    return "either \(term1.package.lastPathComponent) or \(term2)"
                 }
             }
         }
 
-        let positive = terms.filter{ $0.isPositive }.map{ $0.package.identity }
-        let negative = terms.filter{ !$0.isPositive }.map{ $0.package.identity }
+        let positive = terms.filter{ $0.isPositive }.map{ description(for: $0) }
+        let negative = terms.filter{ !$0.isPositive }.map{ description(for: $0) }
         if !positive.isEmpty && !negative.isEmpty {
             if positive.count == 1 {
-                return "\(positive[0]) requires \(negative.joined(separator: " or "))";
+                let positiveTerm = terms.first{ $0.isPositive }!
+                return "\(description(for: positiveTerm, normalizeRange: true)) requires \(negative.joined(separator: " or "))";
             } else {
                 return "if \(positive.joined(separator: " and ")) then \(negative.joined(separator: " or "))";
             }
@@ -1531,6 +1401,23 @@ final class DiagnosticReportBuilder {
             return "one of \(positive.joined(separator: " or ")) must be true"
         } else {
             return "one of \(negative.joined(separator: " or ")) must be true"
+        }
+    }
+
+    /// Returns true if the requirement on this term is effectively "any" because of either the actual
+    /// `any` requirement or because the version range is large enough to fit all current available versions.
+    private func hasEffectivelyAnyRequirement(_ term: Term) -> Bool {
+        switch term.requirement {
+        case .any:
+            return true
+        case .empty, .exact, .ranges:
+            return false
+        case .range(let range):
+            guard let container = try? provider.getContainer(for: term.package) else {
+                return false
+            }
+            let bounds = container.computeBounds(for: range)
+            return !bounds.includesLowerBound && !bounds.includesUpperBound
         }
     }
 
@@ -1561,31 +1448,41 @@ final class DiagnosticReportBuilder {
         return incompatibility.terms.count == 1 && incompatibility.terms.first?.package.identity == "<synthesized-root>"
     }
 
-    private func description(for term: Term) -> String {
-        let name = term.package.name ?? term.package.identity
+    private func description(for term: Term, normalizeRange: Bool = false) -> String {
+        let name = term.package.name ?? term.package.lastPathComponent
 
         switch term.requirement {
-        case .versionSet(let vs):
-            switch vs {
-            case .any: return "any version of \(name)"
-            case .empty: return "no version of \(name)"
-            case .exact(let version):
-                // For the root package, don't output the useless version 1.0.0.
-                if term.package == rootPackage {
-                    return "root"
-                }
-                return "\(name) @\(version)"
-            case .range(let range):
-                let upper = range.upperBound
-                let nextMajor = Version(range.lowerBound.major + 1, 0, 0)
-                if upper == nextMajor {
-                    return "\(name) ^\(range.lowerBound)"
-                } else {
-                    return "\(name) \(range.description)"
-                }
+        case .any: return "every version of \(name)"
+        case .empty: return "no version of \(name)"
+        case .exact(let version):
+            // For the root package, don't output the useless version 1.0.0.
+            if term.package == rootPackage {
+                return "root"
             }
-        case .revision(let rev): return "\(name) @\(rev)"
-        case .unversioned: return "\(name)"
+            return "\(name) \(version)"
+        case .range(let range):
+            guard normalizeRange, let container = try? provider.getContainer(for: term.package) else {
+                return "\(name) \(range.description)"
+            }
+
+            switch container.computeBounds(for: range) {
+            case (true, true):
+                return "\(name) \(range.description)"
+            case (false, false):
+                return "every version of \(name)"
+            case (true, false):
+                return "\(name) >=\(range.lowerBound)"
+            case (false, true):
+                return "\(name) <\(range.upperBound)"
+            }
+        case .ranges(let ranges):
+            let ranges = "{" + ranges.map{
+                if $0.lowerBound == $0.upperBound {
+                    return $0.lowerBound.description
+                }
+                return $0.lowerBound.description + "..<" + $0.upperBound.description
+            }.joined(separator: ", ") + "}"
+            return "\(name) \(ranges)"
         }
     }
 
@@ -1607,17 +1504,380 @@ final class DiagnosticReportBuilder {
     }
 }
 
-extension BoundVersion {
-    fileprivate func toRequirement() -> PackageRequirement {
-        switch self {
-        case .version(let version):
-            return .versionSet(.exact(version))
-        case .excluded:
-            fatalError("Cannot create package requirement from excluded version.")
-        case .unversioned:
-            return .unversioned
-        case .revision(let revision):
-            return .revision(revision)
+// MARK:- Container Management
+
+/// A container for an individual package. This enhances PackageContainer to add PubGrub specific
+/// logic which is mostly related to computing incompatibilities at a particular version.
+private final class PubGrubPackageContainer {
+
+    /// The underlying package container.
+    let packageContainer: PackageContainer
+
+    /// Reference to the pins store.
+    let pinsStore: PinsStore?
+
+    var package: PackageReference {
+        packageContainer.identifier
+    }
+
+    init(_ container: PackageContainer, pinsStore: PinsStore?) {
+        self.packageContainer = container
+        self.pinsStore = pinsStore
+    }
+
+    /// Returns the pinned version for this package, if any.
+    var pinnedVersion: Version? {
+        return pinsStore?.pinsMap[packageContainer.identifier.identity]?.state.version
+    }
+
+    /// Returns the numbers of versions that are satisfied by the given version requirement.
+    func versionCount(_ requirement: VersionSetSpecifier) -> Int {
+        if let pinnedVersion = self.pinnedVersion, requirement.contains(pinnedVersion) {
+            return 1
         }
+        return packageContainer.reversedVersions.filter(requirement.contains).count
+    }
+
+    /// Computes the bounds of the given range against the versions available in the package.
+    ///
+    /// `includesLowerBound` is `false` if range's lower bound is less than or equal to the lowest available version.
+    /// Similarly, `includesUpperBound` is `false` if range's upper bound is greater than or equal to the highest available version.
+    func computeBounds(for range: Range<Version>) -> (includesLowerBound: Bool, includesUpperBound: Bool) {
+        var includeLowerBound = true
+        var includeUpperBound = true
+
+        let versions = packageContainer.reversedVersions
+
+        if let last = versions.last, range.lowerBound < last {
+            includeLowerBound = false
+        }
+
+        if let first = versions.first, range.upperBound > first {
+            includeUpperBound = false
+        }
+
+        return (includeLowerBound, includeUpperBound)
+    }
+
+    /// Returns the best available version for a given term.
+    func getBestAvailableVersion(for term: Term) throws -> Version? {
+        assert(term.isPositive, "Expected term to be positive")
+        var versionSet = term.requirement
+
+        // Restrict the selection to the pinned version if is allowed by the current requirements.
+        if let pinnedVersion = self.pinnedVersion {
+            if versionSet.contains(pinnedVersion) {
+                versionSet = .exact(pinnedVersion)
+            }
+        }
+
+        // Return the highest version that is allowed by the input requirement.
+        return packageContainer.reversedVersions.first{ versionSet.contains($0) }
+    }
+
+    /// Compute the bounds of incompatible tools version starting from the given version.
+    private func computeIncompatibleToolsVersionBounds(fromVersion: Version) -> VersionSetSpecifier {
+        assert(!packageContainer.isToolsVersionCompatible(at: fromVersion))
+        let versions: [Version] = packageContainer.reversedVersions.reversed()
+
+        // This is guaranteed to be present.
+        let idx = versions.index(of: fromVersion)!
+
+        var lowerBound = fromVersion
+        var upperBound = fromVersion
+
+        for version in versions.dropFirst(idx + 1) {
+            let isToolsVersionCompatible = packageContainer.isToolsVersionCompatible(at: version)
+            if isToolsVersionCompatible {
+                break
+            }
+            upperBound = version
+        }
+
+        for version in versions.dropLast(versions.count - idx).reversed() {
+            let isToolsVersionCompatible = packageContainer.isToolsVersionCompatible(at: version)
+            if isToolsVersionCompatible {
+                break
+            }
+            lowerBound = version
+        }
+
+        // If lower and upper bounds didn't change then this is the sole incompatible version.
+        if lowerBound == upperBound {
+            return .exact(lowerBound)
+        }
+
+        // If lower bound is the first version then we can use 0 as the sentinel. This
+        // will end up producing a better diagnostic since we can omit the lower bound.
+        if lowerBound == versions.first {
+            lowerBound = "0.0.0"
+        }
+
+        if upperBound == versions.last {
+            // If upper bound is the last version then we can use the next major version as the sentinel.
+            // This will end up producing a better diagnostic since we can omit the upper bound.
+            upperBound = Version(upperBound.major + 1, 0, 0)
+        } else {
+            // Use the next patch since the upper bound needs to be inclusive here.
+            upperBound = upperBound.nextPatch()
+        }
+        return .range(lowerBound..<upperBound.nextPatch())
+    }
+
+    /// Returns the incompatibilities of a package at the given version.
+    func incompatibilites(
+        at version: Version,
+        overriddenPackages: [PackageReference: BoundVersion],
+        root: PackageReference
+    ) throws -> [Incompatibility] {
+        // FIXME: It would be nice to compute bounds for this as well.
+        if !packageContainer.isToolsVersionCompatible(at: version) {
+            let requirement = computeIncompatibleToolsVersionBounds(fromVersion: version)
+            return [Incompatibility(Term(package, requirement), root: root, cause: .incompatibleToolsVersion)]
+        }
+
+        var dependencies: [PackageContainerConstraint] = []
+        for dep in try packageContainer.getDependencies(at: version) {
+            // Version-based packages are not allowed to contain unversioned dependencies.
+            guard case .versionSet = dep.requirement else {
+                let cause: Incompatibility.Cause = .versionBasedDependencyContainsUnversionedDependency(
+                    versionedDependency: package.identity,
+                    unversionedDependency: dep.identifier.identity)
+                return [Incompatibility(Term(package, .exact(version)), root: root, cause: cause)]
+            }
+
+            // Skip if this package is overriden.
+            if overriddenPackages.keys.contains(dep.identifier) {
+                continue
+            }
+
+            // Skip if we already emitted incompatibilities for this dependency such that the selected
+            // falls within the previously computed bounds.
+            if emittedIncompatibilities[dep.identifier]?.contains(version) != true {
+                dependencies.append(dep)
+            }
+        }
+
+        // Emit the dependencies at the pinned version if we haven't emitted anything else yet.
+        if version == pinnedVersion && emittedIncompatibilities.isEmpty {
+            // We don't need to emit anything if we already emitted the incompatibilities at the
+            // pinned version.
+            if self.emittedPinnedVersionIncompatibilities { return [] }
+
+            self.emittedPinnedVersionIncompatibilities = true
+
+            // Since the pinned version is most likely to succeed, we don't compute bounds for its
+            // incompatibilities.
+            return dependencies.map {
+                guard case .versionSet(let vs) = $0.requirement else { fatalError("Unexpected unversioned requirement: \($0)") }
+                var terms: OrderedSet<Term> = []
+                terms.append(Term(packageContainer.identifier, .exact(version)))
+                terms.append(Term(not: $0.identifier, vs))
+                return Incompatibility(terms, root: root, cause: .dependency(package: packageContainer.identifier))
+            }
+        }
+
+        let (lowerBounds, upperBounds) = computeBounds(dependencies, from: version)
+
+        return dependencies.map {
+            var terms: OrderedSet<Term> = []
+            let lowerBound = lowerBounds[$0.identifier] ?? "0.0.0"
+            let upperBound = upperBounds[$0.identifier] ?? Version(version.major + 1, 0, 0)
+            assert(lowerBound < upperBound)
+
+            // We only have version-based requirements at this point.
+            guard case .versionSet(let vs) = $0.requirement else { fatalError("Unexpected unversioned requirement: \($0)") }
+
+            let requirement: VersionSetSpecifier = .range(lowerBound..<upperBound)
+            terms.append(Term(packageContainer.identifier, requirement))
+            terms.append(Term(not: $0.identifier, vs))
+
+            // Make a record for this dependency so we don't have to recompute the bounds when the selected version falls within the bounds.
+            emittedIncompatibilities[$0.identifier] = requirement.union(emittedIncompatibilities[$0.identifier] ?? .empty)
+
+            return Incompatibility(terms, root: root, cause: .dependency(package: packageContainer.identifier))
+        }
+    }
+
+    /// The map of dependencies to version set that indicates the versions that have had their
+    /// incompatibilities emitted.
+    private var emittedIncompatibilities: [PackageReference: VersionSetSpecifier] = [:]
+
+    /// Whether we've emitted the incompatibilities for the pinned versions.
+    private var emittedPinnedVersionIncompatibilities: Bool = false
+
+    /// Method for computing bounds of the given dependencies.
+    ///
+    /// This will return a dictionary which contains mapping of a package dependency to its bound.
+    /// If a dependency is absent in the dictionary, it is present in all versions of the package
+    /// above or below the given version. As with regular version ranges, the lower bound is
+    /// inclusive and the upper bound is exclusive.
+    private func computeBounds(
+        _ dependencies: [PackageContainerConstraint],
+        from fromVersion: Version
+    ) -> (lowerBounds: [PackageReference: Version], upperBounds: [PackageReference: Version]) {
+        func computeBounds(with versionsToIterate: AnyCollection<Version>, upperBound: Bool) -> [PackageReference: Version] {
+            var result: [PackageReference: Version] = [:]
+            var prev = fromVersion
+
+            for version in versionsToIterate {
+                let bound = upperBound ? version : prev
+
+                // If we hit a version which doesn't have a compatible tools version then that's the boundary.
+                let isToolsVersionCompatible = packageContainer.isToolsVersionCompatible(at: version)
+
+                // Get the dependencies at this version.
+                let currentDependencies = (try? packageContainer.getDependencies(at: version)) ?? []
+
+                // Record this version as the bound for our list of dependencies, if appropriate.
+                for dependency in dependencies where !result.keys.contains(dependency.identifier) {
+                    // Record the bound if the tools version isn't compatible at the current version.
+                    if !isToolsVersionCompatible {
+                        result[dependency.identifier] = bound
+                    } else if currentDependencies.first(where: { $0.identifier == dependency.identifier }) != dependency {
+                        // Record this version as the bound if we're finding upper bounds since
+                        // upper bound is exclusive and record the previous version if we're
+                        // finding the lower bound since that is inclusive.
+                        result[dependency.identifier] = bound
+                    }
+                }
+
+                // We're done if we found bounds for all of our dependencies.
+                if result.count == dependencies.count {
+                    break
+                }
+
+                prev = version
+            }
+
+            return result
+        }
+
+        let versions: [Version] = packageContainer.reversedVersions.reversed()
+
+        // This is guaranteed to be present.
+        let idx = versions.index(of: fromVersion)!
+
+        // Compute upper and lower bounds for the dependencies.
+        let upperBounds = computeBounds(with: AnyCollection(versions.dropFirst(idx + 1)), upperBound: true)
+        let lowerBounds = computeBounds(with: AnyCollection(versions.dropLast(versions.count - idx).reversed()), upperBound: false)
+
+        return (lowerBounds, upperBounds)
+    }
+}
+
+/// An utility class around PackageContainerProvider that allows "prefetching" the containers
+/// in parallel. The basic idea is to kick off container fetching before starting the resolution
+/// by using the list of URLs from the Package.resolved file.
+private final class ContainerProvider {
+    /// The actual package container provider.
+    let provider: PackageContainerProvider
+
+    /// Wheather to perform update (git fetch) on existing cloned repositories or not.
+    let skipUpdate: Bool
+
+    /// Reference to the pins store.
+    let pinsStore: PinsStore?
+
+    init(_ provider: PackageContainerProvider, skipUpdate: Bool, pinsStore: PinsStore?) {
+        self.provider = provider
+        self.skipUpdate = skipUpdate
+        self.pinsStore = pinsStore
+    }
+
+    /// Condition for container management structures.
+    private let fetchCondition = Condition()
+
+    /// The list of fetched containers.
+    private var _fetchedContainers: [PackageReference: TSCBasic.Result<PubGrubPackageContainer, AnyError>] = [:]
+
+    /// The set of containers requested so far.
+    private var _prefetchingContainers: Set<PackageReference> = []
+
+    /// Get the container for the given identifier, loading it if necessary.
+    func getContainer(for identifier: PackageReference) throws -> PubGrubPackageContainer {
+        return try fetchCondition.whileLocked {
+            // Return the cached container, if available.
+            if let container = _fetchedContainers[identifier] {
+                return try container.dematerialize()
+            }
+
+            // If this container is being prefetched, wait for that to complete.
+            while _prefetchingContainers.contains(identifier) {
+                fetchCondition.wait()
+            }
+
+            // The container may now be available in our cache if it was prefetched.
+            if let container = _fetchedContainers[identifier] {
+                return try container.dematerialize()
+            }
+
+            // Otherwise, fetch the container synchronously.
+            let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
+            let pubGrubContainer = PubGrubPackageContainer(container, pinsStore: pinsStore)
+            self._fetchedContainers[identifier] = TSCBasic.Result(pubGrubContainer)
+            return pubGrubContainer
+        }
+    }
+
+    /// Starts prefetching the given containers.
+    private func prefetch(containers identifiers: [PackageReference]) {
+        fetchCondition.whileLocked {
+            // Process each container.
+            for identifier in identifiers {
+                // Skip if we're already have this container or are pre-fetching it.
+                guard _fetchedContainers[identifier] == nil,
+                    !_prefetchingContainers.contains(identifier) else {
+                        continue
+                }
+
+                // Otherwise, record that we're prefetching this container.
+                _prefetchingContainers.insert(identifier)
+
+                provider.getContainer(for: identifier, skipUpdate: skipUpdate) { container in
+                    self.fetchCondition.whileLocked {
+                        // Update the structures and signal any thread waiting
+                        // on prefetching to finish.
+                        let pubGrubContainer = container.map {
+                            PubGrubPackageContainer($0, pinsStore: self.pinsStore)
+                        }
+                        self._fetchedContainers[identifier] = pubGrubContainer
+                        self._prefetchingContainers.remove(identifier)
+                        self.fetchCondition.signal()
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK:- Misc Extensions
+
+extension VersionSetSpecifier {
+    fileprivate var isExact: Bool {
+        switch self {
+        case .any, .empty, .range, .ranges:
+            return false
+        case .exact:
+            return true
+        }
+    }
+}
+
+extension PackageRequirement {
+    fileprivate var isRevision: Bool {
+        switch self {
+        case .versionSet, .unversioned:
+            return false
+        case .revision:
+            return true
+        }
+    }
+}
+
+extension PackageReference {
+    /// Returns the last path component of the path (without .git suffix, if present).
+    fileprivate var lastPathComponent: String {
+        return String(path.split(separator: "/").last!).spm_dropGitSuffix()
     }
 }

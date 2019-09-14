@@ -9,11 +9,11 @@
 */
 
 import XCTest
-import TestSupport
+import SPMTestSupport
 
-import Basic
+import TSCBasic
 import PackageModel
-import SPMUtility
+import TSCUtility
 
 import PackageLoading
 
@@ -518,6 +518,32 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testInvalidPublicHeadersPath() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/inc/module.modulemap",
+                                    "/Sources/Foo/inc/Foo.h",
+                                    "/Sources/Foo/Foo.c",
+                                    "/Sources/Bar/include/module.modulemap",
+                                    "/Sources/Bar/include/Bar.h",
+                                    "/Sources/Bar/Bar.c"
+        )
+
+        let manifest = Manifest.createV4Manifest(
+            name: "Foo",
+            targets: [
+                TargetDescription(
+                    name: "Foo",
+                    publicHeadersPath: "/inc"),
+                TargetDescription(
+                    name: "Bar"),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkDiagnostic("invalid relative path \'/inc\'; relative path should not begin with \'/\' or \'~\'")
+        }
+    }
+
     func testTestsLayoutsv4() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/main.swift",
@@ -734,7 +760,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("could not find source files for target(s): Random; use the 'path' property in the Swift 4 manifest to set a custom target path")
+                result.checkDiagnostic("Source files for target Random should be located under 'Sources/Random', or a custom sources path can be set with the 'path' property in Package.swift")
             }
         }
 
@@ -749,7 +775,22 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("could not find source files for target(s): Foo; use the 'path' property in the Swift 4 manifest to set a custom target path")
+                result.checkDiagnostic("Source files for target Foo should be located under 'Sources/Foo', or a custom sources path can be set with the 'path' property in Package.swift")
+            }
+        }
+
+        do {
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Sources/pkg/Foo.swift")
+            let manifest = Manifest.createV4Manifest(
+                name: "pkg",
+                targets: [
+                    TargetDescription(name: "pkg", dependencies: []),
+                    TargetDescription(name: "pkgTests", dependencies: [], type: .test),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { result in
+                result.checkDiagnostic("Source files for target pkgTests should be located under 'Tests/pkgTests', or a custom sources path can be set with the 'path' property in Package.swift")
             }
         }
 
@@ -779,7 +820,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("could not find source files for target(s): foo; use the 'path' property in the Swift 4 manifest to set a custom target path")
+                result.checkDiagnostic("Source files for target foo should be located under 'Sources/foo', or a custom sources path can be set with the 'path' property in Package.swift")
             }
         }
 
@@ -829,7 +870,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("target 'pkg2' in package 'pkg' contains no valid source files")
+                result.checkDiagnostic("Source files for target pkg2 should be located under /Sources/pkg2")
                 result.checkModule("pkg1") { moduleResult in
                     moduleResult.check(c99name: "pkg1", type: .library)
                     moduleResult.checkSources(root: "/Sources/pkg1", paths: "Foo.swift")
@@ -1037,7 +1078,7 @@ class PackageBuilderTests: XCTestCase {
         manifest = createManifest(
             swiftVersions: [SwiftLanguageVersion(string: "6")!, SwiftLanguageVersion(string: "7")!])
         PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("package \'pkg\' requires minimum Swift language version 6 which is not supported by the current tools version (5.0.0)")
+            result.checkDiagnostic("package \'pkg\' requires minimum Swift language version 6 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))")
         }
     }
 
@@ -1058,7 +1099,7 @@ class PackageBuilderTests: XCTestCase {
             )
 
             PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("could not find source files for target(s): Bar; use the 'path' property in the Swift 4 manifest to set a custom target path")
+                result.checkDiagnostic("Source files for target Bar should be located under 'Sources/Bar', or a custom sources path can be set with the 'path' property in Package.swift")
             }
         }
 
@@ -1077,7 +1118,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("could not find source files for target(s): BarTests; use the 'path' property in the Swift 4 manifest to set a custom target path")
+                result.checkDiagnostic("Source files for target BarTests should be located under 'Tests/BarTests', or a custom sources path can be set with the 'path' property in Package.swift")
             }
 
             // We should be able to fix this by using custom paths.
@@ -1196,8 +1237,8 @@ class PackageBuilderTests: XCTestCase {
             result.checkProduct("foo-dy") { productResult in
                 productResult.check(type: .library(.dynamic), targets: ["foo"])
             }
-            result.checkDiagnostic("Ignoring duplicate product 'foo' (static)")
-            result.checkDiagnostic("Ignoring duplicate product 'foo' (dynamic)")
+            result.checkDiagnostic("ignoring duplicate product 'foo' (static)")
+            result.checkDiagnostic("ignoring duplicate product 'foo' (dynamic)")
         }
     }
 
@@ -1220,7 +1261,7 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "SystemModulePackage", type: .systemModule)
                 moduleResult.checkSources(root: "/")
             }
-            result.checkDiagnostic("Ignoring declared target(s) 'foo, bar' in the system package")
+            result.checkDiagnostic("ignoring declared target(s) 'foo, bar' in the system package")
         }
     }
 
@@ -1673,7 +1714,7 @@ final class PackageBuilderTester {
             result = .error(errorStr)
             uncheckedDiagnostics.insert(errorStr)
         }
-        uncheckedDiagnostics.formUnion(diagnostics.diagnostics.map({ $0.localizedDescription }))
+        uncheckedDiagnostics.formUnion(diagnostics.diagnostics.map({ $0.description }))
         body(self)
         validateDiagnostics(file: file, line: line)
         validateCheckedModules(file: file, line: line)

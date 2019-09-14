@@ -10,11 +10,11 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import SourceControl
-import SPMUtility
+import TSCUtility
 
-import TestSupport
+import SPMTestSupport
 
 class InMemoryGitRepositoryTests: XCTestCase {
     func testBasics() throws {

@@ -4,7 +4,9 @@ The Swift Package Manager is a tool for managing distribution of source code, ai
 
 We’ve designed the system to make it easy to share packages on services like GitHub, but packages are also great for private personal development, sharing code within a team, or at any other granularity.
 
-Note that at this time the Package Manager has no support for iOS, watchOS, or tvOS platforms.
+Swift Package Manager includes a build system that can build for macOS and Linux. Xcode 11 integrates with libSwiftPM to provide support for iOS, watchOS, and tvOS platforms.
+
+The [SourceKit-LSP](https://github.com/apple/sourcekit-lsp) project leverages libSwiftPM and provides Language Server Protocol implementation for editors that support LSP.
 
 ---
 
@@ -115,7 +117,7 @@ The Swift package manager uses [llbuild](https://github.com/apple/swift-llbuild)
 
 ## License
 
-Copyright 2015 - 2018 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception.
+Copyright 2015 - 2019 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception.
 
 See [https://swift.org/LICENSE.txt](https://swift.org/LICENSE.txt) for license information.
 

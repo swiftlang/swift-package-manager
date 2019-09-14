@@ -9,8 +9,8 @@
 */
 
 import Foundation
-import Basic
-import SPMUtility
+import TSCBasic
+import TSCUtility
 
 let listDependenciesCommand = "swift package \(PackageMode.completionTool.rawValue) \(PackageToolOptions.CompletionToolMode.listDependencies.rawValue)"
 let listExecutablesCommand = "swift package \(PackageMode.completionTool.rawValue) \(PackageToolOptions.CompletionToolMode.listExecutables.rawValue)"

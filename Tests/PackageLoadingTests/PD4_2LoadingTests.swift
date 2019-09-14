@@ -10,9 +10,9 @@
 
 import XCTest
 
-import Basic
-import SPMUtility
-import TestSupport
+import TSCBasic
+import TSCUtility
+import SPMTestSupport
 import PackageModel
 import PackageLoading
 
@@ -175,16 +175,16 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail()
         } catch {
-            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                 return XCTFail("\(error)")
             }
-            XCTAssertEqual(api, "PackageDescription.SwiftVersion.v5")
-            XCTAssertEqual(supportedVersions, [.v5])
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
         }
     }
 
     func testPlatforms() throws {
-        // Unfortunately, we can't prevent the nil case.
         var stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -194,9 +194,16 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.name, "Foo")
-            XCTAssertEqual(manifest.platforms, [], "\(manifest.platforms)")
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail()
+        } catch {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("\(error)")
+            }
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
         }
 
         stream = BufferedOutputByteStream()
@@ -212,11 +219,12 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail()
         } catch {
-            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                 return XCTFail("\(error)")
             }
-            XCTAssertEqual(api, "platforms")
-            XCTAssertEqual(supportedVersions, [.v5])
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
         }
     }
 
@@ -244,11 +252,12 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail()
         } catch {
-            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                 return XCTFail("\(error)")
             }
-            XCTAssertEqual(api, "swiftSettings")
-            XCTAssertEqual(supportedVersions, [.v5])
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
         }
     }
 
@@ -411,7 +420,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail("Unexpected success")
         } catch ManifestParseError.runtimeManifestErrors(let errors) {
-            XCTAssertEqual(errors, ["Invalid version string: 1.0,0"])
+            XCTAssertEqual(errors, ["Invalid semantic version string '1.0,0'"])
         }
     }
 
@@ -446,7 +455,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             XCTAssertEqual(urls, ["/foo/path/to/foo1", "/foo1", "/foo1.git", "/foo2.git", "/foo2.git"])
         }
     }
-    
+
     func testNotAbsoluteDependencyPath() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -463,7 +472,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             ]
         )
         """
-        
+
         do {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail("Unexpected success")
@@ -597,6 +606,53 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             for _ in 0..<2 {
                 check(loader: noCacheLoader, expectCached: false)
             }
+        }
+    }
+
+    func testContentBasedCaching() throws {
+        mktmpdir { path in
+            let stream = BufferedOutputByteStream()
+            stream <<< """
+                import PackageDescription
+                let package = Package(
+                    name: "Trivial",
+                    targets: [
+                        .target(name: "foo"),
+                    ]
+                )
+                """
+
+            let delegate = ManifestTestDelegate()
+
+            let manifestLoader = ManifestLoader(
+                manifestResources: Resources.default, cacheDir: path, delegate: delegate)
+
+            func check(loader: ManifestLoader) throws {
+                let fs = InMemoryFileSystem()
+                let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+                try fs.writeFileContents(manifestPath, bytes: stream.bytes)
+
+                let m = try manifestLoader.load(
+                    package: AbsolutePath.root,
+                    baseURL: "/foo",
+                    manifestVersion: .v4_2,
+                    fileSystem: fs)
+
+                XCTAssertEqual(m.name, "Trivial")
+            }
+
+            try check(loader: manifestLoader)
+            XCTAssertEqual(delegate.loaded.count, 1)
+            XCTAssertEqual(delegate.parsed.count, 1)
+
+            try check(loader: manifestLoader)
+            XCTAssertEqual(delegate.loaded.count, 2)
+            XCTAssertEqual(delegate.parsed.count, 1)
+
+            stream <<< "\n\n"
+            try check(loader: manifestLoader)
+            XCTAssertEqual(delegate.loaded.count, 3)
+            XCTAssertEqual(delegate.parsed.count, 2)
         }
     }
 

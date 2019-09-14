@@ -10,10 +10,10 @@
 
 import XCTest
 
-import Basic
+import TSCBasic
 import PackageGraph
 import PackageModel
-import TestSupport
+import SPMTestSupport
 
 class PackageGraphTests: XCTestCase {
 
@@ -166,7 +166,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar")
+        XCTAssertEqual(diagnostics.diagnostics[0].description, "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar")
     }
 
     func testCycle2() throws {
@@ -192,7 +192,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "cyclic dependency declaration found: Foo -> Foo")
+        XCTAssertEqual(diagnostics.diagnostics[0].description, "cyclic dependency declaration found: Foo -> Foo")
     }
 
     // Make sure there is no error when we reference Test targets in a package and then
@@ -270,7 +270,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple targets named 'Bar' in: Bar, Foo")
+        XCTAssertEqual(diagnostics.diagnostics[0].description, "multiple targets named 'Bar' in: Bar, Foo")
     }
 
     func testMultipleDuplicateModules() throws {
@@ -497,7 +497,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "target 'Bar' in package 'Bar' contains no valid source files", behavior: .warning)
+            result.check(diagnostic: "Source files for target Bar should be located under /Bar/Sources/Bar", behavior: .warning)
             result.check(diagnostic: "target 'Bar' referenced in product 'Bar' could not be found", behavior: .error, location: "'Bar' /Bar")
         }
     }
@@ -521,7 +521,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "product dependency 'Barx' not found", behavior: .error, location: "'Foo' /Foo")
+            result.check(diagnostic: "Product 'Barx' not found. It is required by target 'Foo'.", behavior: .error, location: "'Foo' /Foo")
         }
     }
 
@@ -716,7 +716,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.localizedDescription.contains("multiple products named 'Bar' in: Bar, Baz") }), "\(diagnostics.diagnostics)")
+        XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.description.contains("multiple products named 'Bar' in: Bar, Baz") }), "\(diagnostics.diagnostics)")
     }
 
     func testUnsafeFlags() throws {

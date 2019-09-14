@@ -9,8 +9,8 @@
 */
 
 import XCTest
-import Basic
-import TestSupport
+import TSCBasic
+import SPMTestSupport
 
 @testable import SPMPackageEditor
 

@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 
-public enum BuildConfiguration: String {
+public enum BuildConfiguration: String, Encodable {
     case debug
     case release
 

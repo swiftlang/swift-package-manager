@@ -17,13 +17,111 @@ import ucrt
 #endif
 import Foundation
 
-/// The description for a complete package.
+/// The configuration of a Swift package.
+///
+/// Pass configuration options as parameters to your package's initializer
+/// statement to provide the name of the package, its targets, products,
+/// dependencies, and other configuration options.
+///
+/// By convention, the properties of a `Package` are defined in a single nested
+/// initializer statement, and not modified after initialization. The following package manifest shows the initialization
+/// of a simple package object for the MyLibrary Swift package:
+///
+///     // swift-tools-version:5.1
+///     import PackageDescription
+///
+///     let package = Package(
+///         name: "MyLibrary",
+///         platforms: [
+///             .macOS(.v10_15),
+///         ],
+///         products: [
+///             .library(name: "MyLibrary", targets: ["MyLibrary"]),
+///         ],
+///         dependencies: [
+///             .package(url: "https://url/of/another/package/named/Utility", from: "1.0.0"),
+///         ],
+///         targets: [
+///             .target(name: "MyLibrary", dependencies: ["Utility"]),
+///             .testTarget(name: "MyLibraryTests", dependencies: ["MyLibrary"]),
+///         ]
+///     )
+///
+/// A `Package.swift` manifest file must begin with the string `//
+/// swift-tools-version:` followed by a version number specifier. The following code listing shows a few examples of valid declarations of the Swift tools version:
+///
+///     // swift-tools-version:3.0.2
+///     // swift-tools-version:3.1
+///     // swift-tools-version:4.0
+///     // swift-tools-version:5.0
+///     // swift-tools-version:5.1
+///
+/// The Swift tools version declares the version of the `PackageDescription`
+/// library, the minimum version of the Swift tools and Swift language
+/// compatibility version to process the manifest, and the minimum version of the
+/// Swift tools that are needed to use the Swift package. Each version of Swift
+/// can introduce updates to the `PackageDescription` framework, but the previous
+/// API version will continue to be available to packages which declare a prior
+/// tools version. This behavior lets you take advantage of new releases of
+/// Swift, the Swift tools, and the `PackageDescription` library, without having
+/// to update your package's manifest or losing access to existing packages.
 public final class Package {
 
-    /// Represents a package dependency.
-    public class Dependency: Encodable {
+      /// A package dependency of a Swift package.
+      ///
+      /// A package dependency consists of a Git URL to the source of the package,
+      /// and a requirement for the version of the package.
+      ///
+      /// The Swift Package Manager performs a process called *dependency resolution* to
+      /// figure out the exact version of the package dependencies that an app or other
+      /// Swift package can use. The `Package.resolved` file records the results of the
+      /// dependency resolution and lives in the top-level directory of a Swift package.
+      /// If you add the Swift package as a package dependency to an app for an Apple platform,
+      /// you can find the `Package.resolved` file inside your `.xcodeproj` or `.xcworkspace`.
+      public class Dependency: Encodable {
 
-        /// The dependency requirement.
+        /// An enum that represents the requirement for a package dependency.
+        ///
+        /// The dependency requirement can be defined as one of three different version requirements:
+        ///
+        /// A version-based requirement
+        ///
+        ///     Decide whether your project accepts updates to a package dependency up
+        ///     to the next major version or up to the next minor version. To be more
+        ///     restrictive, select a specific version range or an exact version.
+        ///     Major versions tend to have more significant changes than minor
+        ///     versions, and may require you to modify your code when they update.
+        ///     The version rule requires Swift packages to conform to semantic
+        ///     versioning. To learn more about the semantic versioning standard,
+        ///     visit [semver.org](https://semver.org).
+        ///
+        ///     Selecting the version requirement is the recommended way to add a package dependency. It allows you to create a balance between restricting changes and obtaining improvements and features.
+        ///
+        /// A branch-based requirement
+        ///
+        ///     Select the name of the branch for your package dependency to follow.
+        ///     Use branch-based dependencies when you're developing multiple packages
+        ///     in tandem or when you don't want to publish versions of your package dependencies.
+        ///
+        ///     Note that packages which use branch-based dependency requirements
+        ///     can't be added as dependencies to packages that use version-based dependency
+        ///     requirements; you should remove branch-based dependency requirements
+        ///     before publishing a version of your package.
+        ///
+        /// A commit-based requirement
+        ///
+        ///     Select the commit hash for your package dependency to follow.
+        ///     Choosing this option isn't recommended, and should be limited to
+        ///     exceptional cases. While pinning your package dependency to a specific
+        ///     commit ensures that the package dependency doesn't change and your
+        ///     code remains stable, you don't receive any updates at all. If you worry about
+        ///     the stability of a remote package, consider one of the more
+        ///     restrictive options of the version-based requirement.
+        ///
+        ///     Note that packages which use commit-based dependency requirements
+        ///     can't be added as dependencies to packages that use version-based
+        ///     dependency requirements; you should remove commit-based dependency
+        ///     requirements before publishing a version of your package.
         public enum Requirement {
           #if PACKAGE_DESCRIPTION_4
             case exactItem(Version)
@@ -49,49 +147,55 @@ public final class Package {
             }
         }
 
-        /// The url of the dependency.
+        /// The Git url of the package dependency.
         public let url: String
 
-        /// The dependency requirement.
+        /// The dependency requirement of the package dependency.
         public let requirement: Requirement
 
-        /// Create a dependency.
+        /// Initializes and returns a newly allocated requirement with the specified url and requirements.
         init(url: String, requirement: Requirement) {
             self.url = url
             self.requirement = requirement
         }
     }
 
-    /// The name of the package.
+    /// The name of the Swift package.
     public var name: String
 
   #if !PACKAGE_DESCRIPTION_4
-    /// The list of platforms supported by this package.
-    public var platforms: [SupportedPlatform]?
+    /// The list of supported platforms with a custom deployment target.
+    @available(_PackageDescription, introduced: 5)
+    public var platforms: [SupportedPlatform]? {
+        get { return _platforms }
+        set { _platforms = newValue }
+    }
   #endif
+    private var _platforms: [SupportedPlatform]?
 
-    /// pkgconfig name to use for C Modules. If present, swiftpm will try to
-    /// search for <name>.pc file to get the additional flags needed for the
-    /// system target.
+    /// The name to use for C Modules.
+    ///
+    /// If present, the Swift Package Manager searches for a `<name>.pc` file
+    /// to get the required additional flags for a system target.
     public var pkgConfig: String?
 
-    /// Providers array for System target
+    /// An array of providers for the system target.
     public var providers: [SystemPackageProvider]?
 
     /// The list of targets.
     public var targets: [Target]
 
-    /// The list of products vended by this package.
+    /// The list of products that this package vends and that can be run or used by its clients.
     public var products: [Product]
 
-    /// The list of dependencies.
+    /// The list of package dependencies.
     public var dependencies: [Dependency]
 
   #if PACKAGE_DESCRIPTION_4
-    /// The list of swift versions, this package is compatible with.
+    /// The list of Swift versions that this package is compatible with.
     public var swiftLanguageVersions: [Int]?
   #else
-    /// The list of swift versions, this package is compatible with.
+    /// The list of Swift versions that this package is compatible with.
     public var swiftLanguageVersions: [SwiftVersion]?
   #endif
 
@@ -102,7 +206,18 @@ public final class Package {
     public var cxxLanguageStandard: CXXLanguageStandard?
 
   #if PACKAGE_DESCRIPTION_4
-    /// Construct a package.
+    /// Initializes and returns a newly allocated package object with the provided configuration options.
+    ///
+    /// - Parameters:
+    ///     - name: The name of the Swift package.
+    ///     - pkgConfig: Additional flags for a system package.
+    ///     - providers: The package providers for a system package.
+    ///     - products: The list of products that this package vends and that can be run or used by its clients.
+    ///     - dependencies: The list of package dependencies.
+    ///     - targets: The list of targets that are part of this package.
+    ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
+    ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
+    ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     public init(
         name: String,
         pkgConfig: String? = nil,
@@ -126,7 +241,52 @@ public final class Package {
         registerExitHandler()
     }
   #else
-    /// Construct a package.
+    /// Initializes and returns a newly allocated package object with the provided configuration options.
+    ///
+    /// - Parameters:
+    ///     - name: The name of the Swift package.
+    ///     - products: The list of products that this package vends and that can be run or used by its clients.
+    ///     - dependencies: The list of package dependencies.
+    ///     - targets: The list of targets that are part of this package.
+    ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
+    ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
+    ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
+    @available(_PackageDescription, introduced: 4.2, obsoleted: 5)
+    public init(
+        name: String,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProvider]? = nil,
+        products: [Product] = [],
+        dependencies: [Dependency] = [],
+        targets: [Target] = [],
+        swiftLanguageVersions: [SwiftVersion]? = nil,
+        cLanguageStandard: CLanguageStandard? = nil,
+        cxxLanguageStandard: CXXLanguageStandard? = nil
+    ) {
+        self.name = name
+        self.pkgConfig = pkgConfig
+        self.providers = providers
+        self.products = products
+        self.dependencies = dependencies
+        self.targets = targets
+        self.swiftLanguageVersions = swiftLanguageVersions
+        self.cLanguageStandard = cLanguageStandard
+        self.cxxLanguageStandard = cxxLanguageStandard
+        registerExitHandler()
+    }
+
+    /// Initializes and returns a newly allocated package object with the specified parameters
+    ///
+    /// - Parameters:
+    ///     - name: The name of the Swift package.
+    ///     - platforms: The list of minimum deployment targets per platform.
+    ///     - products: The list of products that this package vends and that can be run or used by its clients.
+    ///     - dependencies: The list of package dependencies.
+    ///     - targets: The list of targets that are part of this package.
+    ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
+    ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
+    ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
+    @available(_PackageDescription, introduced: 5)
     public init(
         name: String,
         platforms: [SupportedPlatform]? = nil,
@@ -140,7 +300,7 @@ public final class Package {
         cxxLanguageStandard: CXXLanguageStandard? = nil
     ) {
         self.name = name
-        self.platforms = platforms
+        self._platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.products = products
@@ -154,7 +314,7 @@ public final class Package {
   #endif
 
     private func registerExitHandler() {
-        // Add custom exit handler to cause package to be dumped at exit, if
+        // Add a custom exit handler to cause the package to be dumped at exit, if
         // requested.
         //
         // FIXME: This doesn't belong here, but for now is the mechanism we use
@@ -168,7 +328,7 @@ public final class Package {
     }
 }
 
-/// Represents system package providers.
+/// The system package providers used in this Swift package.
 public enum SystemPackageProvider {
 
   #if PACKAGE_DESCRIPTION_4
@@ -179,8 +339,11 @@ public enum SystemPackageProvider {
     case _aptItem([String])
   #endif
 
-    /// Declare the list of packages installable using the homebrew package
-    /// manager on macOS.
+    /// Declare the list of installable packages using the homebrew package
+    /// manager on macOS to create a system package provider instance.
+    ///
+    /// - Parameters:
+    ///     - packages: The list of package names.
     public static func brew(_ packages: [String]) -> SystemPackageProvider {
       #if PACKAGE_DESCRIPTION_4
         return .brewItem(packages)
@@ -189,8 +352,11 @@ public enum SystemPackageProvider {
       #endif
     }
 
-    /// Declare the list of packages installable using the apt-get package
-    /// manager on Ubuntu.
+    /// Declare the list of installable packages using the apt-get package
+    /// manager on Ubuntu to create a system package provider instance.
+    ///
+    /// - Parameters:
+    ///     - packages: The list of package names.
     public static func apt(_ packages: [String]) -> SystemPackageProvider {
       #if PACKAGE_DESCRIPTION_4
         return .aptItem(packages)
@@ -221,10 +387,8 @@ extension Package: Encodable {
         try container.encode(name, forKey: .name)
 
       #if !PACKAGE_DESCRIPTION_4
-        if let platforms = self.platforms {
-            // The platforms API was introduced in manifest version 5.
-            let versionedPlatforms = VersionedValue(platforms, api: "platforms", versions: [.v5])
-            try container.encode(versionedPlatforms, forKey: .platforms)
+        if let platforms = self._platforms {
+            try container.encode(platforms, forKey: .platforms)
         }
       #endif
 
@@ -234,7 +398,7 @@ extension Package: Encodable {
         try container.encode(dependencies, forKey: .dependencies)
         try container.encode(targets, forKey: .targets)
       #if PACKAGE_DESCRIPTION_4
-        let slv = swiftLanguageVersions?.map({ VersionedValue(String($0), api: "") })
+        let slv = swiftLanguageVersions?.map({ String($0) })
         try container.encode(slv, forKey: .swiftLanguageVersions)
       #else
         try container.encode(swiftLanguageVersions, forKey: .swiftLanguageVersions)

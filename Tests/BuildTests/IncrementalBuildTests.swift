@@ -10,10 +10,9 @@
 
 import XCTest
 
-import TestSupport
-import Basic
-import SPMUtility
-import func SPMLibc.sleep
+import SPMTestSupport
+import TSCBasic
+import TSCUtility
 
 
 /// Functional tests of incremental builds.  These are fairly ad hoc at this
@@ -80,6 +79,32 @@ final class IncrementalBuildTests: XCTestCase {
         }
     }
 
-    // FIXME:  We should add a lot more test cases here; the one above is just
-    // a starter test.
+    func testBuildManifestCaching() {
+        fixture(name: "ValidLayouts/SingleModule/Library") { prefix in
+            @discardableResult
+            func build() throws -> String {
+                return try executeSwiftBuild(prefix, extraArgs: ["--enable-build-manifest-caching"])
+            }
+
+            // Perform a full build.
+            try build()
+            // Ensure manifest caching kicks in.
+            try build()
+
+            // Check that we're not re-planning when nothing has changed.
+            let log1 = try build()
+            XCTAssertFalse(log1.contains("PackageStructure") || log1.contains("Planning build"), log1)
+
+            // Check that we do run planning when a new source file is added.
+            let sourceFile = prefix.appending(components: "Sources", "Library", "new.swift")
+            try localFileSystem.writeFileContents(sourceFile, bytes: "")
+            let log2 = try build()
+            XCTAssertTrue(log2.contains("PackageStructure") || log2.contains("Planning build"), log2)
+
+            // Check that we don't run planning when a source file is modified.
+            try localFileSystem.writeFileContents(sourceFile, bytes: "\n\n\n\n")
+            let log3 = try build()
+            XCTAssertFalse(log3.contains("PackageStructure") || log3.contains("Planning build"), log3)
+        }
+    }
 }

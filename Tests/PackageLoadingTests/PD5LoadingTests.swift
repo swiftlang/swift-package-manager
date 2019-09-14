@@ -10,9 +10,9 @@
 
 import XCTest
 
-import Basic
-import SPMUtility
-import TestSupport
+import TSCBasic
+import TSCUtility
+import SPMTestSupport
 import PackageModel
 import PackageLoading
 
@@ -140,11 +140,12 @@ class PackageDescription5LoadingTests: XCTestCase {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail()
         } catch {
-            guard case let ManifestParseError.unsupportedAPI(api, supportedVersions) = error else {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                 return XCTFail("\(error)")
             }
-            XCTAssertEqual(api, "PackageDescription.SwiftVersion.v3")
-            XCTAssertEqual(supportedVersions, [.v4_2])
+
+            XCTAssertMatch(message, .contains("'v3' is unavailable"))
+            XCTAssertMatch(message, .contains("'v3' was obsoleted in PackageDescription 5"))
         }
     }
 
@@ -224,6 +225,31 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTFail("Unexpected success")
         } catch ManifestParseError.runtimeManifestErrors(let errors) {
             XCTAssertEqual(errors, ["supported platforms can't be empty"])
+        }
+
+        // Newer OS version.
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [
+                   .macOS(.v10_15), .iOS(.v13),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("\(error)")
+            }
+
+            XCTAssertMatch(message, .contains("error: 'v10_15' is unavailable"))
+            XCTAssertMatch(message, .contains("note: 'v10_15' was introduced in PackageDescription 5.1"))
+            XCTAssertMatch(message, .contains("note: 'v13' was introduced in PackageDescription 5.1"))
         }
     }
 
@@ -335,12 +361,37 @@ class PackageDescription5LoadingTests: XCTestCase {
                 diagnostics: diagnostics
             )
 
-            guard let diag = diagnostics.diagnostics.first?.data as? ManifestLoadingDiagnostic else {
+            guard let diag = diagnostics.diagnostics.first?.message.data as? ManifestLoadingDiagnostic else {
                 return XCTFail("Expected a diagnostic")
             }
             XCTAssertMatch(diag.output, .contains("warning: initialization of immutable value"))
             let contents = try localFileSystem.readFileContents(diag.diagnosticFile!)
             XCTAssertNotNil(contents)
+        }
+    }
+
+    func testInvalidBuildSettings() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "Foo",
+                       cSettings: [
+                           .headerSearchPath("$(BYE)/path/to/foo/$(SRCROOT)/$(HELLO)"),
+                       ]
+                   ),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch ManifestParseError.runtimeManifestErrors(let errors) {
+            XCTAssertEqual(errors, ["the build setting 'headerSearchPath' contains invalid component(s): $(BYE) $(SRCROOT) $(HELLO)"])
         }
     }
 }

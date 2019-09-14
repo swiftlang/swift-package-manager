@@ -8,11 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
+import TSCBasic
 import PackageGraph
 import PackageModel
 import SourceControl
-import SPMUtility
+import TSCUtility
 
 /// An individual managed dependency.
 ///
@@ -146,6 +146,16 @@ public final class ManagedDependency: JSONMappable, JSONSerializable, CustomStri
 
     public var description: String {
         return "<ManagedDependency: \(packageRef.name ?? packageRef.identity) \(state)>"
+    }
+
+    /// Returns true if the dependency is edited.
+    public var isEdited: Bool {
+        switch state {
+        case .checkout, .local:
+            return false
+        case .edited:
+            return true
+        }
     }
 }
 

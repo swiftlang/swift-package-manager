@@ -1,4 +1,0 @@
-module clibc {
-    header "clibc.h"
-    export *
-}

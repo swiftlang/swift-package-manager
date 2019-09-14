@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import PackageGraph
 import PackageModel
 
@@ -63,31 +63,16 @@ final class SchemesGenerator {
 
         var schemes: [Scheme] = []
 
-        // Create map of test target to set of its direct dependencies.
-        let testTargetDepMap: [ResolvedTarget: Set<ResolvedTarget>] = {
-            let testTargetDeps = rootPackage.targets.filter({ $0.type == .test }).map({
-                ($0, Set($0.dependencies.compactMap({ $0.target })))
-            })
-            return Dictionary(uniqueKeysWithValues: testTargetDeps)
-        }()
+        let testTargetsMap = graph.computeTestTargetsForExecutableTargets()
 
         // Create one scheme per executable target.
         for target in rootPackage.targets where target.type == .executable {
-            // Find all dependencies of this target within its package.
-            let dependencies = try! topologicalSort(target.dependencies, successors: { 
-                $0.dependencies.compactMap({ $0.target }).map(ResolvedTarget.Dependency.target)
-            }).compactMap({ $0.target })
-
-            // Include the test targets whose dependencies intersect with the
-            // current target's (recursive) dependencies.
-            let testTargets = testTargetDepMap.filter({ (testTarget, deps) in
-                !deps.intersection(dependencies + [target]).isEmpty
-            }).map({ $0.key })
+            let testTargets = testTargetsMap[target]
 
             schemes.append(Scheme(
                 name: target.name,
                 regularTargets: [target],
-                testTargets: testTargets
+                testTargets: testTargets ?? []
             ))
         }
 

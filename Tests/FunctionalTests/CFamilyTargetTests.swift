@@ -10,14 +10,14 @@
 
 import XCTest
 import Commands
-import TestSupport
-import Basic
+import SPMTestSupport
+import TSCBasic
 import PackageModel
 import SourceControl
-import SPMUtility
+import TSCUtility
 import Workspace
 
-typealias Process = Basic.Process
+typealias Process = TSCBasic.Process
 
 /// Asserts if a directory (recursively) contains a file.
 private func XCTAssertDirectoryContainsFile(dir: AbsolutePath, filename: String, file: StaticString = #file, line: UInt = #line) {

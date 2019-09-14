@@ -8,12 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import PackageModel
-import SPMUtility
+import TSCUtility
 import SPMLLBuild
 import class Foundation.ProcessInfo
-public typealias FileSystem = Basic.FileSystem
+public typealias FileSystem = TSCBasic.FileSystem
 
 public enum ManifestParseError: Swift.Error {
     /// The manifest contains invalid format.
@@ -23,8 +23,6 @@ public enum ManifestParseError: Swift.Error {
     case runtimeManifestErrors([String])
 
     case duplicateDependencyDecl([[PackageDependencyDescription]])
-
-    case unsupportedAPI(api: String, supportedVersions: [ManifestVersion])
 }
 
 /// Resources required for manifest loading.
@@ -72,10 +70,12 @@ extension ToolsVersion {
 
             // Otherwise, return 4.2
             return .v4_2
+        case 5 where minor < 1:
+            return .v5
 
         default:
             // For rest, return the latest manifest version.
-            return .v5
+            return .v5_1
         }
     }
 }
@@ -178,6 +178,25 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             manifestResources: resources,
             isManifestSandboxEnabled: isManifestSandboxEnabled
        )
+    }
+
+    /// Loads a manifest from a package repository using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///     - packagePath: The absolute path of the package root.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
+    ///         Its associated resources will be used by the loader.
+    public static func loadManifest(
+        packagePath: AbsolutePath,
+        swiftCompiler: AbsolutePath
+    ) throws -> Manifest {
+        let resources = try UserManifestResources(swiftCompiler: swiftCompiler)
+        let loader = ManifestLoader(manifestResources: resources)
+        let toolsVersion = try ToolsVersionLoader().load(at: packagePath, fileSystem: localFileSystem)
+        return try loader.load(
+            package: packagePath,
+            baseURL: packagePath.pathString,
+            manifestVersion: toolsVersion.manifestVersion)
     }
 
     public func load(
@@ -286,25 +305,24 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> String {
         let result: ManifestParseResult
+        let pathOrContents: ManifestPathOrContents
 
-        // If we were given a filesystem, load via a temporary file.
-        //
-        // This is currently used when doing dependency resolution as we
-        // get the manifest file from GitFileSystem. We should cache these
-        // by using the hash of the contents as the key.
         if let fs = fs {
-            let contents = try fs.readFileContents(inputPath)
-            let tmpFile = try TemporaryFile(suffix: ".swift")
-            try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
-            result = parse(packageIdentity: packageIdentity, path: tmpFile.path, manifestVersion: manifestVersion)
-        } else if !self.isManifestCachingEnabled {
-            // Load directly if manifest caching is not enabled.
-            result = parse(packageIdentity: packageIdentity, path: inputPath, manifestVersion: manifestVersion)
+            let contents = try fs.readFileContents(inputPath).contents
+            pathOrContents = .contents(contents)
         } else {
-            // Otherwise load via llbuild.
+            pathOrContents = .path(inputPath)
+        }
+
+        if !self.isManifestCachingEnabled {
+            // Load directly if manifest caching is not enabled.
+            result = parse(
+                packageIdentity: packageIdentity,
+                pathOrContents: pathOrContents, manifestVersion: manifestVersion)
+        } else {
             let key = ManifestLoadRule.RuleKey(
                 packageIdentity: packageIdentity,
-                path: inputPath, manifestVersion: manifestVersion)
+                pathOrContents: pathOrContents, manifestVersion: manifestVersion)
             result = try getEngine().build(key: key)
         }
 
@@ -320,8 +338,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // We might have some non-fatal output (warnings/notes) from the compiler even when
         // we were able to parse the manifest successfully.
         if let compilerOutput = result.compilerOutput {
-            diagnostics?.emit(data: ManifestLoadingDiagnostic(
-                output: compilerOutput, diagnosticFile: result.diagnosticFile))
+            diagnostics?.emit(.warning(ManifestLoadingDiagnostic(output: compilerOutput, diagnosticFile: result.diagnosticFile)))
         }
 
         return parsedManifest
@@ -358,7 +375,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     /// Parse the manifest at the given path to JSON.
     fileprivate func parse(
         packageIdentity: String,
-        path manifestPath: AbsolutePath,
+        pathOrContents: ManifestPathOrContents,
         manifestVersion: ManifestVersion
     ) -> ManifestParseResult {
 
@@ -384,13 +401,21 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let runtimePath = self.runtimePath(for: manifestVersion).pathString
             let interpreterFlags = self.interpreterFlags(for: manifestVersion)
 
+            // FIXME: Workaround for the module cache bug that's been haunting Swift CI
+            // <rdar://problem/48443680>
+            let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
+
             var cmd = [String]()
           #if os(macOS)
             // If enabled, use sandbox-exec on macOS. This provides some safety against
             // arbitrary code execution when parsing manifest files. We only allow
             // the permissions which are absolutely necessary for manifest parsing.
             if isManifestSandboxEnabled {
-                cmd += ["sandbox-exec", "-p", sandboxProfile(cacheDir)]
+                let cacheDirs = [
+                    cacheDir,
+                    moduleCachePath.map{ AbsolutePath($0) }
+                ].compactMap{$0}
+                cmd += ["sandbox-exec", "-p", sandboxProfile(cacheDirs)]
             }
           #endif
             cmd += [resources.swiftCompiler.pathString]
@@ -399,6 +424,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += verbosity.ccArgs
             cmd += ["-L", runtimePath, "-lPackageDescription"]
             cmd += interpreterFlags
+            if let moduleCachePath = moduleCachePath {
+                cmd += ["-module-cache-path", moduleCachePath]
+            }
 
             // Add the arguments for emitting serialized diagnostics, if requested.
             if serializedDiagnostics, cacheDir != nil {
@@ -412,33 +440,46 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += [manifestPath.pathString]
 
             // Create and open a temporary file to write json to.
-            let file = try TemporaryFile()
-            // Pass the fd in arguments.
-            cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
+            try withTemporaryFile { file in
+                // Pass the fd in arguments.
+                cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
 
-            // Run the command.
-            let result = try Process.popen(arguments: cmd)
-            let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle()
-            manifestParseResult.compilerOutput = output
+                // Run the command.
+                let result = try Process.popen(arguments: cmd)
+                let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle()
+                manifestParseResult.compilerOutput = output
 
-            // Return now if there was an error.
-            if result.exitStatus != .terminated(code: 0) {
-                return
+                // Return now if there was an error.
+                if result.exitStatus != .terminated(code: 0) {
+                    return
+                }
+
+                guard let json = try localFileSystem.readFileContents(file.path).validDescription else {
+                    throw StringError("the manifest has invalid encoding")
+                }
+                manifestParseResult.parsedManifest = json
             }
-
-            guard let json = try localFileSystem.readFileContents(file.path).validDescription else {
-                throw StringError("the manifest has invalid encoding")
-            }
-            manifestParseResult.parsedManifest = json
         }
 
         var manifestParseResult = ManifestParseResult()
         do {
-            try _parse(
-                path: manifestPath,
-                manifestVersion: manifestVersion,
-                manifestParseResult: &manifestParseResult
-            )
+            switch pathOrContents {
+            case .path(let path):
+                try _parse(
+                    path: path,
+                    manifestVersion: manifestVersion,
+                    manifestParseResult: &manifestParseResult
+                )
+            case .contents(let contents):
+                try withTemporaryFile(suffix: ".swift") { tempFile in
+                  try localFileSystem.writeFileContents(tempFile.path, bytes: ByteString(contents))
+                  try _parse(
+                      path: tempFile.path,
+                      manifestVersion: manifestVersion,
+                      manifestParseResult: &manifestParseResult
+                  )
+                }
+            }
         } catch {
             assert(manifestParseResult.parsedManifest == nil)
             manifestParseResult.errorOutput = error.localizedDescription
@@ -512,6 +553,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
             cmd += ["-sdk", sdkRoot.pathString]
         }
+        cmd += ["-package-description-version", manifestVersion.description]
         return cmd
     }
 
@@ -541,7 +583,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.
-private func sandboxProfile(_ cacheDir: AbsolutePath? = nil) -> String {
+private func sandboxProfile(_ cacheDirs: [AbsolutePath] = []) -> String {
     let stream = BufferedOutputByteStream()
     stream <<< "(version 1)" <<< "\n"
     // Deny everything by default.
@@ -558,7 +600,7 @@ private func sandboxProfile(_ cacheDir: AbsolutePath? = nil) -> String {
     for directory in Platform.darwinCacheDirectories() {
         stream <<< "    (regex #\"^\(directory.pathString)/org\\.llvm\\.clang.*\")" <<< "\n"
     }
-    if let cacheDir = cacheDir {
+    for cacheDir in cacheDirs {
         stream <<< "    (subpath \"\(cacheDir.pathString)\")" <<< "\n"
     }
     stream <<< ")" <<< "\n"
@@ -615,7 +657,7 @@ final class ManifestLoadRule: LLBuildRule {
         typealias BuildRule = ManifestLoadRule
 
         let packageIdentity: String
-        let path: AbsolutePath
+        let pathOrContents: ManifestPathOrContents
         let manifestVersion: ManifestVersion
     }
 
@@ -636,13 +678,23 @@ final class ManifestLoadRule: LLBuildRule {
         engine.taskNeedsInput(ProcessEnvRule.RuleKey(), inputID: 1)
 
         engine.taskNeedsInput(SwiftPMVersionRule.RuleKey(), inputID: 2)
-        engine.taskNeedsInput(FileInfoRule.RuleKey(path: key.path), inputID: 3)
+        if case .path(let path) = key.pathOrContents {
+            engine.taskNeedsInput(FileInfoRule.RuleKey(path: path), inputID: 3)
+        }
+    }
+
+    override func isResultValid(_ priorValue: Value) -> Bool {
+        // Always rebuild if we had a failure.
+        let value = RuleKey.BuildValue(priorValue)
+        if value.hasErrors { return false }
+
+        return super.isResultValid(priorValue)
     }
 
     override func inputsAvailable(_ engine: LLTaskBuildEngine) {
         let value = loader.parse(
             packageIdentity: key.packageIdentity,
-            path: key.path, manifestVersion: key.manifestVersion)
+            pathOrContents: key.pathOrContents, manifestVersion: key.manifestVersion)
         engine.taskIsComplete(value)
     }
 }
@@ -686,7 +738,7 @@ final class FileInfoRule: LLBuildRule {
         let path: AbsolutePath
     }
 
-    typealias RuleValue = Result<Basic.FileInfo, StringError>
+    typealias RuleValue = Result<TSCBasic.FileInfo, StringError>
 
     override class var ruleName: String { return "\(FileInfoRule.self)" }
 
@@ -745,5 +797,47 @@ final class SwiftPMVersionRule: LLBuildRule {
         // string to make this rule more correct.
         let version = Versioning.currentVersion.displayString
         engine.taskIsComplete(RuleValue(version: version))
+    }
+}
+
+/// Enum to represent either the manifest path or its content.
+private enum ManifestPathOrContents {
+    case path(AbsolutePath)
+    case contents([UInt8])
+}
+
+extension ManifestPathOrContents: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case path
+        case contents
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .path:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let a1 = try unkeyedValues.decode(AbsolutePath.self)
+            self = .path(a1)
+        case .contents:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let a1 = try unkeyedValues.decode([UInt8].self)
+            self = .contents(a1)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .path(a1):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .path)
+            try unkeyedContainer.encode(a1)
+        case let .contents(a1):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .contents)
+            try unkeyedContainer.encode(a1)
+        }
     }
 }

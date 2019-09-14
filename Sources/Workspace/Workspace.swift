@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import Foundation
 import PackageLoading
 import PackageModel
 import PackageGraph
 import SourceControl
-import SPMUtility
+import TSCUtility
 
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: class {
@@ -45,6 +45,11 @@ public protocol WorkspaceDelegate: class {
 
     /// Called when the resolver is about to be run.
     func willResolveDependencies()
+
+    /// Called when the Package.resolved file is changed *outside* of libSwiftPM operations.
+    ///
+    /// This is only fired when activated using Workspace's watchResolvedFile() method.
+    func resolvedFileChanged()
 }
 
 public extension WorkspaceDelegate {
@@ -53,6 +58,7 @@ public extension WorkspaceDelegate {
     func repositoryDidUpdate(_ repository: String) {}
     func willResolveDependencies() {}
     func dependenciesUpToDate() {}
+    func resolvedFileChanged() {}
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -87,17 +93,27 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     }
 }
 
-fileprivate enum PackageResolver {
+private enum PackageResolver {
     case pubgrub(PubgrubDependencyResolver)
     case legacy(DependencyResolver)
 
-    func resolve(dependencies: [PackageContainerConstraint], pins: [PackageContainerConstraint]) -> DependencyResolver.Result {
+    func resolve(
+        dependencies: [PackageContainerConstraint],
+        pins: [PackageContainerConstraint],
+        pinsStore: PinsStore?
+    ) -> DependencyResolver.Result {
         switch self {
         case .pubgrub(let resolver):
-            return resolver.solve(dependencies: dependencies, pins: pins)
+            return resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
         case .legacy(let resolver):
             return resolver.resolve(dependencies: dependencies, pins: pins)
         }
+    }
+
+    /// Returns true if the resolver is PubGrub.
+    var isPubGrub: Bool {
+        if case .pubgrub = self { return true }
+        return false
     }
 }
 
@@ -143,6 +159,30 @@ public class Workspace {
         /// Computes the identities which are declared in the manifests but aren't present in dependencies.
         func missingPackageURLs() -> Set<PackageReference> {
             return computePackageURLs().missing
+        }
+
+        /// Returns the list of packages which are allowed to vend products with unsafe flags.
+        func unsafeAllowedPackages() -> Set<PackageReference> {
+            var result = Set<PackageReference>()
+
+            for dependency in dependencies {
+                let dependency = dependency.dependency
+                switch dependency.state {
+                case .checkout(let checkout):
+                    if checkout.isBranchOrRevisionBased {
+                        result.insert(dependency.packageRef)
+                    }
+                case .edited:
+                    continue
+                case .local:
+                    result.insert(dependency.packageRef)
+                }
+            }
+
+            // Root packages are always allowed to use unsafe flags.
+            result.formUnion(root.packageRefs)
+
+            return result
         }
 
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
@@ -252,6 +292,9 @@ public class Workspace {
     /// The Pins store. The pins file will be created when first pin is added to pins store.
     public let pinsStore: LoadableResult<PinsStore>
 
+    /// The path to the Package.resolved file for this workspace.
+    public let resolvedFile: AbsolutePath
+
     /// The path for working repository clones (checkouts).
     public let checkoutsPath: AbsolutePath
 
@@ -290,6 +333,8 @@ public class Workspace {
 
     /// Write dependency resolver trace to a file.
     fileprivate let enableResolverTrace: Bool
+
+    fileprivate var resolvedFileWatcher: ResolvedFileWatcher?
 
     /// Typealias for dependency resolver we use in the workspace.
     fileprivate typealias PackageDependencyResolver = DependencyResolver
@@ -336,6 +381,7 @@ public class Workspace {
         self.enablePubgrubResolver = enablePubgrubResolver
         self.skipUpdate = skipUpdate
         self.enableResolverTrace = enableResolverTrace
+        self.resolvedFile = pinsFile
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(
@@ -477,7 +523,7 @@ extension Workspace {
                 container: dependency.packageRef, requirement: requirement)
 
         // Run the resolution.
-        _resolve(root: root, extraConstraints: [constraint], diagnostics: diagnostics)
+        _resolve(root: root, forceResolution: false, extraConstraints: [constraint], diagnostics: diagnostics)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -579,23 +625,16 @@ extension Workspace {
         // Create constraints based on root manifest and pins for the update resolution.
         updateConstraints += graphRoot.constraints(config: config)
 
-        // Record the start time of dependency resolution.
-        let resolutionStartTime = Date()
-
         // Resolve the dependencies.
         let resolver = createResolver()
         activeResolver = resolver
 
-        let updateResults = resolveDependencies(resolver: resolver, dependencies: updateConstraints, diagnostics: diagnostics)
+        let updateResults = resolveDependencies(resolver: resolver, dependencies: updateConstraints, pinsStore: nil, diagnostics: diagnostics)
 
         // Reset the active resolver.
         activeResolver = nil
 
         guard !diagnostics.hasErrors else { return }
-
-        // Emit the time taken to perform dependency resolution.
-        let resolutionDuration = Date().timeIntervalSince(resolutionStartTime)
-        diagnostics.emit(data: WorkspaceDiagnostics.ResolverDurationNote(resolutionDuration))
 
         // Update the checkouts based on new dependency resolution.
         updateCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, diagnostics: diagnostics)
@@ -610,6 +649,23 @@ extension Workspace {
             dependencyManifests: updatedDependencyManifests,
             pinsStore: pinsStore,
             diagnostics: diagnostics)
+    }
+
+    /// Loads a package graph from a root package using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///     - packagePath: The absolute path of the root package.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
+    ///         Its associated resources will be used by the loader.
+    public static func loadGraph(
+        packagePath: AbsolutePath,
+        swiftCompiler: AbsolutePath,
+        diagnostics: DiagnosticsEngine
+    ) throws -> PackageGraph {
+        let resources = try UserManifestResources(swiftCompiler: swiftCompiler)
+        let loader = ManifestLoader(manifestResources: resources)
+        let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader)
+        return workspace.loadPackageGraph(root: packagePath, diagnostics: diagnostics)
     }
 
     /// Fetch and load the complete package at the given path.
@@ -632,7 +688,7 @@ extension Workspace {
         if forceResolvedVersions {
             manifests = self._resolveToResolvedVersion(root: root, diagnostics: diagnostics)
         } else {
-            manifests = self._resolve(root: root, diagnostics: diagnostics)
+            manifests = self._resolve(root: root, forceResolution: false, diagnostics: diagnostics)
         }
         let externalManifests = manifests.allManifests()
 
@@ -642,6 +698,7 @@ extension Workspace {
             config: config,
             externalManifests: externalManifests,
             requiredDependencies: manifests.computePackageURLs().required,
+            unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
             diagnostics: diagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
@@ -668,9 +725,10 @@ extension Workspace {
     /// checkout will be restored according to its pin.
     public func resolve(
         root: PackageGraphRootInput,
+        forceResolution: Bool = false,
         diagnostics: DiagnosticsEngine
     ) {
-        _resolve(root: root, diagnostics: diagnostics)
+        _resolve(root: root, forceResolution: forceResolution, diagnostics: diagnostics)
     }
 
     /// Loads and returns manifests at the given paths.
@@ -685,7 +743,8 @@ extension Workspace {
         // Check for duplicate root packages.
         let duplicateRoots = rootManifests.spm_findDuplicateElements(by: \.name)
         if !duplicateRoots.isEmpty {
-            diagnostics.emit(data: WorkspaceDiagnostics.DuplicateRoots(name: duplicateRoots[0][0].name))
+            let name = duplicateRoots[0][0].name
+            diagnostics.emit(error: "found multiple top-level packages named '\(name)'")
             return []
         }
 
@@ -706,9 +765,9 @@ extension Workspace {
         case .checkout(let checkoutState):
             return checkoutState
         case .edited:
-            diagnostics.emit(WorkspaceDiagnostics.DependencyAlreadyInEditMode(dependencyName: name))
+            diagnostics.emit(error: "dependency '\(name)' already in edit mode")
         case .local:
-            diagnostics.emit(WorkspaceDiagnostics.LocalDependencyEdited(dependencyName: name))
+            diagnostics.emit(error: "local dependency '\(name)' can't be edited")
         }
         return nil
     }
@@ -739,21 +798,17 @@ extension Workspace {
                 packagePath: destination, url: dependency.packageRef.repository.url, diagnostics: diagnostics)
 
             guard manifest?.name == packageName else {
-                let error = WorkspaceDiagnostics.MismatchingDestinationPackage(
-                    editPath: destination,
-                    expectedPackage: packageName,
-                    destinationPackage: manifest?.name)
-                return diagnostics.emit(error)
+                return diagnostics.emit(error: "package at '\(destination)' is \(manifest?.name ?? "<unknown>") but was expecting \(packageName)")
             }
 
             // Emit warnings for branch and revision, if they're present.
             if let checkoutBranch = checkoutBranch {
-                diagnostics.emit(WorkspaceDiagnostics.EditBranchNotCheckedOut(
+                diagnostics.emit(.editBranchNotCheckedOut(
                     packageName: packageName,
                     branchName: checkoutBranch))
             }
             if let revision = revision {
-                diagnostics.emit(WorkspaceDiagnostics.EditRevisionNotUsed(
+                diagnostics.emit(.editRevisionNotUsed(
                     packageName: packageName,
                     revisionIdentifier: revision.identifier))
             }
@@ -904,12 +959,29 @@ extension Workspace {
             }
         }
         diagnostics.wrap({ try pinsStore.saveState() })
+
+        // Ask resolved file watcher to update its value so we don't fire
+        // an extra event if the file was modified by us.
+        self.resolvedFileWatcher?.updateValue()
     }
 }
 
-// MARK: - Utility Functions
+// MARK: - TSCUtility Functions
 
 extension Workspace {
+
+    /// Watch the Package.resolved for changes.
+    ///
+    /// This is useful if clients want to be notified when the Package.resolved
+    /// file is changed *outside* of libSwiftPM operations. For example, as part
+    /// of a git operation.
+    public func watchResolvedFile() throws {
+        // Return if we're already watching it.
+        guard self.resolvedFileWatcher == nil else { return }
+        self.resolvedFileWatcher = try ResolvedFileWatcher(resolvedFile: self.resolvedFile) { [weak self] in
+            self?.delegate?.resolvedFileChanged()
+        }
+    }
 
     /// Create the cache directories.
     fileprivate func createCacheDirectories(with diagnostics: DiagnosticsEngine) {
@@ -1131,6 +1203,18 @@ extension Workspace {
             }
         }
 
+        // Save state for local packages, if any.
+        //
+        // FIXME: This will only work for top-level local packages right now.
+        for rootManifest in rootManifests {
+            let dependencies = rootManifest.dependencies.filter{ $0.requirement == .localPackage }
+            for localPackage in dependencies {
+                let package = localPackage.createPackageRef(config: self.config)
+                managedDependencies[forURL: package.path] = ManagedDependency.local(packageRef: package)
+            }
+        }
+        diagnostics.wrap { try managedDependencies.saveState() }
+
         let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Check if a new resolution is required.
@@ -1142,7 +1226,7 @@ extension Workspace {
 
         let result = isResolutionRequired(root: graphRoot, dependencies: dependencies, pinsStore: pinsStore)
         if result.resolve {
-            diagnostics.emit(data: WorkspaceDiagnostics.RequiresResolution())
+            diagnostics.emit(error: "cannot update Package.resolved file because automatic resolution is disabled")
         }
 
         return currentManifests
@@ -1157,6 +1241,7 @@ extension Workspace {
     @discardableResult
     fileprivate func _resolve(
         root: PackageGraphRootInput,
+        forceResolution: Bool,
         extraConstraints: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine,
         retryOnPackagePathMismatch: Bool = true
@@ -1207,7 +1292,7 @@ extension Workspace {
 
             // If we don't need resolution and there are no extra constraints,
             // just validate pinsStore and return.
-            if !result.resolve && extraConstraints.isEmpty {
+            if !result.resolve && extraConstraints.isEmpty && !forceResolution {
                 return currentManifests
             }
 
@@ -1222,16 +1307,17 @@ extension Workspace {
         constraints += currentManifests.editedPackagesConstraints()
         constraints += graphRoot.constraints(config: config) + extraConstraints
 
-        // Record the start time of dependency resolution.
-        let resolutionStartTime = Date()
-
         // Perform dependency resolution.
         let resolverDiagnostics = DiagnosticsEngine()
-        var resolver = createResolver()
+        let resolver = createResolver()
         activeResolver = resolver
 
         var result = resolveDependencies(
-            resolver: resolver, dependencies: constraints, pins: validPins, diagnostics: resolverDiagnostics)
+            resolver: resolver,
+            dependencies: constraints,
+            pins: validPins,
+            pinsStore: pinsStore,
+            diagnostics: resolverDiagnostics)
         activeResolver = nil
 
         // If we fail, we just try again without any pins because the pins might
@@ -1239,28 +1325,19 @@ extension Workspace {
         //
         // FIXME: We should only do this if resolver emits "unresolvable" error.
         if resolverDiagnostics.hasErrors {
-            // If there are no pins, merge diagnostics and return now.
-            if validPins.isEmpty {
+            // If there are no pins or if we're using pubgrub (since pubgrub can
+            // handle pins natively), merge diagnostics and return now.
+            if validPins.isEmpty || resolver.isPubGrub {
                 diagnostics.merge(resolverDiagnostics)
                 return currentManifests
             }
 
-            // Re-using an instance of the new resolver will likely cause some
-            // unexpected side effects.
-            if case .pubgrub = resolver {
-                resolver = createResolver()
-            }
-
             // Run using the same resolver so we don't re-add the containers, we already have.
-            result = resolveDependencies(resolver: resolver, dependencies: constraints, diagnostics: diagnostics)
+            result = resolveDependencies(resolver: resolver, dependencies: constraints, pinsStore: pinsStore, diagnostics: diagnostics)
             guard !diagnostics.hasErrors else {
                 return currentManifests
             }
         }
-
-        // Emit the time taken to perform dependency resolution.
-        let resolutionDuration = Date().timeIntervalSince(resolutionStartTime)
-        diagnostics.emit(data: WorkspaceDiagnostics.ResolverDurationNote(resolutionDuration))
 
         // Update the checkouts with dependency resolution result.
         updateCheckouts(root: graphRoot, updateResults: result, diagnostics: diagnostics)
@@ -1279,12 +1356,15 @@ extension Workspace {
         // URL was changed. For e.g., the resolved file could refer to a dependency
         // through a ssh url but its new reference is now changed to http.
         if !updatedDependencyManifests.computePackageURLs().missing.isEmpty {
-            // Retry resolution which will most likely resolve correctly now since
-            // we have the manifest files of all the dependencies.
-            if retryOnPackagePathMismatch {
-                // We still have something that is required. Retry!
+            // Check if an override package has a mismatching basename.
+            if self.didDiagnosePackageOverrideBasenameMismatch(updatedDependencyManifests, diagnostics) {
+                return updatedDependencyManifests
+            } else if retryOnPackagePathMismatch {
+                // Retry resolution which will most likely resolve correctly now since
+                // we have the manifest files of all the dependencies.
                 return self._resolve(
                     root: root,
+                    forceResolution: forceResolution,
                     extraConstraints: extraConstraints,
                     diagnostics: diagnostics,
                     retryOnPackagePathMismatch: false
@@ -1294,8 +1374,9 @@ extension Workspace {
                 // could mean that the dependency at fault has a different
                 // version of the manifest file which contains dependencies that
                 // have also changed their package references.
-                // FIXME: Emit diagnostic here.
-                diagnostics.emit(data: WorkspaceDiagnostics.OutdatedResolvedFile())
+
+                diagnostics.emit(error: "the Package.resolved file is most likely severely out-of-date and is preventing correct resolution; delete the resolved file and try again")
+
                 return updatedDependencyManifests
             }
         }
@@ -1303,6 +1384,26 @@ extension Workspace {
         self.pinAll(dependencyManifests: updatedDependencyManifests, pinsStore: pinsStore, diagnostics: diagnostics)
 
         return updatedDependencyManifests
+    }
+
+    private func didDiagnosePackageOverrideBasenameMismatch(
+        _ dependencyManifests: DependencyManifests,
+        _ diagnostics: DiagnosticsEngine
+    ) -> Bool {
+        let rootManifests = dependencyManifests.root.manifests.spm_createDictionary{ ($0.name, $0) }
+
+        for missingURLs in dependencyManifests.computePackageURLs().missing {
+            guard let manifest = loadManifest(forURL: missingURLs.path, diagnostics: diagnostics) else { continue }
+            if let override = rootManifests[manifest.name] {
+                let overrideIdentity = PackageReference.computeIdentity(packageURL: override.url)
+                let manifestIdentity = PackageReference.computeIdentity(packageURL: manifest.url)
+
+                diagnostics.emit(error: "unable to override package '\(manifest.name)' because its basename '\(manifestIdentity)' doesn't match directory name '\(overrideIdentity)'")
+
+                return true
+            }
+        }
+        return false
     }
 
     /// Computes if dependency resolution is required based on input constraints and pins.
@@ -1608,9 +1709,17 @@ extension Workspace {
         resolver: PackageResolver,
         dependencies: [RepositoryPackageConstraint],
         pins: [RepositoryPackageConstraint] = [],
+        pinsStore: PinsStore?,
         diagnostics: DiagnosticsEngine
     ) -> [(container: PackageReference, binding: BoundVersion)] {
-        let result = resolver.resolve(dependencies: dependencies, pins: pins)
+
+      #if os(macOS)
+        // This crashes the compiler on Linux: https://bugs.swift.org/browse/SR-11394
+        os_log(log: .swiftpm, "Starting resolution using %s resolver", self.enablePubgrubResolver ? "pubgrub" : "legacy")
+      #endif
+        os_signpost(.begin, log: .swiftpm, name: SignpostName.resolution)
+        let result = resolver.resolve(dependencies: dependencies, pins: pins, pinsStore: pinsStore)
+        os_signpost(.end, log: .swiftpm, name: SignpostName.resolution)
 
         // Take an action based on the result.
         switch result {
@@ -1618,7 +1727,7 @@ extension Workspace {
             return bindings
 
         case .unsatisfiable(let dependencies, let pins):
-            diagnostics.emit(data: ResolverDiagnostics.Unsatisfiable(dependencies: dependencies, pins: pins))
+            diagnostics.emit(.error(ResolverDiagnostics.Unsatisfiable(dependencies: dependencies, pins: pins)))
             return []
 
         case .error(let error):
@@ -1658,7 +1767,7 @@ extension Workspace {
                 case .checkout(let checkoutState):
                     // If some checkout dependency has been removed, clone it again.
                     _ = try clone(package: dependency.packageRef, at: checkoutState)
-                    diagnostics.emit(WorkspaceDiagnostics.CheckedOutDependencyMissing(packageName: dependency.packageRef.identity))
+                    diagnostics.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.identity))
 
                 case .edited:
                     // If some edited dependency has been removed, mark it as unedited.
@@ -1668,7 +1777,7 @@ extension Workspace {
                     // of some other resolve operation (i.e. resolve, update, etc).
                     try unedit(dependency: dependency, forceRemove: true, diagnostics: diagnostics)
 
-                    diagnostics.emit(WorkspaceDiagnostics.EditedDependencyMissing(packageName: dependency.packageRef.identity))
+                    diagnostics.emit(.editedDependencyMissing(packageName: dependency.packageRef.identity))
 
                 case .local:
                     managedDependencies[forURL: dependency.packageRef.path] = nil

@@ -8,75 +8,18 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
+import TSCBasic
 import Build
 import PackageLoading
 import PackageGraph
 import PackageModel
 import SourceControl
-import SPMUtility
+import TSCUtility
 import Workspace
-import SPMLibc
+import TSCLibc
 import func Foundation.NSUserName
 import SPMLLBuild
-typealias Diagnostic = Basic.Diagnostic
-
-struct ChdirDeprecatedDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: AnyDiagnostic.self,
-        name: "org.swift.diags.chdir-deprecated",
-        defaultBehavior: .warning,
-        description: {
-            $0 <<< "'--chdir/-C' option is deprecated; use '--package-path' instead"
-        }
-    )
-}
-
-/// Diagnostic error when the tool could not find a named product.
-struct ProductNotFoundDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: ProductNotFoundDiagnostic.self,
-        name: "org.swift.diags.product-not-found",
-        defaultBehavior: .error,
-        description: { $0 <<< "no product named" <<< { "'\($0.productName)'" } }
-    )
-
-    let productName: String
-}
-
-/// Diagnostic for non-existant working directory.
-struct WorkingDirNotFoundDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: WorkingDirNotFoundDiagnostic.self,
-        name: "org.swift.diags.cwd-not-found",
-        defaultBehavior: .error,
-        description: { $0 <<< "couldn't determine the current working directory" }
-    )
-}
-
-/// Warning when someone tries to build an automatic type product using --product option.
-struct ProductIsAutomaticDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: ProductIsAutomaticDiagnostic.self,
-        name: "org.swift.diags.product-is-automatic",
-        defaultBehavior: .warning,
-        description: { $0 <<< "'--product' cannot be used with the automatic product" <<< { "'\($0.productName)'." } <<< "Building the default target instead" }
-    )
-
-    let productName: String
-}
-
-/// Diagnostic error when the tool could not find a named target.
-struct TargetNotFoundDiagnostic: DiagnosticData {
-    static let id = DiagnosticID(
-        type: TargetNotFoundDiagnostic.self,
-        name: "org.swift.diags.target-not-found",
-        defaultBehavior: .error,
-        description: { $0 <<< "no target named" <<< { "'\($0.targetName)'" } }
-    )
-
-    let targetName: String
-}
+typealias Diagnostic = TSCBasic.Diagnostic
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
@@ -154,7 +97,7 @@ extension ToolName {
 private final class DiagnosticsEngineHandler {
 
     /// The standard output stream.
-    var stdoutStream = Basic.stdoutStream
+    var stdoutStream = TSCBasic.stdoutStream
 
     /// The default instance.
     static let `default` = DiagnosticsEngineHandler()
@@ -186,7 +129,15 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Get the current workspace root object.
     func getWorkspaceRoot() throws -> PackageGraphRootInput {
-        return try PackageGraphRootInput(packages: [getPackageRoot()])
+        let packages: [AbsolutePath]
+
+        if let workspace = options.multirootPackageDataFile {
+            packages = try XcodeWorkspaceLoader(diagnostics: diagnostics).load(workspace: workspace)
+        } else {
+            packages = [try getPackageRoot()]
+        }
+
+        return PackageGraphRootInput(packages: packages)
     }
 
     /// Path to the build directory.
@@ -199,6 +150,9 @@ public class SwiftTool<Options: ToolOptions> {
     /// received by the swift tools.
     let processSet: ProcessSet
 
+    /// The current build system reference. The actual reference is present only during an active build.
+    private let buildSystemRef: BuildSystemRef
+
     /// The interrupt handler.
     let interruptHandler: InterruptHandler
 
@@ -210,11 +164,7 @@ public class SwiftTool<Options: ToolOptions> {
     var executionStatus: ExecutionStatus = .success
 
     /// The stream to print standard output on.
-    fileprivate var stdoutStream: OutputByteStream = Basic.stdoutStream
-
-    /// If true, Redirects the stdout stream to stderr when invoking
-    /// `swift-build-tool`.
-    private var shouldRedirectStdoutToStderr = false
+    fileprivate var stdoutStream: OutputByteStream = TSCBasic.stdoutStream
 
     /// Create an instance of this tool.
     ///
@@ -222,7 +172,7 @@ public class SwiftTool<Options: ToolOptions> {
     public init(toolName: String, usage: String, overview: String, args: [String], seeAlso: String? = nil) {
         // Capture the original working directory ASAP.
         guard let cwd = localFileSystem.currentWorkingDirectory else {
-            diagnostics.emit(data: WorkingDirNotFoundDiagnostic())
+            diagnostics.emit(error: "couldn't determine the current working directory")
             SwiftTool.exit(with: .failure)
         }
         originalWorkingDirectory = cwd
@@ -282,6 +232,11 @@ public class SwiftTool<Options: ToolOptions> {
                 usage: "Change working directory before any other operation"),
             to: { $0.packagePath = $1.path })
 
+        binder.bind(
+            option: parser.add(
+                option: "--multiroot-data-file", kind: PathArgument.self, usage: nil),
+            to: { $0.multirootPackageDataFile = $1.path })
+
         binder.bindArray(
             option: parser.add(option: "--sanitize", kind: [Sanitizer].self,
                 strategy: .oneByOne, usage: "Turn on runtime checks for erroneous behavior"),
@@ -330,11 +285,6 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.shouldLinkStaticSwiftStdlib = $1 })
 
         binder.bind(
-            option: parser.add(option: "--enable-llbuild-library", kind: Bool.self,
-                usage: "Enable building with the llbuild library"),
-            to: { $0.shouldEnableLLBuildLibrary = $1 })
-
-        binder.bind(
             option: parser.add(option: "--force-resolved-versions", kind: Bool.self),
             to: { $0.forceResolvedVersions = $1 })
 
@@ -355,8 +305,13 @@ public class SwiftTool<Options: ToolOptions> {
 
         binder.bind(
             option: parser.add(option: "--enable-pubgrub-resolver", kind: Bool.self,
-                               usage: "[Experimental] Enable the new Pubgrub dependency resolver"),
+                usage: "Enable the new Pubgrub dependency resolver"),
             to: { $0.enablePubgrubResolver = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--use-legacy-resolver", kind: Bool.self,
+                usage: "Use the legacy dependency resolver"),
+            to: { $0.enablePubgrubResolver = !$1 })
 
         binder.bind(
             option: parser.add(option: "--enable-parseable-module-interfaces", kind: Bool.self),
@@ -366,12 +321,28 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--trace-resolver", kind: Bool.self),
             to: { $0.enableResolverTrace = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--jobs", shortName: "-j", kind: Int.self,
+                usage: "The number of jobs to spawn in parallel during the build process"),
+            to: { $0.jobs = UInt32($1) })
+
+        binder.bind(
+            option: parser.add(option: "--enable-test-discovery", kind: Bool.self,
+               usage: "Enable test discovery on platforms without Objective-C runtime"),
+            to: { $0.enableTestDiscovery = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--enable-build-manifest-caching", kind: Bool.self, usage: nil),
+            to: { $0.enableBuildManifestCaching = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
         do {
             // Parse the result.
             let result = try parser.parse(args)
+
+            try Self.postprocessArgParserResult(result: result, diagnostics: diagnostics)
 
             var options = Options()
             try binder.fill(parseResult: result, into: &options)
@@ -383,25 +354,32 @@ public class SwiftTool<Options: ToolOptions> {
             }
 
             let processSet = ProcessSet()
+            let buildSystemRef = BuildSystemRef()
             interruptHandler = try InterruptHandler {
                 // Terminate all processes on receiving an interrupt signal.
                 processSet.terminate()
+                buildSystemRef.buildSystem?.cancel()
 
+              #if os(Windows)
+                // Exit as if by signal()
+                TerminateProcess(GetCurrentProcess(), 3)
+              #elseif os(macOS)
                 // Install the default signal handler.
                 var action = sigaction()
-              #if os(macOS)
                 action.__sigaction_u.__sa_handler = SIG_DFL
+                sigaction(SIGINT, &action, nil)
+                kill(getpid(), SIGINT)
               #else
+                var action = sigaction()
                 action.__sigaction_handler = unsafeBitCast(
                     SIG_DFL,
                     to: sigaction.__Unnamed_union___sigaction_handler.self)
-              #endif
                 sigaction(SIGINT, &action, nil)
-
-                // Die with sigint.
                 kill(getpid(), SIGINT)
+              #endif
             }
             self.processSet = processSet
+            self.buildSystemRef = buildSystemRef
 
         } catch {
             handle(error: error)
@@ -416,9 +394,15 @@ public class SwiftTool<Options: ToolOptions> {
         self.buildPath = getEnvBuildPath(workingDir: cwd) ??
             customBuildPath ??
             (packageRoot ?? cwd).appending(component: ".build")
+    }
 
-        if options.chdir != nil {
-            diagnostics.emit(data: ChdirDeprecatedDiagnostic())
+    static func postprocessArgParserResult(result: ArgumentParser.Result, diagnostics: DiagnosticsEngine) throws {
+        if result.exists(arg: "--chdir") || result.exists(arg: "-C") {
+            diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
+        }
+
+        if result.exists(arg: "--multiroot-data-file") {
+            diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
         }
     }
 
@@ -426,17 +410,30 @@ public class SwiftTool<Options: ToolOptions> {
         fatalError("Must be implemented by subclasses")
     }
 
+    func editablesPath() throws -> AbsolutePath {
+        if let multiRootPackageDataFile = options.multirootPackageDataFile {
+            return multiRootPackageDataFile.appending(component: "Packages")
+        }
+        return try getPackageRoot().appending(component: "Packages")
+    }
+
     func resolvedFilePath() throws -> AbsolutePath {
+        if let multiRootPackageDataFile = options.multirootPackageDataFile {
+            return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
+        }
         return try getPackageRoot().appending(component: "Package.resolved")
     }
 
     func configFilePath() throws -> AbsolutePath {
         // Look for the override in the environment.
-        if let envPath = Process.env["SWIFTPM_MIRROR_CONFIG"] {
+        if let envPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
             return try AbsolutePath(validating: envPath)
         }
 
         // Otherwise, use the default path.
+        if let multiRootPackageDataFile = options.multirootPackageDataFile {
+            return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
+        }
         return try getPackageRoot().appending(components: ".swiftpm", "config")
     }
 
@@ -460,11 +457,10 @@ public class SwiftTool<Options: ToolOptions> {
             return workspace
         }
         let delegate = ToolWorkspaceDelegate(self.stdoutStream)
-        let rootPackage = try getPackageRoot()
         let provider = GitRepositoryProvider(processSet: processSet)
         let workspace = Workspace(
             dataPath: buildPath,
-            editablesPath: rootPackage.appending(component: "Packages"),
+            editablesPath: try editablesPath(),
             pinsFile: try resolvedFilePath(),
             manifestLoader: try getManifestLoader(),
             toolsVersionLoader: ToolsVersionLoader(),
@@ -502,8 +498,8 @@ public class SwiftTool<Options: ToolOptions> {
     /// Exit the tool with the given execution status.
     private static func exit(with status: ExecutionStatus) -> Never {
         switch status {
-        case .success: SPMLibc.exit(0)
-        case .failure: SPMLibc.exit(1)
+        case .success: TSCLibc.exit(0)
+        case .failure: TSCLibc.exit(1)
         }
     }
 
@@ -514,9 +510,8 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Start redirecting the standard output stream to the standard error stream.
     func redirectStdoutToStderr() {
-        self.shouldRedirectStdoutToStderr = true
-        self.stdoutStream = Basic.stderrStream
-        DiagnosticsEngineHandler.default.stdoutStream = Basic.stderrStream
+        self.stdoutStream = TSCBasic.stderrStream
+        DiagnosticsEngineHandler.default.stdoutStream = TSCBasic.stderrStream
     }
 
     /// Resolve the dependencies.
@@ -573,7 +568,7 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.dematerialize()
     }
 
-    func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String? {
+    private func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String {
         switch subset {
         case .allExcludingTests:
             return LLBuildManifestGenerator.llbuildMainTargetName
@@ -581,123 +576,138 @@ public class SwiftTool<Options: ToolOptions> {
             return LLBuildManifestGenerator.llbuildTestTargetName
         default:
             // FIXME: This is super unfortunate that we might need to load the package graph.
-            return try subset.llbuildTargetName(for: loadPackageGraph(), diagnostics: diagnostics, config: buildParameters.configuration.dirname)
-        }
-    }
-    
-    func build(plan: BuildPlan, parameters: BuildParameters, subset: BuildSubset) throws {
-        guard let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: parameters) else {
-            return
-        }
-        try runLLBuild(plan: plan, manifest: parameters.llbuildManifest, llbuildTarget: llbuildTargetName)
-    }
-
-    /// Build a subset of products and targets using swift-build-tool.
-    func build(plan: BuildPlan, subset: BuildSubset) throws {
-        guard let llbuildTargetName = subset.llbuildTargetName(for: plan.graph, diagnostics: diagnostics, config: plan.buildParameters.configuration.dirname) else {
-            return
-        }
-
-        let yaml = plan.buildParameters.llbuildManifest
-        // Generate the llbuild manifest.
-        let client = options.shouldEnableLLBuildLibrary ? "basic" : "swift-build"
-        let llbuild = LLBuildManifestGenerator(plan, client: client)
-        try llbuild.generateManifest(at: yaml)
-
-        // Run llbuild.
-        try runLLBuild(plan: plan, manifest: yaml, llbuildTarget: llbuildTargetName)
-
-        // Create backwards-compatibilty symlink to old build path.
-        let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
-        if localFileSystem.exists(oldBuildPath) {
-            try localFileSystem.removeFileTree(oldBuildPath)
-        }
-        try createSymlink(oldBuildPath, pointingAt: plan.buildParameters.buildPath, relative: true)
-    }
-
-    func runLLBuild(plan: BuildPlan, manifest: AbsolutePath, llbuildTarget: String) throws {
-        assert(localFileSystem.isFile(manifest), "llbuild manifest not present: \(manifest)")
-        if options.shouldEnableLLBuildLibrary {
-            try runLLBuildAsLibrary(plan: plan, manifest: manifest, llbuildTarget: llbuildTarget)
-        } else {
-            try runLLBuildAsExecutable(manifest: manifest, llbuildTarget: llbuildTarget)
+            let graph = try loadPackageGraph()
+            if let result = subset.llbuildTargetName(for: graph, diagnostics: diagnostics, config: buildParameters.configuration.dirname) {
+                return result
+            }
+            throw Diagnostics.fatalError
         }
     }
 
-    func runLLBuildAsLibrary(plan: BuildPlan, manifest: AbsolutePath, llbuildTarget: String) throws {
-        // Setup the build delegate.
+    func getBuildDescription(graph: PackageGraph? = nil) throws -> BuildDescription {
+        let buildParameters = try self.buildParameters()
+        let haveBuildManifestAndDescription =
+        localFileSystem.exists(buildParameters.llbuildManifest) &&
+        localFileSystem.exists(buildParameters.buildDescriptionPath)
+
+        // Perform steps for build manifest caching if we can enabled it.
+        //
+        // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
+        let hasEditedPackages = try getActiveWorkspace().managedDependencies.values.contains{ $0.isEdited }
+
+        if options.enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages {
+            // Create the build system.
+            let buildSystem = try createBuildSystem()
+            buildSystemRef.buildSystem = buildSystem
+
+            // Build the package structure target which will re-generate the llbuild manifest, if necessary.
+            if !buildSystem.build(target: "PackageStructure") {
+                throw Diagnostics.fatalError
+            }
+
+            // Return the build description that's on disk. We trust the above build to
+            // update the build description when needed.
+            do {
+                return try BuildDescription.load(from: buildParameters.buildDescriptionPath)
+            } catch {
+                // Silently regnerate the build description if we failed to decode (which could happen
+                // because the existing file was created by different version of swiftpm).
+                if !(error is DecodingError) {
+                    diagnostics.emit(warning: "failed to load the build description; running build planning\n    \(error)")
+                }
+            }
+        }
+
+        // Otherwise, plan and build.
+        return try planAndGenerateManifest(graph: graph)
+    }
+
+    fileprivate func planAndGenerateManifest(graph: PackageGraph? = nil) throws -> BuildDescription {
+        let graph = try graph ?? loadPackageGraph()
+        let plan = try BuildPlan(
+            buildParameters: buildParameters(),
+            graph: graph,
+            diagnostics: diagnostics
+        )
+        return try generateLLBuildManifest(with: plan)
+    }
+
+    /// Creates and returns the build system.
+    private func createBuildSystem(
+        with buildDescription: BuildDescription? = nil
+    ) throws -> BuildSystem {
+        // Figure out which progress bar we have to use during the build.
         let isVerbose = verbosity != .concise
         let progressAnimation: ProgressAnimationProtocol = isVerbose ?
             MultiLineNinjaProgressAnimation(stream: stdoutStream) :
             NinjaProgressAnimation(stream: stdoutStream)
+
+        // Setup the execution context.
+        let buildParameters = try self.buildParameters()
+        let bctx = BuildExecutionContext(
+            buildParameters,
+            buildDescription: buildDescription,
+            packageStructureDelegate: self
+        )
+
+        // Create the build delegate.
         let buildDelegate = BuildDelegate(
-            plan: plan,
+            bctx: bctx,
             diagnostics: diagnostics,
             outputStream: stdoutStream,
             progressAnimation: progressAnimation)
         buildDelegate.isVerbose = isVerbose
 
         let databasePath = buildPath.appending(component: "build.db").pathString
-        let buildSystem = BuildSystem(buildFile: manifest.pathString, databaseFile: databasePath, delegate: buildDelegate)
+        let buildSystem = BuildSystem(
+            buildFile: buildParameters.llbuildManifest.pathString,
+            databaseFile: databasePath,
+            delegate: buildDelegate
+        )
         buildDelegate.onCommmandFailure = { buildSystem.cancel() }
-
-        let success = buildSystem.build(target: llbuildTarget)
-        progressAnimation.complete(success: success)
-        guard success else { throw Diagnostics.fatalError }
+        return buildSystem
     }
 
-    func runLLBuildAsExecutable(manifest: AbsolutePath, llbuildTarget: String) throws {
-        // Create a temporary directory for the build process.
-        let tempDirName = "org.swift.swiftpm.\(NSUserName())"
-        let tempDir = try determineTempDirectory().appending(component: tempDirName)
-        try localFileSystem.createDirectory(tempDir, recursive: true)
+    func generateLLBuildManifest(with plan: BuildPlan) throws -> BuildDescription {
+        // Generate the llbuild manifest.
+        let llbuild = LLBuildManifestGenerator(plan, client: "basic")
+        try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
 
-        // Run the swift-build-tool with the generated manifest.
-        var args = [String]()
+        // Create the build description.
+        let buildDescription = BuildDescription(plan: plan, testDiscoveryCommands: llbuild.testDiscoveryCommands)
+        try localFileSystem.createDirectory(plan.buildParameters.buildDescriptionPath.parentDirectory, recursive: true)
+        try buildDescription.write(to: plan.buildParameters.buildDescriptionPath)
+        return buildDescription
+    }
 
-      #if os(macOS)
-        // If enabled, use sandbox-exec on macOS. This provides some safety
-        // against arbitrary code execution. We only allow the permissions which
-        // are absolutely necessary for performing a build.
-        if !options.shouldDisableSandbox {
-            let allowedDirectories = [
-                tempDir,
-                buildPath,
-                BuildParameters.swiftpmTestCache
-            ].map(resolveSymlinks)
-            args += ["sandbox-exec", "-p", sandboxProfile(allowedDirectories: allowedDirectories)]
+    func build(buildDescription: BuildDescription, subset: BuildSubset) throws {
+        let buildParameters = try self.buildParameters()
+        let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: buildParameters)
+
+        // Run llbuild.
+        try runLLBuild(buildDescription: buildDescription, llbuildTarget: llbuildTargetName)
+
+        // Create backwards-compatibilty symlink to old build path.
+        let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
+        if localFileSystem.exists(oldBuildPath) {
+            try localFileSystem.removeFileTree(oldBuildPath)
         }
-      #endif
+        try createSymlink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
+    }
 
-        args += [try getToolchain().llbuild.pathString, "-f", manifest.pathString, llbuildTarget]
-        if verbosity != .concise {
-            args.append("-v")
-        }
+    private func runLLBuild(buildDescription: BuildDescription, llbuildTarget: String) throws {
+        // Create the build system.
+        let buildSystem = try createBuildSystem(with: buildDescription)
 
-        // Create the environment for llbuild.
-        var env = Process.env
-        // We override the temporary directory so tools assuming full access to
-        // the tmp dir can create files here freely, provided they respect this
-        // variable.
-        env["TMPDIR"] = tempDir.pathString
+        // Store the build system reference so it can be cancelled in the singal handler.
+        self.buildSystemRef.buildSystem = buildSystem
 
-        // Run llbuild and print output on standard streams.
-        let process = Process(arguments: args, environment: env, outputRedirection: shouldRedirectStdoutToStderr ? .collect : .none)
-        try process.launch()
-        try processSet.add(process)
-        let result = try process.waitUntilExit()
+        // Perform the build.
+        let success = buildSystem.build(target: llbuildTarget)
+        self.buildSystemRef.buildSystem = nil
 
-        // Emit the output to the selected stream if we need to redirect the
-        // stream.
-        if shouldRedirectStdoutToStderr {
-            self.stdoutStream <<< (try result.utf8stderrOutput())
-            self.stdoutStream <<< (try result.utf8Output())
-            self.stdoutStream.flush()
-        }
-
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw ProcessResult.Error.nonZeroExit(result)
-        }
+        buildSystem.buildDelegate.progressAnimation.complete(success: success)
+        guard success else { throw Diagnostics.fatalError }
     }
 
     /// Return the build parameters.
@@ -719,7 +729,8 @@ public class SwiftTool<Options: ToolOptions> {
                 sanitizers: options.sanitizers,
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
                 indexStoreMode: options.indexStoreMode,
-                enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces
+                enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
+                enableTestDiscovery: options.enableTestDiscovery
             )
         })
     }()
@@ -779,7 +790,7 @@ enum BuildSubset {
 
 extension BuildSubset {
     /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine, config: String) -> String? {
+    fileprivate func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine, config: String) -> String? {
         switch self {
         case .allExcludingTests:
             return LLBuildManifestGenerator.llbuildMainTargetName
@@ -787,19 +798,19 @@ extension BuildSubset {
             return LLBuildManifestGenerator.llbuildTestTargetName
         case .product(let productName):
             guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
-                diagnostics.emit(data: ProductNotFoundDiagnostic(productName: productName))
+                diagnostics.emit(error: "no product named '\(productName)'")
                 return nil
             }
             // If the product is automatic, we build the main target because automatic products
             // do not produce a binary right now.
             if product.type == .library(.automatic) {
-                diagnostics.emit(data: ProductIsAutomaticDiagnostic(productName: productName))
+                diagnostics.emit(warning: "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead")
                 return LLBuildManifestGenerator.llbuildMainTargetName
             }
             return product.getLLBuildTargetName(config: config)
         case .target(let targetName):
             guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
-                diagnostics.emit(data: TargetNotFoundDiagnostic(targetName: targetName))
+                diagnostics.emit(error: "no target named '\(targetName)'")
                 return nil
             }
             return target.getLLBuildTargetName(config: config)
@@ -827,9 +838,23 @@ private func findPackageRoot() -> AbsolutePath? {
 /// Returns the build path from the environment, if present.
 private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
     // Don't rely on build path from env for SwiftPM's own tests.
-    guard Process.env["IS_SWIFTPM_TEST"] == nil else { return nil }
-    guard let env = Process.env["SWIFTPM_BUILD_DIR"] else { return nil }
+    guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
+    guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
     return AbsolutePath(env, relativeTo: workingDir)
+}
+
+extension SwiftTool: PackageStructureDelegate {
+    public func packageStructureChanged() -> Bool {
+        do {
+            _ = try planAndGenerateManifest()
+        } catch Diagnostics.fatalError {
+            return false
+        } catch {
+            diagnostics.emit(error)
+            return false
+        }
+        return true
+    }
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.
@@ -869,4 +894,22 @@ extension BuildConfiguration: StringEnumArgument {
         (debug.rawValue, "build with DEBUG configuration"),
         (release.rawValue, "build with RELEASE configuration"),
     ])
+}
+
+/// A wrapper to hold the build system so we can use it inside
+/// the int. handler without requiring to initialize it.
+private final class BuildSystemRef {
+    var buildSystem: BuildSystem?
+}
+
+extension BuildSystem {
+    fileprivate var buildDelegate: BuildDelegate {
+        self.delegate as! BuildDelegate
+    }
+}
+
+extension Diagnostic.Message {
+    static func unsupportedFlag(_ flag: String) -> Diagnostic.Message {
+        .warning("\(flag) is an *unsupported* option which can be removed at any time; do not rely on it")
+    }
 }

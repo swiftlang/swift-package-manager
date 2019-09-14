@@ -10,9 +10,9 @@
 
 import XCTest
 
-import TestSupport
+import SPMTestSupport
 import Commands
-import Basic
+import TSCBasic
 
 final class RunToolTests: XCTestCase {
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {

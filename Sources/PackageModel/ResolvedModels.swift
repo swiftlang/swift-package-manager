@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 
 /// Represents a fully resolved target. All the dependencies for the target are resolved.
 public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProtocol {
@@ -177,6 +177,18 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
 
     public var description: String {
         return "<ResolvedProduct: \(name)>"
+    }
+
+    /// True if this product contains Swift targets.
+    public var containsSwiftTargets: Bool {
+      //  C targets can't import Swift targets in SwiftPM (at least not right
+      // now), so we can just look at the top-level targets.
+      //
+      // If that ever changes, we'll need to do something more complex here,
+      // recursively checking dependencies for SwiftTargets, and considering
+      // dynamic library targets to be Swift targets (since the dylib could
+      // contain Swift code we don't know about as part of this build).
+      return targets.contains { $0.underlyingTarget is SwiftTarget }
     }
 }
 

@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
+import TSCBasic
 import struct PackageModel.PackageReference
-import struct SPMUtility.Version
+import struct TSCUtility.Version
 import class Foundation.NSDate
 
 public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
@@ -27,6 +27,9 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
 
     /// The resolver found missing versions for the given constraints.
     case missingVersions([PackageContainerConstraint])
+
+    /// A revision-based dependency contains a local package dependency.
+    case revisionDependencyContainsLocalPackage(dependency: String, localPackage: String)
 
     /// The resolution was cancelled.
     case cancelled
@@ -50,6 +53,10 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
             return lhs == rhs
         case (.missingVersions, _):
             return false
+        case (.revisionDependencyContainsLocalPackage(let a1, let b1), .revisionDependencyContainsLocalPackage(let a2, let b2)):
+            return a1 == a2 && b1 == b2
+        case (.revisionDependencyContainsLocalPackage, _):
+            return false
         case (.cancelled, .cancelled):
             return true
         case (.cancelled, _):
@@ -60,9 +67,11 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .cancelled:
-            return "the dependency resolution was cancelled"
+            return "the package resolution operation was cancelled"
+        case .revisionDependencyContainsLocalPackage(let dependency, let localPackage):
+            return "package '\(dependency)' is required using a revision-based requirement and it depends on local package '\(localPackage)', which is not supported"
         case .unsatisfiable:
-            return "unable to resolve dependencies"
+            return "the package dependency graph could not be resolved due to an unknown conflict"
         case .cycle(let package):
             return "the package \(package) depends on itself"
         case let .incompatibleConstraints(dependency, revisions):
@@ -79,7 +88,7 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
 
         case let .missingVersions(constraints):
             let stream = BufferedOutputByteStream()
-            stream <<< "the package dependency graph is unresolvable; unable find any available tag for the following requirements:\n"
+            stream <<< "the package dependency graph could not be resolved; unable to find any available tag for the following requirements:\n"
             for (i, constraint) in constraints.enumerated() {
                 stream <<< "    "
                 stream <<< "\(constraint.identifier.path)" <<< " @ "
@@ -95,129 +104,6 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
                 }
             }
             return stream.bytes.description
-        }
-    }
-}
-
-/// An abstract definition for a set of versions.
-public enum VersionSetSpecifier: Hashable, CustomStringConvertible {
-    /// The universal set.
-    case any
-
-    /// The empty set.
-    case empty
-
-    /// A non-empty range of version.
-    case range(Range<Version>)
-
-    /// The exact version that is required.
-    case exact(Version)
-
-    /// Compute the intersection of two set specifiers.
-    public func intersection(_ rhs: VersionSetSpecifier) -> VersionSetSpecifier {
-        switch (self, rhs) {
-        case (.any, _):
-            return rhs
-        case (_, .any):
-            return self
-        case (.empty, _):
-            return .empty
-        case (_, .empty):
-            return .empty
-        case (.range(let lhs), .range(let rhs)):
-            let start = Swift.max(lhs.lowerBound, rhs.lowerBound)
-            let end = Swift.min(lhs.upperBound, rhs.upperBound)
-            if start < end {
-                return .range(start..<end)
-            } else {
-                return .empty
-            }
-        case (.exact(let v), _):
-            if rhs.contains(v) {
-                return self
-            }
-            return .empty
-        case (_, .exact(let v)):
-            if contains(v) {
-                return rhs
-            }
-            return .empty
-        }
-    }
-
-    /// Compute the intersection of two set specifiers with differing polarities.
-    ///
-    /// - Warning: It is assumed that `self` is positive and the passed set
-    ///            specifier `rhs` is negative.
-    public func intersection(withInverse rhs: VersionSetSpecifier) -> VersionSetSpecifier? {
-        switch (self, rhs) {
-        case (_, .any):
-            return nil
-        case (.any, _):
-            assertionFailure("constraints on .any are currently unexpected here")
-            // FIXME: This is incorrect, we need to return the difference here (.any - rhs),
-            // which basically means inverse of rhs but we can't return polarity from this
-            // method yet.
-            return .any
-        case (.empty, _), (_, .empty):
-            assertionFailure("constraints on .empty are currently unexpected here")
-            // TODO: Check if this is this correct.
-            return nil
-        case (.exact(let lhs), .exact(let rhs)):
-            return lhs == rhs ? nil : self
-        case (.exact(let exact), .range(let range)), (.range(let range), .exact(let exact)):
-            if range.contains(version: exact) {
-                return .range(range.lowerBound..<exact)
-            }
-            return nil
-        case (.range(let lhs), .range(let rhs)):
-            guard lhs != rhs else {
-                return nil
-            }
-            guard lhs.overlaps(rhs) else {
-                return .range(lhs)
-            }
-            if lhs.lowerBound < rhs.lowerBound {
-                return .range(lhs.lowerBound..<rhs.lowerBound)
-            } else {
-                return .range(rhs.upperBound..<lhs.upperBound)
-            }
-        }
-    }
-
-    /// Check if the set contains a version.
-    public func contains(_ version: Version) -> Bool {
-        switch self {
-        case .empty:
-            return false
-        case .range(let range):
-            return range.contains(version: version)
-        case .any:
-            return true
-        case .exact(let v):
-            return v == version
-        }
-    }
-
-    public var description: String {
-        switch self {
-        case .any:
-            return "any"
-        case .empty:
-            return "empty"
-        case .range(let range):
-            var upperBound = range.upperBound
-            // Patch the version range representation. This shouldn't be
-            // required once we have custom version range structure.
-            if upperBound.minor == .max && upperBound.patch == .max {
-                upperBound = Version(upperBound.major + 1, 0, 0)
-            }
-            if upperBound.minor != .max && upperBound.patch == .max {
-                upperBound = Version(upperBound.major, upperBound.minor + 1, 0)
-            }
-            return range.lowerBound.description + "..<" + upperBound.description
-        case .exact(let version):
-            return version.description
         }
     }
 }
@@ -276,12 +162,19 @@ public protocol PackageContainer {
     /// The identifier for the package.
     var identifier: PackageReference { get }
 
+    /// Returns true if the tools version is compatible at the given version.
+    func isToolsVersionCompatible(at version: Version) -> Bool
+
     /// Get the list of versions which are available for the package.
     ///
     /// The list will be returned in sorted order, with the latest version *first*.
     /// All versions will not be requested at once. Resolver will request the next one only 
     /// if the previous one did not satisfy all constraints.
     func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version>
+
+    /// Get the list of versions in the repository sorted in the reverse order, that is the latest
+    /// version appears first.
+    var reversedVersions: [Version] { get }
 
     // FIXME: We should perhaps define some particularly useful error codes
     // here, so the resolver can handle errors more meaningfully.
@@ -316,6 +209,13 @@ public protocol PackageContainer {
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
     func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference
+
+    /// Hack for the old resolver. Don't use.
+    var _isRemoteContainer: Bool? { get }
+}
+
+extension PackageContainer {
+    public var _isRemoteContainer: Bool? { return nil }
 }
 
 /// An interface for resolving package containers.
@@ -329,7 +229,7 @@ public protocol PackageContainerProvider {
 }
 
 /// An individual constraint onto a container.
-public struct PackageContainerConstraint: CustomStringConvertible, Equatable {
+public struct PackageContainerConstraint: CustomStringConvertible, Equatable, Hashable {
 
     /// The identifier for the container the constraint is on.
     public let identifier: PackageReference
@@ -357,13 +257,6 @@ public struct PackageContainerConstraint: CustomStringConvertible, Equatable {
 
 /// Delegate interface for dependency resoler status.
 public protocol DependencyResolverDelegate {
-
-    /// Collect diagnostic information for a step the resolver takes.
-    func trace(_ step: TraceStep)
-}
-
-public extension DependencyResolverDelegate {
-    func trace(_ step: TraceStep) { }
 }
 
 // FIXME: This should be nested, but cannot be currently.
@@ -1006,6 +899,8 @@ public class DependencyResolver {
         let constraintsWithNoAvailableVersions = constraints.filter { constraint in
             if case .versionSet(let versions) = constraint.requirement,
             let container = try? getContainer(for: constraint.identifier),
+            // FIXME: This is hacky but we should be moving away from this resolver anyway.
+            container._isRemoteContainer == true,
             !container.versions(filter: versions.contains).contains(where: { _ in true }) {
                 return true
             }
@@ -1105,6 +1000,21 @@ public class DependencyResolver {
             guard let constraints = self.safely({ try container.getDependencies(at: identifier) }) else {
                 return AnySequence([])
             }
+
+            // If we have any local packages, set the error and abort.
+            //
+            // We might want to support this in the future if the local package is contained
+            // inside the dependency. That's going to be tricky though since we don't have
+            // concrete checkouts yet.
+            let incompatibleConstraints = constraints.filter{ $0.requirement == .unversioned }
+            guard incompatibleConstraints.isEmpty else {
+                self.error = DependencyResolverError.revisionDependencyContainsLocalPackage(
+                    dependency: container.identifier.identity,
+                    localPackage: incompatibleConstraints[0].identifier.identity
+                )
+                return AnySequence([])
+            }
+
             result = merge(constraints: constraints, binding: .revision(identifier))
 
         case .versionSet(let versionSet):
@@ -1297,7 +1207,7 @@ public class DependencyResolver {
     }
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [PackageReference: Basic.Result<Container, AnyError>] = [:]
+    private var _fetchedContainers: [PackageReference: TSCBasic.Result<Container, AnyError>] = [:]
 
     /// The set of containers requested so far.
     private var _prefetchingContainers: Set<PackageReference> = []
@@ -1322,7 +1232,7 @@ public class DependencyResolver {
 
             // Otherwise, fetch the container synchronously.
             let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
-            self._fetchedContainers[identifier] = Basic.Result(container)
+            self._fetchedContainers[identifier] = TSCBasic.Result(container)
             return container
         }
     }
