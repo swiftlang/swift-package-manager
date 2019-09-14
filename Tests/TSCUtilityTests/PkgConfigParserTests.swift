@@ -53,9 +53,9 @@ final class PkgConfigParserTests: XCTestCase {
     func testVariableinDependency() {
         try! loadPCFile("deps_variable.pc") { parser in
             XCTAssertEqual(parser.variables, [
-                "prefix": "/usr/local/bin", 
-                "exec_prefix": "/usr/local/bin", 
-                "my_dep": "atk", 
+                "prefix": "/usr/local/bin",
+                "exec_prefix": "/usr/local/bin",
+                "my_dep": "atk",
                 "pcfiledir": parser.pcFile.parentDirectory.pathString,
                 "pc_sysrootdir": "/"
             ])
