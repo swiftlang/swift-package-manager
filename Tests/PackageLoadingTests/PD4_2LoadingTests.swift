@@ -131,7 +131,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             guard case let ManifestParseError.invalidManifestFormat(output, _) = error else {
                 return XCTFail()
             }
-            XCTAssertMatch(output, .and(.contains("expected element type"), .contains("SwiftVersion")))
+            XCTAssertMatch(output, .and(.contains("expected argument type"), .contains("SwiftVersion")))
         }
 
         // Check when Swift language versions is empty.
