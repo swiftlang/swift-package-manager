@@ -16,6 +16,7 @@ import Commands
 import Workspace
 
 struct BuildResult {
+    let binPath: AbsolutePath
     let output: String
     let binContents: [String]
 }
@@ -32,7 +33,7 @@ final class BuildToolTests: XCTestCase {
         let binPathOutput = try execute(["--show-bin-path"], packagePath: packagePath)
         let binPath = AbsolutePath(binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
         let binContents = try localFileSystem.getDirectoryContents(binPath)
-        return BuildResult(output: output, binContents: binContents)
+        return BuildResult(binPath: binPath, output: output, binContents: binContents)
     }
     
     func testUsage() throws {
@@ -159,7 +160,11 @@ final class BuildToolTests: XCTestCase {
                 XCTAssert(!result.binContents.contains("aexec"))
                 XCTAssert(!result.binContents.contains("ATarget.build"))
                 XCTAssert(!result.binContents.contains("BLibrary.a"))
-                XCTAssert(!result.binContents.contains("BTarget1.build"))
+
+                // FIXME: We create the modulemap during build planning, hence this uglyness.
+                let bTargetBuildDir = ((try? localFileSystem.getDirectoryContents(result.binPath.appending(component: "BTarget1.build"))) ?? []).filter{ $0 != moduleMapFilename }
+                XCTAssertEqual(bTargetBuildDir, [])
+
                 XCTAssert(!result.binContents.contains("cexec"))
                 XCTAssert(!result.binContents.contains("CTarget.build"))
 
@@ -182,7 +187,11 @@ final class BuildToolTests: XCTestCase {
                 XCTAssert(!result.binContents.contains("ATarget.build"))
                 XCTAssert(!result.binContents.contains("BLibrary.a"))
                 XCTAssert(!result.binContents.contains("bexec"))
-                XCTAssert(!result.binContents.contains("BTarget1.build"))
+
+                // FIXME: We create the modulemap during build planning, hence this uglyness.
+                let bTargetBuildDir = ((try? localFileSystem.getDirectoryContents(result.binPath.appending(component: "BTarget1.build"))) ?? []).filter{ $0 != moduleMapFilename }
+                XCTAssertEqual(bTargetBuildDir, [])
+
                 XCTAssert(!result.binContents.contains("BTarget2.build"))
                 XCTAssert(!result.binContents.contains("cexec"))
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {

@@ -1481,6 +1481,190 @@ final class BuildPlanTests: XCTestCase {
                 """), contents)
         }
     }
+
+    func testObjCHeader1() throws {
+        // This has a Swift and ObjC target in the same package.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/PkgA/Sources/Bar/main.m",
+            "/PkgA/Sources/Foo/Foo.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/PkgA", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "PkgA",
+                    path: "/PkgA",
+                    url: "/PkgA",
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: []),
+                        TargetDescription(name: "Bar", dependencies: ["Foo"]),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let plan = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs)
+        let result = BuildPlanResult(plan: plan)
+
+        let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
+        #if os(macOS)
+          XCTAssertMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
+        #else
+          XCTAssertNoMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
+        #endif
+
+        let barTarget = try result.target(for: "Bar").clangTarget().basicArguments()
+        #if os(macOS)
+          XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
+        #else
+          XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
+        #endif
+
+        mktmpdir { path in
+            let yaml = path.appending(component: "debug.yaml")
+            let llbuild = LLBuildManifestGenerator(plan, client: "swift-build")
+            try llbuild.generateManifest(at: yaml)
+            let contents = try localFileSystem.readFileContents(yaml).description
+            XCTAssertMatch(contents, .contains("""
+                  "/path/to/build/debug/Bar.build/main.m.o":
+                    tool: clang
+                    description: "Compiling Bar main.m"
+                    inputs: ["/path/to/build/debug/Foo.swiftmodule","/PkgA/Sources/Bar/main.m"]
+                """))
+        }
+    }
+
+    func testObjCHeader2() throws {
+        // This has a Swift and ObjC target in different packages with automatic product type.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/PkgA/Sources/Bar/main.m",
+            "/PkgB/Sources/Foo/Foo.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/PkgA", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "PkgA",
+                    path: "/PkgA",
+                    url: "/PkgA",
+                    dependencies: [
+                        PackageDependencyDescription(url: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar", dependencies: ["Foo"]),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "PkgB",
+                    path: "/PkgB",
+                    url: "/PkgB",
+                    products: [
+                        ProductDescription(name: "Foo", targets: ["Foo"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let plan = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs)
+        let result = BuildPlanResult(plan: plan)
+
+         let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
+         #if os(macOS)
+           XCTAssertMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
+         #else
+           XCTAssertNoMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
+         #endif
+
+         let barTarget = try result.target(for: "Bar").clangTarget().basicArguments()
+         #if os(macOS)
+           XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
+         #else
+           XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
+         #endif
+
+         mktmpdir { path in
+             let yaml = path.appending(component: "debug.yaml")
+             let llbuild = LLBuildManifestGenerator(plan, client: "swift-build")
+             try llbuild.generateManifest(at: yaml)
+             let contents = try localFileSystem.readFileContents(yaml).description
+             XCTAssertMatch(contents, .contains("""
+                   "/path/to/build/debug/Bar.build/main.m.o":
+                     tool: clang
+                     description: "Compiling Bar main.m"
+                     inputs: ["/path/to/build/debug/Foo.swiftmodule","/PkgA/Sources/Bar/main.m"]
+                 """))
+         }
+    }
+
+    func testObjCHeader3() throws {
+        // This has a Swift and ObjC target in different packages with dynamic product type.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/PkgA/Sources/Bar/main.m",
+            "/PkgB/Sources/Foo/Foo.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(root: "/PkgA", fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "PkgA",
+                    path: "/PkgA",
+                    url: "/PkgA",
+                    dependencies: [
+                        PackageDependencyDescription(url: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar", dependencies: ["Foo"]),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "PkgB",
+                    path: "/PkgB",
+                    url: "/PkgB",
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.dynamic), targets: ["Foo"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let plan = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs)
+        let dynamicLibraryExtension = plan.buildParameters.triple.dynamicLibraryExtension
+        let result = BuildPlanResult(plan: plan)
+
+         let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
+         #if os(macOS)
+           XCTAssertMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
+         #else
+           XCTAssertNoMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
+         #endif
+
+         let barTarget = try result.target(for: "Bar").clangTarget().basicArguments()
+         #if os(macOS)
+           XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
+         #else
+           XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
+         #endif
+
+         mktmpdir { path in
+             let yaml = path.appending(component: "debug.yaml")
+             let llbuild = LLBuildManifestGenerator(plan, client: "swift-build")
+             try llbuild.generateManifest(at: yaml)
+             let contents = try localFileSystem.readFileContents(yaml).description
+             XCTAssertMatch(contents, .contains("""
+                   "/path/to/build/debug/Bar.build/main.m.o":
+                     tool: clang
+                     description: "Compiling Bar main.m"
+                     inputs: ["/path/to/build/debug/libFoo\(dynamicLibraryExtension)","/PkgA/Sources/Bar/main.m"]
+                 """))
+         }
+    }
 }
 
 // MARK:- Test Helpers

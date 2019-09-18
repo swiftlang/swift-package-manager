@@ -307,6 +307,35 @@ public final class LLBuildManifestGenerator {
             (target.clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
         ]
 
+        var externalDependencies = SortedArray<String>()
+
+        func addStaticTargetInputs(_ target: ResolvedTarget) {
+            if case .swift(let desc)? = plan.targetMap[target], target.type == .library {
+                externalDependencies.insert(desc.moduleOutputPath.pathString)
+            }
+        }
+
+        for dependency in target.target.dependencies {
+            switch dependency {
+            case .target(let target):
+                addStaticTargetInputs(target)
+
+            case .product(let product):
+                switch product.type {
+                case .executable, .library(.dynamic):
+                    // Establish a dependency on binary of the product.
+                    externalDependencies += [plan.productMap[product]!.binary.pathString]
+
+                case .library(.automatic), .library(.static):
+                    for target in product.targets {
+                        addStaticTargetInputs(target)
+                    }
+                case .test:
+                    break
+                }
+            }
+        }
+
         let commands: [Command] = try target.compilePaths().map({ path in
             var args = target.basicArguments()
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
@@ -323,8 +352,7 @@ public final class LLBuildManifestGenerator {
             args += ["-c", path.source.pathString, "-o", path.object.pathString]
             let clang = ClangTool(
                 desc: "Compiling \(target.target.name) \(path.filename)",
-                //FIXME: Should we add build time dependency on dependent targets?
-                inputs: [path.source.pathString],
+                inputs: externalDependencies + [path.source.pathString],
                 outputs: [path.object.pathString],
                 args: [try plan.buildParameters.toolchain.getClangCompiler().pathString] + args,
                 deps: path.deps.pathString)
