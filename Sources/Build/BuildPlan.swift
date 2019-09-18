@@ -346,6 +346,10 @@ public final class ClangTargetBuildDescription {
         }
         args += buildParameters.targetTripleArgs(for: target)
         args += buildParameters.toolchain.extraCCFlags
+        args += ["-g"]
+        if buildParameters.triple.isWindows() {
+            args += ["-gcodeview"]
+        }
         args += optimizationArguments
         args += activeCompilationConditions
         args += ["-fblocks"]
@@ -416,11 +420,7 @@ public final class ClangTargetBuildDescription {
     private var optimizationArguments: [String] {
         switch buildParameters.configuration {
         case .debug:
-            if buildParameters.triple.isWindows() {
-                return ["-g", "-gcodeview", "-O0"]
-            } else {
-                return ["-g", "-O0"]
-            }
+            return ["-O0"]
         case .release:
             return ["-O2"]
         }
@@ -553,6 +553,7 @@ public final class SwiftTargetBuildDescription {
         args += buildParameters.indexStoreArguments
         args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
+        args += ["-g"]
         args += ["-j\(SwiftCompilerTool.numThreads)"]
         args += activeCompilationConditions
         args += additionalFlags
@@ -675,7 +676,7 @@ public final class SwiftTargetBuildDescription {
     private var optimizationArguments: [String] {
         switch buildParameters.configuration {
         case .debug:
-            return ["-Onone", "-g", "-enable-testing"]
+            return ["-Onone", "-enable-testing"]
         case .release:
             return ["-O"]
         }
@@ -785,13 +786,15 @@ public final class ProductBuildDescription {
         args += buildParameters.sanitizers.linkSwiftFlags()
         args += additionalFlags
 
-        if buildParameters.configuration == .debug {
+        // Pass `-g` during a *release* build so the Swift driver emits a dSYM file for the binary.
+        if buildParameters.configuration == .release {
             if buildParameters.triple.isWindows() {
-                args += ["-Xlinker","-debug"]
+                args += ["-Xlinker", "-debug"]
             } else {
                 args += ["-g"]
             }
         }
+
         args += ["-L", buildParameters.buildPath.pathString]
         args += ["-o", binary.pathString]
         args += ["-module-name", product.name.spm_mangledToC99ExtendedIdentifier()]
