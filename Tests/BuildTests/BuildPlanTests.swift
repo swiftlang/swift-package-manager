@@ -123,7 +123,7 @@ final class BuildPlanTests: XCTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
-            "-target", "x86_64-unknown-linux",
+            "-target", defaultTargetTriple,
         ]
       #endif
 
@@ -236,7 +236,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", "/path/to/build/release/exe", "-module-name", "exe", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/release/exe.product/Objects.LinkFileList",
-            "-target", "x86_64-unknown-linux",
+            "-target", defaultTargetTriple,
         ])
       #endif
     }
@@ -336,7 +336,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-runtime-compatibility-version", "none",
-            "-target", "x86_64-unknown-linux",
+            "-target", defaultTargetTriple,
         ])
       #endif
 
@@ -395,7 +395,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-runtime-compatibility-version", "none",
-            "-target", "x86_64-unknown-linux",
+            "-target", defaultTargetTriple,
         ])
       #endif
 
@@ -468,7 +468,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
-            "-target", "x86_64-unknown-linux",
+            "-target", defaultTargetTriple,
         ])
       #endif
     }
@@ -611,7 +611,7 @@ final class BuildPlanTests: XCTestCase {
             "/path/to/build/debug/PkgPackageTests.xctest", "-module-name", "PkgPackageTests", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/PkgPackageTests.product/Objects.LinkFileList",
-            "-target", "x86_64-unknown-linux",
+            "-target", defaultTargetTriple,
         ])
       #endif
     }
@@ -663,7 +663,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
-            "-target", "x86_64-unknown-linux",
+            "-target", defaultTargetTriple,
         ])
       #endif
     }
@@ -764,7 +764,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", "/path/to/build/debug/Foo", "-module-name", "Foo", "-lBar-Baz", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/Foo.product/Objects.LinkFileList",
-            "-target", "x86_64-unknown-linux",
+            "-target", defaultTargetTriple,
         ])
 
         XCTAssertEqual(barLinkArgs, [
@@ -773,7 +773,7 @@ final class BuildPlanTests: XCTestCase {
             "-module-name", "Bar_Baz", "-emit-library",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/Bar-Baz.product/Objects.LinkFileList",
-            "-target", "x86_64-unknown-linux",
+            "-target", defaultTargetTriple,
         ])
       #endif
 
@@ -831,7 +831,7 @@ final class BuildPlanTests: XCTestCase {
                 "-o", "/path/to/build/debug/liblib.so", "-module-name", "lib",
                 "-emit-library", "-Xlinker", "-rpath=$ORIGIN",
                 "@/path/to/build/debug/lib.product/Objects.LinkFileList",
-                "-target", "x86_64-unknown-linux",
+                "-target", defaultTargetTriple,
             ]
         #endif
 
@@ -895,8 +895,8 @@ final class BuildPlanTests: XCTestCase {
             
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "@/path/to/build/debug/exe.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", "x86_64-apple-macosx10.10"])
     #else
-        XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lstdc++", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.so", "-module-name", "lib", "-emit-library", "-Xlinker", "-rpath=$ORIGIN", "@/path/to/build/debug/lib.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", "x86_64-unknown-linux"])
-        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath=$ORIGIN", "@/path/to/build/debug/exe.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", "x86_64-unknown-linux"])
+        XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lstdc++", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.so", "-module-name", "lib", "-emit-library", "-Xlinker", "-rpath=$ORIGIN", "@/path/to/build/debug/lib.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", defaultTargetTriple])
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath=$ORIGIN", "@/path/to/build/debug/exe.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", defaultTargetTriple])
     #endif
     }
 
