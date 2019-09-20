@@ -159,7 +159,6 @@ class Target(object):
         self.is_swift = False
         # FIXME: Currently only C libraries are supported in bootstrap script.
         self.is_c = False
-        self.enable_module_interface = False
 
         self.sources = []
         self.module_root_dir = os.path.join(g_source_root, subpath or self.name)
@@ -203,7 +202,6 @@ class Target(object):
                                      link_input_nodes, predecessor_node, target_map):
         # Compute the derived paths.
         module_path = os.path.join(module_dir, "%s.swiftmodule" % (self.name,))
-        module_interface_path = os.path.join(module_dir, "%s.swiftinterface" % (self.name,))
 
         # Create the per-file entries.
         swift_objects = []
@@ -232,13 +230,7 @@ class Target(object):
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
         link_input_nodes.append(compile_swift_node)
 
-        if self.enable_module_interface:
-            other_args.extend(["-enable-library-evolution", "-emit-module-interface-path", module_interface_path])
-            other_args.extend(["-swift-version", "5"])
-        else:
-            # FIXME: We should just update to the newer version.
-            other_args.extend(["-swift-version", "4"])
-
+        other_args.extend(["-swift-version", "4"])
         other_args.extend(["-module-cache-path", os.path.join(args.sandbox_path, "ModuleCache")])
         
         print("  %s:" % json.dumps(compile_swift_node), file=output)
@@ -648,8 +640,6 @@ def build_runtimes(targets, sandbox_path, args):
         target_copy.name = 'PackageDescription'
         target_copy.release = args.release
         target_copy.swiftflags = ["-DPACKAGE_DESCRIPTION_%s" % (version)]
-        if platform.system() == 'Darwin':
-            target_copy.enable_module_interface = True
         build = llbuild(
                 os.path.join(sandbox_path, "runtimes", version), [target_copy], args)
         build.create_manifest()
@@ -660,8 +650,6 @@ def build_runtimes(targets, sandbox_path, args):
 def process_runtime_libraries(build, args, lib_path):
     module_input_path = os.path.join(
         build.module_dir, "PackageDescription.swiftmodule")
-    moduleinterface_input_path = os.path.join(
-        build.module_dir, "PackageDescription.swiftinterface")
     swiftdoc_input_path = os.path.join(
         build.module_dir, "PackageDescription.swiftdoc")
     input_lib_path = os.path.join(
@@ -670,19 +658,13 @@ def process_runtime_libraries(build, args, lib_path):
     mkdir_p(lib_path)
     runtime_module_path = os.path.join(
         lib_path, "PackageDescription.swiftmodule")
-    runtime_moduleinterface_path = os.path.join(
-        lib_path, "PackageDescription.swiftinterface")
     runtime_swiftdoc_path = os.path.join(
         lib_path, "PackageDescription.swiftdoc")
 
-    if platform.system() == 'Darwin':
-        distutils.file_util.copy_file(moduleinterface_input_path, runtime_moduleinterface_path,
-            update=1)
-    else:
-        distutils.file_util.copy_file(module_input_path, runtime_module_path,
-            update=1)
-        distutils.file_util.copy_file(swiftdoc_input_path, runtime_swiftdoc_path,
-            update=1)
+    distutils.file_util.copy_file(module_input_path, runtime_module_path,
+        update=1)
+    distutils.file_util.copy_file(swiftdoc_input_path, runtime_swiftdoc_path,
+        update=1)
 
     if platform.system() == 'Darwin':
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.dylib")
@@ -691,7 +673,6 @@ def process_runtime_libraries(build, args, lib_path):
                "-Xlinker", "-all_load",
                input_lib_path,
                "-sdk", args.sysroot,
-               "-enable-library-evolution",
                "-target", "x86_64-apple-macosx10.10"]
     elif platform.system() == 'Windows':
         runtime_lib_path = os.path.join(lib_path, "PackageDescription.dll")
@@ -715,7 +696,7 @@ def process_runtime_libraries(build, args, lib_path):
     cmd.extend(["-module-cache-path", os.path.join(args.sandbox_path, "ModuleCache")])
 
     subprocess.check_call(cmd)
-    return (runtime_moduleinterface_path, runtime_module_path, runtime_swiftdoc_path, runtime_lib_path)
+    return (runtime_module_path, runtime_swiftdoc_path, runtime_lib_path)
 
 
 def get_swift_build_tool_path():
@@ -1387,38 +1368,29 @@ def main():
 
             # Install the runtimes.
             for version, runtime in processed_runtimes.items():
-                runtime_moduleinterface_path, runtime_module_path, runtime_swiftdoc_path, runtime_lib_path = runtime
+                runtime_module_path, runtime_swiftdoc_path, runtime_lib_path = runtime
                 install_path = os.path.join(lib_install_path, version)
 
                 # Install library.
                 installBinary(runtime_lib_path, install_path, args)
 
-                if platform.system() == 'Darwin':
-                    cmd = ["install", "-m", "0644",
-                           runtime_moduleinterface_path, install_path]
-                    note("installing %s: %s" % (
-                        os.path.basename(runtime_moduleinterface_path), ' '.join(cmd)))
-                    result = subprocess.call(cmd)
-                    if result != 0:
-                        error("module install failed with exit status %d" % (result,))
-                else:
-                    # Install module.
-                    cmd = ["install", "-m", "0644",
-                           runtime_module_path, install_path]
-                    note("installing %s: %s" % (
-                        os.path.basename(runtime_module_path), ' '.join(cmd)))
-                    result = subprocess.call(cmd)
-                    if result != 0:
-                        error("module install failed with exit status %d" % (result,))
+                # Install module.
+                cmd = ["install", "-m", "0644",
+                       runtime_module_path, install_path]
+                note("installing %s: %s" % (
+                    os.path.basename(runtime_module_path), ' '.join(cmd)))
+                result = subprocess.call(cmd)
+                if result != 0:
+                    error("module install failed with exit status %d" % (result,))
 
-                    # Install swiftdoc.
-                    cmd = ["install", "-m", "0644",
-                           runtime_swiftdoc_path, install_path]
-                    note("installing %s: %s" % (
-                        os.path.basename(runtime_swiftdoc_path), ' '.join(cmd)))
-                    result = subprocess.call(cmd)
-                    if result != 0:
-                        error("swiftdoc install failed with exit status %d" % (result,))
+                # Install swiftdoc.
+                cmd = ["install", "-m", "0644",
+                       runtime_swiftdoc_path, install_path]
+                note("installing %s: %s" % (
+                    os.path.basename(runtime_swiftdoc_path), ' '.join(cmd)))
+                result = subprocess.call(cmd)
+                if result != 0:
+                    error("swiftdoc install failed with exit status %d" % (result,))
 
     
     # Copy the libSwiftPM library to a directory, if we've been asked to do so.
