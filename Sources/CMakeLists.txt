@@ -7,7 +7,6 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_subdirectory(Build)
-add_subdirectory(clibc)
 add_subdirectory(Commands)
 add_subdirectory(PackageDescription4)
 add_subdirectory(PackageGraph)
@@ -21,6 +20,7 @@ add_subdirectory(swift-run)
 add_subdirectory(swift-test)
 add_subdirectory(TSCBasic)
 add_subdirectory(TSCLibc)
+add_subdirectory(TSCclibc)
 add_subdirectory(TSCUtility)
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
   add_subdirectory(swiftpm-xctest-helper)

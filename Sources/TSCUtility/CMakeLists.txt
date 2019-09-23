@@ -18,6 +18,7 @@ add_library(TSCUtility
   IndexStore.swift
   InterruptHandler.swift
   misc.swift
+  OSLog.swift
   PkgConfig.swift
   Platform.swift
   ProgressAnimation.swift
