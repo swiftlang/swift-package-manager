@@ -7,6 +7,9 @@
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
+#if os(Windows)
+import Foundation
+#endif
 
 /// Represents an absolute file system path, independently of what (or whether
 /// anything at all) exists at that path in the file system at any given time.
@@ -370,6 +373,10 @@ private struct PathImpl: Hashable {
     /// string consisting of just `.` if there is no directory part (which is
     /// the case if and only if there is no path separator).
     fileprivate var dirname: String {
+#if os(Windows)
+        let dir = string.deletingLastPathComponent
+        return dir == "" ? "." : dir
+#else
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         // Find the last path separator.
@@ -385,6 +392,7 @@ private struct PathImpl: Hashable {
         // Otherwise, it's the string up to (but not including) the last path
         // separator.
         return String(string.prefix(upTo: idx))
+#endif
     }
 
     fileprivate var basename: String {
