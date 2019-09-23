@@ -747,6 +747,9 @@ public final class ProductBuildDescription {
     /// The list of targets that are going to be linked statically in this product.
     fileprivate var staticTargets: [ResolvedTarget] = []
 
+    /// The list of Swift modules that should be passed to the linker. This is required for debugging to work.
+    fileprivate var swiftASTs: [AbsolutePath] = []
+
     /// Path to the temporary directory for this product.
     var tempsPath: AbsolutePath {
         return buildParameters.buildPath.appending(component: product.name + ".product")
@@ -869,6 +872,11 @@ public final class ProductBuildDescription {
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags()
+
+        // Add AST paths on Darwin to make the product debuggable.
+        if buildParameters.triple.isDarwin(), buildParameters.configuration == .debug {
+            args += swiftASTs.flatMap{ ["-Xlinker", "-add_ast_path", "-Xlinker", $0.pathString] }
+        }
 
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.linkerFlags
@@ -1181,6 +1189,17 @@ public class BuildPlan {
             if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
                 buildProduct.additionalFlags += self.buildParameters.toolchain.extraCPPFlags
                 break
+            }
+        }
+
+        // Add Swift modules to this product so it can be debugged.
+        for target in dependencies.staticTargets {
+            switch target.underlyingTarget {
+            case is SwiftTarget:
+                // Swift targets are guaranteed to have a corresponding Swift description.
+                guard case .swift(let description) = targetMap[target]! else { fatalError() }
+                buildProduct.swiftASTs.append(description.moduleOutputPath)
+            default: break
             }
         }
 

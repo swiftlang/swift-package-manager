@@ -114,7 +114,9 @@ final class BuildPlanTests: XCTestCase {
             "-emit-executable",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
-            "-target", "x86_64-apple-macosx10.10",
+            "-target", "x86_64-apple-macosx10.10", "-Xlinker", "-add_ast_path",
+            "-Xlinker", "/path/to/build/debug/exe.swiftmodule", "-Xlinker", "-add_ast_path",
+            "-Xlinker", "/path/to/build/debug/lib.swiftmodule",
         ]
       #else
         let linkArguments = [
@@ -461,6 +463,7 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/exe.swiftmodule",
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -604,6 +607,8 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/PkgPackageTests.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/FooTests.swiftmodule",
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/Foo.swiftmodule",
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
@@ -656,6 +661,7 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/exe.swiftmodule",
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -749,6 +755,7 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/Foo.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/Foo.swiftmodule"
         ])
 
         XCTAssertEqual(barLinkArgs, [
@@ -757,6 +764,7 @@ final class BuildPlanTests: XCTestCase {
             "-module-name", "Bar_Baz", "-emit-library",
             "@/path/to/build/debug/Bar-Baz.product/Objects.LinkFileList",
             "-target", "x86_64-apple-macosx10.10",
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/Bar.swiftmodule"
         ])
       #else
         XCTAssertEqual(fooLinkArgs, [
@@ -824,6 +832,7 @@ final class BuildPlanTests: XCTestCase {
                 "-emit-library",
                 "@/path/to/build/debug/lib.product/Objects.LinkFileList",
                 "-target", "x86_64-apple-macosx10.10",
+                "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/lib.swiftmodule",
             ]
         #else
             let linkArguments = [
@@ -1393,7 +1402,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(exe, [.anySequence, "-DFOO", "-framework", "CoreData", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
-            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-framework", "CoreData", "-Ilfoo", "-L", "lbar", .end])
+            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-framework", "CoreData", "-Ilfoo", "-L", "lbar", .anySequence])
         }
     }
 
