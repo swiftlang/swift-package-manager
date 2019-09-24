@@ -9,6 +9,9 @@
 */
 
 import TSCLibc
+#if os(Windows)
+import MSVCRT
+#endif
 
 /// A class to have better control on tty output streams: standard output and standard error.
 /// Allows operations like cursor movement and colored text output on tty.
@@ -84,6 +87,18 @@ public final class TerminalController {
         } else {
             width = 80
         }
+
+#if os(Windows)
+       // Enable VT100 interpretation
+        let hOut = GetStdHandle(STD_OUTPUT_HANDLE)
+        var dwMode: DWORD = 0
+
+        guard hOut != INVALID_HANDLE_VALUE else { return nil }
+        guard GetConsoleMode(hOut, &dwMode) else { return nil }
+
+        dwMode |= DWORD(ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+        guard SetConsoleMode(hOut, dwMode) else { return nil }
+#endif
         self.stream = stream
     }
 
