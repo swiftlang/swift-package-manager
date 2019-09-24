@@ -10,6 +10,7 @@ add_library(TSCBasic
   Await.swift
   ByteString.swift
   CacheableSequence.swift
+  CodableResult.swift
   CollectionAlgorithms.swift
   CollectionExtensions.swift
   Condition.swift
