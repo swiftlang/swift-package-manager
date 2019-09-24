@@ -296,6 +296,20 @@ public final class LLBuildManifestGenerator {
         buildTarget.outputs.insert(target.moduleOutputPath.pathString)
         let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
         buildTarget.cmds.insert(Command(name: target.target.getCommandName(config: buildConfig), tool: tool))
+
+        // Add commands to perform the module wrapping Swift modules when debugging statergy is `modulewrap`.
+        if plan.buildParameters.debuggingStrategy == .modulewrap {
+            let modulewrapTool = ShellTool(
+                description: "Wrapping AST for \(target.target.name) for debugging",
+                inputs: [target.moduleOutputPath.pathString],
+                outputs: [target.wrappedModuleOutputPath.pathString],
+                args: [target.buildParameters.toolchain.swiftCompiler.pathString,
+                       "-modulewrap", target.moduleOutputPath.pathString, "-o",
+                       target.wrappedModuleOutputPath.pathString],
+                allowMissingInputs: false)
+            buildTarget.cmds.insert(Command(name: target.wrappedModuleOutputPath.pathString, tool: modulewrapTool))
+        }
+
         return buildTarget
     }
 
