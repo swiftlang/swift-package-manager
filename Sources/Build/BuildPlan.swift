@@ -855,6 +855,10 @@ public final class ProductBuildDescription {
             }
         case .library(.dynamic):
             args += ["-emit-library"]
+            if buildParameters.triple.isDarwin() {
+                let relativePath = "@rpath/\(outname.pathString)"
+                args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
+            }
         case .executable:
             // Link the Swift stdlib statically, if requested.
             //
@@ -867,10 +871,12 @@ public final class ProductBuildDescription {
             args += ["-emit-executable"]
         }
 
-        // On linux, set rpath such that dynamic libraries are looked up
-        // adjacent to the product. This happens by default on macOS.
+        // Set rpath such that dynamic libraries are looked up
+        // adjacent to the product.
         if buildParameters.triple.isLinux() {
             args += ["-Xlinker", "-rpath=$ORIGIN"]
+        } else if buildParameters.triple.isDarwin() {
+            args += ["-Xlinker", "-rpath", "-Xlinker", "@loader_path"]
         }
         args += ["@\(linkFileListPath.pathString)"]
 
