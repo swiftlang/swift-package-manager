@@ -876,7 +876,7 @@ public final class ProductBuildDescription {
         if buildParameters.triple.isLinux() {
             args += ["-Xlinker", "-rpath=$ORIGIN"]
         } else if buildParameters.triple.isDarwin() {
-            args += ["-Xlinker", "-rpath", "-Xlinker", "@executable_path"]
+            args += ["-Xlinker", "-rpath", "-Xlinker", "@loader_path"]
         }
         args += ["@\(linkFileListPath.pathString)"]
 
