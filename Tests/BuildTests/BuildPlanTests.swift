@@ -795,6 +795,15 @@ final class BuildPlanTests: XCTestCase {
         ])
       #endif
 
+      #if os(macOS)
+        XCTAssert(
+            barLinkArgs.contains("-install_name")
+                && barLinkArgs.contains("@rpath/libBar-Baz.dylib")
+                && barLinkArgs.contains("-rpath")
+                && barLinkArgs.contains("@executable_path"),
+            "The dynamic library will not work once moved outside the build directory."
+        )
+      #endif
     }
 
     func testExecAsDependency() throws {
