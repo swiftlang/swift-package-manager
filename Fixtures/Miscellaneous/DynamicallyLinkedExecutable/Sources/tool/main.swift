@@ -1,2 +1,0 @@
-import DynamicLibrary
-helloWorld()

@@ -35,7 +35,6 @@ extension MiscellaneousTestCase {
         ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
         ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),
         ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
-        ("testDynamicallyLinkedExecutable", testDynamicallyLinkedExecutable),
         ("testExternalDependencyEdges1", testExternalDependencyEdges1),
         ("testExternalDependencyEdges2", testExternalDependencyEdges2),
         ("testInternalDependencyEdges", testInternalDependencyEdges),

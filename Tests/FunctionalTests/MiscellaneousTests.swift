@@ -16,7 +16,6 @@ import TSCUtility
 import TSCLibc
 import class Foundation.ProcessInfo
 import class Foundation.Thread
-import class Foundation.FileManager
 import Workspace
 
 typealias ProcessID = TSCBasic.Process.ProcessID
@@ -435,45 +434,5 @@ class MiscellaneousTestCase: XCTestCase {
                 """)
         }
       #endif
-    }
-
-    func testDynamicallyLinkedExecutable() {
-        // This test verifies that dynamical linking is done in such a way
-        // that products can be moved out of the build directory and still work.
-
-        let fixtureName = "Miscellaneous/DynamicallyLinkedExecutable"
-        fixture(name: fixtureName) { prefix in
-
-            // Trigger build... (...verifying fixure validity at the same time)
-            let directRunOutput = try SwiftPMProduct.SwiftRun.execute(
-                ["--configuration", "release", "tool"],
-                packagePath: prefix,
-                env: [:])
-            XCTAssert(directRunOutput.contains("Hello, World!"), "Broken fixture: \(fixtureName)")
-
-            // Get the products directory.
-            let productsQuery = try SwiftPMProduct.SwiftBuild.execute(
-                ["--configuration", "release", "--show-bin-path"],
-                packagePath: prefix,
-                env: [:])
-            guard let productsDirectory = productsQuery.spm_chuzzle()
-                .map({ AbsolutePath($0) }) else {
-                XCTFail("Failed to get products directory: \(productsQuery)")
-                return
-            }
-
-            // Move the products somewhere else.
-            let newLocation = prefix.appending(component: "Installed")
-            try FileManager.default.moveItem(at: productsDirectory.asURL, to: newLocation.asURL)
-            let result = try Process.popen(
-                args: newLocation.appending(component: "tool").pathString)
-            XCTAssertEqual(
-                result.exitStatus, .terminated(code: 0),
-                "The dynamically linked tool errored.")
-            let output = try result.utf8Output()
-            XCTAssertEqual(
-                output.spm_chuzzle(), "Hello, World!",
-                "Unexpected output: \(output)")
-        }
     }
 }
