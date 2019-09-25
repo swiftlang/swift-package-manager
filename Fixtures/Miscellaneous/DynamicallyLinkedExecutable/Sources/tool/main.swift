@@ -1,0 +1,2 @@
+import DynamicLibrary
+helloWorld()
