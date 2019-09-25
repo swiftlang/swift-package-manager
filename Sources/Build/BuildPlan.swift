@@ -855,6 +855,10 @@ public final class ProductBuildDescription {
             }
         case .library(.dynamic):
             args += ["-emit-library"]
+            if buildParameters.triple.isDarwin() {
+                let relativePath = "@executable_path/\(outname.pathString)"
+                args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
+            }
         case .executable:
             // Link the Swift stdlib statically, if requested.
             //
