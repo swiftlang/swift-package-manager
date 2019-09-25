@@ -264,6 +264,7 @@ class Target(object):
             import_paths.append(os.path.join(args.libdispatch_build_dir, 'lib'))
             import_paths.append(os.path.join(args.libdispatch_build_dir, "src"))
             import_paths.append(os.path.join(args.libdispatch_build_dir, "src", "swift"))
+            import_paths.append(os.path.join(args.libdispatch_build_dir, "src", "swift", "swift"))
         if args.libdispatch_source_dir:
             import_paths.append(args.libdispatch_source_dir)
         if args.xctest_path:
@@ -1205,7 +1206,14 @@ def main():
 
             # Add swiftmodules.
             for module_file in ["Dispatch.swiftmodule", "Dispatch.swiftdoc"]:
-                symlink_force(os.path.join(args.libdispatch_build_dir, 'src', 'swift', module_file), libincludedir)
+                paths = [
+                    os.path.join(args.libdispatch_build_dir, 'src', 'swift', 'swift', module_file),
+                    os.path.join(args.libdispatch_build_dir, 'src', 'swift', module_file),
+                ]
+                for path in paths:
+                    if os.path.exists(path):
+                        symlink_force(path, libincludedir)
+                        continue
 
             symlink_force(os.path.join(args.libdispatch_source_dir), os.path.join(libincludedir, "dispatch"))
 
