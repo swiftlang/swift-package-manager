@@ -112,6 +112,7 @@ final class BuildPlanTests: XCTestCase {
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe",
             "-emit-executable",
+            "-Xlinker", "-rpath", "-Xlinker", "@executable_path",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10", "-Xlinker", "-add_ast_path",
@@ -228,6 +229,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/release",
             "-o", "/path/to/build/release/exe", "-module-name", "exe", "-emit-executable",
+            "-Xlinker", "-rpath", "-Xlinker", "@executable_path",
             "@/path/to/build/release/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
@@ -327,6 +329,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
+            "-Xlinker", "-rpath", "-Xlinker", "@executable_path",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-runtime-compatibility-version", "none",
             "-target", "x86_64-apple-macosx10.10",
@@ -386,6 +389,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             "/fake/path/to/swiftc", "-lc++", "-L", "/path/to/build/debug", "-o",
             "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
+            "-Xlinker", "-rpath", "-Xlinker", "@executable_path",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-runtime-compatibility-version", "none",
             "-target", "x86_64-apple-macosx10.10",
@@ -460,6 +464,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
+            "-Xlinker", "-rpath", "-Xlinker", "@executable_path",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
@@ -604,6 +609,7 @@ final class BuildPlanTests: XCTestCase {
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug", "-o",
             "/path/to/build/debug/PkgPackageTests.xctest/Contents/MacOS/PkgPackageTests", "-module-name",
             "PkgPackageTests", "-Xlinker", "-bundle",
+            "-Xlinker", "-rpath", "-Xlinker", "@executable_path",
             "@/path/to/build/debug/PkgPackageTests.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
@@ -658,6 +664,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
+            "-Xlinker", "-rpath", "-Xlinker", "@executable_path",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
@@ -752,6 +759,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(fooLinkArgs, [
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
            "-o", "/path/to/build/debug/Foo", "-module-name", "Foo", "-lBar-Baz", "-emit-executable",
+           "-Xlinker", "-rpath", "-Xlinker", "@executable_path",
             "@/path/to/build/debug/Foo.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
@@ -762,7 +770,8 @@ final class BuildPlanTests: XCTestCase {
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug", "-o",
             "/path/to/build/debug/libBar-Baz.dylib",
             "-module-name", "Bar_Baz", "-emit-library",
-            "-Xlinker", "-install_name", "-Xlinker", "@executable_path/libBar-Baz.dylib",
+            "-Xlinker", "-install_name", "-Xlinker", "@rpath/libBar-Baz.dylib",
+            "-Xlinker", "-rpath", "-Xlinker", "@executable_path",
             "@/path/to/build/debug/Bar-Baz.product/Objects.LinkFileList",
             "-target", "x86_64-apple-macosx10.10",
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/Bar.swiftmodule"
@@ -831,7 +840,8 @@ final class BuildPlanTests: XCTestCase {
                 "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
                 "-o", "/path/to/build/debug/liblib.dylib", "-module-name", "lib",
                 "-emit-library",
-                "-Xlinker", "-install_name", "-Xlinker", "@executable_path/liblib.dylib",
+                "-Xlinker", "-install_name", "-Xlinker", "@rpath/liblib.dylib",
+                "-Xlinker", "-rpath", "-Xlinker", "@executable_path",
                 "@/path/to/build/debug/lib.product/Objects.LinkFileList",
                 "-target", "x86_64-apple-macosx10.10",
                 "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/lib.swiftmodule",
@@ -902,9 +912,9 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
 
     #if os(macOS)
-        XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lc++", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.dylib", "-module-name", "lib", "-emit-library", "-Xlinker", "-install_name", "-Xlinker", "@executable_path/liblib.dylib", "@/path/to/build/debug/lib.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", "x86_64-apple-macosx10.10"])
+        XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lc++", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.dylib", "-module-name", "lib", "-emit-library", "-Xlinker", "-install_name", "-Xlinker", "@rpath/liblib.dylib", "-Xlinker", "-rpath", "-Xlinker", "@executable_path", "@/path/to/build/debug/lib.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", "x86_64-apple-macosx10.10"])
             
-        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "@/path/to/build/debug/exe.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", "x86_64-apple-macosx10.10"])
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath", "-Xlinker", "@executable_path", "@/path/to/build/debug/exe.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", "x86_64-apple-macosx10.10"])
     #else
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lstdc++", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.so", "-module-name", "lib", "-emit-library", "-Xlinker", "-rpath=$ORIGIN", "@/path/to/build/debug/lib.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", defaultTargetTriple])
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath=$ORIGIN", "@/path/to/build/debug/exe.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", defaultTargetTriple])
