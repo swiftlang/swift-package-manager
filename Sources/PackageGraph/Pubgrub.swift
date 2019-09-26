@@ -213,8 +213,7 @@ public struct Incompatibility: Equatable, Hashable {
         // Remove the root package from generated incompatibilities, since it will
         // always be selected.
         var terms = terms
-        if terms.count > 1,
-            case .conflict(conflict: _, other: _) = cause,
+        if terms.count > 1, cause.isConflict,
             terms.contains(where: { $0.isPositive && $0.package == root }) {
             terms = OrderedSet(terms.filter { !$0.isPositive || $0.package != root })
         }
@@ -262,6 +261,11 @@ extension Incompatibility {
     ///         └────────────┘
     /// ```
     indirect enum Cause: Equatable, Hashable {
+        struct ConflictCause: Hashable {
+            let conflict: Incompatibility
+            let other: Incompatibility
+        }
+
         /// The root incompatibility.
         case root
 
@@ -271,7 +275,7 @@ extension Incompatibility {
 
         /// The incompatibility was derived from two others during conflict
         /// resolution.
-        case conflict(conflict: Incompatibility, other: Incompatibility)
+        case conflict(cause: ConflictCause)
 
         /// There exists no version to fulfill the specified requirement.
         case noAvailableVersion
@@ -1104,7 +1108,7 @@ public final class PubgrubDependencyResolver {
             incompatibility = Incompatibility(
                 OrderedSet(newTerms),
                 root: root!,
-                cause: .conflict(conflict: incompatibility, other: priorCause))
+                cause: .conflict(cause: .init(conflict: incompatibility, other: priorCause)))
             createdIncompatibility = true
 
             log("CR: \(mostRecentTerm?.description ?? "") is\(difference != nil ? " partially" : "") satisfied by \(_mostRecentSatisfier)")
@@ -1193,9 +1197,9 @@ private final class DiagnosticReportBuilder {
         /// Populate `derivations`.
         func countDerivations(_ i: Incompatibility) {
             derivations[i, default: 0] += 1
-            if case .conflict(let lhs, let rhs) = i.cause {
-                countDerivations(lhs)
-                countDerivations(rhs)
+            if case .conflict(let cause) = i.cause {
+                countDerivations(cause.conflict)
+                countDerivations(cause.other)
             }
         }
 

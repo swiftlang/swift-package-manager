@@ -183,7 +183,7 @@ public struct ModuleMapGenerator {
 extension ModuleMapGenerator.ModuleMapError: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .unsupportedIncludeLayoutForModule(let (name, problem)):
+        case .unsupportedIncludeLayoutForModule(let name, let problem):
             return "target '\(name)' failed modulemap generation; \(problem)"
         }
     }
@@ -192,15 +192,15 @@ extension ModuleMapGenerator.ModuleMapError: CustomStringConvertible {
 extension ModuleMapGenerator.ModuleMapError.UnsupportedIncludeLayoutType: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .umbrellaHeaderWithAdditionalNonEmptyDirectories(let (umbrella, dirs)):
+        case .umbrellaHeaderWithAdditionalNonEmptyDirectories(let umbrella, let dirs):
             return "umbrella header defined at '\(umbrella)', but directories exist: " +
                 dirs.map({ $0.description }).sorted().joined(separator: ", ") +
                 "; consider removing them"
-        case .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(let (umbrella, dirs)):
+        case .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(let umbrella, let dirs):
             return "umbrella header defined at '\(umbrella)', but more than one directories exist: " +
                 dirs.map({ $0.description }).sorted().joined(separator: ", ") +
                 "; consider reducing them to one"
-        case .umbrellaHeaderWithAdditionalFilesInIncludeDirectory(let (umbrella, files)):
+        case .umbrellaHeaderWithAdditionalFilesInIncludeDirectory(let umbrella, let files):
             return "umbrella header defined at '\(umbrella)', but files exist:" +
                 files.map({ $0.description }).sorted().joined(separator: ", ") +
                 "; consider removing them"
