@@ -122,7 +122,7 @@ public struct Triple: Encodable {
     }
 
     public static let macOS = try! Triple("x86_64-apple-macosx")
-    public static let x86_64Linux = try! Triple("x86_64-unknown-linux")
+    public static let x86_64Linux = try! Triple("x86_64-unknown-linux-gnu")
     public static let i686Linux = try! Triple("i686-unknown-linux")
     public static let ppc64leLinux = try! Triple("powerpc64le-unknown-linux")
     public static let s390xLinux = try! Triple("s390x-unknown-linux")

@@ -1045,7 +1045,7 @@ def main():
         build_target = "x86_64-apple-macosx"
     elif platform.system() == 'Linux':              
         if platform.machine() == 'x86_64':
-            build_target = "x86_64-unknown-linux"
+            build_target = "x86_64-unknown-linux-gnu"
         elif platform.machine() == "i686":
             build_target = "i686-unknown-linux"
         elif platform.machine() == 's390x':
