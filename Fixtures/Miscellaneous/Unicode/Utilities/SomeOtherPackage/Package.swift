@@ -10,6 +10,6 @@ let package = Package(
     targets: [
         .target(
             name: "SomeOtherPackage",
-            dependencies: ["πשּׁµ𝄞🇺🇳x̱̱̱̱̱̄̄̄̄̄"]),
+            dependencies: ["πשּׁµ𝄞🇺🇳🇮🇱x̱̱̱̱̱̄̄̄̄̄"]),
     ]
 )

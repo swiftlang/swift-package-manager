@@ -441,8 +441,8 @@ class MiscellaneousTestCase: XCTestCase {
     func testUnicode() {
         fixture(name: "Miscellaneous/Unicode") { prefix in
             // See the fixture manifest for an explanation of this string.
-            let complicatedString = "πשּׁµ𝄞🇺🇳x̱̱̱̱̱̄̄̄̄̄"
-            let verify = "\u{03C0}\u{0FB2C}\u{00B5}\u{1D11E}\u{1F1FA}\u{1F1F3}\u{0078}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}"
+            let complicatedString = "πשּׁµ𝄞🇺🇳🇮🇱x̱̱̱̱̱̄̄̄̄̄"
+            let verify = "\u{03C0}\u{0FB2C}\u{00B5}\u{1D11E}\u{1F1FA}\u{1F1F3}\u{1F1EE}\u{1F1F1}\u{0078}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}"
             XCTAssert(
                 complicatedString.unicodeScalars.elementsEqual(verify.unicodeScalars),
                 "\(complicatedString) ≠ \(verify)")
