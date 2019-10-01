@@ -444,8 +444,19 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 // Pass the fd in arguments.
                 cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
 
+                // Prefer swiftinterface if both swiftmodule and swiftinterface files are present.
+                //
+                // This will avoid failures during incremental builds when the
+                // slate swiftmodule file is still present from the previous
+                // install. We should be able to remove this after some
+                // transition period.
+                var env = ProcessEnv.vars
+              #if os(macOS)
+                env["SWIFT_FORCE_MODULE_LOADING"] = "prefer-parseable"
+              #endif
+
                 // Run the command.
-                let result = try Process.popen(arguments: cmd)
+                let result = try Process.popen(arguments: cmd, environment: env)
                 let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle()
                 manifestParseResult.compilerOutput = output
 
