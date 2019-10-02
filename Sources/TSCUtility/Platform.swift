@@ -15,6 +15,7 @@ import Foundation
 public enum Platform {
     case darwin
     case linux(LinuxFlavor)
+    case windows
 
     /// Recognized flavors of linux.
     public enum LinuxFlavor {
@@ -25,6 +26,9 @@ public enum Platform {
     public static var currentPlatform = Platform.findCurrentPlatform()
     /// Attempt to match `uname` with recognized platforms.
     private static func findCurrentPlatform() -> Platform? {
+      #if os(Windows)
+        return .windows
+      #else
         guard let uname = try? Process.checkNonZeroExit(args: "uname").spm_chomp().lowercased() else { return nil }
         switch uname {
         case "darwin":
@@ -37,6 +41,7 @@ public enum Platform {
             return nil
         }
         return nil
+      #endif
     }
 
     /// Returns the cache directories used in Darwin.

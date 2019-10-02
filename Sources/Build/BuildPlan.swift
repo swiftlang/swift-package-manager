@@ -219,6 +219,8 @@ public struct BuildParameters: Encodable {
     var currentPlatform: PackageModel.Platform {
         if self.triple.isDarwin() {
             return .macOS
+        } else if self.triple.isWindows() {
+            return .windows
         } else {
             return .linux
         }

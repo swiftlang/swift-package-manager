@@ -29,7 +29,7 @@ public final class PlatformRegistry {
 
     /// The static list of known platforms.
     private static var _knownPlatforms: [Platform] {
-        return [.macOS, .iOS, .tvOS, .watchOS, .linux]
+        return [.macOS, .iOS, .tvOS, .watchOS, .linux, .windows]
     }
 }
 
@@ -55,6 +55,7 @@ public struct Platform: Equatable, Hashable {
     public static let tvOS: Platform = Platform(name: "tvos", oldestSupportedVersion: "9.0")
     public static let watchOS: Platform = Platform(name: "watchos", oldestSupportedVersion: "2.0")
     public static let linux: Platform = Platform(name: "linux", oldestSupportedVersion: .unknown)
+    public static let windows: Platform = Platform(name: "windows", oldestSupportedVersion: .unknown)
 }
 
 /// Represents a platform version.
