@@ -419,7 +419,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
           #endif
             cmd += [resources.swiftCompiler.pathString]
+            // The interpreter doesn't work on Windows yet, so instead
+            // we compile and run it on Windows
+#if !os(Windows)
             cmd += ["--driver-mode=swift"]
+#endif
             cmd += bootstrapArgs()
             cmd += verbosity.ccArgs
             cmd += ["-L", runtimePath, "-lPackageDescription"]
@@ -438,7 +442,35 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
 
             cmd += [manifestPath.pathString]
+#if os(Windows)
+            try withTemporaryFile { file in
+                cmd += ["-o", "\(file.path).exe"]
 
+                try Process.popen(arguments: cmd)
+
+                let compileResult = try Process.popen(arguments: cmd)
+                let compileOutput = try (compileResult.utf8Output() + compileResult.utf8stderrOutput()).spm_chuzzle()
+                manifestParseResult.compilerOutput = compileOutput
+
+                // Return now if there was an error.
+                if compileResult.exitStatus != .terminated(code: 0) {
+                    return
+                }
+
+                // Pass the fd in arguments.
+                cmd = ["\(file.path).exe", "-fileno", "1"]
+
+                // Run the command.
+                let result = try Process.popen(arguments: cmd)
+                manifestParseResult.parsedManifest =
+                  try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle()
+
+                // Return now if there was an error.
+                if result.exitStatus != .terminated(code: 0) {
+                    return
+                }
+            }
+#else
             // Create and open a temporary file to write json to.
             try withTemporaryFile { file in
                 // Pass the fd in arguments.
@@ -470,6 +502,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 }
                 manifestParseResult.parsedManifest = json
             }
+#endif
         }
 
         var manifestParseResult = ManifestParseResult()
@@ -563,6 +596,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
       #endif
         if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
             cmd += ["-sdk", sdkRoot.pathString]
+      #if os(Windows)
+            cmd += ["-resource-dir", sdkRoot.pathString + "\\usr\\lib\\swift"]
+            cmd += ["-L", sdkRoot.pathString + "\\usr\\lib\\swift\\windows"]
+      #endif
         }
         cmd += ["-package-description-version", manifestVersion.description]
         return cmd
