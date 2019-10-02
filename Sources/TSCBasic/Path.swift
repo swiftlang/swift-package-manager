@@ -561,11 +561,13 @@ private func mayNeedNormalization(absolute string: String) -> Bool {
 ///
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(absolute string: String) -> String {
+  #if os(Windows)
+    return string.standardizingPath
+  #else
     precondition(string.first == "/", "Failure normalizing \(string), absolute paths should start with '/'")
 
     // At this point we expect to have a path separator as first character.
     assert(string.first == "/")
-
     // Fast path.
     if !mayNeedNormalization(absolute: string) {
         return string
@@ -621,6 +623,7 @@ private func normalize(absolute string: String) -> String {
 
     // Use the result as our stored string.
     return result
+  #endif
 }
 
 /// Private function that normalizes and returns a relative string.  Asserts
@@ -628,6 +631,9 @@ private func normalize(absolute string: String) -> String {
 ///
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(relative string: String) -> String {
+  #if os(Windows)
+    return string.standardizingPath
+  #else
     precondition(string.first != "/")
 
     // FIXME: Here we should also keep track of whether anything actually has
@@ -688,4 +694,5 @@ private func normalize(relative string: String) -> String {
 
     // If the result is empty, return `.`, otherwise we return it as a string.
     return result.isEmpty ? "." : result
+  #endif
 }
