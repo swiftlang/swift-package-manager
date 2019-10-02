@@ -452,7 +452,8 @@ class MiscellaneousTestCase: XCTestCase {
             let dependencyOrigin = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
                 .appending(component: "Fixtures")
                 .appending(component: "Miscellaneous")
-                .appending(component: dependencyName)
+                // Fixture originates from macOS; directory name is in NFD:
+                .appending(component: dependencyName.decomposedStringWithCanonicalMapping)
             let dependencyDestination = prefix.parentDirectory.appending(component: dependencyName)
             try? FileManager.default.removeItem(atPath: dependencyDestination.pathString)
             defer { try? FileManager.default.removeItem(atPath: dependencyDestination.pathString) }
