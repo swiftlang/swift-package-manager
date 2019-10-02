@@ -48,9 +48,14 @@ public func getEnvSearchPaths(
     currentWorkingDirectory: AbsolutePath?
 ) -> [AbsolutePath] {
     // Compute search paths from PATH variable.
-    return (pathString ?? "").split(separator: ":").map(String.init).compactMap({ pathString in
+  #if os(Windows)
+    let sep: Character = ";"
+  #else
+    let sep: Character = ":"
+  #endif
+    return (pathString ?? "").split(separator: sep).map(String.init).compactMap({ pathString in
         // If this is an absolute path, we're done.
-        if pathString.first == "/" {
+        if pathString.isAbsolutePath {
             return AbsolutePath(pathString)
         }
         // Otherwise convert it into absolute path relative to the working directory.

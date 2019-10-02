@@ -57,7 +57,11 @@ public class Git {
     }
 
     /// A shell command to run for Git. Can be either a name or a path.
+  #if os(Windows)
+    public static var tool: String = "git.exe"
+  #else
     public static var tool: String = "git"
+  #endif
 
     /// Returns true if the git reference name is well formed.
     public static func checkRefFormat(ref: String) -> Bool {
