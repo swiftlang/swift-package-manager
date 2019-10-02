@@ -256,8 +256,13 @@ public final class Process: ObjectIdentifierProtocol {
                 return value
             }
             // FIXME: This can be cached.
+#if os(Windows)
+            let pathVar = "Path"
+#else
+            let pathVar = "PATH"
+#endif
             let envSearchPaths = getEnvSearchPaths(
-                pathString: ProcessEnv.vars["PATH"],
+                pathString: ProcessEnv.vars[pathVar],
                 currentWorkingDirectory: localFileSystem.currentWorkingDirectory
             )
             // Lookup and cache the executable path.
@@ -283,14 +288,14 @@ public final class Process: ObjectIdentifierProtocol {
         }
 
         // Look for executable.
-        guard Process.findExecutable(arguments[0]) != nil else {
+        guard let exePath = Process.findExecutable(arguments[0]) else {
             throw Process.Error.missingExecutableProgram(program: arguments[0])
         }
 
     #if os(Windows)
         _process = Foundation.Process()
-        _process?.arguments = arguments
-        _process?.executableURL = URL(fileURLWithPath: arguments[0])
+        _process?.arguments = Array(arguments[1...])
+        _process?.executableURL = URL(fileURLWithPath: exePath.pathString)
 
         if outputRedirection.redirectsOutput {
             let stdoutPipe = Pipe()
@@ -441,8 +446,8 @@ public final class Process: ObjectIdentifierProtocol {
         let executionResult = ProcessResult(
             arguments: arguments,
             exitStatusCode: p.terminationStatus,
-            output: stdout.result,
-            stderrOutput: stderr.result
+            output: .success(stdoutData),
+            stderrOutput: .success(stderrData)
         )
         return executionResult
       #else

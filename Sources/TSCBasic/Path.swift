@@ -60,7 +60,7 @@ public struct AbsolutePath: Hashable {
     /// or relative; if relative, `basePath` is used as the anchor; if absolute,
     /// it is used as is, and in this case `basePath` is ignored.
     public init(_ str: String, relativeTo basePath: AbsolutePath) {
-        if str.hasPrefix("/") {
+        if str.isAbsolutePath {
             self.init(str)
         } else {
             self.init(basePath, RelativePath(str))
