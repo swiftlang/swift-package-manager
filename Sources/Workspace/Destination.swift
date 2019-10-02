@@ -114,6 +114,16 @@ public struct Destination: Encodable {
             extraSwiftCFlags: commonArgs,
             extraCPPFlags: ["-lc++"]
         )
+      #elseif os(Windows)
+        let sdkPath = ProcessEnv.vars["SDKROOT"].map { AbsolutePath($0) } ?? .root
+        return Destination(
+            target: hostTargetTriple,
+            sdk: sdkPath,
+            binDir: binDir,
+            extraCCFlags: [],
+            extraSwiftCFlags: [],
+            extraCPPFlags: ["-lstdc++"]
+        )
       #else
         return Destination(
             target: hostTargetTriple,

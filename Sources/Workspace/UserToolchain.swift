@@ -205,10 +205,17 @@ public final class UserToolchain: Toolchain {
         self.xctest = nil
       #endif
 
-        self.extraSwiftCFlags = (destination.target.isDarwin()
-                                    ? ["-sdk", destination.sdk.pathString]
-                                    : [])
-                                  + destination.extraSwiftCFlags
+        if destination.target.isDarwin() {
+            self.extraSwiftCFlags = ["-sdk", destination.sdk.pathString]
+        } else if (destination.target.isWindows()) {
+            self.extraSwiftCFlags = [
+              "-sdk", destination.sdk.pathString,
+              "-resource-dir", destination.sdk.pathString + "\\usr\\lib\\swift",
+              "-L", destination.sdk.pathString + "\\usr\\lib\\swift\\windows"
+            ]
+        } else {
+            self.extraSwiftCFlags = []
+        }
 
         self.extraCCFlags = [
             destination.target.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
