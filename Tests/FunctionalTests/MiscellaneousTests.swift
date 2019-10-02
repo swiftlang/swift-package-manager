@@ -16,6 +16,8 @@ import TSCUtility
 import TSCLibc
 import class Foundation.ProcessInfo
 import class Foundation.Thread
+import SourceControl
+import SPMTestSupport
 import Workspace
 
 typealias ProcessID = TSCBasic.Process.ProcessID
@@ -434,5 +436,41 @@ class MiscellaneousTestCase: XCTestCase {
                 """)
         }
       #endif
+    }
+
+    func testUnicode() {
+        #if !os(Linux) // TODO: - Linux has trouble with this and needs investigation.
+        fixture(name: "Miscellaneous/Unicode") { prefix in
+            // See the fixture manifest for an explanation of this string.
+            let complicatedString = "πשּׁµ𝄞🇺🇳🇮🇱x̱̱̱̱̱̄̄̄̄̄"
+            let verify = "\u{03C0}\u{0FB2C}\u{00B5}\u{1D11E}\u{1F1FA}\u{1F1F3}\u{1F1EE}\u{1F1F1}\u{0078}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}"
+            XCTAssert(
+                complicatedString.unicodeScalars.elementsEqual(verify.unicodeScalars),
+                "\(complicatedString) ≠ \(verify)")
+
+            // ••••• Set up dependency.
+            let dependencyName = "UnicodeDependency‐\(complicatedString)"
+            let dependencyOrigin = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+                .appending(component: "Fixtures")
+                .appending(component: "Miscellaneous")
+                .appending(component: dependencyName)
+            let dependencyDestination = prefix.parentDirectory.appending(component: dependencyName)
+            try? FileManager.default.removeItem(atPath: dependencyDestination.pathString)
+            defer { try? FileManager.default.removeItem(atPath: dependencyDestination.pathString) }
+            try FileManager.default.copyItem(
+                atPath: dependencyOrigin.pathString,
+                toPath: dependencyDestination.pathString)
+            let dependency = GitRepository(path: dependencyDestination)
+            try dependency.create()
+            try dependency.stageEverything()
+            try dependency.commit()
+            try dependency.tag(name: "1.0.0")
+            // •••••
+
+            // Attempt several operations.
+            try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
+            try SwiftPMProduct.SwiftRun.execute([complicatedString + "‐tool"], packagePath: prefix)
+        }
+        #endif
     }
 }
