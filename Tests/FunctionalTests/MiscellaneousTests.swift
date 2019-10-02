@@ -439,7 +439,6 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testUnicode() {
-        #if !os(Linux) // TODO: - Linux has trouble with this and needs investigation.
         fixture(name: "Miscellaneous/Unicode") { prefix in
             // See the fixture manifest for an explanation of this string.
             let complicatedString = "πשּׁµ𝄞🇺🇳🇮🇱x̱̱̱̱̱̄̄̄̄̄"
@@ -471,6 +470,5 @@ class MiscellaneousTestCase: XCTestCase {
             try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
             try SwiftPMProduct.SwiftRun.execute([complicatedString + "‐tool"], packagePath: prefix)
         }
-        #endif
     }
 }
