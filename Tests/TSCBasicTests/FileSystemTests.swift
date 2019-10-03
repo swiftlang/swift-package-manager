@@ -73,7 +73,10 @@ class FileSystemTests: XCTestCase {
                     _ = try fs.getDirectoryContents(AbsolutePath("/does-not-exist"))
                     XCTFail("Unexpected success")
                 } catch {
-                    XCTAssertEqual(error.localizedDescription, "The folder “does-not-exist” doesn’t exist.")
+                    XCTAssertEqual(error._domain, "NSCocoaErrorDomain")
+                    XCTAssertEqual(error._code, 260)
+                    XCTAssert(error.localizedDescription.contains("does-not-exist"))
+                    // English description: “The folder “does-not-exist” doesn’t exist.”
                 }
 
                 let thisDirectoryContents = try! fs.getDirectoryContents(AbsolutePath(#file).parentDirectory)
