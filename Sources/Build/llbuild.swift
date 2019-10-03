@@ -353,6 +353,9 @@ public final class LLBuildManifestGenerator {
         let commands: [Command] = try target.compilePaths().map({ path in
             var args = target.basicArguments()
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
+          #if os(Windows)
+            args += ["-D_MD", "-D_DLL", "-U_DEBUG"]
+          #endif
 
             // Add language standard flag if needed.
             if let ext = path.source.extension {
