@@ -229,36 +229,65 @@ public extension FileSystem {
 /// Concrete FileSystem implementation which communicates with the local file system.
 private class LocalFileSystem: FileSystem {
 
+    /// Returns the path in the normalization form (or lack thereof) actually present on disk.
+    /// Any path components without a match on disk are left unaltered.
+    private func resolveUnicode(_ path: AbsolutePath) -> AbsolutePath {
+        if _exists(path, followSymlink: true) {
+            return path
+        } else {
+            // Search for any neighbours with Unicode‐equivalent names
+            // in order to be resilient against Unicode‐naïveté in the file system.
+            let parent = resolveUnicode(path.parentDirectory)
+            let neighbours = (try? _getDirectoryContents(parent)) ?? []
+            if let equivalent = neighbours.first(where: { $0 == path.basename }) {
+                // Return the extant equivalent.
+                return parent.appending(component: equivalent)
+            } else {
+                // Nothing found; return unaltered (but still using resolved parent).
+                return parent.appending(component: path.basename)
+            }
+        }
+    }
+
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
+        let path = resolveUnicode(path)
         // Our semantics doesn't consider directories.
         return  (self.isFile(path) || self.isSymlink(path)) && FileManager.default.isExecutableFile(atPath: path.pathString)
     }
 
-    func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
+    /// This method is Unicode‐naïve.
+    private func _exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
         if followSymlink {
             return FileManager.default.fileExists(atPath: path.pathString)
         }
         return (try? FileManager.default.attributesOfItem(atPath: path.pathString)) != nil
     }
+    func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
+        let path = resolveUnicode(path)
+        return _exists(path, followSymlink: followSymlink)
+    }
 
     func isDirectory(_ path: AbsolutePath) -> Bool {
+        let path = resolveUnicode(path)
         var isDirectory: ObjCBool = false
         let exists: Bool = FileManager.default.fileExists(atPath: path.pathString, isDirectory: &isDirectory)
         return exists && isDirectory.boolValue
     }
 
     func isFile(_ path: AbsolutePath) -> Bool {
-        let path = resolveSymlinks(path)
+        let path = resolveUnicode(resolveSymlinks(resolveUnicode(path)))
         let attrs = try? FileManager.default.attributesOfItem(atPath: path.pathString)
         return attrs?[.type] as? FileAttributeType == .typeRegular
     }
 
     func isSymlink(_ path: AbsolutePath) -> Bool {
+        let path = resolveUnicode(path)
         let attrs = try? FileManager.default.attributesOfItem(atPath: path.pathString)
         return attrs?[.type] as? FileAttributeType == .typeSymbolicLink
     }
 
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
+        let path = resolveUnicode(path)
         let attrs = try FileManager.default.attributesOfItem(atPath: path.pathString)
         return FileInfo(attrs)
     }
@@ -272,25 +301,30 @@ private class LocalFileSystem: FileSystem {
         return AbsolutePath(NSHomeDirectory())
     }
 
+    /// This method is Unicode‐naïve.
+    func _getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
+        #if canImport(Darwin)
+          return try FileManager.default.contentsOfDirectory(atPath: path.pathString)
+        #else
+          do {
+              return try FileManager.default.contentsOfDirectory(atPath: path.pathString)
+          } catch let error as NSError {
+              // Fixup error from corelibs-foundation.
+              if error.code == CocoaError.fileReadNoSuchFile.rawValue, !error.userInfo.keys.contains(NSLocalizedDescriptionKey) {
+                  var userInfo = error.userInfo
+                  userInfo[NSLocalizedDescriptionKey] = "The folder “\(path.basename)” doesn’t exist."
+                  throw NSError(domain: error.domain, code: error.code, userInfo: userInfo)
+              }
+              throw error
+          }
+        #endif
+    }
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
-      #if canImport(Darwin)
-        return try FileManager.default.contentsOfDirectory(atPath: path.pathString)
-      #else
-        do {
-            return try FileManager.default.contentsOfDirectory(atPath: path.pathString)
-        } catch let error as NSError {
-            // Fixup error from corelibs-foundation.
-            if error.code == CocoaError.fileReadNoSuchFile.rawValue, !error.userInfo.keys.contains(NSLocalizedDescriptionKey) {
-                var userInfo = error.userInfo
-                userInfo[NSLocalizedDescriptionKey] = "The folder “\(path.basename)” doesn’t exist."
-                throw NSError(domain: error.domain, code: error.code, userInfo: userInfo)
-            }
-            throw error
-        }
-      #endif
+      return try _getDirectoryContents(resolveUnicode(path))
     }
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
+        let path = resolveUnicode(path)
         // Don't fail if path is already a directory.
         if isDirectory(path) { return }
 
@@ -298,6 +332,7 @@ private class LocalFileSystem: FileSystem {
     }
 
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
+        let path = resolveUnicode(path)
         // Open the file.
         let fp = fopen(path.pathString, "rb")
         if fp == nil {
@@ -327,6 +362,7 @@ private class LocalFileSystem: FileSystem {
     }
 
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
+        let path = resolveUnicode(path)
         // Open the file.
         let fp = fopen(path.pathString, "wb")
         if fp == nil {
@@ -350,6 +386,7 @@ private class LocalFileSystem: FileSystem {
     }
 
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
+        let path = resolveUnicode(path)
         // Perform non-atomic writes using the fast path.
         if !atomically {
             return try writeFileContents(path, bytes: bytes)
@@ -369,12 +406,14 @@ private class LocalFileSystem: FileSystem {
     }
 
     func removeFileTree(_ path: AbsolutePath) throws {
+        let path = resolveUnicode(path)
         if self.exists(path, followSymlink: false) {
             try FileManager.default.removeItem(atPath: path.pathString)
         }
     }
 
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
+        let path = resolveUnicode(path)
         guard exists(path) else { return }
         func setMode(path: String) throws {
             let attrs = try FileManager.default.attributesOfItem(atPath: path)

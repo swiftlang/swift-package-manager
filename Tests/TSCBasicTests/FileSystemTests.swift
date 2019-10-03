@@ -83,6 +83,35 @@ class FileSystemTests: XCTestCase {
                 XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == "." }))
                 XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == ".." }))
                 XCTAssertTrue(thisDirectoryContents.contains(where: { $0 == AbsolutePath(#file).basename }))
+
+                // Unicode
+                let willyNillyString = "e\u{301}\u{E9}x\u{304}\u{331}" // Neither NFC nor NFD.
+                let nfdString = "e\u{301}e\u{301}x\u{331}\u{304}"
+                let nfcString = "\u{E9}\u{E9}x\u{331}\u{304}"
+                #if !os(Linux) // TODO: Linux cannot normalize?!?
+                XCTAssertEqual(
+                    Array(willyNillyString.decomposedStringWithCanonicalMapping.unicodeScalars),
+                    Array(nfdString.unicodeScalars))
+                XCTAssertEqual(
+                    Array(willyNillyString.precomposedStringWithCanonicalMapping.unicodeScalars),
+                    Array(nfcString.unicodeScalars))
+                #endif
+                let willyNilly = tempDirPath.appending(component: willyNillyString)
+                let nfd = tempDirPath.appending(component: nfdString)
+                let nfc = tempDirPath.appending(component: nfcString)
+                let variants = [willyNilly, nfd, nfc]
+                for directory in variants {
+                    do {
+                        try fs.createDirectory(directory)
+                        defer { try? fs.removeFileTree(directory) }
+                        for other in variants {
+                            _ = try fs.getDirectoryContents(other)
+                        }
+                    } catch {
+                        let directoryName = directory.basename.unicodeScalars.map({ "U+\($0.value)" })
+                        XCTFail("Unable to handle directory named “\(directoryName)”: \(error)")
+                    }
+                }
             }
         }
     }
