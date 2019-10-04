@@ -35,10 +35,15 @@ let package = Package(
             name: complicatedString,
             dependencies: [.product(name: "UnicodeDependency‐\(complicatedString)")]),
         .target(
+            name: "C" + complicatedString),
+        .target(
             name: complicatedString + "‐tool",
             dependencies: [.target(name: complicatedString)]),
         .testTarget(
             name: complicatedString + "Tests",
-            dependencies: [.target(name: complicatedString)]),
+            dependencies: [
+                .target(name: complicatedString),
+                .target(name: "C" + complicatedString)
+            ]),
     ]
 )
