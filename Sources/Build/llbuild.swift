@@ -181,17 +181,19 @@ public final class LLBuildManifestGenerator {
 
         for package in plan.graph.rootPackages {
             let directoryStructureInputs = package.targets.map {
-                $0.sources.root.pathString + "/"
+                localFileSystem.resolveUnicode($0.sources.root).pathString + "/"
             }.sorted()
             self.nodes += directoryStructureInputs.map{ Node(value: $0, isDirectoryStructure: true) }
 
             inputs = directoryStructureInputs
 
             // FIXME: Need to handle version-specific manifests.
-            inputs += [package.manifest.path.pathString]
+            inputs += [localFileSystem.resolveUnicode(package.manifest.path).pathString]
 
             // FIXME: This won't be the location of Package.resolved for multiroot packages.
-            inputs += [package.path.appending(component: "Package.resolved").pathString]
+            inputs += [
+                localFileSystem.resolveUnicode(package.path.appending(component: "Package.resolved")).pathString
+            ]
 
             // FIXME: Add config file as an input
         }
@@ -240,7 +242,7 @@ public final class LLBuildManifestGenerator {
     private func createSwiftCompileTarget(_ target: SwiftTargetBuildDescription) -> Target {
         // Compute inital inputs.
         var inputs = SortedArray<String>()
-        inputs += target.target.sources.paths.map({ $0.pathString })
+        inputs += target.target.sources.paths.map({ localFileSystem.resolveUnicode($0).pathString })
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.
@@ -363,10 +365,13 @@ public final class LLBuildManifestGenerator {
                 }
             }
 
-            args += ["-c", path.source.pathString, "-o", path.object.pathString]
+            args += [
+                "-c", localFileSystem.resolveUnicode(path.source).pathString,
+                "-o", path.object.pathString
+            ]
             let clang = ClangTool(
                 desc: "Compiling \(target.target.name) \(path.filename)",
-                inputs: externalDependencies + [path.source.pathString],
+                inputs: externalDependencies + [localFileSystem.resolveUnicode(path.source).pathString],
                 outputs: [path.object.pathString],
                 args: [try plan.buildParameters.toolchain.getClangCompiler().pathString] + args,
                 deps: path.deps.pathString)

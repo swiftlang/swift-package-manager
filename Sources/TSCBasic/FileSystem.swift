@@ -184,6 +184,16 @@ public protocol FileSystem: class {
     ///
     /// The method throws if the underlying stat call fails.
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo
+
+    /// Returns the path in the normalization form (or lack thereof) actually present.
+    /// Any path components without an extant match are left unaltered.
+    ///
+    /// On file systems that natively consider Unicode‐equivalent paths to be equal,
+    /// the returned value need not represent the actual scalars present.
+    /// It is sufficient if whatever scalars are returned
+    /// *will be considered equal to the real ones by the file system*
+    /// when future file system calls are made.*
+    func resolveUnicode(_ path: AbsolutePath) -> AbsolutePath
 }
 
 /// Convenience implementations (default arguments aren't permitted in protocol
@@ -224,14 +234,16 @@ public extension FileSystem {
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
         fatalError("This file system currently doesn't support this method")
     }
+
+    func resolveUnicode(_ path: AbsolutePath) -> AbsolutePath {
+        return path
+    }
 }
 
 /// Concrete FileSystem implementation which communicates with the local file system.
 private class LocalFileSystem: FileSystem {
 
-    /// Returns the path in the normalization form (or lack thereof) actually present on disk.
-    /// Any path components without a match on disk are left unaltered.
-    private func resolveUnicode(_ path: AbsolutePath) -> AbsolutePath {
+    func resolveUnicode(_ path: AbsolutePath) -> AbsolutePath {
         if _exists(path, followSymlink: true) {
             return path
         } else {
