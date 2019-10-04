@@ -244,6 +244,11 @@ public extension FileSystem {
 private class LocalFileSystem: FileSystem {
 
     func resolveUnicode(_ path: AbsolutePath) -> AbsolutePath {
+        #if os(macOS)
+        // The macOS file system enforces NFD.
+        // It can find everything without any help.
+        return path
+        #else
         if _exists(path, followSymlink: true) {
             return path
         } else {
@@ -259,6 +264,7 @@ private class LocalFileSystem: FileSystem {
                 return parent.appending(component: path.basename)
             }
         }
+        #endif
     }
 
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
