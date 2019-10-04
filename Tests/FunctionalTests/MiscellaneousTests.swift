@@ -468,8 +468,11 @@ class MiscellaneousTestCase: XCTestCase {
             // •••••
 
             // Attempt several operations.
-            try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
-            try SwiftPMProduct.SwiftRun.execute([complicatedString + "‐tool"], packagePath: prefix)
+            // (An explanation for the sandbox disabling can be found at the bottom of the fixture manifest.)
+            try SwiftPMProduct.SwiftTest.execute(["--disable-sandbox"], packagePath: prefix)
+            try SwiftPMProduct.SwiftRun.execute([
+                "--disable-sandbox", complicatedString + "‐tool"
+            ], packagePath: prefix)
         }
     }
 }

@@ -47,3 +47,27 @@ let package = Package(
             ]),
     ]
 )
+
+// This section is separate on purpose.
+// If the directory turns out to be illegal on a platform (Windows?),
+// it can easily be removed with “#if !os(...)” and the rest of the test will still work.
+let equivalentToASCII = "\u{037E}" // ερωτηματικό (greek question mark)
+let ascii = "\u{3B}" // semicolon
+// What follows is a nasty hack that requires sandboxing to be disabled. (--disable-sandbox)
+// The target it creates can exist in this form on Linux and other platforms,
+// but as soon as it is checked out on macOS, the macOS filesystem obliterates the distinction,
+// leaving the test meaningless.
+// Since much development of the SwiftPM repository occurs on macOS,
+// maintaining the integrity of the test fixture requires regenerating this part of it each time.
+import Foundation
+let manifestURL = URL(fileURLWithPath: #file)
+let packageRoot = manifestURL.deletingLastPathComponent()
+let targetURL = packageRoot
+    .appendingPathComponent("Sources")
+    .appendingPathComponent(equivalentToASCII)
+let sourceURL = targetURL.appendingPathComponent("Source.swift")
+try FileManager.default.createDirectory(at: targetURL, withIntermediateDirectories: true)
+try Data().write(to: targetURL.appendingPathComponent("\(equivalentToASCII).swift"))
+package.targets.append(.target(name: ascii))
+let tests = package.targets.first(where: { $0.type == .test })!
+tests.dependencies.append(.target(name: ascii))
