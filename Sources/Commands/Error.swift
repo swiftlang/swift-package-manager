@@ -86,6 +86,8 @@ func print(diagnostic: Diagnostic, stdoutStream: OutputByteStream) {
         writer.write("warning: ", inColor: .yellow, bold: true)
     case .note:
         writer.write("note: ", inColor: .yellow, bold: true)
+    case .remark:
+        writer.write("remark: ", inColor: .yellow, bold: true)
     case .ignored:
         break
     }

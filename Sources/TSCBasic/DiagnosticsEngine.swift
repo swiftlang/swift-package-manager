@@ -32,6 +32,8 @@ public struct Diagnostic: CustomStringConvertible {
 
         case note
 
+        case remark
+
         // FIXME: Kill this
         case ignored
     }
@@ -164,6 +166,10 @@ extension Diagnostic.Message {
         .init(data: data, behavior: .note)
     }
 
+    public static func remark(_ data: DiagnosticData) -> Diagnostic.Message {
+      .init(data: data, behavior: .remark)
+  }
+
     public static func error(_ str: String) -> Diagnostic.Message {
         .error(StringDiagnostic(str))
     }
@@ -174,6 +180,10 @@ extension Diagnostic.Message {
 
     public static func note(_ str: String) -> Diagnostic.Message {
         .note(StringDiagnostic(str))
+    }
+
+    public static func remark(_ str: String) -> Diagnostic.Message {
+        .remark(StringDiagnostic(str))
     }
 }
 

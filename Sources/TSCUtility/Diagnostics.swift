@@ -54,6 +54,13 @@ extension DiagnosticsEngine {
         emit(.note(note), location: location)
     }
 
+  public func emit(
+      remark: String,
+      location: DiagnosticLocation = UnknownLocation.location
+  ) {
+      emit(.remark(remark), location: location)
+  }
+
     /// Emit a Swift error.
     ///
     /// Errors will be converted into diagnostic data if possible.
