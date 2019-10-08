@@ -227,7 +227,8 @@ public class Workspace {
             var allConstraints = [RepositoryPackageConstraint]()
 
             for (externalManifest, managedDependency) in dependencies {
-
+                // For edited packages, add a constraint with unversioned requirement so the
+                // resolver doesn't try to resolve it.
                 switch managedDependency.state {
                 case .edited:
                     // FIXME: We shouldn't need to construct a new package reference object here.
@@ -237,16 +238,14 @@ public class Workspace {
                         path: managedDependency.packageRef.path,
                         isLocal: true
                     )
-                    // Add an unversioned constraint if the dependency is in edited state.
                     let constraint = RepositoryPackageConstraint(
                         container: ref,
                         requirement: .unversioned)
                     allConstraints.append(constraint)
-
                 case .checkout, .local:
-                    // For checkouts, add all the constraints in the manifest.
-                    allConstraints += externalManifest.dependencyConstraints(config: workspace.config)
+                    break
                 }
+                allConstraints += externalManifest.dependencyConstraints(config: workspace.config)
             }
             return allConstraints
         }

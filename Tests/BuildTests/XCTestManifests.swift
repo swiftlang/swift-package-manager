@@ -20,6 +20,7 @@ extension BuildPlanTests {
         ("testExecBuildTimeDependency", testExecBuildTimeDependency),
         ("testExtraBuildFlags", testExtraBuildFlags),
         ("testIndexStore", testIndexStore),
+        ("testModulewrap", testModulewrap),
         ("testNonReachableProductsAndTargets", testNonReachableProductsAndTargets),
         ("testObjCHeader1", testObjCHeader1),
         ("testObjCHeader2", testObjCHeader2),

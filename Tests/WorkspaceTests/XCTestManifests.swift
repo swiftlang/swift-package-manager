@@ -56,6 +56,7 @@ extension WorkspaceTests {
         ("testDependencySwitchWithSameIdentity", testDependencySwitchWithSameIdentity),
         ("testDuplicateRootPackages", testDuplicateRootPackages),
         ("testEditDependency", testEditDependency),
+        ("testEditDependencyHadOverridableConstraints", testEditDependencyHadOverridableConstraints),
         ("testForceResolveToResolvedVersions", testForceResolveToResolvedVersions),
         ("testForceResolveToResolvedVersionsLocalPackage", testForceResolveToResolvedVersionsLocalPackage),
         ("testGraphRootDependencies", testGraphRootDependencies),
