@@ -904,6 +904,12 @@ public final class PubgrubDependencyResolver {
         self.root = root
         self.pinsStore = pinsStore
 
+        // Prefetch the containers if prefetching is enabled.
+        if isPrefetchingEnabled {
+            let pins = pinsStore?.pins.map{ $0.packageRef } ?? []
+            self.provider.prefetch(containers: pins)
+        }
+
         // Add the root incompatibility.
         let rootIncompatibility = Incompatibility(
             terms: [Term(not: root, .exact("1.0.0"))],
@@ -1825,7 +1831,7 @@ private final class ContainerProvider {
     }
 
     /// Starts prefetching the given containers.
-    private func prefetch(containers identifiers: [PackageReference]) {
+    func prefetch(containers identifiers: [PackageReference]) {
         fetchCondition.whileLocked {
             // Process each container.
             for identifier in identifiers {
