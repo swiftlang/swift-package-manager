@@ -3158,6 +3158,108 @@ final class WorkspaceTests: XCTestCase {
            }
         }
     }
+
+    func testEditDependencyHadOverridableConstraints() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo", "Baz"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Foo", requirement: .branch("master")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .branch("master")),
+                    ],
+                    versions: ["master", nil]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["master", "1.0.0", nil]
+                ),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz"),
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", nil]
+                ),
+            ],
+            enablePubGrub: true
+        )
+
+        // Load the graph.
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.branch("master")))
+            result.check(dependency: "bar", at: .checkout(.branch("master")))
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+        }
+
+        // Edit foo.
+        let fooPath = workspace.createWorkspace().editablesPath.appending(component: "Foo")
+        workspace.checkEdit(packageName: "Foo") { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .edited(nil))
+        }
+        XCTAssertTrue(fs.exists(fooPath))
+
+        // Add entry for the edited package.
+        do {
+            let fooKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Foo")
+            let editedFooKey = MockManifestLoader.Key(url: "/tmp/ws/edits/Foo")
+            let manifest = workspace.manifestLoader.manifests[fooKey]!
+            workspace.manifestLoader.manifests[editedFooKey] = manifest
+        }
+        XCTAssertMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
+        workspace.delegate.events.removeAll()
+
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .edited(nil))
+            result.check(dependency: "bar", at: .checkout(.branch("master")))
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+        }
+        XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
+    }
 }
 
 extension PackageGraph {

@@ -29,6 +29,7 @@ public final class TestWorkspace {
     public let delegate = TestWorkspaceDelegate()
     let toolsVersion: ToolsVersion
     let skipUpdate: Bool
+    let enablePubGrub: Bool
 
     public init(
         sandbox: AbsolutePath,
@@ -36,7 +37,8 @@ public final class TestWorkspace {
         roots: [TestPackage],
         packages: [TestPackage],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        skipUpdate: Bool = false
+        skipUpdate: Bool = false,
+        enablePubGrub: Bool = false
     ) throws {
         self.sandbox = sandbox
         self.fs = fs
@@ -48,6 +50,7 @@ public final class TestWorkspace {
         self.repoProvider = InMemoryGitRepositoryProvider()
         self.toolsVersion = toolsVersion
         self.skipUpdate = skipUpdate
+        self.enablePubGrub = enablePubGrub
 
         try create()
     }
@@ -142,6 +145,7 @@ public final class TestWorkspace {
             config: config,
             fileSystem: fs,
             repositoryProvider: repoProvider,
+            enablePubgrubResolver: enablePubGrub,
             skipUpdate: skipUpdate
         )
         return _workspace!
