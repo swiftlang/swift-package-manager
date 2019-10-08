@@ -380,9 +380,21 @@ uses libarchive with xz you must make a `CArchive+CXz` package that depends on
 You may be working with code that builds both as a package and not. For example,
 you may be packaging a project that also builds with Xcode.
 
-In these cases, you can use the build configuration `SWIFT_PACKAGE` to
+In these cases, you can define a build setting `SWIFT_PACKAGE` to
 conditionally compile code for Swift packages.
 
+In your Package manifest:
+```swift
+.target(
+    name: "<your-package-name>",
+    dependencies: [],
+    cSettings: [
+        .define("SWIFT_PACKAGE"),
+    ]
+)
+```
+
+In your source file:
 ```swift
 #if SWIFT_PACKAGE
 import Foundation
