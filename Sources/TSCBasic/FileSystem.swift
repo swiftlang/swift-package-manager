@@ -665,7 +665,7 @@ public class InMemoryFileSystem: FileSystem {
         // Ignore root and get the parent node's content if its a directory.
         guard !path.isRoot,
               let parent = try? getNode(path.parentDirectory),
-              case .directory(let contents)? = parent?.contents else {
+            case .directory(let contents) = parent?.contents else {
             return
         }
         // Set it to nil to release the contents.

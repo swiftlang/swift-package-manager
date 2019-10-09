@@ -200,7 +200,7 @@ struct PkgConfigParser {
 
     mutating func parse() throws {
         func removeComment(line: String) -> String {
-            if let commentIndex = line.index(of: "#") {
+            if let commentIndex = line.firstIndex(of: "#") {
                 return String(line[line.startIndex..<commentIndex])
             }
             return line
@@ -321,9 +321,9 @@ struct PkgConfigParser {
         // We make sure it of form ${name} otherwise it is not a variable.
         func findVariable(_ fragment: String)
             -> (name: String, startIndex: String.Index, endIndex: String.Index)? {
-            guard let dollar = fragment.index(of: "$"),
+            guard let dollar = fragment.firstIndex(of: "$"),
                   dollar != fragment.endIndex && fragment[fragment.index(after: dollar)] == "{",
-                  let variableEndIndex = fragment.index(of: "}")
+                  let variableEndIndex = fragment.firstIndex(of: "}")
             else { return nil }
             return (String(fragment[fragment.index(dollar, offsetBy: 2)..<variableEndIndex]), dollar, variableEndIndex)
         }

@@ -45,7 +45,7 @@ public enum JSON {
     case dictionary([String: JSON])
 
     /// An ordered dictionary.
-    case orderedDictionary(DictionaryLiteral<String, JSON>)
+    case orderedDictionary(KeyValuePairs<String, JSON>)
 }
 
 /// A JSON representation of an element.
@@ -262,7 +262,7 @@ extension JSON {
 
     /// Load a JSON item from a byte string.
     public init(bytes: ByteString) throws {
-        try self.init(data: Data(bytes: bytes.contents))
+        try self.init(data: Data(bytes.contents))
     }
 
     /// Convenience initalizer for UTF8 encoded strings.

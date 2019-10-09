@@ -14,17 +14,17 @@ import TSCBasic
 class DictionaryLiteralExtensionsTests: XCTestCase {
 
     func testDescription() {
-        XCTAssertEqual(DictionaryLiteral(dictionaryLiteral: ("foo", 1)).description, "[foo: 1]")
-        XCTAssertEqual(DictionaryLiteral(dictionaryLiteral: ("foo", 1), ("bar", 2)).description, "[foo: 1, bar: 2]")
+        XCTAssertEqual(KeyValuePairs(dictionaryLiteral: ("foo", 1)).description, "[foo: 1]")
+        XCTAssertEqual(KeyValuePairs(dictionaryLiteral: ("foo", 1), ("bar", 2)).description, "[foo: 1, bar: 2]")
     }
 
     func testEquality() {
-        XCTAssertTrue(DictionaryLiteral(dictionaryLiteral: ("foo", 1)) == DictionaryLiteral(dictionaryLiteral: ("foo", 1)))
-        XCTAssertTrue(DictionaryLiteral(dictionaryLiteral: ("foo", 1), ("bar", 2)) == DictionaryLiteral(dictionaryLiteral: ("foo", 1), ("bar", 2)))
+        XCTAssertTrue(KeyValuePairs(dictionaryLiteral: ("foo", 1)) == KeyValuePairs(dictionaryLiteral: ("foo", 1)))
+        XCTAssertTrue(KeyValuePairs(dictionaryLiteral: ("foo", 1), ("bar", 2)) == KeyValuePairs(dictionaryLiteral: ("foo", 1), ("bar", 2)))
 
-        XCTAssertFalse(DictionaryLiteral(dictionaryLiteral: ("no-foo", 1), ("bar", 2)) == DictionaryLiteral(dictionaryLiteral: ("foo", 1), ("bar", 2)))
-        XCTAssertFalse(DictionaryLiteral(dictionaryLiteral: ("foo", 0), ("bar", 2)) == DictionaryLiteral(dictionaryLiteral: ("foo", 1), ("bar", 2)))
-        XCTAssertFalse(DictionaryLiteral(dictionaryLiteral: ("foo", 1), ("bar", 2), ("hoge", 3)) == DictionaryLiteral(dictionaryLiteral: ("foo", 1), ("bar", 2)))
-        XCTAssertFalse(DictionaryLiteral(dictionaryLiteral: ("foo", 1), ("bar", 2)) == DictionaryLiteral(dictionaryLiteral: ("bar", 2), ("foo", 1)))
+        XCTAssertFalse(KeyValuePairs(dictionaryLiteral: ("no-foo", 1), ("bar", 2)) == KeyValuePairs(dictionaryLiteral: ("foo", 1), ("bar", 2)))
+        XCTAssertFalse(KeyValuePairs(dictionaryLiteral: ("foo", 0), ("bar", 2)) == KeyValuePairs(dictionaryLiteral: ("foo", 1), ("bar", 2)))
+        XCTAssertFalse(KeyValuePairs(dictionaryLiteral: ("foo", 1), ("bar", 2), ("hoge", 3)) == KeyValuePairs(dictionaryLiteral: ("foo", 1), ("bar", 2)))
+        XCTAssertFalse(KeyValuePairs(dictionaryLiteral: ("foo", 1), ("bar", 2)) == KeyValuePairs(dictionaryLiteral: ("bar", 2), ("foo", 1)))
     }
 }

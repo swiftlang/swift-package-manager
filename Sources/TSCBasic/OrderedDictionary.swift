@@ -75,7 +75,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
             return nil
         }
         dict[key] = nil
-        array.remove(at: array.index(of: key)!)
+        array.remove(at: array.firstIndex(of: key)!)
         return value
     }
 

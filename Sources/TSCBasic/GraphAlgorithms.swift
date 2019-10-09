@@ -121,7 +121,7 @@ public func findCycle<T: Hashable>(
     func visit(_ node: T, _ successors: (T) throws -> [T]) rethrows -> (path: [T], cycle: [T])? {
         // If this node is already in the current path then we have found a cycle.
         if !path.append(node) {
-            let index = path.index(of: node)!
+            let index = path.firstIndex(of: node)!
             return (Array(path[path.startIndex..<index]), Array(path[index..<path.endIndex]))
         }
 

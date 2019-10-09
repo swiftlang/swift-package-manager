@@ -70,7 +70,7 @@ class WalkTests : XCTestCase {
             AbsolutePath("/sbin")
         ]
         for x in try! walk(AbsolutePath("/"), recursively: false) {
-            if let i = expected.index(of: x) {
+            if let i = expected.firstIndex(of: x) {
                 expected.remove(at: i)
             }
             XCTAssertEqual(2, x.components.count)
@@ -85,7 +85,7 @@ class WalkTests : XCTestCase {
             root.appending(component: "Commands")
         ]
         for x in try! walk(root) {
-            if let i = expected.index(of: x) {
+            if let i = expected.firstIndex(of: x) {
                 expected.remove(at: i)
             }
         }
