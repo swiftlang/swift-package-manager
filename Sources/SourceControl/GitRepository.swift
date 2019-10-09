@@ -682,7 +682,7 @@ private class GitFileSystemView: FileSystem {
     }
 
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
-        if let entry = try? getEntry(path), entry?.type == .executableBlob {
+        if let entry = try? getEntry(path), entry.type == .executableBlob {
             return true
         }
         return false

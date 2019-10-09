@@ -1,4 +1,4 @@
-// swift-tools-version:4.2
+// swift-tools-version:5.1
 
 /*
  This source file is part of the Swift.org open source project
@@ -243,7 +243,7 @@ let package = Package(
             name: "XcodeprojTests",
             dependencies: ["Xcodeproj", "SPMTestSupport"]),
     ],
-    swiftLanguageVersions: [.v4_2]
+    swiftLanguageVersions: [.v5]
 )
 
 // Add package dependency on llbuild when not bootstrapping.
