@@ -63,8 +63,8 @@ extension Version {
     /// - Parameters:
     ///     - version: A version string to use for creating a new version object.
     public init?(_ versionString: String) {
-        let prereleaseStartIndex = versionString.index(of: "-")
-        let metadataStartIndex = versionString.index(of: "+")
+        let prereleaseStartIndex = versionString.firstIndex(of: "-")
+        let metadataStartIndex = versionString.firstIndex(of: "+")
 
         let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? versionString.endIndex
         let requiredCharacters = versionString.prefix(upTo: requiredEndIndex)

@@ -98,7 +98,7 @@ public struct OrderedSet<E: Hashable>: Equatable, Collection {
         let _removedElement = set.remove(element)
         guard let removedElement = _removedElement else { return nil }
 
-        let idx = array.index(of: element)!
+        let idx = array.firstIndex(of: element)!
         array.remove(at: idx)
 
         return removedElement

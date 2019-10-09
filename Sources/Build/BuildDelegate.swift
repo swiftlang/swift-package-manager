@@ -368,6 +368,8 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
             diagnostics.emit(warning: diagnostic.message)
         case .error:
             diagnostics.emit(error: diagnostic.message)
+        @unknown default:
+            diagnostics.emit(note: diagnostic.message)
         }
     }
 
@@ -530,6 +532,9 @@ fileprivate struct CommandTaskTracker {
             totalCount -= 1
             break
         case .isComplete:
+            break
+        @unknown default:
+            assertionFailure("unhandled command status kind \(kind) for command \(command)")
             break
         }
     }

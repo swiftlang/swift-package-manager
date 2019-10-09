@@ -1066,8 +1066,8 @@ public final class PubgrubDependencyResolver {
                 let satisfier = solution.satisfier(for: term)
 
                 if let _mostRecentSatisfier = mostRecentSatisfier {
-                    let mostRecentSatisfierIdx = solution.assignments.index(of: _mostRecentSatisfier)!
-                    let satisfierIdx = solution.assignments.index(of: satisfier)!
+                    let mostRecentSatisfierIdx = solution.assignments.firstIndex(of: _mostRecentSatisfier)!
+                    let satisfierIdx = solution.assignments.firstIndex(of: satisfier)!
 
                     if mostRecentSatisfierIdx < satisfierIdx {
                         previousSatisfierLevel = max(previousSatisfierLevel, _mostRecentSatisfier.decisionLevel)
@@ -1591,7 +1591,7 @@ private final class PubGrubPackageContainer {
         let versions: [Version] = packageContainer.reversedVersions.reversed()
 
         // This is guaranteed to be present.
-        let idx = versions.index(of: fromVersion)!
+        let idx = versions.firstIndex(of: fromVersion)!
 
         var lowerBound = fromVersion
         var upperBound = fromVersion
@@ -1766,7 +1766,7 @@ private final class PubGrubPackageContainer {
         let versions: [Version] = packageContainer.reversedVersions.reversed()
 
         // This is guaranteed to be present.
-        let idx = versions.index(of: fromVersion)!
+        let idx = versions.firstIndex(of: fromVersion)!
 
         // Compute upper and lower bounds for the dependencies.
         let upperBounds = computeBounds(with: AnyCollection(versions.dropFirst(idx + 1)), upperBound: true)

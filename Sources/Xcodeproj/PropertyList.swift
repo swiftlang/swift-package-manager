@@ -69,7 +69,7 @@ extension PropertyList {
             return char == UInt8(ascii: "\\") || char == UInt8(ascii: "\"")
         }
 
-        guard let pos = string.utf8.index(where: needsEscape) else {
+        guard let pos = string.utf8.firstIndex(where: needsEscape) else {
             return string
         }
         var newString = String(string[..<pos])

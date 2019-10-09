@@ -11,7 +11,7 @@
 // Can't conform a protocol explicitly with certain where clause for now but it'd be resolved by SE-0143.
 // ref: https://github.com/apple/swift-evolution/blob/master/proposals/0143-conditional-conformances.md
 // MARK: CustomStringConvertible
-extension DictionaryLiteral where Key: CustomStringConvertible, Value: CustomStringConvertible {
+extension KeyValuePairs where Key: CustomStringConvertible, Value: CustomStringConvertible {
     /// A string that represents the contents of the dictionary literal.
     public var description: String {
         let lastCount = self.count - 1
@@ -25,8 +25,8 @@ extension DictionaryLiteral where Key: CustomStringConvertible, Value: CustomStr
 }
 
 // MARK: Equatable
-extension DictionaryLiteral where Key: Equatable, Value: Equatable {
-    public static func ==(lhs: DictionaryLiteral<Key,Value>, rhs: DictionaryLiteral<Key,Value>) -> Bool {
+extension KeyValuePairs where Key: Equatable, Value: Equatable {
+    public static func ==(lhs: KeyValuePairs<Key,Value>, rhs: KeyValuePairs<Key,Value>) -> Bool {
         if lhs.count != rhs.count {
             return false
         }

@@ -45,12 +45,12 @@ extension String {
     public func spm_shellEscaped() -> String {
 
         // If all the characters in the string are in whitelist then no need to escape.
-        guard let pos = utf8.index(where: { !inShellWhitelist($0) }) else {
+        guard let pos = utf8.firstIndex(where: { !inShellWhitelist($0) }) else {
             return self
         }
 
         // If there are no single quotes then we can just wrap the string around single quotes.
-        guard let singleQuotePos = utf8[pos...].index(of: UInt8(ascii: "'")) else {
+        guard let singleQuotePos = utf8[pos...].firstIndex(of: UInt8(ascii: "'")) else {
             return "'" + self + "'"
         }
 

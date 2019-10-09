@@ -96,7 +96,7 @@ extension SwiftPMConfig: SimplePersistanceProtocol {
 
     public func restore(from json: JSON) throws {
         // FIXME: Find a way to avoid encode-decode dance here.
-        let data = Data(bytes: json.toBytes().contents)
+        let data = Data(json.toBytes().contents)
         let mirrorsData = try JSONDecoder().decode([Mirror].self, from: data)
         self.mirrors = Dictionary(mirrorsData.map({ ($0.original, $0) }), uniquingKeysWith: { first, _ in first })
     }

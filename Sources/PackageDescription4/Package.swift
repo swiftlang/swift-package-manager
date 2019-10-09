@@ -321,7 +321,7 @@ public final class Package {
         // to get the interpreter to dump the package when attempting to load a
         // manifest.
         if CommandLine.argc > 0,
-           let fileNoOptIndex = CommandLine.arguments.index(of: "-fileno"),
+            let fileNoOptIndex = CommandLine.arguments.firstIndex(of: "-fileno"),
            let fileNo = Int32(CommandLine.arguments[fileNoOptIndex + 1]) {
             dumpPackageAtExit(self, fileNo: fileNo)
         }

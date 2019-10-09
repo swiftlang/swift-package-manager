@@ -110,8 +110,8 @@ public extension Version {
     /// - Parameters:
     ///   - string: The string to parse.
     init?(string: String) {
-        let prereleaseStartIndex = string.index(of: "-")
-        let metadataStartIndex = string.index(of: "+")
+        let prereleaseStartIndex = string.firstIndex(of: "-")
+        let metadataStartIndex = string.firstIndex(of: "+")
 
         let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? string.endIndex
         let requiredCharacters = string.prefix(upTo: requiredEndIndex)

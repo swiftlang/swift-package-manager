@@ -505,7 +505,7 @@ public class GitRepository: Repository, WorkingCheckout {
             guard bytes.count > expectedBytesCount,
                   bytes.contents[6] == UInt8(ascii: " "),
                   // Search for the second space since `type` is of variable length.
-                  let secondSpace = bytes.contents[6 + 1 ..< bytes.contents.endIndex].index(of: UInt8(ascii: " ")),
+                  let secondSpace = bytes.contents[6 + 1 ..< bytes.contents.endIndex].firstIndex(of: UInt8(ascii: " ")),
                   bytes.contents[secondSpace] == UInt8(ascii: " "),
                   bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t") else {
                 throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(treeInfo)'")
@@ -618,7 +618,7 @@ private class GitFileSystemView: FileSystem {
             // Search the tree for the component.
             //
             // FIXME: This needs to be optimized, somewhere.
-            guard let index = tree.contents.index(where: { $0.name == component }) else {
+            guard let index = tree.contents.firstIndex(where: { $0.name == component }) else {
                 return nil
             }
 

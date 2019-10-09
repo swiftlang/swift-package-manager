@@ -21,7 +21,7 @@ class VersionTests: XCTestCase {
         XCTAssert("1.0.0" == v1)
         XCTAssertLessThan(Version("1.2.3-alpha.beta.2"), Version("1.2.3-alpha.beta.3"))
 
-        XCTAssertEqual(Version("1.2.3-alpha.beta.2")?.description, "1.2.3-alpha.beta.2")
+        XCTAssertEqual(Version("1.2.3-alpha.beta.2").description, "1.2.3-alpha.beta.2")
     }
 }
 

@@ -125,7 +125,7 @@ private extension SwiftCompilerOutputParser {
     func parseImpl<C>(bytes: C) throws where C: Collection, C.Element == UInt8 {
         switch state {
         case .parsingMessageSize:
-            if let newlineIndex = bytes.index(of: newline) {
+            if let newlineIndex = bytes.firstIndex(of: newline) {
                 buffer.append(contentsOf: bytes[..<newlineIndex])
                 try parseMessageSize()
 
@@ -181,7 +181,7 @@ private extension SwiftCompilerOutputParser {
 
     /// Parse the message in the buffer and update the state machine.
     func parseMessage() throws -> SwiftCompilerMessage {
-        let data = Data(bytes: buffer)
+        let data = Data(buffer)
         buffer.removeAll()
         state = .parsingNewlineAfterMessage
 
