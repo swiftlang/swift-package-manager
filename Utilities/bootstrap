@@ -234,10 +234,8 @@ class Target(object):
 
         if self.enable_module_interface:
             other_args.extend(["-enable-library-evolution", "-emit-module-interface-path", module_interface_path])
-            other_args.extend(["-swift-version", "5"])
-        else:
-            # FIXME: We should just update to the newer version.
-            other_args.extend(["-swift-version", "4"])
+
+        other_args.extend(["-swift-version", "5"])
 
         other_args.extend(["-module-cache-path", os.path.join(args.sandbox_path, "ModuleCache")])
         
