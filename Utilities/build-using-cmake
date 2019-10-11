@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+set -eu
+
+__dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+SRCROOT="`cd "${__dir}/..";pwd`"
+echo "SRCROOT is $SRCROOT"
+
+BUILD_DIR=$SRCROOT/build
+echo "BUILD_DIR is $BUILD_DIR"
+
+mkdir -p $BUILD_DIR
+cd $BUILD_DIR
+
+CMAKE_Swift_FLAGS=""
+if (uname | grep -qi darwin); then
+    CMAKE_Swift_FLAGS="-sdk $(xcrun --sdk macosx --show-sdk-path)"
+fi
+
+echo "Building tools support core"
+mkdir -p tsc
+cd tsc
+
+TSC_SRCROOT="`cd "${SRCROOT}/../swift-tools-support-core";pwd`"
+
+set -x
+cmake \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    $TSC_SRCROOT
+ninja
+cd ..
+set +x
+
+echo "Building llbuild"
+
+LLBuild_SRCROOT="`cd "${SRCROOT}/../llbuild";pwd`"
+mkdir -p llbuild
+cd llbuild
+
+set -x
+cmake \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DLLBUILD_SUPPORT_BINDINGS=Swift \
+    -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    $LLBuild_SRCROOT
+ninja
+cd ..
+set +x
+
+echo "Building swiftpm"
+
+mkdir -p swiftpm
+cd swiftpm
+
+set -x
+cmake \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DTSC_DIR=$BUILD_DIR/tsc/cmake/modules \
+    -DLLBuild_DIR=$BUILD_DIR/llbuild/cmake/modules \
+    -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    -DUSE_VENDORED_TSC=OFF \
+    $SRCROOT
+ninja
+cd ..
