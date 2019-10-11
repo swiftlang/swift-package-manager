@@ -32,6 +32,11 @@ else()
     find_package(TSC CONFIG REQUIRED)
 endif()
 
-find_package(LLBuild CONFIG REQUIRED)
+if(LLBUILD_FRAMEWORK)
+    message("Using llbuild framework: ${LLBUILD_FRAMEWORK}")
+else()
+    message("Using libllbuild")
+    find_package(LLBuild CONFIG REQUIRED)
+endif()
 
 add_subdirectory(Sources)
