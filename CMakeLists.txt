@@ -8,11 +8,13 @@
 
 cmake_minimum_required(VERSION 3.15.1)
 
-project(SwiftPM LANGUAGES C Swift)
+project(example LANGUAGES C Swift)
+option(USE_VENDORED_TSC "Use vendored version of TSC" OFF)
 
-set(CMAKE_Swift_LANGUAGE_VERSION 4.2)
+set(SWIFT_VERSION 5)
+set(CMAKE_Swift_LANGUAGE_VERSION ${SWIFT_VERSION})
 if(CMAKE_VERSION VERSION_LESS 3.16)
-  add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-swift-version$<SEMICOLON>4.2>)
+    add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-swift-version$<SEMICOLON>${SWIFT_VERSION}>)
 endif()
 
 set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
@@ -23,10 +25,13 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 option(BUILD_SHARED_LIBS "Build shared libraryes by default" YES)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-  execute_process(COMMAND xcrun --sdk macosx --show-sdk-path
-    OUTPUT_VARIABLE CMAKE_OSX_SYSROOT
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(USE_VENDORED_TSC)
+    message("Using vendored TSC")
+else()
+    message("Not using vendored TSC")
+    find_package(TSC CONFIG REQUIRED)
 endif()
+
+find_package(LLBuild CONFIG REQUIRED)
 
 add_subdirectory(Sources)

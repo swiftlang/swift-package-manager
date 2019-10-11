@@ -18,8 +18,16 @@ foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
     Target.swift
     Version+StringLiteralConvertible.swift
     Version.swift)
+
   target_compile_definitions(PD${PACKAGE_DESCRIPTION_VERSION} PRIVATE
     PACKAGE_DESCRIPTION_${PACKAGE_DESCRIPTION_VERSION})
+
+  if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
+      set(SWIFT_INTERFACE_PATH ${CMAKE_BINARY_DIR}/runtimes/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftinterface)
+      add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-enable-library-evolution>)
+      add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-emit-module-interface-path$<SEMICOLON>${SWIFT_INTERFACE_PATH}>)
+  endif()
+
   set_target_properties(PD${PACKAGE_DESCRIPTION_VERSION} PROPERTIES
     Swift_MODULE_NAME PackageDescription
     Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/runtimes/${PACKAGE_DESCRIPTION_VERSION}
