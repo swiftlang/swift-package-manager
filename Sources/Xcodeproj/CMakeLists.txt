@@ -21,7 +21,9 @@ target_link_libraries(Xcodeproj PUBLIC
 set_target_properties(Xcodeproj PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
+if(CMAKE_SYSTEM_NAME STREQUAL Windows)
 install(TARGETS Xcodeproj
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+endif()

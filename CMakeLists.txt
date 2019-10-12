@@ -40,3 +40,7 @@ else()
 endif()
 
 add_subdirectory(Sources)
+
+if(SWIFTPM_BUILD_DIR)
+    add_subdirectory(Utilities/BuildExtras/Install)
+endif()

@@ -147,6 +147,7 @@ def build_llbuild(args):
             "-DLLBUILD_SUPPORT_BINDINGS:=Swift",
             args.llbuild_source_dir
         ]
+        print(' '.join(cmd))
         subprocess.check_call(cmd, cwd=args.llbuild_build_dir)
 
     # Build.
@@ -178,6 +179,7 @@ def build_runtimes_only(args):
             "-DCMAKE_Swift_FLAGS=" + cmake_swift_flags,
             os.path.join(g_project_root, "Utilities/BuildRuntimesOnly")
         ]
+        print(' '.join(cmd))
         subprocess.check_call(cmd, cwd=build_path)
 
     # Build.
@@ -212,6 +214,7 @@ def bootstrap(args):
             "-DUSE_VENDORED_TSC=ON",
             g_project_root
         ]
+        print(' '.join(cmd))
         subprocess.check_call(cmd, cwd=bootstrap_path)
 
     # Build.
@@ -289,6 +292,10 @@ def main():
                         help="Path to llbuild build directory")
     parser.add_argument("--release", action="store_true",
                         help="Build stage 2 for release")
+    parser.add_argument("--prefix", dest="install_prefixes", nargs='*',
+                        help="use PATHS as the prefixes for installing "
+                             "[%(default)s]",
+                        default=["/tmp/swiftpm"], metavar="PATHS")
     args = parser.parse_args()
 
     build_actions = set(args.build_actions)

@@ -11,6 +11,7 @@ add_executable(swift-package
 target_link_libraries(swift-package PRIVATE
   Commands)
 
+if(CMAKE_SYSTEM_NAME STREQUAL Windows)
 install(TARGETS swift-package
   RUNTIME DESTINATION bin)
-
+endif()
