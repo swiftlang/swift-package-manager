@@ -7,38 +7,55 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
-  add_library(PD${PACKAGE_DESCRIPTION_VERSION}
-    BuildSettings.swift
-    LanguageStandardSettings.swift
-    Package.swift
-    PackageDependency.swift
-    PackageRequirement.swift
-    Product.swift
-    SupportedPlatforms.swift
-    Target.swift
-    Version+StringLiteralConvertible.swift
-    Version.swift)
+    add_library(PD${PACKAGE_DESCRIPTION_VERSION}
+        BuildSettings.swift
+        LanguageStandardSettings.swift
+        Package.swift
+        PackageDependency.swift
+        PackageRequirement.swift
+        Product.swift
+        SupportedPlatforms.swift
+        Target.swift
+        Version+StringLiteralConvertible.swift
+        Version.swift)
 
-  target_compile_definitions(PD${PACKAGE_DESCRIPTION_VERSION} PRIVATE
-    PACKAGE_DESCRIPTION_${PACKAGE_DESCRIPTION_VERSION})
+    target_compile_definitions(PD${PACKAGE_DESCRIPTION_VERSION} PRIVATE
+        PACKAGE_DESCRIPTION_${PACKAGE_DESCRIPTION_VERSION})
 
-  if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
-      set(SWIFT_INTERFACE_PATH ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftinterface)
-      add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-enable-library-evolution>)
-      add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-emit-module-interface-path$<SEMICOLON>${SWIFT_INTERFACE_PATH}>)
-  endif()
+    if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
+        set(SWIFT_INTERFACE_PATH ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftinterface)
+        target_compile_options(PD${PACKAGE_DESCRIPTION_VERSION} PUBLIC
+            $<$<COMPILE_LANGUAGE:Swift>:-enable-library-evolution>)
+        target_compile_options(PD${PACKAGE_DESCRIPTION_VERSION} PUBLIC 
+            $<$<COMPILE_LANGUAGE:Swift>:-emit-module-interface-path$<SEMICOLON>${SWIFT_INTERFACE_PATH}>)
+    endif()
 
-  set_target_properties(PD${PACKAGE_DESCRIPTION_VERSION} PROPERTIES
-    Swift_MODULE_NAME PackageDescription
-    Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}
-    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}
-    OUTPUT_NAME PackageDescription
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION})
+    set_target_properties(PD${PACKAGE_DESCRIPTION_VERSION} PROPERTIES
+        Swift_MODULE_NAME PackageDescription
+        Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}
+        INSTALL_NAME_DIR \\@rpath
+        OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}
+        OUTPUT_NAME PackageDescription
+        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}
+    )
+
+    if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
+        install(FILES 
+            ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftinterface
+            DESTINATION lib/swift/pm/${PACKAGE_DESCRIPTION_VERSION}
+        )
+    else()
+        install(FILES 
+            ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftmodule
+            ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftdoc
+            DESTINATION lib/swift/pm/${PACKAGE_DESCRIPTION_VERSION}
+        )
+    endif()
+
+    install(FILES 
+        ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/libPackageDescription${CMAKE_SHARED_LIBRARY_SUFFIX}
+        DESTINATION lib/swift/pm/${PACKAGE_DESCRIPTION_VERSION}
+    )
 endforeach()
-
-install(TARGETS PD4 PD4_2
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)

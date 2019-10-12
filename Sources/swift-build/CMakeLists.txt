@@ -7,9 +7,12 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-build
-  main.swift)
+    main.swift)
 target_link_libraries(swift-build PRIVATE
-  Commands)
+    Commands)
 
-install(TARGETS swift-build
-  DESTINATION bin)
+if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+    install(TARGETS swift-build
+        DESTINATION bin)
+else()
+endif()
