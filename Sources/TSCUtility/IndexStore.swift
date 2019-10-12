@@ -9,32 +9,62 @@
  */
 
 import TSCBasic
-import TSCclibc
+@_implementationOnly import TSCclibc
 
 public final class IndexStore {
-
     public struct TestCaseClass {
         public var name: String
         public var module: String
         public var methods: [String]
     }
 
-    let api: IndexStoreAPI
+    fileprivate var impl: IndexStoreImpl { _impl as! IndexStoreImpl }
+    private let _impl: Any
 
-    var fn: indexstore_functions_t {
-        return api.fn
+    fileprivate init(_ impl: IndexStoreImpl) {
+        self._impl = impl
     }
+
+    static public func open(store path: AbsolutePath, api: IndexStoreAPI) throws -> IndexStore {
+        let impl = try IndexStoreImpl.open(store: path, api: api.impl)
+        return IndexStore(impl)
+    }
+
+    public func listTests(inObjectFile object: AbsolutePath) throws -> [TestCaseClass] {
+        return try impl.listTests(inObjectFile: object)
+    }
+}
+
+public final class IndexStoreAPI {
+
+    fileprivate var impl: IndexStoreAPIImpl {
+        _impl as! IndexStoreAPIImpl
+    }
+    private let _impl: Any
+
+    public init(dylib path: AbsolutePath) throws {
+        self._impl = try IndexStoreAPIImpl(dylib: path)
+    }
+}
+
+private final class IndexStoreImpl {
+
+    typealias TestCaseClass = IndexStore.TestCaseClass
+
+    let api: IndexStoreAPIImpl
+
+    var fn: indexstore_functions_t { api.fn }
 
     let store: indexstore_t
 
-    private init(store: indexstore_t, api: IndexStoreAPI) {
+    private init(store: indexstore_t, api: IndexStoreAPIImpl) {
         self.store = store
         self.api = api
     }
 
-    static public func open(store path: AbsolutePath, api: IndexStoreAPI) throws -> IndexStore {
+    static public func open(store path: AbsolutePath, api: IndexStoreAPIImpl) throws -> IndexStoreImpl {
         if let store = try api.call({ api.fn.store_create(path.pathString, &$0) }) {
-            return IndexStore(store: store, api: api)
+            return IndexStoreImpl(store: store, api: api)
         }
         throw StringError("Unable to open store at \(path)")
     }
@@ -156,16 +186,15 @@ public final class IndexStore {
 }
 
 private class Ref<T> {
-    let api: IndexStoreAPI
+    let api: IndexStoreAPIImpl
     var instance: T
-    init(_ instance: T, api: IndexStoreAPI) {
+    init(_ instance: T, api: IndexStoreAPIImpl) {
         self.instance = instance
         self.api = api
     }
 }
 
-public final class IndexStoreAPI {
-
+private final class IndexStoreAPIImpl {
     /// The path of the index store dylib.
     private let path: AbsolutePath
 

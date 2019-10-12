@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCclibc
+@_implementationOnly import TSCclibc
 
 /// A Swift version number.
 ///

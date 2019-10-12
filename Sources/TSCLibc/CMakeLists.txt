@@ -13,8 +13,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL Windows)
   target_compile_options(TSCLibc PRIVATE
     -autolink-force-load)
 endif()
-target_link_libraries(TSCLibc PUBLIC
-  TSCclibc)
+
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(TSCLibc PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

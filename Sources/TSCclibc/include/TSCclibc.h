@@ -1,7 +1,3 @@
-#if defined(__linux__)
-#include <sys/inotify.h>
-#endif
-
 #define STR_EXPAND(VALUE) #VALUE
 #define STR(VALUE) STR_EXPAND(VALUE)
 

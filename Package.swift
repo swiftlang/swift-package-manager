@@ -88,7 +88,7 @@ let package = Package(
         .target(
             /** Cross-platform access to bare `libc` functionality. */
             name: "TSCLibc",
-            dependencies: ["TSCclibc"]),
+            dependencies: []),
         .target(
             /** TSCBasic support library */
             name: "TSCBasic",
@@ -96,7 +96,7 @@ let package = Package(
         .target(
             /** Abstractions for common operations, should migrate to TSCBasic */
             name: "TSCUtility",
-            dependencies: ["TSCBasic"]),
+            dependencies: ["TSCBasic", "TSCclibc"]),
         
         // MARK: SwiftPM specific support libraries
         
