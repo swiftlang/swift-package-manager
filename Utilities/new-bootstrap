@@ -213,6 +213,7 @@ def bootstrap(args):
         "-DUSE_VENDORED_TSC=ON",
         "-DSWIFTPM_BUILD_DIR=" + swiftpm_build_path,
         "-DCMAKE_INSTALL_PREFIX=" + args.install_prefixes[0],
+        "-DINSTALL_LIBSWIFTPM=" + ("ON" if args.install_libspm else "OFF"),
         g_project_root,
     ]
     print(' '.join(cmd))
@@ -299,6 +300,8 @@ def main():
                         help="Path to llbuild build directory")
     parser.add_argument("--release", action="store_true",
                         help="Build stage 2 for release")
+    parser.add_argument("--install-libspm", action="store_true",
+                        help="Install libSwiftPM")
     parser.add_argument("--prefix", dest="install_prefixes", nargs='*',
                         help="use PATHS as the prefixes for installing "
                              "[%(default)s]",

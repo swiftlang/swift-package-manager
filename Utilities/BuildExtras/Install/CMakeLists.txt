@@ -8,6 +8,8 @@ install(FILES
     ${SWIFTPM_BUILD_DIR}/swiftpm-xctest-helper
     DESTINATION libexec/swift/pm)
 
+if(INSTALL_LIBSWIFTPM)
+
 list(APPEND LIBSPM_MODULES TSCLibc)
 list(APPEND LIBSPM_MODULES TSCBasic)
 list(APPEND LIBSPM_MODULES TSCUtility)
@@ -37,3 +39,4 @@ install(DIRECTORY
 install(FILES 
     ${SWIFTPM_BUILD_DIR}/libSwiftPM${CMAKE_SHARED_LIBRARY_SUFFIX}
     DESTINATION local/lib/swift/pm)
+endif()
