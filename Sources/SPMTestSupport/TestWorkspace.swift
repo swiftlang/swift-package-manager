@@ -249,6 +249,20 @@ public final class TestWorkspace {
         workspace.updateDependencies(root: rootInput, diagnostics: diagnostics)
         result(diagnostics)
     }
+    
+    public func checkUpdateDryRun(
+        roots: [String] = [],
+        deps: [TestWorkspace.PackageDependency] = [],
+        _ result: ([(PackageReference, Workspace.PackageStateChange)]?, DiagnosticsEngine) -> ()
+    ) {
+        let dependencies = deps.map({ $0.convert(packagesDir) })
+        let diagnostics = DiagnosticsEngine()
+        let workspace = createWorkspace()
+        let rootInput = PackageGraphRootInput(
+            packages: rootPaths(for: roots), dependencies: dependencies)
+        let changes = workspace.updateDependencies(root: rootInput, diagnostics: diagnostics, dryRun: true)
+        result(changes, diagnostics)
+    }
 
     public func checkPackageGraph(
         roots: [String] = [],

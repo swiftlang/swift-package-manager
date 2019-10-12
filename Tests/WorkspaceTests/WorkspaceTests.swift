@@ -986,6 +986,90 @@ final class WorkspaceTests: XCTestCase {
         }
         XCTAssertMatch(workspace.delegate.events, [.equal("Everything is already up-to-date")])
     }
+    
+    func testUpdateDryRun() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Root", targets: ["Root"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.5.0"]
+                ),
+            ]
+        )
+        
+        // Do an intial run, capping at Foo at 1.0.0.
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Foo", requirement: .exact("1.0.0")),
+        ]
+
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+
+        // Run update.
+        workspace.checkUpdateDryRun(roots: ["Root"]) { changes, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            let expectedChange = (PackageReference(identity: "foo", path: "/tmp/ws/pkgs/Foo"),
+                Workspace.PackageStateChange.updated(.version(Version("1.5.0"))))
+            guard let change = changes?.first, changes?.count == 1 else {
+                XCTFail()
+                return
+            }
+            XCTAssertEqual(expectedChange, change)
+        }
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+    }
 
     func testCleanAndReset() throws {
         let sandbox = AbsolutePath("/tmp/ws/")

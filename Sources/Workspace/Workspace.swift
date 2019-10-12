@@ -593,10 +593,11 @@ extension Workspace {
     /// - Parameters:
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
-    public func updateDependencies(
+    @discardableResult public func updateDependencies(
         root: PackageGraphRootInput,
-        diagnostics: DiagnosticsEngine
-    ) {
+        diagnostics: DiagnosticsEngine,
+        dryRun: Bool = false
+    ) -> [(PackageReference, Workspace.PackageStateChange)]? {
         // Create cache directories.
         createCacheDirectories(with: diagnostics)
 
@@ -611,12 +612,10 @@ extension Workspace {
         let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Abort if we're unable to load the pinsStore or have any diagnostics.
-        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else {
-            return
-        }
+        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else { return nil }
 
         // Ensure we don't have any error at this point.
-        guard !diagnostics.hasErrors else { return }
+        guard !diagnostics.hasErrors else { return nil }
 
         // Add unversioned constraints for edited packages.
         var updateConstraints = currentManifests.editedPackagesConstraints()
@@ -633,7 +632,12 @@ extension Workspace {
         // Reset the active resolver.
         activeResolver = nil
 
-        guard !diagnostics.hasErrors else { return }
+        guard !diagnostics.hasErrors else { return nil }
+        
+        guard !dryRun else {
+            let changes = diagnostics.wrap { return try computePackageStateChanges(root: graphRoot, resolvedDependencies: updateResults, updateBranches: true) } ?? []
+            return changes
+        }
 
         // Update the checkouts based on new dependency resolution.
         updateCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, diagnostics: diagnostics)
@@ -641,13 +645,44 @@ extension Workspace {
         // Load the updated manifests.
         let updatedDependencyManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
-        guard !diagnostics.hasErrors else { return }
+        guard !diagnostics.hasErrors else { return nil }
 
         // Update the pins store.
-        return pinAll(
+        pinAll(
             dependencyManifests: updatedDependencyManifests,
             pinsStore: pinsStore,
             diagnostics: diagnostics)
+        
+        return nil
+    }
+    
+    /// Logs all changed dependencies to a stream
+    /// - Parameter changes: Changes to log
+    /// - Parameter pins: PinsStore with currently pinned packages to compare changed packages to.
+    /// - Parameter stream: Stream used for logging
+    fileprivate func logPackageChanges(changes: [(PackageReference, PackageStateChange)], pins: PinsStore, on stream: OutputByteStream = stdoutStream) {
+        let changes = changes.filter { $0.1 != .unchanged }
+        
+        stream <<< "\n"
+        stream <<< "\(changes.count) dependenc\(changes.count == 1 ? "y has" : "ies have") changed\(changes.count > 0 ? ":" : ".")"
+        stream <<< "\n"
+        
+        for (package, change) in changes {
+            guard let packageName = package.name else { continue }
+            let currentVersion = pins.pinsMap[package.identity]?.state.description ?? ""
+            switch change {
+            case let .added(requirement):
+                stream <<< "+ \(packageName) \(requirement.prettyPrinted)"
+            case let .updated(requirement):
+                stream <<< "~ \(packageName) \(currentVersion) -> \(packageName) \(requirement.prettyPrinted)"
+            case .removed:
+                stream <<< "- \(packageName) \(currentVersion)"
+            default:
+                continue
+            }
+            stream <<< "\n"
+        }
+        stream.flush()
     }
 
     /// Loads a package graph from a root package using the resources associated with a particular `swiftc` executable.
@@ -1519,10 +1554,10 @@ extension Workspace {
     }
 
     /// This enum represents state of an external package.
-    fileprivate enum PackageStateChange: Equatable, CustomStringConvertible {
+    public enum PackageStateChange: Equatable, CustomStringConvertible {
 
         /// The requirement imposed by the the state.
-        enum Requirement: Equatable, CustomStringConvertible {
+        public enum Requirement: Equatable, CustomStringConvertible {
             /// A version requirement.
             case version(Version)
 
@@ -1531,7 +1566,7 @@ extension Workspace {
 
             case unversioned
 
-            var description: String {
+            public var description: String {
                 switch self {
                 case .version(let version):
                     return "requirement(\(version))"
@@ -1539,6 +1574,17 @@ extension Workspace {
                     return "requirement(\(revision) \(branch ?? ""))"
                 case .unversioned:
                     return "requirement(unversioned)"
+                }
+            }
+            
+            public var prettyPrinted: String {
+                switch self {
+                case .version(let version):
+                    return "\(version)"
+                case .revision(let revision, let branch):
+                    return "\(revision) \(branch ?? "")"
+                case .unversioned:
+                    return "unversioned"
                 }
             }
         }
@@ -1555,7 +1601,7 @@ extension Workspace {
         /// The package is updated.
         case updated(Requirement)
 
-        var description: String {
+        public var description: String {
             switch self {
             case .added(let requirement):
                 return "added(\(requirement))"
