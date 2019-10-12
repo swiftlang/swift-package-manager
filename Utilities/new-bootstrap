@@ -205,6 +205,9 @@ def bootstrap(args):
         else:
             llbuild_dir = os.path.join(args.llbuild_build_dir, "cmake/modules")
             llbuild_arg = "-DLLBuild_DIR=" + llbuild_dir
+
+        swiftpm_build_path = os.path.join(args.target_path, args.conf)
+
         cmd = [
             "cmake", "-G", "Ninja",
             "-DCMAKE_BUILD_TYPE:=Debug",
@@ -212,7 +215,9 @@ def bootstrap(args):
             llbuild_arg,
             "-DCMAKE_Swift_FLAGS=" + cmake_swift_flags,
             "-DUSE_VENDORED_TSC=ON",
-            g_project_root
+            "-DSWIFTPM_BUILD_DIR=" + swiftpm_build_path,
+            "-DCMAKE_INSTALL_PREFIX=" + args.install_prefixes[0],
+            g_project_root,
         ]
         print(' '.join(cmd))
         subprocess.check_call(cmd, cwd=bootstrap_path)
@@ -306,6 +311,7 @@ def main():
 
     build_target = "x86_64-apple-macosx"
     args.target_path = os.path.join(args.build_path, build_target)
+    args.conf = 'debug' if args.release else 'release'
 
     if "build-pd" in build_actions:
         build_runtimes_only(args)
@@ -325,6 +331,9 @@ def main():
 
     # Build SwiftPM with the bootstrapped version.
     build_swiftpm(args)
+
+    if "install" in build_actions:
+        subprocess.check_call(["ninja", "install"], cwd=args.bootstrap_path)
 
 if __name__ == '__main__':
     main()
