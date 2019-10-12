@@ -14,5 +14,4 @@ target_link_libraries(swift-build PRIVATE
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
     install(TARGETS swift-build
         DESTINATION bin)
-else()
 endif()

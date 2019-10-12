@@ -19,7 +19,7 @@ else()
     set_target_properties(libllbuildSwift
         PROPERTIES
         FRAMEWORK TRUE
-        IMPORTED_LOCATION ${LLBUILD_BUILD_DIR}/lib/libllbuildSwift.dylib
+        IMPORTED_LOCATION ${LLBUILD_BUILD_DIR}/lib
         INTERFACE_INCLUDE_DIRECTORIES ${LLBUILD_BUILD_DIR}/products/llbuildSwift)
 endif()
 
@@ -34,7 +34,7 @@ target_link_libraries(SPMLLBuild PUBLIC
 if(LLBUILD_FRAMEWORK)
     target_link_libraries(SPMLLBuild PUBLIC -F libllbuildSwift)
 else()
-    target_link_libraries(SPMLLBuild PUBLIC libllbuild libllbuildSwift)
+	target_link_libraries(SPMLLBuild PUBLIC libllbuild -L libllbuildSwift)
 endif()
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
