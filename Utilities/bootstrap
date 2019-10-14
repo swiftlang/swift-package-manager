@@ -584,7 +584,10 @@ class llbuild(object):
                     link_command.extend(
                         ["-Xlinker", "-rpath=$ORIGIN/../lib/swift/linux"])
                 if self.args.foundation_path:
-                    link_command.extend(["-L", self.args.foundation_path])
+                    link_command.extend([
+                        "-L", self.args.foundation_path,
+                        "-L", os.path.join(self.args.foundation_path, "Foundation")
+                    ])
                 if self.args.libdispatch_build_dir:
                     link_command.extend(['-L', self.args.libdispatch_build_dir,
                                          '-L', os.path.join(self.args.libdispatch_build_dir, 'lib'),
@@ -1199,7 +1202,11 @@ def main():
 
             for module in ["Foundation", "FoundationNetworking", "FoundationXML"]:
                 # Add the library.
-                symlink_force(os.path.join(args.foundation_path, 'lib' + module + '.so'), libswiftdir)
+                for subdir in ['Foundation', '']:
+                    path = os.path.join(args.foundation_path, subdir, 'lib{}.so'.format(module))
+                    if os.path.exists(path):
+                        symlink_force(path, libswiftdir)
+                        break
 
                 # Add Foundation's swiftmodule.
                 for extension in [".swiftmodule", ".swiftdoc"]:
