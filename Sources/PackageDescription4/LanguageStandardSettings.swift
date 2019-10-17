@@ -10,31 +10,53 @@
 
 /// The supported C language standard to use for compiling C sources in the package.
 public enum CLanguageStandard: String, Encodable {
+    /// The identifier for the C89 language standard.
     case c89
+    /// The identifier for the C90 language standard.
     case c90
+    /// The identifier for the C9899-1990 language standard.
     case iso9899_1990 = "iso9899:1990"
+    /// The identifier for the C9899-1994 language standard.
     case iso9899_199409 = "iso9899:1994"
+    /// The identifier for the GNU89 language standard.
     case gnu89
+    /// The identifier for the GNU90 language standard.
     case gnu90
+    /// The identifier for the C99 language standard.
     case c99
+    /// The identifier for the ISO9899-1999 language standard.
     case iso9899_1999 = "iso9899:1999"
+    /// The identifier for the GNU99 language standard.
     case gnu99
+    /// The identifier for the C11 language standard.
     case c11
+    /// The identifier for the ISO9899-2011 language standard.
     case iso9899_2011 = "iso9899:2011"
+    /// The identifier for the GNU11 language standard.
     case gnu11
 }
 
 /// The supported C++ language standards to use for compiling C++ sources in the package.
 public enum CXXLanguageStandard: String, Encodable {
+    /// The identifier for the C++98 language standard.
     case cxx98 = "c++98"
+    /// The identifier for the C++03 language standard.
     case cxx03 = "c++03"
+    /// The identifier for the GNU++98 language standard.
     case gnucxx98 = "gnu++98"
+    /// The identifier for the GNU++03 language standard.
     case gnucxx03 = "gnu++03"
+    /// The identifier for the C++11 language standard.
     case cxx11 = "c++11"
+    /// The identifier for the GNU++11 language standard.
     case gnucxx11 = "gnu++11"
+    /// The identifier for the C++14 language standard.
     case cxx14 = "c++14"
+    /// The identifier for the GNU++14 language standard.
     case gnucxx14 = "gnu++14"
+    /// The identifier for the C++1z language standard.
     case cxx1z = "c++1z"
+    /// The identifier for the GNU++1z language standard.
     case gnucxx1z = "gnu++1z"
 }
 

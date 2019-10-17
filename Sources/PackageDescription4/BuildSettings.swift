@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-/// The build configuration such as debug or release..
+/// The build configuration such as debug or release.
 public struct BuildConfiguration: Encodable {
     private let config: String
 
