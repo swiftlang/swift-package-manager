@@ -16,15 +16,10 @@
 ///
 /// A package product can be one of two types:
 ///
-/// Library
-///
-///     Use a library product to vend library targets. This makes a target's public APIs
-///     available to clients that integrate the Swift package.
-///
-/// Executable
-///
-///     Use an executable product to vend an executable target.
-///     Use this only if you want to make the executable available to clients.
+/// 1. **Library**. Use a library product to vend library targets. This makes a target's public APIs
+/// available to clients that integrate the Swift package.
+/// 2. **Executable**. Use an executable product to vend an executable target.
+/// Use this only if you want to make the executable available to clients.
 ///
 /// The following example shows a package manifest for a library called "Paper"
 /// that defines multiple products:

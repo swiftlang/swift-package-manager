@@ -8,14 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-/// A semantic version.
+/// A semantic version according to the semantic versioning specification.
 ///
 /// A package's version must conform to the semantic versioning standard in order to ensure
 /// that your package behaves in a predictable manner once developers update their
 /// package dependency to a newer version. To achieve predictability, the semantic versioning specification proposes a set of rules and
 /// requirements that dictate how version numbers are assigned and incremented.
 ///
-/// A package version is a three period-separated integer. An example is `1.0.0`.
+/// A package version is a three period-separated integer, for example `1.0.0`.
 /// 
 /// **The Major Version**
 ///

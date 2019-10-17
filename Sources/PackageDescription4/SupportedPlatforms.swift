@@ -86,11 +86,11 @@ public struct SupportedPlatform: Encodable {
     /// Configure the minimum deployment target version for the macOS platform
     /// using a version string.
     ///
-    /// The version string must be a series of two or three dot-separated integers, such as "10.10" or "10.10.1".
+    /// The version string must be a series of two or three dot-separated integers, such as `10.10` or `10.10.1`.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
-    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as "10.10.1".
+    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `10.10.1`.
     public static func macOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .macOS, version: SupportedPlatform.MacOSVersion(string: versionString).version)
     }
@@ -107,11 +107,11 @@ public struct SupportedPlatform: Encodable {
     /// Configure the minimum deployment target version for the iOS platform
     /// using a custom version string.
     ///
-    /// The version string must be a series of two or three dot-separated integers, such as "8.0" or "8.0.1".
+    /// The version string must be a series of two or three dot-separated integers, such as `8.0` or `8.0.1`.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
-    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as "8.0.1".
+    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `8.0.1`.
     public static func iOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .iOS, version: SupportedPlatform.IOSVersion(string: versionString).version)
     }
@@ -128,11 +128,11 @@ public struct SupportedPlatform: Encodable {
     /// Configure the minimum deployment target version for the tvOS platform
     /// using a custom version string.
     ///
-    /// The version string must be a series of two or three dot-separated integers,such as "9.0" or "9.0.1".
+    /// The version string must be a series of two or three dot-separated integers,such as `9.0` or `9.0.1`.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
-    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as "9.0.1".
+    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `9.0.1`.
     public static func tvOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .tvOS, version: SupportedPlatform.TVOSVersion(string: versionString).version)
     }
@@ -149,11 +149,11 @@ public struct SupportedPlatform: Encodable {
     /// Configure the minimum deployment target version for the watchOS platform
     /// using a custom version string.
     ///
-    /// The version string must be a series of two or three dot-separated integers, such as "2.0" or "2.0.1".
+    /// The version string must be a series of two or three dot-separated integers, such as `2.0` or `2.0.1`.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
-    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as "2.0.1".
+    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `2.0.1`.
     public static func watchOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .watchOS, version: SupportedPlatform.WatchOSVersion(string: versionString).version)
     }
@@ -161,7 +161,8 @@ public struct SupportedPlatform: Encodable {
 
 /// An extension to the SupportedPlatform struct that defines major platform versions.
 extension SupportedPlatform {
-    /// The macOS version.
+    
+    /// The supported macOS version.
     public struct MacOSVersion: Encodable, AppleOSVersion {
         fileprivate static let name = "macOS"
         fileprivate static let minimumMajorVersion = 10
@@ -205,6 +206,7 @@ extension SupportedPlatform {
         public static let v10_15: MacOSVersion = .init(string: "10.15")
     }
 
+    /// The supported tvOS version.
     public struct TVOSVersion: Encodable, AppleOSVersion {
         fileprivate static let name = "tvOS"
         fileprivate static let minimumMajorVersion = 9
@@ -243,6 +245,7 @@ extension SupportedPlatform {
         public static let v13: TVOSVersion = .init(string: "13.0")
     }
 
+    /// The supported iOS version.
     public struct IOSVersion: Encodable, AppleOSVersion {
         fileprivate static let name = "iOS"
         fileprivate static let minimumMajorVersion = 2
@@ -286,6 +289,7 @@ extension SupportedPlatform {
         public static let v13: IOSVersion = .init(string: "13.0")
     }
 
+    /// The supported watchOS version.
     public struct WatchOSVersion: Encodable, AppleOSVersion {
         fileprivate static let name = "watchOS"
         fileprivate static let minimumMajorVersion = 2
