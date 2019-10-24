@@ -17,6 +17,7 @@ public enum ManifestVersion: String, Codable, CustomStringConvertible {
     case v4_2
     case v5
     case v5_1
+    case v5_2
 
     /// The Swift language version to use when parsing the manifest file.
     public var swiftLanguageVersion: SwiftLanguageVersion {
@@ -32,6 +33,7 @@ public enum ManifestVersion: String, Codable, CustomStringConvertible {
         case .v4_2: return .v4_2
         case .v5: return .v5
         case .v5_1: return .v5
+        case .v5_2: return .v5
         }
     }
 
@@ -41,6 +43,7 @@ public enum ManifestVersion: String, Codable, CustomStringConvertible {
         case .v4_2: return "4.2"
         case .v5: return "5"
         case .v5_1: return "5.1"
+        case .v5_2: return "5.2"
         }
     }
 
@@ -49,7 +52,7 @@ public enum ManifestVersion: String, Codable, CustomStringConvertible {
         switch self {
         case .v4:
             return RelativePath("4")
-        case .v4_2, .v5, .v5_1:
+        case .v4_2, .v5, .v5_1, .v5_2:
             // PackageDescription 4.2 and 5 are source compatible so they're contained in the same dylib.
             return RelativePath("4_2")
         }
