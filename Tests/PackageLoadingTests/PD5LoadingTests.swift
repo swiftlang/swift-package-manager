@@ -450,8 +450,8 @@ class PackageDescription5LoadingTests: XCTestCase {
 
         loadManifest(stream.bytes, manifestVersion: .v5_2) { manifest in
             let resources = manifest.targets[0].resources
-            XCTAssertEqual(resources?[0], TargetDescription.Resource(rule: .copy, path: "foo.txt"))
-            XCTAssertEqual(resources?[1], TargetDescription.Resource(rule: .process, path: "bar.txt"))
+            XCTAssertEqual(resources[0], TargetDescription.Resource(rule: .copy, path: "foo.txt"))
+            XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process, path: "bar.txt"))
         }
     }
 }

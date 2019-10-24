@@ -240,7 +240,7 @@ public final class LLBuildManifestGenerator {
     private func createSwiftCompileTarget(_ target: SwiftTargetBuildDescription) -> Target {
         // Compute inital inputs.
         var inputs = SortedArray<String>()
-        inputs += target.target.sources.paths.map({ $0.pathString })
+        inputs += target.sources.map{ $0.pathString }
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.

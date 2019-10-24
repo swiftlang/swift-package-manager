@@ -497,13 +497,20 @@ public final class SwiftTargetBuildDescription {
     let buildParameters: BuildParameters
 
     /// Path to the temporary directory for this target.
-    var tempsPath: AbsolutePath {
-        return buildParameters.buildPath.appending(component: target.c99name + ".build")
-    }
+    let tempsPath: AbsolutePath
+
+    /// The directory containing derived sources of this target.
+    ///
+    /// These are the source files generated during the build.
+    private var derivedSources: Sources
+
+    /// The list of all source files in the target, including the derived ones.
+    var sources: [AbsolutePath] { target.sources.paths + derivedSources.paths }
 
     /// The objects in this target.
     var objects: [AbsolutePath] {
-        return target.sources.relativePaths.map({ tempsPath.appending(RelativePath("\($0.pathString).o")) })
+        let relativePaths = target.sources.relativePaths + derivedSources.relativePaths
+        return relativePaths.map{ tempsPath.appending(RelativePath("\($0.pathString).o")) }
     }
 
     /// The path to the swiftmodule file after compilation.
@@ -558,10 +565,46 @@ public final class SwiftTargetBuildDescription {
         self.isTestTarget = isTestTarget ?? (target.type == .test)
         self.testDiscoveryTarget = testDiscoveryTarget
         self.fs = fs
+        self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
+        self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
 
         if shouldEmitObjCCompatibilityHeader {
             self.moduleMap = try self.generateModuleMap()
         }
+
+        try self.generateResourceAccessor()
+    }
+
+    /// Generate the resource bundle accessor, if appropriate.
+    private func generateResourceAccessor() throws {
+        // Do nothing if we're not generating a bundle.
+        guard let bundleName = target.underlyingTarget.bundleName else { return }
+
+        // Compute the basename of the bundle.
+        let bundleBasename = bundleName + buildParameters.triple.nsbundleExtension
+
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+        import class Foundation.Bundle
+
+        extension Foundation.Bundle {
+            static var moduleResources: Bundle = {
+                return Bundle(path: Bundle.main.bundlePath + "/" + "\(bundleBasename)")!
+            }()
+        }
+        """
+
+        let subpath = RelativePath("resource_bundle_accessor.swift")
+
+        // Add the file to the dervied sources.
+        derivedSources.relativePaths.append(subpath)
+
+        // Write this file out.
+        // FIXME: We should generate this file during the actual build.
+        let path = derivedSources.root.appending(subpath)
+
+        try fs.createDirectory(path.parentDirectory, recursive: true)
+        try fs.writeFileContents(path, bytes: stream.bytes)
     }
 
     /// The arguments needed to compile this target.

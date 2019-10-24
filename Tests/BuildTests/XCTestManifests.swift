@@ -30,6 +30,7 @@ extension BuildPlanTests {
         ("testPlatforms", testPlatforms),
         ("testPlatformsValidation", testPlatformsValidation),
         ("testREPLArguments", testREPLArguments),
+        ("testSwiftBundleAccessor", testSwiftBundleAccessor),
         ("testSwiftCAsmMixed", testSwiftCAsmMixed),
         ("testSwiftCMixed", testSwiftCMixed),
         ("testSystemPackageBuildPlan", testSystemPackageBuildPlan),
