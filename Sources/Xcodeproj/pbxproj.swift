@@ -429,7 +429,7 @@ func xcodeProject(
 
         // Assign the deployment target if the package is using the newer manifest version.
         switch package.manifest.manifestVersion {
-        case .v5, .v5_1:
+        case .v5, .v5_1, .v5_2:
             for supportedPlatform in target.underlyingTarget.platforms {
                 let version = supportedPlatform.version.versionString
                 switch supportedPlatform.platform {
