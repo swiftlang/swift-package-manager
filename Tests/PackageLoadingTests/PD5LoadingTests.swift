@@ -454,4 +454,49 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process, path: "bar.txt"))
         }
     }
+
+    func testWindowsPlatform() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "foo",
+                       cSettings: [
+                           .define("LLVM_ON_WIN32", .when(platforms: [.windows])),
+                       ]
+                   ),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("\(error)")
+            }
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
+        }
+
+        loadManifest(stream.bytes, toolsVersion: .v5_2) { manifest in
+            XCTAssertEqual(manifest.name, "Foo")
+
+            // Check targets.
+            let targets = Dictionary(items:
+                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
+            let foo = targets["foo"]!
+            XCTAssertEqual(foo.name, "foo")
+            XCTAssertFalse(foo.isTest)
+            XCTAssertEqual(foo.dependencies, [])
+
+            let settings = manifest.targets[0].settings
+            XCTAssertEqual(settings[0], .init(tool: .c, name: .define, value: ["LLVM_ON_WIN32"], condition: .init(platformNames: ["windows"])))
+        }
+    }
 }
