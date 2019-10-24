@@ -13,9 +13,13 @@ import TSCUtility
 
 /// A grouping of related source files.
 public struct Sources {
-    public let relativePaths: [RelativePath]
+    /// The root of the sources.
     public let root: AbsolutePath
 
+    /// The subpaths within the root.
+    public var relativePaths: [RelativePath]
+
+    /// The list of absolute paths of all files.
     public var paths: [AbsolutePath] {
         return relativePaths.map({ root.appending($0) })
     }

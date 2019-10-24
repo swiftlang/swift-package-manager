@@ -34,6 +34,9 @@ public class Target: ObjectIdentifierProtocol {
     /// The language-level target name.
     public let c99name: String
 
+    /// The bundle name, if one is being generated.
+    public let bundleName: String?
+
     /// Suffix that's expected for test targets.
     public static let testModuleNameSuffix = "Tests"
 
@@ -56,6 +59,7 @@ public class Target: ObjectIdentifierProtocol {
 
     fileprivate init(
         name: String,
+        bundleName: String? = nil,
         platforms: [SupportedPlatform],
         type: Kind,
         sources: Sources,
@@ -64,6 +68,7 @@ public class Target: ObjectIdentifierProtocol {
         buildSettings: BuildSettings.AssignmentTable
     ) {
         self.name = name
+        self.bundleName = bundleName
         self.platforms = platforms
         self.type = type
         self.sources = sources
@@ -127,6 +132,7 @@ public class SwiftTarget: Target {
 
     public init(
         name: String,
+        bundleName: String? = nil,
         platforms: [SupportedPlatform] = [],
         isTest: Bool = false,
         sources: Sources,
@@ -139,6 +145,7 @@ public class SwiftTarget: Target {
         self.swiftVersion = swiftVersion
         super.init(
             name: name,
+            bundleName: bundleName,
             platforms: platforms,
             type: type,
             sources: sources,

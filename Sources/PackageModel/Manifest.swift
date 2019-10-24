@@ -238,7 +238,7 @@ public struct TargetDescription: Equatable, Codable {
     public let sources: [String]?
 
     /// The explicitly declared resources of the target.
-    public let resources: [Resource]?
+    public let resources: [Resource]
 
     /// The exclude patterns.
     public let exclude: [String]
@@ -274,7 +274,7 @@ public struct TargetDescription: Equatable, Codable {
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
-        resources: [Resource]? = nil,
+        resources: [Resource] = [],
         publicHeadersPath: String? = nil,
         type: TargetType = .regular,
         pkgConfig: String? = nil,

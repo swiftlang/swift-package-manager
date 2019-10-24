@@ -724,9 +724,19 @@ public final class PackageBuilder {
             guard !swiftSources.isEmpty else { return nil }
             let swiftSources = Array(swiftSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: swiftSources)
+
+            // The name of the bundle, if one is being generated.
+            var bundleName: String?
+            // FIXME: This needs to depend on if we have *any* resources, not just explicitly
+            // declared ones.
+            if manifestTarget?.resources.isEmpty == false {
+                bundleName = manifest.name + "_" + potentialModule.name
+            }
+
             // No C sources, so we expect to have Swift sources, and we create a Swift target.
             return SwiftTarget(
                 name: potentialModule.name,
+                bundleName: bundleName,
                 platforms: self.platforms(),
                 isTest: potentialModule.isTest,
                 sources: Sources(paths: swiftSources, root: potentialModule.path),

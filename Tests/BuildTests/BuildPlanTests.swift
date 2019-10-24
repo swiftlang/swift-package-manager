@@ -1749,6 +1749,69 @@ final class BuildPlanTests: XCTestCase {
                 """))
         }
     }
+
+    func testSwiftBundleAccessor() throws {
+        // This has a Swift and ObjC target in the same package.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/PkgA/Sources/Foo/Foo.swift",
+            "/PkgA/Sources/Foo/foo.txt",
+            "/PkgA/Sources/Foo/bar.txt",
+            "/PkgA/Sources/Bar/Bar.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+
+        let graph = loadPackageGraph(
+            root: "/PkgA",
+            fs: fs,
+            diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "PkgA",
+                    path: "/PkgA",
+                    url: "/PkgA",
+                    v: .v5_2,
+                    targets: [
+                        TargetDescription(
+                            name: "Foo",
+                            resources: [
+                                .init(rule: .copy, path: "foo.txt"),
+                                .init(rule: .process, path: "bar.txt"),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "Bar"
+                        ),
+                    ]
+                )
+            ]
+        )
+
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let plan = try BuildPlan(
+            buildParameters: mockBuildParameters(),
+            graph: graph,
+            diagnostics: diagnostics,
+            fileSystem: fs
+        )
+        let result = BuildPlanResult(plan: plan)
+
+        let fooTarget = try result.target(for: "Foo").swiftTarget()
+        XCTAssertEqual(fooTarget.objects.map{ $0.pathString }, [
+            "/path/to/build/debug/Foo.build/Foo.swift.o",
+            "/path/to/build/debug/Foo.build/resource_bundle_accessor.swift.o"
+        ])
+
+        let resourceAccessor = fooTarget.sources.first{ $0.basename == "resource_bundle_accessor.swift" }!
+        let contents = try fs.readFileContents(resourceAccessor).cString
+        XCTAssertTrue(contents.contains("extension Foundation.Bundle"), contents)
+
+        let barTarget = try result.target(for: "Bar").swiftTarget()
+        XCTAssertEqual(barTarget.objects.map{ $0.pathString }, [
+            "/path/to/build/debug/Bar.build/Bar.swift.o",
+        ])
+    }
 }
 
 // MARK:- Test Helpers

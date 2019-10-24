@@ -11,6 +11,7 @@
 import TSCBasic
 import TSCUtility
 import SPMLLBuild
+import PackageModel
 import Dispatch
 import Foundation
 
