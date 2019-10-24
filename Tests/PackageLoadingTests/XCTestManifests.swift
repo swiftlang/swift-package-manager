@@ -114,6 +114,7 @@ extension PackageDescription5LoadingTests {
         ("testBuildSettings", testBuildSettings),
         ("testInvalidBuildSettings", testInvalidBuildSettings),
         ("testPlatforms", testPlatforms),
+        ("testResources", testResources),
         ("testSerializedDiagnostics", testSerializedDiagnostics),
         ("testSwiftLanguageVersion", testSwiftLanguageVersion),
     ]

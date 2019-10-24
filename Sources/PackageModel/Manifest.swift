@@ -210,6 +210,24 @@ public struct TargetDescription: Equatable, Codable {
         }
     }
 
+    public struct Resource: Codable, Equatable {
+        public enum Rule: String, Codable, Equatable {
+            case process
+            case copy
+        }
+
+        /// The rule for the resource.
+        public let rule: Rule
+
+        /// The path of the resource.
+        public let path: String
+
+        public init(rule: Rule, path: String) {
+            self.rule = rule
+            self.path = path
+        }
+    }
+
     /// The name of the target.
     public let name: String
 
@@ -218,6 +236,9 @@ public struct TargetDescription: Equatable, Codable {
 
     /// The custom sources of the target.
     public let sources: [String]?
+
+    /// The explicitly declared resources of the target.
+    public let resources: [Resource]?
 
     /// The exclude patterns.
     public let exclude: [String]
@@ -253,6 +274,7 @@ public struct TargetDescription: Equatable, Codable {
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
+        resources: [Resource]? = nil,
         publicHeadersPath: String? = nil,
         type: TargetType = .regular,
         pkgConfig: String? = nil,
@@ -271,6 +293,7 @@ public struct TargetDescription: Equatable, Codable {
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
         self.exclude = exclude
+        self.resources = resources
         self.type = type
         self.pkgConfig = pkgConfig
         self.providers = providers

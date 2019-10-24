@@ -22,6 +22,7 @@ class PackageDescription5LoadingTests: XCTestCase {
 
     private func loadManifestThrowing(
         _ contents: ByteString,
+        manifestVersion: ManifestVersion = .v5,
         line: UInt = #line,
         body: (Manifest) -> Void
     ) throws {
@@ -31,9 +32,9 @@ class PackageDescription5LoadingTests: XCTestCase {
         let m = try manifestLoader.load(
             package: AbsolutePath.root,
             baseURL: "/foo",
-            manifestVersion: .v5,
+            manifestVersion: manifestVersion,
             fileSystem: fs)
-        guard m.manifestVersion == .v5 else {
+        guard m.manifestVersion == manifestVersion else {
             return XCTFail("Invalid manfiest version")
         }
         body(m)
@@ -41,11 +42,12 @@ class PackageDescription5LoadingTests: XCTestCase {
 
     private func loadManifest(
         _ contents: ByteString,
+        manifestVersion: ManifestVersion = .v5,
         line: UInt = #line,
         body: (Manifest) -> Void
     ) {
         do {
-            try loadManifestThrowing(contents, line: line, body: body)
+            try loadManifestThrowing(contents, manifestVersion: manifestVersion, line: line, body: body)
         } catch ManifestParseError.invalidManifestFormat(let error, _) {
             print(error)
             XCTFail(file: #file, line: line)
@@ -413,6 +415,43 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTFail("Unexpected success")
         } catch ManifestParseError.runtimeManifestErrors(let errors) {
             XCTAssertEqual(errors, ["cSettings cannot be an empty array; provide at least one setting or remove it"])
+        }
+    }
+
+    func testResources() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "Foo",
+                       __resources: [
+                           .copy("foo.txt"),
+                           .process("bar.txt"),
+                       ]
+                   ),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("\(error)")
+            }
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
+        }
+
+        loadManifest(stream.bytes, manifestVersion: .v5_2) { manifest in
+            let resources = manifest.targets[0].resources
+            XCTAssertEqual(resources?[0], TargetDescription.Resource(rule: .copy, path: "foo.txt"))
+            XCTAssertEqual(resources?[1], TargetDescription.Resource(rule: .process, path: "bar.txt"))
         }
     }
 }
