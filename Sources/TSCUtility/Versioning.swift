@@ -74,7 +74,7 @@ public struct Versioning {
 
     /// The current version of the package manager.
     public static let currentVersion = SwiftVersion(
-        version: (5, 1, 0),
+        version: (5, 2, 0),
         isDevelopment: false,
         buildIdentifier: getBuildIdentifier())
 

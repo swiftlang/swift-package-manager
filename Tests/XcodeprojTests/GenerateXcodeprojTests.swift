@@ -57,7 +57,7 @@ class GenerateXcodeprojTests: XCTestCase {
             let output = try Process.checkNonZeroExit(
                 args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.pathString).spm_chomp()
 
-            XCTAssertTrue(output.hasPrefix("""
+            XCTAssertTrue(output.contains("""
                Information about project "DummyProjectName":
                    Targets:
                        DummyModuleName
