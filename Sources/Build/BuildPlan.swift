@@ -504,6 +504,9 @@ public final class SwiftTargetBuildDescription {
     /// These are the source files generated during the build.
     private var derivedSources: Sources
 
+    /// Path to the bundle generated for this module (if any).
+    let bundlePath: AbsolutePath?
+
     /// The list of all source files in the target, including the derived ones.
     var sources: [AbsolutePath] { target.sources.paths + derivedSources.paths }
 
@@ -567,6 +570,9 @@ public final class SwiftTargetBuildDescription {
         self.fs = fs
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
+        self.bundlePath = target.underlyingTarget.bundleName
+            .map{ $0 + buildParameters.triple.nsbundleExtension }
+            .map(buildParameters.buildPath.appending(component:))
 
         if shouldEmitObjCCompatibilityHeader {
             self.moduleMap = try self.generateModuleMap()
@@ -578,10 +584,10 @@ public final class SwiftTargetBuildDescription {
     /// Generate the resource bundle accessor, if appropriate.
     private func generateResourceAccessor() throws {
         // Do nothing if we're not generating a bundle.
-        guard let bundleName = target.underlyingTarget.bundleName else { return }
+        guard let bundlePath = self.bundlePath else { return }
 
         // Compute the basename of the bundle.
-        let bundleBasename = bundleName + buildParameters.triple.nsbundleExtension
+        let bundleBasename = bundlePath.basename
 
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -602,8 +608,13 @@ public final class SwiftTargetBuildDescription {
         // Write this file out.
         // FIXME: We should generate this file during the actual build.
         let path = derivedSources.root.appending(subpath)
-
         try fs.createDirectory(path.parentDirectory, recursive: true)
+
+        // Return early if the contents are identical.
+        if fs.isFile(path), try fs.readFileContents(path) == stream.bytes {
+            return
+        }
+
         try fs.writeFileContents(path, bytes: stream.bytes)
     }
 
