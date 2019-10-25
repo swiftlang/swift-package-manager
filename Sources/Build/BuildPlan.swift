@@ -296,6 +296,25 @@ public enum TargetBuildDescription {
             return target.objects
         }
     }
+
+    /// Path to the bundle generated for this module (if any).
+    var bundlePath: AbsolutePath? {
+        switch self {
+        case .swift(let target):
+            return target.bundlePath
+        case .clang(let target):
+            return target.bundlePath
+        }
+    }
+
+    var target: ResolvedTarget {
+        switch self {
+        case .swift(let target):
+            return target.target
+        case .clang(let target):
+            return target.target
+        }
+    }
 }
 
 /// Target description for a Clang target i.e. C language family target.
@@ -311,6 +330,11 @@ public final class ClangTargetBuildDescription {
 
     /// The build parameters.
     let buildParameters: BuildParameters
+
+    /// Path to the bundle generated for this module (if any).
+    var bundlePath: AbsolutePath? {
+        buildParameters.bundlePath(for: target)
+    }
 
     /// The modulemap file for this target, if any.
     private(set) var moduleMap: AbsolutePath?
@@ -342,6 +366,7 @@ public final class ClangTargetBuildDescription {
         self.fileSystem = fileSystem
         self.target = target
         self.buildParameters = buildParameters
+
         // Try computing modulemap path for a C library.
         if target.type == .library {
             self.moduleMap = try computeModulemapPath()
@@ -504,6 +529,11 @@ public final class SwiftTargetBuildDescription {
     /// These are the source files generated during the build.
     private var derivedSources: Sources
 
+    /// Path to the bundle generated for this module (if any).
+    var bundlePath: AbsolutePath? {
+        buildParameters.bundlePath(for: target)
+    }
+
     /// The list of all source files in the target, including the derived ones.
     var sources: [AbsolutePath] { target.sources.paths + derivedSources.paths }
 
@@ -578,10 +608,10 @@ public final class SwiftTargetBuildDescription {
     /// Generate the resource bundle accessor, if appropriate.
     private func generateResourceAccessor() throws {
         // Do nothing if we're not generating a bundle.
-        guard let bundleName = target.underlyingTarget.bundleName else { return }
+        guard let bundlePath = self.bundlePath else { return }
 
         // Compute the basename of the bundle.
-        let bundleBasename = bundleName + buildParameters.triple.nsbundleExtension
+        let bundleBasename = bundlePath.basename
 
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -602,8 +632,13 @@ public final class SwiftTargetBuildDescription {
         // Write this file out.
         // FIXME: We should generate this file during the actual build.
         let path = derivedSources.root.appending(subpath)
-
         try fs.createDirectory(path.parentDirectory, recursive: true)
+
+        // Return early if the contents are identical.
+        if fs.isFile(path), try fs.readFileContents(path) == stream.bytes {
+            return
+        }
+
         try fs.writeFileContents(path, bytes: stream.bytes)
     }
 
@@ -1515,5 +1550,14 @@ private extension Diagnostic.Message {
 
     static func pkgConfigHint(pkgConfigName: String, installText: String) -> Diagnostic.Message {
         .warning(PkgConfigHintDiagnostic(pkgConfigName: pkgConfigName, installText: installText))
+    }
+}
+
+extension BuildParameters {
+    /// Returns a target's bundle path inside the build directory.
+    fileprivate func bundlePath(for target: ResolvedTarget) -> AbsolutePath? {
+        target.underlyingTarget.bundleName
+        .map{ $0 + triple.nsbundleExtension }
+        .map(buildPath.appending(component:))
     }
 }

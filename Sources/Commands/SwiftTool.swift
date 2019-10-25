@@ -674,7 +674,11 @@ public class SwiftTool<Options: ToolOptions> {
         try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
 
         // Create the build description.
-        let buildDescription = BuildDescription(plan: plan, testDiscoveryCommands: llbuild.testDiscoveryCommands)
+        let buildDescription = BuildDescription(
+            plan: plan,
+            testDiscoveryCommands: llbuild.testDiscoveryCommands,
+            copyCommands: llbuild.copyCommands
+        )
         try localFileSystem.createDirectory(plan.buildParameters.buildDescriptionPath.parentDirectory, recursive: true)
         try buildDescription.write(to: plan.buildParameters.buildDescriptionPath)
         return buildDescription

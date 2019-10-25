@@ -46,6 +46,9 @@ public class Target: ObjectIdentifierProtocol {
     /// The sources for the target.
     public let sources: Sources
 
+    /// The resource files in the target.
+    public let resources: [Resource]
+
     /// The list of platforms that are supported by this target.
     public let platforms: [SupportedPlatform]
 
@@ -63,6 +66,7 @@ public class Target: ObjectIdentifierProtocol {
         platforms: [SupportedPlatform],
         type: Kind,
         sources: Sources,
+        resources: [Resource] = [],
         dependencies: [Target],
         productDependencies: [(name: String, package: String?)] = [],
         buildSettings: BuildSettings.AssignmentTable
@@ -72,6 +76,7 @@ public class Target: ObjectIdentifierProtocol {
         self.platforms = platforms
         self.type = type
         self.sources = sources
+        self.resources = resources
         self.dependencies = dependencies
         self.productDependencies = productDependencies
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
@@ -136,6 +141,7 @@ public class SwiftTarget: Target {
         platforms: [SupportedPlatform] = [],
         isTest: Bool = false,
         sources: Sources,
+        resources: [Resource] = [],
         dependencies: [Target] = [],
         productDependencies: [(name: String, package: String?)] = [],
         swiftVersion: SwiftLanguageVersion,
@@ -149,6 +155,7 @@ public class SwiftTarget: Target {
             platforms: platforms,
             type: type,
             sources: sources,
+            resources: resources,
             dependencies: dependencies,
             productDependencies: productDependencies,
             buildSettings: buildSettings
