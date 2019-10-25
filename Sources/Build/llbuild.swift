@@ -102,14 +102,22 @@ public final class LLBuildManifestGenerator {
 
         // Create commands for all target description in the plan.
         for (target, description) in plan.targetMap {
+            // Add resources node as the input to the target. This isn't great because we
+            // don't need to block building of a module until its resources are assembled but
+            // we don't currently have a good way to express that resources should be built
+            // whenever a module is being built.
+            let resourcesNode = createResourcesBundle(for: description, targets: &targets)
+            let otherInputs = resourcesNode.map{ [$0] } ?? []
+
             switch description {
             case .swift(let description):
                 // Only build targets by default if they are reachabe from a root target.
-                targets.append(createSwiftCompileTarget(description),
+                targets.append(createSwiftCompileTarget(description, otherInputs: otherInputs),
                     buildByDefault: plan.graph.isInRootPackages(target),
                     isTest: description.isTestTarget)
+
             case .clang(let description):
-                targets.append(try createClangCompileTarget(description),
+                targets.append(try createClangCompileTarget(description, otherInputs: otherInputs),
                     buildByDefault: plan.graph.isInRootPackages(target),
                     isTest: description.isTestTarget)
             }
@@ -207,8 +215,11 @@ public final class LLBuildManifestGenerator {
         targets.allCommands.insert(cmd)
     }
 
-    /// Map of command -> tool that is used during the build for in-process tools.
+    /// Map of command -> test discovery tool that is used during the build for in-process tools.
     public private(set) var testDiscoveryCommands: [String: TestDiscoveryTool] = [:]
+
+    /// Map of command -> copy tool that is used during the build for in-process tools.
+    public private(set) var copyCommands: [String: CopyTool] = [:]
 
     /// Create a llbuild target for a product description.
     private func createProductTarget(_ buildProduct: ProductBuildDescription) -> Target {
@@ -229,7 +240,6 @@ public final class LLBuildManifestGenerator {
             )
         }
 
-        let buildConfig = plan.buildParameters.configuration.dirname
         var target = Target(name: buildProduct.product.getLLBuildTargetName(config: buildConfig))
         target.outputs.insert(contentsOf: tool.outputs)
         target.cmds.insert(Command(name: buildProduct.product.getCommandName(config: buildConfig), tool: tool))
@@ -237,10 +247,14 @@ public final class LLBuildManifestGenerator {
     }
 
     /// Create a llbuild target for a Swift target description.
-    private func createSwiftCompileTarget(_ target: SwiftTargetBuildDescription) -> Target {
+    private func createSwiftCompileTarget(
+        _ target: SwiftTargetBuildDescription,
+        otherInputs: [String]
+    ) -> Target {
         // Compute inital inputs.
         var inputs = SortedArray<String>()
         inputs += target.sources.map{ $0.pathString }
+        inputs += otherInputs
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.
@@ -290,7 +304,6 @@ public final class LLBuildManifestGenerator {
             }
         }
 
-        let buildConfig = plan.buildParameters.configuration.dirname
         var buildTarget = Target(name: target.target.getLLBuildTargetName(config: buildConfig))
         // The target only cares about the module output.
         buildTarget.outputs.insert(target.moduleOutputPath.pathString)
@@ -313,8 +326,47 @@ public final class LLBuildManifestGenerator {
         return buildTarget
     }
 
+    /// Adds command for creating the resources bundle of the given target.
+    ///
+    /// Returns the virtual node that will build the entire bundle.
+    private func createResourcesBundle(
+        for target: TargetBuildDescription,
+        targets: inout Targets
+    ) -> String? {
+        guard let bundlePath = target.bundlePath else { return nil }
+
+        // Create a copy command for each resource file.
+        let cmds: [Command] = target.target.underlyingTarget.resources.map{
+            let output = bundlePath.appending(component: $0.path.basename)
+            let tool = CopyTool(inputs: [$0.path.pathString], outputs: [output.pathString])
+            let cmd = Command(name: output.pathString, tool: tool)
+
+            copyCommands[cmd.name] = tool
+            return cmd
+        }
+
+        // Create a command that represents the entire bundle. The inputs are the outputs of the
+        // actual resource command and output is a virtual node that represents the entire bundle.
+        let bundleCmdName = target.target.getLLBuildResourcesCmdName(config: buildConfig)
+        let bundleOutputNode = "<" + bundleCmdName + ">"
+        let bundlePhonyTool = PhonyTool(
+            inputs: cmds.flatMap{ $0.tool.outputs },
+            outputs: [bundleOutputNode]
+        )
+
+        targets.allCommands += cmds
+        targets.allCommands += [Command(name: bundleCmdName, tool: bundlePhonyTool)]
+
+        return bundleOutputNode
+    }
+
+    var buildConfig: String { plan.buildParameters.configuration.dirname }
+
     /// Create a llbuild target for a Clang target description.
-    private func createClangCompileTarget(_ target: ClangTargetBuildDescription) throws -> Target {
+    private func createClangCompileTarget(
+        _ target: ClangTargetBuildDescription,
+        otherInputs: [String]
+    ) throws -> Target {
 
         let standards = [
             (target.clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
@@ -322,6 +374,7 @@ public final class LLBuildManifestGenerator {
         ]
 
         var externalDependencies = SortedArray<String>()
+        externalDependencies += otherInputs
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             if case .swift(let desc)? = plan.targetMap[target], target.type == .library {
@@ -388,6 +441,10 @@ extension ResolvedTarget {
 
     public func getLLBuildTargetName(config: String) -> String {
         return "\(name)-\(config).module"
+    }
+
+    public func getLLBuildResourcesCmdName(config: String) -> String {
+        return "\(name)-\(config).module-resources"
     }
 }
 

@@ -52,6 +52,19 @@ public struct TestDiscoveryTool: ToolProtocol, Codable {
     }
 }
 
+public struct CopyTool: ToolProtocol, Codable {
+    static let name: String = "copy-tool"
+
+    public let inputs: [String]
+    public let outputs: [String]
+
+    public func append(to stream: OutputByteStream) {
+        stream <<< "    tool: \(Self.name)\n"
+        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
+    }
+}
+
 /// Package strcuture tool is used to determine if the package has changed in some way
 /// that requires regenerating the build manifest file. This allows us to skip a lot of
 /// redundent work (package graph loading, build planning, manifest generation) during
