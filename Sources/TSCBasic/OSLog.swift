@@ -35,7 +35,7 @@ public final class OSLog {
     /// Creates a custom log object.
     public convenience init(subsystem: String, category: String) {
       #if canImport(os)
-        if #available(macOS 10.12, *) {
+        if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
             self.init(os.OSLog(subsystem: subsystem, category: category))
         } else {
             self.init()
@@ -48,7 +48,7 @@ public final class OSLog {
     /// The shared default log.
     public static let disabled: OSLog = {
       #if canImport(os)
-        if #available(macOS 10.12, *) {
+        if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
             return OSLog(os.OSLog.disabled)
         } else {
             return OSLog()
@@ -61,7 +61,7 @@ public final class OSLog {
     /// The shared default log.
     public static let `default`: OSLog = {
       #if canImport(os)
-        if #available(macOS 10.12, *) {
+        if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
             return OSLog(os.OSLog.default)
         } else {
             return OSLog()
@@ -91,7 +91,7 @@ public struct OSLogType {
     /// The default log level.
     public static var `default`: OSLogType {
         #if canImport(os)
-          if #available(OSX 10.14, *) {
+          if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
               return self.init(os.OSLogType.default)
           } else {
               return self.init()
@@ -104,7 +104,7 @@ public struct OSLogType {
     /// The info log level.
     public static var info: OSLogType {
         #if canImport(os)
-          if #available(OSX 10.14, *) {
+          if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
               return self.init(os.OSLogType.info)
           } else {
               return self.init()
@@ -117,7 +117,7 @@ public struct OSLogType {
     /// The debug log level.
     public static var debug: OSLogType {
         #if canImport(os)
-          if #available(OSX 10.14, *) {
+          if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
               return self.init(os.OSLogType.info)
           } else {
               return self.init()
@@ -139,7 +139,7 @@ public struct OSLogType {
     _ args: CVarArg...
 ) {
   #if canImport(os)
-    if #available(OSX 10.14, *) {
+    if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
         switch args.count {
         case 0:
             os.os_log(type.type, log: log.log, message)
@@ -181,7 +181,7 @@ public struct OSSignpostType {
     /// Begins a signposted interval.
     public static let begin: OSSignpostType = {
       #if canImport(os)
-        if #available(macOS 10.14, *) {
+        if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
             return OSSignpostType(.begin)
         } else {
             fatalError("unreachable")
@@ -194,7 +194,7 @@ public struct OSSignpostType {
     /// Ends a signposted interval.
     public static let end: OSSignpostType = {
       #if canImport(os)
-        if #available(macOS 10.14, *) {
+        if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
             return OSSignpostType(.end)
         } else {
             fatalError("unreachable")
@@ -207,7 +207,7 @@ public struct OSSignpostType {
     /// Marks a point of interest in time with no duration.
     public static let event: OSSignpostType = {
       #if canImport(os)
-        if #available(macOS 10.14, *) {
+        if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
             return OSSignpostType(.event)
         } else {
             fatalError("unreachable")
@@ -227,7 +227,7 @@ public struct OSSignpostID {
     private let storage: Any?
 
   #if canImport(os)
-    @available(macOS 10.14, *)
+    @available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *)
     @usableFromInline var id: os.OSSignpostID {
         return storage as! os.OSSignpostID
     }
@@ -241,7 +241,7 @@ public struct OSSignpostID {
     // provided log handle.
     public init(log: OSLog) {
       #if canImport(os)
-        if #available(macOS 10.14, *) {
+        if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
             self.init(os.OSSignpostID(log: log.log))
         } else {
             self.init(nil)
@@ -255,7 +255,7 @@ public struct OSSignpostID {
     /// concurrently.
     public static let exclusive: OSSignpostID = {
       #if canImport(os)
-        if #available(macOS 10.14, *) {
+        if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
             return OSSignpostID(os.OSSignpostID.exclusive)
         } else {
             return OSSignpostID(nil)
@@ -274,7 +274,7 @@ public struct OSSignpostID {
     signpostID: OSSignpostID = .exclusive
 ) {
   #if canImport(os)
-    if #available(macOS 10.14, *) {
+    if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
         os.os_signpost(type.type, log: log.log, name: name, signpostID: signpostID.id)
     }
   #endif
@@ -290,7 +290,7 @@ public struct OSSignpostID {
     _ args: CVarArg...
 ) {
   #if canImport(os)
-    if #available(macOS 10.14, *) {
+    if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 12, *) {
         switch args.count {
         case 0:
             os.os_signpost(type.type, log: log.log, name: name, signpostID: signpostID.id, format)
