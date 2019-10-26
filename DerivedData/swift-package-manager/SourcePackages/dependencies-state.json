@@ -1,1 +1,0 @@
-{"object": {"dependencies": [{"basedOn": null, "packageRef": {"identity": "swift-llbuild", "isLocal": false, "name": "llbuild", "path": "https://github.com/apple/swift-llbuild.git"}, "state": {"checkoutState": {"branch": "master", "revision": "40bd204842fa23408f2c1cdbdef0750531a30fdd", "version": null}, "name": "checkout"}, "subpath": "swift-llbuild"}]}, "version": 2}
