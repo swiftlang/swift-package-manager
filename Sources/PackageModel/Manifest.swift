@@ -11,54 +11,6 @@
 import TSCBasic
 import TSCUtility
 
-/// The supported manifest versions.
-public enum ManifestVersion: String, Codable, CustomStringConvertible {
-    case v4
-    case v4_2
-    case v5
-    case v5_1
-    case v5_2
-
-    /// The Swift language version to use when parsing the manifest file.
-    public var swiftLanguageVersion: SwiftLanguageVersion {
-        // FIXME: This is not very scalable. We need to store the tools
-        // version in the manifest and then use that to compute the right
-        // Swift version instead of relying on the manifest version.  The
-        // manifest version is just the version that was used to load the
-        // manifest and shouldn't contribute to what Swift version is
-        // chosen. For e.g., we might have a new manifest version 4.3, but
-        // the language version should still be 4.2.
-        switch self {
-        case .v4: return .v4
-        case .v4_2: return .v4_2
-        case .v5: return .v5
-        case .v5_1: return .v5
-        case .v5_2: return .v5
-        }
-    }
-
-    public var description: String {
-        switch self {
-        case .v4: return "4"
-        case .v4_2: return "4.2"
-        case .v5: return "5"
-        case .v5_1: return "5.1"
-        case .v5_2: return "5.2"
-        }
-    }
-
-    /// Subpath to the the runtime for this manifest version.
-    public var runtimeSubpath: RelativePath {
-        switch self {
-        case .v4:
-            return RelativePath("4")
-        case .v4_2, .v5, .v5_1, .v5_2:
-            // PackageDescription 4.2 and 5 are source compatible so they're contained in the same dylib.
-            return RelativePath("4_2")
-        }
-    }
-}
-
 /// This contains the declarative specification loaded from package manifest
 /// files, and the tools for working with the manifest.
 public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, Codable {
@@ -84,8 +36,8 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The version this package was loaded from, if known.
     public let version: Version?
 
-    /// The version of manifest.
-    public let manifestVersion: ManifestVersion
+    /// The tools version declared in the manifest.
+    public let toolsVersion: ToolsVersion
 
     /// The name of the package.
     public let name: String
@@ -123,7 +75,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         path: AbsolutePath,
         url: String,
         version: TSCUtility.Version? = nil,
-        manifestVersion: ManifestVersion,
+        toolsVersion: ToolsVersion,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
         cLanguageStandard: String? = nil,
@@ -138,7 +90,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         self.path = path
         self.url = url
         self.version = version
-        self.manifestVersion = manifestVersion
+        self.toolsVersion = toolsVersion
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.cLanguageStandard = cLanguageStandard
@@ -159,6 +111,34 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     public static let dumpPackageKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "dumpPackage")!
 }
 
+extension ToolsVersion {
+    /// The subpath to the PackageDescription runtime library.
+    public var runtimeSubpath: RelativePath {
+        if self < .v4_2 {
+            return RelativePath("4")
+        }
+        return RelativePath("4_2")
+    }
+
+    /// The swift language version based on this tools version.
+    public var swiftLanguageVersion: SwiftLanguageVersion {
+        switch major {
+        case 4:
+            // If the tools version is less than 4.2, use language version 4.
+            if minor < 2 {
+                return .v4
+            }
+
+            // Otherwise, use 4.2
+            return .v4_2
+
+        default:
+            // Anything above 4 major version uses version 5.
+            return .v5
+        }
+    }
+}
+
 extension Manifest {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
@@ -172,7 +152,7 @@ extension Manifest {
             try container.encode(version, forKey: .version)
         }
 
-        try container.encode(manifestVersion, forKey: .manifestVersion)
+        try container.encode(toolsVersion, forKey: .toolsVersion)
         try container.encode(pkgConfig, forKey: .pkgConfig)
         try container.encode(providers, forKey: .providers)
         try container.encode(cLanguageStandard, forKey: .cLanguageStandard)

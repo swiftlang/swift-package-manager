@@ -71,7 +71,6 @@ extension PackageDescription4LoadingTests {
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testCTarget", testCTarget),
         ("testLanguageStandards", testLanguageStandards),
-        ("testManiestVersionToToolsVersion", testManiestVersionToToolsVersion),
         ("testManifestWithWarnings", testManifestWithWarnings),
         ("testPackageDependencies", testPackageDependencies),
         ("testProducts", testProducts),

@@ -1017,7 +1017,7 @@ extension Workspace {
               toolsVersion >= ToolsVersion.minimumRequired else {
             return []
         }
-        return manifestLoader.interpreterFlags(for: toolsVersion.manifestVersion)
+        return manifestLoader.interpreterFlags(for: toolsVersion)
     }
 
     /// Load the manifests for the current dependency tree.
@@ -1123,7 +1123,7 @@ extension Workspace {
                 package: packagePath,
                 baseURL: url,
                 version: version,
-                manifestVersion: toolsVersion.manifestVersion,
+                toolsVersion: toolsVersion,
                 diagnostics: diagnostics
             )
         })

@@ -291,7 +291,7 @@ public final class PackageEditorContext {
             package: path,
             baseURL: path.description,
             version: nil,
-            manifestVersion: toolsVersion.manifestVersion,
+            toolsVersion: toolsVersion,
             fileSystem: fs
         )
     }
