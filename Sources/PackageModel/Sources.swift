@@ -80,19 +80,17 @@ public enum SupportedLanguageExtension: String {
     }()
 
     /// Returns a set of valid extensions in clang targets.
-    public static func clangTargetExtensions(manifestVersion: ManifestVersion) -> Set<String> {
-        let alwaysValidExts = cExtensions.union(cppExtensions)
-        switch manifestVersion {
-        case .v4, .v4_2:
-            return alwaysValidExts
-        case .v5, .v5_1, .v5_2:
-            return alwaysValidExts.union(assemblyExtensions)
+    public static func clangTargetExtensions(toolsVersion: ToolsVersion) -> Set<String> {
+        var validExts = cExtensions.union(cppExtensions)
+        if toolsVersion >= .v5 {
+            validExts.formUnion(assemblyExtensions)
         }
+        return validExts
     }
 
     /// Returns a set of all file extensions we support.
-    public static func validExtensions(manifestVersion: ManifestVersion) -> Set<String> {
-        return swiftExtensions.union(clangTargetExtensions(manifestVersion: manifestVersion))
+    public static func validExtensions(toolsVersion: ToolsVersion) -> Set<String> {
+        return swiftExtensions.union(clangTargetExtensions(toolsVersion: toolsVersion))
     }
 
     /// Converts array of LanguageExtension into a string set representation.

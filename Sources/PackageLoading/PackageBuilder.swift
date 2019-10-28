@@ -301,7 +301,7 @@ public final class PackageBuilder {
 
     private func isValidSource(_ path: AbsolutePath) -> Bool {
         // Ignore files which don't match the expected extensions.
-        guard let ext = path.extension, SupportedLanguageExtension.validExtensions(manifestVersion: self.manifest.manifestVersion).contains(ext) else {
+        guard let ext = path.extension, SupportedLanguageExtension.validExtensions(toolsVersion: self.manifest.toolsVersion).contains(ext) else {
             return false
         }
 
@@ -385,9 +385,7 @@ public final class PackageBuilder {
             }
 
             // Emit deprecation notice.
-            switch manifest.manifestVersion {
-            case .v4: break
-            case .v4_2, .v5, .v5_1, .v5_2:
+            if manifest.toolsVersion >= .v4_2 {
                 diagnostics.emit(.systemPackageDeprecation, location: diagnosticLocation())
             }
 
@@ -712,7 +710,7 @@ public final class PackageBuilder {
         }
         // Select any source files for the C-based languages and for Swift.
         let sources = walked.filter(isValidSource).filter({ !targetExcludedPaths.contains($0) })
-        let clangSources = sources.filter({ SupportedLanguageExtension.clangTargetExtensions(manifestVersion: self.manifest.manifestVersion).contains($0.extension!)})
+        let clangSources = sources.filter({ SupportedLanguageExtension.clangTargetExtensions(toolsVersion: self.manifest.toolsVersion).contains($0.extension!)})
         let swiftSources = sources.filter({ SupportedLanguageExtension.swiftExtensions.contains($0.extension!) })
         assert(sources.count == clangSources.count + swiftSources.count)
 
@@ -935,7 +933,7 @@ public final class PackageBuilder {
             computedSwiftVersion = swiftVersion
         } else {
             // Otherwise, use the version depending on the manifest version.
-            computedSwiftVersion = manifest.manifestVersion.swiftLanguageVersion
+            computedSwiftVersion = manifest.toolsVersion.swiftLanguageVersion
         }
         _swiftVersion = computedSwiftVersion
         return computedSwiftVersion

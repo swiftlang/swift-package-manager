@@ -1898,7 +1898,7 @@ final class WorkspaceTests: XCTestCase {
             path: manifest.path,
             url: manifest.url,
             version: manifest.version,
-            manifestVersion: manifest.manifestVersion,
+            toolsVersion: manifest.toolsVersion,
             dependencies: [PackageDependencyDescription(url: manifest.dependencies[0].url, requirement: .exact("1.5.0"))],
             targets: manifest.targets
         )
