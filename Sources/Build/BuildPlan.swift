@@ -223,6 +223,29 @@ public struct BuildParameters {
     fileprivate func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
         return BuildSettings.Scope(target.underlyingTarget.buildSettings, boundCondition: (currentPlatform, configuration))
     }
+
+    /// Represents the debugging strategy.
+    ///
+    /// Swift binaries requires the swiftmodule files in order for lldb to work.
+    /// On Darwin, linker can directly take the swiftmodule file path using the
+    /// -add_ast_path flag. On other platforms, we convert the swiftmodule into
+    /// an object file using Swift's modulewrap tool.
+    enum DebuggingStrategy {
+        case swiftAST
+        case modulewrap
+    }
+
+    /// The debugging strategy according to the current build parameters.
+    var debuggingStrategy: DebuggingStrategy? {
+        guard configuration == .debug else {
+            return nil
+        }
+
+        if triple.isDarwin() {
+            return .swiftAST
+        }
+        return .modulewrap
+    }
 }
 
 /// A target description which can either be for a Swift or Clang target.
@@ -458,6 +481,13 @@ public final class SwiftTargetBuildDescription {
         return buildParameters.buildPath.appending(component: target.c99name + ".swiftmodule")
     }
 
+    /// The path to the wrapped swift module which is created using the modulewrap tool. This is required
+    /// for supporting debugging on non-Darwin platforms (On Darwin, we just pass the swiftmodule to the linker
+    /// using the `-add_ast_path` flag).
+    var wrappedModuleOutputPath: AbsolutePath {
+        return tempsPath.appending(component: target.c99name + ".swiftmodule.o")
+    }
+
     /// The path to the swifinterface file after compilation.
     var parseableModuleInterfaceOutputPath: AbsolutePath {
         return buildParameters.buildPath.appending(component: target.c99name + ".swiftinterface")
@@ -668,6 +698,9 @@ public final class ProductBuildDescription {
     /// The list of targets that are going to be linked statically in this product.
     fileprivate var staticTargets: [ResolvedTarget] = []
 
+    /// The list of Swift modules that should be passed to the linker. This is required for debugging to work.
+    fileprivate var swiftASTs: [AbsolutePath] = []
+
     /// Path to the temporary directory for this product.
     var tempsPath: AbsolutePath {
         return buildParameters.buildPath.appending(component: product.name + ".product")
@@ -789,6 +822,10 @@ public final class ProductBuildDescription {
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags()
+
+        // Add AST paths to make the product debuggable. This array is only populated when we're
+        // building for Darwin in debug configuration.
+        args += swiftASTs.flatMap{ ["-Xlinker", "-add_ast_path", "-Xlinker", $0.pathString] }
 
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.linkerFlags
@@ -1093,6 +1130,28 @@ public class BuildPlan {
             if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
                 buildProduct.additionalFlags += self.buildParameters.toolchain.extraCPPFlags
                 break
+            }
+        }
+
+        for target in dependencies.staticTargets {
+            switch target.underlyingTarget {
+            case is SwiftTarget:
+                // Swift targets are guaranteed to have a corresponding Swift description.
+                guard case .swift(let description) = targetMap[target]! else { fatalError() }
+
+                // Based on the debugging strategy, we either need to pass swiftmodule paths to the
+                // product or link in the wrapped module object. This is required for properly debugging
+                // Swift products. Debugging statergy is computed based on the current platform we're
+                // building for and is nil for the release configuration.
+                switch buildParameters.debuggingStrategy {
+                case .swiftAST:
+                    buildProduct.swiftASTs.append(description.moduleOutputPath)
+                case .modulewrap:
+                    buildProduct.objects += [description.wrappedModuleOutputPath]
+                case nil:
+                    break
+                }
+            default: break
             }
         }
 
