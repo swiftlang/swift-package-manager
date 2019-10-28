@@ -718,7 +718,6 @@ public final class PackageBuilder {
 
         // Create the build setting assignment table for this target.
         let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path)
-        let resources = self.computeResources(for: manifestTarget, targetRoot: potentialModule.path)
 
         // Create and return the right kind of target depending on what kind of sources we found.
         if clangSources.isEmpty {
@@ -730,7 +729,7 @@ public final class PackageBuilder {
             var bundleName: String?
             // FIXME: This needs to depend on if we have *any* resources, not just explicitly
             // declared ones.
-            if !resources.isEmpty {
+            if manifestTarget?.resources.isEmpty == false {
                 bundleName = manifest.name + "_" + potentialModule.name
             }
 
@@ -741,7 +740,6 @@ public final class PackageBuilder {
                 platforms: self.platforms(),
                 isTest: potentialModule.isTest,
                 sources: Sources(paths: swiftSources, root: potentialModule.path),
-                resources: resources,
                 dependencies: moduleDependencies,
                 productDependencies: productDeps,
                 swiftVersion: try swiftVersion(),
@@ -768,23 +766,6 @@ public final class PackageBuilder {
                 buildSettings: buildSettings
             )
         }
-    }
-
-    /// Compute the resources in the target.
-    // FIXME: This is prelimary logic just to get things started.
-    func computeResources(
-        for target: TargetDescription?,
-        targetRoot: AbsolutePath
-    ) -> [Resource] {
-        guard let target = target else { return [] }
-        var result: [Resource] = []
-
-        for resource in target.resources {
-            let path = targetRoot.appending(RelativePath(resource.path))
-            result += [Resource(rule: resource.rule, path: path)]
-        }
-
-        return result
     }
 
     /// Creates build setting assignment table for the given target.

@@ -210,8 +210,6 @@ public final class LLBuildManifestGenerator {
     /// Map of command -> tool that is used during the build for in-process tools.
     public private(set) var testDiscoveryCommands: [String: TestDiscoveryTool] = [:]
 
-    public private(set) var copyCommands: [String: CopyTool] = [:]
-
     /// Create a llbuild target for a product description.
     private func createProductTarget(_ buildProduct: ProductBuildDescription) -> Target {
         let tool: ToolProtocol
@@ -312,32 +310,7 @@ public final class LLBuildManifestGenerator {
             buildTarget.cmds.insert(Command(name: target.wrappedModuleOutputPath.pathString, tool: modulewrapTool))
         }
 
-        createResourcesBundle(for: target, buildTarget: &buildTarget)
-
         return buildTarget
-    }
-
-    private func createResourcesBundle(
-        for target: SwiftTargetBuildDescription,
-        buildTarget: inout Target
-    )  {
-        guard let bundlePath = target.bundlePath else { return }
-
-        var cmds: [Command] = []
-
-        for item in target.target.underlyingTarget.resources {
-            switch item.rule {
-            case .copy, .process:
-                let output = bundlePath.appending(component: item.path.basename)
-                let tool = CopyTool(inputs: [item.path.pathString], outputs: [output.pathString])
-                let cmd = Command(name: output.pathString, tool: tool)
-                copyCommands[cmd.name] = tool
-                cmds.append(cmd)
-            }
-        }
-
-        buildTarget.cmds += cmds
-        buildTarget.outputs += cmds.flatMap{ $0.tool.outputs }
     }
 
     /// Create a llbuild target for a Clang target description.
