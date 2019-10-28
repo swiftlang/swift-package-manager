@@ -222,12 +222,14 @@ public class ClangTarget: Target {
 
     public init(
         name: String,
+        bundleName: String? = nil,
         platforms: [SupportedPlatform] = [],
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
         includeDir: AbsolutePath,
         isTest: Bool = false,
         sources: Sources,
+        resources: [Resource] = [],
         dependencies: [Target] = [],
         productDependencies: [(name: String, package: String?)] = [],
         buildSettings: BuildSettings.AssignmentTable = .init()
@@ -240,9 +242,11 @@ public class ClangTarget: Target {
         self.includeDir = includeDir
         super.init(
             name: name,
+            bundleName: bundleName,
             platforms: platforms,
             type: type,
             sources: sources,
+            resources: resources,
             dependencies: dependencies,
             productDependencies: productDependencies,
             buildSettings: buildSettings

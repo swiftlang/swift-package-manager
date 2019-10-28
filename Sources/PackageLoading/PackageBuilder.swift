@@ -720,19 +720,21 @@ public final class PackageBuilder {
         let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path)
         let resources = self.computeResources(for: manifestTarget, targetRoot: potentialModule.path)
 
+        // The name of the bundle, if one is being generated.
+        var bundleName: String?
+
+        // FIXME: This needs to depend on if we have *any* resources, not just explicitly
+        // declared ones.
+        if !resources.isEmpty {
+            bundleName = manifest.name + "_" + potentialModule.name
+        }
+
         // Create and return the right kind of target depending on what kind of sources we found.
         if clangSources.isEmpty {
             guard !swiftSources.isEmpty else { return nil }
             let swiftSources = Array(swiftSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: swiftSources)
 
-            // The name of the bundle, if one is being generated.
-            var bundleName: String?
-            // FIXME: This needs to depend on if we have *any* resources, not just explicitly
-            // declared ones.
-            if !resources.isEmpty {
-                bundleName = manifest.name + "_" + potentialModule.name
-            }
 
             // No C sources, so we expect to have Swift sources, and we create a Swift target.
             return SwiftTarget(
@@ -757,12 +759,14 @@ public final class PackageBuilder {
 
             return ClangTarget(
                 name: potentialModule.name,
+                bundleName: bundleName,
                 platforms: self.platforms(),
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
                 includeDir: publicHeadersPath,
                 isTest: potentialModule.isTest,
                 sources: sources,
+                resources: resources,
                 dependencies: moduleDependencies,
                 productDependencies: productDeps,
                 buildSettings: buildSettings

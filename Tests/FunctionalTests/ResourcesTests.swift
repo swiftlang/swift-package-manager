@@ -18,9 +18,12 @@ class ResourcesTests: XCTestCase {
       #if os(macOS)
         fixture(name: "Resources/Simple") { prefix in
             try executeSwiftBuild(prefix)
-            let exec = prefix.appending(RelativePath(".build/debug/Resources"))
-            let output = try Process.checkNonZeroExit(args: exec.pathString)
-            XCTAssertEqual(output, "foo\n")
+
+            for execName in ["SwiftyResource", "SeaResource"] {
+                let exec = prefix.appending(RelativePath(".build/debug/\(execName)"))
+                let output = try Process.checkNonZeroExit(args: exec.pathString)
+                XCTAssertTrue(output.contains("foo"), output)
+            }
         }
       #endif
     }
