@@ -620,6 +620,7 @@ public final class PackageBuilder {
         moduleDependencies: [Target],
         productDeps: [(name: String, package: String?)]
     ) throws -> Target? {
+        guard let manifestTarget = manifestTarget else { return nil }
 
         // Create system library target.
         if potentialModule.type == .system {
@@ -632,8 +633,8 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 platforms: self.platforms(),
                 path: potentialModule.path, isImplicit: false,
-                pkgConfig: manifestTarget?.pkgConfig,
-                providers: manifestTarget?.providers
+                pkgConfig: manifestTarget.pkgConfig,
+                providers: manifestTarget.providers
             )
         }
 
@@ -643,104 +644,44 @@ public final class PackageBuilder {
             diagnostics.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name))
         }
 
+        // Create the build setting assignment table for this target.
+        let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path)
+
         // Compute the path to public headers directory.
-        let publicHeaderComponent = manifestTarget?.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
+        let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
         let publicHeadersPath = potentialModule.path.appending(try RelativePath(validating: publicHeaderComponent))
         guard publicHeadersPath.contains(potentialModule.path) else {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
 
-        // Compute the excluded paths in the target.
-        let targetExcludedPaths: Set<AbsolutePath>
-        if let excludedSubPaths = manifestTarget?.exclude {
-            let excludedPaths = excludedSubPaths.map({ potentialModule.path.appending(RelativePath($0)) })
-            targetExcludedPaths = Set(excludedPaths)
-        } else {
-            targetExcludedPaths = []
-        }
-
-        // Contains the set of sources for this target.
-        var walked = Set<AbsolutePath>()
-
-        // Contains the paths we need to recursively iterate.
-        var pathsToWalk = [AbsolutePath]()
-
-        // If there are sources defined in the target use that.
-        if let definedSources = manifestTarget?.sources {
-            for definedSource in definedSources {
-                let definedSourcePath = potentialModule.path.appending(RelativePath(definedSource))
-                if fileSystem.isDirectory(definedSourcePath) {
-                    // If this is a directory, add it to the list of paths to walk.
-                    pathsToWalk.append(definedSourcePath)
-                } else if fileSystem.isFile(definedSourcePath) {
-                    // Otherwise, this is a sourcefile.
-                    walked.insert(definedSourcePath)
-                } else {
-                    // FIXME: Should we emit warning about this declared thing or silently ignore?
-                }
-            }
-        } else {
-            // Use the top level target path as the path to be walked.
-            pathsToWalk.append(potentialModule.path)
-        }
-
-        // Walk each path and form our set of possible source files.
-        for pathToWalk in pathsToWalk {
-            let contents = try walk(pathToWalk, fileSystem: fileSystem, recursing: { path in
-                // Exclude the public header directory.
-                if path == publicHeadersPath { return false }
-
-                // Exclude if it in the excluded paths of the target.
-                if targetExcludedPaths.contains(path) { return false }
-
-                // Exclude the directories that should never be walked.
-                let base = path.basename
-                if base.hasSuffix(".xcodeproj") || base.hasSuffix(".playground") || base.hasPrefix(".") {
-                    return false
-                }
-
-                return true
-            }).map({$0})
-            walked.formUnion(contents)
-        }
-
-        // Make sure there is no modulemap mixed with the sources.
-        if let path = walked.first(where: { $0.basename == moduleMapFilename }) {
-            throw ModuleError.invalidLayout(.modulemapInSources(path))
-        }
-        // Select any source files for the C-based languages and for Swift.
-        let sources = walked.filter(isValidSource).filter({ !targetExcludedPaths.contains($0) })
-        let clangSources = sources.filter({ SupportedLanguageExtension.clangTargetExtensions(toolsVersion: self.manifest.toolsVersion).contains($0.extension!)})
-        let swiftSources = sources.filter({ SupportedLanguageExtension.swiftExtensions.contains($0.extension!) })
-        assert(sources.count == clangSources.count + swiftSources.count)
-
-        // Create the build setting assignment table for this target.
-        let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path)
-        let resources = self.computeResources(for: manifestTarget, targetRoot: potentialModule.path)
+        let sourcesBuilder = TargetSourcesBuilder(
+            packageName: manifest.name,
+            packagePath: packagePath,
+            target: manifestTarget,
+            path: potentialModule.path,
+            extraExcludes: [publicHeadersPath],
+            toolsVersion: manifest.toolsVersion,
+            fs: fileSystem,
+            diags: diagnostics
+        )
+        let (sources, resources) = try sourcesBuilder.run()
 
         // The name of the bundle, if one is being generated.
-        var bundleName: String?
+        let bundleName = resources.isEmpty ? nil : manifest.name + "_" + potentialModule.name
 
-        // FIXME: This needs to depend on if we have *any* resources, not just explicitly
-        // declared ones.
-        if !resources.isEmpty {
-            bundleName = manifest.name + "_" + potentialModule.name
+        if sources.relativePaths.isEmpty && resources.isEmpty {
+            return nil
         }
+        try validateSourcesOverlapping(forTarget: potentialModule.name, sources: sources.paths)
 
         // Create and return the right kind of target depending on what kind of sources we found.
-        if clangSources.isEmpty {
-            guard !swiftSources.isEmpty else { return nil }
-            let swiftSources = Array(swiftSources)
-            try validateSourcesOverlapping(forTarget: potentialModule.name, sources: swiftSources)
-
-
-            // No C sources, so we expect to have Swift sources, and we create a Swift target.
+        if sources.hasSwiftSources {
             return SwiftTarget(
                 name: potentialModule.name,
                 bundleName: bundleName,
                 platforms: self.platforms(),
                 isTest: potentialModule.isTest,
-                sources: Sources(paths: swiftSources, root: potentialModule.path),
+                sources: sources,
                 resources: resources,
                 dependencies: moduleDependencies,
                 productDependencies: productDeps,
@@ -748,13 +689,6 @@ public final class PackageBuilder {
                 buildSettings: buildSettings
             )
         } else {
-            // No Swift sources, so we expect to have C sources, and we create a C target.
-            guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path) }
-            let cSources = Array(clangSources)
-            try validateSourcesOverlapping(forTarget: potentialModule.name, sources: cSources)
-
-            let sources = Sources(paths: cSources, root: potentialModule.path)
-
             return ClangTarget(
                 name: potentialModule.name,
                 bundleName: bundleName,
@@ -770,23 +704,6 @@ public final class PackageBuilder {
                 buildSettings: buildSettings
             )
         }
-    }
-
-    /// Compute the resources in the target.
-    // FIXME: This is prelimary logic just to get things started.
-    func computeResources(
-        for target: TargetDescription?,
-        targetRoot: AbsolutePath
-    ) -> [Resource] {
-        guard let target = target else { return [] }
-        var result: [Resource] = []
-
-        for resource in target.resources {
-            let path = targetRoot.appending(RelativePath(resource.path))
-            result += [Resource(rule: resource.rule, path: path)]
-        }
-
-        return result
     }
 
     /// Creates build setting assignment table for the given target.
@@ -1195,5 +1112,17 @@ private extension Manifest {
             })
         })
         return Set(names)
+    }
+}
+
+extension Sources {
+    var hasSwiftSources: Bool {
+        paths.first?.extension == "swift"
+    }
+
+    var containsMixedLanguage: Bool {
+        let swiftSources = relativePaths.filter{ $0.extension == "swift" }
+        if swiftSources.isEmpty { return false }
+        return swiftSources.count != relativePaths.count
     }
 }
