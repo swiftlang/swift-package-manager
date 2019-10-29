@@ -14,6 +14,7 @@ import SPMLLBuild
 import PackageModel
 import Dispatch
 import Foundation
+import LLBuildManifest
 
 typealias Diagnostic = TSCBasic.Diagnostic
 
@@ -74,19 +75,17 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         stream.flush()
     }
 
-    private func execute(with tool: ToolProtocol) throws {
-        assert(tool is TestDiscoveryTool, "Unexpected tool \(tool)")
-
+    private func execute(with tool: LLBuildManifest.TestDiscoveryTool) throws {
         let index = ctx.buildParameters.indexStore
         let api = try ctx.indexStoreAPI.get()
         let store = try IndexStore.open(store: index, api: api)
 
         // FIXME: We can speed this up by having one llbuild command per object file.
         let tests = try tool.inputs.flatMap {
-            try store.listTests(inObjectFile: AbsolutePath($0))
+            try store.listTests(inObjectFile: AbsolutePath($0.name))
         }
 
-        let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0) }
+        let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0.name) }
         let testsByModule = Dictionary(grouping: tests, by: { $0.module })
 
         func isMainFile(_ path: AbsolutePath) -> Bool {
@@ -193,10 +192,10 @@ public struct BuildDescription: Codable {
     let swiftTargetMap: [CommandName: TargetName]
 
     /// The map of test discovery commands.
-    let testDiscoveryCommands: [CommandName: TestDiscoveryTool]
+    let testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
 
     /// The map of copy commands.
-    let copyCommands: [CommandName: CopyTool]
+    let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
 
     /// The built test products.
     public let builtTestProducts: [BuiltTestProduct]
@@ -209,8 +208,8 @@ public struct BuildDescription: Codable {
 
     public init(
         plan: BuildPlan,
-        testDiscoveryCommands: [CommandName: TestDiscoveryTool],
-        copyCommands: [CommandName: CopyTool]
+        testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
+        copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
     ) {
         let buildConfig = plan.buildParameters.configuration.dirname
 
@@ -327,8 +326,8 @@ final class CopyCommand: CustomLLBuildCommand {
         }
 
         do {
-            let input = tool.inputs[0]
-            let output = tool.outputs[0]
+            let input = tool.inputs[0].name
+            let output = tool.outputs[0].name
             try localFileSystem.createDirectory(AbsolutePath(output).parentDirectory, recursive: true)
 
             // FIXME: We should shim this through our FileSystem APIs.
