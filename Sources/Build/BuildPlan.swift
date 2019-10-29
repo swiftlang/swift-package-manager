@@ -662,7 +662,7 @@ public final class SwiftTargetBuildDescription {
         args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
         args += ["-g"]
-        args += ["-j\(SwiftCompilerTool.numThreads)"]
+        args += ["-j\(ProcessInfo.processInfo.activeProcessorCount)"]
         args += activeCompilationConditions
         args += additionalFlags
         args += moduleCacheArgs
@@ -856,7 +856,7 @@ public final class ProductBuildDescription {
     fileprivate var staticTargets: [ResolvedTarget] = []
 
     /// The list of Swift modules that should be passed to the linker. This is required for debugging to work.
-    fileprivate var swiftASTs: [AbsolutePath] = []
+    fileprivate var swiftASTs: SortedArray<AbsolutePath> = .init()
 
     /// Path to the temporary directory for this product.
     var tempsPath: AbsolutePath {
@@ -1317,7 +1317,7 @@ public class BuildPlan {
                 // building for and is nil for the release configuration.
                 switch buildParameters.debuggingStrategy {
                 case .swiftAST:
-                    buildProduct.swiftASTs.append(description.moduleOutputPath)
+                    buildProduct.swiftASTs.insert(description.moduleOutputPath)
                 case .modulewrap:
                     buildProduct.objects += [description.wrappedModuleOutputPath]
                 case nil:

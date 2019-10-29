@@ -6,25 +6,24 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(Build
-  BuildDelegate.swift
-  BuildPlan.swift
-  Sanitizers.swift
-  SwiftCompilerOutputParser.swift
-  Toolchain.swift
-  ManifestBuilder.swift
-  Triple.swift)
-target_link_libraries(Build PUBLIC
-  TSCBasic
-  PackageGraph
-  LLBuildManifest)
+add_library(LLBuildManifest
+  BuildManifest.swift
+  CMakeLists.txt
+  Command.swift
+  ManifestWriter.swift
+  Node.swift
+  Target.swift
+  Tools.swift
+)
+target_link_libraries(LLBuildManifest PUBLIC
+  TSCBasic)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
-set_target_properties(Build PROPERTIES
+set_target_properties(LLBuildManifest PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-install(TARGETS Build
+    install(TARGETS LLBuildManifest
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)

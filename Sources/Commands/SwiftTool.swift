@@ -19,6 +19,8 @@ import Workspace
 import TSCLibc
 import func Foundation.NSUserName
 import SPMLLBuild
+import LLBuildManifest
+
 typealias Diagnostic = TSCBasic.Diagnostic
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
@@ -571,9 +573,9 @@ public class SwiftTool<Options: ToolOptions> {
     private func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String {
         switch subset {
         case .allExcludingTests:
-            return LLBuildManifestGenerator.llbuildMainTargetName
+            return LLBuildManifestBuilder.TargetKind.main.targetName
         case .allIncludingTests:
-            return LLBuildManifestGenerator.llbuildTestTargetName
+            return LLBuildManifestBuilder.TargetKind.test.targetName
         default:
             // FIXME: This is super unfortunate that we might need to load the package graph.
             let graph = try loadPackageGraph()
@@ -670,14 +672,17 @@ public class SwiftTool<Options: ToolOptions> {
 
     func generateLLBuildManifest(with plan: BuildPlan) throws -> BuildDescription {
         // Generate the llbuild manifest.
-        let llbuild = LLBuildManifestGenerator(plan, client: "basic")
+        let llbuild = LLBuildManifestBuilder(plan)
         try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
+
+        let testDiscoveryCommands = llbuild.manifest.getCmdToolMap(kind: TestDiscoveryTool.self)
+        let copyCommands = llbuild.manifest.getCmdToolMap(kind: CopyTool.self)
 
         // Create the build description.
         let buildDescription = BuildDescription(
             plan: plan,
-            testDiscoveryCommands: llbuild.testDiscoveryCommands,
-            copyCommands: llbuild.copyCommands
+            testDiscoveryCommands: testDiscoveryCommands,
+            copyCommands: copyCommands
         )
         try localFileSystem.createDirectory(plan.buildParameters.buildDescriptionPath.parentDirectory, recursive: true)
         try buildDescription.write(to: plan.buildParameters.buildDescriptionPath)
@@ -797,9 +802,9 @@ extension BuildSubset {
     fileprivate func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine, config: String) -> String? {
         switch self {
         case .allExcludingTests:
-            return LLBuildManifestGenerator.llbuildMainTargetName
+            return LLBuildManifestBuilder.TargetKind.main.targetName
         case .allIncludingTests:
-            return LLBuildManifestGenerator.llbuildTestTargetName
+            return LLBuildManifestBuilder.TargetKind.test.targetName
         case .product(let productName):
             guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
                 diagnostics.emit(error: "no product named '\(productName)'")
@@ -809,7 +814,7 @@ extension BuildSubset {
             // do not produce a binary right now.
             if product.type == .library(.automatic) {
                 diagnostics.emit(warning: "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead")
-                return LLBuildManifestGenerator.llbuildMainTargetName
+                return LLBuildManifestBuilder.TargetKind.main.targetName
             }
             return product.getLLBuildTargetName(config: config)
         case .target(let targetName):
