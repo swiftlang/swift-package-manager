@@ -149,13 +149,57 @@ extension LLBuildManifestBuilder {
     private func createSwiftCompileCommand(
         _ target: SwiftTargetBuildDescription
     ) {
+        // Inputs.
         let inputs = computeSwiftCompileCmdInputs(target)
 
-        let cmdName = target.target.getCommandName(config: buildConfig)
+        // Outputs.
         let objectNodes = target.objects.map(Node.file)
         let moduleNode = Node.file(target.moduleOutputPath)
         let cmdOutputs = objectNodes + [moduleNode]
+
+        if buildParameters.emitSwiftModuleSeparately {
+            addSwiftCmdsEmitSwiftModuleSeparately(target, inputs: inputs, objectNodes: objectNodes, moduleNode: moduleNode)
+        } else {
+            addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
+        }
+
+        addTargetCmd(target, cmdOutputs: cmdOutputs)
+        addModuleWrapCmd(target)
+    }
+
+    private func addSwiftCmdsEmitSwiftModuleSeparately(
+        _ target: SwiftTargetBuildDescription,
+        inputs: [Node],
+        objectNodes: [Node],
+        moduleNode: Node
+    ) {
+        // FIXME: We need to ingest the emitted dependencies.
+
+        manifest.addShellCmd(
+            name: target.moduleOutputPath.pathString,
+            description: "Emitting module for \(target.target.name)",
+            inputs: inputs,
+            outputs: [moduleNode],
+            args: target.emitModuleCommandLine()
+        )
+
+        let cmdName = target.target.getCommandName(config: buildConfig)
+        manifest.addShellCmd(
+            name: cmdName,
+            description: "Compiling module \(target.target.name)",
+            inputs: inputs,
+            outputs: objectNodes,
+            args: target.emitObjectsCommandLine()
+        )
+    }
+
+    private func addCmdWithBuiltinSwiftTool(
+        _ target: SwiftTargetBuildDescription,
+        inputs: [Node],
+        cmdOutputs: [Node]
+    ) {
         let isLibrary = target.target.type == .library || target.target.type == .test
+        let cmdName = target.target.getCommandName(config: buildConfig)
 
         manifest.addSwiftCmd(
             name: cmdName,
@@ -172,9 +216,6 @@ extension LLBuildManifestBuilder {
             isLibrary: isLibrary,
             WMO: buildParameters.configuration == .release
         )
-
-        addTargetCmd(target, cmdOutputs: cmdOutputs)
-        addModuleWrapCmd(target)
     }
 
     private func computeSwiftCompileCmdInputs(
