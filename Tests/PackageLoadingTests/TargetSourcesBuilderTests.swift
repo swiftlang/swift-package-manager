@@ -111,7 +111,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             packagePath: .root,
             target: target,
             path: .root,
-            rules: [somethingRule],
+            additionalFileRules: [somethingRule],
             toolsVersion: .v5,
             fs: fs,
             diags: diags

@@ -48,7 +48,7 @@ public struct TargetSourcesBuilder {
         packagePath: AbsolutePath,
         target: TargetDescription,
         path: AbsolutePath,
-        rules: [FileRuleDescription] = [],
+        additionalFileRules: [FileRuleDescription] = [],
         extraExcludes: [AbsolutePath] = [],
         toolsVersion: ToolsVersion = .currentToolsVersion,
         fs: FileSystem = localFileSystem,
@@ -59,7 +59,7 @@ public struct TargetSourcesBuilder {
         self.target = target
         self.diags = diags
         self.targetPath = path
-        self.rules = FileRuleDescription.builtinRules + rules
+        self.rules = FileRuleDescription.builtinRules + additionalFileRules
         self.toolsVersion = toolsVersion
         self.fs = fs
         let excludedPaths = target.exclude.map{ path.appending(RelativePath($0)) }
