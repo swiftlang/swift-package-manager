@@ -337,6 +337,10 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--enable-build-manifest-caching", kind: Bool.self, usage: nil),
             to: { $0.enableBuildManifestCaching = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--emit-swift-module-separately", kind: Bool.self, usage: nil),
+            to: { $0.emitSwiftModuleSeparately = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -739,7 +743,8 @@ public class SwiftTool<Options: ToolOptions> {
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
                 indexStoreMode: options.indexStoreMode,
                 enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
-                enableTestDiscovery: options.enableTestDiscovery
+                enableTestDiscovery: options.enableTestDiscovery,
+                emitSwiftModuleSeparately: options.emitSwiftModuleSeparately
             )
         })
     }()

@@ -86,5 +86,8 @@ public class ToolOptions {
     /// Whether to enable llbuild manifest caching.
     public var enableBuildManifestCaching: Bool = false
 
+    /// Emit the Swift module separately from the object files.
+    public var emitSwiftModuleSeparately: Bool = false
+
     public required init() {}
 }
