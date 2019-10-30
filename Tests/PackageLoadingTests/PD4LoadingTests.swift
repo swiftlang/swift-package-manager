@@ -47,7 +47,7 @@ class PackageDescription4LoadingTests: XCTestCase {
     {
         do {
             try loadManifestThrowing(contents, line: line, body: body)
-        } catch ManifestParseError.invalidManifestFormat(let error) {
+        } catch ManifestParseError.invalidManifestFormat(let error, _) {
             print(error)
             XCTFail(file: #file, line: line)
         } catch {

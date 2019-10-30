@@ -203,6 +203,9 @@ public final class PackageBuilder {
     /// Create the special REPL product for this package.
     private let createREPLProduct: Bool
 
+    /// The additionla file detection rules.
+    private let additionalFileRules: [FileRuleDescription]
+
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
@@ -216,6 +219,7 @@ public final class PackageBuilder {
     public init(
         manifest: Manifest,
         path: AbsolutePath,
+        additionalFileRules: [FileRuleDescription] = [],
         fileSystem: FileSystem = localFileSystem,
         diagnostics: DiagnosticsEngine,
         isRootPackage: Bool,
@@ -225,6 +229,7 @@ public final class PackageBuilder {
         self.isRootPackage = isRootPackage
         self.manifest = manifest
         self.packagePath = path
+        self.additionalFileRules = additionalFileRules
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
@@ -659,6 +664,7 @@ public final class PackageBuilder {
             packagePath: packagePath,
             target: manifestTarget,
             path: potentialModule.path,
+            additionalFileRules: additionalFileRules,
             extraExcludes: [publicHeadersPath],
             toolsVersion: manifest.toolsVersion,
             fs: fileSystem,

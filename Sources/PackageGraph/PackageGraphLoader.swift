@@ -63,6 +63,7 @@ public struct PackageGraphLoader {
     public func load(
         root: PackageGraphRoot,
         config: SwiftPMConfig = SwiftPMConfig(),
+        additionalFileRules: [FileRuleDescription] = [],
         externalManifests: [Manifest],
         requiredDependencies: Set<PackageReference> = [],
         unsafeAllowedPackages: Set<PackageReference> = [],

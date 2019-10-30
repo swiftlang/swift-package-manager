@@ -335,6 +335,8 @@ public class Workspace {
 
     fileprivate var resolvedFileWatcher: ResolvedFileWatcher?
 
+    fileprivate let additionalFileRules: [FileRuleDescription]
+
     /// Typealias for dependency resolver we use in the workspace.
     fileprivate typealias PackageDependencyResolver = DependencyResolver
     fileprivate typealias PubgrubResolver = PubgrubDependencyResolver
@@ -364,6 +366,7 @@ public class Workspace {
         config: SwiftPMConfig = SwiftPMConfig(),
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
+        additionalFileRules: [FileRuleDescription] = [],
         isResolverPrefetchingEnabled: Bool = false,
         enablePubgrubResolver: Bool = false,
         skipUpdate: Bool = false,
@@ -381,6 +384,7 @@ public class Workspace {
         self.skipUpdate = skipUpdate
         self.enableResolverTrace = enableResolverTrace
         self.resolvedFile = pinsFile
+        self.additionalFileRules = additionalFileRules
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(
@@ -695,6 +699,7 @@ extension Workspace {
         return PackageGraphLoader().load(
             root: manifests.root,
             config: config,
+            additionalFileRules: additionalFileRules,
             externalManifests: externalManifests,
             requiredDependencies: manifests.computePackageURLs().required,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
