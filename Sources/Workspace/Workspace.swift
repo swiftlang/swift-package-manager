@@ -634,9 +634,8 @@ extension Workspace {
 
         guard !diagnostics.hasErrors else { return nil }
         
-        guard !dryRun else {
-            let changes = diagnostics.wrap { return try computePackageStateChanges(root: graphRoot, resolvedDependencies: updateResults, updateBranches: true) } ?? []
-            return changes
+        if dryRun {
+            return diagnostics.wrap { return try computePackageStateChanges(root: graphRoot, resolvedDependencies: updateResults, updateBranches: true) }
         }
 
         // Update the checkouts based on new dependency resolution.
