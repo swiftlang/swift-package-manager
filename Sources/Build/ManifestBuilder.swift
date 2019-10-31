@@ -211,13 +211,13 @@ extension LLBuildManifestBuilder {
         }
 
         let cmdName = target.target.getCommandName(config: buildConfig)
-        let cmdOutputs = target.objects.map(Node.file) + [.file(target.moduleOutputPath)]
+        let outputs = target.objects + [target.moduleOutputPath]
 
         let isLibrary = target.target.type == .library || target.target.type == .test
         manifest.addSwiftCmd(
             name: cmdName,
             inputs: inputs,
-            outputs: cmdOutputs,
+            outputs: outputs.map(Node.file),
             executable: buildParameters.toolchain.swiftCompiler,
             moduleName: target.target.c99name,
             moduleOutputPath: target.moduleOutputPath,
@@ -232,19 +232,19 @@ extension LLBuildManifestBuilder {
 
         // Create a phony node to represent the entire target.
         let targetName = target.target.getLLBuildTargetName(config: buildConfig)
-        let targetOutput: Node = .virtual(targetName)
+        let output: Node = .virtual(targetName)
 
-        manifest.addNode(targetOutput, toTarget: targetName)
+        manifest.addNode(output, toTarget: targetName)
         manifest.addPhonyCmd(
-            name: targetOutput.name,
-            inputs: cmdOutputs,
-            outputs: [targetOutput]
+            name: output.name,
+            inputs: [.file(target.moduleOutputPath)],
+            outputs: [output]
         )
         if plan.graph.isInRootPackages(target.target) {
             if !target.isTestTarget {
-                addNode(targetOutput, toTarget: .main)
+                addNode(output, toTarget: .main)
             }
-            addNode(targetOutput, toTarget: .test)
+            addNode(output, toTarget: .test)
         }
 
         // Add commands to perform the module wrapping Swift modules when debugging statergy is `modulewrap`.
