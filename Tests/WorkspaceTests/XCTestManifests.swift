@@ -88,6 +88,7 @@ extension WorkspaceTests {
         ("testTransitiveDependencySwitchWithSameIdentity", testTransitiveDependencySwitchWithSameIdentity),
         ("testUnsafeFlags", testUnsafeFlags),
         ("testUpdate", testUpdate),
+        ("testUpdateDryRun", testUpdateDryRun),
     ]
 }
 

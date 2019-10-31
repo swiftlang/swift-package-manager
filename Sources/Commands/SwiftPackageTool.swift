@@ -151,10 +151,18 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .update:
             let workspace = try getActiveWorkspace()
-            try workspace.updateDependencies(
+            
+            let changes = try workspace.updateDependencies(
                 root: getWorkspaceRoot(),
-                diagnostics: diagnostics
+                diagnostics: diagnostics,
+                dryRun: options.updateDryRun
             )
+            
+            if let pinsStore = diagnostics.wrap({ try workspace.pinsStore.load() }),
+                let changes = changes,
+                options.updateDryRun {
+                logPackageChanges(changes: changes, pins: pinsStore)
+            }
 
         case .fetch:
             diagnostics.emit(warning: "'fetch' command is deprecated; use 'resolve' instead")
@@ -371,7 +379,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
-        parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
+        
+        let updateParser = parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
+        binder.bind(
+        option: updateParser.add(
+            option: "--dry-run", shortName: "-n", kind: Bool.self,
+            usage: "Display the list of dependencies that can be updated"),
+            to: { $0.updateDryRun = $1 })
 
         let formatParser = parser.add(subparser: PackageMode.format.rawValue, overview: "")
         binder.bindArray(
@@ -622,6 +636,8 @@ public class PackageToolOptions: ToolOptions {
         case setCurrent
     }
     var toolsVersionMode: ToolsVersionMode = .display
+    
+    var updateDryRun = false
 
     enum ConfigMode: String {
         case setMirror = "set-mirror"
@@ -725,5 +741,36 @@ private extension Diagnostic.Message {
 
     static func missingRequiredArg(_ argument: String) -> Diagnostic.Message {
         .error("missing required argument \(argument)")
+    }
+}
+
+fileprivate extension SwiftPackageTool {
+    /// Logs all changed dependencies to a stream
+    /// - Parameter changes: Changes to log
+    /// - Parameter pins: PinsStore with currently pinned packages to compare changed packages to.
+    /// - Parameter stream: Stream used for logging
+    func logPackageChanges(changes: [(PackageReference, Workspace.PackageStateChange)], pins: PinsStore, on stream: OutputByteStream = stdoutStream) {
+        let changes = changes.filter { $0.1 != .unchanged }
+        
+        stream <<< "\n"
+        stream <<< "\(changes.count) dependenc\(changes.count == 1 ? "y has" : "ies have") changed\(changes.count > 0 ? ":" : ".")"
+        stream <<< "\n"
+        
+        for (package, change) in changes {
+            guard let packageName = package.name else { continue }
+            let currentVersion = pins.pinsMap[package.identity]?.state.description ?? ""
+            switch change {
+            case let .added(requirement):
+                stream <<< "+ \(packageName) \(requirement.prettyPrinted)"
+            case let .updated(requirement):
+                stream <<< "~ \(packageName) \(currentVersion) -> \(packageName) \(requirement.prettyPrinted)"
+            case .removed:
+                stream <<< "- \(packageName) \(currentVersion)"
+            case .unchanged:
+                continue
+            }
+            stream <<< "\n"
+        }
+        stream.flush()
     }
 }
