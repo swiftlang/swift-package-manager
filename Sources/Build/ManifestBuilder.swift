@@ -149,37 +149,6 @@ extension LLBuildManifestBuilder {
     private func createSwiftCompileCommand(
         _ target: SwiftTargetBuildDescription
     ) {
-        let inputs = computeSwiftCompileCmdInputs(target)
-
-        let cmdName = target.target.getCommandName(config: buildConfig)
-        let objectNodes = target.objects.map(Node.file)
-        let moduleNode = Node.file(target.moduleOutputPath)
-        let cmdOutputs = objectNodes + [moduleNode]
-        let isLibrary = target.target.type == .library || target.target.type == .test
-
-        manifest.addSwiftCmd(
-            name: cmdName,
-            inputs: inputs,
-            outputs: cmdOutputs,
-            executable: buildParameters.toolchain.swiftCompiler,
-            moduleName: target.target.c99name,
-            moduleOutputPath: target.moduleOutputPath,
-            importPath: buildParameters.buildPath,
-            tempsPath: target.tempsPath,
-            objects: target.objects,
-            otherArgs: target.compileArguments(),
-            sources: target.sources,
-            isLibrary: isLibrary,
-            WMO: buildParameters.configuration == .release
-        )
-
-        addTargetCmd(target, cmdOutputs: cmdOutputs)
-        addModuleWrapCmd(target)
-    }
-
-    private func computeSwiftCompileCmdInputs(
-        _ target: SwiftTargetBuildDescription
-    ) -> [Node] {
         var inputs = target.sources.map(Node.file)
 
         // Add resources node as the input to the target. This isn't great because we
@@ -241,11 +210,26 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        return inputs
-    }
+        let cmdName = target.target.getCommandName(config: buildConfig)
+        let cmdOutputs = target.objects.map(Node.file) + [.file(target.moduleOutputPath)]
 
-    /// Adds a top-level phony command that builds the entire target.
-    private func addTargetCmd(_ target: SwiftTargetBuildDescription, cmdOutputs: [Node]) {
+        let isLibrary = target.target.type == .library || target.target.type == .test
+        manifest.addSwiftCmd(
+            name: cmdName,
+            inputs: inputs,
+            outputs: cmdOutputs,
+            executable: buildParameters.toolchain.swiftCompiler,
+            moduleName: target.target.c99name,
+            moduleOutputPath: target.moduleOutputPath,
+            importPath: buildParameters.buildPath,
+            tempsPath: target.tempsPath,
+            objects: target.objects,
+            otherArgs: target.compileArguments(),
+            sources: target.sources,
+            isLibrary: isLibrary,
+            WMO: buildParameters.configuration == .release
+        )
+
         // Create a phony node to represent the entire target.
         let targetName = target.target.getLLBuildTargetName(config: buildConfig)
         let targetOutput: Node = .virtual(targetName)
@@ -262,22 +246,21 @@ extension LLBuildManifestBuilder {
             }
             addNode(targetOutput, toTarget: .test)
         }
-    }
 
-    private func addModuleWrapCmd(_ target: SwiftTargetBuildDescription) {
         // Add commands to perform the module wrapping Swift modules when debugging statergy is `modulewrap`.
-        guard buildParameters.debuggingStrategy == .modulewrap else { return }
-        let moduleWrapArgs = [
-            target.buildParameters.toolchain.swiftCompiler.pathString,
-            "-modulewrap", target.moduleOutputPath.pathString,
-            "-o", target.wrappedModuleOutputPath.pathString
-        ]
-        manifest.addShellCmd(
-            name: target.wrappedModuleOutputPath.pathString,
-            description: "Wrapping AST for \(target.target.name) for debugging",
-            inputs: [.file(target.moduleOutputPath)],
-            outputs: [.file(target.wrappedModuleOutputPath)],
-            args: moduleWrapArgs)
+        if buildParameters.debuggingStrategy == .modulewrap {
+            let moduleWrapArgs = [
+                target.buildParameters.toolchain.swiftCompiler.pathString,
+                "-modulewrap", target.moduleOutputPath.pathString,
+                "-o", target.wrappedModuleOutputPath.pathString
+            ]
+            manifest.addShellCmd(
+                name: target.wrappedModuleOutputPath.pathString,
+                description: "Wrapping AST for \(target.target.name) for debugging",
+                inputs: [.file(target.moduleOutputPath)],
+                outputs: [.file(target.wrappedModuleOutputPath)],
+                args: moduleWrapArgs)
+        }
     }
 }
 
