@@ -656,35 +656,6 @@ extension Workspace {
         return nil
     }
     
-    /// Logs all changed dependencies to a stream
-    /// - Parameter changes: Changes to log
-    /// - Parameter pins: PinsStore with currently pinned packages to compare changed packages to.
-    /// - Parameter stream: Stream used for logging
-    fileprivate func logPackageChanges(changes: [(PackageReference, PackageStateChange)], pins: PinsStore, on stream: OutputByteStream = stdoutStream) {
-        let changes = changes.filter { $0.1 != .unchanged }
-        
-        stream <<< "\n"
-        stream <<< "\(changes.count) dependenc\(changes.count == 1 ? "y has" : "ies have") changed\(changes.count > 0 ? ":" : ".")"
-        stream <<< "\n"
-        
-        for (package, change) in changes {
-            guard let packageName = package.name else { continue }
-            let currentVersion = pins.pinsMap[package.identity]?.state.description ?? ""
-            switch change {
-            case let .added(requirement):
-                stream <<< "+ \(packageName) \(requirement.prettyPrinted)"
-            case let .updated(requirement):
-                stream <<< "~ \(packageName) \(currentVersion) -> \(packageName) \(requirement.prettyPrinted)"
-            case .removed:
-                stream <<< "- \(packageName) \(currentVersion)"
-            default:
-                continue
-            }
-            stream <<< "\n"
-        }
-        stream.flush()
-    }
-
     /// Loads a package graph from a root package using the resources associated with a particular `swiftc` executable.
     ///
     /// - Parameters:
