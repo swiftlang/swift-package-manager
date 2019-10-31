@@ -123,12 +123,6 @@ public struct TargetSourcesBuilder {
             throw Target.Error.mixedSources(targetPath)
         }
 
-        // Make sure there is no modulemap mixed with the sources.
-        let moduleMapFiles = pathToRule.filter{ $0.value == .modulemap }
-        if let moduleMapFile = moduleMapFiles.first {
-            throw ModuleError.invalidLayout(.modulemapInSources(moduleMapFile.key))
-        }
-
         return (sources, resources)
     }
 
