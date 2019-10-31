@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-#if os(Linux)
+#if canImport(Glibc)
 @_exported import Glibc
 #elseif os(Windows)
 @_exported import MSVCRT

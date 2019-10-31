@@ -391,7 +391,7 @@ class FileSystemTests: XCTestCase {
     }
 
     func testSetAttribute() throws {
-      #if os(macOS) || os(Linux)
+      #if os(macOS) || os(Linux) || os(Android)
         mktmpdir { path in
             let fs = TSCBasic.localFileSystem
 

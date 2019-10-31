@@ -65,6 +65,8 @@ public final class InterruptHandler {
         var action = sigaction()
       #if canImport(Darwin)
         action.__sigaction_u.__sa_handler = signalHandler
+      #elseif os(Android)
+        action.sa_handler = signalHandler
       #else
         action.__sigaction_handler = unsafeBitCast(
             signalHandler,

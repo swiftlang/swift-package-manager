@@ -128,7 +128,10 @@ public struct Triple: Encodable {
     public static let s390xLinux = try! Triple("s390x-unknown-linux")
     public static let arm64Linux = try! Triple("aarch64-unknown-linux")
     public static let armLinux = try! Triple("armv7-unknown-linux-gnueabihf")
-    public static let android = try! Triple("armv7-unknown-linux-androideabi")
+    public static let armAndroid = try! Triple("armv7a-unknown-linux-androideabi")
+    public static let arm64Android = try! Triple("aarch64-unknown-linux-android")
+    public static let x86_64Android = try! Triple("x86_64-unknown-linux-android")
+    public static let i686Android = try! Triple("i686-unknown-linux-android")
     public static let windows = try! Triple("x86_64-unknown-windows-msvc")
 
   #if os(macOS)
@@ -148,6 +151,16 @@ public struct Triple: Encodable {
       public static let hostTriple: Triple = .arm64Linux
     #elseif arch(arm)
       public static let hostTriple: Triple = .armLinux    
+    #endif
+  #elseif os(Android)
+    #if arch(arm)
+      public static let hostTriple: Triple = .armAndroid
+    #elseif arch(arm64)
+      public static let hostTriple: Triple = .arm64Android
+    #elseif arch(x86_64)
+      public static let hostTriple: Triple = .x86_64Android
+    #elseif arch(i386)
+      public static let hostTriple: Triple = .i686Android
     #endif
   #endif
 }

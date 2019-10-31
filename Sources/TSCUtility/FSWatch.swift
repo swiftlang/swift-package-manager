@@ -428,55 +428,76 @@ public final class Inotify {
 // FIXME: <rdar://problem/45794219> Swift should provide shims for FD_ macros
 
 private func FD_ZERO(_ set: inout fd_set) {
+      #if os(Android)
+	set.fds_bits = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+      #else
 	set.__fds_bits = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+      #endif
 }
 
 private func FD_SET(_ fd: Int32, _ set: inout fd_set) {
     let intOffset = Int(fd / 16)
     let bitOffset = Int(fd % 16)
+  #if os(Android)
+    var fd_bits = set.fds_bits
+    let mask: UInt = 1 << bitOffset
+  #else
+    var fd_bits = set.__fds_bits
     let mask = 1 << bitOffset
+  #endif
     switch intOffset {
-        case 0: set.__fds_bits.0 = set.__fds_bits.0 | mask
-        case 1: set.__fds_bits.1 = set.__fds_bits.1 | mask
-        case 2: set.__fds_bits.2 = set.__fds_bits.2 | mask
-        case 3: set.__fds_bits.3 = set.__fds_bits.3 | mask
-        case 4: set.__fds_bits.4 = set.__fds_bits.4 | mask
-        case 5: set.__fds_bits.5 = set.__fds_bits.5 | mask
-        case 6: set.__fds_bits.6 = set.__fds_bits.6 | mask
-        case 7: set.__fds_bits.7 = set.__fds_bits.7 | mask
-        case 8: set.__fds_bits.8 = set.__fds_bits.8 | mask
-        case 9: set.__fds_bits.9 = set.__fds_bits.9 | mask
-        case 10: set.__fds_bits.10 = set.__fds_bits.10 | mask
-        case 11: set.__fds_bits.11 = set.__fds_bits.11 | mask
-        case 12: set.__fds_bits.12 = set.__fds_bits.12 | mask
-        case 13: set.__fds_bits.13 = set.__fds_bits.13 | mask
-        case 14: set.__fds_bits.14 = set.__fds_bits.14 | mask
-        case 15: set.__fds_bits.15 = set.__fds_bits.15 | mask
+        case 0: fd_bits.0 = fd_bits.0 | mask
+        case 1: fd_bits.1 = fd_bits.1 | mask
+        case 2: fd_bits.2 = fd_bits.2 | mask
+        case 3: fd_bits.3 = fd_bits.3 | mask
+        case 4: fd_bits.4 = fd_bits.4 | mask
+        case 5: fd_bits.5 = fd_bits.5 | mask
+        case 6: fd_bits.6 = fd_bits.6 | mask
+        case 7: fd_bits.7 = fd_bits.7 | mask
+        case 8: fd_bits.8 = fd_bits.8 | mask
+        case 9: fd_bits.9 = fd_bits.9 | mask
+        case 10: fd_bits.10 = fd_bits.10 | mask
+        case 11: fd_bits.11 = fd_bits.11 | mask
+        case 12: fd_bits.12 = fd_bits.12 | mask
+        case 13: fd_bits.13 = fd_bits.13 | mask
+        case 14: fd_bits.14 = fd_bits.14 | mask
+        case 15: fd_bits.15 = fd_bits.15 | mask
         default: break
     }
+  #if os(Android)
+    set.fds_bits = fd_bits
+  #else
+    set.__fds_bits = fd_bits
+  #endif
 }
 
 private func FD_ISSET(_ fd: Int32, _ set: inout fd_set) -> Bool {
     let intOffset = Int(fd / 32)
     let bitOffset = Int(fd % 32)
+  #if os(Android)
+    let fd_bits = set.fds_bits
+    let mask: UInt = 1 << bitOffset
+  #else
+    let fd_bits = set.__fds_bits
     let mask = 1 << bitOffset
+  #endif
     switch intOffset {
-        case 0: return set.__fds_bits.0 & mask != 0
-        case 1: return set.__fds_bits.1 & mask != 0
-        case 2: return set.__fds_bits.2 & mask != 0
-        case 3: return set.__fds_bits.3 & mask != 0
-        case 4: return set.__fds_bits.4 & mask != 0
-        case 5: return set.__fds_bits.5 & mask != 0
-        case 6: return set.__fds_bits.6 & mask != 0
-        case 7: return set.__fds_bits.7 & mask != 0
-        case 8: return set.__fds_bits.8 & mask != 0
-        case 9: return set.__fds_bits.9 & mask != 0
-        case 10: return set.__fds_bits.10 & mask != 0
-        case 11: return set.__fds_bits.11 & mask != 0
-        case 12: return set.__fds_bits.12 & mask != 0
-        case 13: return set.__fds_bits.13 & mask != 0
-        case 14: return set.__fds_bits.14 & mask != 0
-        case 15: return set.__fds_bits.15 & mask != 0
+        case 0: return fd_bits.0 & mask != 0
+        case 1: return fd_bits.1 & mask != 0
+        case 2: return fd_bits.2 & mask != 0
+        case 3: return fd_bits.3 & mask != 0
+        case 4: return fd_bits.4 & mask != 0
+        case 5: return fd_bits.5 & mask != 0
+        case 6: return fd_bits.6 & mask != 0
+        case 7: return fd_bits.7 & mask != 0
+        case 8: return fd_bits.8 & mask != 0
+        case 9: return fd_bits.9 & mask != 0
+        case 10: return fd_bits.10 & mask != 0
+        case 11: return fd_bits.11 & mask != 0
+        case 12: return fd_bits.12 & mask != 0
+        case 13: return fd_bits.13 & mask != 0
+        case 14: return fd_bits.14 & mask != 0
+        case 15: return fd_bits.15 & mask != 0
         default: return false
     }
 }

@@ -26,7 +26,7 @@ class ModuleMapsTestCase: XCTestCase {
             try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
 
             var Xld = ["-L", outdir.pathString]
-        #if os(Linux)
+        #if os(Linux) || os(Android)
             Xld += ["-rpath", outdir.pathString]
         #endif
 

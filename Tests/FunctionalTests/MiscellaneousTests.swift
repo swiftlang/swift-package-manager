@@ -439,7 +439,7 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testUnicode() {
-        #if !os(Linux) // TODO: - Linux has trouble with this and needs investigation.
+        #if !os(Linux) && !os(Android) // TODO: - Linux has trouble with this and needs investigation.
         fixture(name: "Miscellaneous/Unicode") { prefix in
             // See the fixture manifest for an explanation of this string.
             let complicatedString = "πשּׁµ𝄞🇺🇳🇮🇱x̱̱̱̱̱̄̄̄̄̄"
