@@ -226,6 +226,8 @@ public struct BuildParameters: Encodable {
     var currentPlatform: PackageModel.Platform {
         if self.triple.isDarwin() {
             return .macOS
+        } else if self.triple.isAndroid() {
+            return .android
         } else {
             return .linux
         }

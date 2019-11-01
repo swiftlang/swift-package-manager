@@ -37,6 +37,10 @@ public struct Platform: Encodable {
     /// The Windows platform
     @available(_PackageDescription, introduced: 5.2)
     public static let windows: Platform = Platform(name: "windows")
+
+    /// The Android platform
+    @available(_PackageDescription, introduced: 5.2)
+    public static let android: Platform = Platform(name: "android")
 }
 
 /// A platform that the Swift package supports.

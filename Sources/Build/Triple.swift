@@ -101,6 +101,10 @@ public struct Triple: Encodable {
         return nil
     }
 
+    public func isAndroid() -> Bool {
+        return os == .linux && abi == .android
+    }
+
     public func isDarwin() -> Bool {
         return vendor == .apple || os == .macOS || os == .darwin
     }

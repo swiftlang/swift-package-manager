@@ -13,6 +13,7 @@ import Foundation
 
 /// Recognized Platform types.
 public enum Platform {
+    case android
     case darwin
     case linux(LinuxFlavor)
 
@@ -32,6 +33,10 @@ public enum Platform {
         case "linux":
             if localFileSystem.isFile(AbsolutePath("/etc/debian_version")) {
                 return .linux(.debian)
+            }
+            if localFileSystem.isFile(AbsolutePath("/system/bin/toolbox")) ||
+               localFileSystem.isFile(AbsolutePath("/system/bin/toybox")) {
+                return .android
             }
         default:
             return nil
