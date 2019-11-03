@@ -262,20 +262,6 @@ class Target(object):
             if dep_target.is_c:
                 import_paths.append(os.path.join(dep_target.module_root_dir, "include"))
 
-        if args.foundation_path:
-            import_paths.append(args.foundation_path)
-            other_args.extend(["-Xcc", "-F" + args.foundation_path])
-            import_paths.append(os.path.join(args.foundation_path, "swift"))
-        if args.libdispatch_build_dir:
-            import_paths.append(os.path.join(args.libdispatch_build_dir, 'lib'))
-            import_paths.append(os.path.join(args.libdispatch_build_dir, "src"))
-            import_paths.append(os.path.join(args.libdispatch_build_dir, "src", "swift"))
-            import_paths.append(os.path.join(args.libdispatch_build_dir, "src", "swift", "swift"))
-        if args.libdispatch_source_dir:
-            import_paths.append(args.libdispatch_source_dir)
-        if args.xctest_path:
-            import_paths.append(args.xctest_path)
-
         # Add llbuild import paths.
         llbuild_import_paths_value = llbuild_import_paths(args)
         if llbuild_import_paths_value:
@@ -583,17 +569,6 @@ class llbuild(object):
                 if platform.system() == 'Linux':
                     link_command.extend(
                         ["-Xlinker", "-rpath=$ORIGIN/../lib/swift/linux"])
-                if self.args.foundation_path:
-                    link_command.extend([
-                        "-L", self.args.foundation_path,
-                        "-L", os.path.join(self.args.foundation_path, "Foundation")
-                    ])
-                if self.args.libdispatch_build_dir:
-                    link_command.extend(['-L', self.args.libdispatch_build_dir,
-                                         '-L', os.path.join(self.args.libdispatch_build_dir, 'lib'),
-                                         '-Xlinker', '-lBlocksRuntime'])
-                    link_command.extend(['-L', os.path.join(self.args.libdispatch_build_dir, "src"),
-                                         '-L', os.path.join(self.args.libdispatch_build_dir, 'lib')])
 
                 # Add llbuild link flags.
                 link_command.extend(llbuild_link_args(self.args))
@@ -959,9 +934,6 @@ def main():
                         help="Extra actions to perform. Can be any number of "
                              "the following: [clean, all, test, install]",
                         nargs="*", default=["all"])
-    parser.add_argument("--show-bin-path", action='store_true',
-                        help="output the path to which the swiftpm binaries "
-                             "are built")
     parser.add_argument("--swiftc", dest="swiftc_path",
                         help="path to the swift compiler [%(default)s]",
                         metavar="PATH")
@@ -981,14 +953,6 @@ def main():
                         default=["/usr/local"], metavar="PATHS")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="use verbose output")
-    parser.add_argument("--foundation", dest="foundation_path",
-                        help="Path to Foundation build directory")
-    parser.add_argument("--xctest", dest="xctest_path",
-                        help="Path to XCTest build directory")
-    parser.add_argument("--libdispatch-build-dir", dest="libdispatch_build_dir",
-                        help="Path to the libdispatch build directory")
-    parser.add_argument("--libdispatch-source-dir", dest="libdispatch_source_dir",
-                        help="Path to the libdispatch source directory")
     parser.add_argument("--link-llbuild", dest="link_llbuild",
                         action="store_true", help="link llbuild", default=True)
     parser.add_argument("--llbuild-link-framework", dest="llbuild_link_framework",
@@ -1040,10 +1004,6 @@ def main():
         args.swiftc_path = os.path.abspath(args.swiftc_path)
     if args.sbt_path:
         args.sbt_path = os.path.abspath(args.sbt_path)
-    if args.foundation_path:
-        args.foundation_path = os.path.abspath(args.foundation_path)
-    if args.xctest_path:
-        args.xctest_path = os.path.abspath(args.xctest_path)
     if args.llbuild_source_dir:
         args.llbuild_source_dir = os.path.abspath(args.llbuild_source_dir)
         
@@ -1090,10 +1050,6 @@ def main():
 
     libdir = os.path.join(target_path, "lib")
     bindir = os.path.join(target_path, conf)
-    
-    if args.show_bin_path:
-        print(bindir)
-        sys.exit(0)
     
     # If the action is "clean", just remove the bootstrap and build directories.
     if "clean" in build_actions:
@@ -1181,7 +1137,6 @@ def main():
         symlink_force(args.swiftc_path, os.path.join(bindir, "swift"))
         symlink_force(args.swiftc_path, os.path.join(bindir, "swiftc"))
         symlink_force(args.clang_path, os.path.join(bindir, "clang"))
-        symlink_force(args.sbt_path, os.path.join(bindir, "swift-build-tool"))
         symlink_force(os.path.join(sandbox_path, "bin", "swift-build"),
                       bootstrapped_product)
         if os.path.isdir(libdir) and not os.path.islink(libdir):
@@ -1194,62 +1149,7 @@ def main():
         mkdir_p(usrdir)
         symlink_force(os.path.join(sandbox_path, "lib"), usrdir)
 
-        if args.foundation_path and args.libdispatch_build_dir and args.xctest_path:
-            libswiftdir = os.path.join(sandbox_path, "lib", "swift", "linux")
-            libincludedir = os.path.join(libswiftdir, "x86_64")
-            mkdir_p(libswiftdir)
-            mkdir_p(libincludedir)
-
-            for module in ["Foundation", "FoundationNetworking", "FoundationXML"]:
-                # Add the library.
-                for subdir in ['Foundation', '']:
-                    path = os.path.join(args.foundation_path, subdir, 'lib{}.so'.format(module))
-                    if os.path.exists(path):
-                        symlink_force(path, libswiftdir)
-                        break
-
-                # Add Foundation's swiftmodule.
-                for extension in [".swiftmodule", ".swiftdoc"]:
-                    symlink_force(os.path.join(args.foundation_path, 'swift', module + extension), libincludedir)
-
-            # Add CoreFoundation "framework". This just contains the header and the modulemap.
-            core_foundation_path = os.path.join(args.foundation_path,  "CoreFoundation.framework")
-            symlink_force(core_foundation_path, libincludedir)
-            cf_url_session_path = os.path.join(args.foundation_path,  "CFURLSessionInterface.framework")
-            symlink_force(cf_url_session_path, libincludedir)
-            cf_xml_path = os.path.join(args.foundation_path,  "CFXMLInterface.framework")
-            symlink_force(cf_xml_path, libincludedir)
-
-            # Add symlinks for dispatch.
-            for library in ['libBlocksRuntime.so', 'libdispatch.so', 'libswiftDispatch.so']:
-              for subdir in ['lib', 'src', '']:
-                path = os.path.join(args.libdispatch_build_dir, subdir, library)
-                if os.path.exists(path):
-                  symlink_force(path, libswiftdir)
-                  break
-
-            # Add swiftmodules.
-            for module_file in ["Dispatch.swiftmodule", "Dispatch.swiftdoc"]:
-                paths = [
-                    os.path.join(args.libdispatch_build_dir, 'src', 'swift', 'swift', module_file),
-                    os.path.join(args.libdispatch_build_dir, 'src', 'swift', module_file),
-                ]
-                for path in paths:
-                    if os.path.exists(path):
-                        symlink_force(path, libincludedir)
-                        continue
-
-            symlink_force(os.path.join(args.libdispatch_source_dir), os.path.join(libincludedir, "dispatch"))
-
-            # Add XCTest.
-            for module_file in ["XCTest.swiftmodule", "XCTest.swiftdoc"]:
-                symlink_force(os.path.join(args.xctest_path, 'swift', module_file), libincludedir)
-            symlink_force(os.path.join(args.xctest_path, "libXCTest.so"), libswiftdir)
-
-            return (libswiftdir, libincludedir)
-        return (None, None)
-
-    (faketoolchain_libdir, faketoolchain_includedir) = make_fake_toolchain()
+    make_fake_toolchain()
 
     # Build the package manager with itself.
 
@@ -1274,22 +1174,6 @@ def main():
 
     # Append the versioning build flags.
     build_flags.extend(create_versoning_args(args))
-
-    if faketoolchain_includedir:
-        # This will take care of swiftmodules of Foundation and Dispatch.
-        build_flags.extend(["-Xswiftc", "-I{}".format(faketoolchain_includedir)])
-
-        # Pass -F flag for CoreFoundation.
-        build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-F{}".format(faketoolchain_includedir)])
-
-        # Pass -I for underlying Dispatch module.
-        build_flags.extend(["-Xswiftc", "-I{}".format(os.path.join(faketoolchain_includedir, "dispatch"))])
-
-        # Library search path.
-        build_flags.extend(["-Xlinker", "-L{}".format(faketoolchain_libdir)])
-
-        # Add an RPATH, so that the tests can be run directly.
-        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", faketoolchain_libdir])
 
     # Add llbuild import flags.
     for import_path in llbuild_import_paths(args):

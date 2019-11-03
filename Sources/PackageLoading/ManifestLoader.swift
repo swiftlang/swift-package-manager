@@ -391,7 +391,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
           #endif
             cmd += [resources.swiftCompiler.pathString]
             cmd += ["--driver-mode=swift"]
-            cmd += bootstrapArgs()
             cmd += verbosity.ccArgs
             cmd += ["-L", runtimePath, "-lPackageDescription"]
             cmd += interpreterFlags
@@ -468,36 +467,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         return manifestParseResult
-    }
-
-    /// Returns the extra manifest args required during SwiftPM's own bootstrap.
-    private func bootstrapArgs() -> [String] {
-      #if !os(Linux)
-        return []
-      #else
-        // The Linux bots require extra arguments in order to locate the corelibs.
-        // We can potentially drop this by installing some stable linux toolchain
-        // after Swift gets ABI and module stability.
-        //
-        // Compute if SwiftPM is bootstrapping.
-        let env = ProcessInfo.processInfo.environment
-        guard env.keys.contains("SWIFTPM_BOOTSTRAP") else { return [] }
-        guard let buildPathStr = env["SWIFTPM_BUILD_DIR"], let buildPath = try? AbsolutePath(validating: buildPathStr) else {
-            return []
-        }
-
-        // Construct the required search paths relative to the build directory.
-        let libdir = buildPath.appending(RelativePath(".bootstrap/lib/swift/linux"))
-        let incdir = libdir.appending(component: "x86_64")
-        let dispatchIncdir = incdir.appending(component: "dispatch")
-
-        return [
-            "-I\(incdir)",
-            "-I\(dispatchIncdir)",
-            "-L\(libdir)",
-            "-Xcc", "-F\(incdir)",
-        ]
-      #endif
     }
 
     /// Returns path to the sdk, if possible.
