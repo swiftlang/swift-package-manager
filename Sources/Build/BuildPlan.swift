@@ -190,7 +190,7 @@ public struct BuildParameters: Encodable {
     }
 
     /// Returns the compiler arguments for the index store, if enabled.
-    fileprivate var indexStoreArguments: [String] {
+    fileprivate func indexStoreArguments(for target: ResolvedTarget) -> [String] {
         let addIndexStoreArguments: Bool
         switch indexStoreMode {
         case .on:
@@ -198,7 +198,15 @@ public struct BuildParameters: Encodable {
         case .off:
             addIndexStoreArguments = false
         case .auto:
-            addIndexStoreArguments = configuration == .debug
+            if configuration == .debug {
+                addIndexStoreArguments = true
+            } else if enableTestDiscovery && target.type == .test {
+                // Test discovery requires an index store for the test targets
+                // to discover the tests
+                addIndexStoreArguments = true
+            } else {
+                addIndexStoreArguments = false
+            }
         }
 
         if addIndexStoreArguments {
@@ -414,9 +422,9 @@ public final class ClangTargetBuildDescription {
         // This feature is not widely available in OSS clang. So, we only enable
         // index store for Apple's clang or if explicitly asked to.
         if ProcessEnv.vars.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
-            args += buildParameters.indexStoreArguments
+            args += buildParameters.indexStoreArguments(for: target)
         } else if buildParameters.triple.isDarwin(), (try? buildParameters.toolchain._isClangCompilerVendorApple()) == true {
-            args += buildParameters.indexStoreArguments
+            args += buildParameters.indexStoreArguments(for: target)
         }
 
         if !buildParameters.triple.isWindows() {
@@ -665,7 +673,7 @@ public final class SwiftTargetBuildDescription {
         case .release: break
         }
 
-        args += buildParameters.indexStoreArguments
+        args += buildParameters.indexStoreArguments(for: target)
         args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
         args += ["-g"]
@@ -787,7 +795,7 @@ public final class SwiftTargetBuildDescription {
         result += buildParameters.targetTripleArgs(for: target)
         result += ["-swift-version", swiftVersion.rawValue]
 
-        result += buildParameters.indexStoreArguments
+        result += buildParameters.indexStoreArguments(for: target)
         result += buildParameters.toolchain.extraSwiftCFlags
         result += optimizationArguments
         result += ["-g"]
