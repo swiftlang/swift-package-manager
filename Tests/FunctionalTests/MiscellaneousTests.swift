@@ -91,15 +91,15 @@ class MiscellaneousTestCase: XCTestCase {
             do {
                 try executeSwiftBuild(prefix)
                 XCTFail()
-            } catch SwiftPMProductError.executionFailure(let error, let output, _) {
-                XCTAssertMatch(output, .contains("Compiling CompileFails Foo.swift"))
-                XCTAssertMatch(output, .regex("error: .*\n.*compile_failure"))
+            } catch SwiftPMProductError.executionFailure(let error, let output, let stderr) {
+                XCTAssertMatch(stderr + output, .contains("Compiling CompileFails Foo.swift"))
+                XCTAssertMatch(stderr + output, .regex("error: .*\n.*compile_failure"))
 
                 if case ProcessResult.Error.nonZeroExit(let result) = error {
                     // if our code crashes we'll get an exit code of 256
                     XCTAssertEqual(result.exitStatus, .terminated(code: 1))
                 } else {
-                    XCTFail()
+                    XCTFail("\(stderr + output)")
                 }
             } catch {
                 XCTFail()
