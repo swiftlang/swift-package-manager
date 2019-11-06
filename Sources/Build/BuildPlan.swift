@@ -668,6 +668,7 @@ public final class SwiftTargetBuildDescription {
         args += buildParameters.indexStoreArguments
         args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
+        args += testingArguments
         args += ["-g"]
         args += ["-j\(ProcessInfo.processInfo.activeProcessorCount)"]
         args += activeCompilationConditions
@@ -743,6 +744,7 @@ public final class SwiftTargetBuildDescription {
         result += buildParameters.targetTripleArgs(for: target)
         result += ["-swift-version", swiftVersion.rawValue]
         result += optimizationArguments
+        result += testingArguments
         result += ["-g"]
         result += ["-j\(ProcessInfo.processInfo.activeProcessorCount)"]
         result += activeCompilationConditions
@@ -790,6 +792,7 @@ public final class SwiftTargetBuildDescription {
         result += buildParameters.indexStoreArguments
         result += buildParameters.toolchain.extraSwiftCFlags
         result += optimizationArguments
+        result += testingArguments
         result += ["-g"]
         result += ["-j\(ProcessInfo.processInfo.activeProcessorCount)"]
         result += activeCompilationConditions
@@ -928,9 +931,23 @@ public final class SwiftTargetBuildDescription {
     private var optimizationArguments: [String] {
         switch buildParameters.configuration {
         case .debug:
-            return ["-Onone", "-enable-testing"]
+            return ["-Onone"]
         case .release:
             return ["-O"]
+        }
+    }
+
+    /// Testing arguments according to the build configuration.
+    private var testingArguments: [String] {
+        switch buildParameters.configuration {
+        case .debug:
+            return ["-enable-testing"]
+        case .release:
+            if self.buildParameters.enableTestDiscovery {
+                return ["-enable-testing"]
+            } else {
+                return []
+            }
         }
     }
 
