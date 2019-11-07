@@ -989,6 +989,8 @@ def main():
                         help="The rpath of swift standard libraries relative to the executables")
     args = parser.parse_args()
 
+    print(subprocess.check_output(["cmake", "--version"], stderr=subprocess.STDOUT))
+
     if not args.swiftc_path:
         args.swiftc_path = get_swiftc_path()
     args.clang_path = get_clang_path()
