@@ -609,7 +609,7 @@ final class BuildPlanTests: XCTestCase {
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug", "-o",
             "/path/to/build/debug/PkgPackageTests.xctest/Contents/MacOS/PkgPackageTests", "-module-name",
             "PkgPackageTests", "-Xlinker", "-bundle",
-            "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
+            "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../../",
             "@/path/to/build/debug/PkgPackageTests.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",

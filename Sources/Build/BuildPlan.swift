@@ -1123,7 +1123,8 @@ public final class ProductBuildDescription {
         if buildParameters.triple.isLinux() {
             args += ["-Xlinker", "-rpath=$ORIGIN"]
         } else if buildParameters.triple.isDarwin() {
-            args += ["-Xlinker", "-rpath", "-Xlinker", "@loader_path"]
+            let rpath = product.type == .test ? "@loader_path/../../../" : "@loader_path"
+            args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
         }
         args += ["@\(linkFileListPath.pathString)"]
 
