@@ -193,6 +193,8 @@ public final class IndexStoreAPI {
         self.path = path
 #if os(Windows)
         let flags: DLOpenFlags = []
+#elseif os(Android)
+        let flags: DLOpenFlags = [.lazy, .local, .first]
 #else
         let flags: DLOpenFlags = [.lazy, .local, .first, .deepBind]
 #endif

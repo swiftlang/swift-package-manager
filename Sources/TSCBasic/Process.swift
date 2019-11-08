@@ -312,7 +312,7 @@ public final class Process: ObjectIdentifierProtocol {
         try _process?.run()
       #else
         // Initialize the spawn attributes.
-      #if canImport(Darwin)
+      #if canImport(Darwin) || os(Android)
         var attributes: posix_spawnattr_t? = nil
       #else
         var attributes = posix_spawnattr_t()
@@ -357,7 +357,7 @@ public final class Process: ObjectIdentifierProtocol {
         posix_spawnattr_setflags(&attributes, Int16(flags))
 
         // Setup the file actions.
-      #if canImport(Darwin)
+      #if canImport(Darwin) || os(Android)
         var fileActions: posix_spawn_file_actions_t? = nil
       #else
         var fileActions = posix_spawn_file_actions_t()

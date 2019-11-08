@@ -375,6 +375,12 @@ public class SwiftTool<Options: ToolOptions> {
                 action.__sigaction_u.__sa_handler = SIG_DFL
                 sigaction(SIGINT, &action, nil)
                 kill(getpid(), SIGINT)
+              #elseif os(Android)
+                // Install the default signal handler.
+                var action = sigaction()
+                action.sa_handler = SIG_DFL
+                sigaction(SIGINT, &action, nil)
+                kill(getpid(), SIGINT)
               #else
                 var action = sigaction()
                 action.__sigaction_handler = unsafeBitCast(

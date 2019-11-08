@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-#if os(Linux)
+#if canImport(Glibc)
 import Glibc
 #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
 import Darwin.C
