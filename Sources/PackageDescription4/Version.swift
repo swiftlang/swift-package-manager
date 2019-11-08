@@ -27,13 +27,13 @@
 ///
 /// **The Minor Version**
 //
-/// Update the second digit of a version, or *minor version*,  if you add functionality in a backward-compatible manner.
+/// Update the second digit of a version, or *minor version*, if you add functionality in a backward-compatible manner.
 /// For example, the semantic versioning specification considers adding a new method
 /// or type without changing any other API to be backward-compatible.
 ///
-/// ## The Patch Version
+/// **The Patch Version**
 ///
-/// Increase the third digit of a version, or *patch version* if you are making a backward-compatible bug fix.
+/// Increase the third digit of a version, or *patch version*, if you are making a backward-compatible bug fix.
 /// This allows clients to benefit from bugfixes to your package without incurring
 /// any maintenance burden.
 ///
