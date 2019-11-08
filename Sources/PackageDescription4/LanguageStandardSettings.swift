@@ -14,9 +14,9 @@ public enum CLanguageStandard: String, Encodable {
     case c89
     /// The identifier for the C90 language standard.
     case c90
-    /// The identifier for the C9899-1990 language standard.
+    /// The identifier for the ISO 9899:1990 language standard.
     case iso9899_1990 = "iso9899:1990"
-    /// The identifier for the C9899-1994 language standard.
+    /// The identifier for the ISO 9899:1994 language standard.
     case iso9899_199409 = "iso9899:1994"
     /// The identifier for the GNU89 language standard.
     case gnu89
@@ -24,13 +24,13 @@ public enum CLanguageStandard: String, Encodable {
     case gnu90
     /// The identifier for the C99 language standard.
     case c99
-    /// The identifier for the ISO9899-1999 language standard.
+    /// The identifier for the ISO 9899:1999 language standard.
     case iso9899_1999 = "iso9899:1999"
     /// The identifier for the GNU99 language standard.
     case gnu99
     /// The identifier for the C11 language standard.
     case c11
-    /// The identifier for the ISO9899-2011 language standard.
+    /// The identifier for the ISO 9899:2011 language standard.
     case iso9899_2011 = "iso9899:2011"
     /// The identifier for the GNU11 language standard.
     case gnu11
