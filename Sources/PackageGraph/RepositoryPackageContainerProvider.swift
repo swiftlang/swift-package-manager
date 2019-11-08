@@ -209,7 +209,7 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
             package: AbsolutePath(identifier.path),
             baseURL: identifier.path,
             version: nil,
-            manifestVersion: toolsVersion.manifestVersion,
+            toolsVersion: toolsVersion,
             fileSystem: fs)
         return _manifest!
     }
@@ -468,7 +468,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             package: AbsolutePath.root,
             baseURL: packageURL,
             version: version,
-            manifestVersion: toolsVersion.manifestVersion,
+            toolsVersion: toolsVersion,
             fileSystem: fs)
     }
 }

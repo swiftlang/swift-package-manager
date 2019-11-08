@@ -40,6 +40,8 @@ extension ToolsVersionTests {
     // to regenerate.
     static let __allTests__ToolsVersionTests = [
         ("testBasics", testBasics),
+        ("testRuntimeSubpath", testRuntimeSubpath),
+        ("testSwiftLangVersion", testSwiftLangVersion),
     ]
 }
 

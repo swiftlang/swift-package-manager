@@ -34,6 +34,9 @@ public class Target: ObjectIdentifierProtocol {
     /// The language-level target name.
     public let c99name: String
 
+    /// The bundle name, if one is being generated.
+    public let bundleName: String?
+
     /// Suffix that's expected for test targets.
     public static let testModuleNameSuffix = "Tests"
 
@@ -42,6 +45,9 @@ public class Target: ObjectIdentifierProtocol {
 
     /// The sources for the target.
     public let sources: Sources
+
+    /// The resource files in the target.
+    public let resources: [Resource]
 
     /// The list of platforms that are supported by this target.
     public let platforms: [SupportedPlatform]
@@ -56,17 +62,21 @@ public class Target: ObjectIdentifierProtocol {
 
     fileprivate init(
         name: String,
+        bundleName: String? = nil,
         platforms: [SupportedPlatform],
         type: Kind,
         sources: Sources,
+        resources: [Resource] = [],
         dependencies: [Target],
         productDependencies: [(name: String, package: String?)] = [],
         buildSettings: BuildSettings.AssignmentTable
     ) {
         self.name = name
+        self.bundleName = bundleName
         self.platforms = platforms
         self.type = type
         self.sources = sources
+        self.resources = resources
         self.dependencies = dependencies
         self.productDependencies = productDependencies
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
@@ -127,9 +137,11 @@ public class SwiftTarget: Target {
 
     public init(
         name: String,
+        bundleName: String? = nil,
         platforms: [SupportedPlatform] = [],
         isTest: Bool = false,
         sources: Sources,
+        resources: [Resource] = [],
         dependencies: [Target] = [],
         productDependencies: [(name: String, package: String?)] = [],
         swiftVersion: SwiftLanguageVersion,
@@ -139,9 +151,11 @@ public class SwiftTarget: Target {
         self.swiftVersion = swiftVersion
         super.init(
             name: name,
+            bundleName: bundleName,
             platforms: platforms,
             type: type,
             sources: sources,
+            resources: resources,
             dependencies: dependencies,
             productDependencies: productDependencies,
             buildSettings: buildSettings
@@ -208,12 +222,14 @@ public class ClangTarget: Target {
 
     public init(
         name: String,
+        bundleName: String? = nil,
         platforms: [SupportedPlatform] = [],
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
         includeDir: AbsolutePath,
         isTest: Bool = false,
         sources: Sources,
+        resources: [Resource] = [],
         dependencies: [Target] = [],
         productDependencies: [(name: String, package: String?)] = [],
         buildSettings: BuildSettings.AssignmentTable = .init()
@@ -226,9 +242,11 @@ public class ClangTarget: Target {
         self.includeDir = includeDir
         super.init(
             name: name,
+            bundleName: bundleName,
             platforms: platforms,
             type: type,
             sources: sources,
+            resources: resources,
             dependencies: dependencies,
             productDependencies: productDependencies,
             buildSettings: buildSettings

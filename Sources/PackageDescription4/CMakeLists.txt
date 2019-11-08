@@ -14,6 +14,7 @@ foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
         PackageDependency.swift
         PackageRequirement.swift
         Product.swift
+        Resource.swift
         SupportedPlatforms.swift
         Target.swift
         Version+StringLiteralConvertible.swift

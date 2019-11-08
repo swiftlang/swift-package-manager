@@ -31,9 +31,9 @@ class PackageDescription4_2LoadingTests: XCTestCase {
         let m = try manifestLoader.load(
             package: AbsolutePath.root,
             baseURL: "/foo",
-            manifestVersion: .v4_2,
+            toolsVersion: .v4_2,
             fileSystem: fs)
-        guard m.manifestVersion == .v4_2 else {
+        guard m.toolsVersion == .v4_2 else {
             return XCTFail("Invalid manfiest version")
         }
         body(m)
@@ -46,7 +46,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
     ) {
         do {
             try loadManifestThrowing(contents, line: line, body: body)
-        } catch ManifestParseError.invalidManifestFormat(let error) {
+        } catch ManifestParseError.invalidManifestFormat(let error, _) {
             print(error)
             XCTFail(file: #file, line: line)
         } catch {
@@ -386,7 +386,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                     bytes: bogusManifest)
             }
             // Check we can load the repository.
-            let manifest = try manifestLoader.load(package: root, baseURL: "/foo", manifestVersion: .v4_2, fileSystem: fs)
+            let manifest = try manifestLoader.load(package: root, baseURL: "/foo", toolsVersion: .v4_2, fileSystem: fs)
             XCTAssertEqual(manifest.name, "Trivial")
         }
     }
@@ -511,7 +511,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 let manifest = try! loader.load(
                     package: manifestPath.parentDirectory,
                     baseURL: manifestPath.pathString,
-                    manifestVersion: .v4_2)
+                    toolsVersion: .v4_2)
 
                 XCTAssertEqual(delegate.loaded, [manifestPath])
                 XCTAssertEqual(delegate.parsed, expectCached ? [] : [manifestPath])
@@ -566,7 +566,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 let manifest = try! loader.load(
                     package: manifestPath.parentDirectory,
                     baseURL: manifestPath.pathString,
-                    manifestVersion: .v4_2)
+                    toolsVersion: .v4_2)
 
                 XCTAssertEqual(delegate.loaded, [manifestPath])
                 XCTAssertEqual(delegate.parsed, expectCached ? [] : [manifestPath])
@@ -635,7 +635,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 let m = try manifestLoader.load(
                     package: AbsolutePath.root,
                     baseURL: "/foo",
-                    manifestVersion: .v4_2,
+                    toolsVersion: .v4_2,
                     fileSystem: fs)
 
                 XCTAssertEqual(m.name, "Trivial")
@@ -684,7 +684,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 let manifest = try manifestLoader.load(
                     package: manifestPath.parentDirectory,
                     baseURL: manifestPath.pathString,
-                    manifestVersion: .v4_2)
+                    toolsVersion: .v4_2)
 
                 XCTAssertEqual(delegate.loaded, [manifestPath])
                 XCTAssertEqual(delegate.parsed, [manifestPath])

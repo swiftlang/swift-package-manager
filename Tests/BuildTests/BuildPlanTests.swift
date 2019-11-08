@@ -50,7 +50,7 @@ final class BuildPlanTests: XCTestCase {
 
     /// The j argument.
     private var j: String {
-        return "-j\(SwiftCompilerTool.numThreads)"
+        return "-j\(ProcessInfo.processInfo.activeProcessorCount)"
     }
 
     func mockBuildParameters(
@@ -407,7 +407,7 @@ final class BuildPlanTests: XCTestCase {
 
         mktmpdir { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestGenerator(plan, client: "swift-build")
+            let llbuild = LLBuildManifestBuilder(plan)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertTrue(contents.contains("-std=gnu99\",\"-c\",\"/Pkg/Sources/lib/lib.c"))
@@ -609,12 +609,12 @@ final class BuildPlanTests: XCTestCase {
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug", "-o",
             "/path/to/build/debug/PkgPackageTests.xctest/Contents/MacOS/PkgPackageTests", "-module-name",
             "PkgPackageTests", "-Xlinker", "-bundle",
-            "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
+            "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../../",
             "@/path/to/build/debug/PkgPackageTests.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
-            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/FooTests.swiftmodule",
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/Foo.swiftmodule",
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/FooTests.swiftmodule",
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
@@ -1502,12 +1502,12 @@ final class BuildPlanTests: XCTestCase {
 
         mktmpdir { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestGenerator(plan, client: "swift-build")
+            let llbuild = LLBuildManifestBuilder(plan)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertTrue(contents.contains("""
-                    module-output-path: "/path/to/build/debug/swiftlib.swiftmodule"
                     inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/exe"]
+                    outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/swiftlib.swiftmodule"]
                 """), contents)
         }
     }
@@ -1553,14 +1553,15 @@ final class BuildPlanTests: XCTestCase {
 
         mktmpdir { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestGenerator(plan, client: "swift-build")
+            let llbuild = LLBuildManifestBuilder(plan)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertMatch(contents, .contains("""
                   "/path/to/build/debug/Bar.build/main.m.o":
                     tool: clang
-                    description: "Compiling Bar main.m"
                     inputs: ["/path/to/build/debug/Foo.swiftmodule","/PkgA/Sources/Bar/main.m"]
+                    outputs: ["/path/to/build/debug/Bar.build/main.m.o"]
+                    description: "Compiling Bar main.m"
                 """))
         }
     }
@@ -1618,14 +1619,15 @@ final class BuildPlanTests: XCTestCase {
 
          mktmpdir { path in
              let yaml = path.appending(component: "debug.yaml")
-             let llbuild = LLBuildManifestGenerator(plan, client: "swift-build")
+             let llbuild = LLBuildManifestBuilder(plan)
              try llbuild.generateManifest(at: yaml)
              let contents = try localFileSystem.readFileContents(yaml).description
              XCTAssertMatch(contents, .contains("""
                    "/path/to/build/debug/Bar.build/main.m.o":
                      tool: clang
-                     description: "Compiling Bar main.m"
                      inputs: ["/path/to/build/debug/Foo.swiftmodule","/PkgA/Sources/Bar/main.m"]
+                     outputs: ["/path/to/build/debug/Bar.build/main.m.o"]
+                     description: "Compiling Bar main.m"
                  """))
          }
     }
@@ -1684,14 +1686,15 @@ final class BuildPlanTests: XCTestCase {
 
          mktmpdir { path in
              let yaml = path.appending(component: "debug.yaml")
-             let llbuild = LLBuildManifestGenerator(plan, client: "swift-build")
+             let llbuild = LLBuildManifestBuilder(plan)
              try llbuild.generateManifest(at: yaml)
              let contents = try localFileSystem.readFileContents(yaml).description
              XCTAssertMatch(contents, .contains("""
                    "/path/to/build/debug/Bar.build/main.m.o":
                      tool: clang
-                     description: "Compiling Bar main.m"
                      inputs: ["/path/to/build/debug/libFoo\(dynamicLibraryExtension)","/PkgA/Sources/Bar/main.m"]
+                     outputs: ["/path/to/build/debug/Bar.build/main.m.o"]
+                     description: "Compiling Bar main.m"
                  """))
          }
     }
@@ -1729,25 +1732,88 @@ final class BuildPlanTests: XCTestCase {
 
         mktmpdir { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestGenerator(result.plan, client: "swift-build")
+            let llbuild = LLBuildManifestBuilder(result.plan)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertMatch(contents, .contains("""
                   "/path/to/build/debug/exe.build/exe.swiftmodule.o":
                     tool: shell
-                    description: "Wrapping AST for exe for debugging"
                     inputs: ["/path/to/build/debug/exe.swiftmodule"]
                     outputs: ["/path/to/build/debug/exe.build/exe.swiftmodule.o"]
+                    description: "Wrapping AST for exe for debugging"
                     args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/exe.swiftmodule","-o","/path/to/build/debug/exe.build/exe.swiftmodule.o"]
 
                   "/path/to/build/debug/lib.build/lib.swiftmodule.o":
                     tool: shell
-                    description: "Wrapping AST for lib for debugging"
                     inputs: ["/path/to/build/debug/lib.swiftmodule"]
                     outputs: ["/path/to/build/debug/lib.build/lib.swiftmodule.o"]
+                    description: "Wrapping AST for lib for debugging"
                     args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/lib.swiftmodule","-o","/path/to/build/debug/lib.build/lib.swiftmodule.o"]
                 """))
         }
+    }
+
+    func testSwiftBundleAccessor() throws {
+        // This has a Swift and ObjC target in the same package.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/PkgA/Sources/Foo/Foo.swift",
+            "/PkgA/Sources/Foo/foo.txt",
+            "/PkgA/Sources/Foo/bar.txt",
+            "/PkgA/Sources/Bar/Bar.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+
+        let graph = loadPackageGraph(
+            root: "/PkgA",
+            fs: fs,
+            diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "PkgA",
+                    path: "/PkgA",
+                    url: "/PkgA",
+                    v: .v5_2,
+                    targets: [
+                        TargetDescription(
+                            name: "Foo",
+                            resources: [
+                                .init(rule: .copy, path: "foo.txt"),
+                                .init(rule: .process, path: "bar.txt"),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "Bar"
+                        ),
+                    ]
+                )
+            ]
+        )
+
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let plan = try BuildPlan(
+            buildParameters: mockBuildParameters(),
+            graph: graph,
+            diagnostics: diagnostics,
+            fileSystem: fs
+        )
+        let result = BuildPlanResult(plan: plan)
+
+        let fooTarget = try result.target(for: "Foo").swiftTarget()
+        XCTAssertEqual(fooTarget.objects.map{ $0.pathString }, [
+            "/path/to/build/debug/Foo.build/Foo.swift.o",
+            "/path/to/build/debug/Foo.build/resource_bundle_accessor.swift.o"
+        ])
+
+        let resourceAccessor = fooTarget.sources.first{ $0.basename == "resource_bundle_accessor.swift" }!
+        let contents = try fs.readFileContents(resourceAccessor).cString
+        XCTAssertTrue(contents.contains("extension Foundation.Bundle"), contents)
+
+        let barTarget = try result.target(for: "Bar").swiftTarget()
+        XCTAssertEqual(barTarget.objects.map{ $0.pathString }, [
+            "/path/to/build/debug/Bar.build/Bar.swift.o",
+        ])
     }
 }
 

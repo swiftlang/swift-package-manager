@@ -32,9 +32,9 @@ class PackageDescription4LoadingTests: XCTestCase {
         let m = try manifestLoader.load(
             package: AbsolutePath.root,
             baseURL: "/foo",
-            manifestVersion: .v4,
+            toolsVersion: .v4,
             fileSystem: fs)
-        guard m.manifestVersion == .v4 else {
+        guard m.toolsVersion == .v4 else {
             return XCTFail("Invalid manfiest version")
         }
         body(m)
@@ -47,49 +47,11 @@ class PackageDescription4LoadingTests: XCTestCase {
     {
         do {
             try loadManifestThrowing(contents, line: line, body: body)
-        } catch ManifestParseError.invalidManifestFormat(let error) {
+        } catch ManifestParseError.invalidManifestFormat(let error, _) {
             print(error)
             XCTFail(file: #file, line: line)
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
-        }
-    }
-
-    func testManiestVersionToToolsVersion() {
-        let fourVersions = [
-            "4.0.0", "4.0.10", "4.1", "4.1.999", "4.1.0",
-        ]
-
-        for version in fourVersions {
-            let toolsVersion = ToolsVersion(string: version)!
-            XCTAssertEqual(toolsVersion.manifestVersion, .v4, "version: \(version)")
-        }
-
-        let fourTwoVersions = [
-            "4.2.0", "4.2.1", "4.2.2", "4.2.999", "4.3", "4.9", "4.9.9"
-        ]
-
-        for version in fourTwoVersions {
-            let toolsVersion = ToolsVersion(string: version)!
-            XCTAssertEqual(toolsVersion.manifestVersion, .v4_2)
-        }
-
-        let fiveVersions = [
-            "5.0.0", "5.0.1", "5.0.2",
-        ]
-
-        for version in fiveVersions {
-            let toolsVersion = ToolsVersion(string: version)!
-            XCTAssertEqual(toolsVersion.manifestVersion, .v5, version)
-        }
-
-        let fiveOneVersions = [
-            "5.1.0", "6.1.100", "5.1.1", "7.0.0",
-        ]
-
-        for version in fiveOneVersions {
-            let toolsVersion = ToolsVersion(string: version)!
-            XCTAssertEqual(toolsVersion.manifestVersion, .v5_1, version)
         }
     }
 
@@ -104,7 +66,7 @@ class PackageDescription4LoadingTests: XCTestCase {
 
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            XCTAssertEqual(manifest.manifestVersion, .v4)
+            XCTAssertEqual(manifest.toolsVersion, .v4)
             XCTAssertEqual(manifest.targets, [])
             XCTAssertEqual(manifest.dependencies, [])
         }
@@ -403,12 +365,12 @@ class PackageDescription4LoadingTests: XCTestCase {
         let diagnostics = DiagnosticsEngine()
         let manifest = try manifestLoader.load(
             package: .root, baseURL: "/foo",
-            manifestVersion: .v4, fileSystem: fs,
+            toolsVersion: .v4, fileSystem: fs,
             diagnostics: diagnostics
         )
 
         XCTAssertEqual(manifest.name, "Trivial")
-        XCTAssertEqual(manifest.manifestVersion, .v4)
+        XCTAssertEqual(manifest.toolsVersion, .v4)
         XCTAssertEqual(manifest.targets, [])
         XCTAssertEqual(manifest.dependencies, [])
 

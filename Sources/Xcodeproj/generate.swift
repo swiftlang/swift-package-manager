@@ -250,12 +250,12 @@ func generateSchemes(
 // as a reference to the project.
 func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheckout) throws -> [AbsolutePath] {
     let srcroot = package.path
-    var extraFiles = findNonSourceFiles(path: srcroot, manifestVersion: package.manifest.manifestVersion, recursively: false)
+    var extraFiles = findNonSourceFiles(path: srcroot, toolsVersion: package.manifest.toolsVersion, recursively: false)
 
     for target in package.targets {
         let sourcesDirectory = target.sources.root
         if localFileSystem.isDirectory(sourcesDirectory) {
-            let sourcesExtraFiles = findNonSourceFiles(path: sourcesDirectory, manifestVersion: package.manifest.manifestVersion, recursively: true)
+            let sourcesExtraFiles = findNonSourceFiles(path: sourcesDirectory, toolsVersion: package.manifest.toolsVersion, recursively: true)
             extraFiles.append(contentsOf: sourcesExtraFiles)
         }
     }
@@ -273,7 +273,7 @@ func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheck
 /// - parameters:
 ///   - path: The path of the directory to get the files from
 ///   - recursively: Specifies if the directory at `path` should be searched recursively
-func findNonSourceFiles(path: AbsolutePath, manifestVersion: ManifestVersion, recursively: Bool) -> [AbsolutePath] {
+func findNonSourceFiles(path: AbsolutePath, toolsVersion: ToolsVersion, recursively: Bool) -> [AbsolutePath] {
     let filesFromPath: RecursibleDirectoryContentsGenerator?
 
     if recursively {
@@ -293,7 +293,7 @@ func findNonSourceFiles(path: AbsolutePath, manifestVersion: ManifestVersion, re
         if !localFileSystem.isFile($0) { return false }
         if $0.basename.hasPrefix(".") { return false }
         if $0.basename == "Package.resolved" { return false }
-        if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions(manifestVersion: manifestVersion).contains(`extension`) {
+        if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions(toolsVersion: toolsVersion).contains(`extension`) {
             return false
         }
         return true

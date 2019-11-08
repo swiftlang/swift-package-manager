@@ -357,7 +357,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         let buildDescription = try getBuildDescription(graph: graph)
 
         if options.shouldBuildTests {
-            try build(buildDescription: buildDescription, subset: .allIncludingTests)
+            let subset = options.testProduct.map(BuildSubset.product) ?? .allIncludingTests
+            try build(buildDescription: buildDescription, subset: subset)
         }
 
         // Find the test product.

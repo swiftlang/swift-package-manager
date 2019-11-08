@@ -77,13 +77,13 @@ func xcodeProject(
         let compilePhase = pdTarget.addSourcesBuildPhase()
         compilePhase.addBuildFile(fileRef: manifestFileRef)
 
-        var interpreterFlags = manifestLoader.interpreterFlags(for: package.manifest.manifestVersion)
+        var interpreterFlags = manifestLoader.interpreterFlags(for: package.manifest.toolsVersion)
         if !interpreterFlags.isEmpty {
             // Patch the interpreter flags to use Xcode supported toolchain macro instead of the resolved path.
-            interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/\(package.manifest.manifestVersion.runtimeSubpath.pathString)"
+            interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/\(package.manifest.toolsVersion.runtimeSubpath.pathString)"
         }
         pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS += interpreterFlags
-        pdTarget.buildSettings.common.SWIFT_VERSION = package.manifest.manifestVersion.swiftLanguageVersion.xcodeBuildSettingValue
+        pdTarget.buildSettings.common.SWIFT_VERSION = package.manifest.toolsVersion.swiftLanguageVersion.xcodeBuildSettingValue
         pdTarget.buildSettings.common.LD = "/usr/bin/true"
     }
 
@@ -428,8 +428,7 @@ func xcodeProject(
         targetSettings.common.TARGET_NAME = target.name
 
         // Assign the deployment target if the package is using the newer manifest version.
-        switch package.manifest.manifestVersion {
-        case .v5, .v5_1:
+        if package.manifest.toolsVersion >= .v5 {
             for supportedPlatform in target.underlyingTarget.platforms {
                 let version = supportedPlatform.version.versionString
                 switch supportedPlatform.platform {
@@ -445,7 +444,6 @@ func xcodeProject(
                     break
                 }
             }
-        case .v4, .v4_2: break
         }
 
         let infoPlistFilePath = xcodeprojPath.appending(component: target.infoPlistFileName)

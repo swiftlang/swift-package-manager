@@ -22,6 +22,7 @@ class PackageDescription5LoadingTests: XCTestCase {
 
     private func loadManifestThrowing(
         _ contents: ByteString,
+        toolsVersion: ToolsVersion = .v5,
         line: UInt = #line,
         body: (Manifest) -> Void
     ) throws {
@@ -31,9 +32,9 @@ class PackageDescription5LoadingTests: XCTestCase {
         let m = try manifestLoader.load(
             package: AbsolutePath.root,
             baseURL: "/foo",
-            manifestVersion: .v5,
+            toolsVersion: toolsVersion,
             fileSystem: fs)
-        guard m.manifestVersion == .v5 else {
+        guard m.toolsVersion == toolsVersion else {
             return XCTFail("Invalid manfiest version")
         }
         body(m)
@@ -41,11 +42,12 @@ class PackageDescription5LoadingTests: XCTestCase {
 
     private func loadManifest(
         _ contents: ByteString,
+        toolsVersion: ToolsVersion = .v5,
         line: UInt = #line,
         body: (Manifest) -> Void
     ) {
         do {
-            try loadManifestThrowing(contents, line: line, body: body)
+            try loadManifestThrowing(contents, toolsVersion: toolsVersion, line: line, body: body)
         } catch ManifestParseError.invalidManifestFormat(let error, _) {
             print(error)
             XCTFail(file: #file, line: line)
@@ -329,7 +331,7 @@ class PackageDescription5LoadingTests: XCTestCase {
                 _ = try loader.load(
                     package: manifestPath.parentDirectory,
                     baseURL: manifestPath.pathString,
-                    manifestVersion: .v5)
+                    toolsVersion: .v5)
             } catch ManifestParseError.invalidManifestFormat(let error, let diagnosticFile) {
                 XCTAssertMatch(error, .contains("expected \')\' in expression list"))
                 let contents = try localFileSystem.readFileContents(diagnosticFile!)
@@ -357,7 +359,7 @@ class PackageDescription5LoadingTests: XCTestCase {
             _ = try loader.load(
                 package: manifestPath.parentDirectory,
                 baseURL: manifestPath.pathString,
-                manifestVersion: .v5,
+                toolsVersion: .v5,
                 diagnostics: diagnostics
             )
 
@@ -413,6 +415,88 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTFail("Unexpected success")
         } catch ManifestParseError.runtimeManifestErrors(let errors) {
             XCTAssertEqual(errors, ["cSettings cannot be an empty array; provide at least one setting or remove it"])
+        }
+    }
+
+    func testResources() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "Foo",
+                       __resources: [
+                           .copy("foo.txt"),
+                           .process("bar.txt"),
+                       ]
+                   ),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("\(error)")
+            }
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
+        }
+
+        loadManifest(stream.bytes, toolsVersion: .v5_2) { manifest in
+            let resources = manifest.targets[0].resources
+            XCTAssertEqual(resources[0], TargetDescription.Resource(rule: .copy, path: "foo.txt"))
+            XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process, path: "bar.txt"))
+        }
+    }
+
+    func testWindowsPlatform() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "foo",
+                       cSettings: [
+                           .define("LLVM_ON_WIN32", .when(platforms: [.windows])),
+                       ]
+                   ),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("\(error)")
+            }
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
+        }
+
+        loadManifest(stream.bytes, toolsVersion: .v5_2) { manifest in
+            XCTAssertEqual(manifest.name, "Foo")
+
+            // Check targets.
+            let targets = Dictionary(items:
+                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
+            let foo = targets["foo"]!
+            XCTAssertEqual(foo.name, "foo")
+            XCTAssertFalse(foo.isTest)
+            XCTAssertEqual(foo.dependencies, [])
+
+            let settings = manifest.targets[0].settings
+            XCTAssertEqual(settings[0], .init(tool: .c, name: .define, value: ["LLVM_ON_WIN32"], condition: .init(platformNames: ["windows"])))
         }
     }
 }

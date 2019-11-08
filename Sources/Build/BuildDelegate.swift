@@ -11,8 +11,10 @@
 import TSCBasic
 import TSCUtility
 import SPMLLBuild
+import PackageModel
 import Dispatch
 import Foundation
+import LLBuildManifest
 
 typealias Diagnostic = TSCBasic.Diagnostic
 
@@ -73,19 +75,17 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         stream.flush()
     }
 
-    private func execute(with tool: ToolProtocol) throws {
-        assert(tool is TestDiscoveryTool, "Unexpected tool \(tool)")
-
+    private func execute(with tool: LLBuildManifest.TestDiscoveryTool) throws {
         let index = ctx.buildParameters.indexStore
         let api = try ctx.indexStoreAPI.get()
         let store = try IndexStore.open(store: index, api: api)
 
         // FIXME: We can speed this up by having one llbuild command per object file.
         let tests = try tool.inputs.flatMap {
-            try store.listTests(inObjectFile: AbsolutePath($0))
+            try store.listTests(inObjectFile: AbsolutePath($0.name))
         }
 
-        let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0) }
+        let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0.name) }
         let testsByModule = Dictionary(grouping: tests, by: { $0.module })
 
         func isMainFile(_ path: AbsolutePath) -> Bool {
@@ -192,7 +192,10 @@ public struct BuildDescription: Codable {
     let swiftTargetMap: [CommandName: TargetName]
 
     /// The map of test discovery commands.
-    let testDiscoveryCommands: [CommandName: TestDiscoveryTool]
+    let testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
+
+    /// The map of copy commands.
+    let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
 
     /// The built test products.
     public let builtTestProducts: [BuiltTestProduct]
@@ -203,7 +206,11 @@ public struct BuildDescription: Codable {
     /// The list of executable products in the root package.
     public let rootExecutables: [String]
 
-    public init(plan: BuildPlan, testDiscoveryCommands: [CommandName: TestDiscoveryTool]) {
+    public init(
+        plan: BuildPlan,
+        testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
+        copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
+    ) {
         let buildConfig = plan.buildParameters.configuration.dirname
 
         swiftTargetMap = Dictionary(uniqueKeysWithValues: plan.targetMap.values.compactMap{
@@ -212,6 +219,7 @@ public struct BuildDescription: Codable {
         })
 
         self.testDiscoveryCommands = testDiscoveryCommands
+        self.copyCommands = copyCommands
 
         self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
             // FIXME(perf): Provide faster lookups.
@@ -308,6 +316,32 @@ final class PackageStructureCommand: CustomLLBuildCommand {
     }
 }
 
+final class CopyCommand: CustomLLBuildCommand {
+    override func execute(_ command: SPMLLBuild.Command) -> Bool {
+        // This tool will never run without the build description.
+        let buildDescription = ctx.buildDescription!
+        guard let tool = buildDescription.copyCommands[command.name] else {
+            print("command \(command.name) not registered")
+            return false
+        }
+
+        do {
+            let input = tool.inputs[0].name
+            let output = tool.outputs[0].name
+            try localFileSystem.createDirectory(AbsolutePath(output).parentDirectory, recursive: true)
+
+            // FIXME: We should shim this through our FileSystem APIs.
+            try? FileManager.default.removeItem(atPath: output)
+            try FileManager.default.copyItem(atPath: input, toPath: output)
+        } catch {
+            // FIXME: Shouldn't use "print" here.
+            print("error:", error)
+            return false
+        }
+        return true
+    }
+}
+
 private let newLineByte: UInt8 = 10
 public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParserDelegate {
     private let diagnostics: DiagnosticsEngine
@@ -351,6 +385,8 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
             return InProcessTool(buildExecutionContext, type: TestDiscoveryCommand.self)
         case PackageStructureTool.name:
             return InProcessTool(buildExecutionContext, type: PackageStructureCommand.self)
+        case CopyTool.name:
+            return InProcessTool(buildExecutionContext, type: CopyCommand.self)
         default:
             return nil
         }

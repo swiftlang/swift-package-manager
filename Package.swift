@@ -29,6 +29,7 @@ let package = Package(
                 "TSCUtility",
                 "SourceControl",
                 "SPMLLBuild",
+                "LLBuildManifest",
                 "PackageModel",
                 "PackageLoading",
                 "PackageGraph",
@@ -46,6 +47,7 @@ let package = Package(
                 "TSCUtility",
                 "SourceControl",
                 "SPMLLBuild",
+                "LLBuildManifest",
                 "PackageModel",
                 "PackageLoading",
                 "PackageGraph",
@@ -99,6 +101,11 @@ let package = Package(
             dependencies: ["TSCBasic"]),
         
         // MARK: SwiftPM specific support libraries
+
+        .target(
+            /** The llbuild manifest model */
+            name: "LLBuildManifest",
+            dependencies: ["TSCBasic"]),
         
         .target(
             /** Source control operations */
@@ -132,7 +139,7 @@ let package = Package(
         .target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["TSCBasic", "PackageGraph"]),
+            dependencies: ["TSCBasic", "PackageGraph", "LLBuildManifest"]),
         .target(
             /** Generates Xcode projects */
             name: "Xcodeproj",

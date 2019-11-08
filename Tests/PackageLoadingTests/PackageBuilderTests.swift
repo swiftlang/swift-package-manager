@@ -166,12 +166,13 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testModuleMapLayout() throws {
-       var fs = InMemoryFileSystem(emptyFiles:
+        let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/clib/include/module.modulemap",
             "/Sources/clib/include/clib.h",
-            "/Sources/clib/clib.c")
+            "/Sources/clib/clib.c"
+        )
 
-        var manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "MyPackage",
             targets: [
                 TargetDescription(name: "clib"),
@@ -182,34 +183,6 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(c99name: "clib", type: .library)
                 moduleResult.checkSources(root: "/Sources/clib", paths: "clib.c")
             }
-        }
-
-        fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/clib/module.modulemap",
-            "/Sources/clib/foo.swift")
-        manifest = Manifest.createV4Manifest(
-            name: "MyPackage",
-            targets: [
-                TargetDescription(name: "clib"),
-            ]
-        )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("package has unsupported layout; modulemap '/Sources/clib/module.modulemap' should be inside the 'include' directory")
-        }
-
-        fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/Foo/module.modulemap",
-            "/Sources/Foo/foo.swift",
-            "/Sources/Bar/bar.swift")
-        manifest = Manifest.createV4Manifest(
-            name: "MyPackage",
-            targets: [
-                TargetDescription(name: "Foo"),
-                TargetDescription(name: "Bar"),
-            ]
-        )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("package has unsupported layout; modulemap '/Sources/Foo/module.modulemap' should be inside the 'include' directory")
         }
     }
 

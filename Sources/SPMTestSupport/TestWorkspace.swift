@@ -103,7 +103,7 @@ public final class TestWorkspace {
                     path: manifestPath,
                     url: url,
                     version: v,
-                    manifestVersion: .v4,
+                    toolsVersion: .v4,
                     dependencies: package.dependencies.map({ $0.convert(baseURL: packagesDir) }),
                     products: package.products.map({ ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) }),
                     targets: package.targets.map({ $0.convert() })
@@ -248,6 +248,20 @@ public final class TestWorkspace {
             packages: rootPaths(for: roots), dependencies: dependencies)
         workspace.updateDependencies(root: rootInput, diagnostics: diagnostics)
         result(diagnostics)
+    }
+    
+    public func checkUpdateDryRun(
+        roots: [String] = [],
+        deps: [TestWorkspace.PackageDependency] = [],
+        _ result: ([(PackageReference, Workspace.PackageStateChange)]?, DiagnosticsEngine) -> ()
+    ) {
+        let dependencies = deps.map({ $0.convert(packagesDir) })
+        let diagnostics = DiagnosticsEngine()
+        let workspace = createWorkspace()
+        let rootInput = PackageGraphRootInput(
+            packages: rootPaths(for: roots), dependencies: dependencies)
+        let changes = workspace.updateDependencies(root: rootInput, diagnostics: diagnostics, dryRun: true)
+        result(changes, diagnostics)
     }
 
     public func checkPackageGraph(

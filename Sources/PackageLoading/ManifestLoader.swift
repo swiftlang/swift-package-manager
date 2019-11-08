@@ -50,36 +50,6 @@ public extension ManifestResourceProvider {
     }
 }
 
-extension ToolsVersion {
-    /// Returns the manifest version for this tools version.
-    public var manifestVersion: ManifestVersion {
-        // FIXME: This works for now but we may want to do something better here
-        // if we're going to have a lot of manifest versions. We can make
-        // ManifestVersion a proper version type and then automatically
-        // determine the best version from the available versions.
-        //
-        // At this point, we expect the tools version to be greater than the minimum required.
-        assert(self >= .minimumRequired, "unexpected tools version \(self)")
-
-        switch major {
-        case 4:
-            // If the tools version is less than 4.2, return manifest version 4.
-            if minor < 2 {
-                return .v4
-            }
-
-            // Otherwise, return 4.2
-            return .v4_2
-        case 5 where minor < 1:
-            return .v5
-
-        default:
-            // For rest, return the latest manifest version.
-            return .v5_1
-        }
-    }
-}
-
 /// Protocol for the manifest loader interface.
 public protocol ManifestLoaderProtocol {
     /// Load the manifest for the package at `path`.
@@ -94,7 +64,7 @@ public protocol ManifestLoaderProtocol {
         packagePath path: AbsolutePath,
         baseURL: String,
         version: Version?,
-        manifestVersion: ManifestVersion,
+        toolsVersion: ToolsVersion,
         fileSystem: FileSystem?,
         diagnostics: DiagnosticsEngine?
     ) throws -> Manifest
@@ -112,7 +82,7 @@ extension ManifestLoaderProtocol {
         package path: AbsolutePath,
         baseURL: String,
         version: Version? = nil,
-        manifestVersion: ManifestVersion,
+        toolsVersion: ToolsVersion,
         fileSystem: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest {
@@ -120,7 +90,7 @@ extension ManifestLoaderProtocol {
             packagePath: path,
             baseURL: baseURL,
             version: version,
-            manifestVersion: manifestVersion,
+            toolsVersion: toolsVersion,
             fileSystem: fileSystem,
             diagnostics: diagnostics
         )
@@ -196,14 +166,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return try loader.load(
             package: packagePath,
             baseURL: packagePath.pathString,
-            manifestVersion: toolsVersion.manifestVersion)
+            toolsVersion: toolsVersion
+        )
     }
 
     public func load(
         packagePath path: AbsolutePath,
         baseURL: String,
         version: Version?,
-        manifestVersion: ManifestVersion,
+        toolsVersion: ToolsVersion,
         fileSystem: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest {
@@ -211,7 +182,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             path: Manifest.path(atPackagePath: path, fileSystem: fileSystem ?? localFileSystem),
             baseURL: baseURL,
             version: version,
-            manifestVersion: manifestVersion,
+            toolsVersion: toolsVersion,
             fileSystem: fileSystem,
             diagnostics: diagnostics
         )
@@ -228,7 +199,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         path inputPath: AbsolutePath,
         baseURL: String,
         version: Version?,
-        manifestVersion: ManifestVersion,
+        toolsVersion: ToolsVersion,
         fileSystem: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest {
@@ -246,7 +217,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let identity = PackageReference.computeIdentity(packageURL: baseURL)
         let jsonString = try loadJSONString(
             path: inputPath,
-            manifestVersion: manifestVersion,
+            toolsVersion: toolsVersion,
             packageIdentity: identity,
             fs: fileSystem,
             diagnostics: diagnostics
@@ -255,7 +226,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // Load the manifest from JSON.
         let json = try JSON(string: jsonString)
         var manifestBuilder = ManifestBuilder(
-            manifestVersion: manifestVersion,
+            toolsVersion: toolsVersion,
             baseURL: baseURL,
             fileSystem: fileSystem ?? localFileSystem
         )
@@ -272,7 +243,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             path: inputPath,
             url: baseURL,
             version: version,
-            manifestVersion: manifestVersion,
+            toolsVersion: toolsVersion,
             pkgConfig: manifestBuilder.pkgConfig,
             providers: manifestBuilder.providers,
             cLanguageStandard: manifestBuilder.cLanguageStandard,
@@ -299,7 +270,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     /// Load the JSON string for the given manifest.
     private func loadJSONString(
         path inputPath: AbsolutePath,
-        manifestVersion: ManifestVersion,
+        toolsVersion: ToolsVersion,
         packageIdentity: String,
         fs: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil
@@ -318,11 +289,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // Load directly if manifest caching is not enabled.
             result = parse(
                 packageIdentity: packageIdentity,
-                pathOrContents: pathOrContents, manifestVersion: manifestVersion)
+                pathOrContents: pathOrContents, toolsVersion: toolsVersion)
         } else {
             let key = ManifestLoadRule.RuleKey(
                 packageIdentity: packageIdentity,
-                pathOrContents: pathOrContents, manifestVersion: manifestVersion)
+                pathOrContents: pathOrContents, toolsVersion: toolsVersion)
             result = try getEngine().build(key: key)
         }
 
@@ -376,13 +347,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     fileprivate func parse(
         packageIdentity: String,
         pathOrContents: ManifestPathOrContents,
-        manifestVersion: ManifestVersion
+        toolsVersion: ToolsVersion
     ) -> ManifestParseResult {
 
         /// Helper method for parsing the manifest.
         func _parse(
             path manifestPath: AbsolutePath,
-            manifestVersion: ManifestVersion,
+            toolsVersion: ToolsVersion,
             manifestParseResult: inout ManifestParseResult
         ) throws {
             self.delegate?.willParse(manifest: manifestPath)
@@ -398,8 +369,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // and validates it.
 
             // Compute the path to runtime we need to load.
-            let runtimePath = self.runtimePath(for: manifestVersion).pathString
-            let interpreterFlags = self.interpreterFlags(for: manifestVersion)
+            let runtimePath = self.runtimePath(for: toolsVersion).pathString
+            let interpreterFlags = self.interpreterFlags(for: toolsVersion)
 
             // FIXME: Workaround for the module cache bug that's been haunting Swift CI
             // <rdar://problem/48443680>
@@ -420,7 +391,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
           #endif
             cmd += [resources.swiftCompiler.pathString]
             cmd += ["--driver-mode=swift"]
-            cmd += bootstrapArgs()
             cmd += verbosity.ccArgs
             cmd += ["-L", runtimePath, "-lPackageDescription"]
             cmd += interpreterFlags
@@ -478,7 +448,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             case .path(let path):
                 try _parse(
                     path: path,
-                    manifestVersion: manifestVersion,
+                    toolsVersion: toolsVersion,
                     manifestParseResult: &manifestParseResult
                 )
             case .contents(let contents):
@@ -486,7 +456,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                   try localFileSystem.writeFileContents(tempFile.path, bytes: ByteString(contents))
                   try _parse(
                       path: tempFile.path,
-                      manifestVersion: manifestVersion,
+                      toolsVersion: toolsVersion,
                       manifestParseResult: &manifestParseResult
                   )
                 }
@@ -497,36 +467,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         return manifestParseResult
-    }
-
-    /// Returns the extra manifest args required during SwiftPM's own bootstrap.
-    private func bootstrapArgs() -> [String] {
-      #if !os(Linux)
-        return []
-      #else
-        // The Linux bots require extra arguments in order to locate the corelibs.
-        // We can potentially drop this by installing some stable linux toolchain
-        // after Swift gets ABI and module stability.
-        //
-        // Compute if SwiftPM is bootstrapping.
-        let env = ProcessInfo.processInfo.environment
-        guard env.keys.contains("SWIFTPM_BOOTSTRAP") else { return [] }
-        guard let buildPathStr = env["SWIFTPM_BUILD_DIR"], let buildPath = try? AbsolutePath(validating: buildPathStr) else {
-            return []
-        }
-
-        // Construct the required search paths relative to the build directory.
-        let libdir = buildPath.appending(RelativePath(".bootstrap/lib/swift/linux"))
-        let incdir = libdir.appending(component: "x86_64")
-        let dispatchIncdir = incdir.appending(component: "dispatch")
-
-        return [
-            "-I\(incdir)",
-            "-I\(dispatchIncdir)",
-            "-L\(libdir)",
-            "-Xcc", "-F\(incdir)",
-        ]
-      #endif
     }
 
     /// Returns path to the sdk, if possible.
@@ -552,11 +492,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Returns the interpreter flags for a manifest.
     public func interpreterFlags(
-        for manifestVersion: ManifestVersion
+        for toolsVersion: ToolsVersion
     ) -> [String] {
         var cmd = [String]()
-        let runtimePath = self.runtimePath(for: manifestVersion)
-        cmd += ["-swift-version", manifestVersion.swiftLanguageVersion.rawValue]
+        let runtimePath = self.runtimePath(for: toolsVersion)
+        cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
         cmd += ["-I", runtimePath.pathString]
       #if os(macOS)
         cmd += ["-target", "x86_64-apple-macosx10.10"]
@@ -564,12 +504,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
             cmd += ["-sdk", sdkRoot.pathString]
         }
-        cmd += ["-package-description-version", manifestVersion.description]
+        cmd += ["-package-description-version", toolsVersion.description]
         return cmd
     }
 
     /// Returns the runtime path given the manifest version and path to libDir.
-    private func runtimePath(for version: ManifestVersion) -> AbsolutePath {
+    private func runtimePath(for version: ToolsVersion) -> AbsolutePath {
         return resources.libDir.appending(version.runtimeSubpath)
     }
 
@@ -652,7 +592,7 @@ final class ManifestLoadRule: LLBuildRule {
 
         let packageIdentity: String
         let pathOrContents: ManifestPathOrContents
-        let manifestVersion: ManifestVersion
+        let toolsVersion: ToolsVersion
     }
 
     override class var ruleName: String { return "\(ManifestLoadRule.self)" }
@@ -688,7 +628,7 @@ final class ManifestLoadRule: LLBuildRule {
     override func inputsAvailable(_ engine: LLTaskBuildEngine) {
         let value = loader.parse(
             packageIdentity: key.packageIdentity,
-            pathOrContents: key.pathOrContents, manifestVersion: key.manifestVersion)
+            pathOrContents: key.pathOrContents, toolsVersion: key.toolsVersion)
         engine.taskIsComplete(value)
     }
 }

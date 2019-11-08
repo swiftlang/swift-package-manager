@@ -9,16 +9,16 @@
 add_library(Build
   BuildDelegate.swift
   BuildPlan.swift
-  Command.swift
-  llbuild.swift
   Sanitizers.swift
   SwiftCompilerOutputParser.swift
   Toolchain.swift
-  ToolProtocol.swift
+  ManifestBuilder.swift
   Triple.swift)
 target_link_libraries(Build PUBLIC
   TSCBasic
-  PackageGraph)
+  PackageGraph
+  LLBuildManifest)
+
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Build PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
