@@ -94,15 +94,27 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             print(Versioning.currentVersion.completeDisplayString)
 
         case .repl:
-            let packageGraph = try loadPackageGraph(createREPLProduct: options.shouldLaunchREPL)
-            let plan = try BuildPlan(buildParameters: buildParameters(), graph: packageGraph, diagnostics: diagnostics)
+            // Load a custom package graph which has a special product for REPL.
+            let graphLoader = { try self.loadPackageGraph(createREPLProduct: self.options.shouldLaunchREPL) }
+            let buildParameters = try self.buildParameters()
 
-            // Build the package.
-            let buildDescription = try generateLLBuildManifest(with: plan)
-            try build(buildDescription: buildDescription, subset: .allExcludingTests)
+            // Construct the build operation.
+            let buildOp = BuildOperation(
+                buildParameters: buildParameters,
+                useBuildManifestCaching: false,
+                packageGraphLoader: graphLoader,
+                diags: diagnostics,
+                stdoutStream: self.stdoutStream
+            )
+
+            // Save the instance so it can be cancelled from the int handler.
+            self.buildSystemRef.buildOp = buildOp
+
+            // Perform build.
+            try buildOp.build()
 
             // Execute the REPL.
-            let arguments = plan.createREPLArguments()
+            let arguments = buildOp.buildPlan!.createREPLArguments()
             print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
             try run(getToolchain().swiftInterpreter, arguments: arguments)
 
@@ -128,13 +140,14 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
                 return
             }
 
-            let buildDescription = try getBuildDescription()
+            let buildOp = try createBuildOperation()
+            let buildDescription = try buildOp.getBuildDescription()
             let productName = try findProductName(in: buildDescription)
 
             if options.shouldBuildTests {
-                try build(buildDescription: buildDescription, subset: .allIncludingTests)
+                try buildOp.build(buildDescription: buildDescription, subset: .allIncludingTests)
             } else if options.shouldBuild {
-                try build(buildDescription: buildDescription, subset: .product(productName))
+                try buildOp.build(buildDescription: buildDescription, subset: .product(productName))
             }
 
             let executablePath = try self.buildParameters().buildPath.appending(component: productName)
