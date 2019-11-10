@@ -10,6 +10,7 @@ add_library(Build
   BuildDelegate.swift
   BuildParameters.swift
   BuildPlan.swift
+  BuildOperation.swift
   Sanitizers.swift
   SwiftCompilerOutputParser.swift
   Toolchain.swift

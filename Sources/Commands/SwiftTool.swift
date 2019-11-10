@@ -8,18 +8,17 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
-import Build
-import PackageLoading
-import PackageGraph
-import PackageModel
-import SourceControl
-import TSCUtility
-import Workspace
-import TSCLibc
 import func Foundation.NSUserName
-import SPMLLBuild
-import LLBuildManifest
+
+import TSCLibc
+import TSCBasic
+import TSCUtility
+
+import PackageModel
+import PackageGraph
+import SourceControl
+import Build
+import Workspace
 
 typealias Diagnostic = TSCBasic.Diagnostic
 
@@ -153,7 +152,7 @@ public class SwiftTool<Options: ToolOptions> {
     let processSet: ProcessSet
 
     /// The current build system reference. The actual reference is present only during an active build.
-    private let buildSystemRef: BuildSystemRef
+    let buildSystemRef: BuildSystemRef
 
     /// The interrupt handler.
     let interruptHandler: InterruptHandler
@@ -166,7 +165,7 @@ public class SwiftTool<Options: ToolOptions> {
     var executionStatus: ExecutionStatus = .success
 
     /// The stream to print standard output on.
-    fileprivate var stdoutStream: OutputByteStream = TSCBasic.stdoutStream
+    fileprivate(set) var stdoutStream: OutputByteStream = TSCBasic.stdoutStream
 
     /// Create an instance of this tool.
     ///
@@ -364,7 +363,7 @@ public class SwiftTool<Options: ToolOptions> {
             interruptHandler = try InterruptHandler {
                 // Terminate all processes on receiving an interrupt signal.
                 processSet.terminate()
-                buildSystemRef.buildSystem?.cancel()
+                buildSystemRef.buildOp?.cancel()
 
               #if os(Windows)
                 // Exit as if by signal()
@@ -580,23 +579,7 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.get()
     }
 
-    private func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String {
-        switch subset {
-        case .allExcludingTests:
-            return LLBuildManifestBuilder.TargetKind.main.targetName
-        case .allIncludingTests:
-            return LLBuildManifestBuilder.TargetKind.test.targetName
-        default:
-            // FIXME: This is super unfortunate that we might need to load the package graph.
-            let graph = try loadPackageGraph()
-            if let result = subset.llbuildTargetName(for: graph, diagnostics: diagnostics, config: buildParameters.configuration.dirname) {
-                return result
-            }
-            throw Diagnostics.fatalError
-        }
-    }
-
-    func getBuildDescription(graph: PackageGraph? = nil) throws -> BuildDescription {
+    private func canUseBuildManifestCaching() throws -> Bool {
         let buildParameters = try self.buildParameters()
         let haveBuildManifestAndDescription =
         localFileSystem.exists(buildParameters.llbuildManifest) &&
@@ -607,126 +590,25 @@ public class SwiftTool<Options: ToolOptions> {
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
         let hasEditedPackages = try getActiveWorkspace().managedDependencies.values.contains{ $0.isEdited }
 
-        if options.enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages {
-            // Create the build system.
-            let buildSystem = try createBuildSystem()
-            buildSystemRef.buildSystem = buildSystem
-
-            // Build the package structure target which will re-generate the llbuild manifest, if necessary.
-            if !buildSystem.build(target: "PackageStructure") {
-                throw Diagnostics.fatalError
-            }
-
-            // Return the build description that's on disk. We trust the above build to
-            // update the build description when needed.
-            do {
-                return try BuildDescription.load(from: buildParameters.buildDescriptionPath)
-            } catch {
-                // Silently regnerate the build description if we failed to decode (which could happen
-                // because the existing file was created by different version of swiftpm).
-                if !(error is DecodingError) {
-                    diagnostics.emit(warning: "failed to load the build description; running build planning\n    \(error)")
-                }
-            }
-        }
-
-        // Otherwise, plan and build.
-        return try planAndGenerateManifest(graph: graph)
+        return options.enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages
     }
 
-    fileprivate func planAndGenerateManifest(graph: PackageGraph? = nil) throws -> BuildDescription {
-        let graph = try graph ?? loadPackageGraph()
-        let plan = try BuildPlan(
+    func createBuildOperation() throws -> BuildOperation {
+        // Load a custom package graph which has a special product for REPL.
+        let graphLoader = { try self.loadPackageGraph() }
+
+        // Construct the build operation.
+        let buildOp = try BuildOperation(
             buildParameters: buildParameters(),
-            graph: graph,
-            diagnostics: diagnostics
-        )
-        return try generateLLBuildManifest(with: plan)
-    }
-
-    /// Creates and returns the build system.
-    private func createBuildSystem(
-        with buildDescription: BuildDescription? = nil
-    ) throws -> BuildSystem {
-        // Figure out which progress bar we have to use during the build.
-        let isVerbose = verbosity != .concise
-        let progressAnimation: ProgressAnimationProtocol = isVerbose ?
-            MultiLineNinjaProgressAnimation(stream: stdoutStream) :
-            NinjaProgressAnimation(stream: stdoutStream)
-
-        // Setup the execution context.
-        let buildParameters = try self.buildParameters()
-        let bctx = BuildExecutionContext(
-            buildParameters,
-            buildDescription: buildDescription,
-            packageStructureDelegate: self
+            useBuildManifestCaching: canUseBuildManifestCaching(),
+            packageGraphLoader: graphLoader,
+            diags: diagnostics,
+            stdoutStream: self.stdoutStream
         )
 
-        // Create the build delegate.
-        let buildDelegate = BuildDelegate(
-            bctx: bctx,
-            diagnostics: diagnostics,
-            outputStream: stdoutStream,
-            progressAnimation: progressAnimation)
-        buildDelegate.isVerbose = isVerbose
-
-        let databasePath = buildPath.appending(component: "build.db").pathString
-        let buildSystem = BuildSystem(
-            buildFile: buildParameters.llbuildManifest.pathString,
-            databaseFile: databasePath,
-            delegate: buildDelegate
-        )
-        buildDelegate.onCommmandFailure = { buildSystem.cancel() }
-        return buildSystem
-    }
-
-    func generateLLBuildManifest(with plan: BuildPlan) throws -> BuildDescription {
-        // Generate the llbuild manifest.
-        let llbuild = LLBuildManifestBuilder(plan)
-        try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
-
-        let testDiscoveryCommands = llbuild.manifest.getCmdToolMap(kind: TestDiscoveryTool.self)
-        let copyCommands = llbuild.manifest.getCmdToolMap(kind: CopyTool.self)
-
-        // Create the build description.
-        let buildDescription = BuildDescription(
-            plan: plan,
-            testDiscoveryCommands: testDiscoveryCommands,
-            copyCommands: copyCommands
-        )
-        try localFileSystem.createDirectory(plan.buildParameters.buildDescriptionPath.parentDirectory, recursive: true)
-        try buildDescription.write(to: plan.buildParameters.buildDescriptionPath)
-        return buildDescription
-    }
-
-    func build(buildDescription: BuildDescription, subset: BuildSubset) throws {
-        let buildParameters = try self.buildParameters()
-        let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: buildParameters)
-
-        // Run llbuild.
-        try runLLBuild(buildDescription: buildDescription, llbuildTarget: llbuildTargetName)
-
-        // Create backwards-compatibilty symlink to old build path.
-        let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
-        if localFileSystem.exists(oldBuildPath) {
-            try localFileSystem.removeFileTree(oldBuildPath)
-        }
-        try createSymlink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
-    }
-
-    private func runLLBuild(buildDescription: BuildDescription, llbuildTarget: String) throws {
-        // Create the build system.
-        let buildSystem = try createBuildSystem(with: buildDescription)
-
-        // Store the build system reference so it can be cancelled in the singal handler.
-        self.buildSystemRef.buildSystem = buildSystem
-
-        // Perform the build.
-        let success = buildSystem.build(target: llbuildTarget)
-        self.buildSystemRef.buildSystem = nil
-
-        buildSystem.buildDelegate.progressAnimation.complete(success: success)
-        guard success else { throw Diagnostics.fatalError }
+        // Save the instance so it can be cancelled from the int handler.
+        buildSystemRef.buildOp = buildOp
+        return buildOp
     }
 
     /// Return the build parameters.
@@ -793,51 +675,6 @@ public class SwiftTool<Options: ToolOptions> {
     }
 }
 
-/// An enum representing what subset of the package to build.
-enum BuildSubset {
-    /// Represents the subset of all products and non-test targets.
-    case allExcludingTests
-
-    /// Represents the subset of all products and targets.
-    case allIncludingTests
-
-    /// Represents a specific product.
-    case product(String)
-
-    /// Represents a specific target.
-    case target(String)
-}
-
-extension BuildSubset {
-    /// Returns the name of the llbuild target that corresponds to the build subset.
-    fileprivate func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine, config: String) -> String? {
-        switch self {
-        case .allExcludingTests:
-            return LLBuildManifestBuilder.TargetKind.main.targetName
-        case .allIncludingTests:
-            return LLBuildManifestBuilder.TargetKind.test.targetName
-        case .product(let productName):
-            guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
-                diagnostics.emit(error: "no product named '\(productName)'")
-                return nil
-            }
-            // If the product is automatic, we build the main target because automatic products
-            // do not produce a binary right now.
-            if product.type == .library(.automatic) {
-                diagnostics.emit(warning: "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead")
-                return LLBuildManifestBuilder.TargetKind.main.targetName
-            }
-            return product.getLLBuildTargetName(config: config)
-        case .target(let targetName):
-            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
-                diagnostics.emit(error: "no target named '\(targetName)'")
-                return nil
-            }
-            return target.getLLBuildTargetName(config: config)
-        }
-    }
-}
-
 /// Returns path of the nearest directory containing the manifest file w.r.t
 /// current working directory.
 private func findPackageRoot() -> AbsolutePath? {
@@ -861,20 +698,6 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
     guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
     guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
     return AbsolutePath(env, relativeTo: workingDir)
-}
-
-extension SwiftTool: PackageStructureDelegate {
-    public func packageStructureChanged() -> Bool {
-        do {
-            _ = try planAndGenerateManifest()
-        } catch Diagnostics.fatalError {
-            return false
-        } catch {
-            diagnostics.emit(error)
-            return false
-        }
-        return true
-    }
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.
@@ -918,14 +741,8 @@ extension BuildConfiguration: StringEnumArgument {
 
 /// A wrapper to hold the build system so we can use it inside
 /// the int. handler without requiring to initialize it.
-private final class BuildSystemRef {
-    var buildSystem: BuildSystem?
-}
-
-extension BuildSystem {
-    fileprivate var buildDelegate: BuildDelegate {
-        self.delegate as! BuildDelegate
-    }
+final class BuildSystemRef {
+    var buildOp: BuildOperation?
 }
 
 extension Diagnostic.Message {

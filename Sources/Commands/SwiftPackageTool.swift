@@ -749,7 +749,7 @@ fileprivate extension SwiftPackageTool {
     /// - Parameter changes: Changes to log
     /// - Parameter pins: PinsStore with currently pinned packages to compare changed packages to.
     /// - Parameter stream: Stream used for logging
-    func logPackageChanges(changes: [(PackageReference, Workspace.PackageStateChange)], pins: PinsStore, on stream: OutputByteStream = stdoutStream) {
+    func logPackageChanges(changes: [(PackageReference, Workspace.PackageStateChange)], pins: PinsStore, on stream: OutputByteStream = TSCBasic.stdoutStream) {
         let changes = changes.filter { $0.1 != .unchanged }
         
         stream <<< "\n"
