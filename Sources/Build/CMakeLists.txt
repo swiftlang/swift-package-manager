@@ -8,6 +8,7 @@
 
 add_library(Build
   BuildDelegate.swift
+  BuildParameters.swift
   BuildPlan.swift
   Sanitizers.swift
   SwiftCompilerOutputParser.swift
