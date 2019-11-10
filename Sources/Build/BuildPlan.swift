@@ -37,10 +37,10 @@ public struct BuildParameters: Encodable {
     }
 
     /// The path to the data directory.
-    public let dataPath: AbsolutePath
+    public var dataPath: AbsolutePath
 
     /// The build configuration.
-    public let configuration: BuildConfiguration
+    public var configuration: BuildConfiguration
 
     /// The path to the build directory (inside the data directory).
     public var buildPath: AbsolutePath {
@@ -68,10 +68,10 @@ public struct BuildParameters: Encodable {
     private let _toolchain: _Toolchain
 
     /// Destination triple.
-    public let triple: Triple
+    public var triple: Triple
 
     /// Extra build flags.
-    public let flags: BuildFlags
+    public var flags: BuildFlags
 
     /// Extra flags to pass to Swift compiler.
     public var swiftCompilerFlags: [String] {
@@ -112,34 +112,34 @@ public struct BuildParameters: Encodable {
     }
 
     /// The tools version to use.
-    public let toolsVersion: ToolsVersion
+    public var toolsVersion: ToolsVersion
 
     /// If should link the Swift stdlib statically.
-    public let shouldLinkStaticSwiftStdlib: Bool
+    public var shouldLinkStaticSwiftStdlib: Bool
 
     /// Which compiler sanitizers should be enabled
-    public let sanitizers: EnabledSanitizers
+    public var sanitizers: EnabledSanitizers
 
     /// If should enable llbuild manifest caching.
-    public let shouldEnableManifestCaching: Bool
+    public var shouldEnableManifestCaching: Bool
 
     /// The mode to use for indexing-while-building feature.
-    public let indexStoreMode: IndexStoreMode
+    public var indexStoreMode: IndexStoreMode
 
     /// Whether to enable code coverage.
-    public let enableCodeCoverage: Bool
+    public var enableCodeCoverage: Bool
 
     /// Whether to enable test discovery on platforms without Objective-C runtime.
-    public let enableTestDiscovery: Bool
+    public var enableTestDiscovery: Bool
 
     /// Whether to enable generation of `.swiftinterface` files alongside
     /// `.swiftmodule`s.
-    public let enableParseableModuleInterfaces: Bool
+    public var enableParseableModuleInterfaces: Bool
 
     /// Emit Swift module separately from object files. This can enable more parallelism
     /// since downstream targets can begin compiling without waiting for the entire
     /// module to finish building.
-    public let emitSwiftModuleSeparately: Bool
+    public var emitSwiftModuleSeparately: Bool
 
     /// Checks if stdout stream is tty.
     fileprivate let isTTY: Bool = {
