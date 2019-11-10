@@ -473,4 +473,43 @@ class MiscellaneousTestCase: XCTestCase {
         }
         #endif
     }
+
+    func testTrivialSwiftAPIDiff() throws {
+        if (try? Resources.default.toolchain.getSwiftAPIDigester()) == nil {
+            print("unable to find swift-api-digester, skipping \(#function)")
+            return
+        }
+
+        mktmpdir { path in
+            let fs = localFileSystem
+
+            let package = path.appending(component: "foo")
+            try fs.createDirectory(package)
+
+            try SwiftPMProduct.SwiftPackage.execute(["init"], packagePath: package)
+
+            let foo = package.appending(components: "Sources", "foo", "foo.swift")
+            try fs.writeFileContents(foo) {
+                $0 <<< """
+                public struct Foo {
+                    public func foo() -> String { fatalError() }
+                }
+                """
+            }
+
+            initGitRepo(package, tags: ["1.0.0"])
+
+            try fs.writeFileContents(foo) {
+                $0 <<< """
+                public struct Foo {
+                    public func foo(param: Bool = true) -> Int { fatalError() }
+                }
+                """
+            }
+
+            let diff = try SwiftPMProduct.SwiftPackage.execute(["experimental-api-diff", "1.0.0"], packagePath: package)
+            XCTAssertMatch(diff, .contains("Func Foo.foo() has been renamed to Func foo(param:)"))
+            XCTAssertMatch(diff, .contains("Func Foo.foo() has return type change from Swift.String to Swift.Int"))
+        }
+    }
 }

@@ -149,6 +149,49 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .reset:
             try getActiveWorkspace().reset(with: diagnostics)
 
+        case .apidiff:
+            let apiDigesterPath = try getToolchain().getSwiftAPIDigester()
+            let apiDigesterTool = SwiftAPIDigester(tool: apiDigesterPath)
+
+            let apiDiffOptions = options.apiDiffOptions
+
+            // Build the current package.
+            //
+            // We turn build manifest caching off because we need the build plan.
+            let buildOp = try createBuildOperation(useBuildManifestCaching: false)
+            try buildOp.build()
+
+            // Dump JSON for the current package.
+            let buildParameters = buildOp.buildParameters
+            let currentSDKJSON = buildParameters.apiDiff.appending(component: "current.json")
+            let packageGraph = try buildOp.getPackageGraph()
+
+            try apiDigesterTool.dumpSDKJSON(
+                at: currentSDKJSON,
+                modules: packageGraph.apiDigesterModules,
+                additionalArgs: buildOp.buildPlan!.createAPIDigesterArgs()
+            )
+
+            // Dump JSON for the baseline package.
+            let workspace = try getActiveWorkspace()
+            let baselineDumper = try APIDigesterBaselineDumper(
+                baselineTreeish: apiDiffOptions.treeish,
+                packageRoot: getPackageRoot(),
+                buildParameters: buildParameters,
+                manifestLoader: workspace.manifestLoader,
+                repositoryManager: workspace.repositoryManager,
+                apiDigesterTool: apiDigesterTool,
+                diags: diagnostics
+            )
+            let baselineSDKJSON = try baselineDumper.dumpBaselineSDKJSON()
+
+            // Run the diagnose tool which will print the diff.
+            let invertBaseline = apiDiffOptions.invertBaseline
+            try apiDigesterTool.diagnoseSDK(
+                currentSDKJSON: invertBaseline ? baselineSDKJSON : currentSDKJSON,
+                baselineSDKJSON: invertBaseline ? currentSDKJSON : baselineSDKJSON
+            )
+
         case .update:
             let workspace = try getActiveWorkspace()
             
@@ -571,6 +614,22 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.resolveOptions.branch = $2
                 $0.resolveOptions.revision = $3 })
 
+        let apiDiffParser = parser.add(
+            subparser: PackageMode.apidiff.rawValue,
+            overview: ""
+        )
+        binder.bind(
+           positional: apiDiffParser.add(
+               positional: "treeish", kind: String.self,
+               usage: "The baseline treeish"),
+           to: { $0.apiDiffOptions.treeish = $1 })
+        binder.bind(
+            option: apiDiffParser.add(
+                option: "--invert-baseline",
+                kind: Bool.self,
+                usage: "Invert the baseline which is helpful for determining API additions"),
+            to: { $0.apiDiffOptions.invertBaseline = $1 })
+
         binder.bind(
             parser: parser,
             to: { $0.mode = PackageMode(rawValue: $1)! })
@@ -630,6 +689,12 @@ public class PackageToolOptions: ToolOptions {
     }
     var resolveOptions = ResolveOptions()
 
+    struct APIDiffOptions {
+        var treeish: String!
+        var invertBaseline: Bool = false
+    }
+    var apiDiffOptions = APIDiffOptions()
+
     enum ToolsVersionMode {
         case display
         case set(String)
@@ -674,6 +739,7 @@ public enum PackageMode: String, StringEnumArgument {
     case unedit
     case update
     case version
+    case apidiff = "experimental-api-diff"
     case help
 
     // PackageMode is not used as an argument; completions will be

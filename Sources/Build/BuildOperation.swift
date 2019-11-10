@@ -70,6 +70,18 @@ public final class BuildOperation: PackageStructureDelegate {
         self.stdoutStream = stdoutStream
     }
 
+    /// Returns the package graph using the graph loader closure.
+    ///
+    /// First access will cache the graph.
+    public func getPackageGraph() throws -> PackageGraph {
+        if let packageGraph = _packageGraph {
+            return packageGraph
+        }
+        _packageGraph = try packageGraphLoader()
+        return _packageGraph!
+    }
+    private var _packageGraph: PackageGraph?
+
     /// Compute and return the latest build descroption.
     ///
     /// This will try skip build planning if build manifest caching is enabled
@@ -143,7 +155,7 @@ public final class BuildOperation: PackageStructureDelegate {
             return LLBuildManifestBuilder.TargetKind.test.targetName
         default:
             // FIXME: This is super unfortunate that we might need to load the package graph.
-            let graph = try packageGraphLoader()
+            let graph = try getPackageGraph()
             if let result = subset.llbuildTargetName(
                 for: graph,
                 diagnostics: diags,
@@ -157,7 +169,7 @@ public final class BuildOperation: PackageStructureDelegate {
 
     /// Create the build plan and return the build description.
     private func plan() throws -> BuildDescription {
-        let graph = try packageGraphLoader()
+        let graph = try getPackageGraph()
         let plan = try BuildPlan(
             buildParameters: buildParameters,
             graph: graph,

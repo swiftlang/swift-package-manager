@@ -1432,6 +1432,42 @@ public class BuildPlan {
         }
     }
 
+    public func createAPIDigesterArgs() -> [String] {
+        let buildPath = buildParameters.buildPath.pathString
+        var arguments = ["-I", buildPath]
+
+        arguments += buildParameters.toolchain.extraSwiftCFlags
+
+        // Add the search path to the directory containing the modulemap file.
+        for target in targets {
+            switch target {
+            case .swift: break
+            case .clang(let targetDescription):
+                if let includeDir = targetDescription.moduleMap?.parentDirectory {
+                    arguments += ["-I", includeDir.pathString]
+                }
+            }
+        }
+
+        // Add search paths from the system library targets.
+        for target in graph.reachableTargets {
+            if let systemLib = target.underlyingTarget as? SystemLibraryTarget {
+                for flag in self.pkgConfig(for: systemLib).cFlags {
+                    // The api-digester tool doesn't like `-I<Foo>` style for some reason.
+                    if flag.hasPrefix("-I") && flag.count > 2 {
+                        arguments += ["-I", String(flag.dropFirst(2))]
+                    } else {
+                        arguments.append(flag)
+                    }
+                }
+                // Add the path to the module map.
+                arguments += ["-I", systemLib.moduleMapPath.parentDirectory.pathString]
+            }
+        }
+
+        return arguments
+    }
+
     /// Creates arguments required to launch the Swift REPL that will allow
     /// importing the modules in the package graph.
     public func createREPLArguments() -> [String] {

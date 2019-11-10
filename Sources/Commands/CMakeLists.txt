@@ -7,6 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Commands
+  APIDigester.swift
   Completions+bash.swift
   Completions+zsh.swift
   Describe.swift

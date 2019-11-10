@@ -50,6 +50,7 @@ extension MiscellaneousTestCase {
         ("testSwiftTestFilter", testSwiftTestFilter),
         ("testSwiftTestLinuxMainGeneration", testSwiftTestLinuxMainGeneration),
         ("testSwiftTestParallel", testSwiftTestParallel),
+        ("testTrivialSwiftAPIDiff", testTrivialSwiftAPIDiff),
         ("testUnicode", testUnicode),
     ]
 }
