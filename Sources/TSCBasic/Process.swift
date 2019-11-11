@@ -366,9 +366,9 @@ public final class Process: ObjectIdentifierProtocol {
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
         // Workaround for https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=89e435f3559c53084498e9baad22172b64429362
-	// Change allowing for newer version of glibc
-	guard let devNull = strdup("/dev/null") as Optional else {
-	    throw SystemError.posix_spawn(0, arguments)
+        // Change allowing for newer version of glibc
+        guard let devNull = strdup("/dev/null") as Optional else {
+            throw SystemError.posix_spawn(0, arguments)
         }
         defer { free(devNull) }
         // Open /dev/null as stdin.
