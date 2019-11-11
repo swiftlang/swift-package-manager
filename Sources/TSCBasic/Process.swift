@@ -395,7 +395,7 @@ public final class Process: ObjectIdentifierProtocol {
 
         let argv = CStringArray(arguments)
         let env = CStringArray(environment.map({ "\($0.0)=\($0.1)" }))
-        let rv = posix_spawnp(&processID, (argv.cArray[0] as Optional)!, &fileActions, &attributes, argv.cArray, env.cArray)
+        let rv = posix_spawnp(&processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
 
         guard rv == 0 else {
             throw SystemError.posix_spawn(rv, arguments)
