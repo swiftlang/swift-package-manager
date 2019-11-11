@@ -593,14 +593,14 @@ public class SwiftTool<Options: ToolOptions> {
         return options.enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages
     }
 
-    func createBuildOperation() throws -> BuildOperation {
+    func createBuildOperation(useBuildManifestCaching: Bool = true) throws -> BuildOperation {
         // Load a custom package graph which has a special product for REPL.
         let graphLoader = { try self.loadPackageGraph() }
 
         // Construct the build operation.
         let buildOp = try BuildOperation(
             buildParameters: buildParameters(),
-            useBuildManifestCaching: canUseBuildManifestCaching(),
+            useBuildManifestCaching: useBuildManifestCaching && canUseBuildManifestCaching(),
             packageGraphLoader: graphLoader,
             diags: diagnostics,
             stdoutStream: self.stdoutStream

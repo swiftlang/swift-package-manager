@@ -304,7 +304,7 @@ public class Workspace {
     fileprivate var fileSystem: FileSystem
 
     /// The manifest loader to use.
-    fileprivate let manifestLoader: ManifestLoaderProtocol
+    public let manifestLoader: ManifestLoaderProtocol
 
     /// The tools version currently in use.
     fileprivate let currentToolsVersion: ToolsVersion
@@ -313,7 +313,7 @@ public class Workspace {
     fileprivate let toolsVersionLoader: ToolsVersionLoaderProtocol
 
     /// The repository manager.
-    fileprivate let repositoryManager: RepositoryManager
+    public let repositoryManager: RepositoryManager
 
     /// The package container provider.
     fileprivate let containerProvider: RepositoryPackageContainerProvider
@@ -360,6 +360,7 @@ public class Workspace {
         editablesPath: AbsolutePath,
         pinsFile: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
+        repositoryManager: RepositoryManager? = nil,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader(),
         delegate: WorkspaceDelegate? = nil,
@@ -387,11 +388,13 @@ public class Workspace {
         self.additionalFileRules = additionalFileRules
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
-        self.repositoryManager = RepositoryManager(
+        let repositoryManager = repositoryManager ?? RepositoryManager(
             path: repositoriesPath,
             provider: repositoryProvider,
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
             fileSystem: fileSystem)
+        self.repositoryManager = repositoryManager
+
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
@@ -414,13 +417,15 @@ public class Workspace {
     /// default paths.
     public static func create(
         forRootPackage packagePath: AbsolutePath,
-        manifestLoader: ManifestLoaderProtocol
+        manifestLoader: ManifestLoaderProtocol,
+        repositoryManager: RepositoryManager? = nil
     ) -> Workspace {
         return Workspace(
             dataPath: packagePath.appending(component: ".build"),
             editablesPath: packagePath.appending(component: "Packages"),
             pinsFile: packagePath.appending(component: "Package.resolved"),
-            manifestLoader: manifestLoader
+            manifestLoader: manifestLoader,
+            repositoryManager: repositoryManager
         )
     }
 }

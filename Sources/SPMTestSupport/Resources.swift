@@ -40,7 +40,7 @@ public class Resources: ManifestResourceProvider {
     }
   #endif
 
-    let toolchain: UserToolchain
+    public let toolchain: UserToolchain
 
     public static let `default` = Resources()
 
