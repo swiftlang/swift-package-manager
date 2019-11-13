@@ -25,7 +25,7 @@ class FunctionalTests: XCTestCase {
             let pbx = prefix.appending(component: "Library.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            let build = prefix.appending(components: "build", "Release")
+            let build = prefix.appending(RelativePath("build/Build/Products/Debug"))
             XCTAssertDirectoryExists(build.appending(component: "Library.framework"))
         }
 #endif
@@ -42,7 +42,7 @@ class FunctionalTests: XCTestCase {
             XCTAssertFileExists(pbx.appending(component: "SeaLib_Info.plist"))
 
             XCTAssertXcodeBuild(project: pbx)
-            let build = prefix.appending(components: "build", "Release")
+            let build = prefix.appending(RelativePath("build/Build/Products/Debug"))
             XCTAssertDirectoryExists(build.appending(component: "SeaLib.framework"))
             XCTAssertFileExists(build.appending(component: "SeaExec"))
             XCTAssertFileExists(build.appending(component: "CExec"))
@@ -80,7 +80,8 @@ class FunctionalTests: XCTestCase {
             let pbx = moduleUser.appending(component: "SystemModuleUser.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            XCTAssertFileExists(moduleUser.appending(components: "build", "Release", "SystemModuleUser"))
+            let build = moduleUser.appending(RelativePath("build/Build/Products/Debug"))
+            XCTAssertFileExists(build.appending(components: "SystemModuleUser"))
         }
 #endif
     }
@@ -92,7 +93,7 @@ class FunctionalTests: XCTestCase {
             let pbx = prefix.appending(component: "PackageWithNonc99NameModules.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            let build = prefix.appending(components: "build", "Release")
+            let build = prefix.appending(RelativePath("build/Build/Products/Debug"))
             XCTAssertDirectoryExists(build.appending(component: "A_B.framework"))
             XCTAssertDirectoryExists(build.appending(component: "B_C.framework"))
             XCTAssertDirectoryExists(build.appending(component: "C_D.framework"))
@@ -157,8 +158,18 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
 
         try localFileSystem.writeFileContents(xcconfig, bytes: stream.bytes)
 
+        let packageName = project.basenameWithoutExt
+        let scheme = packageName + "-Package"
+
+        let buildDir = project.parentDirectory.appending(component: "build")
         try Process.checkNonZeroExit(
-            args: "xcodebuild", "-project", project.pathString, "-alltargets", "-xcconfig", xcconfig.pathString, environment: env)
+            args: "xcodebuild",
+              "-project", project.pathString,
+              "-scheme", scheme,
+              "-xcconfig", xcconfig.pathString,
+              "-derivedDataPath", buildDir.pathString,
+              "COMPILER_INDEX_STORE_ENABLE=NO",
+            environment: env)
     } catch {
         XCTFail("xcodebuild failed:\n\n\(error)\n", file: file, line: line)
         switch error {
