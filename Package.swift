@@ -14,9 +14,6 @@ import PackageDescription
 
 let package = Package(
     name: "SwiftPM",
-    platforms: [
-        .macOS(.v10_10), .iOS(.v9),
-    ],
     products: [
         // The `libSwiftPM` set of interfaces to programatically work with Swift
         // packages.
