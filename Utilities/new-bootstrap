@@ -139,12 +139,18 @@ def build_llbuild(args):
     cmake_cache_path = os.path.join(args.llbuild_build_dir, "CMakeCache.txt")
     if not os.path.isfile(cmake_cache_path):
         mkdir_p(args.llbuild_build_dir)
+
+        cmake_swift_flags = ""
+        if platform.system() == 'Darwin':
+            cmake_swift_flags = "-sdk " + g_default_sysroot
+
         cmd = [
             "cmake", "-G", "Ninja",
             "-DCMAKE_BUILD_TYPE:=Debug",
             "-DCMAKE_C_COMPILER:=clang",
             "-DCMAKE_CXX_COMPILER:=clang++",
             "-DLLBUILD_SUPPORT_BINDINGS:=Swift",
+            "-DCMAKE_Swift_FLAGS=" + cmake_swift_flags,
             args.llbuild_source_dir
         ]
         print(' '.join(cmd))
