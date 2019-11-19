@@ -1,6 +1,7 @@
 import TSCBasic
 import Build
 import TSCUtility
+import TSCLibc
 
 public enum DestinationError: Swift.Error {
     /// Couldn't find the Xcode installation.
@@ -58,14 +59,30 @@ public struct Destination: Encodable {
         originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory
     ) -> AbsolutePath {
       #if Xcode
-        // For Xcode, set bin directory to the build directory containing the fake
-        // toolchain created during bootstraping. This is obviously not production ready
-        // and only exists as a development utility right now.
-        //
-        // This also means that we should have bootstrapped with the same Swift toolchain
-        // we're using inside Xcode otherwise we will not be able to load the runtime libraries.
-        return AbsolutePath(#file).parentDirectory
-            .parentDirectory.parentDirectory.appending(components: ".build", hostTargetTriple.tripleString, "debug")
+        // Build the script runtimes using an utility script when we're in Xcode. This is a
+        // development time utility so we can develop SwiftPM without running the bootstrapping
+        // script on the command-line.
+        do {
+            let swift = try Process.checkNonZeroExit(
+                arguments: ["xcrun", "--sdk", "macosx", "-find", "swift"]).spm_chomp()
+            let binDir = AbsolutePath(swift).appending(components: "..")
+
+            if ProcessEnv.vars.keys.contains("SKIP_BUILDING_PD_AT_RUNTIME") {
+                return binDir
+            }
+
+            let srcRoot = AbsolutePath(#file).appending(RelativePath("../../../"))
+
+            let buildRuntimeScript = srcRoot.appending(RelativePath("Utilities/BuildRuntimesOnly/build-using-swiftpm"))
+            let process = Process(arguments: [buildRuntimeScript.pathString], outputRedirection: .none)
+            try process.launch()
+            try process.waitUntilExit()
+
+            return binDir
+        } catch {
+            print("error", error)
+            exit(1)
+        }
       #else
         guard let cwd = originalWorkingDirectory else {
             return try! AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory

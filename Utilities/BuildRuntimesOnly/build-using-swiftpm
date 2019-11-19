@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+set -eu
+
+if uname | grep -qi darwin; then
+  true
+else
+  echo "This script is only support on darwin"
+  exit 1
+fi
+
+__dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+CACHE_DIR=$(getconf DARWIN_USER_CACHE_DIR)org.swift.swiftpm.runtimes
+SRCROOT="`cd "${__dir}/../..";pwd`"
+SUBDIR=$(echo $SRCROOT | md5)
+
+RUNTIME_DIR=${CACHE_DIR}/${SUBDIR}
+
+mkdir -p $RUNTIME_DIR
+
+RUNTIME_PKG=$RUNTIME_DIR/pkg
+RUNTIME_SRC=$RUNTIME_DIR/pkg/Sources
+mkdir -p $RUNTIME_SRC
+
+rsync -a $SRCROOT/Sources/PackageDescription4/ $RUNTIME_SRC/PackageDescription
+
+if [ ! -f $RUNTIME_PKG/Package.swift ]; then
+cat <<EOT >> $RUNTIME_PKG/Package.swift
+// swift-tools-version:5.0
+import PackageDescription
+
+let package = Package(
+    name: "PackageDescription",
+    products: [
+        .library(name: "PackageDescription", type: .dynamic, targets: ["PackageDescription"]),
+    ],
+    targets: [
+        .target(name: "PackageDescription"),
+    ]
+)
+EOT
+fi
+
+(set -x; swift build -Xswiftc -DPACKAGE_DESCRIPTION_4_2 --package-path $RUNTIME_PKG --build-path $RUNTIME_DIR/v4_2)
+(set -x; swift build -Xswiftc -DPACKAGE_DESCRIPTION_4 --package-path $RUNTIME_PKG --build-path $RUNTIME_DIR/v4)
+
+SWIFTPM_PD_LIBS=$RUNTIME_DIR/pdlibs
+
+rm -rf SWIFTPM_PD_LIBS
+mkdir -p $SWIFTPM_PD_LIBS
+mkdir -p $SWIFTPM_PD_LIBS/v4
+mkdir -p $SWIFTPM_PD_LIBS/v4_2
+
+ln -fs $RUNTIME_DIR/v4/debug/PackageDescription.swiftmodule $SWIFTPM_PD_LIBS/v4/PackageDescription.swiftmodule
+ln -fs $RUNTIME_DIR/v4/debug/libPackageDescription.dylib $SWIFTPM_PD_LIBS/v4/libPackageDescription.dylib
+
+ln -fs $RUNTIME_DIR/v4_2/debug/PackageDescription.swiftmodule $SWIFTPM_PD_LIBS/v4_2/PackageDescription.swiftmodule
+ln -fs $RUNTIME_DIR/v4_2/debug/libPackageDescription.dylib $SWIFTPM_PD_LIBS/v4_2/libPackageDescription.dylib

@@ -100,6 +100,9 @@ extension Product {
         // Unset the internal env variable that allows skipping certain tests.
         environment["_SWIFTPM_SKIP_TESTS_LIST"] = nil
 
+        // Skip building PackageDescription libraries at runtime.
+        environment["SKIP_BUILDING_PD_AT_RUNTIME"] = "1"
+
         var completeArgs = [path.pathString]
         if let packagePath = packagePath {
             completeArgs += ["--package-path", packagePath.pathString]

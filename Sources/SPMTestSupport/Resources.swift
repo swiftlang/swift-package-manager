@@ -47,9 +47,9 @@ public class Resources: ManifestResourceProvider {
     private init() {
         let binDir: AbsolutePath
       #if Xcode
-        // Always point to fake toolchain when in Xcode.
-        binDir = AbsolutePath(#file).parentDirectory
-            .parentDirectory.parentDirectory.appending(components: ".build", Destination.host.target.tripleString, "debug")
+        let swift = try! Process.checkNonZeroExit(
+            arguments: ["xcrun", "--sdk", "macosx", "-find", "swift"]).spm_chomp()
+        binDir = AbsolutePath(swift).appending(components: "..")
       #elseif os(macOS)
         binDir = bundleRoot()
       #else
