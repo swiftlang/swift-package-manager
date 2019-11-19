@@ -18,8 +18,11 @@ public final class Target {
 
     /// The different types of a target.
     public enum TargetType: String, Encodable {
+        /// A regular target.
         case regular
+        /// A test target.
         case test
+        /// A system framework target.
         case system
     }
 

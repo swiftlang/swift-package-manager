@@ -97,7 +97,9 @@ public class Product: Encodable {
 
         /// The different types of a library product.
         public enum LibraryType: String, Encodable {
+            /// A statically linked library.
             case `static`
+            /// A dynamically linked library.
             case `dynamic`
         }
 
