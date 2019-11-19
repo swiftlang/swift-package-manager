@@ -64,7 +64,7 @@ fileprivate struct Foo: JSONMappable, JSONSerializable {
             "bar": bar.toJSON(),
             "barOp": barOp.flatMap{$0.toJSON()} ?? .null,
             "barArray": .array(barArray.map{$0.toJSON()}),
-            "dict": .dictionary(Dictionary(items: dict.map{($0.0, .double($0.1))})),
+            "dict": .dictionary(Dictionary(uniqueKeysWithValues: dict.map{($0.0, .double($0.1))})),
         ])
     }
 

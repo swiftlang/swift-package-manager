@@ -296,7 +296,7 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
     }
 
     public func restore(from json: JSON) throws {
-        self.dependencyMap = try Dictionary(items:
+        self.dependencyMap = try Dictionary(uniqueKeysWithValues:
             json.get("dependencies").map({ ($0.packageRef.path, $0) })
         )
     }

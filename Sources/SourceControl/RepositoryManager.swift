@@ -390,7 +390,7 @@ extension RepositoryManager: SimplePersistanceProtocol {
         // We will use this to save the state so we don't have to read the other
         // handles when saving the sate of a handle.
         self.serializedRepositories = try json.get("repositories")
-        self.repositories = try Dictionary(items: serializedRepositories.map({
+        self.repositories = try Dictionary(uniqueKeysWithValues: serializedRepositories.map({
             try ($0.0, RepositoryHandle(manager: self, json: $0.1))
         }))
     }

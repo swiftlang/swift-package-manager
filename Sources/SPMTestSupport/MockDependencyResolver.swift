@@ -203,7 +203,7 @@ public struct MockPackagesProvider: PackageContainerProvider {
 
     public init(containers: [MockPackageContainer]) {
         self.containers = containers
-        self.containersByIdentifier = Dictionary(items: containers.map({ ($0.identifier, $0) }))
+        self.containersByIdentifier = Dictionary(uniqueKeysWithValues: containers.map({ ($0.identifier, $0) }))
     }
 
     public func getContainer(
@@ -255,7 +255,7 @@ public struct MockGraph {
         guard case let .array(containers)? = dict["containers"] else { fatalError() }
         guard case let .dictionary(result)? = dict["result"] else { fatalError() }
 
-        self.result = Dictionary(items: result.map({ value in
+        self.result = Dictionary(uniqueKeysWithValues: result.map({ value in
             let (container, version) = value
             guard case let .string(str) = version else { fatalError() }
             return (container.lowercased(), Version(string: str)!)

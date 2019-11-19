@@ -986,7 +986,7 @@ private extension DependencyResolver {
         subjectTo allConstraints: [PackageReference: VersionSetSpecifier] = [:],
         excluding exclusions: [PackageReference: Set<Version>] = [:]
     ) -> AnySequence<VersionAssignmentSet> {
-        let constraints = Dictionary(items: allConstraints.map{ ($0.0, PackageRequirement.versionSet($0.1)) })
+        let constraints = Dictionary(uniqueKeysWithValues: allConstraints.map{ ($0.0, PackageRequirement.versionSet($0.1)) })
         return resolveSubtree(container, subjectTo: PackageContainerConstraintSet(constraints), excluding: exclusions)
     }
 }

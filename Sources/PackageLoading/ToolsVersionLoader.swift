@@ -50,7 +50,7 @@ extension Manifest {
         let regex = try! RegEx(pattern: "^Package@swift-(\\d+)(?:\\.(\\d+))?(?:\\.(\\d+))?.swift$")
 
         // Collect all version-specific manifests at the given package path.
-        let versionSpecificManifests = Dictionary(items: contents.compactMap{ file -> (ToolsVersion, String)? in
+        let versionSpecificManifests = Dictionary(uniqueKeysWithValues: contents.compactMap{ file -> (ToolsVersion, String)? in
             let parsedVersion = regex.matchGroups(in: file)
             guard parsedVersion.count == 1, parsedVersion[0].count == 3 else {
                 return nil
