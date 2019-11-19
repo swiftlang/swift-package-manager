@@ -18,8 +18,8 @@ extension ArgumentParser {
     /// Generates part of a completion script for the given shell.
     ///
     /// These aren't complete scripts, as some setup code is required. See
-    /// `Utilities/bash/completions` and `Utilities/zsh/_swift` for example
-    /// usage.
+    /// `Sources/Commands/Completions+bash.swift` and
+    /// `Sources/Commands/Completions+zsh.swift` for example usage.
     public func generateCompletionScript(for shell: Shell, on stream: OutputByteStream) {
         guard let commandName = commandName else { abort() }
         let name = "_\(commandName.replacingOccurrences(of: " ", with: "_"))"
