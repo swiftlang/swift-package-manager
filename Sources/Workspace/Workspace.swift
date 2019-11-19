@@ -1737,11 +1737,8 @@ extension Workspace {
         pinsStore: PinsStore?,
         diagnostics: DiagnosticsEngine
     ) -> [(container: PackageReference, binding: BoundVersion)] {
-
-      #if os(macOS)
-        // This crashes the compiler on Linux: https://bugs.swift.org/browse/SR-11394
-        os_log(log: .swiftpm, "Starting resolution using %s resolver", self.enablePubgrubResolver ? "pubgrub" : "legacy")
-      #endif
+        let resolverName = self.enablePubgrubResolver ? "pubgrub" : "legacy"
+        resolverName.withCString({ os_log(log: .swiftpm, "Starting resolution using %s resolver", $0) })
         os_signpost(.begin, log: .swiftpm, name: SignpostName.resolution)
         let result = resolver.resolve(dependencies: dependencies, pins: pins, pinsStore: pinsStore)
         os_signpost(.end, log: .swiftpm, name: SignpostName.resolution)
