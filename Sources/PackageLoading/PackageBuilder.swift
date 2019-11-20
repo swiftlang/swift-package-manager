@@ -519,8 +519,8 @@ public final class PackageBuilder {
         }
 
         let targetItems = manifest.targets.map({ ($0.name, $0 as TargetDescription) })
-        let targetMap = Dictionary(items: targetItems)
-        let potentialModuleMap = Dictionary(items: potentialModules.map({ ($0.name, $0) }))
+        let targetMap = Dictionary(targetItems, uniquingKeysWith: { $1 })
+        let potentialModuleMap = Dictionary(potentialModules.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
         let successors: (PotentialModule) -> [PotentialModule] = {
             // No reference of this target in manifest, i.e. it has no dependencies.
             guard let target = targetMap[$0.name] else { return [] }
@@ -984,7 +984,7 @@ public final class PackageBuilder {
         }
 
         // Map containing targets mapped to their names.
-        let modulesMap = Dictionary(items: targets.map({ ($0.name, $0) }))
+        let modulesMap = Dictionary(targets.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
 
         /// Helper method to get targets from target names.
         func modulesFrom(targetNames names: [String], product: String) throws -> [Target] {

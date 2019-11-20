@@ -102,7 +102,7 @@ public struct MockManifestGraph {
         repoProvider = inMemory?.provider
         // Create the test repositories, we don't need them to have actual
         // contents (the manifests are mocked).
-        let repos = Dictionary(items: try packages.map({ package -> (String, RepositorySpecifier) in
+        let repos = Dictionary(uniqueKeysWithValues: try packages.map({ package -> (String, RepositorySpecifier) in
             let repoPath = path.appending(component: package.name)
             let tag = package.version?.description ?? "initial"
             let specifier = RepositorySpecifier(url: repoPath.pathString)
@@ -150,7 +150,7 @@ public struct MockManifestGraph {
         )
 
         // Create the manifests from mock packages.
-        var manifests = Dictionary(items: packages.map({ package -> (MockManifestLoader.Key, Manifest) in
+        var manifests = Dictionary(uniqueKeysWithValues: packages.map({ package -> (MockManifestLoader.Key, Manifest) in
             let url = repos[package.name]!.url
             let manifest = Manifest(
                 name: package.name,

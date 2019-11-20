@@ -94,7 +94,7 @@ class PackageDescription4LoadingTests: XCTestCase {
 
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            let targets = Dictionary(items:
+            let targets = Dictionary(uniqueKeysWithValues:
                 manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
             let foo = targets["foo"]!
             XCTAssertEqual(foo.name, "foo")
@@ -169,7 +169,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
        loadManifest(stream.bytes) { manifest in
-            let deps = Dictionary(items: manifest.dependencies.map{ ($0.url, $0) })
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.url, $0) })
             XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
             XCTAssertEqual(deps["/foo2"], PackageDependencyDescription(url: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
             XCTAssertEqual(deps["/foo3"], PackageDependencyDescription(url: "/foo3", requirement: .upToNextMinor(from: "1.0.0")))
@@ -193,7 +193,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            let products = Dictionary(items: manifest.products.map{ ($0.name, $0) })
+            let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
             // Check tool.
             let tool = products["tool"]!
             XCTAssertEqual(tool.name, "tool")
@@ -251,7 +251,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            let targets = Dictionary(items:
+            let targets = Dictionary(uniqueKeysWithValues:
                 manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
 
             let foo = targets["Foo"]!
@@ -281,7 +281,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            let targets = Dictionary(items:
+            let targets = Dictionary(uniqueKeysWithValues:
                 manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
 
             let foo = targets["Foo"]!

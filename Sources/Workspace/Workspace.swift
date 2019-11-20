@@ -186,7 +186,7 @@ public class Workspace {
         }
 
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
-            let manifestsMap: [String: Manifest] = Dictionary(items:
+            let manifestsMap: [String: Manifest] = Dictionary(uniqueKeysWithValues:
                 root.manifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) }) +
                 dependencies.map({ (PackageReference.computeIdentity(packageURL: $0.manifest.url), $0.manifest) }))
 

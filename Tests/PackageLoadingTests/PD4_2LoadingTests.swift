@@ -82,7 +82,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             XCTAssertEqual(manifest.name, "Trivial")
 
             // Check targets.
-            let targets = Dictionary(items:
+            let targets = Dictionary(uniqueKeysWithValues:
                 manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
             let foo = targets["foo"]!
             XCTAssertEqual(foo.name, "foo")
@@ -95,11 +95,11 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             XCTAssertEqual(bar.dependencies, ["foo"])
 
             // Check dependencies.
-            let deps = Dictionary(items: manifest.dependencies.map{ ($0.url, $0) })
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.url, $0) })
             XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
 
             // Check products.
-            let products = Dictionary(items: manifest.products.map{ ($0.name, $0) })
+            let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
 
             let tool = products["tool"]!
             XCTAssertEqual(tool.name, "tool")
@@ -285,7 +285,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             )
             """
        loadManifest(stream.bytes) { manifest in
-            let deps = Dictionary(items: manifest.dependencies.map{ ($0.url, $0) })
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.url, $0) })
             XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
             XCTAssertEqual(deps["/foo2"], PackageDependencyDescription(url: "/foo2", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
 
@@ -337,7 +337,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             )
             """
        loadManifest(stream.bytes) { manifest in
-            let targets = Dictionary(items:
+            let targets = Dictionary(uniqueKeysWithValues:
                 manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
             let foo = targets["foo"]!
             XCTAssertEqual(foo.name, "foo")

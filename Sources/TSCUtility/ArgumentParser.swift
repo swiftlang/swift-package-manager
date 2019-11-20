@@ -815,7 +815,7 @@ public final class ArgumentParser {
             }
             return result
         })
-        let optionsMap = Dictionary(items: optionsTuple)
+        let optionsMap = Dictionary(uniqueKeysWithValues: optionsTuple)
 
         // Create iterators.
         var positionalArgumentIterator = positionalArguments.makeIterator()

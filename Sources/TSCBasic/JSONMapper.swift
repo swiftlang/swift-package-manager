@@ -65,7 +65,7 @@ extension JSON {
             throw MapError.typeMismatch(
                 key: key, expected: Dictionary<String, JSON>.self, json: object)
         }
-        return try Dictionary(items: value.map({ ($0.0, try T.init(json: $0.1)) }))
+        return try value.mapValues({ try T.init(json: $0) })
     }
 
     /// Returns a JSON mappable dictionary from a given key.

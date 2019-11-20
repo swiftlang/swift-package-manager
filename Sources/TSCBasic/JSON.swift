@@ -278,7 +278,7 @@ extension JSON {
 
 extension JSON {
     public init(_ dict: [String: JSONSerializable]) {
-        self = .dictionary(Dictionary(items: dict.map({ ($0.0, $0.1.toJSON()) })))
+        self = .dictionary(dict.mapValues({ $0.toJSON() }))
     }
 }
 

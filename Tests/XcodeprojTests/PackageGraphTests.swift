@@ -423,7 +423,7 @@ private class XcodeProjectResult {
 
     init(_ project: Xcode.Project) {
         self.project = project
-        self.targetMap = Dictionary(items: project.targets.map { target -> (String, Xcode.Target) in (target.name, target) })
+        self.targetMap = Dictionary(uniqueKeysWithValues: project.targets.map { target -> (String, Xcode.Target) in (target.name, target) })
     }
 
     func check(projectDir: String, file: StaticString = #file, line: UInt = #line) {

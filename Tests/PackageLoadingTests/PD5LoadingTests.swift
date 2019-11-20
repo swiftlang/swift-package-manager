@@ -84,7 +84,7 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTAssertEqual(manifest.name, "Trivial")
 
             // Check targets.
-            let targets = Dictionary(items:
+            let targets = Dictionary(uniqueKeysWithValues:
                 manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
             let foo = targets["foo"]!
             XCTAssertEqual(foo.name, "foo")
@@ -97,11 +97,11 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTAssertEqual(bar.dependencies, ["foo"])
 
             // Check dependencies.
-            let deps = Dictionary(items: manifest.dependencies.map{ ($0.url, $0) })
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.url, $0) })
             XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
 
             // Check products.
-            let products = Dictionary(items: manifest.products.map{ ($0.name, $0) })
+            let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
 
             let tool = products["tool"]!
             XCTAssertEqual(tool.name, "tool")
@@ -488,7 +488,7 @@ class PackageDescription5LoadingTests: XCTestCase {
             XCTAssertEqual(manifest.name, "Foo")
 
             // Check targets.
-            let targets = Dictionary(items:
+            let targets = Dictionary(uniqueKeysWithValues:
                 manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
             let foo = targets["foo"]!
             XCTAssertEqual(foo.name, "foo")

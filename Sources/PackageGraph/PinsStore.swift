@@ -131,7 +131,7 @@ extension PinsStore: SimplePersistanceProtocol {
     }
 
     public func restore(from json: JSON) throws {
-        self.pinsMap = try Dictionary(items: json.get("pins").map({ ($0.packageRef.identity, $0) }))
+        self.pinsMap = try Dictionary(uniqueKeysWithValues: json.get("pins").map({ ($0.packageRef.identity, $0) }))
     }
 
     /// Saves the current state of pins.
