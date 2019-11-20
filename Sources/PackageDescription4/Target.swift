@@ -18,11 +18,11 @@ public final class Target {
 
     /// The different types of a target.
     public enum TargetType: String, Encodable {
-        /// A regular target.
+        /// A target that contains code for the Swift package’s functionality.
         case regular
-        /// A test target.
+        /// A target that contains tests for the Swift package’s other targets.
         case test
-        /// A system framework target.
+        /// A target that adapts a library on the system to work with Swift packages.
         case system
     }
 
