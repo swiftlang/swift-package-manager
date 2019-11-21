@@ -749,23 +749,12 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertNoMatch(workspace.delegate.events, [.contains("updating repo")])
     }
 
-    func testIsResolutionRequired() throws {
-        let aRepo = RepositorySpecifier(url: "/A")
-        let bRepo = RepositorySpecifier(url: "/B")
-        let cRepo = RepositorySpecifier(url: "/C")
-        let aRef = PackageReference(identity: "a", path: aRepo.url)
-        let bRef = PackageReference(identity: "b", path: bRepo.url)
-        let cRef = PackageReference(identity: "c", path: cRepo.url)
-        let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
-        let v1_1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.1")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
-        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
-
-        let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
-        let v2Range: VersionSetSpecifier = .range("2.0.0" ..< "3.0.0")
-
+    func testIsResolutionRequired_empty() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
 
         let testWorkspace = try TestWorkspace(
             sandbox: sandbox,
@@ -773,95 +762,200 @@ final class WorkspaceTests: XCTestCase {
             roots: [
                 TestPackage(
                     name: "A",
-                    targets: [
-                        TestTarget(name: "A"),
-                    ],
+                    targets: [TestTarget(name: "A")],
                     products: []
                 ),
             ],
             packages: []
         )
 
-        let workspace = testWorkspace.createWorkspace()
-        let pinsStore = try workspace.pinsStore.load()
+        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        let rootInput = PackageGraphRootInput(packages: testWorkspace.rootPaths(for: ["A"]))
-        let rootManifests = workspace.loadRootManifests(packages: rootInput.packages, diagnostics: DiagnosticsEngine())
-        let root = PackageGraphRoot(input: rootInput, manifests: rootManifests)
+        try testWorkspace.checkIsResolutionRequired(
+            pins: [bRef: v1_5, cRef: v2],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5)
+                    .editedDependency(subpath: bPath, unmanagedPath: nil)
+            ],
+            { result in
+                XCTAssertEqual(result.diagnostics.hasErrors, false)
+                XCTAssertEqual(result.isRequired, false)
+            }
+        )
+    }
 
-        // Test Empty case.
-        do {
-            let result = workspace.isResolutionRequired(root: root, dependencies: [], pinsStore: pinsStore)
-            XCTAssertEqual(result.resolve, false)
-        }
+    func testIsResolutionRequired_inputNotSatisfiable() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
 
-        // Fill the pinsStore.
-        pinsStore.pin(packageRef: aRef, state: v1)
-        pinsStore.pin(packageRef: bRef, state: v1_5)
-        pinsStore.pin(packageRef: cRef, state: v2)
+        let testWorkspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: v1Requirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
 
-        // Fill ManagedDependencies (all different than pins).
-        let managedDependencies = workspace.managedDependencies
-        managedDependencies[forURL: aRef.path] = ManagedDependency(
-            packageRef: aRef, subpath: RelativePath("A"), checkoutState: v1_1)
-        managedDependencies[forURL: bRef.path] = ManagedDependency(
-            packageRef: bRef, subpath: RelativePath("B"), checkoutState: v1_5)
-        managedDependencies[forURL: bRef.path] = managedDependencies[forURL: bRef.path]?.editedDependency(
-            subpath: RelativePath("B"), unmanagedPath: nil)
+        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        // We should need to resolve if input is not satisfiable.
-        do {
-            let result = workspace.isResolutionRequired(root: root, dependencies: [
-                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: aRef, versionRequirement: v2Range),
-            ], pinsStore: pinsStore)
+        try testWorkspace.checkIsResolutionRequired(
+            pins: [bRef: v1_5, cRef: v2],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5)
+                    .editedDependency(subpath: bPath, unmanagedPath: nil)
+            ],
+            { result in
+                XCTAssertEqual(result.diagnostics.hasErrors, false)
+                XCTAssertEqual(result.isRequired, true)
+            }
+        )
+    }
 
-            XCTAssertEqual(result.resolve, true)
-            XCTAssertEqual(result.validPins.count, 3)
-        }
+    func testIsResolutionRequired_managedDependenciesOutOfSync() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
 
-        // We should need to resolve when pins don't satisfy the inputs.
-        do {
-            let result = workspace.isResolutionRequired(root: root, dependencies: [
-                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: cRef, versionRequirement: v1Range),
-            ], pinsStore: pinsStore)
+        let testWorkspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: v2Requirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
 
-            XCTAssertEqual(result.resolve, true)
-            XCTAssertEqual(result.validPins.map({$0.identifier.repository.url}).sorted(), ["/A", "/B"])
-        }
+        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        // We should need to resolve if managed dependencies is out of sync with pins.
-        do {
-            let result = workspace.isResolutionRequired(root: root, dependencies: [
-                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: cRef, versionRequirement: v2Range),
-            ], pinsStore: pinsStore)
+        try testWorkspace.checkIsResolutionRequired(
+            pins: [bRef: v1_5, cRef: v2],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5)
+                    .editedDependency(subpath: bPath, unmanagedPath: nil)
+            ],
+            { result in
+                XCTAssertEqual(result.diagnostics.hasErrors, false)
+                XCTAssertEqual(result.isRequired, true)
+            }
+        )
+    }
 
-            XCTAssertEqual(result.resolve, true)
-            XCTAssertEqual(result.validPins.map({$0.identifier.repository.url}).sorted(), ["/A", "/B", "/C"])
-        }
+    func testIsResolutionRequired_notRequired() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
 
-        // We shouldn't need to resolve if everything is fine.
-        do {
-            managedDependencies[forURL: aRef.path] = ManagedDependency(
-                packageRef: aRef, subpath: RelativePath("A"), checkoutState: v1)
-            managedDependencies[forURL: bRef.path] = ManagedDependency(
-                packageRef: bRef, subpath: RelativePath("B"), checkoutState: v1_5)
-            managedDependencies[forURL: cRef.path] = ManagedDependency(
-                packageRef: cRef, subpath: RelativePath("C"), checkoutState: v2)
+        let testWorkspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: v2Requirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
 
-            let result = workspace.isResolutionRequired(root: root, dependencies: [
-                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: cRef, versionRequirement: v2Range),
-            ], pinsStore: pinsStore)
+        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-            XCTAssertEqual(result.resolve, false)
-            XCTAssertEqual(result.validPins, [])
-        }
+        try testWorkspace.checkIsResolutionRequired(
+            pins: [bRef: v1_5, cRef: v2],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v2),
+            ],
+            { result in
+                XCTAssertEqual(result.diagnostics.hasErrors, false)
+                XCTAssertEqual(result.isRequired, false)
+            }
+        )
     }
 
     func testLoadingRootManifests() throws {
@@ -3257,8 +3351,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                         TestDependency(name: "Foo", requirement: .branch("master")),
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
