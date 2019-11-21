@@ -63,6 +63,14 @@ public final class TestWorkspace {
         return sandbox.appending(component: "pkgs")
     }
 
+    public func urlForPackage(withName name: String) -> String {
+        return packagesDir.appending(RelativePath(name)).pathString
+    }
+
+    private func url(for package: TestPackage) -> String {
+        return packagesDir.appending(RelativePath(package.path ?? package.name)).pathString
+    }
+
     private func create() throws {
         // Remove the sandbox if present.
         try fs.removeFileTree(sandbox)
@@ -78,7 +86,7 @@ public final class TestWorkspace {
             let packagePath = basePath.appending(RelativePath(package.path ?? package.name))
 
             let sourcesDir = packagePath.appending(component: "Sources")
-            let url = (isRoot ? packagePath : packagesDir.appending(RelativePath(package.path ?? package.name))).pathString
+            let url = isRoot ? packagePath.pathString : self.url(for: package)
             let specifier = RepositorySpecifier(url: url)
             let manifestPath = packagePath.appending(component: Manifest.filename)
 
@@ -171,9 +179,9 @@ public final class TestWorkspace {
             self.requirement = requirement
         }
 
-        fileprivate func convert(_ packagesDir: AbsolutePath) -> PackageGraphRootInput.PackageDependency {
+        fileprivate func convert(_ packagesDir: AbsolutePath, url: String) -> PackageGraphRootInput.PackageDependency {
             return PackageGraphRootInput.PackageDependency(
-                url: packagesDir.appending(RelativePath(name)).pathString,
+                url: url,
                 requirement: requirement,
                 location: name
             )
@@ -241,7 +249,7 @@ public final class TestWorkspace {
         deps: [TestWorkspace.PackageDependency] = [],
         _ result: (DiagnosticsEngine) -> ()
     ) {
-        let dependencies = deps.map({ $0.convert(packagesDir) })
+        let dependencies = deps.map({ $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) })
         let diagnostics = DiagnosticsEngine()
         let workspace = createWorkspace()
         let rootInput = PackageGraphRootInput(
@@ -255,7 +263,7 @@ public final class TestWorkspace {
         deps: [TestWorkspace.PackageDependency] = [],
         _ result: ([(PackageReference, Workspace.PackageStateChange)]?, DiagnosticsEngine) -> ()
     ) {
-        let dependencies = deps.map({ $0.convert(packagesDir) })
+        let dependencies = deps.map({ $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) })
         let diagnostics = DiagnosticsEngine()
         let workspace = createWorkspace()
         let rootInput = PackageGraphRootInput(
@@ -269,7 +277,7 @@ public final class TestWorkspace {
         deps: [TestWorkspace.PackageDependency],
         _ result: (PackageGraph, DiagnosticsEngine) -> ()
     ) {
-        let dependencies = deps.map({ $0.convert(packagesDir) })
+        let dependencies = deps.map({ $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) })
         checkPackageGraph(roots: roots, dependencies: dependencies, result)
     }
 
@@ -286,6 +294,47 @@ public final class TestWorkspace {
         let graph = workspace.loadPackageGraph(
             root: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics)
         result(graph, diagnostics)
+    }
+
+    public struct IsResolutionRequiredResult {
+        public let isRequired: Bool
+        public let diagnostics: DiagnosticsEngine
+    }
+
+    public func checkIsResolutionRequired(
+        pins: [PackageReference: CheckoutState],
+        managedDependencies: [ManagedDependency],
+        _ check: (IsResolutionRequiredResult) -> ()
+    ) throws {
+        let diagnostics = DiagnosticsEngine()
+        let workspace = createWorkspace()
+        let pinsStore = try workspace.pinsStore.load()
+
+        let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots.map({ $0.name })), dependencies: [])
+        let rootManifests = workspace.loadRootManifests(packages: rootInput.packages, diagnostics: diagnostics)
+        let root = PackageGraphRoot(input: rootInput, manifests: rootManifests)
+
+        for (ref, state) in pins {
+            pinsStore.pin(packageRef: ref, state: state)
+        }
+
+        let deps = workspace.managedDependencies
+        for dependency in managedDependencies {
+            try fs.createDirectory(workspace.path(for: dependency), recursive: true)
+            deps[forURL: dependency.packageRef.path] = dependency
+        }
+        try deps.saveState()
+
+        let dependencyManifests = workspace.loadDependencyManifests(root: root, diagnostics: diagnostics)
+
+        let isRequired = workspace.isResolutionRequired(
+            root: root,
+            dependencyManifests: dependencyManifests,
+            pinsStore: pinsStore,
+            extraConstraints: []
+        )
+
+        check(IsResolutionRequiredResult(isRequired: isRequired, diagnostics: diagnostics))
     }
 
     public enum State {
@@ -348,7 +397,7 @@ public final class TestWorkspace {
         deps: [TestWorkspace.PackageDependency] = [],
         _ result: (Workspace.DependencyManifests, DiagnosticsEngine) -> ()
     ) {
-        let dependencies = deps.map({ $0.convert(packagesDir) })
+        let dependencies = deps.map({ $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) })
         let diagnostics = DiagnosticsEngine()
         let workspace = createWorkspace()
         let rootInput = PackageGraphRootInput(

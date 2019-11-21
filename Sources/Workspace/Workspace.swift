@@ -136,7 +136,7 @@ public class Workspace {
         let root: PackageGraphRoot
 
         /// The dependency manifests in the transitive closure of root manifest.
-        private let dependencies: [(manifest: Manifest, dependency: ManagedDependency)]
+        let dependencies: [(manifest: Manifest, dependency: ManagedDependency)]
 
         let workspace: Workspace
 
@@ -222,8 +222,9 @@ public class Workspace {
             return (requiredIdentities, missingIdentities)
         }
 
+        // FIXME: @testable(internal)
         /// Returns constraints of the dependencies, including edited package constraints.
-        fileprivate func dependencyConstraints() -> [RepositoryPackageConstraint] {
+        func dependencyConstraints() -> [RepositoryPackageConstraint] {
             var allConstraints = [RepositoryPackageConstraint]()
 
             for (externalManifest, managedDependency) in dependencies {
@@ -1231,15 +1232,13 @@ extension Workspace {
 
         let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
-        // Check if a new resolution is required.
-        let dependencies =
-            graphRoot.constraints(config: config) +
-            // Include constraints from the manifests in the graph root.
-            graphRoot.manifests.flatMap({ $0.dependencyConstraints(config: config) }) +
-            currentManifests.dependencyConstraints()
+        let isResolutionRequired = self.isResolutionRequired(
+            root: graphRoot,
+            dependencyManifests: currentManifests,
+            pinsStore: pinsStore
+        )
 
-        let result = isResolutionRequired(root: graphRoot, dependencies: dependencies, pinsStore: pinsStore)
-        if result.resolve {
+        if isResolutionRequired {
             diagnostics.emit(error: "cannot update Package.resolved file because automatic resolution is disabled")
         }
 
@@ -1287,30 +1286,22 @@ extension Workspace {
         // Compute the missing package identities.
         let missingPackageURLs = currentManifests.missingPackageURLs()
 
-        // The pins to use in case we need to run the resolution.
-        var validPins = pinsStore.createConstraints()
+        // The pins to use.
+        let validPins = pinsStore.createConstraints()
 
         // Compute if we need to run the resolver. We always run the resolver if
         // there are extra constraints.
-        if missingPackageURLs.isEmpty {
-            // Use root constraints, dependency manifest constraints and extra
-            // constraints to compute if a new resolution is required.
-            let dependencies =
-                graphRoot.constraints(config: config) +
-                // Include constraints from the manifests in the graph root.
-                graphRoot.manifests.flatMap({ $0.dependencyConstraints(config: config) }) +
-                currentManifests.dependencyConstraints() +
-                extraConstraints
+        if missingPackageURLs.isEmpty && extraConstraints.isEmpty && !forceResolution {
+            let isResolutionRequired = self.isResolutionRequired(
+                root: graphRoot,
+                dependencyManifests: currentManifests,
+                pinsStore: pinsStore,
+                extraConstraints: extraConstraints
+            )
 
-            let result = isResolutionRequired(root: graphRoot, dependencies: dependencies, pinsStore: pinsStore)
-
-            // If we don't need resolution and there are no extra constraints,
-            // just validate pinsStore and return.
-            if !result.resolve && extraConstraints.isEmpty && !forceResolution {
+            if !isResolutionRequired {
                 return currentManifests
             }
-
-            validPins = result.validPins
         }
 
         // Inform delegate that we will resolve dependencies now.
@@ -1422,84 +1413,80 @@ extension Workspace {
 
     /// Computes if dependency resolution is required based on input constraints and pins.
     ///
-    /// - Returns: A tuple with two elements.
-    ///       resolve: If resolution is required.
-    ///       validPins: The pins which are still valid.
+    /// - Returns: Returns whether dependency resolution is required.
     // @testable internal
     func isResolutionRequired(
         root: PackageGraphRoot,
-        dependencies: [RepositoryPackageConstraint],
-        pinsStore: PinsStore
-    ) -> (resolve: Bool, validPins: [RepositoryPackageConstraint]) {
+        dependencyManifests: DependencyManifests,
+        pinsStore: PinsStore,
+        extraConstraints: [RepositoryPackageConstraint] = []
+    ) -> Bool {
+        let constraints =
+            root.constraints(config: config) +
+            // Include constraints from the manifests in the graph root.
+            root.manifests.flatMap({ $0.dependencyConstraints(config: config) }) +
+            dependencyManifests.dependencyConstraints() +
+            extraConstraints
 
-        // Create pinned constraints.
-        let pinConstraints = pinsStore.createConstraints()
+        let diagnostics = DiagnosticsEngine()
+        let localProvider = LocalContainerProvider(
+             root: root,
+             dependencyManifests: dependencyManifests,
+             config: config,
+             diagnostics: diagnostics
+        )
 
-        // Create a constraint set to check constraints are mergable.
-        var constraintSet = PackageContainerConstraintSet()
+        let resolver = PubgrubDependencyResolver(localProvider)
+        let result = resolver.solve(dependencies: constraints, pinsStore: pinsStore)
 
-        // The input dependencies should be mergable, otherwise we have bigger problems.
-        for constraint in dependencies {
-            if let mergedSet = constraintSet.merging(constraint) {
-                constraintSet = mergedSet
-            } else {
-                return (true, pinConstraints)
-            }
-        }
-
-        // Merge all the pin constraints.
-        for pin in pinConstraints {
-            if let mergedSet = constraintSet.merging(pin) {
-                constraintSet = mergedSet
-            }
-        }
-
-        // Compute the valid pins, i.e., the pins which are still valid in the
-        // final merged set.
-        let validPins = pinConstraints.filter({
-            $0.requirement == constraintSet[$0.identifier]
-        })
+        guard !diagnostics.hasErrors else { return true }
+        guard case .success(let bindings) = result else { return true }
 
         // Otherwise, check checkouts and pins.
-        for constraint in constraintSet {
-            let url = constraint.key.path
-            let dependency = managedDependencies[forURL: url]
+        for (container, boundVersion) in bindings {
+            let url = container.path
+            let dependencyState = managedDependencies[forURL: url]?.state
+            let pinState = pinsStore.pinsMap[container.identity]?.state
 
-            switch dependency?.state {
-            case let .checkout(dependencyState)?:
+            switch (boundVersion, dependencyState, pinState) {
+            // If the package is excluded, but it is a dependency or a pin, we need to re-resolve.
+            case (.excluded, .some, _),
+                 (.excluded, _, .some):
+                return true
+
+            case (_, .checkout(let checkoutState)?, _):
                 // If this constraint is not same as the checkout state, we need to re-resolve.
-                if constraint.value != dependencyState.requirement() {
-                    return (true, validPins)
+                if boundVersion.description != checkoutState.description {
+                    return true
                 }
 
                 // Ensure that the pin is not out of sync.
-                if dependencyState != pinsStore.pinsMap[constraint.key.identity]?.state {
-                    return (true, validPins)
+                if checkoutState != pinState {
+                    return true
                 }
 
-            case .local?:
-                switch constraint.value {
-                case .versionSet, .revision:
-                    // We have a local package but the requirement is now different.
-                    return (true, validPins)
-                case .unversioned:
-                    break
-                }
+            // We have a local package but the requirement is now different.
+            case (.version, .local?, _),
+                 (.revision, .local?, _):
+                return true
 
-            case .edited?:
+            case (.unversioned, .local?, _):
                 continue
 
-            case nil:
+            case (_, .edited?, _):
+                continue
+
+            case (_, nil, _):
                 // Ignore root packages.
-                if root.packageRefs.contains(constraint.key) {
+                if root.packageRefs.contains(container) {
                     continue
                 }
                 // We don't have a checkout.
-                return (true, validPins)
+                return true
             }
         }
 
-        return (false, [])
+        return false
     }
 
     /// Validates that each checked out managed dependency has an entry in pinsStore.
