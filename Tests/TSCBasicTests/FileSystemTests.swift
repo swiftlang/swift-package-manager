@@ -181,7 +181,11 @@ class FileSystemTests: XCTestCase {
 
             // Check read/write against root.
             XCTAssertThrows(FileSystemError.ioError) {
+              #if os(Android)
+                _ = try fs.readFileContents(AbsolutePath("/system/"))
+              #else
                 _ = try fs.readFileContents(AbsolutePath("/"))
+              #endif
             }
             XCTAssertThrows(FileSystemError.isDirectory) {
                 try fs.writeFileContents(AbsolutePath("/"), bytes: [])

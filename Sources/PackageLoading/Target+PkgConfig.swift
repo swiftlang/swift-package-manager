@@ -118,6 +118,9 @@ extension SystemPackageProviderDescription {
             if case .linux(.debian) = platform {
                 return true
             }
+            if case .android = platform {
+                return true
+            }
         }
         return false
     }

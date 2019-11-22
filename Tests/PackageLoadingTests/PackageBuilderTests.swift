@@ -111,7 +111,7 @@ class PackageBuilderTests: XCTestCase {
 
           #if os(Linux)
             result.checkDiagnostic("ignoring target 'MyPackageTests' in package 'MyPackage'; C language in tests is not yet supported")
-          #elseif os(macOS)
+          #elseif os(macOS) || os(Android)
             result.checkProduct("MyPackagePackageTests") { _ in }
           #endif
         }
