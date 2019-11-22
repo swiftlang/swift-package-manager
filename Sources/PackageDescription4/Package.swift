@@ -147,6 +147,9 @@ public final class Package {
             }
         }
 
+        /// The name of the package, or nil to deduce it from the URL.
+        public let name: String?
+
         /// The Git url of the package dependency.
         public let url: String
 
@@ -154,7 +157,8 @@ public final class Package {
         public let requirement: Requirement
 
         /// Initializes and returns a newly allocated requirement with the specified url and requirements.
-        init(url: String, requirement: Requirement) {
+        init(name: String?, url: String, requirement: Requirement) {
+            self.name = name
             self.url = url
             self.requirement = requirement
         }

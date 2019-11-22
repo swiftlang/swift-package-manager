@@ -9,10 +9,10 @@
 */
 
 /// A target, the basic building block of a Swift package.
-/// 
+///
 /// Each target contains a set of source files that are compiled into a module or test suite.
 /// You can vend targets to other packages by defining products that include the targets.
-/// 
+///
 /// A target may depend on other targets within the same package and on products vended by the package's dependencies.
 public final class Target {
 
@@ -93,7 +93,7 @@ public final class Target {
 
     /// The `pkgconfig` name to use for a system library target.
     ///
-    /// If present, the Swift Package Manager tries to 
+    /// If present, the Swift Package Manager tries to
     /// search for the `<name>.pc` file to get the additional flags needed for the
     /// system target.
     public let pkgConfig: String?
@@ -400,7 +400,7 @@ public final class Target {
 
   #if !PACKAGE_DESCRIPTION_4
     /// Create a system library target.
-    /// 
+    ///
     /// Use system library targets to adapt a library installed on the system to work with Swift packages.
     /// Such libraries are generally installed by system package managers (such as Homebrew and apt-get)
     /// and exposed to Swift packages by providing a `modulemap` file along with other metadata such as the library's `pkgConfig` name.
@@ -500,7 +500,22 @@ extension Target.Dependency {
     /// - parameters:
     ///   - name: The name of the product.
     ///   - package: The name of the package.
+    @available(_PackageDescription, obsoleted: 5.2, message: "the 'package' argument is mandatory as of tools version 5.2")
     public static func product(name: String, package: String? = nil) -> Target.Dependency {
+      #if PACKAGE_DESCRIPTION_4
+        return .productItem(name: name, package: package)
+      #else
+        return ._productItem(name: name, package: package)
+      #endif
+    }
+
+    /// Creates a dependency on a product from a package dependency.
+    ///
+    /// - parameters:
+    ///   - name: The name of the product.
+    ///   - package: The name of the package.
+    @available(_PackageDescription, introduced: 5.2)
+    public static func product(name: String, package: String) -> Target.Dependency {
       #if PACKAGE_DESCRIPTION_4
         return .productItem(name: name, package: package)
       #else

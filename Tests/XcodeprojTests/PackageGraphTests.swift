@@ -59,7 +59,7 @@ class PackageGraphTests: XCTestCase {
                     path: "/Bar",
                     url: "/Bar",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        PackageDependencyDescription(name: "Foo", url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),

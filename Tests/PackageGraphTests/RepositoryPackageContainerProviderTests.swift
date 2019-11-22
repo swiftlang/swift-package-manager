@@ -191,7 +191,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     url: "A",
                     version: v1,
                     toolsVersion: .v4,
-                    dependencies: [PackageDependencyDescription(url: "B", requirement: .upToNextMajor(from: "2.0.0"))]
+                    dependencies: [PackageDependencyDescription(name: "B", url: "B", requirement: .upToNextMajor(from: "2.0.0"))]
                 )
             ])
         let repoB = MockRepository(

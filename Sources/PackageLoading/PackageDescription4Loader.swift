@@ -11,9 +11,10 @@
 import TSCBasic
 import TSCUtility
 import PackageModel
+import Foundation
 
 extension ManifestBuilder {
-    mutating func build(v4 json: JSON) throws {
+    mutating func build(v4 json: JSON, toolsVersion: ToolsVersion) throws {
         let package = try json.getJSON("package")
         self.name = try package.get(String.self, forKey: "name")
         self.pkgConfig = package.get("pkgConfig")
@@ -22,9 +23,14 @@ extension ManifestBuilder {
         self.products = try package.getArray("products").map(ProductDescription.init(v4:))
         self.providers = try? package.getArray("providers").map(SystemPackageProviderDescription.init(v4:))
         self.targets = try package.getArray("targets").map(parseTarget(json:))
-        self.dependencies = try package
-             .getArray("dependencies")
-             .map({ try PackageDependencyDescription(v4: $0, baseURL: self.baseURL, fileSystem: self.fs) })
+        self.dependencies = try package.getArray("dependencies").map({
+            try PackageDependencyDescription(
+                v4: $0,
+                toolsVersion: toolsVersion,
+                baseURL: self.baseURL,
+                fileSystem: self.fs
+            )
+        })
 
         self.cxxLanguageStandard = package.get("cxxLanguageStandard")
         self.cLanguageStandard = package.get("cLanguageStandard")
@@ -265,7 +271,7 @@ extension PackageDependencyDescription.Requirement {
 }
 
 extension PackageDependencyDescription {
-    fileprivate init(v4 json: JSON, baseURL: String, fileSystem: FileSystem) throws {
+    fileprivate init(v4 json: JSON, toolsVersion: ToolsVersion, baseURL: String, fileSystem: FileSystem) throws {
         let isBaseURLRemote = URL.scheme(baseURL) != nil
 
         func fixURL(_ url: String, requirement: Requirement) throws -> String {
@@ -297,11 +303,14 @@ extension PackageDependencyDescription {
         }
 
         let requirement = try Requirement(v4: json.get("requirement"))
+        let url = try fixURL(json.get("url"), requirement: requirement)
+        var name: String? = json.get("name")
+
+        if name == nil && toolsVersion >= .v5_2 {
+            name = PackageReference.computeDefaultName(fromURL: url)
+        }
         
-        try self.init(
-            url: fixURL(json.get("url"), requirement: requirement),
-            requirement: requirement
-        )
+        self.init(name: name, url: url, requirement: requirement)
     }
 }
 

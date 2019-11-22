@@ -63,7 +63,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
 
             // Check dependencies.
             let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.url, $0) })
-            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(name: nil, url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
 
             // Check products.
             let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
@@ -462,6 +462,37 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
 
             let settings = manifest.targets[0].settings
             XCTAssertEqual(settings[0], .init(tool: .c, name: .define, value: ["LLVM_ON_WIN32"], condition: .init(platformNames: ["windows"])))
+        }
+    }
+
+    func testPackageNameUnavailable() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+                name: "Trivial",
+                products: [],
+                dependencies: [
+                    .package(name: "Foo", url: "/foo1", from: "1.0.0"),
+                ],
+                targets: [
+                    .target(
+                        name: "foo",
+                        dependencies: [.product(name: "product", package: "Foo")]),
+                ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail()
+        } catch {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("\(error)")
+            }
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
         }
     }
 }

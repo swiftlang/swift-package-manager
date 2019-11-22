@@ -23,6 +23,8 @@ public enum ManifestParseError: Swift.Error {
     case runtimeManifestErrors([String])
 
     case duplicateDependencyDecl([[PackageDependencyDescription]])
+
+    case targetDependencyUnknownPackage(targetName: String, packageName: String)
 }
 
 /// Resources required for manifest loading.
@@ -230,7 +232,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             baseURL: baseURL,
             fileSystem: fileSystem ?? localFileSystem
         )
-        try manifestBuilder.build(v4: json)
+        try manifestBuilder.build(v4: json, toolsVersion: toolsVersion)
 
         // Throw if we encountered any runtime errors.
         guard manifestBuilder.errors.isEmpty else {
@@ -254,16 +256,45 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             targets: manifestBuilder.targets
         )
 
-        try validate(manifest)
+        try validate(manifest, toolsVersion: toolsVersion)
 
         return manifest
     }
 
     /// Validate the provided manifest.
-    private func validate(_ manifest: Manifest) throws {
+    private func validate(_ manifest: Manifest, toolsVersion: ToolsVersion) throws {
         let duplicateDecls = manifest.dependencies.map({ KeyedPair($0, key: PackageReference.computeIdentity(packageURL: $0.url)) }).spm_findDuplicateElements()
         if !duplicateDecls.isEmpty {
             throw ManifestParseError.duplicateDependencyDecl(duplicateDecls.map({ $0.map({ $0.item }) }))
+        }
+
+        // If the tools version is 5.2 or greater, we want to make sure all target package dependencies are valid.
+        if toolsVersion >= .v5_2 {
+            let targetNames = Set(manifest.targets.map({ $0.name }))
+            for target in manifest.targets {
+                for targetDependency in target.dependencies {
+                    // If this is a target dependency (or byName that references a target), we don't need to check.
+                    if case .target = targetDependency { continue }
+                    if case .byName(let name) = targetDependency, targetNames.contains(name) { continue }
+
+                    // If we can't find the package dependency it references, the manifest is invalid.
+                    if manifest.packageDependency(referencedBy: targetDependency) == nil {
+                        let packageName: String
+                        switch targetDependency {
+                        case .product(_, package: let name?),
+                             .byName(let name):
+                            packageName = name
+                        default:
+                            fatalError("Invalid case: this shouldn't be a target, or a product with no name")
+                        }
+
+                        throw ManifestParseError.targetDependencyUnknownPackage(
+                            targetName: target.name,
+                            packageName: packageName
+                        )
+                    }
+                }
+            }
         }
     }
 

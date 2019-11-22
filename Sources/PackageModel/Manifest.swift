@@ -163,6 +163,25 @@ extension Manifest {
         try container.encode(targets, forKey: .targets)
         try container.encode(platforms, forKey: .platforms)
     }
+
+    /// Finds the package dependency referenced by the specified target dependency.
+    /// - Returns: Returns `nil` if the dependency is a target dependency, if it is a product dependency but has no
+    /// package name (for tools versions less than 5.2), or if there were no dependencies with the provided name.
+    public func packageDependency(
+        referencedBy targetDependency: TargetDescription.Dependency
+    ) -> PackageDependencyDescription? {
+        let packageName: String
+
+        switch targetDependency {
+        case .product(_, package: let name?),
+             .byName(name: let name):
+            packageName = name
+        default:
+            return nil
+        }
+
+        return dependencies.first(where: { $0.name == packageName })
+    }
 }
 
 /// The description of an individual target.
@@ -346,6 +365,9 @@ public struct PackageDependencyDescription: Equatable, Codable {
         }
     }
 
+    /// The name of the dependency.
+    public let name: String?
+
     /// The url of the dependency.
     public let url: String
 
@@ -353,7 +375,8 @@ public struct PackageDependencyDescription: Equatable, Codable {
     public let requirement: Requirement
 
     /// Create a dependency.
-    public init(url: String, requirement: Requirement) {
+    public init(name: String?, url: String, requirement: Requirement) {
+        self.name = name
         self.url = url
         self.requirement = requirement
     }
