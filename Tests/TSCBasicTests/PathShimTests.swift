@@ -64,16 +64,30 @@ class PathShimTests : XCTestCase {
 class WalkTests : XCTestCase {
 
     func testNonRecursive() {
+      #if os(Android)
+        let root = "/system"
+        var expected = [
+            AbsolutePath("\(root)/usr"),
+            AbsolutePath("\(root)/bin"),
+            AbsolutePath("\(root)/xbin")
+        ]
+      #else
+        let root = ""
         var expected = [
             AbsolutePath("/usr"),
             AbsolutePath("/bin"),
             AbsolutePath("/sbin")
         ]
-        for x in try! walk(AbsolutePath("/"), recursively: false) {
+      #endif
+        for x in try! walk(AbsolutePath("\(root)/"), recursively: false) {
             if let i = expected.firstIndex(of: x) {
                 expected.remove(at: i)
             }
+          #if os(Android)
+            XCTAssertEqual(3, x.components.count)
+          #else
             XCTAssertEqual(2, x.components.count)
+          #endif
         }
         XCTAssertEqual(expected.count, 0)
     }
