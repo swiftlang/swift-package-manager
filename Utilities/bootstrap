@@ -917,7 +917,7 @@ def build_llbuild(args):
     cmake_cache_path = os.path.join(llbuild_build_dir, "CMakeCache.txt")
     if not os.path.isfile(cmake_cache_path) or not args.swiftc_path in open(cmake_cache_path).read():
         mkdir_p(llbuild_build_dir)
-        cmd = ["cmake", "-G", "Ninja", "-DCMAKE_BUILD_TYPE:=Debug", "-DCMAKE_C_COMPILER:=clang", "-DCMAKE_CXX_COMPILER:=clang++", "-DLLBUILD_SUPPORT_BINDINGS:=Swift", "-DSWIFTC_EXECUTABLE:=%s" % (args.swiftc_path), llbuild_source_dir]
+        cmd = ["cmake", "-G", "Ninja", "-DCMAKE_BUILD_TYPE:=Debug", "-DCMAKE_C_COMPILER:=clang", "-DCMAKE_CXX_COMPILER:=clang++", "-DLLBUILD_SUPPORT_BINDINGS:=Swift", "-DCMAKE_Swift_FLAGS=-sdk %s" % (g_default_sysroot) , "-DSWIFTC_EXECUTABLE:=%s" % (args.swiftc_path), llbuild_source_dir]
         subprocess.check_call(cmd, cwd=llbuild_build_dir)
 
     # Build.
