@@ -16,44 +16,9 @@ import SPMTestSupport
 import PackageModel
 import PackageLoading
 
-// FIXME: We should share the infra with other loading tests.
-class PackageDescription5LoadingTests: XCTestCase {
-    let manifestLoader = ManifestLoader(manifestResources: Resources.default)
-
-    private func loadManifestThrowing(
-        _ contents: ByteString,
-        toolsVersion: ToolsVersion = .v5,
-        line: UInt = #line,
-        body: (Manifest) -> Void
-    ) throws {
-        let fs = InMemoryFileSystem()
-        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
-        try fs.writeFileContents(manifestPath, bytes: contents)
-        let m = try manifestLoader.load(
-            package: AbsolutePath.root,
-            baseURL: "/foo",
-            toolsVersion: toolsVersion,
-            fileSystem: fs)
-        guard m.toolsVersion == toolsVersion else {
-            return XCTFail("Invalid manfiest version")
-        }
-        body(m)
-    }
-
-    private func loadManifest(
-        _ contents: ByteString,
-        toolsVersion: ToolsVersion = .v5,
-        line: UInt = #line,
-        body: (Manifest) -> Void
-    ) {
-        do {
-            try loadManifestThrowing(contents, toolsVersion: toolsVersion, line: line, body: body)
-        } catch ManifestParseError.invalidManifestFormat(let error, _) {
-            print(error)
-            XCTFail(file: #file, line: line)
-        } catch {
-            XCTFail("Unexpected error: \(error)", file: #file, line: line)
-        }
+class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
+    override var toolsVersion: ToolsVersion {
+        .v5
     }
 
     func testBasics() {
