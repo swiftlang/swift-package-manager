@@ -38,7 +38,7 @@ public final class TestWorkspace {
         packages: [TestPackage],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         skipUpdate: Bool = false,
-        enablePubGrub: Bool = false
+        enablePubGrub: Bool = true
     ) throws {
         self.sandbox = sandbox
         self.fs = fs
