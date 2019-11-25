@@ -58,7 +58,7 @@ let aRef = PackageReference(identity: "a", path: "")
 let bRef = PackageReference(identity: "b", path: "")
 let cRef = PackageReference(identity: "c", path: "")
 
-let rootRef = PackageReference(identity: "root", path: "")
+let rootRef = PackageReference(identity: "root", path: "", kind: .root)
 let rootCause = Incompatibility(Term(rootRef, .exact(v1)), root: rootRef)
 let _cause = Incompatibility("cause@0.0.0", root: rootRef)
 

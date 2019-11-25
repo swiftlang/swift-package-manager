@@ -134,12 +134,12 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
             """
        loadManifest(stream.bytes) { manifest in
             let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.url, $0) })
-            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(name: nil, url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["/foo2"], PackageDependencyDescription(name: nil, url: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["/foo3"], PackageDependencyDescription(name: nil, url: "/foo3", requirement: .upToNextMinor(from: "1.0.0")))
-            XCTAssertEqual(deps["/foo4"], PackageDependencyDescription(name: nil, url: "/foo4", requirement: .exact("1.0.0")))
-            XCTAssertEqual(deps["/foo5"], PackageDependencyDescription(name: nil, url: "/foo5", requirement: .branch("master")))
-            XCTAssertEqual(deps["/foo6"], PackageDependencyDescription(name: nil, url: "/foo6", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(name: "foo1", url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo2"], PackageDependencyDescription(name: "foo2", url: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo3"], PackageDependencyDescription(name: "foo3", url: "/foo3", requirement: .upToNextMinor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo4"], PackageDependencyDescription(name: "foo4", url: "/foo4", requirement: .exact("1.0.0")))
+            XCTAssertEqual(deps["/foo5"], PackageDependencyDescription(name: "foo5", url: "/foo5", requirement: .branch("master")))
+            XCTAssertEqual(deps["/foo6"], PackageDependencyDescription(name: "foo6", url: "/foo6", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
         }
     }
 
@@ -323,8 +323,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
         let diagnostics = DiagnosticsEngine()
         let manifest = try manifestLoader.load(
             package: .root, baseURL: "/foo",
-            toolsVersion: .v4, fileSystem: fs,
-            diagnostics: diagnostics
+            toolsVersion: .v4, packageKind: .root,
+            fileSystem: fs, diagnostics: diagnostics
         )
 
         XCTAssertEqual(manifest.name, "Trivial")
@@ -362,8 +362,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
             let diagnostics = DiagnosticsEngine()
             _ = try manifestLoader.load(
                 package: .root, baseURL: "/Foo",
-                toolsVersion: .v4, fileSystem: fs,
-                diagnostics: diagnostics
+                toolsVersion: .v4, packageKind: .root,
+                fileSystem: fs, diagnostics: diagnostics
             )
         } catch ManifestParseError.duplicateTargetNames(let targetNames) {
             XCTAssertEqual(Set(targetNames), ["A", "B"])

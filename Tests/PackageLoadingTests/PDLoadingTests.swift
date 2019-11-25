@@ -37,6 +37,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
             package: AbsolutePath.root,
             baseURL: "/foo",
             toolsVersion: toolsVersion,
+            packageKind: .local,
             fileSystem: fs)
         guard m.toolsVersion == toolsVersion else {
             return XCTFail("Invalid manfiest version")

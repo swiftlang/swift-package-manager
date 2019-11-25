@@ -51,6 +51,7 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         baseURL: String,
         version: Version?,
         toolsVersion: ToolsVersion,
+        packageKind: PackageReference.Kind,
         fileSystem: FileSystem?,
         diagnostics: DiagnosticsEngine?
     ) throws -> PackageModel.Manifest {

@@ -87,6 +87,7 @@ extension WorkspaceTests {
         ("testRootPackagesOverrideBasenameMismatch", testRootPackagesOverrideBasenameMismatch),
         ("testSimpleAPI", testSimpleAPI),
         ("testSkipUpdate", testSkipUpdate),
+        ("testTargetBasedDependency", testTargetBasedDependency),
         ("testToolsVersionRootPackages", testToolsVersionRootPackages),
         ("testTransitiveDependencySwitchWithSameIdentity", testTransitiveDependencySwitchWithSameIdentity),
         ("testUnsafeFlags", testUnsafeFlags),

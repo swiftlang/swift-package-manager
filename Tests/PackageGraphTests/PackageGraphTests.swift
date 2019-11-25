@@ -28,12 +28,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(root: "/Baz", fs: fs, diagnostics: diagnostics,
+        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Foo", targets: ["Foo"])
                     ],
@@ -45,6 +46,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -87,12 +89,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -103,6 +106,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar", targets: ["Bar"]),
                         ProductDescription(name: "CBar", targets: ["CBar"]),
@@ -131,12 +135,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -147,6 +152,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .local,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -157,6 +163,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Baz",
                     path: "/Baz",
                     url: "/Baz",
+                    packageKind: .local,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -177,12 +184,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -206,12 +214,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(root: "/Bar", fs: fs, diagnostics: diagnostics,
+        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -223,6 +232,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Foo", targets: ["Foo"]),
                     ],
@@ -248,12 +258,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -264,6 +275,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Bar"),
                     ]),
@@ -282,12 +294,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/First", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Fourth",
                     path: "/Fourth",
                     url: "/Fourth",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Fourth", targets: ["First"])
                     ],
@@ -298,6 +311,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Third",
                     path: "/Third",
                     url: "/Third",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Third", targets: ["First"])
                     ],
@@ -308,6 +322,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Second",
                     path: "/Second",
                     url: "/Second",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Second", targets: ["First"])
                     ],
@@ -318,6 +333,7 @@ class PackageGraphTests: XCTestCase {
                     name: "First",
                     path: "/First",
                     url: "/First",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
                         PackageDependencyDescription(name: nil, url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
@@ -343,12 +359,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/First", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Fourth",
                     path: "/Fourth",
                     url: "/Fourth",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Fourth", targets: ["Bar"])
                     ],
@@ -359,6 +376,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Third",
                     path: "/Third",
                     url: "/Third",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Third", targets: ["Bar"])
                     ],
@@ -369,6 +387,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Second",
                     path: "/Second",
                     url: "/Second",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Second", targets: ["Foo"])
                     ],
@@ -379,6 +398,7 @@ class PackageGraphTests: XCTestCase {
                     name: "First",
                     path: "/First",
                     url: "/First",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
                         PackageDependencyDescription(name: nil, url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
@@ -405,12 +425,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/First", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Fourth",
                     path: "/Fourth",
                     url: "/Fourth",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Fourth", targets: ["First"])
                     ],
@@ -421,6 +442,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Third",
                     path: "/Third",
                     url: "/Third",
+                    packageKind: .local,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -434,6 +456,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Second",
                     path: "/Second",
                     url: "/Second",
+                    packageKind: .local,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -447,6 +470,7 @@ class PackageGraphTests: XCTestCase {
                     name: "First",
                     path: "/First",
                     url: "/First",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -471,12 +495,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -487,6 +512,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar", targets: ["Bar"])
                     ],
@@ -508,12 +534,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Barx"]),
                     ]),
@@ -534,12 +561,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                         PackageDependencyDescription(name: nil, url: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
@@ -552,6 +580,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Biz",
                     path: "/Biz",
                     url: "/Biz",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "biz", type: .executable, targets: ["Biz"])
                     ],
@@ -562,6 +591,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BarLibrary", targets: ["Bar"])
                     ],
@@ -572,6 +602,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Baz",
                     path: "/Baz",
                     url: "/Baz",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BazLibrary", targets: ["Baz"])
                     ],
@@ -593,12 +624,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/Bar", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -608,7 +640,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo"),
+                    url: "/Foo",
+                    packageKind: .local),
             ]
         )
 
@@ -626,12 +659,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/Start", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Start",
                     path: "/Start",
                     url: "/Start",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Dep1", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -643,6 +677,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Dep1",
                     path: "/Dep1",
                     url: "/Dep1",
+                    packageKind: .local,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Dep2", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -656,6 +691,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Dep2",
                     path: "/Dep2",
                     url: "/Dep2",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "FooLibrary", targets: ["Foo"]),
                         ProductDescription(name: "BamLibrary", targets: ["Bam"]),
@@ -680,12 +716,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                         PackageDependencyDescription(name: nil, url: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
@@ -697,6 +734,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar", targets: ["Bar"])
                     ],
@@ -707,6 +745,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Baz",
                     path: "/Baz",
                     url: "/Baz",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar", targets: ["Baz"])
                     ],
@@ -729,12 +768,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -745,6 +785,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar", targets: ["Bar", "Bar2", "Bar3"])
                     ],

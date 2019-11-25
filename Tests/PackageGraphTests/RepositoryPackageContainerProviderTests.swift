@@ -191,6 +191,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     url: "A",
                     version: v1,
                     toolsVersion: .v4,
+                    packageKind: .local,
                     dependencies: [PackageDependencyDescription(name: "B", url: "B", requirement: .upToNextMajor(from: "2.0.0"))]
                 )
             ])
@@ -204,7 +205,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     path: AbsolutePath("/Package.swift"),
                     url: "B",
                     version: v2,
-                    toolsVersion: .v4
+                    toolsVersion: .v4,
+                    packageKind: .local
                 )
             ])
 
@@ -429,5 +431,126 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let container = try await { provider.getContainer(for: ref, completion: $0) }
         let v = container.versions(filter: { _ in true }).map{$0}
         XCTAssertEqual(v, ["2.0.1", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
+    }
+
+    func testDependencyConstraints() throws {
+        let dependencies = [
+            PackageDependencyDescription(name: "Bar1", url: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
+            PackageDependencyDescription(name: "Bar2", url: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
+            PackageDependencyDescription(name: "Bar3", url: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+
+        let products = [
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo1"])
+        ]
+
+        let targets = [
+            TargetDescription(name: "Foo1", dependencies: ["Foo2", "Bar1"]),
+            TargetDescription(name: "Foo2", dependencies: [.product(name: "B2", package: "Bar2")]),
+            TargetDescription(name: "Foo3", dependencies: ["Bar3"]),
+        ]
+
+        let config = SwiftPMConfig()
+
+        let constraints = dependencies.map({
+            RepositoryPackageConstraint(
+                container: $0.createPackageRef(config: config),
+                requirement: $0.requirement.toConstraintRequirement())
+        })
+
+        do {
+            let manifest = Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                url: "/Foo",
+                v: .v5,
+                packageKind: .root,
+                dependencies: dependencies,
+                products: products,
+                targets: targets
+            )
+
+            XCTAssertEqual(
+                manifest
+                    .dependencyConstraints(config: config)
+                    .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
+                [
+                    constraints[0],
+                    constraints[1],
+                    constraints[2],
+                ]
+            )
+        }
+
+        do {
+            let manifest = Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                url: "/Foo",
+                v: .v5,
+                packageKind: .local,
+                dependencies: dependencies,
+                products: products,
+                targets: targets
+            )
+
+            XCTAssertEqual(
+                manifest
+                    .dependencyConstraints(config: config)
+                    .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
+                [
+                    constraints[0],
+                    constraints[1],
+                    constraints[2],
+                ]
+            )
+        }
+
+        do {
+            let manifest = Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                url: "/Foo",
+                v: .v5_2,
+                packageKind: .root,
+                dependencies: dependencies,
+                products: products,
+                targets: targets
+            )
+
+            XCTAssertEqual(
+                manifest
+                    .dependencyConstraints(config: config)
+                    .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
+                [
+                    constraints[0],
+                    constraints[1],
+                    constraints[2],
+                ]
+            )
+        }
+
+        do {
+            let manifest = Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                url: "/Foo",
+                v: .v5_2,
+                packageKind: .local,
+                dependencies: dependencies,
+                products: products,
+                targets: targets
+            )
+
+            XCTAssertEqual(
+                manifest
+                    .dependencyConstraints(config: config)
+                    .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
+                [
+                    constraints[0],
+                    constraints[1],
+                ]
+            )
+        }
     }
 }

@@ -68,13 +68,16 @@ public protocol ManifestLoaderProtocol {
     ///   - path: The root path of the package.
     ///   - baseURL: The URL the manifest was loaded from.
     ///   - version: The version the manifest is from, if known.
-    ///   - manifestVersion: The version of manifest to load.
+    ///   - toolsVersion: The version of the tools the manifest supports.
+    ///   - kind: The kind of package the manifest is from.
     ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
+    ///   - diagnostics: The diagnostics engine.
     func load(
         packagePath path: AbsolutePath,
         baseURL: String,
         version: Version?,
         toolsVersion: ToolsVersion,
+        packageKind: PackageReference.Kind,
         fileSystem: FileSystem?,
         diagnostics: DiagnosticsEngine?
     ) throws -> Manifest
@@ -87,12 +90,16 @@ extension ManifestLoaderProtocol {
     ///   - path: The root path of the package.
     ///   - baseURL: The URL the manifest was loaded from.
     ///   - version: The version the manifest is from, if known.
-    ///   - fileSystem: The file system to load from.
+    ///   - toolsVersion: The version of the tools the manifest supports.
+    ///   - kind: The kind of package the manifest is from.
+    ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
+    ///   - diagnostics: The diagnostics engine.
     public func load(
         package path: AbsolutePath,
         baseURL: String,
         version: Version? = nil,
         toolsVersion: ToolsVersion,
+        packageKind: PackageReference.Kind,
         fileSystem: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest {
@@ -101,6 +108,7 @@ extension ManifestLoaderProtocol {
             baseURL: baseURL,
             version: version,
             toolsVersion: toolsVersion,
+            packageKind: packageKind,
             fileSystem: fileSystem,
             diagnostics: diagnostics
         )
@@ -166,9 +174,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ///     - packagePath: The absolute path of the package root.
     ///     - swiftCompiler: The absolute path of a `swiftc` executable.
     ///         Its associated resources will be used by the loader.
+    ///     - kind: The kind of package the manifest is from.
     public static func loadManifest(
         packagePath: AbsolutePath,
-        swiftCompiler: AbsolutePath
+        swiftCompiler: AbsolutePath,
+        packageKind: PackageReference.Kind
     ) throws -> Manifest {
         let resources = try UserManifestResources(swiftCompiler: swiftCompiler)
         let loader = ManifestLoader(manifestResources: resources)
@@ -176,7 +186,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return try loader.load(
             package: packagePath,
             baseURL: packagePath.pathString,
-            toolsVersion: toolsVersion
+            toolsVersion: toolsVersion,
+            packageKind: packageKind
         )
     }
 
@@ -185,6 +196,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         baseURL: String,
         version: Version?,
         toolsVersion: ToolsVersion,
+        packageKind: PackageReference.Kind,
         fileSystem: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest {
@@ -193,6 +205,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             baseURL: baseURL,
             version: version,
             toolsVersion: toolsVersion,
+            packageKind: packageKind,
             fileSystem: fileSystem,
             diagnostics: diagnostics
         )
@@ -204,12 +217,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ///   - path: The path to the manifest file (or a package root).
     ///   - baseURL: The URL the manifest was loaded from.
     ///   - version: The version the manifest is from, if known.
+    ///   - kind: The kind of package the manifest is from.
     ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
     func loadFile(
         path inputPath: AbsolutePath,
         baseURL: String,
         version: Version?,
         toolsVersion: ToolsVersion,
+        packageKind: PackageReference.Kind,
         fileSystem: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest {
@@ -260,6 +275,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             url: baseURL,
             version: version,
             toolsVersion: toolsVersion,
+            packageKind: packageKind,
             pkgConfig: manifestBuilder.pkgConfig,
             providers: manifestBuilder.providers,
             cLanguageStandard: manifestBuilder.cLanguageStandard,

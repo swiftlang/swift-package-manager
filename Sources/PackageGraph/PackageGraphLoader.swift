@@ -35,7 +35,7 @@ extension PackageGraphError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .noModules(let package):
-            return "package '\(package)' contains no targets"
+            return "package '\(package)' contains no products"
 
         case .cycleDetected(let cycle):
             return "cyclic dependency declaration found: " +
@@ -82,7 +82,7 @@ public struct PackageGraphLoader {
         let manifestMapSequence = (root.manifests + externalManifests).map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (Manifest) -> [Manifest] = { manifest in
-            manifest.dependencies.compactMap({
+            manifest.allRequiredDependencies.compactMap({
                 let url = config.mirroredURL(forURL: $0.url)
                 return manifestMap[PackageReference.computeIdentity(packageURL: url)]
             })
@@ -111,8 +111,6 @@ public struct PackageGraphLoader {
         // Create the packages.
         var manifestToPackage: [Manifest: Package] = [:]
         for manifest in allManifests {
-            let isRootPackage = rootManifestSet.contains(manifest)
-
             // Derive the path to the package.
             //
             // FIXME: Lift this out of the manifest.
@@ -125,9 +123,8 @@ public struct PackageGraphLoader {
                 additionalFileRules: additionalFileRules,
                 fileSystem: fileSystem,
                 diagnostics: diagnostics,
-                isRootPackage: isRootPackage,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-                createREPLProduct: isRootPackage ? createREPLProduct : false
+                createREPLProduct: manifest.packageKind == .root ? createREPLProduct : false
             )
 
             diagnostics.wrap(with: PackageLocation.Local(name: manifest.name, packagePath: packagePath), {
@@ -135,7 +132,7 @@ public struct PackageGraphLoader {
                 manifestToPackage[manifest] = package
 
                 // Throw if any of the non-root package is empty.
-                if package.targets.isEmpty && !isRootPackage {
+                if package.targets.isEmpty && manifest.packageKind != .root {
                     throw PackageGraphError.noModules(package)
                 }
             })
@@ -231,7 +228,7 @@ private func createResolvedPackages(
         let package = packageBuilder.package
 
         // Establish the manifest-declared package dependencies.
-        packageBuilder.dependencies = package.manifest.dependencies.compactMap({
+        packageBuilder.dependencies = package.manifest.allRequiredDependencies.compactMap({
             let url = config.mirroredURL(forURL: $0.url)
             return packageMap[PackageReference.computeIdentity(packageURL: url)]
         })

@@ -112,8 +112,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let builder = PackageBuilder(
                 manifest: manifest,
                 path: try getPackageRoot(),
-                diagnostics: diagnostics,
-                isRootPackage: true
+                diagnostics: diagnostics
             )
             let package = try builder.construct()
 
@@ -337,8 +336,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let builder = PackageBuilder(
                 manifest: manifest,
                 path: try getPackageRoot(),
-                diagnostics: diagnostics,
-                isRootPackage: true
+                diagnostics: diagnostics
             )
             let package = try builder.construct()
             describe(package, in: options.describeMode, on: stdoutStream)
@@ -823,15 +821,14 @@ fileprivate extension SwiftPackageTool {
         stream <<< "\n"
         
         for (package, change) in changes {
-            guard let packageName = package.name else { continue }
             let currentVersion = pins.pinsMap[package.identity]?.state.description ?? ""
             switch change {
             case let .added(requirement):
-                stream <<< "+ \(packageName) \(requirement.prettyPrinted)"
+                stream <<< "+ \(package.name) \(requirement.prettyPrinted)"
             case let .updated(requirement):
-                stream <<< "~ \(packageName) \(currentVersion) -> \(packageName) \(requirement.prettyPrinted)"
+                stream <<< "~ \(package.name) \(currentVersion) -> \(package.name) \(requirement.prettyPrinted)"
             case .removed:
-                stream <<< "- \(packageName) \(currentVersion)"
+                stream <<< "- \(package.name) \(currentVersion)"
             case .unchanged:
                 continue
             }

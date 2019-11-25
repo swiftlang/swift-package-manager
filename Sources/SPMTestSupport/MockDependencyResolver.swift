@@ -63,7 +63,7 @@ extension PackageContainerConstraint {
         guard case let .dictionary(dict) = json else { fatalError() }
         guard case let .string(identifier)? = dict["identifier"] else { fatalError() }
         guard let requirement = dict["requirement"] else { fatalError() }
-        let id = PackageReference(identity: identifier.lowercased(), path: "")
+        let id = PackageReference(identity: identifier.lowercased(), path: "", kind: .remote)
         self.init(container: id, versionRequirement: VersionSetSpecifier(requirement))
     }
 }
@@ -140,11 +140,11 @@ public class MockPackageContainer: PackageContainer {
         var dependencies: [String: [Dependency]] = [:]
         for (version, deps) in dependenciesByVersion {
             dependencies[version.description] = deps.map({
-                let ref = PackageReference(identity: $0.container.lowercased(), path: "")
+                let ref = PackageReference(identity: $0.container.lowercased(), path: "/\($0.container)")
                 return (ref, .versionSet($0.versionRequirement))
             })
         }
-        let ref = PackageReference(identity: name.lowercased(), path: "")
+        let ref = PackageReference(identity: name.lowercased(), path: "/\(name)")
         self.init(name: ref, dependencies: dependencies)
     }
 

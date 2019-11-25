@@ -162,6 +162,7 @@ extension RepositoryPackageContainerProviderTests {
     // to regenerate.
     static let __allTests__RepositoryPackageContainerProviderTests = [
         ("testBasics", testBasics),
+        ("testDependencyConstraints", testDependencyConstraints),
         ("testPackageReference", testPackageReference),
         ("testPrereleaseVersions", testPrereleaseVersions),
         ("testSimultaneousVersions", testSimultaneousVersions),

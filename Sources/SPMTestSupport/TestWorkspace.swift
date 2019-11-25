@@ -82,11 +82,11 @@ public final class TestWorkspace {
 
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
-        func create(package: TestPackage, basePath: AbsolutePath, isRoot: Bool) throws {
+        func create(package: TestPackage, basePath: AbsolutePath, packageKind: PackageReference.Kind) throws {
             let packagePath = basePath.appending(RelativePath(package.path ?? package.name))
 
             let sourcesDir = packagePath.appending(component: "Sources")
-            let url = isRoot ? packagePath.pathString : self.url(for: package)
+            let url = (packageKind == .root ? packagePath : packagesDir.appending(RelativePath(package.path ?? package.name))).pathString
             let specifier = RepositorySpecifier(url: url)
             let manifestPath = packagePath.appending(component: Manifest.filename)
 
@@ -102,7 +102,7 @@ public final class TestWorkspace {
             try writeToolsVersion(at: packagePath, version: toolsVersion, fs: repo)
             repo.commit()
 
-            let versions: [String?] = isRoot ? [nil] : package.versions
+            let versions: [String?] = packageKind == .remote ? package.versions : [nil]
             for version in versions {
                 let v = version.flatMap(Version.init(string:))
                 manifests[.init(url: url, version: v)] = Manifest(
@@ -111,7 +111,8 @@ public final class TestWorkspace {
                     path: manifestPath,
                     url: url,
                     version: v,
-                    toolsVersion: .v4,
+                    toolsVersion: toolsVersion,
+                    packageKind: packageKind,
                     dependencies: package.dependencies.map({ $0.convert(baseURL: packagesDir) }),
                     products: package.products.map({ ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) }),
                     targets: package.targets.map({ $0.convert() })
@@ -126,12 +127,12 @@ public final class TestWorkspace {
 
         // Create root packages.
         for package in roots {
-            try create(package: package, basePath: rootsDir, isRoot: true)
+            try create(package: package, basePath: rootsDir, packageKind: .root)
         }
 
         // Create dependency packages.
         for package in packages {
-            try create(package: package, basePath: packagesDir, isRoot: false)
+            try create(package: package, basePath: packagesDir, packageKind: .remote)
         }
 
         self.manifestLoader = MockManifestLoader(manifests: manifests)

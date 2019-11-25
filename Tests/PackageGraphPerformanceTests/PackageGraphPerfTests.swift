@@ -41,6 +41,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 targets = [TargetDescription(name: name, dependencies: [.byName(name: "Foo\(pkg + 1)")], path: ".")]
             }
             // Create manifest.
+            let isRoot = pkg == 1
             let manifest = Manifest(
                 name: name,
                 platforms: [],
@@ -48,13 +49,14 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 url: url,
                 version: "1.0.0",
                 toolsVersion: .v4,
+                packageKind: isRoot ? .root : .remote,
                 dependencies: dependencies,
                 products: [
                     ProductDescription(name: name, targets: [name])
                 ],
                 targets: targets
             )
-            if pkg == 1 {
+            if isRoot {
                 rootManifests = [manifest]
             } else {
                 externalManifests.append(manifest)

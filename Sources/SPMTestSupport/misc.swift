@@ -163,36 +163,22 @@ public func executeSwiftBuild(
 }
 
 public func loadPackageGraph(
-    roots: [String],
     fs: FileSystem,
     diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
     manifests: [Manifest],
     createREPLProduct: Bool = false
 ) -> PackageGraph {
-    let input = PackageGraphRootInput(packages: roots.map({ AbsolutePath($0) }))
-    let rootManifests = manifests.filter({ roots.contains($0.path.parentDirectory.pathString) })
+    let rootManifests = manifests.filter({ $0.packageKind == .root })
+    let externalManifests = manifests.filter({ $0.packageKind != .root })
+    let packages = rootManifests.map({ $0.path })
+    let input = PackageGraphRootInput(packages: packages)
     let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests)
-    let externalManifests = manifests.filter({ !roots.contains($0.path.parentDirectory.pathString) })
 
     return PackageGraphLoader().load(
         root: graphRoot,
         externalManifests: externalManifests,
         diagnostics: diagnostics,
         fileSystem: fs,
-        createREPLProduct: createREPLProduct
-    )
-}
-
-public func loadPackageGraph(
-    root: String,
-    fs: FileSystem,
-    diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
-    manifests: [Manifest],
-    createREPLProduct: Bool = false
-) -> PackageGraph {
-    return loadPackageGraph(
-        roots: [root], fs: fs,
-        diagnostics: diagnostics, manifests: manifests,
         createREPLProduct: createREPLProduct
     )
 }

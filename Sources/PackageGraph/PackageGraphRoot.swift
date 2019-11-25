@@ -61,7 +61,7 @@ public struct PackageGraphRoot {
             return PackageReference(
                 identity: PackageReference.computeIdentity(packageURL: effectiveURL),
                 path: effectiveURL,
-                isLocal: (requirement == .localPackage)
+                kind: requirement == .localPackage ? .local : .remote
             )
         }
 
@@ -96,7 +96,7 @@ public struct PackageGraphRoot {
     public init(input: PackageGraphRootInput, manifests: [Manifest]) {
         self.packageRefs = zip(input.packages, manifests).map { (path, manifest) in
             let identity = PackageReference.computeIdentity(packageURL: manifest.url)
-            return PackageReference(identity: identity, path: path.pathString, isLocal: true)
+            return PackageReference(identity: identity, path: path.pathString, kind: .root)
         }
         self.manifests = manifests
         self.dependencies = input.dependencies

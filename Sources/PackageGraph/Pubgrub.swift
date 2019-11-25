@@ -842,8 +842,8 @@ public final class PubgrubDependencyResolver {
                     constraints.append(dependency)
                 case .unversioned:
                     throw DependencyResolverError.revisionDependencyContainsLocalPackage(
-                        dependency: package.identity,
-                        localPackage: dependency.identifier.identity
+                        dependency: package.name,
+                        localPackage: dependency.identifier.name
                     )
                 }
             }
@@ -898,7 +898,7 @@ public final class PubgrubDependencyResolver {
             identity: "<synthesized-root>",
             path: "<synthesized-root-path>",
             name: nil,
-            isLocal: true
+            kind: .root
         )
 
         self.root = root
@@ -1459,7 +1459,7 @@ private final class DiagnosticReportBuilder {
     }
 
     private func description(for term: Term, normalizeRange: Bool = false) -> String {
-        let name = term.package.name ?? term.package.lastPathComponent
+        let name = term.package.name
 
         switch term.requirement {
         case .any: return "every version of \(name)"

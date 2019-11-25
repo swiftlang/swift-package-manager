@@ -98,7 +98,7 @@ private struct LocalPackageContainer: PackageContainer {
             return PackageReference(
                 identity: identity,
                 path: manifest.path.pathString,
-                isLocal: true
+                kind: .root
             )
         }
     }

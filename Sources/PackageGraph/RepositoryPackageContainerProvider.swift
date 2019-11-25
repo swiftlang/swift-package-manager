@@ -62,7 +62,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         completion: @escaping (Result<PackageContainer, AnyError>) -> Void
     ) {
         // If the container is local, just create and return a local package container.
-        if identifier.isLocal {
+        if identifier.kind != .remote {
             callbacksQueue.async {
                 let container = LocalPackageContainer(identifier,
                     config: self.config,
@@ -107,7 +107,7 @@ extension PackageReference {
     ///
     /// This should only be accessed when the reference is not local.
     public var repository: RepositorySpecifier {
-        precondition(!isLocal)
+        precondition(kind == .remote)
         return RepositorySpecifier(url: path)
     }
 }
@@ -210,6 +210,7 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
             baseURL: identifier.path,
             version: nil,
             toolsVersion: toolsVersion,
+            packageKind: identifier.kind,
             fileSystem: fs)
         return _manifest!
     }
@@ -469,6 +470,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             baseURL: packageURL,
             version: version,
             toolsVersion: toolsVersion,
+            packageKind: identifier.kind,
             fileSystem: fs)
     }
 }

@@ -148,7 +148,8 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
     public init(json: JSON) throws {
         let name: String? = json.get("package")
         let url: String = try json.get("repositoryURL")
-        let ref = PackageReference(identity: PackageReference.computeIdentity(packageURL: url), path: url)
+        let identity = PackageReference.computeIdentity(packageURL: url)
+        let ref = PackageReference(identity: identity, path: url)
         self.packageRef = name.flatMap(ref.with(newName:)) ?? ref
         self.state = try json.get("state")
     }
