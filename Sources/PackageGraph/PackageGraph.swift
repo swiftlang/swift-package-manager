@@ -49,6 +49,9 @@ public struct PackageGraph {
         return rootPackages.contains(package)
     }
 
+    /// All root and root dependency packages provided as input to the graph.
+    public let inputPackages: [ResolvedPackage]
+
     /// Construct a package graph directly.
     public init(
         rootPackages: [ResolvedPackage],
@@ -57,7 +60,7 @@ public struct PackageGraph {
     ) {
         self.rootPackages = rootPackages
         self.requiredDependencies = requiredDependencies
-        let inputPackages = rootPackages + rootDependencies
+        self.inputPackages = rootPackages + rootDependencies
         self.packages = try! topologicalSort(inputPackages, successors: { $0.dependencies })
 
         allTargets = Set(packages.flatMap({ package -> [ResolvedTarget] in
@@ -80,26 +83,13 @@ public struct PackageGraph {
             }
         }))
 
-        // Compute the input targets.
-        let inputTargets = inputPackages.flatMap({ $0.targets }).map(ResolvedTarget.Dependency.target)
-        // Find all the dependencies of the root targets.
-        let dependencies = try! topologicalSort(inputTargets, successors: { $0.dependencies })
+        // Compute the reachable targets and products.
+        let inputTargets = inputPackages.flatMap { $0.targets }
+        let inputProducts = inputPackages.flatMap { $0.products }
+        let recursiveDependencies = inputTargets.lazy.flatMap { $0.recursiveDependencies() }
 
-        // Separate out the products and targets but maintain their topological order.
-        var reachableTargets: Set<ResolvedTarget> = []
-        var reachableProducts = Set(inputPackages.flatMap({ $0.products }))
-
-        for dependency in dependencies {
-            switch dependency {
-            case .target(let target):
-                reachableTargets.insert(target)
-            case .product(let product):
-                reachableProducts.insert(product)
-            }
-        }
-
-        self.reachableTargets = reachableTargets
-        self.reachableProducts = reachableProducts
+        self.reachableTargets = Set(inputTargets).union(recursiveDependencies.compactMap { $0.target })
+        self.reachableProducts = Set(inputProducts).union(recursiveDependencies.compactMap { $0.product })
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
@@ -119,7 +109,7 @@ public struct PackageGraph {
         for target in rootTargets where target.type == .executable {
             // Find all dependencies of this target within its package.
             let dependencies = try! topologicalSort(target.dependencies, successors: {
-                $0.dependencies.compactMap({ $0.target }).map(ResolvedTarget.Dependency.target)
+                $0.dependencies.compactMap { $0.target }.map { .target($0, conditions: []) }
             }).compactMap({ $0.target })
 
             // Include the test targets whose dependencies intersect with the

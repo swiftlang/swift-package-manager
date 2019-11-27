@@ -323,4 +323,70 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertFalse(project.mainGroup.subitems.contains { $0.path == "ignored_file" })
         }
     }
+
+    func testGenerateXcodeprojWarnsConditionalTargetDependencies() {
+        mktmpdir { dstdir in
+            let fooPackagePath = dstdir.appending(component: "Foo")
+            let fooTargetPath = fooPackagePath.appending(components: "Sources", "Foo")
+            try makeDirectories(fooTargetPath)
+            try localFileSystem.writeFileContents(fooTargetPath.appending(component: "Sources.swift"), bytes: "")
+
+            let barPackagePath = dstdir.appending(component: "Bar")
+            let bar1TargetPath = barPackagePath.appending(components: "Sources", "Bar1")
+            try makeDirectories(bar1TargetPath)
+            try localFileSystem.writeFileContents(bar1TargetPath.appending(component: "Sources.swift"), bytes: "")
+            let bar2TargetPath = barPackagePath.appending(components: "Sources", "Bar2")
+            try makeDirectories(bar2TargetPath)
+            try localFileSystem.writeFileContents(bar2TargetPath.appending(component: "Sources.swift"), bytes: "")
+
+            let diagnostics = DiagnosticsEngine()
+            let graph = loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
+                manifests: [
+                    Manifest.createV4Manifest(
+                        name: "Foo",
+                        path: fooPackagePath.pathString,
+                        url: fooPackagePath.pathString,
+                        dependencies: [
+                            PackageDependencyDescription(name: "Bar", url: barPackagePath.pathString, requirement: .localPackage)
+                        ],
+                        targets: [
+                            TargetDescription(name: "Foo", dependencies: [
+                                .product(name: "Bar", package: "Bar", condition: .init(platformNames: ["ios"]))
+                            ]),
+                        ]),
+                    Manifest.createV4Manifest(
+                        name: "Bar",
+                        path: barPackagePath.pathString,
+                        url: barPackagePath.pathString,
+                        packageKind: .remote,
+                        products: [
+                            ProductDescription(name: "Bar", targets: ["Bar1"])
+                        ],
+                        targets: [
+                            TargetDescription(name: "Bar1", dependencies: [
+                                .target(name: "Bar2", condition: .init(config: "debug"))
+                            ]),
+                            TargetDescription(name: "Bar2"),
+                        ])
+                ]
+            )
+
+            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: "Foo")
+            try Xcodeproj.generate(
+                projectName: "Foo",
+                xcodeprojPath: outpath,
+                graph: graph,
+                options: XcodeprojOptions(),
+                diagnostics: diagnostics)
+
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(
+                    diagnostic: .regex("""
+                        Xcode project generation does not support conditional target dependencies, so the generated \
+                        project might not build successfully. The offending targets are: (Foo, Bar1|Bar1, Foo).
+                        """),
+                    behavior: .warning)
+            }
+        }
+    }
 }

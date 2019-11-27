@@ -172,7 +172,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
         let productDependencies: Set<ResolvedProduct> = Set(package.targets.flatMap({ target in
             return target.dependencies.compactMap({ targetDependency in
                 switch targetDependency {
-                case .product(let product):
+                case .product(let product, _):
                     return product
                 case .target:
                     return nil
@@ -246,7 +246,14 @@ private func createResolvedPackages(
         // Establish dependencies between the targets. A target can only depend on another target present in the same package.
         let targetMap = targetBuilders.spm_createDictionary({ ($0.target, $0) })
         for targetBuilder in targetBuilders {
-            targetBuilder.dependencies += targetBuilder.target.dependencies.map({ targetMap[$0]! })
+            targetBuilder.dependencies += targetBuilder.target.dependencies.compactMap { dependency in
+                switch dependency {
+                case .target(let target, let conditions):
+                    return .target(targetMap[target]!, conditions: conditions)
+                case .product:
+                    return nil
+                }
+            }
         }
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
@@ -312,10 +319,10 @@ private func createResolvedPackages(
             foundDuplicateTarget = foundDuplicateTarget || !allTargetNames.insert(targetBuilder.target.name).inserted
 
             // Directly add all the system module dependencies.
-            targetBuilder.dependencies += implicitSystemTargetDeps
+            targetBuilder.dependencies += implicitSystemTargetDeps.map { .target($0, conditions: []) }
 
             // Establish product dependencies.
-            for productRef in targetBuilder.target.productDependencies {
+            for case .product(let productRef, let conditions) in targetBuilder.target.dependencies {
                 // Find the product in this package's dependency products.
                 guard let product = productDependencyMap[productRef.name] else {
                     // Only emit a diagnostic if there are no other diagnostics.
@@ -341,7 +348,7 @@ private func createResolvedPackages(
                     }
                 }
 
-                targetBuilder.productDeps.append(product)
+                targetBuilder.dependencies.append(.product(product, conditions: conditions))
             }
         }
     }
@@ -414,14 +421,21 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
 /// Builder for resolved target.
 private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
 
+    /// Enumeration to represent target dependencies.
+    enum Dependency {
+
+        /// Dependency to another target, with conditions.
+        case target(_ target: ResolvedTargetBuilder, conditions: [PackageConditionProtocol])
+
+        /// Dependency to a product, with conditions.
+        case product(_ product: ResolvedProductBuilder, conditions: [PackageConditionProtocol])
+    }
+
     /// The target reference.
     let target: Target
 
     /// The target dependencies of this target.
-    var dependencies: [ResolvedTargetBuilder] = []
-
-    /// The product dependencies of this target.
-    var productDeps: [ResolvedProductBuilder] = []
+    var dependencies: [Dependency] = []
 
     /// The diagnostics engine.
     let diagnostics: DiagnosticsEngine
@@ -445,24 +459,20 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     }
 
     override func constructImpl() -> ResolvedTarget {
-        var deps: [ResolvedTarget.Dependency] = []
-        for dependency in dependencies {
-            deps.append(.target(dependency.construct()))
-        }
-        for dependency in productDeps {
-            let product = dependency.construct()
-
-            if !dependency.packageBuilder.isAllowedToVendUnsafeProducts {
-                diagnoseInvalidUseOfUnsafeFlags(product)
+        let dependencies = self.dependencies.map { dependency -> ResolvedTarget.Dependency in
+            switch dependency {
+            case .target(let targetBuilder, let conditions):
+                return .target(targetBuilder.construct(), conditions: conditions)
+            case .product(let productBuilder, let conditions):
+                let product = productBuilder.construct()
+                if !productBuilder.packageBuilder.isAllowedToVendUnsafeProducts {
+                     diagnoseInvalidUseOfUnsafeFlags(product)
+                }
+                return .product(product, conditions: conditions)
             }
-
-            deps.append(.product(product))
         }
 
-        return ResolvedTarget(
-            target: target,
-            dependencies: deps
-        )
+        return ResolvedTarget(target: target, dependencies: dependencies)
     }
 }
 

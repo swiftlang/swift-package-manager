@@ -290,4 +290,33 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testConditionalTargetDependenciesUnavailable() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                dependencies: [
+                    .package(path: "/Baz"),
+                ],
+                targets: [
+                    .target(name: "Foo", dependencies: [
+                        .target(name: "Biz"),
+                        .target(name: "Bar", condition: .when(platforms: [.linux])),
+                    ]),
+                    .target(name: "Bar"),
+                ]
+            )
+            """
+
+        XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("\(error)")
+            }
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 999"))
+        }
+    }
 }

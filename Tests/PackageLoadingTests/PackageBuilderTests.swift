@@ -570,19 +570,19 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("TheTestOfA") { module in
                 module.check(c99name: "TheTestOfA", type: .test)
                 module.checkSources(root: "/Tests/TheTestOfA", paths: "Foo.swift")
-                module.check(dependencies: ["A"])
+                module.check(targetDependencies: ["A"])
             }
 
             package.checkModule("B") { module in
                 module.check(c99name: "B", type: .test)
                 module.checkSources(root: "/Tests/B", paths: "Foo.swift")
-                module.check(dependencies: [])
+                module.check(targetDependencies: [])
             }
 
             package.checkModule("ATests") { module in
                 module.check(c99name: "ATests", type: .test)
                 module.checkSources(root: "/Tests/ATests", paths: "Foo.swift")
-                module.check(dependencies: [])
+                module.check(targetDependencies: [])
             }
 
             package.checkProduct("FooPackageTests") { _ in }
@@ -647,7 +647,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("Foo") { module in
                 module.check(c99name: "Foo", type: .library)
                 module.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
-                module.check(dependencies: ["Bar"])
+                module.check(targetDependencies: ["Bar"])
             }
 
             for target in ["Bar", "Baz"] {
@@ -671,13 +671,13 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("Foo") { module in
                 module.check(c99name: "Foo", type: .library)
                 module.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
-                module.check(dependencies: ["Bar"])
+                module.check(targetDependencies: ["Bar"])
             }
 
             package.checkModule("Bar") { module in
                 module.check(c99name: "Bar", type: .library)
                 module.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
-                module.check(dependencies: ["Baz"])
+                module.check(targetDependencies: ["Baz"])
             }
 
             package.checkModule("Baz") { module in
@@ -710,8 +710,8 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("Foo") { module in
                 module.check(c99name: "Foo", type: .library)
                 module.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
-                module.check(dependencies: ["Bar", "Baz"])
-                module.check(productDeps: [(name: "Bam", package: nil)])
+                module.check(targetDependencies: ["Bar", "Baz"])
+                module.check(productDependencies: [.init(name: "Bam", package: nil)])
             }
 
             for target in ["Bar", "Baz"] {
@@ -1293,7 +1293,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("bar") { module in
                 module.check(c99name: "bar", type: .library)
                 module.checkSources(root: "/Sources/bar", paths: "bar.swift")
-                module.check(dependencies: ["foo"])
+                module.check(targetDependencies: ["foo"])
             }
             package.checkProduct("foo") { product in
                 product.check(type: .library(.automatic), targets: ["foo"])
@@ -1570,30 +1570,48 @@ class PackageBuilderTests: XCTestCase {
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("cbar") { package in
-                let scope = BuildSettings.Scope(package.target.buildSettings, boundCondition: (.macOS, .debug))
+                let scope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
                 XCTAssertEqual(scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS), ["CCC=2", "CXX"])
                 XCTAssertEqual(scope.evaluate(.HEADER_SEARCH_PATHS), ["Sources/headers", "Sources/cppheaders"])
                 XCTAssertEqual(scope.evaluate(.OTHER_CFLAGS), ["-Icfoo", "-L", "cbar"])
                 XCTAssertEqual(scope.evaluate(.OTHER_CPLUSPLUSFLAGS), ["-Icxxfoo", "-L", "cxxbar"])
 
-                let releaseScope = BuildSettings.Scope(package.target.buildSettings, boundCondition: (.macOS, .release))
+                let releaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
                 XCTAssertEqual(releaseScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS), ["CCC=2", "CXX", "RCXX"])
             }
 
             package.checkModule("bar") { package in
-                let scope = BuildSettings.Scope(package.target.buildSettings, boundCondition: (.linux, .debug))
+                let scope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
                 XCTAssertEqual(scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS), ["SOMETHING", "LINUX"])
                 XCTAssertEqual(scope.evaluate(.OTHER_SWIFT_FLAGS), ["-Isfoo", "-L", "sbar"])
 
-                let rscope = BuildSettings.Scope(package.target.buildSettings, boundCondition: (.linux, .release))
+                let rscope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .release)
+                )
                 XCTAssertEqual(rscope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS), ["SOMETHING", "LINUX", "RLINUX"])
 
-                let mscope = BuildSettings.Scope(package.target.buildSettings, boundCondition: (.macOS, .debug))
+                let mscope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
                 XCTAssertEqual(mscope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS), ["SOMETHING", "DMACOS"])
             }
 
             package.checkModule("exe") { package in
-                let scope = BuildSettings.Scope(package.target.buildSettings, boundCondition: (.linux, .debug))
+                let scope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
                 XCTAssertEqual(scope.evaluate(.LINK_LIBRARIES), ["sqlite3"])
                 XCTAssertEqual(scope.evaluate(.OTHER_LDFLAGS), ["-Ilfoo", "-L", "lbar"])
                 XCTAssertEqual(scope.evaluate(.LINK_FRAMEWORKS), [])
@@ -1601,7 +1619,10 @@ class PackageBuilderTests: XCTestCase {
                 XCTAssertEqual(scope.evaluate(.OTHER_CFLAGS), [])
                 XCTAssertEqual(scope.evaluate(.OTHER_CPLUSPLUSFLAGS), [])
 
-                let mscope = BuildSettings.Scope(package.target.buildSettings, boundCondition: (.iOS, .debug))
+                let mscope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .iOS, configuration: .debug)
+                )
                 XCTAssertEqual(mscope.evaluate(.LINK_LIBRARIES), ["sqlite3"])
                 XCTAssertEqual(mscope.evaluate(.LINK_FRAMEWORKS), ["CoreData"])
 
@@ -1682,6 +1703,71 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("Foo2")
             diagnostics.checkUnordered(diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo'", behavior: .warning)
             diagnostics.checkUnordered(diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo'", behavior: .warning)
+        }
+    }
+
+    func testConditionalDependencies() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/main.swift",
+            "/Sources/Bar/bar.swift",
+            "/Sources/Baz/baz.swift"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "Foo",
+            v: .v5,
+            dependencies: [
+                PackageDependencyDescription(name: nil, url: "/Biz", requirement: .localPackage),
+            ],
+            targets: [
+                TargetDescription(
+                    name: "Foo",
+                    dependencies: [
+                        .target(name: "Bar", condition: PackageConditionDescription(
+                            platformNames: ["macos"],
+                            config: nil
+                        )),
+                        .byName(name: "Baz", condition: PackageConditionDescription(
+                            platformNames: [],
+                            config: "debug"
+                        )),
+                        .product(name: "Biz", package: "Biz", condition: PackageConditionDescription(
+                            platformNames: ["watchos", "ios"],
+                            config: "release"
+                        )),
+                    ]
+                ),
+                TargetDescription(name: "Bar"),
+                TargetDescription(name: "Baz"),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkProduct("Foo")
+            package.checkModule("Bar")
+            package.checkModule("Baz")
+            package.checkModule("Foo") { target in
+                target.check(dependencies: ["Bar", "Baz", "Biz"])
+
+                target.checkDependency("Bar") { result in
+                    result.checkConditions(satisfy: .init(platform: .macOS, configuration: .debug))
+                    result.checkConditions(satisfy: .init(platform: .macOS, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .watchOS, configuration: .release))
+                }
+
+                target.checkDependency("Baz") { result in
+                    result.checkConditions(satisfy: .init(platform: .macOS, configuration: .debug))
+                    result.checkConditions(satisfy: .init(platform: .linux, configuration: .debug))
+                    result.checkConditions(dontSatisfy: .init(platform: .linux, configuration: .release))
+                }
+
+                target.checkDependency("Biz") { result in
+                    result.checkConditions(satisfy: .init(platform: .watchOS, configuration: .release))
+                    result.checkConditions(satisfy: .init(platform: .iOS, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .linux, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .iOS, configuration: .debug))
+                }
+            }
         }
     }
 }
@@ -1836,20 +1922,47 @@ final class PackageBuilderTester {
             checkSources(root: root, sources: paths, file: file, line: line)
         }
 
-        func check(dependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(Set(depsToCheck), Set(target.dependencies.map{$0.name}), "unexpected dependencies in \(target.name)", file: file, line: line)
+        func check(targetDependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(Set(depsToCheck), Set(target.dependencies.compactMap { $0.target?.name }), "unexpected dependencies in \(target.name)", file: file, line: line)
         }
 
-        func check(productDeps depsToCheck: [(name: String, package: String?)], file: StaticString = #file, line: UInt = #line) {
-            guard depsToCheck.count == target.productDependencies.count else {
+        func check(
+            productDependencies depsToCheck: [Target.ProductReference],
+            file: StaticString = #file,
+            line: UInt = #line
+        ) {
+            let productDependencies = target.dependencies.compactMap { $0.product }
+            guard depsToCheck.count == productDependencies.count else {
                 return XCTFail("Incorrect product dependencies", file: file, line: line)
             }
             for (idx, element) in depsToCheck.enumerated() {
-                let rhs = target.productDependencies[idx]
+                let rhs = productDependencies[idx]
                 guard element.name == rhs.name && element.package == rhs.package else {
                     return XCTFail("Incorrect product dependencies", file: file, line: line)
                 }
             }
+        }
+
+        func check(dependencies: [String], file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(
+                Set(dependencies),
+                Set(target.dependencies.map({ $0.name })),
+                "unexpected dependencies in \(target.name)",
+                file: file,
+                line: line
+            )
+        }
+
+        func checkDependency(
+            _ name: String,
+            file: StaticString = #file,
+            line: UInt = #line,
+            _ body: (ModuleDependencyResult) -> Void
+        ) {
+            guard let dependency = target.dependencies.first(where: { $0.name == name }) else {
+                return XCTFail("Module: \(name) not found", file: file, line: line)
+            }
+            body(ModuleDependencyResult(dependency))
         }
 
         func check(swiftVersion: String, file: StaticString = #file, line: UInt = #line) {
@@ -1862,6 +1975,26 @@ final class PackageBuilderTester {
         func checkPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
             let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.map({ ($0.platform.name, $0.version.versionString) }))
             XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
+        }
+    }
+
+    final class ModuleDependencyResult {
+        let dependency: PackageModel.Target.Dependency
+
+        fileprivate init(_ dependency: PackageModel.Target.Dependency) {
+            self.dependency = dependency
+        }
+
+        func checkConditions(satisfy environment: BuildEnvironment, file: StaticString = #file, line: UInt = #line) {
+            XCTAssert(dependency.conditions.allSatisfy { $0.satisfies(environment) }, file: file, line: line)
+        }
+
+        func checkConditions(
+            dontSatisfy environment: BuildEnvironment,
+            file: StaticString = #file,
+            line: UInt = #line
+        ) {
+            XCTAssert(!dependency.conditions.allSatisfy { $0.satisfies(environment) }, file: file, line: line)
         }
     }
 }

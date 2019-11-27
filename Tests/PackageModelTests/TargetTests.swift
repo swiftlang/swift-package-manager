@@ -19,7 +19,7 @@ private extension ResolvedTarget {
             target: SwiftTarget(
                 name: name, isTest: false, 
                 sources: Sources(paths: [], root: AbsolutePath("/")), dependencies: [], swiftVersion: .v4),
-            dependencies: deps.map(ResolvedTarget.Dependency.target))
+            dependencies: deps.map { .target($0, conditions: []) })
     }
 }
 
@@ -39,8 +39,8 @@ class TargetDependencyTests: XCTestCase {
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2)
 
-            XCTAssertEqual(t3.recursiveDeps, [t2, t1])
-            XCTAssertEqual(t2.recursiveDeps, [t1])
+            XCTAssertEqual(t3.recursiveTargetDependencies(), [t2, t1])
+            XCTAssertEqual(t2.recursiveTargetDependencies(), [t1])
         }
     }
 
@@ -51,9 +51,9 @@ class TargetDependencyTests: XCTestCase {
             let t3 = ResolvedTarget(name: "t3", deps: t2, t1)
             let t4 = ResolvedTarget(name: "t4", deps: t2, t3, t1)
 
-            XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])
-            XCTAssertEqual(t3.recursiveDeps, [t2, t1])
-            XCTAssertEqual(t2.recursiveDeps, [t1])
+            XCTAssertEqual(t4.recursiveTargetDependencies(), [t3, t2, t1])
+            XCTAssertEqual(t3.recursiveTargetDependencies(), [t2, t1])
+            XCTAssertEqual(t2.recursiveTargetDependencies(), [t1])
         }
     }
 
@@ -64,9 +64,9 @@ class TargetDependencyTests: XCTestCase {
             let t3 = ResolvedTarget(name: "t3", deps: t2, t1)
             let t4 = ResolvedTarget(name: "t4", deps: t1, t2, t3)
 
-            XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])
-            XCTAssertEqual(t3.recursiveDeps, [t2, t1])
-            XCTAssertEqual(t2.recursiveDeps, [t1])
+            XCTAssertEqual(t4.recursiveTargetDependencies(), [t3, t2, t1])
+            XCTAssertEqual(t3.recursiveTargetDependencies(), [t2, t1])
+            XCTAssertEqual(t2.recursiveTargetDependencies(), [t1])
         }
     }
 
@@ -77,9 +77,9 @@ class TargetDependencyTests: XCTestCase {
             let t3 = ResolvedTarget(name: "t3", deps: t2)
             let t4 = ResolvedTarget(name: "t4", deps: t3)
 
-            XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])
-            XCTAssertEqual(t3.recursiveDeps, [t2, t1])
-            XCTAssertEqual(t2.recursiveDeps, [t1])
+            XCTAssertEqual(t4.recursiveTargetDependencies(), [t3, t2, t1])
+            XCTAssertEqual(t3.recursiveTargetDependencies(), [t2, t1])
+            XCTAssertEqual(t2.recursiveTargetDependencies(), [t1])
         }
     }
 
@@ -93,17 +93,17 @@ class TargetDependencyTests: XCTestCase {
             let t6 = ResolvedTarget(name: "t6", deps: t5, t4)
 
             // precise order is not important, but it is important that the following are true
-            let t6rd = t6.recursiveDeps
+            let t6rd = t6.recursiveTargetDependencies()
             XCTAssertEqual(t6rd.firstIndex(of: t3)!, t6rd.index(after: t6rd.firstIndex(of: t4)!))
             XCTAssert(t6rd.firstIndex(of: t5)! < t6rd.firstIndex(of: t2)!)
             XCTAssert(t6rd.firstIndex(of: t5)! < t6rd.firstIndex(of: t1)!)
             XCTAssert(t6rd.firstIndex(of: t2)! < t6rd.firstIndex(of: t1)!)
             XCTAssert(t6rd.firstIndex(of: t3)! < t6rd.firstIndex(of: t2)!)
 
-            XCTAssertEqual(t5.recursiveDeps, [t2, t1])
-            XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])
-            XCTAssertEqual(t3.recursiveDeps, [t2, t1])
-            XCTAssertEqual(t2.recursiveDeps, [t1])
+            XCTAssertEqual(t5.recursiveTargetDependencies(), [t2, t1])
+            XCTAssertEqual(t4.recursiveTargetDependencies(), [t3, t2, t1])
+            XCTAssertEqual(t3.recursiveTargetDependencies(), [t2, t1])
+            XCTAssertEqual(t2.recursiveTargetDependencies(), [t1])
         }
     }
 
@@ -117,26 +117,17 @@ class TargetDependencyTests: XCTestCase {
             let t6 = ResolvedTarget(name: "t6", deps: t4, t5) // same as above, but these two swapped
 
             // precise order is not important, but it is important that the following are true
-            let t6rd = t6.recursiveDeps
+            let t6rd = t6.recursiveTargetDependencies()
             XCTAssertEqual(t6rd.firstIndex(of: t3)!, t6rd.index(after: t6rd.firstIndex(of: t4)!))
             XCTAssert(t6rd.firstIndex(of: t5)! < t6rd.firstIndex(of: t2)!)
             XCTAssert(t6rd.firstIndex(of: t5)! < t6rd.firstIndex(of: t1)!)
             XCTAssert(t6rd.firstIndex(of: t2)! < t6rd.firstIndex(of: t1)!)
             XCTAssert(t6rd.firstIndex(of: t3)! < t6rd.firstIndex(of: t2)!)
 
-            XCTAssertEqual(t5.recursiveDeps, [t2, t1])
-            XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])
-            XCTAssertEqual(t3.recursiveDeps, [t2, t1])
-            XCTAssertEqual(t2.recursiveDeps, [t1])
+            XCTAssertEqual(t5.recursiveTargetDependencies(), [t2, t1])
+            XCTAssertEqual(t4.recursiveTargetDependencies(), [t3, t2, t1])
+            XCTAssertEqual(t3.recursiveTargetDependencies(), [t2, t1])
+            XCTAssertEqual(t2.recursiveTargetDependencies(), [t1])
         }
-    }
-}
-
-private extension ResolvedTarget {
-    var recursiveDeps: [ResolvedTarget] {
-        return try! topologicalSort(self.dependencies, successors: { $0.dependencies }).compactMap({
-            guard case .target(let target) = $0 else { return nil }
-            return target
-        })
     }
 }

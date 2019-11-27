@@ -536,14 +536,14 @@ public final class PackageBuilder {
             guard let target = self.manifest.targetMap[$0.name] else { return [] }
             return target.dependencies.compactMap({
                 switch $0 {
-                case .target(let name):
+                case .target(let name, _):
                     // Since we already checked above that all referenced targets
                     // has to present, we always expect this target to be present in
                     // potentialModules dictionary.
                     return potentialModuleMap[name]!
                 case .product:
                     return nil
-                case .byName(let name):
+                case .byName(let name, _):
                     // By name dependency may or may not be a target dependency.
                     return potentialModuleMap[name]
                 }
@@ -565,48 +565,49 @@ public final class PackageBuilder {
         for potentialModule in potentialModules.lazy.reversed() {
             // Validate the target name.  This function will throw an error if it detects a problem.
             try validateModuleName(potentialModule.path, potentialModule.name, isTest: potentialModule.isTest)
-            // Get the intra-package dependencies of this target.
-            let deps: [Target] = manifest.targetMap[potentialModule.name].map({
-                $0.dependencies.compactMap({
-                    switch $0 {
-                    case .target(let name):
-                        // We don't create an object for targets which have no sources.
-                        if emptyModules.contains(name) { return nil }
-                        return targets[name]!
-
-                    case .byName(let name):
-                        // We don't create an object for targets which have no sources.
-                        if emptyModules.contains(name) { return nil }
-                        return targets[name]
-
-                    case .product: return nil
-                    }
-                })
-            }) ?? []
 
             // Get the target from the manifest.
             let manifestTarget = manifest.targetMap[potentialModule.name]
 
-            // Figure out the product dependencies.
-            let productDeps: [(String, String?)]
-            productDeps = manifestTarget?.dependencies.compactMap({
-                switch $0 {
-                case .target:
-                    return nil
-                case .byName(let name):
-                    // If this dependency was not found locally, it is a product dependency.
-                    return potentialModuleMap[name] == nil ? (name, nil) : nil
-                case .product(let name, let package):
-                    return (name, package)
+            // Get the dependencies of this target.
+            let dependencies: [Target.Dependency] = manifestTarget.map {
+                $0.dependencies.compactMap { dependency in
+                    switch dependency {
+                    case .target(let name, let condition):
+                        // We don't create an object for targets which have no sources.
+                        if emptyModules.contains(name) { return nil }
+                        guard let target = targets[name] else { return nil }
+                        return .target(target, conditions: buildConditions(from: condition))
+
+                    case .product(let name, let package, let condition):
+                        return .product(
+                            .init(name: name, package: package),
+                            conditions: buildConditions(from: condition)
+                        )
+
+                    case .byName(let name, let condition):
+                        // We don't create an object for targets which have no sources.
+                        if emptyModules.contains(name) { return nil }
+                        if let target = targets[name] {
+                            return .target(target, conditions: buildConditions(from: condition))
+                        } else if potentialModuleMap[name] == nil {
+                            return .product(
+                                .init(name: name, package: nil),
+                                conditions: buildConditions(from: condition)
+                            )
+                        } else {
+                            return nil
+                        }
+                    }
                 }
-            }) ?? []
+            } ?? []
 
             // Create the target.
             let target = try createTarget(
                 potentialModule: potentialModule,
                 manifestTarget: manifestTarget,
-                moduleDependencies: deps,
-                productDeps: productDeps)
+                dependencies: dependencies
+            )
             // Add the created target to the map or print no sources warning.
             if let createdTarget = target {
                 targets[createdTarget.name] = createdTarget
@@ -632,8 +633,7 @@ public final class PackageBuilder {
     private func createTarget(
         potentialModule: PotentialModule,
         manifestTarget: TargetDescription?,
-        moduleDependencies: [Target],
-        productDeps: [(name: String, package: String?)]
+        dependencies: [Target.Dependency]
     ) throws -> Target? {
         guard let manifestTarget = manifestTarget else { return nil }
 
@@ -663,7 +663,7 @@ public final class PackageBuilder {
         }
 
         // Check for duplicate target dependencies by name
-        let combinedDependencyNames = moduleDependencies.map { $0.name } + productDeps.map { $0.0 }
+        let combinedDependencyNames = dependencies.map { $0.target?.name ?? $0.product!.name }
         combinedDependencyNames.spm_findDuplicates().forEach {
             diagnostics.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name))
         }
@@ -714,8 +714,7 @@ public final class PackageBuilder {
                 isTest: potentialModule.isTest,
                 sources: sources,
                 resources: resources,
-                dependencies: moduleDependencies,
-                productDependencies: productDeps,
+                dependencies: dependencies,
                 swiftVersion: try swiftVersion(),
                 buildSettings: buildSettings
             )
@@ -730,8 +729,7 @@ public final class PackageBuilder {
                 isTest: potentialModule.isTest,
                 sources: sources,
                 resources: resources,
-                dependencies: moduleDependencies,
-                productDependencies: productDeps,
+                dependencies: dependencies,
                 buildSettings: buildSettings
             )
         }
@@ -805,23 +803,29 @@ public final class PackageBuilder {
             // Create an assignment for this setting.
             var assignment = BuildSettings.Assignment()
             assignment.value = setting.value
-
-            if let config = setting.condition?.config.map({ BuildConfiguration(rawValue: $0)! }) {
-                let condition = BuildSettings.ConfigurationCondition(config)
-                assignment.conditions.append(condition)
-            }
-
-            if let platforms = setting.condition?.platformNames.map({ platformRegistry.platformByName[$0]! }), !platforms.isEmpty {
-                var condition = BuildSettings.PlatformsCondition()
-                condition.platforms = platforms
-                assignment.conditions.append(condition)
-            }
+            assignment.conditions = buildConditions(from: setting.condition)
 
             // Finally, add the assignment to the assignment table.
             table.add(assignment, for: decl)
         }
 
         return table
+    }
+
+    func buildConditions(from condition: PackageConditionDescription?) -> [PackageConditionProtocol] {
+        var conditions: [PackageConditionProtocol] = []
+
+        if let config = condition?.config.map({ BuildConfiguration(rawValue: $0)! }) {
+            let condition = ConfigurationCondition(configuration: config)
+            conditions.append(condition)
+        }
+
+        if let platforms = condition?.platformNames.map({ platformRegistry.platformByName[$0]! }), !platforms.isEmpty {
+            let condition = PlatformsCondition(platforms: platforms)
+            conditions.append(condition)
+        }
+
+        return conditions
     }
 
     /// Returns the list of platforms supported by the manifest.
@@ -1132,7 +1136,7 @@ private extension Manifest {
         let names = allRequiredTargets.flatMap({ target in
             [target.name] + target.dependencies.compactMap({
                 switch $0 {
-                case .target(let name):
+                case .target(let name, _):
                     return name
                 case .byName, .product:
                     return nil

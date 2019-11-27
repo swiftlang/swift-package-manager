@@ -15,16 +15,26 @@ public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProt
 
     /// Represents dependency of a resolved target.
     public enum Dependency: Hashable {
+        public static func == (lhs: ResolvedTarget.Dependency, rhs: ResolvedTarget.Dependency) -> Bool {
+            switch (lhs, rhs) {
+            case (.target(let lhsTarget, _), .target(let rhsTarget, _)):
+                return lhsTarget == rhsTarget
+            case (.product(let lhsProduct, _), .product(let rhsProduct, _)):
+                return lhsProduct == rhsProduct
+            case (.product, .target), (.target, .product):
+                return false
+            }
+        }
 
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
-        case target(ResolvedTarget)
+        case target(_ target: ResolvedTarget, conditions: [PackageConditionProtocol])
 
         /// The target depends on this product.
-        case product(ResolvedProduct)
+        case product(_ product: ResolvedProduct, conditions: [PackageConditionProtocol])
 
         public var target: ResolvedTarget? {
             switch self {
-            case .target(let target): return target
+            case .target(let target, _): return target
             case .product: return nil
             }
         }
@@ -32,8 +42,28 @@ public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProt
         public var product: ResolvedProduct? {
             switch self {
             case .target: return nil
-            case .product(let product): return product
+            case .product(let product, _): return product
             }
+        }
+
+        public var conditions: [PackageConditionProtocol] {
+            switch self {
+            case .target(_, let conditions): return conditions
+            case .product(_, let conditions): return conditions
+            }
+        }
+
+        public func hash(into hasher: inout Hasher) {
+            switch self {
+            case .target(let target, _):
+                hasher.combine(target)
+            case .product(let product, _):
+                hasher.combine(product)
+            }
+        }
+
+        public func satisfies(_ environment: BuildEnvironment) -> Bool {
+            conditions.allSatisfy { $0.satisfies(environment) }
         }
     }
 
@@ -48,16 +78,33 @@ public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProt
     /// The dependencies of this target.
     public let dependencies: [Dependency]
 
-    /// Returns the recursive dependencies filtered by the given platform, if present.
-    public func recursiveDependencies() -> [ResolvedTarget] {
-        return try! topologicalSort(self.dependencies, successors: {
-            switch $0 {
-            case .target(let target):
-                return target.dependencies
-            case .product(let product):
-                return product.targets.map(ResolvedTarget.Dependency.target)
-            }
-        }).compactMap({ $0.target })
+    /// Returns the recursive dependencies.
+    public func recursiveDependencies() -> [Dependency] {
+        return try! topologicalSort(self.dependencies, successors: { $0.dependencies })
+    }
+
+    /// Returns the recursive target dependencies.
+    public func recursiveTargetDependencies() -> [ResolvedTarget] {
+        return recursiveDependencies().compactMap { $0.target }
+    }
+
+    /// Returns dependencies which satisfy the input build environment, based on their conditions.
+    /// - Parameters:
+    ///     - environment: The build environmen to use to filter dependencies on.
+    public func buildDependencies(in environment: BuildEnvironment) -> [Dependency] {
+        return dependencies.filter { $0.satisfies(environment) }
+    }
+
+    /// Returns the recursive dependencies which satisfy the input build environment, based on their conditions.
+    public func recursiveBuildDependencies(in environment: BuildEnvironment) -> [Dependency] {
+        return try! topologicalSort(buildDependencies(in: environment), successors: { dependency in
+            return dependency.dependencies.filter { $0.satisfies(environment) }
+        })
+    }
+
+    /// Returns the recursive target dependencies which satisfy the input build environment, based on their conditions.
+    public func recursiveBuildTargetDependencies(in environment: BuildEnvironment) -> [ResolvedTarget] {
+        return recursiveBuildDependencies(in: environment).compactMap { $0.target }
     }
 
     /// The language-level target name.
@@ -169,9 +216,9 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
 
         self.linuxMainTarget = underlyingProduct.linuxMain.map({ linuxMain in
             // Create an exectutable resolved target with the linux main, adding product's targets as dependencies.
-            let swiftTarget = SwiftTarget(
-                linuxMain: linuxMain, name: product.name, dependencies: product.targets)
-            return ResolvedTarget(target: swiftTarget, dependencies: targets.map(ResolvedTarget.Dependency.target))
+            let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
+            let swiftTarget = SwiftTarget(linuxMain: linuxMain, name: product.name, dependencies: dependencies)
+            return ResolvedTarget(target: swiftTarget, dependencies: targets.map { .target($0, conditions: []) })
         })
     }
 
@@ -197,10 +244,10 @@ extension ResolvedTarget.Dependency: CustomStringConvertible {
     /// Returns the dependencies of the underlying dependency.
     public var dependencies: [ResolvedTarget.Dependency] {
         switch self {
-        case .target(let target):
+        case .target(let target, _):
             return target.dependencies
-        case .product(let product):
-            return product.targets.map(ResolvedTarget.Dependency.target)
+        case .product(let product, _):
+            return product.targets.map { .target($0, conditions: []) }
         }
     }
 
@@ -209,9 +256,9 @@ extension ResolvedTarget.Dependency: CustomStringConvertible {
     public var description: String {
         var str = "<ResolvedTarget.Dependency: "
         switch self {
-        case .product(let p):
+        case .product(let p, _):
             str += p.description
-        case .target(let t):
+        case .target(let t, _):
             str += t.description
         }
         str += ">"

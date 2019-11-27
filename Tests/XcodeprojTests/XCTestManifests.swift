@@ -20,6 +20,7 @@ extension GenerateXcodeprojTests {
     // to regenerate.
     static let __allTests__GenerateXcodeprojTests = [
         ("testBuildXcodeprojPath", testBuildXcodeprojPath),
+        ("testGenerateXcodeprojWarnsConditionalTargetDependencies", testGenerateXcodeprojWarnsConditionalTargetDependencies),
         ("testGenerateXcodeprojWithDotFiles", testGenerateXcodeprojWithDotFiles),
         ("testGenerateXcodeprojWithFilesIgnoredByGit", testGenerateXcodeprojWithFilesIgnoredByGit),
         ("testGenerateXcodeprojWithInvalidModuleNames", testGenerateXcodeprojWithInvalidModuleNames),

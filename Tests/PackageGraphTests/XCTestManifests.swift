@@ -31,6 +31,7 @@ extension PackageGraphTests {
     // to regenerate.
     static let __allTests__PackageGraphTests = [
         ("testBasic", testBasic),
+        ("testConditionalTargetDependency", testConditionalTargetDependency),
         ("testCycle2", testCycle2),
         ("testCycle", testCycle),
         ("testDuplicateInterPackageTargetNames", testDuplicateInterPackageTargetNames),

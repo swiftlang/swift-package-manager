@@ -86,6 +86,11 @@ public struct BuildParameters: Encodable {
     /// module to finish building.
     public var emitSwiftModuleSeparately: Bool
 
+    /// The current build environment.
+    public var buildEnvironment: BuildEnvironment {
+        BuildEnvironment(platform: currentPlatform, configuration: configuration)
+    }
+
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,

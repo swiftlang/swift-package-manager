@@ -587,7 +587,7 @@ public struct TestTarget {
         case .regular:
             return TargetDescription(
                 name: name,
-                dependencies: dependencies.map({ .byName(name: $0) }),
+                dependencies: dependencies.map { .byName(name: $0, condition: nil) },
                 path: path,
                 exclude: [],
                 sources: nil,
@@ -597,7 +597,7 @@ public struct TestTarget {
         case .test:
             return TargetDescription(
                 name: name,
-                dependencies: dependencies.map({ .byName(name: $0) }),
+                dependencies: dependencies.map { .byName(name: $0, condition: nil) },
                 path: path,
                 exclude: [],
                 sources: nil,
@@ -607,7 +607,7 @@ public struct TestTarget {
         case .binary:
             return TargetDescription(
                 name: name,
-                dependencies: dependencies.map({ .byName(name: $0) }),
+                dependencies: dependencies.map { .byName(name: $0, condition: nil) },
                 path: path,
                 url: url,
                 exclude: [],

@@ -392,14 +392,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             for targetDependency in target.dependencies {
                 // If this is a target dependency (or byName that references a target), we don't need to check.
                 if case .target = targetDependency { continue }
-                if case .byName(let name) = targetDependency, manifest.targetMap.keys.contains(name) { continue }
+                if case .byName(let name, _) = targetDependency, manifest.targetMap.keys.contains(name) { continue }
 
                 // If we can't find the package dependency it references, the manifest is invalid.
                 if manifest.packageDependency(referencedBy: targetDependency) == nil {
                     let packageName: String
                     switch targetDependency {
-                    case .product(_, package: let name?),
-                         .byName(let name):
+                    case .product(_, package: let name?, _),
+                         .byName(let name, _):
                         packageName = name
                     default:
                         fatalError("Invalid case: this shouldn't be a target, or a product with no name")

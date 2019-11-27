@@ -78,9 +78,9 @@ final class WorkspaceTests: XCTestCase {
                 result.check(packages: "Baz", "Foo", "Quix")
                 result.check(targets: "Bar", "Baz", "Foo", "Quix")
                 result.check(testModules: "BarTests")
-                result.check(dependencies: "Bar", target: "Foo")
-                result.check(dependencies: "Baz", target: "Bar")
-                result.check(dependencies: "Bar", target: "BarTests")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Bar") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+                result.checkTarget("BarTests") { result in result.check(dependencies: "Bar") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -213,8 +213,8 @@ final class WorkspaceTests: XCTestCase {
             PackageGraphTester(graph) { result in
                 result.check(roots: "Bar", "Foo")
                 result.check(packages: "Bar", "Baz", "Foo")
-                result.check(dependencies: "Baz", target: "Foo")
-                result.check(dependencies: "Baz", target: "Bar")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -278,7 +278,7 @@ final class WorkspaceTests: XCTestCase {
             PackageGraphTester(graph) { result in
                 result.check(roots: "Bar", "Foo", "Baz")
                 result.check(packages: "Bar", "Baz", "Foo")
-                result.check(dependencies: "Baz", target: "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -347,7 +347,7 @@ final class WorkspaceTests: XCTestCase {
             PackageGraphTester(graph) { result in
                 result.check(packages: "Bar", "Foo")
                 result.check(targets: "Bar", "Foo")
-                result.check(dependencies: "Bar", target: "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Bar") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -447,7 +447,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(roots: "Baz", "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(targets: "BazA", "BazB", "Foo")
-                result.check(dependencies: "BazAB", target: "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "BazAB") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -508,7 +508,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(targets: "Baz", "Foo")
-                result.check(dependencies: "Baz", target: "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -525,7 +525,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(roots: "Baz", "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(targets: "BazA", "BazB", "Foo")
-                result.check(dependencies: "Baz", target: "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -589,7 +589,7 @@ final class WorkspaceTests: XCTestCase {
             PackageGraphTester(graph) { result in
                 result.check(packages: "Bar", "Foo")
                 result.check(targets: "Bar", "Foo")
-                result.check(dependencies: "Bar", target: "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Bar") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -656,7 +656,7 @@ final class WorkspaceTests: XCTestCase {
                 PackageGraphTester(graph) { result in
                     result.check(packages: "A", "AA")
                     result.check(targets: "A", "AA")
-                    result.check(dependencies: "AA", target: "A")
+                    result.checkTarget("A") { result in result.check(dependencies: "AA") }
                 }
                 XCTAssertNoDiagnostics(diagnostics)
             }
@@ -677,7 +677,7 @@ final class WorkspaceTests: XCTestCase {
             ]
             workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
                 PackageGraphTester(graph) { result in
-                    result.check(dependencies: "AA", target: "A")
+                    result.checkTarget("A") { result in result.check(dependencies: "AA") }
                 }
                 XCTAssertNoDiagnostics(diagnostics)
             }
@@ -2683,9 +2683,9 @@ final class WorkspaceTests: XCTestCase {
                 result.check(packages: "Bar", "Baz", "Foo")
                 result.check(targets: "Bar", "Baz", "Foo")
                 result.check(testModules: "FooTests")
-                result.check(dependencies: "Bar", target: "Baz")
-                result.check(dependencies: "Baz", "Bar", target: "Foo")
-                result.check(dependencies: "Foo", target: "FooTests")
+                result.checkTarget("Baz") { result in result.check(dependencies: "Bar") }
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz", "Bar") }
+                result.checkTarget("FooTests") { result in result.check(dependencies: "Foo") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
