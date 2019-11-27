@@ -1527,30 +1527,48 @@ class PackageBuilderTests: XCTestCase {
 
         PackageBuilderTester(manifest, in: fs) { result in
             result.checkModule("cbar") { result in
-                let scope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.macOS, .debug))
+                let scope = BuildSettings.Scope(
+                    result.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
                 XCTAssertEqual(scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS), ["CCC=2", "CXX"])
                 XCTAssertEqual(scope.evaluate(.HEADER_SEARCH_PATHS), ["Sources/headers", "Sources/cppheaders"])
                 XCTAssertEqual(scope.evaluate(.OTHER_CFLAGS), ["-Icfoo", "-L", "cbar"])
                 XCTAssertEqual(scope.evaluate(.OTHER_CPLUSPLUSFLAGS), ["-Icxxfoo", "-L", "cxxbar"])
 
-                let releaseScope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.macOS, .release))
+                let releaseScope = BuildSettings.Scope(
+                    result.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
                 XCTAssertEqual(releaseScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS), ["CCC=2", "CXX", "RCXX"])
             }
 
             result.checkModule("bar") { result in
-                let scope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.linux, .debug))
+                let scope = BuildSettings.Scope(
+                    result.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
                 XCTAssertEqual(scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS), ["SOMETHING", "LINUX"])
                 XCTAssertEqual(scope.evaluate(.OTHER_SWIFT_FLAGS), ["-Isfoo", "-L", "sbar"])
 
-                let rscope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.linux, .release))
+                let rscope = BuildSettings.Scope(
+                    result.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .release)
+                )
                 XCTAssertEqual(rscope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS), ["SOMETHING", "LINUX", "RLINUX"])
 
-                let mscope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.macOS, .debug))
+                let mscope = BuildSettings.Scope(
+                    result.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
                 XCTAssertEqual(mscope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS), ["SOMETHING", "DMACOS"])
             }
 
             result.checkModule("exe") { result in
-                let scope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.linux, .debug))
+                let scope = BuildSettings.Scope(
+                    result.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
                 XCTAssertEqual(scope.evaluate(.LINK_LIBRARIES), ["sqlite3"])
                 XCTAssertEqual(scope.evaluate(.OTHER_LDFLAGS), ["-Ilfoo", "-L", "lbar"])
                 XCTAssertEqual(scope.evaluate(.LINK_FRAMEWORKS), [])
@@ -1558,7 +1576,10 @@ class PackageBuilderTests: XCTestCase {
                 XCTAssertEqual(scope.evaluate(.OTHER_CFLAGS), [])
                 XCTAssertEqual(scope.evaluate(.OTHER_CPLUSPLUSFLAGS), [])
 
-                let mscope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.iOS, .debug))
+                let mscope = BuildSettings.Scope(
+                    result.target.buildSettings,
+                    environment: BuildEnvironment(platform: .iOS, configuration: .debug)
+                )
                 XCTAssertEqual(mscope.evaluate(.LINK_LIBRARIES), ["sqlite3"])
                 XCTAssertEqual(mscope.evaluate(.LINK_FRAMEWORKS), ["CoreData"])
 

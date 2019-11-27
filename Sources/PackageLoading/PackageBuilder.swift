@@ -526,14 +526,14 @@ public final class PackageBuilder {
             guard let target = targetMap[$0.name] else { return [] }
             return target.dependencies.compactMap({
                 switch $0 {
-                case .target(let name):
+                case .target(let name, _):
                     // Since we already checked above that all referenced targets
                     // has to present, we always expect this target to be present in
                     // potentialModules dictionary.
                     return potentialModuleMap[name]!
                 case .product:
                     return nil
-                case .byName(let name):
+                case .byName(let name, _):
                     // By name dependency may or may not be a target dependency.
                     return potentialModuleMap[name]
                 }
@@ -559,12 +559,12 @@ public final class PackageBuilder {
             let deps: [Target] = targetMap[potentialModule.name].map({
                 $0.dependencies.compactMap({
                     switch $0 {
-                    case .target(let name):
+                    case .target(let name, _):
                         // We don't create an object for targets which have no sources.
                         if emptyModules.contains(name) { return nil }
                         return targets[name]!
 
-                    case .byName(let name):
+                    case .byName(let name, _):
                         // We don't create an object for targets which have no sources.
                         if emptyModules.contains(name) { return nil }
                         return targets[name]
@@ -583,10 +583,10 @@ public final class PackageBuilder {
                 switch $0 {
                 case .target:
                     return nil
-                case .byName(let name):
+                case .byName(let name, _):
                     // If this dependency was not found locally, it is a product dependency.
                     return potentialModuleMap[name] == nil ? (name, nil) : nil
-                case .product(let name, let package):
+                case .product(let name, let package, _):
                     return (name, package)
                 }
             }) ?? []
@@ -788,13 +788,12 @@ public final class PackageBuilder {
             assignment.value = setting.value
 
             if let config = setting.condition?.config.map({ BuildConfiguration(rawValue: $0)! }) {
-                let condition = BuildSettings.ConfigurationCondition(config)
+                let condition = ConfigurationCondition(configuration: config)
                 assignment.conditions.append(condition)
             }
 
             if let platforms = setting.condition?.platformNames.map({ platformRegistry.platformByName[$0]! }), !platforms.isEmpty {
-                var condition = BuildSettings.PlatformsCondition()
-                condition.platforms = platforms
+                let condition = PlatformsCondition(platforms: platforms)
                 assignment.conditions.append(condition)
             }
 
@@ -1116,7 +1115,7 @@ private extension Manifest {
         let names = targets.flatMap({ target in
             [target.name] + target.dependencies.compactMap({
                 switch $0 {
-                case .target(let name):
+                case .target(let name, _):
                     return name
                 case .byName, .product:
                     return nil

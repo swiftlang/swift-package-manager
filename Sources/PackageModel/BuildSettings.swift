@@ -10,21 +10,6 @@
 
 import TSCBasic
 
-public enum BuildConfiguration: String, Encodable {
-    case debug
-    case release
-
-    public var dirname: String {
-        switch self {
-            case .debug: return "debug"
-            case .release: return "release"
-        }
-    }
-}
-
-/// A build setting condition.
-public protocol BuildSettingsCondition {}
-
 /// Namespace for build settings.
 public enum BuildSettings {
 
@@ -58,29 +43,6 @@ public enum BuildSettings {
         ]
     }
 
-    /// Platforms condition implies that an assignment is valid on these platforms.
-    public struct PlatformsCondition: BuildSettingsCondition {
-        public var platforms: [Platform] {
-            didSet {
-                assert(!platforms.isEmpty, "List of platforms should not be empty")
-            }
-        }
-
-        public init() {
-            self.platforms = []
-        }
-    }
-
-    /// A configuration condition implies that an assignment is valid on
-    /// a particular build configuration.
-    public struct ConfigurationCondition: BuildSettingsCondition {
-        public var config: BuildConfiguration
-
-        public init(_ config: BuildConfiguration) {
-            self.config = config
-        }
-    }
-
     /// An individual build setting assignment.
     public struct Assignment {
         /// The assignment value.
@@ -88,7 +50,7 @@ public enum BuildSettings {
 
         // FIXME: This should be a set but we need Equatable existential (or AnyEquatable) for that.
         /// The condition associated with this assignment.
-        public var conditions: [BuildSettingsCondition]
+        public var conditions: [ManifestCondition]
 
         public init() { 
             self.conditions = []
@@ -118,16 +80,12 @@ public enum BuildSettings {
         /// The assignment table.
         public let table: AssignmentTable
 
-        /// The bound platform.
-        public let boundPlatform: Platform
+        /// The build environment.
+        public let environment: BuildEnvironment
 
-        /// The bound build configuration.
-        public let boundConfig: BuildConfiguration
-
-        public init(_ table: AssignmentTable, boundCondition: (Platform, BuildConfiguration)) {
+        public init(_ table: AssignmentTable, environment: BuildEnvironment) {
             self.table = table
-            self.boundPlatform = boundCondition.0
-            self.boundConfig = boundCondition.1
+            self.environment = environment
         }
 
         /// Evaluate the given declaration and return the values matching the bound parameters.
@@ -137,27 +95,13 @@ public enum BuildSettings {
                 return []
             }
 
-            var values: [String] = []
+            // Add values from each assignment if it satisfies the build environment.
+            let values = assignments
+                .lazy
+                .filter({ $0.conditions.allSatisfy({ $0.satisfies(self.environment) }) })
+                .flatMap({ $0.value })
 
-            // Add values from each assignment if it satisfies the bound parameters.
-            for assignment in assignments {
-
-                if let configCondition = assignment.conditions.compactMap({ $0 as? ConfigurationCondition }).first {
-                    if configCondition.config != boundConfig {
-                        continue
-                    }
-                }
-
-                if let platformsCondition = assignment.conditions.compactMap({ $0 as? PlatformsCondition }).first {
-                    if !platformsCondition.platforms.contains(boundPlatform) {
-                        continue
-                    }
-                }
-
-                values += assignment.value
-            }
-
-            return values
+            return Array(values)
         }
     }
 }

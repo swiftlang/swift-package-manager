@@ -494,9 +494,9 @@ public struct TestTarget {
     fileprivate func convert() -> TargetDescription {
         switch type {
         case .regular:
-            return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular, settings: settings)
+            return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0, condition: nil) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular, settings: settings)
         case .test:
-            return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .test, settings: settings)
+            return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0, condition: nil) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .test, settings: settings)
         }
     }
 }

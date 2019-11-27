@@ -150,11 +150,7 @@ extension ManifestBuilder {
     func parseBuildSetting(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> TargetBuildSettingDescription.Setting {
         let json = try json.getJSON("data")
         let name = try TargetBuildSettingDescription.SettingName(rawValue: json.get("name"))!
-
-        var condition: TargetBuildSettingDescription.Condition?
-        if let conditionJSON = try? json.getJSON("condition") {
-            condition = try parseCondition(conditionJSON)
-        }
+        let condition = try (try? json.getJSON("condition")).flatMap(ManifestConditionDescription.init(v4:))
 
         let value = try json.get([String].self, forKey: "value")
 
@@ -176,14 +172,6 @@ extension ManifestBuilder {
 
     /// Looks for Xcode-style build setting macros "$()".
     private static let invalidValueRegex = try! RegEx(pattern: #"(\$\(.*?\))"#)
-
-    func parseCondition(_ json: JSON) throws -> TargetBuildSettingDescription.Condition {
-        let platformNames: [String]? = try? json.getArray("platforms").map({ try $0.get("name") })
-        return .init(
-            platformNames: platformNames ?? [],
-            config: try? json.get("config").get("config")
-        )
-    }
 }
 
 extension SystemPackageProviderDescription {
@@ -332,20 +320,32 @@ extension TargetDescription.TargetType {
 extension TargetDescription.Dependency {
     fileprivate init(v4 json: JSON) throws {
         let type = try json.get(String.self, forKey: "type")
+        let condition = try (try? json.getJSON("condition")).flatMap(ManifestConditionDescription.init(v4:))
 
         switch type {
         case "target":
-            self = try .target(name: json.get("name"))
+            self = try .target(name: json.get("name"), condition: condition)
 
         case "product":
             let name = try json.get(String.self, forKey: "name")
-            self = .product(name: name, package: json.get("package"))
+            self = .product(name: name, package: json.get("package"), condition: condition)
 
         case "byname":
-            self = try .byName(name: json.get("name"))
+            self = try .byName(name: json.get("name"), condition: condition)
 
         default:
             fatalError()
         }
+    }
+}
+
+extension ManifestConditionDescription {
+    fileprivate init?(v4 json: JSON) throws {
+        if case .null = json { return nil }
+        let platformNames: [String]? = try? json.getArray("platforms").map({ try $0.get("name") })
+        self.init(
+            platformNames: platformNames ?? [],
+            config: try? json.get("config").get("config")
+        )
     }
 }

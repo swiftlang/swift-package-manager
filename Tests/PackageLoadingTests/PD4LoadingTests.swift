@@ -68,7 +68,7 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
 
             let expectedDependencies: [TargetDescription.Dependency]
             expectedDependencies = [
-                .byName(name: "dep1"),
+                "dep1",
                 .target(name: "dep2"),
                 .product(name: "dep3", package: "Pkg"),
                 .product(name: "dep4"),

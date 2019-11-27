@@ -45,7 +45,7 @@ public struct BuildConfiguration: Encodable {
 ///             .define("ENABLE_SOMETHING", .when(configuration: .release)),
 ///         ],
 ///         linkerSettings: [
-///             .linkLibrary("openssl", .when(platforms: [.linux])),
+///             .linkedLibrary("openssl", .when(platforms: [.linux])),
 ///         ]
 ///     ),
 public struct BuildSettingCondition: Encodable {
@@ -228,7 +228,7 @@ public struct SwiftSetting: Encodable {
     /// Use compilation conditions to only compile statements if a certain condition is true.
     /// For example, the Swift compiler will only compile the
     /// statements inside the `#if` block when `ENABLE_SOMETHING` is defined:
-    ///     
+    ///
     ///     #if ENABLE_SOMETHING
     ///        ...
     ///     #endif

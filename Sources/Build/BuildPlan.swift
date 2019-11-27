@@ -88,7 +88,10 @@ extension BuildParameters {
 
     /// Returns the scoped view of build settings for a given target.
     fileprivate func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
-        return BuildSettings.Scope(target.underlyingTarget.buildSettings, boundCondition: (currentPlatform, configuration))
+        return BuildSettings.Scope(
+            target.underlyingTarget.buildSettings,
+            environment: BuildEnvironment(platform: currentPlatform, configuration: configuration)
+        )
     }
 }
 

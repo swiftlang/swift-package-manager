@@ -130,6 +130,7 @@ extension PackageDescription5_2LoadingTests {
         ("testPackageName", testPackageName),
         ("testTargetDependencyProductInvalidPackage", testTargetDependencyProductInvalidPackage),
         ("testTargetDependencyReference", testTargetDependencyReference),
+        ("testConditionalTargetDependencies", testConditionalTargetDependencies),
     ]
 }
 

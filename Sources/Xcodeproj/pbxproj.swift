@@ -618,12 +618,12 @@ func xcodeProject(
             // Process each assignment of a build settings declaration.
             for assignment in assignments {
                 // Skip this assignment if it doesn't contain macOS platform.
-                if let platformsCondition = assignment.conditions.compactMap({ $0 as? BuildSettings.PlatformsCondition }).first {
+                if let platformsCondition = assignment.conditions.compactMap({ $0 as? PlatformsCondition }).first {
                     if !platformsCondition.platforms.contains(.macOS) {
                         continue
                     }
                 }
-                let config = assignment.conditions.compactMap({ $0 as? BuildSettings.ConfigurationCondition }).first?.config
+                let config = assignment.conditions.compactMap({ $0 as? ConfigurationCondition }).first?.configuration
                 appendSetting(assignment.value, forDecl: decl, to: xcodeTarget.buildSettings, config: config)
             }
         }

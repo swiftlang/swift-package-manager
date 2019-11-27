@@ -10,6 +10,7 @@
 
 import TSCBasic
 import TSCUtility
+import Foundation
 
 /// This contains the declarative specification loaded from package manifest
 /// files, and the tools for working with the manifest.
@@ -173,8 +174,8 @@ extension Manifest {
         let packageName: String
 
         switch targetDependency {
-        case .product(_, package: let name?),
-             .byName(name: let name):
+        case .product(_, package: let name?, _),
+             .byName(name: let name, _):
             packageName = name
         default:
             return nil
@@ -196,16 +197,20 @@ public struct TargetDescription: Equatable, Codable {
 
     /// Represents a target's dependency on another entity.
     public enum Dependency: Equatable, ExpressibleByStringLiteral {
-        case target(name: String)
-        case product(name: String, package: String?)
-        case byName(name: String)
+        case target(name: String, condition: ManifestConditionDescription?)
+        case product(name: String, package: String?, condition: ManifestConditionDescription?)
+        case byName(name: String, condition: ManifestConditionDescription?)
 
         public init(stringLiteral value: String) {
-            self = .byName(name: value)
+            self = .byName(name: value, condition: nil)
         }
 
-        public static func product(name: String) -> Dependency {
-            return .product(name: name, package: nil)
+        public static func target(name: String) -> Dependency {
+            return .target(name: name, condition: nil)
+        }
+
+        public static func product(name: String, package: String? = nil) -> Dependency {
+            return .product(name: name, package: package, condition: nil)
         }
     }
 
@@ -392,21 +397,20 @@ public struct PlatformDescription: Codable, Equatable {
     }
 }
 
+/// Represents a manifest condition.
+public struct ManifestConditionDescription: Codable, Equatable {
+    public let platformNames: [String]
+    public let config: String?
+
+    public init(platformNames: [String] = [], config: String? = nil) {
+        assert(!(platformNames.isEmpty && config == nil))
+        self.platformNames = platformNames
+        self.config = config
+    }
+}
+
 /// A namespace for target-specific build settings.
 public enum TargetBuildSettingDescription {
-
-    /// Represents a build settings condition.
-    public struct Condition: Codable, Equatable {
-
-        public let platformNames: [String]
-        public let config: String?
-
-        public init(platformNames: [String] = [], config: String? = nil) {
-            assert(!(platformNames.isEmpty && config == nil))
-            self.platformNames = platformNames
-            self.config = config
-        }
-    }
 
     /// The tool for which a build setting is declared.
     public enum Tool: String, Codable, Equatable, CaseIterable {
@@ -436,7 +440,7 @@ public enum TargetBuildSettingDescription {
         public let name: SettingName
 
         /// The condition at which the setting should be applied.
-        public let condition: Condition?
+        public let condition: ManifestConditionDescription?
 
         /// The value of the setting.
         ///
@@ -448,7 +452,7 @@ public enum TargetBuildSettingDescription {
             tool: Tool,
             name: SettingName,
             value: [String],
-            condition: Condition? = nil
+            condition: ManifestConditionDescription? = nil
         ) {
             switch name {
             case .headerSearchPath: fallthrough
@@ -467,5 +471,62 @@ public enum TargetBuildSettingDescription {
             self.value = value
             self.condition = condition
         }
+    }
+}
+
+/// The configuration of the build environment.
+public enum BuildConfiguration: String, Encodable {
+    case debug
+    case release
+
+    public var dirname: String {
+        switch self {
+            case .debug: return "debug"
+            case .release: return "release"
+        }
+    }
+}
+
+/// A build environment with which to evaluation conditions.
+public struct BuildEnvironment {
+    public let platform: Platform
+    public let configuration: BuildConfiguration
+
+    public init(platform: Platform, configuration: BuildConfiguration) {
+        self.platform = platform
+        self.configuration = configuration
+    }
+}
+
+/// A manifest condition.
+public protocol ManifestCondition {
+    func satisfies(_ environment: BuildEnvironment) -> Bool
+}
+
+/// Platforms condition implies that an assignment is valid on these platforms.
+public struct PlatformsCondition: ManifestCondition {
+    public let platforms: [Platform]
+
+    public init(platforms: [Platform]) {
+        assert(!platforms.isEmpty, "List of platforms should not be empty")
+        self.platforms = platforms
+    }
+
+    public func satisfies(_ environment: BuildEnvironment) -> Bool {
+        platforms.contains(environment.platform)
+    }
+}
+
+/// A configuration condition implies that an assignment is valid on
+/// a particular build configuration.
+public struct ConfigurationCondition: ManifestCondition {
+    public let configuration: BuildConfiguration
+
+    public init(configuration: BuildConfiguration) {
+        self.configuration = configuration
+    }
+
+    public func satisfies(_ environment: BuildEnvironment) -> Bool {
+        configuration == environment.configuration
     }
 }

@@ -33,9 +33,9 @@ public final class Target {
         case productItem(name: String, package: String?)
         case byNameItem(name: String)
       #else
-        case _targetItem(name: String)
-        case _productItem(name: String, package: String?)
-        case _byNameItem(name: String)
+        case _targetItem(name: String, condition: BuildSettingCondition?)
+        case _productItem(name: String, package: String?, condition: BuildSettingCondition?)
+        case _byNameItem(name: String, condition: BuildSettingCondition?)
       #endif
     }
 
@@ -490,11 +490,12 @@ extension Target.Dependency {
     ///
     /// - parameters:
     ///   - name: The name of the target.
+    @available(_PackageDescription, obsoleted: 5.2)
     public static func target(name: String) -> Target.Dependency {
       #if PACKAGE_DESCRIPTION_4
         return .targetItem(name: name)
       #else
-        return ._targetItem(name: name)
+        return ._targetItem(name: name, condition: nil)
       #endif
     }
 
@@ -508,21 +509,7 @@ extension Target.Dependency {
       #if PACKAGE_DESCRIPTION_4
         return .productItem(name: name, package: package)
       #else
-        return ._productItem(name: name, package: package)
-      #endif
-    }
-
-    /// Creates a dependency on a product from a package dependency.
-    ///
-    /// - parameters:
-    ///   - name: The name of the product.
-    ///   - package: The name of the package.
-    @available(_PackageDescription, introduced: 5.2)
-    public static func product(name: String, package: String) -> Target.Dependency {
-      #if PACKAGE_DESCRIPTION_4
-        return .productItem(name: name, package: package)
-      #else
-        return ._productItem(name: name, package: package)
+        return ._productItem(name: name, package: package, condition: nil)
       #endif
     }
 
@@ -531,13 +518,52 @@ extension Target.Dependency {
     ///
     /// - parameters:
     ///   - name: The name of the dependency, either a target or a product.
+    @available(_PackageDescription, obsoleted: 5.2)
     public static func byName(name: String) -> Target.Dependency {
       #if PACKAGE_DESCRIPTION_4
         return .byNameItem(name: name)
       #else
-        return ._byNameItem(name: name)
+        return ._byNameItem(name: name, condition: nil)
       #endif
     }
+
+  #if !PACKAGE_DESCRIPTION_4
+    /// Creates a dependency on a target in the same package.
+    ///
+    /// - parameters:
+    ///   - name: The name of the target.
+    ///   - condition: The condition under which the dependency is exercised.
+    @available(_PackageDescription, introduced: 5.2)
+    public static func target(name: String, condition: BuildSettingCondition? = nil) -> Target.Dependency {
+        return ._targetItem(name: name, condition: condition)
+    }
+
+    /// Creates a dependency on a product from a package dependency.
+    ///
+    /// - parameters:
+    ///   - name: The name of the product.
+    ///   - package: The name of the package.
+    ///   - condition: The condition under which the dependency is exercised.
+    @available(_PackageDescription, introduced: 5.2)
+    public static func product(
+        name: String,
+        package: String,
+        condition: BuildSettingCondition? = nil
+    ) -> Target.Dependency {
+        return ._productItem(name: name, package: package, condition: condition)
+    }
+
+    /// Creates a by-name dependency that resolves to either a target or a product but
+    /// after the package graph has been loaded.
+    ///
+    /// - parameters:
+    ///   - name: The name of the dependency, either a target or a product.
+    ///   - condition: The condition under which the dependency is exercised.
+    @available(_PackageDescription, introduced: 5.2)
+    public static func byName(name: String, condition: BuildSettingCondition? = nil) -> Target.Dependency {
+        return ._byNameItem(name: name, condition: condition)
+    }
+  #endif
 }
 
 // MARK: ExpressibleByStringLiteral
@@ -552,7 +578,7 @@ extension Target.Dependency: ExpressibleByStringLiteral {
       #if PACKAGE_DESCRIPTION_4
         self = .byNameItem(name: value)
       #else
-        self = ._byNameItem(name: value)
+        self = ._byNameItem(name: value, condition: nil)
       #endif
     }
 }
