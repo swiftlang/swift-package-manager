@@ -8,7 +8,7 @@
 
 cmake_minimum_required(VERSION 3.15.1)
 
-project(example LANGUAGES C Swift)
+project(SwiftPM LANGUAGES C Swift)
 option(USE_VENDORED_TSC "Use vendored version of TSC" OFF)
 
 set(SWIFT_VERSION 5)
