@@ -216,7 +216,6 @@ def bootstrap(args):
         "-DCMAKE_C_COMPILER:=clang",
         llbuild_arg,
         "-DCMAKE_Swift_FLAGS=" + cmake_swift_flags,
-        "-DUSE_VENDORED_TSC=ON",
         "-DSWIFTPM_BUILD_DIR=" + swiftpm_build_path,
         "-DCMAKE_INSTALL_PREFIX=" + args.install_prefixes[0],
         "-DINSTALL_LIBSWIFTPM=" + ("ON" if args.install_libspm else "OFF"),

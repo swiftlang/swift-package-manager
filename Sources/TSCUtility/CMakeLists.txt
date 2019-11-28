@@ -34,3 +34,11 @@ target_link_libraries(TSCUtility PUBLIC
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(TSCUtility PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
+
+if(BUILD_SHARED_LIBS)
+  get_swift_host_arch(swift_arch)
+  install(TARGETS TSCUtility
+    ARCHIVE DESTINATION lib/swift/pm
+    LIBRARY DESTINATION lib/swift/pm
+    RUNTIME DESTINATION bin)
+endif()

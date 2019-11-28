@@ -56,9 +56,10 @@ set_target_properties(TSCBasic PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-install(TARGETS TSCBasic
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
+if(BUILD_SHARED_LIBS)
+  get_swift_host_arch(swift_arch)
+  install(TARGETS TSCBasic
+    ARCHIVE DESTINATION lib/swift/pm
+    LIBRARY DESTINATION lib/swift/pm
+    RUNTIME DESTINATION bin)
 endif()

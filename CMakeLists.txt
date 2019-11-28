@@ -8,8 +8,9 @@
 
 cmake_minimum_required(VERSION 3.15.1)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
+
 project(SwiftPM LANGUAGES C Swift)
-option(USE_VENDORED_TSC "Use vendored version of TSC" OFF)
 
 set(SWIFT_VERSION 5)
 set(CMAKE_Swift_LANGUAGE_VERSION ${SWIFT_VERSION})
@@ -25,12 +26,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 option(BUILD_SHARED_LIBS "Build shared libraryes by default" YES)
 
-if(USE_VENDORED_TSC)
-    message("Using vendored TSC")
-else()
-    message("Not using vendored TSC")
-    find_package(TSC CONFIG REQUIRED)
-endif()
+find_package(TSC QUIET)
 
 if(LLBUILD_FRAMEWORK)
     message("Using llbuild framework: ${LLBUILD_FRAMEWORK}")
@@ -41,6 +37,8 @@ endif()
 
 find_package(dispatch QUIET)
 find_package(Foundation QUIET)
+
+include(SwiftSupport)
 
 add_subdirectory(Sources)
 

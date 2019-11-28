@@ -63,7 +63,6 @@ cmake \
     -DTSC_DIR=$BUILD_DIR/tsc/cmake/modules \
     -DLLBuild_DIR=$BUILD_DIR/llbuild/cmake/modules \
     -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
-    -DUSE_VENDORED_TSC=OFF \
     $SRCROOT
 ninja
 cd ..
