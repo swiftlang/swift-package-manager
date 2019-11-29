@@ -8,6 +8,8 @@
 
 cmake_minimum_required(VERSION 3.15.1)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
+
 project(SwiftPM LANGUAGES C Swift)
 option(USE_VENDORED_TSC "Use vendored version of TSC" OFF)
 
@@ -32,11 +34,9 @@ else()
     find_package(TSC CONFIG REQUIRED)
 endif()
 
-if(LLBUILD_FRAMEWORK)
-    message("Using llbuild framework: ${LLBUILD_FRAMEWORK}")
-else()
-    message("Using libllbuild")
-    find_package(LLBuild CONFIG REQUIRED)
+find_package(LLBuild CONFIG)
+if(NOT LLBuild_FOUND)
+  find_package(LLBuild REQUIRED)
 endif()
 
 find_package(dispatch QUIET)
