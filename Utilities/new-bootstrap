@@ -203,7 +203,7 @@ def bootstrap(args):
         cmake_swift_flags = "-sdk " + g_default_sysroot
 
     if args.llbuild_link_framework:
-        llbuild_arg = "-DLLBUILD_FRAMEWORK=%s" % args.llbuild_build_dir
+        llbuild_arg = "-DLLBuild_LIBRARY=%s" % os.path.join(args.llbuild_build_dir, 'llbuild')
     else:
         llbuild_dir = os.path.join(args.llbuild_build_dir, "cmake/modules")
         llbuild_arg = "-DLLBuild_DIR=" + llbuild_dir
