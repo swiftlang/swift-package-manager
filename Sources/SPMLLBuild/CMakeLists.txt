@@ -6,40 +6,17 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-# LLBuild currently doesn't export the llbuildSwift target so import it manually for now.
-add_library(libllbuildSwift SHARED IMPORTED GLOBAL)
-
-if(LLBUILD_FRAMEWORK)
-    set_target_properties(libllbuildSwift
-        PROPERTIES
-        IMPORTED_LOCATION ${LLBUILD_FRAMEWORK}
-    )
-else()
-    set(LLBUILD_BUILD_DIR ${LLBuild_DIR}/../..)
-    set_target_properties(libllbuildSwift
-        PROPERTIES
-        FRAMEWORK TRUE
-        IMPORTED_LOCATION ${LLBUILD_BUILD_DIR}/lib
-        INTERFACE_INCLUDE_DIRECTORIES ${LLBUILD_BUILD_DIR}/products/llbuildSwift)
-endif()
-
 add_library(SPMLLBuild
   llbuild.swift)
-
-target_link_libraries(SPMLLBuild PUBLIC
-  TSCBasic
-  TSCUtility
-)
-
-if(LLBUILD_FRAMEWORK)
-    target_link_libraries(SPMLLBuild PUBLIC -F libllbuildSwift)
-else()
-	target_link_libraries(SPMLLBuild PUBLIC libllbuild -L libllbuildSwift)
-endif()
-
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SPMLLBuild PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
+target_link_libraries(SPMLLBuild PUBLIC
+  TSCBasic
+  TSCUtility
+  libllbuild
+  llbuildSwift)
+
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
 install(TARGETS SPMLLBuild
