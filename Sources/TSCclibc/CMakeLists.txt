@@ -13,5 +13,7 @@ target_include_directories(TSCclibc PUBLIC
 
 if(NOT BUILD_SHARED_LIBS)
   install(TARGETS TSCclibc
-    ARCHIVE DESTINATION lib)
+    ARCHIVE DESTINATION lib/swift_static/$<LOWER_CASE:${CMAKE_SYSTEM_NAME}>)
+  install(DIRECTORY include
+    DESTINATION lib/swift/pm/clibc COMPONENT libs)
 endif()
