@@ -26,9 +26,12 @@ target_link_libraries(PackageLoading PUBLIC
 set_target_properties(PackageLoading PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+
 install(TARGETS PackageLoading
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
-endif()
+  ARCHIVE DESTINATION lib/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/$<LOWER_CASE:${CMAKE_SYSTEM_NAME}> COMPONENT libs
+  LIBRARY DESTINATION lib/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/$<LOWER_CASE:${CMAKE_SYSTEM_NAME}> COMPONENT libs
+  RUNTIME DESTINATION bin COMPONENT libs)
+install(FILES
+  $<TARGET_PROPERTY:PackageLoading,Swift_MODULE_DIRECTORY>/PackageLoading.swiftdoc
+  $<TARGET_PROPERTY:PackageLoading,Swift_MODULE_DIRECTORY>/PackageLoading.swiftmodule
+  DESTINATION lib/swift/pm COMPONENT libs)

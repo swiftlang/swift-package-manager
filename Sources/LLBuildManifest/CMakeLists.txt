@@ -22,9 +22,11 @@ target_link_libraries(LLBuildManifest PUBLIC
 set_target_properties(LLBuildManifest PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    install(TARGETS LLBuildManifest
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
-endif()
+install(TARGETS LLBuildManifest
+  ARCHIVE DESTINATION lib/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/$<LOWER_CASE:${CMAKE_SYSTEM_NAME}> COMPONENT libs
+  LIBRARY DESTINATION lib/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/$<LOWER_CASE:${CMAKE_SYSTEM_NAME}> COMPONENT libs
+  RUNTIME DESTINATION bin COMPONENT libs)
+install(FILES
+  $<TARGET_PROPERTY:LLBuildManifest,Swift_MODULE_DIRECTORY>/LLBuildManifest.swiftdoc
+  $<TARGET_PROPERTY:LLBuildManifest,Swift_MODULE_DIRECTORY>/LLBuildManifest.swiftmodule
+  DESTINATION lib/swift/pm COMPONENT libs)
