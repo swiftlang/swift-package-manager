@@ -55,7 +55,6 @@ target_link_libraries(TSCBasic PUBLIC
 set_target_properties(TSCBasic PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-set_property(GLOBAL APPEND PROPERTY TSC_EXPORTS TSCBasic)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
 install(TARGETS TSCBasic
