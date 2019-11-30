@@ -376,6 +376,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // <rdar://problem/48443680>
             let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
 
+#if os(Windows)
+            let useCompiledManifest: Bool = true
+#else
+            let useCompiledManifest: Bool = false || ProcessEnv.vars["_SWIFTPM_USE_COMPILED_MANIFEST"]
+#endif
+
             var cmd = [String]()
           #if os(macOS)
             // If enabled, use sandbox-exec on macOS. This provides some safety against
@@ -390,7 +396,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
           #endif
             cmd += [resources.swiftCompiler.pathString]
-            cmd += ["--driver-mode=swift"]
+            if !useCompiledManifest {
+              cmd += ["--driver-mode=swift"]
+            }
             cmd += verbosity.ccArgs
             cmd += ["-L", runtimePath, "-lPackageDescription"]
             cmd += interpreterFlags
@@ -411,8 +419,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // Create and open a temporary file to write json to.
             try withTemporaryFile { file in
-                // Pass the fd in arguments.
-                cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
+                if useCompiledManifest {
+                  cmd += ["-o", "\(file.path)\(Triple.executableExtension)"]
+                } else {
+                  // Pass the fd in arguments.
+                  cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
+                }
 
                 // Prefer swiftinterface if both swiftmodule and swiftinterface files are present.
                 //
@@ -435,10 +447,21 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     return
                 }
 
-                guard let json = try localFileSystem.readFileContents(file.path).validDescription else {
-                    throw StringError("the manifest has invalid encoding")
+                if useCompiledManifest {
+                  cmd = ["\(file.path)\(Triple.executableExtension)", "-fileno", "1"]
+
+                  let result = try Process.popen(arguments: cmd)
+                  if result.exitStatus != .terminated(code: 0) {
+                    return
+                  }
+
+                  manifestParseResult.parsedManifest = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle()
+                } else {
+                  guard let json = try localFileSystem.readFileContents(file.path).validDescription else {
+                      throw StringError("the manifest has invalid encoding")
+                  }
+                  manifestParseResult.parsedManifest = json
                 }
-                manifestParseResult.parsedManifest = json
             }
         }
 
