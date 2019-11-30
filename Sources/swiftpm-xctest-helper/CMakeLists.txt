@@ -10,4 +10,4 @@ add_executable(swiftpm-xctest-helper
   main.swift)
 
 install(TARGETS swiftpm-xctest-helper
-  RUNTIME DESTINATION bin)
+  DESTINATION bin COMPONENT tools)

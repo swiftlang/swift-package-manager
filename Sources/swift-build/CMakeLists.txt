@@ -11,7 +11,5 @@ add_executable(swift-build
 target_link_libraries(swift-build PRIVATE
     Commands)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    install(TARGETS swift-build
-        DESTINATION bin)
-endif()
+install(TARGETS swift-build
+  DESTINATION bin COMPONENT tools)

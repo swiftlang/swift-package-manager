@@ -1,12 +1,3 @@
-foreach(BINARY swift-build swift-test swift-package swift-run)
-    install(FILES 
-        ${SWIFTPM_BUILD_DIR}/${BINARY}
-        DESTINATION bin)
-endforeach()
-
-install(FILES 
-    ${SWIFTPM_BUILD_DIR}/swiftpm-xctest-helper
-    DESTINATION libexec/swift/pm)
 
 if(INSTALL_LIBSWIFTPM)
 
