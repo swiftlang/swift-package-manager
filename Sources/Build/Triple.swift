@@ -182,6 +182,17 @@ extension Triple {
         }
     }
 
+    public var executableExtension: String {
+      switch os {
+      case .darwin, .macOS:
+        return ""
+      case .linux:
+        return ""
+      case .windows:
+        return ".exe"
+      }
+    }
+
     /// The file extension for Foundation-style bundle.
     public var nsbundleExtension: String {
         switch os {
