@@ -1,3 +1,9 @@
+cmake_minimum_required(VERSION 3.15.1)
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
+
+project(SwiftPM-Installer LANGUAGES Swift)
+
 foreach(BINARY swift-build swift-test swift-package swift-run)
     install(FILES 
         ${SWIFTPM_BUILD_DIR}/${BINARY}
@@ -16,7 +22,6 @@ list(APPEND LIBSPM_MODULES TSCUtility)
 
 list(APPEND LIBSPM_MODULES Build)
 list(APPEND LIBSPM_MODULES Commands)
-list(APPEND LIBSPM_MODULES PackageDescription4)
 list(APPEND LIBSPM_MODULES PackageGraph)
 list(APPEND LIBSPM_MODULES PackageLoading)
 list(APPEND LIBSPM_MODULES PackageModel)
