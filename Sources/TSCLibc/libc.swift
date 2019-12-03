@@ -18,3 +18,13 @@
 #endif
 
 @_exported import TSCclibc
+
+#if os(Windows)
+// char *realpath(const char *path, char *resolved_path);
+public func realpath(
+    _ path: String,
+    _ resolvedPath: UnsafeMiutableBufferPointer<CChar>?
+) -> UnsafePointer<CChar>? {
+  fatalError("realpath is unimplemented")
+}
+#endif
