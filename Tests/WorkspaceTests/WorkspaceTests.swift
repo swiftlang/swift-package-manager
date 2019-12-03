@@ -147,7 +147,7 @@ final class WorkspaceTests: XCTestCase {
                         """
                 }
 
-                XCTAssertMatch((ws.interpreterFlags(for: foo)), [.contains("swift/pm/4")])
+                XCTAssertMatch((ws.interpreterFlags(for: foo)), [.contains("pm/4")])
                 XCTAssertMatch((ws.interpreterFlags(for: foo)), [.equal("-swift-version"), .equal("4")])
             }
 
