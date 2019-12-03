@@ -55,8 +55,6 @@ foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
         )
     endif()
 
-    install(FILES 
-        ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/libPackageDescription${CMAKE_SHARED_LIBRARY_SUFFIX}
-        DESTINATION lib/swift/pm/${PACKAGE_DESCRIPTION_VERSION}
-    )
+    install(TARGETS PD${PACKAGE_DESCRIPTION_VERSION}
+      DESTINATION lib/swift/pm/${PACKAGE_DESCRIPTION_VERSION})
 endforeach()
