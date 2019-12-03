@@ -39,6 +39,9 @@ public struct ProcessResult: CustomStringConvertible {
     /// The arguments with which the process was launched.
     public let arguments: [String]
 
+    /// The environment with which the process was launched.
+    public let environment: [String: String]
+
     /// The exit status of the process.
     public let exitStatus: ExitStatus
 
@@ -55,6 +58,7 @@ public struct ProcessResult: CustomStringConvertible {
     /// See `waitpid(2)` for information on the exit status code.
     public init(
         arguments: [String],
+        environment: [String: String],
         exitStatusCode: Int32,
         output: Result<[UInt8], AnyError>,
         stderrOutput: Result<[UInt8], AnyError>
@@ -70,18 +74,20 @@ public struct ProcessResult: CustomStringConvertible {
             exitStatus = .terminated(code: WEXITSTATUS(exitStatusCode))
         }
       #endif
-        self.init(arguments: arguments, exitStatus: exitStatus, output: output,
+        self.init(arguments: arguments, environment: environment, exitStatus: exitStatus, output: output,
             stderrOutput: stderrOutput)
     }
 
     /// Create an instance using an exit status and output result.
     public init(
         arguments: [String],
+        environment: [String: String],
         exitStatus: ExitStatus,
         output: Result<[UInt8], AnyError>,
         stderrOutput: Result<[UInt8], AnyError>
     ) {
         self.arguments = arguments
+        self.environment = environment
         self.output = output
         self.stderrOutput = stderrOutput
         self.exitStatus = exitStatus
@@ -474,6 +480,7 @@ public final class Process: ObjectIdentifierProtocol {
             // Construct the result.
             let executionResult = ProcessResult(
                 arguments: arguments,
+                environment: environment,
                 exitStatusCode: exitStatusCode,
                 output: stdout.result,
                 stderrOutput: stderr.result
@@ -657,7 +664,10 @@ extension ProcessResult.Error: CustomStringConvertible {
             case .signalled(let signal):
                 stream <<< "signalled(\(signal)): "
             }
- 
+
+            stream <<< result.environment.map({ "\($0)=\($1)" }).joined(separator: " ")
+            stream <<< " "
+
             // Strip sandbox information from arguments to keep things pretty.
             var args = result.arguments
             // This seems a little fragile.
