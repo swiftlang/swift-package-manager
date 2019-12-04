@@ -128,4 +128,27 @@ final class RunToolTests: XCTestCase {
         }
       #endif
     }
+
+    func testSanitizeScudo() throws {
+        // Scudo is only supported on Linux.
+      #if os(Linux)
+        fixture(name: "Miscellaneous/DoubleFree") { path in
+            // Ensure that we don't abort() when we find the race. This avoids
+            // generating the crash report on macOS.
+            let cmdline = {
+                try SwiftPMProduct.SwiftRun.execute(
+                    ["--sanitize=scudo"], packagePath: path)
+            }
+            XCTAssertThrows(try cmdline()) { (error: SwiftPMProductError) in
+                switch error {
+                case .executionFailure(_, _, let error):
+                    XCTAssertMatch(error, .contains("invalid chunk state"))
+                    return true
+                default:
+                    return false
+                }
+            }
+        }
+      #endif
+    }
 }
