@@ -28,6 +28,13 @@ public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     // that implements readlink and not realpath.
     if let resultPtr = TSCLibc.realpath(pathStr, nil) {
         let result = String(cString: resultPtr)
+        // If `resolved_path` is specified as NULL, then `realpath` uses
+        // malloc(3) to allocate a buffer [...].  The caller should deallocate
+        // this buffer using free(3).
+        //
+        // String.init(cString:) creates a new string by copying the
+        // null-terminated UTF-8 data referenced by the given pointer.
+        resultPtr.deallocate()
         // FIXME: We should measure if it's really more efficient to compare the strings first.
         return result == pathStr ? path : AbsolutePath(result)
     }
