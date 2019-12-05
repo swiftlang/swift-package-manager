@@ -42,6 +42,11 @@ foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}
     )
 
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
+      target_link_libraries(PD${PACKAGE_DESCRIPTION_VERSION} PRIVATE
+        Foundation)
+    endif()
+
     if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
         install(FILES 
             ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftinterface

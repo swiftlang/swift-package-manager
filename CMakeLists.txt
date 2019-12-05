@@ -39,6 +39,9 @@ else()
     find_package(LLBuild CONFIG REQUIRED)
 endif()
 
+find_package(dispatch QUIET)
+find_package(Foundation QUIET)
+
 add_subdirectory(Sources)
 
 if(SWIFTPM_BUILD_DIR)
