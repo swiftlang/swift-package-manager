@@ -618,6 +618,11 @@ public final class ArgumentParser {
             return results[arg] != nil
         }
 
+        // Returns true if this result is parsed by given parser.
+        public func isBelong(to parser: ArgumentParser) -> Bool {
+            return parser === self.parser
+        }
+
         /// Get the subparser which was chosen for the given parser.
         public func subparser(_ parser: ArgumentParser) -> String? {
             if parser === self.parser {
