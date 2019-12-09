@@ -17,7 +17,7 @@ import SourceControl
 /// PackageContainerProvider implementation used by Workspace to do a dependency pre-calculation using the cached
 /// dependency information (Workspace.DependencyManifests) to check if dependency resolution is required before
 /// performing a full resolution.
-struct LocalContainerProvider: PackageContainerProvider {
+struct ResolverPrecomputationProvider: PackageContainerProvider {
     /// The package graph inputs.
     let root: PackageGraphRoot
 
@@ -65,6 +65,7 @@ struct LocalContainerProvider: PackageContainerProvider {
         }
 
         // Continue searching from the Workspace's root manifests.
+        // FIXME: We might want to use a dictionary for faster lookups.
         if let index = dependencyManifests.root.packageRefs.firstIndex(of: identifier) {
             let container = LocalPackageContainer(
                 manifest: dependencyManifests.root.manifests[index],
@@ -83,10 +84,12 @@ struct LocalContainerProvider: PackageContainerProvider {
 
 private struct LocalPackageContainer: PackageContainer {
     let manifest: Manifest
+    /// The managed dependency if the package is not a root package.
     let dependency: ManagedDependency?
     let config: SwiftPMConfig
     let currentToolsVersion: ToolsVersion
 
+    // Gets the package reference from the managed dependency or computes it for root packages.
     var identifier: PackageReference {
         if let identifier = dependency?.packageRef {
             return identifier
@@ -122,14 +125,29 @@ private struct LocalPackageContainer: PackageContainer {
     }
 
     func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
+        // Throw an error when the dependency is not at the correct version to fail resolution.
+        guard dependency?.checkoutState?.version == version else {
+            throw Diagnostics.fatalError
+        }
+
         return manifest.dependencyConstraints(config: config)
     }
 
     func getDependencies(at revision: String) throws -> [PackageContainerConstraint] {
+        // Throw an error when the dependency is not at the correct revision to fail resolution.
+        guard dependency?.checkoutState?.revision.identifier == revision else {
+            throw Diagnostics.fatalError
+        }
+
         return manifest.dependencyConstraints(config: config)
     }
 
     func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
+        // Throw an error when the dependency is not unversioned to fail resolution.
+        guard dependency?.state.isCheckout != true else {
+            throw Diagnostics.fatalError
+        }
+
         return manifest.dependencyConstraints(config: config)
     }
 
