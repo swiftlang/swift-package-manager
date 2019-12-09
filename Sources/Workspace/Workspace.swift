@@ -1429,64 +1429,21 @@ extension Workspace {
             extraConstraints
 
         let diagnostics = DiagnosticsEngine()
-        let localProvider = LocalContainerProvider(
+        let precomputationProvider = ResolverPrecomputationProvider(
              root: root,
              dependencyManifests: dependencyManifests,
              config: config,
              diagnostics: diagnostics
         )
 
-        let resolver = PubgrubDependencyResolver(localProvider)
+        let resolver = PubgrubDependencyResolver(precomputationProvider)
         let result = resolver.solve(dependencies: constraints, pinsStore: pinsStore)
 
-        guard !diagnostics.hasErrors else { return true }
-        guard case .success(let bindings) = result else { return true }
-
-        // Otherwise, check checkouts and pins.
-        for (container, boundVersion) in bindings {
-            let url = container.path
-            let dependencyState = managedDependencies[forURL: url]?.state
-            let pinState = pinsStore.pinsMap[container.identity]?.state
-
-            switch (boundVersion, dependencyState, pinState) {
-            // If the package is excluded, but it is a dependency or a pin, we need to re-resolve.
-            case (.excluded, .some, _),
-                 (.excluded, _, .some):
-                return true
-
-            case (_, .checkout(let checkoutState)?, _):
-                // If this constraint is not same as the checkout state, we need to re-resolve.
-                if boundVersion.description != checkoutState.description {
-                    return true
-                }
-
-                // Ensure that the pin is not out of sync.
-                if checkoutState != pinState {
-                    return true
-                }
-
-            // We have a local package but the requirement is now different.
-            case (.version, .local?, _),
-                 (.revision, .local?, _):
-                return true
-
-            case (.unversioned, .local?, _):
-                continue
-
-            case (_, .edited?, _):
-                continue
-
-            case (_, nil, _):
-                // Ignore root packages.
-                if root.packageRefs.contains(container) {
-                    continue
-                }
-                // We don't have a checkout.
-                return true
-            }
+        if !diagnostics.hasErrors, case .success = result {
+            return false
+        } else {
+            return true
         }
-
-        return false
     }
 
     /// Validates that each checked out managed dependency has an entry in pinsStore.
