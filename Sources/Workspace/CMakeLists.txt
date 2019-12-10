@@ -12,6 +12,7 @@ add_library(Workspace
   Export.swift
   InitPackage.swift
   ManagedDependency.swift
+  ResolverPrecomputationProvider.swift
   ToolsVersionWriter.swift
   UserToolchain.swift
   Workspace.swift
