@@ -1619,7 +1619,7 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             v: .v5,
             dependencies: [
-                PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
                 TargetDescription(

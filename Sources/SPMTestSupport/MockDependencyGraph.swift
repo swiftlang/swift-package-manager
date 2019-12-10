@@ -178,6 +178,7 @@ public struct MockManifestGraph {
     ) -> [PackageDependencyDescription] {
         return dependencies.map({ dependency in
             return PackageDependencyDescription(
+                name: dependency.name,
                 url: repos[dependency.name]?.url ?? "//\(dependency.name)",
                 requirement: .range(dependency.version.lowerBound ..< dependency.version.upperBound))
         })

@@ -523,7 +523,11 @@ public struct TestDependency {
     }
 
     public func convert(baseURL: AbsolutePath) -> PackageDependencyDescription {
-        return PackageDependencyDescription(url: baseURL.appending(RelativePath(name)).pathString, requirement: requirement)
+        return PackageDependencyDescription(
+            name: name,
+            url: baseURL.appending(RelativePath(name)).pathString,
+            requirement: requirement
+        )
     }
 }
 

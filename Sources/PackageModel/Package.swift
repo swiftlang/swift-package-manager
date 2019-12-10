@@ -130,6 +130,19 @@ public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConv
         return lastComponent.lowercased()
     }
 
+    /// Compute the default name of a package given its URL.
+    public static func computeDefaultName(fromURL url: String) -> String {
+        // Get the last path component of the URL.
+        var lastComponent = url.split(separator: "/", omittingEmptySubsequences: true).last!
+
+        // Strip `.git` suffix if present.
+        if lastComponent.hasSuffix(".git") {
+            lastComponent = lastComponent.dropLast(4)
+        }
+
+        return String(lastComponent)
+    }
+
     /// The identity of the package.
     public let identity: String
 

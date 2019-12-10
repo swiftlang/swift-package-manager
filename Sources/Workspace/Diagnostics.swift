@@ -52,6 +52,15 @@ public struct ManifestDuplicateDeclDiagnostic: DiagnosticData {
     }
 }
 
+public struct TargetDependencyUnknownPackageDiagnostic: DiagnosticData {
+    public let targetName: String
+    public let packageName: String
+
+    public var description: String {
+        "manifest parse error: target '\(targetName)' depends on an unknown package '\(packageName)'\n"
+    }
+}
+
 extension ManifestParseError: DiagnosticDataConvertible {
     public var diagnosticData: DiagnosticData {
         switch self {
@@ -61,6 +70,8 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestParseDiagnostic(errors, diagnosticFile: nil)
         case .duplicateDependencyDecl(let duplicates):
             return ManifestDuplicateDeclDiagnostic(duplicates)
+        case .targetDependencyUnknownPackage(let targetName, let packageName):
+            return TargetDependencyUnknownPackageDiagnostic(targetName: targetName, packageName: packageName)
         }
     }
 }
