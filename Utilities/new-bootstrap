@@ -205,6 +205,12 @@ def get_cmake_path(args):
     """Returns the path to CMake."""
     if args.cmake_path:
         return os.path.abspath(args.cmake_path)
+    elif platform.system() == 'Darwin':
+        return call_output(
+            ["xcrun", "--find", "cmake"],
+            stderr=subprocess.PIPE,
+            verbose=args.verbose
+        )
     else:
         return call_output(["which", "cmake"], verbose=args.verbose)
 
@@ -212,6 +218,12 @@ def get_ninja_path(args):
     """Returns the path to Ninja."""
     if args.ninja_path:
         return os.path.abspath(args.ninja_path)
+    elif platform.system() == 'Darwin':
+        return call_output(
+            ["xcrun", "--find", "ninja"],
+            stderr=subprocess.PIPE,
+            verbose=args.verbose
+        )
     else:
         return call_output(["which", "ninja"], verbose=args.verbose)
 
