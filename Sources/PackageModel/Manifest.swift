@@ -192,6 +192,7 @@ public struct TargetDescription: Equatable, Codable {
         case regular
         case test
         case system
+        case binary
     }
 
     /// Represents a target's dependency on another entity.
@@ -233,6 +234,9 @@ public struct TargetDescription: Equatable, Codable {
     /// The custom path of the target.
     public let path: String?
 
+    /// The url of the binary target artifact.
+    public let url: String?
+
     /// The custom sources of the target.
     public let sources: [String]?
 
@@ -267,10 +271,14 @@ public struct TargetDescription: Equatable, Codable {
     /// The target-specific build settings declared in this target.
     public let settings: [TargetBuildSettingDescription.Setting]
 
+    /// The binary target checksum.
+    public let checksum: String?
+
     public init(
         name: String,
         dependencies: [Dependency] = [],
         path: String? = nil,
+        url: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
         resources: [Resource] = [],
@@ -278,17 +286,45 @@ public struct TargetDescription: Equatable, Codable {
         type: TargetType = .regular,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
-        settings: [TargetBuildSettingDescription.Setting] = []
+        settings: [TargetBuildSettingDescription.Setting] = [],
+        checksum: String? = nil
     ) {
         switch type {
         case .regular, .test:
-            precondition(pkgConfig == nil && providers == nil)
-        case .system: break
+            precondition(
+                url == nil &&
+                pkgConfig == nil &&
+                providers == nil &&
+                checksum == nil
+            )
+        case .system:
+            precondition(
+                dependencies.isEmpty &&
+                exclude.isEmpty &&
+                sources == nil &&
+                resources.isEmpty &&
+                publicHeadersPath == nil &&
+                settings.isEmpty &&
+                checksum == nil
+            )
+        case .binary:
+            precondition(path != nil || url != nil)
+            precondition(
+                dependencies.isEmpty &&
+                exclude.isEmpty &&
+                sources == nil &&
+                resources.isEmpty &&
+                publicHeadersPath == nil &&
+                pkgConfig == nil &&
+                providers == nil &&
+                settings.isEmpty
+            )
         }
 
         self.name = name
         self.dependencies = dependencies
         self.path = path
+        self.url = url
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
         self.exclude = exclude
@@ -297,6 +333,7 @@ public struct TargetDescription: Equatable, Codable {
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.settings = settings
+        self.checksum = checksum
     }
 }
 

@@ -12,7 +12,7 @@ import TSCBasic
 import PackageModel
 import TSCUtility
 import SPMLLBuild
-import class Foundation.ProcessInfo
+import Foundation
 public typealias FileSystem = TSCBasic.FileSystem
 
 public enum ManifestParseError: Swift.Error {
@@ -25,6 +25,10 @@ public enum ManifestParseError: Swift.Error {
     case duplicateDependencyDecl([[PackageDependencyDescription]])
 
     case targetDependencyUnknownPackage(targetName: String, packageName: String)
+
+    case invalidBinaryLocation(targetName: String)
+
+    case invalidBinaryLocationExtension(targetName: String, validExtensions: [String])
 }
 
 /// Resources required for manifest loading.
@@ -266,6 +270,23 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let duplicateDecls = manifest.dependencies.map({ KeyedPair($0, key: PackageReference.computeIdentity(packageURL: $0.url)) }).spm_findDuplicateElements()
         if !duplicateDecls.isEmpty {
             throw ManifestParseError.duplicateDependencyDecl(duplicateDecls.map({ $0.map({ $0.item }) }))
+        }
+
+        // Check that binary targets point to the right file type.
+        for target in manifest.targets where target.type == .binary {
+            guard let location = URL(string: target.url ?? target.path!) else {
+                throw ManifestParseError.invalidBinaryLocation(targetName: target.name)
+            }
+
+            let isRemote = target.url != nil
+            let validExtensions = isRemote ? ["zip"] : ["zip", "xcframework"]
+
+            guard validExtensions.contains(location.pathExtension) else {
+                throw ManifestParseError.invalidBinaryLocationExtension(
+                    targetName: target.name,
+                    validExtensions: validExtensions
+                )
+            }
         }
 
         // If the tools version is 5.2 or greater, we want to make sure all target package dependencies are valid.

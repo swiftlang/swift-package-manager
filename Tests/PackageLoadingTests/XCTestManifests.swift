@@ -110,6 +110,7 @@ extension PackageDescription5LoadingTests {
     // to regenerate.
     static let __allTests__PackageDescription5LoadingTests = [
         ("testBasics", testBasics),
+        ("testBinaryTargetUnavailable", testBinaryTargetUnavailable),
         ("testBuildSettings", testBuildSettings),
         ("testInvalidBuildSettings", testInvalidBuildSettings),
         ("testPackageNameUnavailable", testPackageNameUnavailable),
@@ -126,6 +127,8 @@ extension PackageDescription5_2LoadingTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__PackageDescription5_2LoadingTests = [
+        ("testBinaryTargetsTrivial", testBinaryTargetsTrivial),
+        ("testBinaryTargetsValidation", testBinaryTargetsValidation),
         ("testMissingTargetProductDependencyPackage", testMissingTargetProductDependencyPackage),
         ("testPackageName", testPackageName),
         ("testTargetDependencyProductInvalidPackage", testTargetDependencyProductInvalidPackage),

@@ -61,6 +61,27 @@ public struct TargetDependencyUnknownPackageDiagnostic: DiagnosticData {
     }
 }
 
+public struct InvalidBinaryLocationDiagnostic: DiagnosticData {
+    public let targetName: String
+
+    public var description: String {
+        "manifest parse error: invalid location of binary target '\(targetName)'\n"
+    }
+}
+
+public struct InvalidBinaryLocationExtensionDiagnostic: DiagnosticData {
+    public let targetName: String
+    public let validExtensions: [String]
+
+    public var description: String {
+        """
+        manifest parse error: unsupported extension of binary target '\(targetName)' (valid extensions are \
+        \(validExtensions.joined(separator: ", ")))
+
+        """
+    }
+}
+
 extension ManifestParseError: DiagnosticDataConvertible {
     public var diagnosticData: DiagnosticData {
         switch self {
@@ -72,6 +93,10 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestDuplicateDeclDiagnostic(duplicates)
         case .targetDependencyUnknownPackage(let targetName, let packageName):
             return TargetDependencyUnknownPackageDiagnostic(targetName: targetName, packageName: packageName)
+        case .invalidBinaryLocation(let targetName):
+            return InvalidBinaryLocationDiagnostic(targetName: targetName)
+        case .invalidBinaryLocationExtension(let targetName, let validExtensions):
+            return InvalidBinaryLocationExtensionDiagnostic(targetName: targetName, validExtensions: validExtensions)
         }
     }
 }
