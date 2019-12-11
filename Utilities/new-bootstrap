@@ -99,7 +99,7 @@ def add_build_args(parser):
         "--llbuild-build-dir",
         help="path to llbuild build directory")
     parser.add_argument(
-        "--llbuild_link_framework",
+        "--llbuild-link-framework",
         action="store_true",
         help="whether to link to the llbuild framework")
     parser.add_argument(
@@ -396,13 +396,22 @@ def build_swiftpm_with_swiftpm(args):
     """Builds SwiftPM using the version of SwiftPM built with CMake."""
     note("Building SwiftPM (with swift-build)")
 
-    args.swiftc_path
     call_swiftpm(args, [
+        "SWIFT_EXEC=" + args.swiftc_path,
+        "SWIFTPM_PD_LIBS=" + os.path.join(args.bootstrap_dir, "pm"),
+
         os.path.join(args.bootstrap_dir, "bin/swift-build"),
         # Always build tests in stage2.
         "--build-tests",
         "--disable-sandbox",
     ])
+
+    # Setup symlinks that'll allow using swiftpm from the build directory.
+    symlink_force(args.swiftc_path, os.path.join(args.target_dir, args.conf, "swiftc"))
+
+    lib_dir = os.path.join(args.target_dir, "lib", "swift")
+    mkdir_p(lib_dir)
+    symlink_force(os.path.join(args.bootstrap_dir, "pm"), os.path.join(lib_dir, "pm"))
 
 def call_swiftpm(args, cmd):
     """Calls a SwiftPM binary with the necessary environment variables and flags."""
@@ -410,13 +419,13 @@ def call_swiftpm(args, cmd):
     call(full_cmd, cwd=args.project_root, verbose=True)
 
 # -----------------------------------------------------------
-# Build-related helper functionss
+# Build-related helper functions
 # -----------------------------------------------------------
 
 def get_llbuild_cmake_arg(args):
     """Returns the CMake argument to the LLBuild framework/binary to use for bulding SwiftPM."""
     if args.llbuild_link_framework:
-        return "-DLLBuild_LIBRARY=%s" % os.path.join(args.llbuild_build_dir)
+        return "-DCMAKE_FIND_FRAMEWORK_EXTRA_LOCATIONS=%s" % args.llbuild_build_dir
     else:
         llbuild_dir = os.path.join(args.llbuild_build_dir, "cmake/modules")
         return "-DLLBuild_DIR=" + llbuild_dir
@@ -431,12 +440,7 @@ def get_llbuild_source_path(args):
 
 def get_swiftpm_env_cmd(args):
     """Returns the environment variable command to run SwiftPM binaries."""
-    env_cmd = [
-        "env",
-        "SWIFT_EXEC=" + args.swiftc_path,
-        "SWIFTPM_BUILD_DIR=" + args.build_dir,
-        "SWIFTPM_PD_LIBS=" + os.path.join(args.bootstrap_dir, "pm"),
-    ]
+    env_cmd = ["env"]
 
     if args.sysroot:
         env_cmd.append("SDKROOT=%s" % args.sysroot)
@@ -465,6 +469,7 @@ def get_swiftpm_flags(args):
     build_flags = [
         # No need for indexing while building.
         "--disable-index-store",
+        "--build-path", args.build_dir
     ]
 
     if args.release:
@@ -475,6 +480,12 @@ def get_swiftpm_flags(args):
 
     if args.verbose:
         build_flags.append("--verbose")
+
+    if args.llbuild_link_framework:
+        build_flags.extend([
+            "-Xswiftc", "-F" + args.llbuild_build_dir,
+            "-Xlinker", "-F" + args.llbuild_build_dir,
+        ])
 
     return build_flags
 
