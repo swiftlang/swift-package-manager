@@ -412,6 +412,11 @@ def build_swiftpm_with_swiftpm(args):
 
     lib_dir = os.path.join(args.target_dir, "lib", "swift")
     mkdir_p(lib_dir)
+
+    # Remove old cruft.
+    if os.path.isdir(lib_dir):
+        shutil.rmtree(lib_dir)
+
     symlink_force(os.path.join(args.bootstrap_dir, "pm"), os.path.join(lib_dir, "pm"))
 
 def call_swiftpm(args, cmd):
@@ -486,6 +491,8 @@ def get_swiftpm_flags(args):
         build_flags.extend([
             "-Xswiftc", "-F" + args.llbuild_build_dir,
             "-Xlinker", "-F" + args.llbuild_build_dir,
+            "-Xlinker", "-rpath",
+            "-Xlinker", "@executable_path/../../../../../SharedFrameworks",
         ])
 
     return build_flags
