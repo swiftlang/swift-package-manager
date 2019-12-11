@@ -1861,6 +1861,168 @@ final class BuildPlanTests: XCTestCase {
             "/path/to/build/debug/Bar.build/Bar.swift.o",
         ])
     }
+
+    func testBinaryTargets() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/Library/Library.swift",
+            "/Pkg/Sources/CLibrary/library.c",
+            "/Pkg/Sources/CLibrary/include/library.h"
+        )
+
+        try! fs.createDirectory(AbsolutePath("/Pkg/Framework.xcframework"), recursive: true)
+        try! fs.writeFileContents(
+            AbsolutePath("/Pkg/Framework.xcframework/Info.plist"),
+            bytes: ByteString(encodingAsUTF8: """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+                <plist version="1.0">
+                <dict>
+                    <key>AvailableLibraries</key>
+                    <array>
+                        <dict>
+                            <key>LibraryIdentifier</key>
+                            <string>macos-x86_64</string>
+                            <key>LibraryPath</key>
+                            <string>Framework.framework</string>
+                            <key>SupportedArchitectures</key>
+                            <array>
+                                <string>x86_64</string>
+                            </array>
+                            <key>SupportedPlatform</key>
+                            <string>macos</string>
+                        </dict>
+                    </array>
+                    <key>CFBundlePackageType</key>
+                    <string>XFWK</string>
+                    <key>XCFrameworkFormatVersion</key>
+                    <string>1.0</string>
+                </dict>
+                </plist>
+                """))
+
+        try! fs.createDirectory(AbsolutePath("/Pkg/StaticLibrary.xcframework"), recursive: true)
+        try! fs.writeFileContents(
+            AbsolutePath("/Pkg/StaticLibrary.xcframework/Info.plist"),
+            bytes: ByteString(encodingAsUTF8: """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+                <plist version="1.0">
+                <dict>
+                    <key>AvailableLibraries</key>
+                    <array>
+                        <dict>
+                            <key>LibraryIdentifier</key>
+                            <string>macos-x86_64</string>
+                            <key>HeadersPath</key>
+                            <string>Headers</string>
+                            <key>LibraryPath</key>
+                            <string>libStaticLibrary.a</string>
+                            <key>SupportedArchitectures</key>
+                            <array>
+                                <string>x86_64</string>
+                            </array>
+                            <key>SupportedPlatform</key>
+                            <string>macos</string>
+                        </dict>
+                    </array>
+                    <key>CFBundlePackageType</key>
+                    <string>XFWK</string>
+                    <key>XCFrameworkFormatVersion</key>
+                    <string>1.0</string>
+                </dict>
+                </plist>
+                """))
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(
+            fs: fs,
+            diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    packageKind: .root,
+                    products: [
+                        ProductDescription(name: "exe", type: .executable, targets: ["exe"]),
+                        ProductDescription(name: "Library", type: .library(.dynamic), targets: ["Library"]),
+                        ProductDescription(name: "CLibrary", type: .library(.dynamic), targets: ["CLibrary"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["Library"]),
+                        TargetDescription(name: "Library", dependencies: ["Framework"]),
+                        TargetDescription(name: "CLibrary", dependencies: ["StaticLibrary"]),
+                        TargetDescription(name: "Framework", path: "Framework.xcframework", type: .binary),
+                        TargetDescription(name: "StaticLibrary", path: "StaticLibrary.xcframework", type: .binary),
+                    ]
+                ),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(destinationTriple: .macOS),
+            graph: graph,
+            diagnostics: diagnostics,
+            fileSystem: fs
+        ))
+        XCTAssertNoDiagnostics(diagnostics)
+
+        result.checkProductsCount(3)
+        result.checkTargetsCount(3)
+
+        let libraryBasicArguments = try result.target(for: "Library").swiftTarget().compileArguments()
+        XCTAssertMatch(libraryBasicArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
+
+        let libraryLinkArguments = try result.buildProduct(for: "Library").linkArguments()
+        XCTAssertMatch(libraryLinkArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
+        XCTAssertMatch(libraryLinkArguments, [.anySequence, "-L", "/path/to/build/debug", .anySequence])
+        XCTAssertMatch(libraryLinkArguments, [.anySequence, "-framework", "Framework", .anySequence])
+
+        let exeCompileArguments = try result.target(for: "exe").swiftTarget().compileArguments()
+        XCTAssertMatch(exeCompileArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
+
+        let exeLinkArguments = try result.buildProduct(for: "exe").linkArguments()
+        XCTAssertMatch(exeLinkArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
+        XCTAssertMatch(exeLinkArguments, [.anySequence, "-L", "/path/to/build/debug", .anySequence])
+        XCTAssertMatch(exeLinkArguments, [.anySequence, "-framework", "Framework", .anySequence])
+
+        let clibraryBasicArguments = try result.target(for: "CLibrary").clangTarget().basicArguments()
+        XCTAssertMatch(clibraryBasicArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
+        XCTAssertMatch(clibraryBasicArguments, [.anySequence, "-I", "/Pkg/StaticLibrary.xcframework/macos-x86_64/Headers", .anySequence])
+
+        let clibraryLinkArguments = try result.buildProduct(for: "CLibrary").linkArguments()
+        XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
+        XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-L", "/path/to/build/debug", .anySequence])
+        XCTAssertMatch(clibraryLinkArguments, ["-lStaticLibrary"])
+    }
+
+    func testBinaryTargetFixture() {
+      #if os(macOS)
+        fixture(name: "BinaryTargets") { prefix in
+            do {
+                let (stdout, stderr) = try SwiftPMProduct.SwiftRun.execute(["exe"], packagePath: prefix)
+                XCTAssertNoMatch(stderr, .contains("warning: "))
+                XCTAssertEqual(stdout, """
+                    Framework()
+                    Library(framework: MyFwk.Framework())
+
+                    """)
+            } catch {
+                XCTFail("\(error)")
+            }
+
+            do {
+                let (stdout, stderr) = try SwiftPMProduct.SwiftRun.execute(["cexe"], packagePath: prefix)
+                XCTAssertNoMatch(stderr, .contains("warning: "))
+                XCTAssertMatch(stdout, .contains("<CLibrary: "))
+            } catch {
+                XCTFail("\(error)")
+            }
+        }
+      #endif
+    }
 }
 
 // MARK:- Test Helpers

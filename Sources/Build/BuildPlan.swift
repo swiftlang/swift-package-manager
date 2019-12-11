@@ -129,6 +129,16 @@ public enum TargetBuildDescription {
             return target.target
         }
     }
+
+    /// Paths to the binary libraries the target depends on.
+    var libraryBinaryPaths: Set<AbsolutePath> {
+        switch self {
+        case .swift(let target):
+            return target.libraryBinaryPaths
+        case .clang(let target):
+            return target.libraryBinaryPaths
+        }
+    }
 }
 
 /// Target description for a Clang target i.e. C language family target.
@@ -168,6 +178,9 @@ public final class ClangTargetBuildDescription {
     public var objects: [AbsolutePath] {
         return compilePaths().map({ $0.object })
     }
+
+    /// Paths to the binary libraries the target depends on.
+    fileprivate(set) var libraryBinaryPaths: Set<AbsolutePath> = []
 
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
@@ -247,6 +260,12 @@ public final class ClangTargetBuildDescription {
             // Using modules currently conflicts with the Windows and Android SDKs.
             args += ["-fmodules", "-fmodule-name=" + target.c99name]
         }
+
+        // Only add the build path to the framework search path if there are binary frameworks to link against.
+        if !libraryBinaryPaths.isEmpty {
+            args += ["-F", buildParameters.buildPath.pathString]
+        }
+
         args += ["-I", clangTarget.includeDir.pathString]
         args += additionalFlags
         if !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid() {
@@ -442,6 +461,9 @@ public final class SwiftTargetBuildDescription {
         return buildParameters.buildPath.appending(component: target.c99name + ".swiftinterface")
     }
 
+    /// Paths to the binary libraries the target depends on.
+    fileprivate(set) var libraryBinaryPaths: Set<AbsolutePath> = []
+
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
 
@@ -544,6 +566,11 @@ public final class SwiftTargetBuildDescription {
         args += moduleCacheArgs
         args += buildParameters.sanitizers.compileSwiftFlags()
         args += ["-parseable-output"]
+
+        // Only add the build path to the framework search path if there are binary frameworks to link against.
+        if !libraryBinaryPaths.isEmpty {
+            args += ["-F", buildParameters.buildPath.pathString]
+        }
 
         // Emit the ObjC compatibility header if enabled.
         if shouldEmitObjCCompatibilityHeader {
@@ -887,6 +914,9 @@ public final class ProductBuildDescription {
     /// The list of Swift modules that should be passed to the linker. This is required for debugging to work.
     fileprivate var swiftASTs: SortedArray<AbsolutePath> = .init()
 
+    /// Paths to the binary libraries the product depends on.
+    fileprivate var libraryBinaryPaths: Set<AbsolutePath> = []
+
     /// Path to the temporary directory for this product.
     var tempsPath: AbsolutePath {
         return buildParameters.buildPath.appending(component: product.name + ".product")
@@ -933,6 +963,11 @@ public final class ProductBuildDescription {
             } else {
                 args += ["-g"]
             }
+        }
+
+        // Only add the build path to the framework search path if there are binary frameworks to link against.
+        if !libraryBinaryPaths.isEmpty {
+            args += ["-F", buildParameters.buildPath.pathString]
         }
 
         args += ["-L", buildParameters.buildPath.pathString]
@@ -1326,6 +1361,17 @@ public class BuildPlan {
             buildProduct.additionalFlags += pkgConfig(for: target).libs
         }
 
+        // Add flags for binary dependencies.
+        for binaryPath in dependencies.libraryBinaryPaths {
+            if binaryPath.extension == "framework" {
+                buildProduct.additionalFlags += ["-framework", binaryPath.basenameWithoutExt]
+            } else if binaryPath.basename.starts(with: "lib") {
+                buildProduct.additionalFlags += ["-l\(binaryPath.basenameWithoutExt.dropFirst(3))"]
+            } else {
+                diagnostics.emit(error: "unexpected binary framework")
+            }
+        }
+
         // Link C++ if needed.
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
@@ -1360,6 +1406,7 @@ public class BuildPlan {
         buildProduct.staticTargets = dependencies.staticTargets
         buildProduct.dylibs = dependencies.dylibs.map({ productMap[$0]! })
         buildProduct.objects += dependencies.staticTargets.flatMap({ targetMap[$0]!.objects })
+        buildProduct.libraryBinaryPaths = dependencies.libraryBinaryPaths
 
         // Write the link filelist file.
         //
@@ -1374,7 +1421,8 @@ public class BuildPlan {
     ) -> (
         dylibs: [ResolvedProduct],
         staticTargets: [ResolvedTarget],
-        systemModules: [ResolvedTarget]
+        systemModules: [ResolvedTarget],
+        libraryBinaryPaths: Set<AbsolutePath>
     ) {
 
         // Sort the product targets in topological order.
@@ -1401,6 +1449,7 @@ public class BuildPlan {
         var linkLibraries = [ResolvedProduct]()
         var staticTargets = [ResolvedTarget]()
         var systemModules = [ResolvedTarget]()
+        var libraryBinaryPaths: Set<AbsolutePath> = []
 
         for dependency in allTargets {
             switch dependency {
@@ -1415,12 +1464,17 @@ public class BuildPlan {
                 // Library targets should always be included.
                 case .library:
                     staticTargets.append(target)
-                // Add system target targets to system targets array.
+                // Add system target to system targets array.
                 case .systemModule:
                     systemModules.append(target)
+                // Add binary to binary paths set.
                 case .binary:
-                    // TODO: Implement
-                    break
+                    guard let binaryTarget = target.underlyingTarget as? BinaryTarget else {
+                        fatalError("should not happen")
+                    }
+                    if let library = xcFrameworkLibrary(for: binaryTarget) {
+                        libraryBinaryPaths.insert(library.binaryPath)
+                    }
                 }
 
             case .product(let product):
@@ -1437,7 +1491,7 @@ public class BuildPlan {
             }
         }
 
-        return (linkLibraries, staticTargets, systemModules)
+        return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths)
     }
 
     /// Plan a Clang target.
@@ -1464,6 +1518,13 @@ public class BuildPlan {
             case let target as SystemLibraryTarget:
                 clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 clangTarget.additionalFlags += pkgConfig(for: target).cFlags
+            case let target as BinaryTarget:
+                if let library = xcFrameworkLibrary(for: target) {
+                    if let headersPath = library.headersPath {
+                        clangTarget.additionalFlags += ["-I", headersPath.pathString]
+                    }
+                    clangTarget.libraryBinaryPaths.insert(library.binaryPath)
+                }
             default: continue
             }
         }
@@ -1491,7 +1552,15 @@ public class BuildPlan {
             case let target as SystemLibraryTarget:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 swiftTarget.additionalFlags += pkgConfig(for: target).cFlags
-            default: break
+            case let target as BinaryTarget:
+                if let library = xcFrameworkLibrary(for: target) {
+                    if let headersPath = library.headersPath {
+                        swiftTarget.additionalFlags += ["-I", headersPath.pathString]
+                    }
+                    swiftTarget.libraryBinaryPaths.insert(library.binaryPath)
+                }
+            default:
+                break
             }
         }
     }
@@ -1590,8 +1659,55 @@ public class BuildPlan {
         return pkgConfigCache[target]!
     }
 
+    /// Extracts the library to building against from a XCFramework.
+    private func xcFrameworkLibrary(for target: BinaryTarget) -> LibraryInfo? {
+        func calculateLibraryInfo() -> LibraryInfo? {
+            // Parse the XCFramework's Info.plist.
+            let infoPath = target.artifactPath.appending(component: "Info.plist")
+            guard let info = XCFrameworkInfo(path: infoPath, diagnostics: diagnostics, fileSystem: fileSystem) else {
+                return nil
+            }
+
+            // Check that it supports macOS.
+            guard let library = info.libraries.first(where: {
+                $0.platform == "macos" && $0.architectures.contains(Triple.Arch.x86_64.rawValue)
+            }) else {
+                diagnostics.emit(error: """
+                    artifact '\(target.name)' does not support the target platform and architecture \
+                    ('\(buildParameters.triple)')
+                    """)
+                return nil
+            }
+
+            let libraryDirectory = target.artifactPath.appending(component: library.libraryIdentifier)
+            let binaryPath = libraryDirectory.appending(component: library.libraryPath)
+            let headersPath = library.headersPath.map({ libraryDirectory.appending(component: $0) })
+            return LibraryInfo(binaryPath: binaryPath, headersPath: headersPath)
+        }
+
+        // If we don't have the library information yet, calculate it.
+        if !xcFrameworkCache.keys.contains(target) {
+            xcFrameworkCache[target] = calculateLibraryInfo()
+        }
+
+        return xcFrameworkCache[target]!
+    }
+
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
+
+    /// Cache for xcframework library information.
+    private var xcFrameworkCache = [BinaryTarget: LibraryInfo?]()
+}
+
+/// Information about a library.
+private struct LibraryInfo: Equatable {
+
+    /// The path to the binary.
+    let binaryPath: AbsolutePath
+
+    /// The path to the headers directory, if one exists.
+    let headersPath: AbsolutePath?
 }
 
 private extension Diagnostic.Message {
@@ -1619,6 +1735,10 @@ private extension Diagnostic.Message {
 
     static func pkgConfigHint(pkgConfigName: String, installText: String) -> Diagnostic.Message {
         .warning(PkgConfigHintDiagnostic(pkgConfigName: pkgConfigName, installText: installText))
+    }
+
+    static func binaryTargetsNotSupported() -> Diagnostic.Message {
+        .error("binary targets are not supported on this platform")
     }
 }
 

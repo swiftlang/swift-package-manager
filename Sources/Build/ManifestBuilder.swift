@@ -47,6 +47,7 @@ public class LLBuildManifestBuilder {
         manifest.defaultTarget = TargetKind.main.targetName
 
         addPackageStructureCommand()
+        addBinaryDependencyCommands()
 
         // Create commands for all target descriptions in the plan.
         for (_, description) in plan.targetMap {
@@ -107,6 +108,20 @@ extension LLBuildManifestBuilder {
     }
 }
 
+// MARK:- Binary Dependencies
+
+extension LLBuildManifestBuilder {
+
+    // Creates commands for copying all binary artifacts depended on in the plan.
+    fileprivate func addBinaryDependencyCommands() {
+        let binaryPaths = Set(plan.targetMap.values.flatMap({ $0.libraryBinaryPaths }))
+        for binaryPath in binaryPaths {
+            let destination = destinationPath(forBinaryAt: binaryPath)
+            addCopyCommand(from: binaryPath, to: destination)
+        }
+    }
+}
+
 // MARK:- Resources Bundle
 
 extension LLBuildManifestBuilder {
@@ -122,17 +137,9 @@ extension LLBuildManifestBuilder {
 
         // Create a copy command for each resource file.
         for resource in target.target.underlyingTarget.resources {
-            let output = bundlePath.appending(component: resource.path.basename)
-
-            let isDir = localFileSystem.isDirectory(resource.path)
-            let nodeType = isDir ? Node.directory : Node.file
-
-            manifest.addCopyCmd(
-                name: output.pathString,
-                inputs: [nodeType(resource.path)],
-                outputs: [nodeType(output)]
-            )
-            outputs.append(nodeType(output))
+            let destination = bundlePath.appending(component: resource.path.basename)
+            let (_, output) = addCopyCommand(from: resource.path, to: destination)
+            outputs.append(output)
         }
 
         let cmdName = target.target.getLLBuildResourcesCmdName(config: buildConfig)
@@ -234,6 +241,8 @@ extension LLBuildManifestBuilder {
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.
             if target.underlyingTarget is SystemLibraryTarget { return }
+            // Ignore Binary Modules.
+            if target.underlyingTarget is BinaryTarget { return }
 
             // Depend on the binary for executable targets.
             if target.type == .executable {
@@ -279,6 +288,15 @@ extension LLBuildManifestBuilder {
                 case .test:
                     break
                 }
+            }
+        }
+
+        for binaryPath in target.libraryBinaryPaths {
+            let path = destinationPath(forBinaryAt: binaryPath)
+            if localFileSystem.isDirectory(binaryPath) {
+                inputs.append(directory: path)
+            } else {
+                inputs.append(file: path)
             }
         }
 
@@ -369,6 +387,15 @@ extension LLBuildManifestBuilder {
                 case .test:
                     break
                 }
+            }
+        }
+
+        for binaryPath in target.libraryBinaryPaths {
+            let path = destinationPath(forBinaryAt: binaryPath)
+            if localFileSystem.isDirectory(binaryPath) {
+                inputs.append(directory: path)
+            } else {
+                inputs.append(file: path)
             }
         }
 
@@ -527,5 +554,26 @@ extension ResolvedProduct {
 
     public func getCommandName(config: String) -> String {
         return "C." + getLLBuildTargetName(config: config)
+    }
+}
+
+// MARK:- Helper
+
+extension LLBuildManifestBuilder {
+    @discardableResult
+    fileprivate func addCopyCommand(
+        from source: AbsolutePath,
+        to destination: AbsolutePath
+    ) -> (inputNode: Node, outputNode: Node) {
+        let isDirectory = localFileSystem.isDirectory(source)
+        let nodeType = isDirectory ? Node.directory : Node.file
+        let inputNode = nodeType(source)
+        let outputNode = nodeType(destination)
+        manifest.addCopyCmd(name: destination.pathString, inputs: [inputNode], outputs: [outputNode])
+        return (inputNode, outputNode)
+    }
+
+    fileprivate func destinationPath(forBinaryAt path: AbsolutePath) -> AbsolutePath {
+        plan.buildParameters.buildPath.appending(component: path.basename)
     }
 }

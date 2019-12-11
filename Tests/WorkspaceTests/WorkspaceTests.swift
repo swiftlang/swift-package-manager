@@ -4125,6 +4125,10 @@ final class WorkspaceTests: XCTestCase {
                         url: "https://a.com/a5.zip",
                         checksum: "a5",
                         subpath: RelativePath("A/A5.xcframework"))),
+                ManagedArtifact(
+                    packageRef: aRef,
+                    targetName: "A6",
+                    source: .local(path: "A6.xcframework")),
             ]
         )
 

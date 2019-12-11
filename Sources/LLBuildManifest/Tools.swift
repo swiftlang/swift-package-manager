@@ -63,6 +63,10 @@ public struct CopyTool: ToolProtocol {
         self.inputs = inputs
         self.outputs = outputs
     }
+
+    public func write(to stream: ManifestToolStream) {
+        stream["description"] = "Copying \(inputs[0].name)"
+    }
 }
 
 /// Package strcuture tool is used to determine if the package has changed in some way

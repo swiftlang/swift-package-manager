@@ -776,6 +776,22 @@ class PackageBuilderTests: XCTestCase {
         }
 
         do {
+            let fs = InMemoryFileSystem()
+            // Binary target.
+            let manifest = Manifest.createV4Manifest(
+                name: "pkg",
+                targets: [
+                    TargetDescription(name: "foo", url: "https://foo.com/foo.zip", type: .binary, checksum: "checksum"),
+                ]
+            )
+
+            let remoteArtifacts = [RemoteArtifact(url: "https://foo.com/foo.zip", path: AbsolutePath("/foo.xcframework"))]
+            PackageBuilderTester(manifest, remoteArtifacts: remoteArtifacts, in: fs) { result in
+                result.checkModule("foo")
+            }
+        }
+
+        do {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/Sources/pkg1/Foo.swift",
                 "/Sources/pkg2/Foo.swift",
@@ -1645,6 +1661,7 @@ final class PackageBuilderTester {
     init(
         _ manifest: Manifest,
         path: AbsolutePath = .root,
+        remoteArtifacts: [RemoteArtifact] = [],
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         in fs: FileSystem,
@@ -1656,8 +1673,13 @@ final class PackageBuilderTester {
         do {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
-                manifest: manifest, path: path, fileSystem: fs, diagnostics: diagnostics,
-                shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts, createREPLProduct: createREPLProduct)
+                manifest: manifest,
+                path: path,
+                remoteArtifacts: remoteArtifacts,
+                fileSystem: fs,
+                diagnostics: diagnostics,
+                shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+                createREPLProduct: createREPLProduct)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.targets)
