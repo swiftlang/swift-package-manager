@@ -10,6 +10,7 @@
 
 import func Foundation.NSUserName
 import class Foundation.ProcessInfo
+import Dispatch
 
 import TSCLibc
 import TSCBasic
@@ -28,14 +29,30 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The stream to use for reporting progress.
     private let stdoutStream: ThreadSafeOutputByteStream
 
+    /// The progress animation for downloads.
+    private let downloadAnimation: NinjaProgressAnimation
+
     /// Wether the tool is in a verbose mode.
     private let isVerbose: Bool
 
-    init(_ stdoutStream: OutputByteStream, isVerbose: Bool) {
+    private struct DownloadProgress {
+        let bytesDownloaded: Int64
+        let totalBytesToDownload: Int64
+    }
+
+    /// The progress of each individual downloads.
+    private var downloadProgress: [String: DownloadProgress] = [:]
+
+    private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
+    private let diagnostics: DiagnosticsEngine
+
+    init(_ stdoutStream: OutputByteStream, isVerbose: Bool, diagnostics: DiagnosticsEngine) {
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.stdoutStream = stdoutStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(stdoutStream)
+        self.downloadAnimation = NinjaProgressAnimation(stream: self.stdoutStream)
         self.isVerbose = isVerbose
+        self.diagnostics = diagnostics
     }
 
     func fetchingWillBegin(repository: String) {
@@ -141,6 +158,31 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
         stdoutStream <<< "\n"
         stdoutStream.flush()
+    }
+
+    func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+        queue.async {
+            if let totalBytesToDownload = totalBytesToDownload {
+                self.downloadProgress[url] = DownloadProgress(
+                    bytesDownloaded: bytesDownloaded,
+                    totalBytesToDownload: totalBytesToDownload)
+            }
+
+            let step = self.downloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded }) / 1024
+            let total = self.downloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload }) / 1024
+            self.downloadAnimation.update(step: Int(step), total: Int(total), text: "Downloading binary artifacts...")
+        }
+    }
+
+    func didDownloadBinaryArtifacts() {
+        queue.async {
+            if self.diagnostics.hasErrors {
+                self.downloadAnimation.clear()
+            }
+
+            self.downloadAnimation.complete(success: true)
+            self.downloadProgress.removeAll()
+        }
     }
 }
 
@@ -468,7 +510,7 @@ public class SwiftTool<Options: ToolOptions> {
             (packageRoot ?? cwd).appending(component: ".build")
     }
 
-    static func postprocessArgParserResult(result: ArgumentParser.Result, diagnostics: DiagnosticsEngine) throws {
+    class func postprocessArgParserResult(result: ArgumentParser.Result, diagnostics: DiagnosticsEngine) throws {
         if result.exists(arg: "--chdir") || result.exists(arg: "-C") {
             diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
@@ -528,7 +570,8 @@ public class SwiftTool<Options: ToolOptions> {
         if let workspace = _workspace {
             return workspace
         }
-        let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: options.verbosity != 0)
+        let isVerbose = options.verbosity != 0
+        let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
         let workspace = Workspace(
             dataPath: buildPath,
@@ -649,7 +692,7 @@ public class SwiftTool<Options: ToolOptions> {
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try getActiveWorkspace().managedDependencies.values.contains{ $0.isEdited }
+        let hasEditedPackages = try getActiveWorkspace().state.dependencies.contains(where: { $0.isEdited })
 
         return options.enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages
     }

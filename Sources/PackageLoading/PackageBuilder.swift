@@ -178,6 +178,9 @@ public final class PackageBuilder {
     /// The path of the package.
     private let packagePath: AbsolutePath
 
+    /// Paths to the downloaded binary target artifacts.
+    private let artifactPaths: [AbsolutePath]
+
     /// The filesystem package builder will run on.
     private let fileSystem: FileSystem
 
@@ -200,6 +203,7 @@ public final class PackageBuilder {
     /// - Parameters:
     ///   - manifest: The manifest of this package.
     ///   - path: The root path of the package.
+    ///   - artifactPaths: Paths to the downloaded binary target artifacts.
     ///   - fileSystem: The file system on which the builder should be run.
     ///   - diagnostics: The diagnostics engine.
     ///   - createMultipleTestProducts: If enabled, create one test product for
@@ -208,6 +212,7 @@ public final class PackageBuilder {
         manifest: Manifest,
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription] = [],
+        artifactPaths: [AbsolutePath] = [],
         fileSystem: FileSystem = localFileSystem,
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
@@ -216,6 +221,7 @@ public final class PackageBuilder {
         self.manifest = manifest
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
+        self.artifactPaths = artifactPaths
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
@@ -439,6 +445,10 @@ public final class PackageBuilder {
 
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
+            if target.type == .binary {
+                return AbsolutePath("/")
+            }
+
             // If there is a custom path defined, use that.
             if let subpath = target.path {
                 if subpath == "" || subpath == "." {
@@ -482,7 +492,8 @@ public final class PackageBuilder {
         let potentialTargets: [PotentialModule]
         potentialTargets = try manifest.allRequiredTargets.map({ target in
             let path = try findPath(for: target)
-            return PotentialModule(name: target.name, path: path, type: target.type)
+            let artifactPath = artifactPaths.first(where: { $0.basenameWithoutExt == target.name })
+            return PotentialModule(name: target.name, path: path, type: target.type, artifactPath: artifactPath)
         })
         return try createModules(potentialTargets)
     }
@@ -618,6 +629,17 @@ public final class PackageBuilder {
                 path: potentialModule.path, isImplicit: false,
                 pkgConfig: manifestTarget.pkgConfig,
                 providers: manifestTarget.providers
+            )
+        } else if potentialModule.type == .binary {
+            guard let artifactPath = potentialModule.artifactPath else {
+                diagnostics.emit(.missingBinaryTargetArtifact(target: potentialModule.name))
+                return nil
+            }
+
+            return BinaryTarget(
+                name: potentialModule.name,
+                platforms: self.platforms(),
+                artifactPath: artifactPath
             )
         }
 
@@ -1073,6 +1095,9 @@ private struct PotentialModule: Hashable {
 
     /// The target type.
     let type: TargetDescription.TargetType
+
+    /// The path to the artifact if this is a binary target.
+    let artifactPath: AbsolutePath?
 
     /// The base prefix for the test target, used to associate with the target it tests.
     public var basename: String {

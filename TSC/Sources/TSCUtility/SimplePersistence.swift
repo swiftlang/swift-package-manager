@@ -57,8 +57,8 @@ public final class SimplePersistence {
     /// The schema versions, besides the current schema, that are supported for restoring.
     private let supportedSchemaVersions: Set<Int>
 
-    /// The path at which we persist the state.
-    private let statePath: AbsolutePath
+    /// The list of paths for persistence. Restores from the first valid path, but persists to the first one.
+    private let statePaths: [AbsolutePath]
 
     /// Writes the state files with pretty print JSON.
     private let prettyPrint: Bool
@@ -67,14 +67,15 @@ public final class SimplePersistence {
         fileSystem: FileSystem,
         schemaVersion: Int,
         supportedSchemaVersions: Set<Int> = [],
-        statePath: AbsolutePath,
+        statePaths: [AbsolutePath],
         prettyPrint: Bool = false
     ) {
         assert(!supportedSchemaVersions.contains(schemaVersion), "Supported schema versions should not include the current schema")
+        assert(!statePaths.isEmpty, "Must provide at least one state path")
         self.fileSystem = fileSystem
         self.schemaVersion = schemaVersion
         self.supportedSchemaVersions = supportedSchemaVersions
-        self.statePath = statePath
+        self.statePaths = statePaths
         self.prettyPrint = prettyPrint
     }
 
@@ -83,17 +84,17 @@ public final class SimplePersistence {
         do {
             return try _restoreState(object)
         } catch {
-            throw Error.restoreFailure(stateFile: statePath, error: error)
+            throw Error.restoreFailure(stateFile: statePaths[0], error: error)
         }
     }
 
     private func _restoreState(_ object: SimplePersistanceProtocol) throws -> Bool {
-        // If the state doesn't exist, don't try to load and fail.
-        if !fileSystem.exists(statePath) {
+        // Use the first path that exists.
+        guard let path = statePaths.first(where: { fileSystem.exists($0) }) else {
             return false
         }
         // Load the state.
-        let json = try JSON(bytes: try fileSystem.readFileContents(statePath))
+        let json = try JSON(bytes: try fileSystem.readFileContents(path))
         // Get the schema version.
         let version: Int = try json.get("version")
 
@@ -107,6 +108,11 @@ public final class SimplePersistence {
 
         default:
             throw Error.invalidSchemaVersion(version)
+        }
+
+        // If we loaded an old file path, migrate to the new one.
+        if path != statePaths[0] {
+            try fileSystem.move(from: path, to: statePaths[0])
         }
 
         return true
@@ -132,8 +138,10 @@ public final class SimplePersistence {
     public func saveState(_ object: SimplePersistanceProtocol) throws {
         var json = [String: JSON]()
 
+        let path = statePaths[0]
+
         // Load the current data.
-        let jsonData = try? JSON(bytes: fileSystem.readFileContents(statePath))
+        let jsonData = try? JSON(bytes: fileSystem.readFileContents(path))
         if case let .dictionary(dict)? = jsonData {
             json = dict
         }
@@ -144,14 +152,14 @@ public final class SimplePersistence {
         // Set the object, keeping any keys in object which we don't know about.
         json["object"] = merge(old: json["object"], new: object.toJSON())
 
-        try fileSystem.createDirectory(statePath.parentDirectory, recursive: true)
+        try fileSystem.createDirectory(path.parentDirectory, recursive: true)
         // FIXME: This should write atomically.
         try fileSystem.writeFileContents(
-            statePath, bytes: JSON(json).toBytes(prettyPrint: self.prettyPrint))
+            path, bytes: JSON(json).toBytes(prettyPrint: self.prettyPrint))
     }
 
     /// Returns true if the state file exists on the filesystem.
     public func stateFileExists() -> Bool {
-        return fileSystem.exists(statePath)
+        return statePaths.contains(where: { fileSystem.exists($0) })
     }
 }

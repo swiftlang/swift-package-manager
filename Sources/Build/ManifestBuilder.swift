@@ -234,6 +234,8 @@ extension LLBuildManifestBuilder {
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.
             if target.underlyingTarget is SystemLibraryTarget { return }
+            // Ignore Binary Modules.
+            if target.underlyingTarget is BinaryTarget { return }
 
             // Depend on the binary for executable targets.
             if target.type == .executable {

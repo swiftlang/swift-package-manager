@@ -776,6 +776,18 @@ class PackageBuilderTests: XCTestCase {
         }
 
         do {
+            let fs = InMemoryFileSystem()
+            // Binary target.
+            let manifest = Manifest.createV4Manifest(
+                name: "pkg",
+                targets: [
+                    TargetDescription(name: "foo", url: "https://bar.com/bar.zip", type: .binary, checksum: "checksum"),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { _ in }
+        }
+
+        do {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/Sources/pkg1/Foo.swift",
                 "/Sources/pkg2/Foo.swift",

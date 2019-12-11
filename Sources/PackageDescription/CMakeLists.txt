@@ -17,8 +17,8 @@ foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
         Resource.swift
         SupportedPlatforms.swift
         Target.swift
-        Version+StringLiteralConvertible.swift
-        Version.swift)
+        Version.swift
+        Version+StringLiteralConvertible.swift)
 
     target_compile_definitions(PD${PACKAGE_DESCRIPTION_VERSION} PRIVATE
         PACKAGE_DESCRIPTION_${PACKAGE_DESCRIPTION_VERSION})
@@ -27,7 +27,7 @@ foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
         set(SWIFT_INTERFACE_PATH ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftinterface)
         target_compile_options(PD${PACKAGE_DESCRIPTION_VERSION} PUBLIC
             $<$<COMPILE_LANGUAGE:Swift>:-enable-library-evolution>)
-        target_compile_options(PD${PACKAGE_DESCRIPTION_VERSION} PUBLIC 
+        target_compile_options(PD${PACKAGE_DESCRIPTION_VERSION} PUBLIC
             $<$<COMPILE_LANGUAGE:Swift>:-emit-module-interface-path$<SEMICOLON>${SWIFT_INTERFACE_PATH}>)
     endif()
 
@@ -48,12 +48,12 @@ foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
     endif()
 
     if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
-        install(FILES 
+        install(FILES
             ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftinterface
             DESTINATION lib/swift/pm/${PACKAGE_DESCRIPTION_VERSION}
         )
     else()
-        install(FILES 
+        install(FILES
             ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftmodule
             ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftdoc
             DESTINATION lib/swift/pm/${PACKAGE_DESCRIPTION_VERSION}

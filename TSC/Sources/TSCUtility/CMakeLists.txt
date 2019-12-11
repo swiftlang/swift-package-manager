@@ -7,12 +7,15 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(TSCUtility
+  Archiver.swift
   ArgumentParser.swift
   ArgumentParserShellCompletion.swift
   BuildFlags.swift
   CollectionExtensions.swift
   Diagnostics.swift
   dlopen.swift
+  Downloader.swift
+  FloatingPointExtensions.swift
   FSWatch.swift
   Git.swift
   IndexStore.swift

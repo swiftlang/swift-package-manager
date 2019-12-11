@@ -21,6 +21,9 @@ public final class TestWorkspace {
 
     let sandbox: AbsolutePath
     let fs: FileSystem
+    public let downloader: MockDownloader
+    public let archiver: MockArchiver
+    public let checksumAlgorithm: MockHashAlgorithm
     let roots: [TestPackage]
     let packages: [TestPackage]
     public let config: SwiftPMConfig
@@ -34,6 +37,9 @@ public final class TestWorkspace {
     public init(
         sandbox: AbsolutePath,
         fs: FileSystem,
+        downloader: MockDownloader? = nil,
+        archiver: MockArchiver = MockArchiver(),
+        checksumAlgorithm: MockHashAlgorithm = MockHashAlgorithm(),
         roots: [TestPackage],
         packages: [TestPackage],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
@@ -42,6 +48,9 @@ public final class TestWorkspace {
     ) throws {
         self.sandbox = sandbox
         self.fs = fs
+        self.downloader = downloader ?? MockDownloader(fileSystem: fs)
+        self.archiver = archiver
+        self.checksumAlgorithm = checksumAlgorithm
         self.config = SwiftPMConfig(path: sandbox.appending(component: "swiftpm"), fs: fs)
         self.roots = roots
         self.packages = packages
@@ -154,6 +163,9 @@ public final class TestWorkspace {
             config: config,
             fileSystem: fs,
             repositoryProvider: repoProvider,
+            downloader: downloader,
+            archiver: archiver,
+            checksumAlgorithm: checksumAlgorithm,
             enablePubgrubResolver: enablePubGrub,
             skipUpdate: skipUpdate
         )
@@ -303,11 +315,7 @@ public final class TestWorkspace {
         public let diagnostics: DiagnosticsEngine
     }
 
-    public func checkPrecomputeResolution(
-        pins: [PackageReference: CheckoutState],
-        managedDependencies: [ManagedDependency],
-        _ check: (ResolutionPrecomputationResult) -> ()
-    ) throws {
+    public func checkPrecomputeResolution(_ check: (ResolutionPrecomputationResult) -> ()) throws {
         let diagnostics = DiagnosticsEngine()
         let workspace = createWorkspace()
         let pinsStore = try workspace.pinsStore.load()
@@ -315,17 +323,6 @@ public final class TestWorkspace {
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots.map({ $0.name })), dependencies: [])
         let rootManifests = workspace.loadRootManifests(packages: rootInput.packages, diagnostics: diagnostics)
         let root = PackageGraphRoot(input: rootInput, manifests: rootManifests)
-
-        for (ref, state) in pins {
-            pinsStore.pin(packageRef: ref, state: state)
-        }
-
-        let deps = workspace.managedDependencies
-        for dependency in managedDependencies {
-            try fs.createDirectory(workspace.path(for: dependency), recursive: true)
-            deps[forURL: dependency.packageRef.path] = dependency
-        }
-        try deps.saveState()
 
         let dependencyManifests = workspace.loadDependencyManifests(root: root, diagnostics: diagnostics)
 
@@ -337,6 +334,31 @@ public final class TestWorkspace {
         )
 
         check(ResolutionPrecomputationResult(result: result, diagnostics: diagnostics))
+    }
+
+    public func set(
+        pins: [PackageReference: CheckoutState] = [:],
+        managedDependencies: [ManagedDependency] = [],
+        managedArtifacts: [ManagedArtifact] = []
+    ) throws {
+        let workspace = createWorkspace()
+        let pinsStore = try workspace.pinsStore.load()
+
+        for (ref, state) in pins {
+            pinsStore.pin(packageRef: ref, state: state)
+        }
+
+        for dependency in managedDependencies {
+            try fs.createDirectory(workspace.path(for: dependency), recursive: true)
+            workspace.state.dependencies.add(dependency)
+        }
+
+        for artifact in managedArtifacts {
+            try fs.createDirectory(workspace.path(for: artifact), recursive: true)
+            workspace.state.artifacts.add(artifact)
+        }
+
+        try workspace.state.saveState()
     }
 
     public enum State {
@@ -359,16 +381,16 @@ public final class TestWorkspace {
         }
 
         public func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
-            let dependency = try? managedDependencies.dependency(forNameOrIdentity: name)
+            let dependency = managedDependencies[forNameOrIdentity: name]
             XCTAssert(dependency == nil, "Unexpectedly found \(name) in managed dependencies", file: file, line: line)
         }
 
         public func checkEmpty(file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(managedDependencies.values.map{$0}.count, 0, file: file, line: line)
+            XCTAssertEqual(managedDependencies.map{$0}.count, 0, file: file, line: line)
         }
 
         public func check(dependency name: String, at state: State, file: StaticString = #file, line: UInt = #line) {
-            guard let dependency = try? managedDependencies.dependency(forNameOrIdentity: name) else {
+            guard let dependency = managedDependencies[forNameOrIdentity: name] else {
                 XCTFail("\(name) does not exists", file: file, line: line)
                 return
             }
@@ -413,7 +435,7 @@ public final class TestWorkspace {
     public func checkManagedDependencies(file: StaticString = #file, line: UInt = #line, _ result: (ManagedDependencyResult) throws -> ()) {
         do {
             let workspace = createWorkspace()
-            try result(ManagedDependencyResult(workspace.managedDependencies))
+            try result(ManagedDependencyResult(workspace.state.dependencies))
         } catch {
             XCTFail("Failed with error \(error)", file: file, line: line)
         }
@@ -473,11 +495,13 @@ public final class TestWorkspace {
 public struct TestTarget {
 
     public enum `Type` {
-        case regular, test
+        case regular, test, binary
     }
 
     public let name: String
     public let dependencies: [String]
+    public let url: String?
+    public let checksum: String?
     public let settings: [TargetBuildSettingDescription.Setting]
     public let type: Type
 
@@ -485,12 +509,16 @@ public struct TestTarget {
         name: String,
         dependencies: [String] = [],
         type: Type = .regular,
-        settings: [TargetBuildSettingDescription.Setting] = []
+        url: String? = nil,
+        settings: [TargetBuildSettingDescription.Setting] = [],
+        checksum: String? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
         self.type = type
+        self.url = url
         self.settings = settings
+        self.checksum = checksum
     }
 
     fileprivate func convert() -> TargetDescription {
@@ -499,6 +527,18 @@ public struct TestTarget {
             return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular, settings: settings)
         case .test:
             return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .test, settings: settings)
+        case .binary:
+            return TargetDescription(
+                name: name,
+                dependencies: dependencies.map({ .byName(name: $0) }),
+                path: nil,
+                url: url,
+                exclude: [],
+                sources: nil,
+                publicHeadersPath: nil,
+                type: .binary,
+                settings: [],
+                checksum: checksum)
         }
     }
 }

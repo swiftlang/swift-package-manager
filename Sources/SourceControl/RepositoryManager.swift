@@ -189,7 +189,7 @@ public class RepositoryManager {
         self.persistence = SimplePersistence(
             fileSystem: fileSystem,
             schemaVersion: 1,
-            statePath: path.appending(component: "checkouts-state.json"))
+            statePaths: [path.appending(component: "checkouts-state.json")])
 
         // Load the state from disk, if possible.
         do {

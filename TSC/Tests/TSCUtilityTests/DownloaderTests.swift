@@ -35,12 +35,13 @@ class DownloaderTests: XCTestCase {
             let successExpectation = XCTestExpectation(description: "success")
             MockURLProtocol.notifyDidStartLoading(for: url, completion: { didStartLoadingExpectation.fulfill() })
 
-            downloader.downloadFile(at: url, to: destination, progress: { progress in
-                if progress.spm_isAlmostEqual(to: 0.5) {
+            downloader.downloadFile(at: url, to: destination, progress: { bytesDownloaded, totalBytesToDownload in
+                switch (bytesDownloaded, totalBytesToDownload) {
+                case (512, 1024):
                     progress50Expectation.fulfill()
-                } else if progress.spm_isAlmostEqual(to: 1) {
+                case (1024, 2014):
                     progress100Expectation.fulfill()
-                } else {
+                default:
                     XCTFail("unexpected progress")
                 }
             }, completion: { result in
@@ -85,10 +86,11 @@ class DownloaderTests: XCTestCase {
         let errorExpectation = XCTestExpectation(description: "error")
         MockURLProtocol.notifyDidStartLoading(for: url, completion: { didStartLoadingExpectation.fulfill() })
 
-        downloader.downloadFile(at: url, to: AbsolutePath("/"), progress: { progress in
-            if progress.spm_isAlmostEqual(to: 0.5) {
+        downloader.downloadFile(at: url, to: AbsolutePath("/"), progress: { bytesDownloaded, totalBytesToDownload in
+            switch (bytesDownloaded, totalBytesToDownload) {
+            case (512, 1024):
                 progress50Expectation.fulfill()
-            } else {
+            default:
                 XCTFail("unexpected progress")
             }
         }, completion: { result in
@@ -135,7 +137,7 @@ class DownloaderTests: XCTestCase {
         let errorExpectation = XCTestExpectation(description: "error")
         MockURLProtocol.notifyDidStartLoading(for: url, completion: { didStartLoadingExpectation.fulfill() })
 
-        downloader.downloadFile(at: url, to: AbsolutePath("/"), progress: { progress in
+        downloader.downloadFile(at: url, to: AbsolutePath("/"), progress: { _, _ in
             XCTFail("unexpected progress")
         }, completion: { result in
             switch result {
@@ -174,7 +176,7 @@ class DownloaderTests: XCTestCase {
         let errorExpectation = XCTestExpectation(description: "error")
         MockURLProtocol.notifyDidStartLoading(for: url, completion: { didStartLoadingExpectation.fulfill() })
 
-        downloader.downloadFile(at: url, to: AbsolutePath("/"), progress: { _ in }, completion: { result in
+        downloader.downloadFile(at: url, to: AbsolutePath("/"), progress: { _, _ in }, completion: { result in
             switch result {
             case .success:
                 XCTFail("unexpected success")

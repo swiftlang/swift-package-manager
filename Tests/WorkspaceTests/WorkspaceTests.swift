@@ -96,7 +96,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "quix", at: .checkout(.version("1.2.0")))
         }
 
-        let stateFile = workspace.createWorkspace().managedDependencies.statePath
+        let stateFile = workspace.createWorkspace().state.path
 
         // Remove state file and check we can get the state back automatically.
         try fs.removeFileTree(stateFile)
@@ -105,7 +105,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertTrue(fs.exists(stateFile))
 
         // Remove state file and check we get back to a clean state.
-        try fs.removeFileTree(workspace.createWorkspace().managedDependencies.statePath)
+        try fs.removeFileTree(workspace.createWorkspace().state.path)
         workspace.closeWorkspace()
         workspace.checkManagedDependencies() { result in
             result.checkEmpty()
@@ -763,7 +763,7 @@ final class WorkspaceTests: XCTestCase {
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
         let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
 
-        let testWorkspace = try TestWorkspace(
+        let workspace = try TestWorkspace(
             sandbox: sandbox,
             fs: fs,
             roots: [
@@ -776,22 +776,23 @@ final class WorkspaceTests: XCTestCase {
             packages: []
         )
 
-        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
-        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
         let bRef = PackageReference(identity: "b", path: bRepo.url)
         let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkPrecomputeResolution(
+        try workspace.set(
             pins: [bRef: v1_5, cRef: v2],
             managedDependencies: [
                 ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5)
                     .editedDependency(subpath: bPath, unmanagedPath: nil)
-            ],
-            { result in
-                XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.result.isRequired, false)
-            }
+            ]
         )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result.isRequired, false)
+        }
     }
 
     func testPrecomputeResolution_newPackages() throws {
@@ -801,7 +802,7 @@ final class WorkspaceTests: XCTestCase {
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
 
-        let testWorkspace = try TestWorkspace(
+        let workspace = try TestWorkspace(
             sandbox: sandbox,
             fs: fs,
             roots: [
@@ -831,20 +832,22 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
         let bRef = PackageReference(identity: "b", path: bRepo.url)
-        let cRef = PackageReference(identity: "c", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkPrecomputeResolution(
+        try workspace.set(
             pins: [bRef: v1],
             managedDependencies: [
                 ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1)
-            ],
-            { result in
-                XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.result, .required(reason: .newPackages(packages: [cRef])))
-            }
+            ]
         )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .newPackages(packages: [cRef])))
+        }
     }
 
     func testPrecomputeResolution_requirementChange_versionToBranch() throws {
@@ -856,7 +859,7 @@ final class WorkspaceTests: XCTestCase {
         let branchRequirement: TestDependency.Requirement = .branch("master")
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
-        let testWorkspace = try TestWorkspace(
+        let workspace = try TestWorkspace(
             sandbox: sandbox,
             fs: fs,
             roots: [
@@ -886,26 +889,27 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
-        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
         let bRef = PackageReference(identity: "b", path: bRepo.url)
         let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkPrecomputeResolution(
+        try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
                 ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
                 ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
-            ],
-            { result in
-                XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-                    package: cRef,
-                    state: .checkout(v1_5),
-                    requirement: .revision("master")
-                )))
-            }
+            ]
         )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .checkout(v1_5),
+                requirement: .revision("master")
+            )))
+        }
     }
 
     func testPrecomputeResolution_requirementChange_versionToRevision() throws {
@@ -940,20 +944,21 @@ final class WorkspaceTests: XCTestCase {
         let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
         let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkPrecomputeResolution(
+        try testWorkspace.set(
             pins: [cRef: v1_5],
             managedDependencies: [
                 ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
-            ],
-            { result in
-                XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-                    package: cRef,
-                    state: .checkout(v1_5),
-                    requirement: .revision("hello")
-                )))
-            }
+            ]
         )
+
+        try testWorkspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .checkout(v1_5),
+                requirement: .revision("hello")
+            )))
+        }
     }
 
 
@@ -965,7 +970,7 @@ final class WorkspaceTests: XCTestCase {
         let masterRequirement: TestDependency.Requirement = .branch("master")
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
-        let testWorkspace = try TestWorkspace(
+        let workspace = try TestWorkspace(
             sandbox: sandbox,
             fs: fs,
             roots: [
@@ -995,26 +1000,27 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
-        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
         let bRef = PackageReference(identity: "b", path: bRepo.url)
         let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkPrecomputeResolution(
+        try workspace.set(
             pins: [bRef: v1_5],
             managedDependencies: [
                 ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
                 ManagedDependency.local(packageRef: cRef)
-            ],
-            { result in
-                XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-                    package: cRef,
-                    state: .local,
-                    requirement: .revision("master")
-                )))
-            }
+            ]
         )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .local,
+                requirement: .revision("master")
+            )))
+        }
     }
 
     func testPrecomputeResolution_requirementChange_versionToLocal() throws {
@@ -1026,7 +1032,7 @@ final class WorkspaceTests: XCTestCase {
         let localRequirement: TestDependency.Requirement = .localPackage
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
-        let testWorkspace = try TestWorkspace(
+        let workspace = try TestWorkspace(
             sandbox: sandbox,
             fs: fs,
             roots: [
@@ -1056,26 +1062,27 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
-        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
         let bRef = PackageReference(identity: "b", path: bRepo.url)
         let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkPrecomputeResolution(
+        try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
                 ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
                 ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
-            ],
-            { result in
-                XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-                    package: cRef,
-                    state: .checkout(v1_5),
-                    requirement: .unversioned
-                )))
-            }
+            ]
         )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .checkout(v1_5),
+                requirement: .unversioned
+            )))
+        }
     }
 
     func testPrecomputeResolution_requirementChange_branchToLocal() throws {
@@ -1088,7 +1095,7 @@ final class WorkspaceTests: XCTestCase {
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
         let master = CheckoutState(revision: Revision(identifier: "master"), branch: "master")
 
-        let testWorkspace = try TestWorkspace(
+        let workspace = try TestWorkspace(
             sandbox: sandbox,
             fs: fs,
             roots: [
@@ -1118,26 +1125,27 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
-        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
         let bRef = PackageReference(identity: "b", path: bRepo.url)
         let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkPrecomputeResolution(
+        try workspace.set(
             pins: [bRef: v1_5, cRef: master],
             managedDependencies: [
                 ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
                 ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: master),
-            ],
-            { result in
-                XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-                    package: cRef,
-                    state: .checkout(master),
-                    requirement: .unversioned
-                )))
-            }
+            ]
         )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .checkout(master),
+                requirement: .unversioned
+            )))
+        }
     }
 
     func testPrecomputeResolution_other() throws {
@@ -1149,7 +1157,7 @@ final class WorkspaceTests: XCTestCase {
         let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
-        let testWorkspace = try TestWorkspace(
+        let workspace = try TestWorkspace(
             sandbox: sandbox,
             fs: fs,
             roots: [
@@ -1179,22 +1187,23 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
-        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
         let bRef = PackageReference(identity: "b", path: bRepo.url)
         let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkPrecomputeResolution(
+        try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
                 ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
                 ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
-            ],
-            { result in
-                XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.result, .required(reason: .other))
-            }
+            ]
         )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .other))
+        }
     }
 
     func testPrecomputeResolution_notRequired() throws {
@@ -1207,7 +1216,7 @@ final class WorkspaceTests: XCTestCase {
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
         let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
 
-        let testWorkspace = try TestWorkspace(
+        let workspace = try TestWorkspace(
             sandbox: sandbox,
             fs: fs,
             roots: [
@@ -1237,22 +1246,23 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
-        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
         let bRef = PackageReference(identity: "b", path: bRepo.url)
         let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkPrecomputeResolution(
+        try workspace.set(
             pins: [bRef: v1_5, cRef: v2],
             managedDependencies: [
                 ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
                 ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v2),
-            ],
-            { result in
-                XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.result.isRequired, false)
-            }
+            ]
         )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result.isRequired, false)
+        }
     }
 
     func testLoadingRootManifests() throws {
@@ -1775,7 +1785,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.loadDependencyManifests(roots: ["Root1"]) { (manifests, diagnostics) in
 			// Ensure that the order of the manifests is stable.
-			XCTAssertEqual(manifests.allManifests().map({$0.name}), ["Foo", "Baz", "Bam", "Bar"])
+			XCTAssertEqual(manifests.allDependencyManifests().map({ $0.name }), ["Foo", "Baz", "Bam", "Bar"])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
@@ -2281,7 +2291,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // There should still be an entry for `foo`, which we can unedit.
-        let editedDependency = try ws.managedDependencies.dependency(forNameOrIdentity: "foo")
+        let editedDependency = ws.state.dependencies[forNameOrIdentity: "foo"]!
         XCTAssertNil(editedDependency.basedOn)
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .edited(nil))
@@ -3088,7 +3098,7 @@ final class WorkspaceTests: XCTestCase {
          }
          do {
              let ws = workspace.createWorkspace()
-             XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Foo"])
+            XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Foo"])
          }
 
          deps = [
@@ -3102,7 +3112,7 @@ final class WorkspaceTests: XCTestCase {
          }
          do {
              let ws = workspace.createWorkspace()
-             XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
+             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
          }
      }
 
@@ -3243,8 +3253,8 @@ final class WorkspaceTests: XCTestCase {
             result.check(notPresent: "Baz")
         }
 
-        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forPackageURL: workspace.packagesDir.appending(component: "Bar").pathString)
-        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forPackageURL: workspace.packagesDir.appending(component: "Bam").pathString)
+        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bar").pathString)
+        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bam").pathString)
 
         let deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
@@ -3366,7 +3376,7 @@ final class WorkspaceTests: XCTestCase {
 
          do {
              let ws = workspace.createWorkspace()
-             XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Foo"])
+             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Foo"])
          }
 
          workspace.checkReset { diagnostics in
@@ -3390,7 +3400,7 @@ final class WorkspaceTests: XCTestCase {
 
          do {
              let ws = workspace.createWorkspace()
-             XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
+             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
          }
      }
 
@@ -3938,6 +3948,335 @@ final class WorkspaceTests: XCTestCase {
             result.check(notPresent: "TestHelper2")
         }
     }
+
+    func testChecksumForBinaryArtifact() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Foo"]),
+                    ],
+                    products: []
+                ),
+            ],
+            packages: []
+        )
+
+        let ws = workspace.createWorkspace()
+
+        do {
+            let binaryPath = sandbox.appending(component: "binary.zip")
+            try fs.writeFileContents(binaryPath, bytes: ByteString([0xaa, 0xbb, 0xcc]))
+
+            let diagnostics = DiagnosticsEngine()
+            let checksum = ws.checksum(forBinaryArtifactAt: binaryPath, diagnostics: diagnostics)
+            XCTAssertTrue(!diagnostics.hasErrors)
+            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map({ $0.contents }), [[0xaa, 0xbb, 0xcc]])
+            XCTAssertEqual(checksum, "ccbbaa")
+        }
+
+        do {
+            let unknownPath = sandbox.appending(component: "unknown")
+            let diagnostics = DiagnosticsEngine()
+            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: diagnostics)
+            XCTAssertEqual(checksum, "")
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("file not found at path: /tmp/ws/unknown"), behavior: .error)
+            }
+        }
+    }
+
+    func testArtifactDownload() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        var downloads: [MockDownloader.Download] = []
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            downloader: MockDownloader(fileSystem: fs, downloadFile: { url, destination, progress, completion in
+                let contents: [UInt8]
+                switch url.lastPathComponent {
+                case "a1.zip": contents = [0xa1]
+                case "a2.zip": contents = [0xa2]
+                case "a3.zip": contents = [0xa3]
+                case "b.zip": contents = [0xb0]
+                default:
+                    XCTFail("unexpected url")
+                    contents = []
+                }
+
+                try! fs.writeFileContents(
+                    destination,
+                    bytes: ByteString(contents),
+                    atomically: true
+                )
+
+                downloads.append(MockDownloader.Download(url: url, destinationPath: destination))
+                completion(.success(()))
+            }),
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["A1", "B"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "A", requirement: .exact("1.0.0")),
+                        TestDependency(name: "B", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a1.zip",
+                            checksum: "a1"),
+                        TestTarget(
+                            name: "A2",
+                            type: .binary,
+                            url: "https://a.com/a2.zip",
+                            checksum: "a2"),
+                        TestTarget(
+                            name: "A3",
+                            type: .binary,
+                            url: "https://a.com/a3.zip",
+                            checksum: "a3"),
+                    ],
+                    products: [
+                        TestProduct(name: "A1", targets: ["A1"]),
+                        TestProduct(name: "A2", targets: ["A2"]),
+                        TestProduct(name: "A3", targets: ["A3"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "B",
+                    targets: [
+                        TestTarget(
+                            name: "B",
+                            type: .binary,
+                            url: "https://b.com/b.zip",
+                            checksum: "b0"),
+                    ],
+                    products: [
+                        TestProduct(name: "B", targets: ["B"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // Pin A to 1.0.0, Checkout B to 1.0.0
+        let aPath = workspace.urlForPackage(withName: "A")
+        let aRef = PackageReference(identity: "a", path: aPath)
+        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
+        let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
+        let aState = CheckoutState(revision: aRevision, version: "1.0.0")
+
+        try workspace.set(
+            pins: [aRef: aState],
+            managedDependencies: [],
+            managedArtifacts: [
+                ManagedArtifact(
+                    packageRef: aRef,
+                    targetName: "A1",
+                    source: .remote(
+                        subpath: RelativePath("A/A1.xcframework"),
+                        checksum: "a1")),
+                ManagedArtifact(
+                    packageRef: aRef,
+                    targetName: "A3",
+                    source: .remote(
+                        subpath: RelativePath("A/A3.xcframework"),
+                        checksum: "a3-old-checksum")),
+                ManagedArtifact(
+                    packageRef: aRef,
+                    targetName: "A4",
+                    source: .remote(
+                        subpath: RelativePath("A/A4.xcframework"),
+                        checksum: "a4")),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { result, diagnostics in
+            XCTAssert(!diagnostics.hasErrors, "\(diagnostics.diagnostics)")
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A4.xcframework")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/Foo")))
+            XCTAssertEqual(downloads.map({ $0.url }), [
+                URL(string: "https://b.com/b.zip")!,
+                URL(string: "https://a.com/a2.zip")!,
+                URL(string: "https://a.com/a3.zip")!,
+            ])
+            XCTAssertEqual(workspace.checksumAlgorithm.hashes, [
+                ByteString([0xb0]),
+                ByteString([0xa2]),
+                ByteString([0xa3]),
+            ])
+            XCTAssertEqual(workspace.archiver.extractions.map({ $0.destinationPath }), [
+                AbsolutePath("/tmp/ws/.build/artifacts/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/A"),
+                AbsolutePath("/tmp/ws/.build/artifacts/A"),
+            ])
+            XCTAssertEqual(
+                downloads.map({ $0.destinationPath }),
+                workspace.archiver.extractions.map({ $0.archivePath })
+            )
+        }
+    }
+
+    func testArtifactDownloaderOrArchiverError() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            downloader: MockDownloader(fileSystem: fs, downloadFile: { url, destination, _, completion in
+                switch url {
+                case URL(string: "https://a.com/a1.zip")!:
+                    completion(.failure(.serverError(statusCode: 500)))
+                case URL(string: "https://a.com/a2.zip")!:
+                    try! fs.writeFileContents(destination, bytes: ByteString([0xa2]))
+                    completion(.success(()))
+                case URL(string: "https://a.com/a3.zip")!:
+                    try! fs.writeFileContents(destination, bytes: "different contents = different checksum")
+                    completion(.success(()))
+                default:
+                    XCTFail("unexpected url")
+                    completion(.success(()))
+                }
+            }),
+            archiver: MockArchiver(extract: { _, destinationPath, completion in
+                XCTAssertEqual(destinationPath, AbsolutePath("/tmp/ws/.build/artifacts/A"))
+                completion(.failure(DummyError()))
+            }),
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["A1", "A2"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "A", requirement: .exact("1.0.0"))
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a1.zip",
+                            checksum: "a1"),
+                        TestTarget(
+                            name: "A2",
+                            type: .binary,
+                            url: "https://a.com/a2.zip",
+                            checksum: "a2"),
+                        TestTarget(
+                            name: "A3",
+                            type: .binary,
+                            url: "https://a.com/a3.zip",
+                            checksum: "a3"),
+                    ],
+                    products: [
+                        TestProduct(name: "A1", targets: ["A1"]),
+                        TestProduct(name: "A2", targets: ["A2"]),
+                        TestProduct(name: "A3", targets: ["A3"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { result, diagnostics in
+            print(diagnostics.diagnostics)
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("failed to download binary artifact at 'https://a.com/a1.zip': invalid status code 500"), behavior: .error)
+                result.check(diagnostic: .contains("failed to extract binary artifact at 'https://a.com/a2.zip': dummy error"), behavior: .error)
+                result.check(diagnostic: .contains("invalid checksum for binary artifact at 'https://a.com/a3.zip'"), behavior: .error)
+            }
+        }
+    }
+
+    func testArtifactChecksumChange() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["A"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "A", requirement: .exact("1.0.0"))
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(name: "A", type: .binary, url: "https://a.com/a.zip", checksum: "a"),
+                    ],
+                    products: [
+                        TestProduct(name: "A", targets: ["A"])
+                    ],
+                    versions: ["0.9.0", "1.0.0"]
+                ),
+            ]
+        )
+
+        // Pin A to 1.0.0, Checkout A to 1.0.0
+        let aPath = workspace.urlForPackage(withName: "A")
+        let aRef = PackageReference(identity: "a", path: aPath)
+        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
+        let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
+        let aState = CheckoutState(revision: aRevision, version: "1.0.0")
+        let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState)
+
+        try workspace.set(
+            pins: [aRef: aState],
+            managedDependencies: [aDependency],
+            managedArtifacts: [
+                ManagedArtifact(
+                    packageRef: aRef,
+                    targetName: "A",
+                    source: .remote(
+                        subpath: RelativePath("A/A.xcframework"),
+                        checksum: "old-checksum"))
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { result, diagnostics in
+            XCTAssertEqual(workspace.downloader.downloads, [])
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("checksum changed for binary target 'A.A'"), behavior: .error)
+            }
+        }
+    }
 }
 
 extension PackageGraph {
@@ -3945,4 +4284,8 @@ extension PackageGraph {
     func lookup(_ name: String) -> PackageModel.ResolvedPackage {
         return packages.first{ $0.name == name }!
     }
+}
+
+struct DummyError: LocalizedError, Equatable {
+    public var errorDescription: String? { "dummy error" }
 }

@@ -64,7 +64,7 @@ public final class PinsStore {
         self.persistence = SimplePersistence(
             fileSystem: fileSystem,
             schemaVersion: PinsStore.schemaVersion,
-            statePath: pinsFile,
+            statePaths: [pinsFile],
             prettyPrint: true)
         pinsMap = [:]
         do {

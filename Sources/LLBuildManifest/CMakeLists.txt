@@ -8,13 +8,11 @@
 
 add_library(LLBuildManifest
   BuildManifest.swift
-  CMakeLists.txt
   Command.swift
   ManifestWriter.swift
   Node.swift
   Target.swift
-  Tools.swift
-)
+  Tools.swift)
 target_link_libraries(LLBuildManifest PUBLIC
   TSCBasic)
 

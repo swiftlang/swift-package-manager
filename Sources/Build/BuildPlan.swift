@@ -1326,6 +1326,15 @@ public class BuildPlan {
             buildProduct.additionalFlags += pkgConfig(for: target).libs
         }
 
+        // Add flags for binary targets.
+        for binaryModule in dependencies.binaryModules {
+            guard case let target as BinaryTarget = binaryModule.underlyingTarget else {
+                fatalError("This should not be possible.")
+            }
+            // Add binary link arguments.
+            buildProduct.additionalFlags += xcFrameworkArguments(for: target)
+        }
+
         // Link C++ if needed.
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
@@ -1374,7 +1383,8 @@ public class BuildPlan {
     ) -> (
         dylibs: [ResolvedProduct],
         staticTargets: [ResolvedTarget],
-        systemModules: [ResolvedTarget]
+        systemModules: [ResolvedTarget],
+        binaryModules: [ResolvedTarget]
     ) {
 
         // Sort the product targets in topological order.
@@ -1401,6 +1411,7 @@ public class BuildPlan {
         var linkLibraries = [ResolvedProduct]()
         var staticTargets = [ResolvedTarget]()
         var systemModules = [ResolvedTarget]()
+        var binaryModules = [ResolvedTarget]()
 
         for dependency in allTargets {
             switch dependency {
@@ -1415,12 +1426,12 @@ public class BuildPlan {
                 // Library targets should always be included.
                 case .library:
                     staticTargets.append(target)
-                // Add system target targets to system targets array.
+                // Add system target to system targets array.
                 case .systemModule:
                     systemModules.append(target)
+                // Add binary target to binary targets array.
                 case .binary:
-                    // TODO: Implement
-                    break
+                    binaryModules.append(target)
                 }
 
             case .product(let product):
@@ -1437,7 +1448,7 @@ public class BuildPlan {
             }
         }
 
-        return (linkLibraries, staticTargets, systemModules)
+        return (linkLibraries, staticTargets, systemModules, binaryModules)
     }
 
     /// Plan a Clang target.
@@ -1590,8 +1601,31 @@ public class BuildPlan {
         return pkgConfigCache[target]!
     }
 
+    /// Get arguments for linking against a xcframework.
+    private func xcFrameworkArguments(for target: BinaryTarget) -> [String] {
+        // If we already have these flags, we're done.
+        if let flags = xcFrameworkCache[target] {
+            return flags
+        }
+
+        // Otherwise, get the result and cache it.
+        guard let info = xcFrameworkInfo(for: target, diagnostics: diagnostics) else {
+            xcFrameworkCache[target] = []
+            return xcFrameworkCache[target]!
+        }
+
+        //TODO: Check platforms.
+
+        let binaryPath = target.artifactPath.appending(component: info.libraries[0].path)
+        xcFrameworkCache[target] = [binaryPath.pathString]
+        return xcFrameworkCache[target]!
+    }
+
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
+
+    /// Cache for xcframework flags.
+    private var xcFrameworkCache = [BinaryTarget: [String]]()
 }
 
 private extension Diagnostic.Message {

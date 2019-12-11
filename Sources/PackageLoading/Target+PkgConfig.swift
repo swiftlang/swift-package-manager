@@ -11,6 +11,7 @@
 import TSCBasic
 import PackageModel
 import TSCUtility
+import Foundation
 
 /// Wrapper struct containing result of a pkgConfig query.
 public struct PkgConfigResult {
@@ -93,6 +94,56 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: Diagnost
         )
     } catch {
         return PkgConfigResult(pkgConfigName: pkgConfigName, error: error, provider: provider)
+    }
+}
+
+public struct XCFrameworkInfo {
+    public struct Library {
+        public let identifier: String
+        public let path: String
+        public let platform: String
+        public let architectures: [String]
+    }
+
+    public let libraries: [Library]
+}
+
+/// Get XCFramework information for a binary target.
+public func xcFrameworkInfo(
+    for target: BinaryTarget,
+    diagnostics: DiagnosticsEngine,
+    fileSystem: FileSystem = localFileSystem
+) -> XCFrameworkInfo? {
+    let plistPath = target.artifactPath.appending(component: "Info.plist")
+    guard fileSystem.exists(plistPath) else {
+        diagnostics.emit(error: "missing XCFramework Info.plist")
+        return nil
+    }
+
+    return diagnostics.wrap {
+        let plistBytes = try fileSystem.readFileContents(plistPath)
+
+        let decoder = PropertyListDecoder()
+        let info = try plistBytes.withData({ data in
+            try decoder.decode(XCFrameworkInfo.self, from: data)
+        })
+
+        return info
+    }
+}
+
+extension XCFrameworkInfo: Decodable {
+    enum CodingKeys: String, CodingKey {
+        case libraries = "AvailableLibraries"
+    }
+}
+
+extension XCFrameworkInfo.Library: Decodable {
+    enum CodingKeys: String, CodingKey {
+        case identifier = "LibraryIdentifier"
+        case path = "LibraryPath"
+        case platform = "SupportedPlatform"
+        case architectures = "SupportedArchitectures"
     }
 }
 
