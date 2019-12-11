@@ -24,6 +24,11 @@ import shutil
 import subprocess
 import sys
 
+if platform.system() == 'Darwin':
+    g_shared_lib_ext = ".dylib"
+else:
+    g_shared_lib_ext = ".so"
+
 def main():
     parser = argparse.ArgumentParser(description="""
         This script will build a bootstrapped copy of the Swift Package Manager, and optionally perform extra
@@ -284,6 +289,7 @@ def install(args):
 
     prefix = args.install_prefixes[0]
 
+    # Install swiftpm binaries.
     for binary in ["swift-build", "swift-test", "swift-run", "swift-package"]:
         dest = os.path.join(prefix, "bin")
         install_binary(args, binary, dest)
@@ -292,6 +298,28 @@ def install(args):
         dest = os.path.join(prefix, "libexec", "swift", "pm")
         install_binary(args, "swiftpm-xctest-helper", dest)
 
+    # Install PackageDescription runtime libraries.
+    runtime_lib_dest = os.path.join(prefix, "lib", "swift", "pm")
+    runtime_lib_src = os.path.join(args.bootstrap_dir, "pm")
+
+    for runtime in ["4", "4_2"]:
+        files_to_install = ["libPackageDescription" + g_shared_lib_ext]
+        if platform.system() == 'Darwin':
+            files_to_install.append("PackageDescription.swiftinterface")
+        else:
+            files_to_install.append("PackageDescription.swiftmodule")
+            files_to_install.append("PackageDescription.swiftdoc")
+
+        for file in files_to_install:
+            src = os.path.join(runtime_lib_src, runtime, file)
+            dest = os.path.join(runtime_lib_dest, runtime, file)
+            mkdir_p(os.path.dirname(dest))
+
+            note("Installing %s to %s" % (src, dest))
+
+            file_util.copy_file(src, dest, update=1)
+
+    # Install libSwiftPM if an install directory was provided.
     if args.libswiftpm_install_dir:
         dest = args.libswiftpm_install_dir
 
