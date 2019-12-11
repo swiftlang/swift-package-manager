@@ -496,4 +496,64 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
         }
     }
+
+    // TODO: Remove the underscore when we have fixed what tools version binary targets will appear in.
+    func _testBinaryTargetUnavailable() throws {
+        do {
+            let stream = BufferedOutputByteStream()
+            stream <<< """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [],
+                    targets: [
+                        .binaryTarget(
+                            name: "Foo",
+                            path: "../Foo.xcframework"),
+                    ]
+                )
+                """
+
+            do {
+                try loadManifestThrowing(stream.bytes) { _ in }
+                XCTFail()
+            } catch {
+                guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                    return XCTFail("\(error)")
+                }
+
+                XCTAssertMatch(message, .contains("is unavailable"))
+                XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
+            }
+        }
+
+        do {
+            let stream = BufferedOutputByteStream()
+            stream <<< """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [],
+                    targets: [
+                        .binaryTarget(
+                            name: "Foo",
+                            url: "https://foo.com/foo.zip",
+                            checksum: "21321441231232"),
+                    ]
+                )
+                """
+
+            do {
+                try loadManifestThrowing(stream.bytes) { _ in }
+                XCTFail()
+            } catch {
+                guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                    return XCTFail("\(error)")
+                }
+
+                XCTAssertMatch(message, .contains("is unavailable"))
+                XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
+            }
+        }
+    }
 }

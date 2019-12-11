@@ -12,7 +12,7 @@ import TSCBasic
 import PackageModel
 import TSCUtility
 import SPMLLBuild
-import class Foundation.ProcessInfo
+import Foundation
 public typealias FileSystem = TSCBasic.FileSystem
 
 public enum ManifestParseError: Swift.Error {
@@ -39,6 +39,15 @@ public enum ManifestParseError: Swift.Error {
 
     /// The manifest contains target product dependencies that reference an unknown package.
     case unknownTargetDependencyPackage(targetName: String, packageName: String)
+
+    /// The manifest contains a binary target with an invalid artifact path/url.
+    case invalidBinaryLocation(targetName: String)
+
+    /// The manifest contains a binary target with an invalid arfiact url scheme.
+    case invalidBinaryURLScheme(targetName: String, validSchemes: [String])
+
+    /// The manifest contains a binary target with an invalid artifact extension.
+    case invalidBinaryLocationExtension(targetName: String, validExtensions: [String])
 }
 
 /// Resources required for manifest loading.
@@ -306,6 +315,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if toolsVersion >= .v5_2 {
             try validateDependencyNames(manifest)
             try validateTargetDependencyReferences(manifest)
+            try validateBinaryTargets(manifest)
         }
     }
 
@@ -345,6 +355,32 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if !duplicateDependenciesByName.isEmpty {
             let duplicates = duplicateDependenciesByName.map({ $0.map({ $0.item }) })
             throw ManifestParseError.duplicateDependencyNames(duplicates)
+        }
+    }
+
+    private func validateBinaryTargets(_ manifest: Manifest) throws {
+        // Check that binary targets point to the right file type.
+        for target in manifest.targets where target.type == .binary {
+            guard let location = URL(string: target.url ?? target.path!) else {
+                throw ManifestParseError.invalidBinaryLocation(targetName: target.name)
+            }
+
+            let isRemote = target.url != nil
+            let validSchemes = ["https"]
+            guard !isRemote || (location.scheme.map({ validSchemes.contains($0) }) ?? false) else {
+                throw ManifestParseError.invalidBinaryURLScheme(
+                    targetName: target.name,
+                    validSchemes: validSchemes
+                )
+            }
+
+            let validExtensions = isRemote ? ["zip"] : ["zip", "xcframework"]
+            guard validExtensions.contains(location.pathExtension) else {
+                throw ManifestParseError.invalidBinaryLocationExtension(
+                    targetName: target.name,
+                    validExtensions: validExtensions
+                )
+            }
         }
     }
 

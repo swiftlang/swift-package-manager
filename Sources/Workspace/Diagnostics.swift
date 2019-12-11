@@ -104,6 +104,40 @@ public struct ManifestDuplicateTargetNamesDiagnostic: DiagnosticData {
     }
 }
 
+public struct ManifestInvalidBinaryLocationDiagnostic: DiagnosticData {
+    public let targetName: String
+
+    public var description: String {
+        "manifest parse error: invalid location of binary target '\(targetName)'\n"
+    }
+}
+
+public struct ManifestInvalidBinaryURLSchemeDiagnostic: DiagnosticData {
+    public let targetName: String
+    public let validSchemes: [String]
+
+    public var description: String {
+        """
+        manifest parse error: invalid URL scheme for binary target '\(targetName)' (valid schemes are \
+        \(validSchemes.joined(separator: ", "))
+
+        """
+    }
+}
+
+public struct ManifestInvalidBinaryLocationExtensionDiagnostic: DiagnosticData {
+    public let targetName: String
+    public let validExtensions: [String]
+
+    public var description: String {
+        """
+        manifest parse error: unsupported extension of binary target '\(targetName)' (valid extensions are \
+        \(validExtensions.joined(separator: ", ")))
+
+        """
+    }
+}
+
 extension ManifestParseError: DiagnosticDataConvertible {
     public var diagnosticData: DiagnosticData {
         switch self {
@@ -123,6 +157,12 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestTargetDependencyUnknownPackageDiagnostic(targetName: targetName, packageName: packageName)
         case .duplicateDependencyNames(let duplicates):
             return ManifestDuplicateDependencyNamesDiagnostic(duplicates: duplicates)
+        case .invalidBinaryLocation(let targetName):
+            return ManifestInvalidBinaryLocationDiagnostic(targetName: targetName)
+        case .invalidBinaryURLScheme(let targetName, let validSchemes):
+            return ManifestInvalidBinaryURLSchemeDiagnostic(targetName: targetName, validSchemes: validSchemes)
+        case .invalidBinaryLocationExtension(let targetName, let validExtensions):
+            return ManifestInvalidBinaryLocationExtensionDiagnostic(targetName: targetName, validExtensions: validExtensions)
         }
     }
 }
