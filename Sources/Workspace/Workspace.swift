@@ -16,6 +16,25 @@ import PackageGraph
 import SourceControl
 import TSCUtility
 
+/// Enumeration of the different reasons for which the resolver needs to be run.
+public enum WorkspaceResolveReason: Equatable {
+    /// Resolution was forced.
+    case forced
+
+    /// Requirements were added for new packages.
+    case newPackages(packages: [PackageReference])
+
+    /// The requirement of a dependency has changed.
+    case packageRequirementChange(
+        package: PackageReference,
+        state: ManagedDependency.State?,
+        requirement: PackageRequirement
+    )
+
+    /// An unknown reason.
+    case other
+}
+
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: class {
 
@@ -44,7 +63,7 @@ public protocol WorkspaceDelegate: class {
     func removing(repository: String)
 
     /// Called when the resolver is about to be run.
-    func willResolveDependencies()
+    func willResolveDependencies(reason: WorkspaceResolveReason)
 
     /// Called when the Package.resolved file is changed *outside* of libSwiftPM operations.
     ///
@@ -56,7 +75,7 @@ public extension WorkspaceDelegate {
     func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {}
     func repositoryWillUpdate(_ repository: String) {}
     func repositoryDidUpdate(_ repository: String) {}
-    func willResolveDependencies() {}
+    func willResolveDependencies(reason: WorkspaceResolveReason) {}
     func dependenciesUpToDate() {}
     func resolvedFileChanged() {}
 }
@@ -776,14 +795,13 @@ extension Workspace {
         for dependency: ManagedDependency,
         diagnostics: DiagnosticsEngine
     ) -> CheckoutState? {
-        let name = dependency.packageRef.name
         switch dependency.state {
         case .checkout(let checkoutState):
             return checkoutState
         case .edited:
-            diagnostics.emit(error: "dependency '\(name)' already in edit mode")
+            diagnostics.emit(error: "dependency '\(dependency.packageRef.name)' already in edit mode")
         case .local:
-            diagnostics.emit(error: "local dependency '\(name)' can't be edited")
+            diagnostics.emit(error: "local dependency '\(dependency.packageRef.name)' can't be edited")
         }
         return nil
     }
@@ -1243,13 +1261,13 @@ extension Workspace {
 
         let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
-        let isResolutionRequired = self.isResolutionRequired(
+        let precomputationResult = precomputeResolution(
             root: graphRoot,
             dependencyManifests: currentManifests,
             pinsStore: pinsStore
         )
 
-        if isResolutionRequired {
+        if precomputationResult.isRequired {
             diagnostics.emit(error: "cannot update Package.resolved file because automatic resolution is disabled")
         }
 
@@ -1302,21 +1320,25 @@ extension Workspace {
 
         // Compute if we need to run the resolver. We always run the resolver if
         // there are extra constraints.
-        if missingPackageURLs.isEmpty && extraConstraints.isEmpty && !forceResolution {
-            let isResolutionRequired = self.isResolutionRequired(
+        if !missingPackageURLs.isEmpty {
+            delegate?.willResolveDependencies(reason: .newPackages(packages: Array(missingPackageURLs)))
+        } else if !extraConstraints.isEmpty || forceResolution {
+            delegate?.willResolveDependencies(reason: .forced)
+        } else {
+            let result = precomputeResolution(
                 root: graphRoot,
                 dependencyManifests: currentManifests,
                 pinsStore: pinsStore,
                 extraConstraints: extraConstraints
             )
 
-            if !isResolutionRequired {
+            switch result {
+            case .notRequired:
                 return currentManifests
+            case .required(let reason):
+                delegate?.willResolveDependencies(reason: reason)
             }
         }
-
-        // Inform delegate that we will resolve dependencies now.
-        delegate?.willResolveDependencies()
 
         // Create the constraints.
         var constraints = [RepositoryPackageConstraint]()
@@ -1422,16 +1444,28 @@ extension Workspace {
         return false
     }
 
+    enum ResolutionPrecomputationResult: Equatable {
+        case required(reason: WorkspaceResolveReason)
+        case notRequired
+
+        var isRequired: Bool {
+            switch self {
+            case .required: return true
+            case .notRequired: return false
+            }
+        }
+    }
+
     /// Computes if dependency resolution is required based on input constraints and pins.
     ///
-    /// - Returns: Returns whether dependency resolution is required.
+    /// - Returns: Returns a result defining whether dependency resolution is required and the reason for it.
     // @testable internal
-    func isResolutionRequired(
+    func precomputeResolution(
         root: PackageGraphRoot,
         dependencyManifests: DependencyManifests,
         pinsStore: PinsStore,
         extraConstraints: [RepositoryPackageConstraint] = []
-    ) -> Bool {
+    ) -> ResolutionPrecomputationResult {
         let constraints =
             root.constraints(config: config) +
             // Include constraints from the manifests in the graph root.
@@ -1439,21 +1473,28 @@ extension Workspace {
             dependencyManifests.dependencyConstraints() +
             extraConstraints
 
-        let diagnostics = DiagnosticsEngine()
         let precomputationProvider = ResolverPrecomputationProvider(
              root: root,
              dependencyManifests: dependencyManifests,
-             config: config,
-             diagnostics: diagnostics
+             config: config
         )
 
         let resolver = PubgrubDependencyResolver(precomputationProvider)
         let result = resolver.solve(dependencies: constraints, pinsStore: pinsStore)
 
-        if !diagnostics.hasErrors, case .success = result {
-            return false
-        } else {
-            return true
+        switch result {
+        case .success:
+            return .notRequired
+        case .error(ResolverPrecomputationError.missingPackage(let package)):
+            return .required(reason: .newPackages(packages: [package]))
+        case .error(ResolverPrecomputationError.differentRequirement(let package, let state, let requirement)):
+            return .required(reason: .packageRequirementChange(
+                package: package,
+                state: state,
+                requirement: requirement
+            ))
+        default:
+            return .required(reason: .other)
         }
     }
 
