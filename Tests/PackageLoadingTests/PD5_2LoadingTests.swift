@@ -178,4 +178,41 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.packageDependency(referencedBy: targetBar.dependencies[0]), nil)
         }
     }
+
+    func testDuplicateDependencyNames() {
+        do {
+            let stream = BufferedOutputByteStream()
+            stream <<< """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [],
+                    dependencies: [
+                        .package(name: "Bar", url: "/bar1", from: "1.0.0"),
+                        .package(name: "Bar", path: "/bar2"),
+                        .package(name: "Biz", url: "/biz1", from: "1.0.0"),
+                        .package(name: "Biz", path: "/biz2"),
+                    ],
+                    targets: [
+                        .target(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "Something", package: "Bar"),
+                                .product(name: "Something", package: "Biz"),
+                            ]),
+                    ]
+                )
+                """
+
+            try loadManifestThrowing(stream.bytes) { manifest in
+                return XCTFail("did not generate eror")
+            }
+        } catch ManifestParseError.duplicateDependencyNames(let duplicates) {
+            XCTAssertEqual(duplicates.count, 2)
+            let urls = duplicates.flatMap({ $0 }).map({ $0.url }).sorted()
+            XCTAssertEqual(urls, ["/bar1", "/bar2", "/biz1", "/biz2"])
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+    }
 }
