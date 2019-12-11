@@ -411,11 +411,12 @@ def build_swiftpm_with_swiftpm(args):
     symlink_force(args.swiftc_path, os.path.join(args.target_dir, args.conf, "swift"))
 
     lib_dir = os.path.join(args.target_dir, "lib", "swift")
-    mkdir_p(lib_dir)
 
     # Remove old cruft.
     if os.path.isdir(lib_dir):
         shutil.rmtree(lib_dir)
+
+    mkdir_p(lib_dir)
 
     symlink_force(os.path.join(args.bootstrap_dir, "pm"), os.path.join(lib_dir, "pm"))
 
