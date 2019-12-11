@@ -536,6 +536,11 @@ def get_swiftpm_flags(args):
             "-Xlinker", "@executable_path/../../../../../SharedFrameworks",
         ])
 
+    # Add a rpath to find core swift libraries on linux. We don't need a rpath
+    # for Darwin because the Swift libraries are present in the OS.
+    if platform.system() == 'Linux':
+        build_flags.extend(["-Xlinker", "-rpath=$ORIGIN/../lib/swift/linux"])
+
     return build_flags
 
 # -----------------------------------------------------------
