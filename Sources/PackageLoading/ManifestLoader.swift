@@ -22,9 +22,11 @@ public enum ManifestParseError: Swift.Error {
     /// The manifest was successfully loaded by swift interpreter but there were runtime issues.
     case runtimeManifestErrors([String])
 
-    case duplicateDependencyDecl([[PackageDependencyDescription]])
+    case duplicateDependencyURLs([[PackageDependencyDescription]])
 
     case targetDependencyUnknownPackage(targetName: String, packageName: String)
+
+    case duplicateDependencyNames([[PackageDependencyDescription]])
 }
 
 /// Resources required for manifest loading.
@@ -263,13 +265,28 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Validate the provided manifest.
     private func validate(_ manifest: Manifest, toolsVersion: ToolsVersion) throws {
-        let duplicateDecls = manifest.dependencies.map({ KeyedPair($0, key: PackageReference.computeIdentity(packageURL: $0.url)) }).spm_findDuplicateElements()
-        if !duplicateDecls.isEmpty {
-            throw ManifestParseError.duplicateDependencyDecl(duplicateDecls.map({ $0.map({ $0.item }) }))
+        let duplicateDependenciesByURL = manifest.dependencies
+            .lazy
+            .map({ KeyedPair($0, key: PackageReference.computeIdentity(packageURL: $0.url)) })
+            .spm_findDuplicateElements()
+        if !duplicateDependenciesByURL.isEmpty {
+            let duplicates = duplicateDependenciesByURL.map({ $0.map({ $0.item }) })
+            throw ManifestParseError.duplicateDependencyURLs(duplicates)
         }
 
-        // If the tools version is 5.2 or greater, we want to make sure all target package dependencies are valid.
+        // Checks reserved for tools version 5.2 features
         if toolsVersion >= .v5_2 {
+            // Make sure there are no dependencies with the same name.
+            let duplicateDependenciesByName = manifest.dependencies
+                .lazy
+                .map({ KeyedPair($0, key: $0.name!) })
+                .spm_findDuplicateElements()
+            if !duplicateDependenciesByName.isEmpty {
+                let duplicates = duplicateDependenciesByName.map({ $0.map({ $0.item }) })
+                throw ManifestParseError.duplicateDependencyNames(duplicates)
+            }
+
+            // Make sure all target package dependencies are valid.
             let targetNames = Set(manifest.targets.map({ $0.name }))
             for target in manifest.targets {
                 for targetDependency in target.dependencies {

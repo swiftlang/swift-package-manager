@@ -29,20 +29,17 @@ public struct ManifestParseDiagnostic: DiagnosticData {
     }
 }
 
-public struct ManifestDuplicateDeclDiagnostic: DiagnosticData {
+public struct ManifestDuplicateDependencyURLsDiagnostic: DiagnosticData {
     public let duplicates: [[PackageDependencyDescription]]
-    public init(_ duplicates: [[PackageDependencyDescription]]) {
-        self.duplicates = duplicates
-    }
 
     public var description: String {
         let stream = BufferedOutputByteStream()
 
-        stream <<< "manifest parse error(s): duplicate dependency declaration\n"
+        stream <<< "manifest parse error(s): duplicate dependency URLs\n"
         let indent = Format.asRepeating(string: " ", count: 4)
 
-        for duplicateDecls in duplicates {
-            for duplicate in duplicateDecls {
+        for duplicateGroup in duplicates {
+            for duplicate in duplicateGroup {
                 stream <<< indent <<< duplicate.url <<< " @ " <<< "\(duplicate.requirement)" <<< "\n"
             }
             stream <<< "\n"
@@ -52,12 +49,33 @@ public struct ManifestDuplicateDeclDiagnostic: DiagnosticData {
     }
 }
 
-public struct TargetDependencyUnknownPackageDiagnostic: DiagnosticData {
+public struct ManifestTargetDependencyUnknownPackageDiagnostic: DiagnosticData {
     public let targetName: String
     public let packageName: String
 
     public var description: String {
         "manifest parse error: target '\(targetName)' depends on an unknown package '\(packageName)'\n"
+    }
+}
+
+public struct ManifestDuplicateDependencyNamesDiagnostic: DiagnosticData {
+    public let duplicates: [[PackageDependencyDescription]]
+
+    public var description: String {
+        let stream = BufferedOutputByteStream()
+
+        stream <<< "manifest parse error(s): duplicate dependency names\n"
+        let indent = Format.asRepeating(string: " ", count: 4)
+
+        for duplicateGroup in duplicates {
+            for duplicate in duplicateGroup {
+                stream <<< indent <<< duplicate.url <<< " @ " <<< "\(duplicate.requirement)" <<< "\n"
+            }
+            stream <<< "\n"
+        }
+
+        stream <<< "consider differentiating them using the 'name' argument.\n"
+        return stream.bytes.description
     }
 }
 
@@ -68,10 +86,12 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestParseDiagnostic([error], diagnosticFile: diagnisticFile)
         case .runtimeManifestErrors(let errors):
             return ManifestParseDiagnostic(errors, diagnosticFile: nil)
-        case .duplicateDependencyDecl(let duplicates):
-            return ManifestDuplicateDeclDiagnostic(duplicates)
+        case .duplicateDependencyURLs(let duplicates):
+            return ManifestDuplicateDependencyURLsDiagnostic(duplicates: duplicates)
         case .targetDependencyUnknownPackage(let targetName, let packageName):
-            return TargetDependencyUnknownPackageDiagnostic(targetName: targetName, packageName: packageName)
+            return ManifestTargetDependencyUnknownPackageDiagnostic(targetName: targetName, packageName: packageName)
+        case .duplicateDependencyNames(let duplicates):
+            return ManifestDuplicateDependencyNamesDiagnostic(duplicates: duplicates)
         }
     }
 }

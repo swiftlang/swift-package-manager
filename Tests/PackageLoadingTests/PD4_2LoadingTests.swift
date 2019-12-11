@@ -416,7 +416,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         do {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail("Unexpected success")
-        } catch ManifestParseError.duplicateDependencyDecl(let duplicates) {
+        } catch ManifestParseError.duplicateDependencyURLs(let duplicates) {
             XCTAssertEqual(duplicates.count, 2)
             let urls = duplicates.flatMap({$0}).map({ $0.url }).sorted()
             XCTAssertEqual(urls, ["/foo/path/to/foo1", "/foo1", "/foo1.git", "/foo2.git", "/foo2.git"])
