@@ -49,14 +49,12 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.name, "Trivial")
 
             // Check targets.
-            let targets = Dictionary(uniqueKeysWithValues:
-                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
-            let foo = targets["foo"]!
+            let foo = manifest.targetMap["foo"]!
             XCTAssertEqual(foo.name, "foo")
             XCTAssertFalse(foo.isTest)
             XCTAssertEqual(foo.dependencies, ["dep1", .product(name: "product"), .target(name: "target")])
 
-            let bar = targets["bar"]!
+            let bar = manifest.targetMap["bar"]!
             XCTAssertEqual(bar.name, "bar")
             XCTAssertTrue(bar.isTest)
             XCTAssertEqual(bar.dependencies, ["foo"])
@@ -453,14 +451,12 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.name, "Foo")
 
             // Check targets.
-            let targets = Dictionary(uniqueKeysWithValues:
-                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
-            let foo = targets["foo"]!
+            let foo = manifest.targetMap["foo"]!
             XCTAssertEqual(foo.name, "foo")
             XCTAssertFalse(foo.isTest)
             XCTAssertEqual(foo.dependencies, [])
 
-            let settings = manifest.targets[0].settings
+            let settings = foo.settings
             XCTAssertEqual(settings[0], .init(tool: .c, name: .define, value: ["LLVM_ON_WIN32"], condition: .init(platformNames: ["windows"])))
         }
     }

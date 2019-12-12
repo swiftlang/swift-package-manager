@@ -22,11 +22,17 @@ public enum ManifestParseError: Swift.Error {
     /// The manifest was successfully loaded by swift interpreter but there were runtime issues.
     case runtimeManifestErrors([String])
 
+    /// The manifest contains dependencies with the same URL.
     case duplicateDependencyURLs([[PackageDependencyDescription]])
 
-    case targetDependencyUnknownPackage(targetName: String, packageName: String)
-
+    /// The manifest contains dependencies with the same name.
     case duplicateDependencyNames([[PackageDependencyDescription]])
+
+    /// The manifest contains targets with the same name.
+    case duplicateTargetNames([String])
+
+    /// The manifest contains target product dependencies that reference an unknown package.
+    case unknownTargetDependencyPackage(targetName: String, packageName: String)
 }
 
 /// Resources required for manifest loading.
@@ -241,6 +247,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             throw ManifestParseError.runtimeManifestErrors(manifestBuilder.errors)
         }
 
+        // Ensure no dupicate target definitions are found.
+        let duplicateTargetNames: [String] = manifestBuilder.targets.map({ $0.name }).spm_findDuplicates()
+        if !duplicateTargetNames.isEmpty {
+            throw ManifestParseError.duplicateTargetNames(duplicateTargetNames)
+        }
+
         let manifest = Manifest(
             name: manifestBuilder.name,
             platforms: manifestBuilder.platforms,
@@ -265,6 +277,16 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Validate the provided manifest.
     private func validate(_ manifest: Manifest, toolsVersion: ToolsVersion) throws {
+        try validateDependencyURLs(manifest)
+
+        // Checks reserved for tools version 5.2 features
+        if toolsVersion >= .v5_2 {
+            try validateDependencyNames(manifest)
+            try validateTargetDependencyReferences(manifest)
+        }
+    }
+
+    private func validateDependencyURLs(_ manifest: Manifest) throws {
         let duplicateDependenciesByURL = manifest.dependencies
             .lazy
             .map({ KeyedPair($0, key: PackageReference.computeIdentity(packageURL: $0.url)) })
@@ -273,43 +295,43 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let duplicates = duplicateDependenciesByURL.map({ $0.map({ $0.item }) })
             throw ManifestParseError.duplicateDependencyURLs(duplicates)
         }
+    }
 
-        // Checks reserved for tools version 5.2 features
-        if toolsVersion >= .v5_2 {
-            // Make sure there are no dependencies with the same name.
-            let duplicateDependenciesByName = manifest.dependencies
-                .lazy
-                .map({ KeyedPair($0, key: $0.name!) })
-                .spm_findDuplicateElements()
-            if !duplicateDependenciesByName.isEmpty {
-                let duplicates = duplicateDependenciesByName.map({ $0.map({ $0.item }) })
-                throw ManifestParseError.duplicateDependencyNames(duplicates)
-            }
+    /// Validates that all dependencies have different names.
+    private func validateDependencyNames(_ manifest: Manifest) throws {
+        let duplicateDependenciesByName = manifest.dependencies
+            .lazy
+            .map({ KeyedPair($0, key: $0.name!) })
+            .spm_findDuplicateElements()
+        if !duplicateDependenciesByName.isEmpty {
+            let duplicates = duplicateDependenciesByName.map({ $0.map({ $0.item }) })
+            throw ManifestParseError.duplicateDependencyNames(duplicates)
+        }
+    }
 
-            // Make sure all target package dependencies are valid.
-            let targetNames = Set(manifest.targets.map({ $0.name }))
-            for target in manifest.targets {
-                for targetDependency in target.dependencies {
-                    // If this is a target dependency (or byName that references a target), we don't need to check.
-                    if case .target = targetDependency { continue }
-                    if case .byName(let name) = targetDependency, targetNames.contains(name) { continue }
+    /// Validates that product target dependencies reference an existing package.
+    private func validateTargetDependencyReferences(_ manifest: Manifest) throws {
+        for target in manifest.targets {
+            for targetDependency in target.dependencies {
+                // If this is a target dependency (or byName that references a target), we don't need to check.
+                if case .target = targetDependency { continue }
+                if case .byName(let name) = targetDependency, manifest.targetMap.keys.contains(name) { continue }
 
-                    // If we can't find the package dependency it references, the manifest is invalid.
-                    if manifest.packageDependency(referencedBy: targetDependency) == nil {
-                        let packageName: String
-                        switch targetDependency {
-                        case .product(_, package: let name?),
-                             .byName(let name):
-                            packageName = name
-                        default:
-                            fatalError("Invalid case: this shouldn't be a target, or a product with no name")
-                        }
-
-                        throw ManifestParseError.targetDependencyUnknownPackage(
-                            targetName: target.name,
-                            packageName: packageName
-                        )
+                // If we can't find the package dependency it references, the manifest is invalid.
+                if manifest.packageDependency(referencedBy: targetDependency) == nil {
+                    let packageName: String
+                    switch targetDependency {
+                    case .product(_, package: let name?),
+                         .byName(let name):
+                        packageName = name
+                    default:
+                        fatalError("Invalid case: this shouldn't be a target, or a product with no name")
                     }
+
+                    throw ManifestParseError.unknownTargetDependencyPackage(
+                        targetName: target.name,
+                        packageName: packageName
+                    )
                 }
             }
         }

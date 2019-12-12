@@ -368,23 +368,14 @@ public final class PackageBuilder {
     /// Private function that creates and returns a list of targets defined by a package.
     private func constructTargets() throws -> [Target] {
 
-        // Ensure no dupicate target definitions are found.
-        let duplicateTargetNames: [String] = manifest.targets.map({ $0.name
-        }).spm_findDuplicates()
-
-        if !duplicateTargetNames.isEmpty {
-            throw Target.Error.duplicateTargets(duplicateTargetNames)
-        }
-
         // Check for a modulemap file, which indicates a system target.
         let moduleMapPath = packagePath.appending(component: moduleMapFilename)
         if fileSystem.isFile(moduleMapPath) {
 
             // Warn about any declared targets.
-            let targets = manifest.targets
-            if !targets.isEmpty {
+            if !manifest.targets.isEmpty {
                 diagnostics.emit(
-                    .systemPackageDeclaresTargets(targets: targets.map{ $0.name }),
+                    .systemPackageDeclaresTargets(targets: Array(manifest.targets.map({ $0.name }))),
                     location: diagnosticLocation()
                 )
             }
@@ -518,12 +509,10 @@ public final class PackageBuilder {
             throw ModuleError.moduleNotFound(missingModule, potentialModules.first(where: { $0.name == missingModule })?.type ?? .regular)
         }
 
-        let targetItems = manifest.targets.map({ ($0.name, $0 as TargetDescription) })
-        let targetMap = Dictionary(targetItems, uniquingKeysWith: { $1 })
         let potentialModuleMap = Dictionary(potentialModules.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
         let successors: (PotentialModule) -> [PotentialModule] = {
             // No reference of this target in manifest, i.e. it has no dependencies.
-            guard let target = targetMap[$0.name] else { return [] }
+            guard let target = self.manifest.targetMap[$0.name] else { return [] }
             return target.dependencies.compactMap({
                 switch $0 {
                 case .target(let name):
@@ -556,7 +545,7 @@ public final class PackageBuilder {
             // Validate the target name.  This function will throw an error if it detects a problem.
             try validateModuleName(potentialModule.path, potentialModule.name, isTest: potentialModule.isTest)
             // Get the intra-package dependencies of this target.
-            let deps: [Target] = targetMap[potentialModule.name].map({
+            let deps: [Target] = manifest.targetMap[potentialModule.name].map({
                 $0.dependencies.compactMap({
                     switch $0 {
                     case .target(let name):
@@ -575,7 +564,7 @@ public final class PackageBuilder {
             }) ?? []
 
             // Get the target from the manifest.
-            let manifestTarget = targetMap[potentialModule.name]
+            let manifestTarget = manifest.targetMap[potentialModule.name]
 
             // Figure out the product dependencies.
             let productDeps: [(String, String?)]

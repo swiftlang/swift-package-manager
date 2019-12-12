@@ -49,14 +49,12 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.name, "Trivial")
 
             // Check targets.
-            let targets = Dictionary(uniqueKeysWithValues:
-                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
-            let foo = targets["foo"]!
+            let foo = manifest.targetMap["foo"]!
             XCTAssertEqual(foo.name, "foo")
             XCTAssertFalse(foo.isTest)
             XCTAssertEqual(foo.dependencies, ["dep1", .product(name: "product"), .target(name: "target")])
 
-            let bar = targets["bar"]!
+            let bar = manifest.targetMap["bar"]!
             XCTAssertEqual(bar.name, "bar")
             XCTAssertTrue(bar.isTest)
             XCTAssertEqual(bar.dependencies, ["foo"])
@@ -304,15 +302,13 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
        loadManifest(stream.bytes) { manifest in
-            let targets = Dictionary(uniqueKeysWithValues:
-                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
-            let foo = targets["foo"]!
+            let foo = manifest.targetMap["foo"]!
             XCTAssertEqual(foo.name, "foo")
             XCTAssertFalse(foo.isTest)
             XCTAssertEqual(foo.type, .regular)
             XCTAssertEqual(foo.dependencies, ["bar"])
 
-            let bar = targets["bar"]!
+            let bar = manifest.targetMap["bar"]!
             XCTAssertEqual(bar.name, "bar")
             XCTAssertEqual(bar.type, .system)
             XCTAssertEqual(bar.pkgConfig, "libbar")

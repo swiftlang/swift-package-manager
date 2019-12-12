@@ -662,28 +662,6 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testDuplicateTargets() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/main.swift",
-            "/Sources/A/foo.swift",
-            "/Sources/B/bar.swift",
-            "/Sources/C/baz.swift"
-        )
-
-        let manifest = Manifest.createV4Manifest(
-            name: "A",
-            targets: [
-                TargetDescription(name: "A"),
-                TargetDescription(name: "B"),
-                TargetDescription(name: "A"),
-                TargetDescription(name: "B"),
-            ]
-        )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("duplicate targets found: A, B")
-        }
-    }
-
     func testTargetDependencies() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/Foo.swift",
