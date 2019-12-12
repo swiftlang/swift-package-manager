@@ -449,6 +449,7 @@ public final class Process: ObjectIdentifierProtocol {
 
         let executionResult = ProcessResult(
             arguments: arguments,
+            environment: environment,
             exitStatusCode: p.terminationStatus,
             output: stdout.result,
             stderrOutput: stderr.result
