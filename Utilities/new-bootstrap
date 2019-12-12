@@ -299,8 +299,37 @@ def install(args):
     """Builds SwiftPM, then installs its build products."""
     build(args)
 
-    prefix = args.install_prefixes[0]
+    # Install swiftpm content in all of the passed prefixes.
+    for prefix in args.install_prefixes:
+        install_swiftpm(prefix, args)
 
+    # Install libSwiftPM if an install directory was provided.
+    if args.libswiftpm_install_dir:
+        dest = args.libswiftpm_install_dir
+
+        # FIXME: Don't hardcode the suffix.
+        install_binary(args, "libSwiftPM.dylib", dest)
+
+        libswiftpm_modules = [
+            "TSCLibc", "TSCBasic",
+            "TSCUtility", "SourceControl",
+            "SPMLLBuild", "LLBuildManifest",
+            "PackageModel", "PackageLoading",
+            "PackageGraph", "Build",
+            "Xcodeproj", "Workspace"
+        ]
+
+        # Install the swiftmodule and swiftdoc files.
+        for module in libswiftpm_modules:
+            install_binary(args, module + ".swiftmodule", dest)
+            install_binary(args, module + ".swiftdoc", dest)
+
+        # Install the C headers.
+        tscclibc_include_dir = os.path.join(args.source_root, "TSCclibc/include")
+        tscclibc_include_dir_dest = os.path.join(dest, "TSCclibc")
+        dir_util.copy_tree(tscclibc_include_dir, tscclibc_include_dir_dest)
+
+def install_swiftpm(prefix, args):
     # Install swiftpm binaries.
     for binary in ["swift-build", "swift-test", "swift-run", "swift-package"]:
         dest = os.path.join(prefix, "bin")
@@ -331,31 +360,6 @@ def install(args):
 
             file_util.copy_file(src, dest, update=1)
 
-    # Install libSwiftPM if an install directory was provided.
-    if args.libswiftpm_install_dir:
-        dest = args.libswiftpm_install_dir
-
-        # FIXME: Don't hardcode the suffix.
-        install_binary(args, "libSwiftPM.dylib", dest)
-
-        libswiftpm_modules = [
-            "TSCLibc", "TSCBasic",
-            "TSCUtility", "SourceControl",
-            "SPMLLBuild", "LLBuildManifest",
-            "PackageModel", "PackageLoading",
-            "PackageGraph", "Build",
-            "Xcodeproj", "Workspace"
-        ]
-
-        # Install the swiftmodule and swiftdoc files.
-        for module in libswiftpm_modules:
-            install_binary(args, module + ".swiftmodule", dest)
-            install_binary(args, module + ".swiftdoc", dest)
-
-        # Install the C headers.
-        tscclibc_include_dir = os.path.join(args.source_root, "TSCclibc/include")
-        tscclibc_include_dir_dest = os.path.join(dest, "TSCclibc")
-        dir_util.copy_tree(tscclibc_include_dir, tscclibc_include_dir_dest)
 
 def install_binary(args, binary, dest_dir):
     src = os.path.join(args.bin_dir, binary)
