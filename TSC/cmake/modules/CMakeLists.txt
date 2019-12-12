@@ -1,0 +1,6 @@
+set(TSC_EXPORTS_FILE ${CMAKE_CURRENT_BINARY_DIR}/TSCExports.cmake)
+configure_file(TSCConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/TSCConfig.cmake)
+
+get_property(TSC_EXPORTS GLOBAL PROPERTY TSC_EXPORTS)
+export(TARGETS ${TSC_EXPORTS} FILE ${TSC_EXPORTS_FILE})
