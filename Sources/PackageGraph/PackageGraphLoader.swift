@@ -122,6 +122,7 @@ public struct PackageGraphLoader {
             let builder = PackageBuilder(
                 manifest: manifest,
                 path: packagePath,
+                additionalFileRules: additionalFileRules,
                 fileSystem: fileSystem,
                 diagnostics: diagnostics,
                 isRootPackage: isRootPackage,
