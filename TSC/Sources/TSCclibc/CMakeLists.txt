@@ -15,3 +15,5 @@ if(NOT BUILD_SHARED_LIBS)
   install(TARGETS TSCclibc
     ARCHIVE DESTINATION lib)
 endif()
+
+set_property(GLOBAL APPEND PROPERTY TSC_EXPORTS TSCclibc)

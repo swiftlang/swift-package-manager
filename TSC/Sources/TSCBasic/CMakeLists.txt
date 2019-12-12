@@ -67,3 +67,5 @@ endif()
 if(CMAKE_SYSTEM_NAME STREQUAL Android)
   target_compile_options(TSCBasic PUBLIC "SHELL:-Xcc -U_GNU_SOURCE")
 endif()
+
+set_property(GLOBAL APPEND PROPERTY TSC_EXPORTS TSCBasic)

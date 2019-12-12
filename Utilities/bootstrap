@@ -136,6 +136,7 @@ def parse_global_args(args):
     """Parses and cleans arguments necessary for all actions."""
     args.build_dir = os.path.abspath(args.build_dir)
     args.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    args.tsc_source_dir = os.path.join(args.project_root, "TSC")
     args.source_root = os.path.join(args.project_root, "Sources")
 
     if platform.system() == 'Darwin':
@@ -272,6 +273,7 @@ def build(args):
     if not args.llbuild_build_dir:
         build_llbuild(args)
 
+    build_tsc(args)
     build_swiftpm_with_cmake(args)
     build_swiftpm_with_swiftpm(args)
 
@@ -286,6 +288,11 @@ def test(args):
         cmd.append("--parallel")
     for arg in args.filter:
         cmd.extend(["--filter", arg])
+
+    # Test TSC.
+    call_swiftpm(args, cmd, args.tsc_source_dir)
+
+    # Test SwiftPM.
     call_swiftpm(args, cmd)
 
 def install(args):
@@ -420,13 +427,24 @@ def build_llbuild(args):
     llbuild_source_dir = get_llbuild_source_path(args)
     build_with_cmake(args, flags, llbuild_source_dir, args.llbuild_build_dir)
 
+def build_tsc(args):
+    note("Building TSC")
+    args.tsc_build_dir = os.path.join(args.target_dir, "tsc")
+
+    cmake_flags = []
+    if platform.system() == 'Darwin':
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx10.10")
+        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=10.10")
+
+    build_with_cmake(args, cmake_flags, args.tsc_source_dir, args.tsc_build_dir)
+
 def build_swiftpm_with_cmake(args):
     """Builds SwiftPM using CMake."""
     note("Building SwiftPM (with CMake)")
 
     cmake_flags = [
         get_llbuild_cmake_arg(args),
-        "-DUSE_VENDORED_TSC=ON",
+        "-DTSC_DIR=" + os.path.join(args.tsc_build_dir, "cmake/modules"),
     ]
 
     if platform.system() == 'Darwin':
@@ -466,10 +484,12 @@ def build_swiftpm_with_swiftpm(args):
 
     symlink_force(os.path.join(args.bootstrap_dir, "pm"), os.path.join(lib_dir, "pm"))
 
-def call_swiftpm(args, cmd):
+def call_swiftpm(args, cmd, cwd=None):
     """Calls a SwiftPM binary with the necessary environment variables and flags."""
     full_cmd = get_swiftpm_env_cmd(args) + cmd + get_swiftpm_flags(args)
-    call(full_cmd, cwd=args.project_root, verbose=True)
+    if cwd is None:
+        cwd = args.project_root
+    call(full_cmd, cwd=cwd, verbose=True)
 
 # -----------------------------------------------------------
 # Build-related helper functions
@@ -506,6 +526,7 @@ def get_swiftpm_env_cmd(args):
 
     libs_joined = ":".join([
         os.path.join(args.bootstrap_dir, "lib"),
+        os.path.join(args.tsc_build_dir, "lib"),
         os.path.join(args.llbuild_build_dir, "lib"),
     ])
 

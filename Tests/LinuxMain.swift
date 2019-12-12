@@ -8,9 +8,6 @@ import PackageGraphTests
 import PackageLoadingTests
 import PackageModelTests
 import SourceControlTests
-import TSCBasicTests
-import TSCTestSupportTests
-import TSCUtilityTests
 import WorkspaceTests
 import XcodeprojTests
 
@@ -23,9 +20,6 @@ tests += PackageGraphTests.__allTests()
 tests += PackageLoadingTests.__allTests()
 tests += PackageModelTests.__allTests()
 tests += SourceControlTests.__allTests()
-tests += TSCBasicTests.__allTests()
-tests += TSCTestSupportTests.__allTests()
-tests += TSCUtilityTests.__allTests()
 tests += WorkspaceTests.__allTests()
 tests += XcodeprojTests.__allTests()
 
