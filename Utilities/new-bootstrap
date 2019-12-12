@@ -427,10 +427,16 @@ def build_swiftpm_with_cmake(args):
     """Builds SwiftPM using CMake."""
     note("Building SwiftPM (with CMake)")
 
-    build_with_cmake(args, [
+    cmake_flags = [
         get_llbuild_cmake_arg(args),
         "-DUSE_VENDORED_TSC=ON",
-    ], args.project_root, args.bootstrap_dir)
+    ]
+
+    if platform.system() == 'Darwin':
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx10.10")
+        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=10.10")
+
+    build_with_cmake(args, cmake_flags, args.project_root, args.bootstrap_dir)
 
 def build_swiftpm_with_swiftpm(args):
     """Builds SwiftPM using the version of SwiftPM built with CMake."""
