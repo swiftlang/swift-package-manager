@@ -23,6 +23,13 @@ let package = Package(
         .library(
             name: "SwiftToolsSupport-auto",
             targets: ["TSCBasic", "TSCUtility"]),
+
+        .library(
+            name: "TSCTestSupport",
+            targets: ["TSCTestSupport"]),
+        .executable(
+            name: "TSCTestSupportExecutable",
+            targets: ["TSCTestSupportExecutable"]),
     ],
     dependencies: [
         

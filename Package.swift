@@ -23,10 +23,6 @@ let package = Package(
             name: "SwiftPM",
             type: .dynamic,
             targets: [
-                "TSCclibc",
-                "TSCLibc",
-                "TSCBasic",
-                "TSCUtility",
                 "SourceControl",
                 "SPMLLBuild",
                 "LLBuildManifest",
@@ -41,10 +37,6 @@ let package = Package(
         .library(
             name: "SwiftPM-auto",
             targets: [
-                "TSCclibc",
-                "TSCLibc",
-                "TSCBasic",
-                "TSCUtility",
                 "SourceControl",
                 "SPMLLBuild",
                 "LLBuildManifest",
@@ -54,21 +46,6 @@ let package = Package(
                 "Build",
                 "Xcodeproj",
                 "Workspace"
-            ]
-        ),
-
-        // Collection of general purpose utilities.
-        //
-        // NOTE: This product consists of *unsupported*, *unstable* API. These
-        // APIs are implementation details of the package manager. Depend on it
-        // at your own risk.
-        .library(
-            name: "TSCUtility",
-            targets: [
-                "TSCclibc",
-                "TSCLibc",
-                "TSCBasic",
-                "TSCUtility",
             ]
         ),
 
@@ -90,81 +67,61 @@ let package = Package(
                 .define("PACKAGE_DESCRIPTION_4_2"),
             ]),
 
-        // MARK: Tools support core targets
-        // keep up to date with https://github.com/apple/swift-tools-support-core
-
-        .target(
-            /** Shim target to import missing C headers in Darwin and Glibc modulemap. */
-            name: "TSCclibc",
-            dependencies: []),
-        .target(
-            /** Cross-platform access to bare `libc` functionality. */
-            name: "TSCLibc",
-            dependencies: ["TSCclibc"]),
-        .target(
-            /** TSCBasic support library */
-            name: "TSCBasic",
-            dependencies: ["TSCLibc"]),
-        .target(
-            /** Abstractions for common operations, should migrate to TSCBasic */
-            name: "TSCUtility",
-            dependencies: ["TSCBasic"]),
-        
         // MARK: SwiftPM specific support libraries
 
         .target(
             /** The llbuild manifest model */
             name: "LLBuildManifest",
-            dependencies: ["TSCBasic"]),
+            dependencies: ["SwiftToolsSupport-auto"]),
         
         .target(
             /** Source control operations */
             name: "SourceControl",
-            dependencies: ["TSCBasic", "TSCUtility"]),
+            dependencies: ["SwiftToolsSupport-auto"]),
         .target(
             /** Shim for llbuild library */
             name: "SPMLLBuild",
-            dependencies: ["TSCBasic", "TSCUtility"]),
+            dependencies: ["SwiftToolsSupport-auto"]),
 
         // MARK: Project Model
 
         .target(
             /** Primitive Package model objects */
             name: "PackageModel",
-            dependencies: ["TSCBasic", "TSCUtility"]),
+            dependencies: ["SwiftToolsSupport-auto"]),
         .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
-            dependencies: ["TSCBasic", "PackageModel", "TSCUtility", "SPMLLBuild"]),
+            dependencies: ["SwiftToolsSupport-auto", "PackageModel", "SPMLLBuild"]),
 
         // MARK: Package Dependency Resolution
 
         .target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
-            dependencies: ["TSCBasic", "PackageLoading", "PackageModel", "SourceControl", "TSCUtility"]),
+            dependencies: ["SwiftToolsSupport-auto", "PackageLoading", "PackageModel", "SourceControl"]),
 
         // MARK: Package Manager Functionality
 
         .target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["TSCBasic", "PackageGraph", "LLBuildManifest"]),
+            dependencies: ["SwiftToolsSupport-auto", "PackageGraph", "LLBuildManifest"]),
         .target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
-            dependencies: ["TSCBasic", "PackageGraph"]),
+            dependencies: ["SwiftToolsSupport-auto", "PackageGraph"]),
         .target(
             /** High level functionality */
             name: "Workspace",
-            dependencies: ["TSCBasic", "Build", "PackageGraph", "PackageModel", "SourceControl", "TSCUtility", "Xcodeproj"]),
+            dependencies: ["SwiftToolsSupport-auto", "Build", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
 
         // MARK: Commands
 
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["TSCBasic", "Build", "PackageGraph", "SourceControl", "TSCUtility", "Xcodeproj", "Workspace"]),
+            dependencies: ["SwiftToolsSupport-auto", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace"]),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -189,34 +146,10 @@ let package = Package(
         // MARK: Additional Test Dependencies
 
         .target(
-            /** Generic test support library */
-            name: "TSCTestSupport",
-            dependencies: ["TSCBasic", "TSCUtility"]),
-        .target(
-            /** Test support executable */
-            name: "TSCTestSupportExecutable",
-            dependencies: ["TSCBasic", "TSCUtility"]),
-        .target(
             /** SwiftPM test support library */
             name: "SPMTestSupport",
-            dependencies: ["TSCTestSupport", "PackageGraph", "PackageLoading", "SourceControl", "Commands"]),
+            dependencies: ["SwiftToolsSupport-auto", "TSCTestSupport", "PackageGraph", "PackageLoading", "SourceControl", "Commands"]),
 
-        // MARK: Tools support core tests
-        // keep up to date with https://github.com/apple/swift-tools-support-core
-        
-        .testTarget(
-            name: "TSCBasicTests",
-            dependencies: ["TSCTestSupport", "TSCTestSupportExecutable"]),
-        .testTarget(
-            name: "TSCBasicPerformanceTests",
-            dependencies: ["TSCBasic", "TSCTestSupport"]),
-        .testTarget(
-            name: "TSCTestSupportTests",
-            dependencies: ["TSCTestSupport"]),
-        .testTarget(
-            name: "TSCUtilityTests",
-            dependencies: ["TSCUtility", "TSCTestSupport", "TSCTestSupportExecutable"]),
-        
         // MARK: SwiftPM tests
         
         .testTarget(
@@ -230,7 +163,7 @@ let package = Package(
             dependencies: ["Workspace", "SPMTestSupport"]),
         .testTarget(
             name: "FunctionalTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "TSCBasic", "TSCUtility", "PackageModel", "SPMTestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "PackageModel", "SPMTestSupport"]),
         .testTarget(
             name: "FunctionalPerformanceTests",
             dependencies: ["swift-build", "swift-package", "swift-test", "SPMTestSupport"]),
@@ -289,13 +222,12 @@ if ProcessInfo.processInfo.environment["SWIFTPM_BOOTSTRAP"] == nil {
     package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += ["llbuildSwift"]
 }
 
-if ProcessInfo.processInfo.environment["SWIFTPM_BUILD_PACKAGE_EDITOR"] != nil {
-    package.targets += [
-        .target(name: "SPMPackageEditor", dependencies: ["Workspace", "SwiftSyntax"]),
-        .target(name: "swiftpm-manifest-tool", dependencies: ["SPMPackageEditor"]),
-        .testTarget(name: "SPMPackageEditorTests", dependencies: ["SPMPackageEditor", "SPMTestSupport"]),
-    ]
+if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        .package(path: "../swift-syntax"),
+        .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
+    ]
+} else {
+    package.dependencies += [
+        .package(path: "./TSC"),
     ]
 }

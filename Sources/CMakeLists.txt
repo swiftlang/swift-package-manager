@@ -19,13 +19,5 @@ add_subdirectory(swift-build)
 add_subdirectory(swift-package)
 add_subdirectory(swift-run)
 add_subdirectory(swift-test)
-
-if(USE_VENDORED_TSC)
-    add_subdirectory(TSCBasic)
-    add_subdirectory(TSCLibc)
-    add_subdirectory(TSCclibc)
-    add_subdirectory(TSCUtility)
-endif()
-
 add_subdirectory(Workspace)
 add_subdirectory(Xcodeproj)
