@@ -254,7 +254,7 @@ public struct BuildDescription: Codable {
 public final class BuildExecutionContext {
 
     /// Reference to the index store API.
-    var indexStoreAPI: Result<IndexStoreAPI, AnyError> {
+    var indexStoreAPI: Result<IndexStoreAPI, Error> {
         indexStoreAPICache.getValue(self)
     }
 
@@ -283,7 +283,7 @@ public final class BuildExecutionContext {
     // MARK:- Private
 
     private var indexStoreAPICache = LazyCache(createIndexStoreAPI)
-    private func createIndexStoreAPI() -> Result<IndexStoreAPI, AnyError> {
+    private func createIndexStoreAPI() -> Result<IndexStoreAPI, Error> {
         Result {
             let ext = buildParameters.triple.dynamicLibraryExtension
             let indexStoreLib = buildParameters.toolchain.toolchainLibDir.appending(component: "libIndexStore" + ext)

@@ -224,7 +224,7 @@ public protocol PackageContainerProvider {
     func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
-        completion: @escaping (Result<PackageContainer, AnyError>) -> Void
+        completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     )
 }
 
@@ -1207,7 +1207,7 @@ public class DependencyResolver {
     }
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [PackageReference: Swift.Result<Container, AnyError>] = [:]
+    private var _fetchedContainers: [PackageReference: Swift.Result<Container, Error>] = [:]
 
     /// The set of containers requested so far.
     private var _prefetchingContainers: Set<PackageReference> = []

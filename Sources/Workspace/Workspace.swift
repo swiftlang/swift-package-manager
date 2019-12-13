@@ -2016,8 +2016,8 @@ public final class LoadableResult<Value> {
     }
 
     /// Load and return the result.
-    public func loadResult() -> Result<Value, AnyError> {
-        return Result(anyError: {
+    public func loadResult() -> Result<Value, Error> {
+        return Result(catching: {
             try self.construct()
         })
     }

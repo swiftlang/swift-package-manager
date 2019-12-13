@@ -8,22 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-/// A type erased error enum.
-public struct AnyError: Swift.Error, CustomStringConvertible {
-    /// The underlying error.
-    public let underlyingError: Swift.Error
-
-    public init(_ error: Swift.Error) {
-        // If we already have any error, don't nest it.
-        if case let error as AnyError = error {
-            self = error
-        } else {
-            self.underlyingError = error
-        }
-    }
-
-    public var description: String {
-        return String(describing: underlyingError)
+extension Result where Failure == Error {
+    public func tryMap<NewSuccess>(_ closure: (Success) throws -> NewSuccess) -> Result<NewSuccess, Error> {
+        flatMap({ value in
+            Result<NewSuccess, Error>(catching: {
+                try closure(value)
+            })
+        })
     }
 }
 
@@ -36,39 +27,6 @@ public struct StringError: Equatable, Codable, CustomStringConvertible, Error {
     /// Create an instance of StringError.
     public init(_ description: String) {
         self.description = description
-    }
-}
-
-// AnyError specific helpers.
-extension Result where Failure == AnyError {
-    /// Initialise with something that throws AnyError.
-    public init(anyError body: () throws -> Success) {
-        do {
-            self = .success(try body())
-        } catch {
-            self = .failure(AnyError(error))
-        }
-    }
-
-    /// Initialise with an error, it will be automatically converted to AnyError.
-    public init(_ error: Swift.Error) {
-        self = .failure(AnyError(error))
-    }
-
-    /// Evaluates the given throwing closure when this Result instance has a value.
-    ///
-    /// The final result will either be the transformed value or any error thrown by the closure.
-    public func mapAny<U>(_ transform: (Success) throws -> U) -> Result<U, AnyError> {
-        switch self {
-        case .success(let value):
-            do {
-                return Result<U, AnyError>.success(try transform(value))
-            } catch {
-                return Result<U, AnyError>(error)
-            }
-        case .failure(let error):
-            return Result<U, AnyError>(error)
-        }
     }
 }
 

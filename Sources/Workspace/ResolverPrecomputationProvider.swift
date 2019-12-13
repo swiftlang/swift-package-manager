@@ -50,7 +50,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
-        completion: @escaping (Result<PackageContainer, AnyError>) -> Void
+        completion: @escaping (Result<PackageContainer, Error>) -> Void
     ) {
         // Start by searching manifests from the Workspace's resolved dependencies.
         if let manifest = dependencyManifests.dependencies.first(where: { $1.packageRef == identifier }) {
@@ -78,7 +78,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
         }
 
         // As we don't have anything else locally, error out.
-        completion(.init(Diagnostics.fatalError))
+        completion(.failure(Diagnostics.fatalError))
     }
 }
 

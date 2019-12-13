@@ -35,20 +35,8 @@ extension Error: CustomStringConvertible {
     }
 }
 
-public func handle(error: Any) {
-    switch error {
-
-    // If we got instance of any error, handle the underlying error.
-    case let anyError as AnyError:
-        handle(error: anyError.underlyingError)
-
-    default:
-        _handle(error)
-    }
-}
-
 // The name has underscore because of SR-4015.
-private func _handle(_ error: Any) {
+func handle(error: Swift.Error) {
 
     switch error {
     case Diagnostics.fatalError:

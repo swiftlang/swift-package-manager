@@ -19,15 +19,15 @@ class AwaitTests: XCTestCase {
         case error
     }
 
-    func async(_ param: String, _ completion: @escaping (Result<String, AnyError>) -> Void) {
+    func async(_ param: String, _ completion: @escaping (Result<String, Error>) -> Void) {
         DispatchQueue.global().async {
             completion(.success(param))
         }
     }
 
-    func throwingAsync(_ param: String, _ completion: @escaping (Result<String, AnyError>) -> Void) {
+    func throwingAsync(_ param: String, _ completion: @escaping (Result<String, Error>) -> Void) {
         DispatchQueue.global().async {
-            completion(Result(DummyError.error))
+            completion(.failure(DummyError.error))
         }
     }
 
@@ -38,8 +38,8 @@ class AwaitTests: XCTestCase {
         do {
             let value = try await { throwingAsync("Hi", $0) }
             XCTFail("Unexpected success \(value)")
-        } catch let error as AnyError {
-            XCTAssertEqual(error.underlyingError as? DummyError, DummyError.error)
+        } catch {
+            XCTAssertEqual(error as? DummyError, DummyError.error)
         }
     }
 }

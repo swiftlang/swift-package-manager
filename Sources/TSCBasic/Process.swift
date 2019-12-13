@@ -47,11 +47,11 @@ public struct ProcessResult: CustomStringConvertible {
 
     /// The output bytes of the process. Available only if the process was
     /// asked to redirect its output and no stdout output closure was set.
-    public let output: Result<[UInt8], AnyError>
+    public let output: Result<[UInt8], Swift.Error>
 
     /// The output bytes of the process. Available only if the process was
     /// asked to redirect its output and no stderr output closure was set.
-    public let stderrOutput: Result<[UInt8], AnyError>
+    public let stderrOutput: Result<[UInt8], Swift.Error>
 
     /// Create an instance using a POSIX process exit status code and output result.
     ///
@@ -60,8 +60,8 @@ public struct ProcessResult: CustomStringConvertible {
         arguments: [String],
         environment: [String: String],
         exitStatusCode: Int32,
-        output: Result<[UInt8], AnyError>,
-        stderrOutput: Result<[UInt8], AnyError>
+        output: Result<[UInt8], Swift.Error>,
+        stderrOutput: Result<[UInt8], Swift.Error>
     ) {
         let exitStatus: ExitStatus
       #if os(Windows)
@@ -83,8 +83,8 @@ public struct ProcessResult: CustomStringConvertible {
         arguments: [String],
         environment: [String: String],
         exitStatus: ExitStatus,
-        output: Result<[UInt8], AnyError>,
-        stderrOutput: Result<[UInt8], AnyError>
+        output: Result<[UInt8], Swift.Error>,
+        stderrOutput: Result<[UInt8], Swift.Error>
     ) {
         self.arguments = arguments
         self.environment = environment
@@ -207,10 +207,10 @@ public final class Process: ObjectIdentifierProtocol {
   #endif
 
     /// If redirected, stdout result and reference to the thread reading the output.
-    private var stdout: (result: Result<[UInt8], AnyError>, thread: Thread?) = (.success([]), nil)
+    private var stdout: (result: Result<[UInt8], Swift.Error>, thread: Thread?) = (.success([]), nil)
 
     /// If redirected, stderr result and reference to the thread reading the output.
-    private var stderr: (result: Result<[UInt8], AnyError>, thread: Thread?) = (.success([]), nil)
+    private var stderr: (result: Result<[UInt8], Swift.Error>, thread: Thread?) = (.success([]), nil)
 
     /// Queue to protect concurrent reads.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.process")
@@ -496,7 +496,7 @@ public final class Process: ObjectIdentifierProtocol {
     /// Reads the given fd and returns its result.
     ///
     /// Closes the fd before returning.
-    private func readOutput(onFD fd: Int32, outputClosure: OutputClosure?) -> Result<[UInt8], AnyError> {
+    private func readOutput(onFD fd: Int32, outputClosure: OutputClosure?) -> Result<[UInt8], Swift.Error> {
         // Read all of the data from the output pipe.
         let N = 4096
         var buf = [UInt8](repeating: 0, count: N + 1)
@@ -527,7 +527,7 @@ public final class Process: ObjectIdentifierProtocol {
         // Close the read end of the output pipe.
         close(fd)
         // Construct the output result.
-        return error.map(Result.init) ?? .success(out)
+        return error.map(Result.failure) ?? .success(out)
     }
   #endif
 

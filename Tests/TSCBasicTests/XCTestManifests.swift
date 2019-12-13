@@ -343,8 +343,7 @@ extension ResultTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__ResultTests = [
-        ("testAnyError", testAnyError),
-        ("testMapAny", testMapAny),
+        ("testTryMap", testTryMap),
     ]
 }
 
