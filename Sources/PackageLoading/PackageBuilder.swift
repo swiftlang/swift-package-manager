@@ -128,9 +128,6 @@ extension Target {
 
         /// The target contains an invalid mix of languages (e.g. both Swift and C).
         case mixedSources(AbsolutePath)
-
-        /// The manifest contains duplicate targets.
-        case duplicateTargets([String])
     }
 }
 
@@ -141,8 +138,6 @@ extension Target.Error: CustomStringConvertible {
             return "invalid target name at '\(path)'; \(problem)"
         case .mixedSources(let path):
             return "target at '\(path)' contains mixed language source files; feature not supported"
-        case .duplicateTargets(let targets):
-            return "duplicate targets found: " + targets.joined(separator: ", ")
         }
     }
 }
@@ -363,14 +358,6 @@ public final class PackageBuilder {
 
     /// Private function that creates and returns a list of targets defined by a package.
     private func constructTargets() throws -> [Target] {
-
-        // Ensure no dupicate target definitions are found.
-        let duplicateTargetNames: [String] = manifest.allRequiredTargets.map({ $0.name
-        }).spm_findDuplicates()
-
-        if !duplicateTargetNames.isEmpty {
-            throw Target.Error.duplicateTargets(duplicateTargetNames)
-        }
 
         // Check for a modulemap file, which indicates a system target.
         let moduleMapPath = packagePath.appending(component: moduleMapFilename)
