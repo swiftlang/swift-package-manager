@@ -1799,7 +1799,7 @@ private final class ContainerProvider {
     private let fetchCondition = Condition()
 
     /// The list of fetched containers.
-    private var _fetchedContainers: [PackageReference: Result<PubGrubPackageContainer, AnyError>] = [:]
+    private var _fetchedContainers: [PackageReference: Result<PubGrubPackageContainer, Error>] = [:]
 
     /// The set of containers requested so far.
     private var _prefetchingContainers: Set<PackageReference> = []

@@ -1929,11 +1929,11 @@ public struct MockProvider: PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
-        completion: @escaping (Result<PackageContainer, AnyError>
-        ) -> Void) {
+        completion: @escaping (Result<PackageContainer, Error>
+    ) -> Void) {
         DispatchQueue.global().async {
             completion(self.containersByIdentifier[identifier].map{ .success($0) } ??
-                Result(_MockLoadingError.unknownModule))
+                .failure(_MockLoadingError.unknownModule))
         }
     }
 }

@@ -13,113 +13,55 @@ import XCTest
 import TSCBasic
 import TSCTestSupport
 
-private enum DummyError: Swift.Error {
+private enum DummyError: Error, Equatable {
     case somethingWentWrong
 }
 
-private enum OtherDummyError: Swift.Error {
+private enum OtherDummyError: Error, Equatable {
     case somethingElseWentWrong
     case andYetAnotherThingToGoWrong
 }
 
 class ResultTests: XCTestCase {
+    func testTryMap() {
+        let result1 = Result<Int, Error>.success(1).tryMap({ $0 + 1 })
+        XCTAssertEqual(result1.success, 2)
 
-    func testAnyError() {
-        func doSomething(right: Bool) -> Result<String, AnyError> {
-            if right {
-                return .success("All OK.")
-            }
-            return Result(DummyError.somethingWentWrong)
-        }
+        let result2 = Result<Int, Error>.failure(DummyError.somethingWentWrong).tryMap({ (value: Int) -> Int in
+            XCTFail("should not reach here")
+            return value
+        })
+        XCTAssertEqual(result2.failure as? DummyError, DummyError.somethingWentWrong)
 
-        // Success.
-        switch doSomething(right: true) {
-        case .success(let string):
-            XCTAssertEqual(string, "All OK.")
-        case .failure(let error):
-            XCTFail("Unexpected failure: \(error)")
-        }
+        let result3 = Result<Int, Error>.success(1).tryMap({ (value: Int) -> Int in
+            throw OtherDummyError.somethingElseWentWrong
+        })
+        XCTAssertEqual(result3.failure as? OtherDummyError, OtherDummyError.somethingElseWentWrong)
 
-        // Error.
-        switch doSomething(right: false) {
-        case .success(let string):
-            XCTFail("Unexpected success: \(string)")
-        case .failure(let error):
-            XCTAssertEqual(error.underlyingError as? DummyError, DummyError.somethingWentWrong)
-        }
-
-        do {
-            // Create an any error and check it doesn't nest.
-            let error = AnyError(DummyError.somethingWentWrong)
-            XCTAssertEqual(error.underlyingError as? DummyError, DummyError.somethingWentWrong)
-            let nested = AnyError(error)
-            XCTAssertEqual(nested.underlyingError as? DummyError, DummyError.somethingWentWrong)
-
-            // Check can create result directly from error.
-            let result: Result<String, AnyError> = Result(DummyError.somethingWentWrong)
-            if case let .failure(resultError) = result {
-                XCTAssertEqual(resultError.underlyingError as? DummyError, DummyError.somethingWentWrong)
-            } else {
-                XCTFail("Wrong result value \(result)")
-            }
-        }
-
-        do {
-            // Check any error closure initializer.
-            func throwing() throws -> String {
-                throw DummyError.somethingWentWrong
-            }
-            let result = Result(anyError: { try throwing() })
-            if case let .failure(resultError) = result {
-                XCTAssertEqual(resultError.underlyingError as? DummyError, DummyError.somethingWentWrong)
-            } else {
-                XCTFail("Wrong result value \(result)")
-            }
-        }
-    }
-
-    func testMapAny() throws {
-        func throwing(_ shouldThrow: Bool) throws -> String {
-            if shouldThrow {
-                throw DummyError.somethingWentWrong
-            }
-            return " World"
-        }
-
-        // We should be able to map when we have value in result and our closure doesn't throw.
-        let success = Result<String, AnyError>.success("Hello").mapAny { value -> String in
-            let second = try throwing(false)
-            return value + second
-        }
-        XCTAssertEqual(try success.get(), "Hello World")
-
-        // We don't have a value, closure shouldn't matter.
-        let failure1 = Result<String, AnyError>(DummyError.somethingWentWrong).mapAny { value -> String in
-            let second = try throwing(false)
-            return value + second
-        }
-        XCTAssertThrowsAny(DummyError.somethingWentWrong) {
-            _ = try failure1.get()
-        }
-
-        // We have a value, but our closure throws.
-        let failure2 = Result<String, AnyError>.success("Hello").mapAny { value -> String in
-            let second = try throwing(true)
-            return value + second
-        }
-        XCTAssertThrowsAny(DummyError.somethingWentWrong) {
-            _ = try failure2.get()
-        }
+        let result4 = Result<Int, Error>.failure(DummyError.somethingWentWrong).tryMap({ (value: Int) -> Int in
+            XCTFail("should not reach here")
+            throw OtherDummyError.somethingElseWentWrong
+        })
+        XCTAssertEqual(result4.failure as? DummyError, DummyError.somethingWentWrong)
     }
 }
 
-public func XCTAssertThrowsAny<T: Swift.Error>(_ expectedError: T, file: StaticString = #file, line: UInt = #line, _ body: () throws -> ()) where T: Equatable {
-    do {
-        try body()
-        XCTFail("body completed successfully", file: file, line: line)
-    } catch let error as AnyError {
-        XCTAssertEqual(error.underlyingError as? T, expectedError, file: file, line: line)
-    } catch {
-        XCTFail("unexpected error thrown", file: file, line: line)
+extension Result {
+    var success: Success? {
+        switch self {
+        case .success(let success):
+            return success
+        case .failure:
+            return nil
+        }
+    }
+
+    var failure: Failure? {
+        switch self {
+        case .success:
+            return nil
+        case .failure(let error):
+            return error
+        }
     }
 }

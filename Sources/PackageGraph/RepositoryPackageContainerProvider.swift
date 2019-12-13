@@ -59,7 +59,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
-        completion: @escaping (Result<PackageContainer, AnyError>) -> Void
+        completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     ) {
         // If the container is local, just create and return a local package container.
         if identifier.kind != .remote {
@@ -78,7 +78,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         // Resolve the container using the repository manager.
         repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate) { result in
             // Create the container wrapper.
-            let container = result.mapAny { handle -> PackageContainer in
+            let container = result.tryMap { handle -> PackageContainer in
                 // Open the repository.
                 //
                 // FIXME: Do we care about holding this open for the lifetime of the container.

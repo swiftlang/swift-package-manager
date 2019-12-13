@@ -233,9 +233,8 @@ class DependencyResolverTests: XCTestCase {
 
             // Check that this throws, because we try to fetch "B".
             let _ = resolver.resolveSubtree(a).map{$0}
-            if case let error as AnyError = resolver.error,
-               case let actualError as MockLoadingError = error.underlyingError {
-                XCTAssertEqual(actualError, MockLoadingError.unknownModule)
+            if case let error as MockLoadingError = resolver.error {
+                XCTAssertEqual(error, MockLoadingError.unknownModule)
             } else {
                 XCTFail("Unexpected or no error in resolver \(resolver.error.debugDescription)")
             }

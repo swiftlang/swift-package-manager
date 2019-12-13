@@ -71,7 +71,7 @@ extension PackageContainerConstraint {
 extension PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
-        completion: @escaping (Result<PackageContainer, AnyError>) -> Void
+        completion: @escaping (Result<PackageContainer, Error>) -> Void
     ) {
         getContainer(for: identifier, skipUpdate: false, completion: completion)
     }
@@ -209,11 +209,11 @@ public struct MockPackagesProvider: PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
-        completion: @escaping (Result<PackageContainer, AnyError>
+        completion: @escaping (Result<PackageContainer, Error>
     ) -> Void) {
         DispatchQueue.global().async {
             completion(self.containersByIdentifier[identifier].map{ .success($0) } ??
-                Result(MockLoadingError.unknownModule))
+                .failure(MockLoadingError.unknownModule))
         }
     }
 }

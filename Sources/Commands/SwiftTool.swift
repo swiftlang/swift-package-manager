@@ -451,8 +451,8 @@ public class SwiftTool<Options: ToolOptions> {
     func getSwiftPMConfig() throws -> SwiftPMConfig {
         return try _swiftpmConfig.get()
     }
-    private lazy var _swiftpmConfig: Result<SwiftPMConfig, AnyError> = {
-        return Result(anyError: { SwiftPMConfig(path: try configFilePath()) })
+    private lazy var _swiftpmConfig: Result<SwiftPMConfig, Swift.Error> = {
+        return Result(catching: { SwiftPMConfig(path: try configFilePath()) })
     }()
 
     /// Holds the currently active workspace.
@@ -615,8 +615,8 @@ public class SwiftTool<Options: ToolOptions> {
     func buildParameters() throws -> BuildParameters {
         return try _buildParameters.get()
     }
-    private lazy var _buildParameters: Result<BuildParameters, AnyError> = {
-        return Result(anyError: {
+    private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
+        return Result(catching: {
             let toolchain = try self.getToolchain()
             let triple = toolchain.destination.target
 
@@ -638,10 +638,10 @@ public class SwiftTool<Options: ToolOptions> {
     }()
 
     /// Lazily compute the destination toolchain.
-    private lazy var _destinationToolchain: Result<UserToolchain, AnyError> = {
+    private lazy var _destinationToolchain: Result<UserToolchain, Swift.Error> = {
         // Create custom toolchain if present.
         if let customDestination = self.options.customCompileDestination {
-            return Result(anyError: {
+            return Result(catching: {
                 try UserToolchain(destination: Destination(fromFile: customDestination))
             })
         }
@@ -650,15 +650,15 @@ public class SwiftTool<Options: ToolOptions> {
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.
-    private lazy var _hostToolchain: Result<UserToolchain, AnyError> = {
-        return Result(anyError: {
+    private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
+        return Result(catching: {
             try UserToolchain(destination: Destination.hostDestination(
                         originalWorkingDirectory: self.originalWorkingDirectory))
         })
     }()
 
-    private lazy var _manifestLoader: Result<ManifestLoader, AnyError> = {
-        return Result(anyError: {
+    private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
+        return Result(catching: {
             try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 manifestResources: self._hostToolchain.get().manifestResources,

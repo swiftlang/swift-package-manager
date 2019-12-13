@@ -197,7 +197,7 @@ class RepositoryManagerTests: XCTestCase {
                     XCTFail("Unexpected success")
                     return
                 }
-                XCTAssertEqual(error.underlyingError as? DummyError, DummyError.invalidRepository)
+                XCTAssertEqual(error as? DummyError, DummyError.invalidRepository)
                 badLookupExpectation.fulfill()
             }
 
