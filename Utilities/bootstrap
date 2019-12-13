@@ -445,8 +445,8 @@ def build_swiftpm_with_cmake(args):
     if args.llbuild_link_framework:
         swift_build = os.path.join(args.bootstrap_dir, "bin/swift-build")
         add_rpath_cmd = ["install_name_tool", "-add_rpath", args.llbuild_build_dir, swift_build]
-        note(add_rpath_cmd)
-        subprocess.call(add_rpath_cmd)
+        note(' '.join(add_rpath_cmd))
+        subprocess.call(add_rpath_cmd, stderr=subprocess.PIPE)
 
 def build_swiftpm_with_swiftpm(args):
     """Builds SwiftPM using the version of SwiftPM built with CMake."""
