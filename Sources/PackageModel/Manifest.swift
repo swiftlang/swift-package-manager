@@ -51,6 +51,9 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The targets declared in the manifest.
     public let targets: [TargetDescription]
 
+    /// The targets declared in the manifest, keyed by their name.
+    public let targetMap: [String: TargetDescription]
+
     /// The products declared in the manifest.
     public let products: [ProductDescription]
 
@@ -99,6 +102,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         self.dependencies = dependencies
         self.products = products
         self.targets = targets
+        self.targetMap = Dictionary(uniqueKeysWithValues: targets.lazy.map({ ($0.name, $0) }))
     }
 
     public var description: String {

@@ -60,9 +60,7 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
 
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            let targets = Dictionary(uniqueKeysWithValues:
-                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
-            let foo = targets["foo"]!
+            let foo = manifest.targetMap["foo"]!
             XCTAssertEqual(foo.name, "foo")
             XCTAssertFalse(foo.isTest)
 
@@ -75,7 +73,7 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
             ]
             XCTAssertEqual(foo.dependencies, expectedDependencies)
 
-            let bar = targets["bar"]!
+            let bar = manifest.targetMap["bar"]!
             XCTAssertEqual(bar.name, "bar")
             XCTAssertTrue(bar.isTest)
             XCTAssertEqual(bar.dependencies, ["foo"])
@@ -217,13 +215,10 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            let targets = Dictionary(uniqueKeysWithValues:
-                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
-
-            let foo = targets["Foo"]!
+            let foo = manifest.targetMap["Foo"]!
             XCTAssertEqual(foo.publicHeadersPath, "inc")
 
-            let bar = targets["Bar"]!
+            let bar = manifest.targetMap["Bar"]!
             XCTAssertEqual(bar.publicHeadersPath, nil)
         }
     }
@@ -247,16 +242,13 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            let targets = Dictionary(uniqueKeysWithValues:
-                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
-
-            let foo = targets["Foo"]!
+            let foo = manifest.targetMap["Foo"]!
             XCTAssertEqual(foo.publicHeadersPath, "inc")
             XCTAssertEqual(foo.path, "foo/z")
             XCTAssertEqual(foo.exclude, ["bar"])
             XCTAssertEqual(foo.sources ?? [], ["bar.swift"])
 
-            let bar = targets["Bar"]!
+            let bar = manifest.targetMap["Bar"]!
             XCTAssertEqual(bar.publicHeadersPath, nil)
             XCTAssertEqual(bar.path, nil)
             XCTAssertEqual(bar.exclude, [])
@@ -342,6 +334,41 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
 
         DiagnosticsEngineTester(diagnostics) { result in
             result.check(diagnostic: .contains("initialization of immutable value 'a' was never used"), behavior: .warning)
+        }
+    }
+
+    func testDuplicateTargets() throws {
+        let fs = InMemoryFileSystem()
+        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+        let stream = BufferedOutputByteStream()
+
+        stream <<< """
+            import PackageDescription
+
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "A"),
+                    .target(name: "B"),
+                    .target(name: "A"),
+                    .target(name: "B"),
+                ]
+            )
+            """
+
+        try fs.writeFileContents(manifestPath, bytes: stream.bytes)
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try manifestLoader.load(
+                package: .root, baseURL: "/Foo",
+                toolsVersion: .v4, fileSystem: fs,
+                diagnostics: diagnostics
+            )
+        } catch ManifestParseError.duplicateTargetNames(let targetNames) {
+            XCTAssertEqual(Set(targetNames), ["A", "B"])
+        } catch {
+            XCTFail(error.localizedDescription)
         }
     }
 }

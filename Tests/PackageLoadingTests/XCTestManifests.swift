@@ -34,7 +34,6 @@ extension PackageBuilderTests {
         ("testDotFilesAreIgnored", testDotFilesAreIgnored),
         ("testDuplicateProducts", testDuplicateProducts),
         ("testDuplicateTargetDependencies", testDuplicateTargetDependencies),
-        ("testDuplicateTargets", testDuplicateTargets),
         ("testExcludes", testExcludes),
         ("testExecutableAsADep", testExecutableAsADep),
         ("testInvalidHeaderSearchPath", testInvalidHeaderSearchPath),
@@ -70,6 +69,7 @@ extension PackageDescription4LoadingTests {
     static let __allTests__PackageDescription4LoadingTests = [
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testCTarget", testCTarget),
+        ("testDuplicateTargets", testDuplicateTargets),
         ("testLanguageStandards", testLanguageStandards),
         ("testManifestWithWarnings", testManifestWithWarnings),
         ("testPackageDependencies", testPackageDependencies),

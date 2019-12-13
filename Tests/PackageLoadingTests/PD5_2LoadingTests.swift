@@ -112,7 +112,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             try loadManifestThrowing(stream.bytes) { manifest in
                 return XCTFail("did not generate eror")
             }
-        } catch ManifestParseError.targetDependencyUnknownPackage(let targetName, let packageName) {
+        } catch ManifestParseError.unknownTargetDependencyPackage(let targetName, let packageName) {
             XCTAssertEqual(targetName, "foo")
             XCTAssertEqual(packageName, "foo1")
         }
@@ -138,7 +138,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             try loadManifestThrowing(stream.bytes) { manifest in
                 return XCTFail("did not generate eror")
             }
-        } catch ManifestParseError.targetDependencyUnknownPackage(let targetName, let packageName) {
+        } catch ManifestParseError.unknownTargetDependencyPackage(let targetName, let packageName) {
             XCTAssertEqual(targetName, "foo")
             XCTAssertEqual(packageName, "bar")
         }
@@ -170,9 +170,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             let dependencies = Dictionary(uniqueKeysWithValues: manifest.dependencies.map({ ($0.name, $0) }))
             let dependencyFoobar = dependencies["Foobar"]!
             let dependencyBarfoo = dependencies["Barfoo"]!
-            let targets = Dictionary(uniqueKeysWithValues: manifest.targets.map({ ($0.name, $0) }))
-            let targetFoo = targets["foo"]!
-            let targetBar = targets["bar"]!
+            let targetFoo = manifest.targetMap["foo"]!
+            let targetBar = manifest.targetMap["bar"]!
             XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[0]), dependencyFoobar)
             XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[1]), dependencyBarfoo)
             XCTAssertEqual(manifest.packageDependency(referencedBy: targetBar.dependencies[0]), nil)

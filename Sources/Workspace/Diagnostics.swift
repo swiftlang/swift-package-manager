@@ -79,6 +79,14 @@ public struct ManifestDuplicateDependencyNamesDiagnostic: DiagnosticData {
     }
 }
 
+public struct ManifestDuplicateTargetNamesDiagnostic: DiagnosticData {
+    public let duplicates: [String]
+
+    public var description: String {
+        "manifest parse error: duplicate target names: \(duplicates.joined(separator: ", "))\n"
+    }
+}
+
 extension ManifestParseError: DiagnosticDataConvertible {
     public var diagnosticData: DiagnosticData {
         switch self {
@@ -88,7 +96,9 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestParseDiagnostic(errors, diagnosticFile: nil)
         case .duplicateDependencyURLs(let duplicates):
             return ManifestDuplicateDependencyURLsDiagnostic(duplicates: duplicates)
-        case .targetDependencyUnknownPackage(let targetName, let packageName):
+        case .duplicateTargetNames(let targetNames):
+            return ManifestDuplicateTargetNamesDiagnostic(duplicates: targetNames)
+        case .unknownTargetDependencyPackage(let targetName, let packageName):
             return ManifestTargetDependencyUnknownPackageDiagnostic(targetName: targetName, packageName: packageName)
         case .duplicateDependencyNames(let duplicates):
             return ManifestDuplicateDependencyNamesDiagnostic(duplicates: duplicates)
