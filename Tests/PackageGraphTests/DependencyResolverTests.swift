@@ -67,7 +67,7 @@ class DependencyResolverTests: XCTestCase {
         let resolver = DependencyResolver(provider, delegate)
         let packages = try resolver.resolve(constraints: [
                 MockPackageConstraint(container: "A", versionRequirement: v1Range)])
-        XCTAssertEqual(packages.map{ $0.container.name ?? $0.container.identity }.sorted(), ["a", "b", "c-name"])
+        XCTAssertEqual(packages.map{ $0.container.name }.sorted(), ["A", "B", "c-name"])
     }
 
     func testVersionSetSpecifier() {

@@ -614,7 +614,9 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         TestTarget(name: "A", dependencies: ["AA"]),
                     ],
-                    products: [],
+                    products: [
+                        TestProduct(name: "A", targets: ["A"]),
+                    ],
                     dependencies: [
                         TestDependency(name: "AA", requirement: .exact("1.0.0")),
                     ],
@@ -625,7 +627,9 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         TestTarget(name: "A", dependencies: ["AA"]),
                     ],
-                    products: [],
+                    products: [
+                        TestProduct(name: "A", targets: ["A"]),
+                    ],
                     dependencies: [
                         TestDependency(name: "AA", requirement: .exact("2.0.0")),
                     ],
@@ -706,7 +710,9 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         TestTarget(name: "A", dependencies: ["AA"]),
                     ],
-                    products: [],
+                    products: [
+                        TestProduct(name: "A", targets: ["A"])
+                    ],
                     dependencies: [
                         TestDependency(name: "AA", requirement: .exact("1.0.0")),
                     ],
@@ -717,7 +723,9 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         TestTarget(name: "B", dependencies: ["AA"]),
                     ],
-                    products: [],
+                    products: [
+                        TestProduct(name: "B", targets: ["B"])
+                    ],
                     dependencies: [
                         TestDependency(name: "AA", requirement: .exact("2.0.0")),
                     ],
@@ -1007,7 +1015,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -1557,7 +1565,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(packages: "Foo", "Root")
             }
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("dependency 'foo' is missing; cloning again"), behavior: .warning)
+                result.check(diagnostic: .contains("dependency 'Foo' is missing; cloning again"), behavior: .warning)
             }
         }
     }
@@ -1821,7 +1829,7 @@ final class WorkspaceTests: XCTestCase {
         try fs.removeFileTree(fooPath)
         workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .equal("dependency 'foo' was being edited but is missing; falling back to original checkout"), behavior: .warning)
+                result.check(diagnostic: .equal("dependency 'Foo' was being edited but is missing; falling back to original checkout"), behavior: .warning)
             }
         }
         workspace.checkManagedDependencies { result in
@@ -2076,6 +2084,7 @@ final class WorkspaceTests: XCTestCase {
             url: manifest.url,
             version: manifest.version,
             toolsVersion: manifest.toolsVersion,
+            packageKind: .root,
             dependencies: [PackageDependencyDescription(name: nil, url: manifest.dependencies[0].url, requirement: .exact("1.5.0"))],
             targets: manifest.targets
         )
@@ -2900,7 +2909,7 @@ final class WorkspaceTests: XCTestCase {
                  TestPackage(
                      name: "Bar",
                      targets: [
-                         TestTarget(name: "Bar", dependencies: ["Foo"]),
+                         TestTarget(name: "Bar", dependencies: ["Nested/Foo"]),
                      ],
                      products: [
                          TestProduct(name: "Bar", targets: ["Bar"]),
@@ -2927,7 +2936,7 @@ final class WorkspaceTests: XCTestCase {
                          TestTarget(name: "Foo"),
                      ],
                      products: [
-                         TestProduct(name: "Foo", targets: ["Foo"]),
+                         TestProduct(name: "Nested/Foo", targets: ["Foo"]),
                      ],
                      versions: ["1.0.0"]
                  ),
@@ -3162,7 +3171,7 @@ final class WorkspaceTests: XCTestCase {
         // From here the API should be simple and straightforward:
         let diagnostics = DiagnosticsEngine()
         let manifest = try ManifestLoader.loadManifest(
-            packagePath: package, swiftCompiler: swiftCompiler)
+            packagePath: package, swiftCompiler: swiftCompiler, packageKind: .local)
         let loadedPackage = try PackageBuilder.loadPackage(
             packagePath: package, swiftCompiler: swiftCompiler, diagnostics: diagnostics)
         let graph = try Workspace.loadGraph(
@@ -3196,7 +3205,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        TestTarget(name: "Foo", dependencies: ["Local"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3221,7 +3230,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraph(roots: ["Root"]) { (_, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .equal("package 'foo' is required using a revision-based requirement and it depends on local package 'local', which is not supported"), behavior: .error)
+                result.check(diagnostic: .equal("package 'Foo' is required using a revision-based requirement and it depends on local package 'Local', which is not supported"), behavior: .error)
             }
         }
     }
@@ -3360,7 +3369,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3383,7 +3392,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        TestTarget(name: "Baz", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -3435,6 +3444,104 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
         }
         XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
+    }
+
+    func testTargetBasedDependency() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                        TestTarget(name: "RootTests", dependencies: ["TestHelper1"], type: .test),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "TestHelper1", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_2
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo1", dependencies: ["Foo2"]),
+                        TestTarget(name: "Foo2", dependencies: ["Baz"]),
+                        TestTarget(name: "FooTests", dependencies: ["TestHelper2"], type: .test)
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo1"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"],
+                    toolsVersion: .v5_2
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                        TestTarget(name: "BarTests", dependencies: ["TestHelper2"], type: .test),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Biz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"],
+                    toolsVersion: .v5_2
+                ),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz")
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"],
+                    toolsVersion: .v5_2
+                ),
+                TestPackage(
+                    name: "TestHelper1",
+                    targets: [
+                        TestTarget(name: "TestHelper1"),
+                    ],
+                    products: [
+                        TestProduct(name: "TestHelper1", targets: ["TestHelper1"]),
+                    ],
+                    versions: ["1.0.0"],
+                    toolsVersion: .v5_2
+                ),
+            ],
+            toolsVersion: .v5_2,
+            enablePubGrub: true
+        )
+
+        // Load the graph.
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "Foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "Bar", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "Baz", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "TestHelper1", at: .checkout(.version("1.0.0")))
+            result.check(notPresent: "Biz")
+            result.check(notPresent: "TestHelper2")
+        }
     }
 }
 

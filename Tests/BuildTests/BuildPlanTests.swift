@@ -79,12 +79,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -152,12 +153,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/A", fs: fileSystem, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
                     path: "/A",
                     url: "/A",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -169,6 +171,7 @@ final class BuildPlanTests: XCTestCase {
                     name: "B",
                     path: "/B",
                     url: "/B",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BLibrary", targets: ["BTarget"]),
                     ],
@@ -204,12 +207,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
                     ]),
@@ -256,12 +260,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -273,6 +278,7 @@ final class BuildPlanTests: XCTestCase {
                     name: "ExtPkg",
                     path: "/ExtPkg",
                     url: "/ExtPkg",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "ExtPkg", targets: ["extlib"]),
                     ],
@@ -363,12 +369,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     cLanguageStandard: "gnu99",
                     cxxLanguageStandard: "c++1z",
                     targets: [
@@ -423,12 +430,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -491,13 +499,14 @@ final class BuildPlanTests: XCTestCase {
 
         let diagnostics = DiagnosticsEngine()
         let graph = loadPackageGraph(
-            root: "/Pkg", fs: fs, diagnostics: diagnostics,
+            fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
                     v: .v5,
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -530,12 +539,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Dep", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -548,6 +558,7 @@ final class BuildPlanTests: XCTestCase {
                     name: "Dep",
                     path: "/Dep",
                     url: "/Dep",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Dep", targets: ["Dep"]),
                     ],
@@ -563,8 +574,11 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs)
         XCTAssertEqual(plan.createREPLArguments().sorted(), ["-I/Dep/Sources/CDep/include", "-I/path/to/build/debug", "-I/path/to/build/debug/lib.build", "-L/path/to/build/debug", "-lPkg__REPL"])
 
-        let replProduct = plan.graph.allProducts.first(where: { $0.name.contains("REPL") })
-        XCTAssertEqual(replProduct?.name, "Pkg__REPL")
+        XCTAssertEqual(plan.graph.allProducts.map({ $0.name }).sorted(), [
+            "Dep",
+            "Pkg__REPL",
+            "exe",
+        ])
     }
 
     func testTestModule() throws {
@@ -575,12 +589,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                         TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
@@ -634,12 +649,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "Clibgit", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -649,7 +665,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Clibgit",
                     path: "/Clibgit",
-                    url: "/Clibgit"),
+                    url: "/Clibgit",
+                    packageKind: .local),
             ]
         )
         XCTAssertNoDiagnostics(diagnostics)
@@ -689,12 +706,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "lib", dependencies: []),
                         TargetDescription(name: "exe", dependencies: ["lib"]),
@@ -722,12 +740,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar-Baz", type: .library(.dynamic), targets: ["Bar"]),
                     ],
@@ -738,6 +757,7 @@ final class BuildPlanTests: XCTestCase {
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -813,12 +833,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     products: [
                         ProductDescription(name: "lib", type: .library(.dynamic), targets: ["lib"]),
                     ],
@@ -876,12 +897,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     products: [
                         ProductDescription(name: "lib", type: .library(.dynamic), targets: ["lib"]),
                     ],
@@ -939,12 +961,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/A", fs: fileSystem, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
                     path: "/A",
                     url: "/A",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                         PackageDependencyDescription(name: nil, url: "/C", requirement: .upToNextMajor(from: "1.0.0")),
@@ -959,6 +982,7 @@ final class BuildPlanTests: XCTestCase {
                     name: "B",
                     path: "/B",
                     url: "/B",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.static), targets: ["BTarget1"]),
                         ProductDescription(name: "bexec", type: .executable, targets: ["BTarget2"]),
@@ -971,6 +995,7 @@ final class BuildPlanTests: XCTestCase {
                     name: "C",
                     path: "/C",
                     url: "/C",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "cexec", type: .executable, targets: ["CTarget"])
                     ],
@@ -1001,12 +1026,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg"
+                    url: "/Pkg",
+                    packageKind: .root
                 ),
             ]
         )
@@ -1026,12 +1052,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/A", fs: fileSystem, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
                     path: "/A",
                     url: "/A",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
                         TargetDescription(
@@ -1060,12 +1087,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/A", fs: fileSystem, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
                     path: "/A",
                     url: "/A",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
                         TargetDescription(
@@ -1096,12 +1124,13 @@ final class BuildPlanTests: XCTestCase {
 
         let diagnostics = DiagnosticsEngine()
         let graph = loadPackageGraph(
-            root: "/Pkg", fs: fs, diagnostics: diagnostics,
+            fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     targets: [
                     TargetDescription(name: "exe", dependencies: ["lib"]),
                     TargetDescription(name: "lib", dependencies: []),
@@ -1141,12 +1170,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -1183,7 +1213,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/A", fs: fileSystem, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
                     name: "A",
@@ -1193,6 +1223,7 @@ final class BuildPlanTests: XCTestCase {
                     path: "/A",
                     url: "/A",
                     v: .v5,
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -1207,6 +1238,7 @@ final class BuildPlanTests: XCTestCase {
                     path: "/B",
                     url: "/B",
                     v: .v5,
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BLibrary", targets: ["BTarget"]),
                     ],
@@ -1243,7 +1275,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/A", fs: fileSystem, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
                     name: "A",
@@ -1254,6 +1286,7 @@ final class BuildPlanTests: XCTestCase {
                     path: "/A",
                     url: "/A",
                     v: .v5,
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -1269,6 +1302,7 @@ final class BuildPlanTests: XCTestCase {
                     path: "/B",
                     url: "/B",
                     v: .v5,
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BLibrary", targets: ["BTarget"]),
                     ],
@@ -1314,6 +1348,7 @@ final class BuildPlanTests: XCTestCase {
             path: "/A",
             url: "/A",
             v: .v5,
+            packageKind: .root,
             dependencies: [
                 PackageDependencyDescription(name: nil, url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
             ],
@@ -1358,6 +1393,7 @@ final class BuildPlanTests: XCTestCase {
             path: "/B",
             url: "/B",
             v: .v5,
+            packageKind: .local,
             products: [
                 ProductDescription(name: "Dep", targets: ["t1", "t2"]),
             ],
@@ -1378,7 +1414,7 @@ final class BuildPlanTests: XCTestCase {
             ])
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/A", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [aManifest, bManifest]
         )
         XCTAssertNoDiagnostics(diagnostics)
@@ -1439,13 +1475,14 @@ final class BuildPlanTests: XCTestCase {
             path: "/A",
             url: "/A",
             v: .v5,
+            packageKind: .root,
             targets: [
                 TargetDescription(name: "exe", dependencies: []),
             ]
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/A", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [aManifest]
         )
         XCTAssertNoDiagnostics(diagnostics)
@@ -1470,12 +1507,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/PkgB", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "PkgA",
                     path: "/PkgA",
                     url: "/PkgA",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "swiftlib", targets: ["swiftlib"]),
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"])
@@ -1488,6 +1526,7 @@ final class BuildPlanTests: XCTestCase {
                     name: "PkgB",
                     path: "/PkgB",
                     url: "/PkgB",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/PkgA", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -1520,12 +1559,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/PkgA", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "PkgA",
                     path: "/PkgA",
                     url: "/PkgA",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
@@ -1574,12 +1614,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/PkgA", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "PkgA",
                     path: "/PkgA",
                     url: "/PkgA",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -1590,6 +1631,7 @@ final class BuildPlanTests: XCTestCase {
                     name: "PkgB",
                     path: "/PkgB",
                     url: "/PkgB",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Foo", targets: ["Foo"]),
                     ],
@@ -1640,12 +1682,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/PkgA", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "PkgA",
                     path: "/PkgA",
                     url: "/PkgA",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -1656,6 +1699,7 @@ final class BuildPlanTests: XCTestCase {
                     name: "PkgB",
                     path: "/PkgB",
                     url: "/PkgB",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Foo", type: .library(.dynamic), targets: ["Foo"]),
                     ],
@@ -1706,12 +1750,13 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -1765,7 +1810,6 @@ final class BuildPlanTests: XCTestCase {
         let diagnostics = DiagnosticsEngine()
 
         let graph = loadPackageGraph(
-            root: "/PkgA",
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -1774,6 +1818,7 @@ final class BuildPlanTests: XCTestCase {
                     path: "/PkgA",
                     url: "/PkgA",
                     v: .v5_2,
+                    packageKind: .root,
                     targets: [
                         TargetDescription(
                             name: "Foo",

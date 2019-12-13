@@ -34,12 +34,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(root: "/Bar", fs: fs, diagnostics: diagnostics,
+        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Foo", targets: ["Foo"])
                     ],
@@ -58,6 +59,7 @@ class PackageGraphTests: XCTestCase {
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: "Foo", url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -191,12 +193,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .root,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.dynamic), targets: ["Foo"])
                     ],
@@ -231,12 +234,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(root: "/Bar", fs: fs, diagnostics: diagnostics,
+        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Sea", dependencies: []),
                         TargetDescription(name: "Sea2", dependencies: []),
@@ -273,12 +277,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(root: "/Pkg", fs: fs, diagnostics: diagnostics,
+        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
                     url: "/Pkg",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "HelperTool", dependencies: []),
                         TargetDescription(name: "Library", dependencies: []),
@@ -335,12 +340,13 @@ class PackageGraphTests: XCTestCase {
       	)
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "a"),
                         TargetDescription(name: "b", dependencies: ["a"]),
@@ -387,12 +393,13 @@ class PackageGraphTests: XCTestCase {
             )
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(root: "/Foo", fs: fs, diagnostics: diagnostics,
+            let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: "/Foo",
                         url: "/Foo",
+                        packageKind: .root,
                         swiftLanguageVersions: [SwiftLanguageVersion(string: swiftVersion)!],
                         targets: [
                             TargetDescription(name: "a"),

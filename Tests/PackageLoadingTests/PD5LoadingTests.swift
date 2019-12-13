@@ -61,7 +61,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
 
             // Check dependencies.
             let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.url, $0) })
-            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(name: nil, url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(name: "foo1", url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
 
             // Check products.
             let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
@@ -294,7 +294,9 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
                 _ = try loader.load(
                     package: manifestPath.parentDirectory,
                     baseURL: manifestPath.pathString,
-                    toolsVersion: .v5)
+                    toolsVersion: .v5,
+                    packageKind: .local
+                )
             } catch ManifestParseError.invalidManifestFormat(let error, let diagnosticFile) {
                 XCTAssertMatch(error, .contains("expected \')\' in expression list"))
                 let contents = try localFileSystem.readFileContents(diagnosticFile!)
@@ -323,6 +325,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
                 package: manifestPath.parentDirectory,
                 baseURL: manifestPath.pathString,
                 toolsVersion: .v5,
+                packageKind: .local,
                 diagnostics: diagnostics
             )
 

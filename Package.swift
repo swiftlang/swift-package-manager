@@ -236,7 +236,7 @@ let package = Package(
             dependencies: ["PackageLoading", "SPMTestSupport"]),
         .testTarget(
             name: "PackageModelTests",
-            dependencies: ["PackageModel"]),
+            dependencies: ["PackageModel", "SPMTestSupport"]),
         .testTarget(
             name: "PackageGraphTests",
             dependencies: ["PackageGraph", "SPMTestSupport"]),

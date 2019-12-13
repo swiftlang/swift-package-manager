@@ -32,12 +32,13 @@ class GenerateXcodeprojTests: XCTestCase {
             let fileSystem = InMemoryFileSystem(emptyFiles: "/Sources/DummyModuleName/source.swift")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(root: "/", fs: fileSystem, diagnostics: diagnostics,
+            let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: "/",
                         url: "/foo",
+                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "DummyModuleName"),
                         ])
@@ -78,12 +79,13 @@ class GenerateXcodeprojTests: XCTestCase {
     func testXcconfigOverrideValidatesPath() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/Bar/Sources/Bar/bar.swift")
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Bar", fs: fileSystem, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Bar"),
                     ])
@@ -110,12 +112,13 @@ class GenerateXcodeprojTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(root: "/Bar", fs: fileSystem, diagnostics: diagnostics,
+        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Modules",
                     path: "/Bar",
                     url: "/Bar",
+                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Modules"),
                     ])
@@ -144,12 +147,13 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             let graph = loadPackageGraph(
-                root: packagePath.pathString, fs: localFileSystem, diagnostics: diagnostics,
+                fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: packagePath.pathString,
                         url: packagePath.pathString,
+                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -178,12 +182,13 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             let graph = loadPackageGraph(
-                root: packagePath.pathString, fs: localFileSystem, diagnostics: diagnostics,
+                fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: packagePath.pathString,
                         url: packagePath.pathString,
+                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -212,12 +217,13 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             let graph = loadPackageGraph(
-                root: packagePath.pathString, fs: localFileSystem, diagnostics: diagnostics,
+                fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: packagePath.pathString,
                         url: packagePath.pathString,
+                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -249,12 +255,13 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             let graph = loadPackageGraph(
-                root: packagePath.pathString, fs: localFileSystem, diagnostics: diagnostics,
+                fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: packagePath.pathString,
                         url: packagePath.pathString,
+                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -291,12 +298,13 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             let graph = loadPackageGraph(
-                root: packagePath.pathString, fs: localFileSystem, diagnostics: diagnostics,
+                fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: packagePath.pathString,
                         url: packagePath.pathString,
+                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])

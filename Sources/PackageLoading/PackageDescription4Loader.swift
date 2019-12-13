@@ -304,12 +304,7 @@ extension PackageDependencyDescription {
 
         let requirement = try Requirement(v4: json.get("requirement"))
         let url = try fixURL(json.get("url"), requirement: requirement)
-        var name: String? = json.get("name")
-
-        if name == nil && toolsVersion >= .v5_2 {
-            name = PackageReference.computeDefaultName(fromURL: url)
-        }
-        
+        let name = json.get("name") ?? PackageReference.computeDefaultName(fromURL: url)
         self.init(name: name, url: url, requirement: requirement)
     }
 }

@@ -42,6 +42,9 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The name of the package.
     public let name: String
 
+    /// Whether kind of package this manifest is from.
+    public let packageKind: PackageReference.Kind
+
     /// The declared platforms in the manifest.
     public let platforms: [PlatformDescription]
 
@@ -72,6 +75,12 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The system package providers of a system package.
     public let providers: [SystemPackageProviderDescription]?
 
+    /// Targets required for building all the products.
+    private var _allRequiredTargets: [TargetDescription]?
+
+    /// Dependencies required for building all the products.
+    private var _allRequiredDependencies: [PackageDependencyDescription]?
+
     public init(
         name: String,
         platforms: [PlatformDescription],
@@ -79,6 +88,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         url: String,
         version: TSCUtility.Version? = nil,
         toolsVersion: ToolsVersion,
+        packageKind: PackageReference.Kind,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
         cLanguageStandard: String? = nil,
@@ -94,6 +104,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         self.url = url
         self.version = version
         self.toolsVersion = toolsVersion
+        self.packageKind = packageKind
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.cLanguageStandard = cLanguageStandard
@@ -144,6 +155,47 @@ extension ToolsVersion {
 }
 
 extension Manifest {
+    /// Targets required for building all the products. If this manifest is a root manifest, it returns all targets.
+    public var allRequiredTargets: [TargetDescription] {
+        // Special case root packages to return all targets.
+        switch packageKind {
+        case .root:
+            return targets
+        case .local, .remote:
+            break
+        }
+
+        // If we have already calcualted allRequiredTargets, returned the cached value.
+        if let targets = _allRequiredTargets {
+            return targets
+        } else {
+            let targets = targetsRequired(for: products)
+            _allRequiredTargets = targets
+            return targets
+        }
+    }
+
+    /// The package dependencies required for building all the products.  If this manifest is a root manifest, it
+    /// returns all dependencies.
+    public var allRequiredDependencies: [PackageDependencyDescription] {
+        // Special case root packages to return all depdendencies.
+        switch packageKind {
+        case .root:
+            return dependencies
+        case .local, .remote:
+            break
+        }
+
+        // If we have already calcualted allRequiredDependencies, returned the cached value.
+        if let dependencies = _allRequiredDependencies {
+            return dependencies
+        } else {
+            let dependencies = dependenciesRequired(for: products)
+            _allRequiredDependencies = dependencies
+            return dependencies
+        }
+    }
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(name, forKey: .name)
@@ -166,6 +218,50 @@ extension Manifest {
         try container.encode(products, forKey: .products)
         try container.encode(targets, forKey: .targets)
         try container.encode(platforms, forKey: .platforms)
+    }
+
+    /// Returns the targets required for building the provided products.
+    public func targetsRequired(for products: [ProductDescription]) -> [TargetDescription] {
+        let targetsByName = Dictionary(targets.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
+        let productTargetNames = products.flatMap({ $0.targets })
+
+        let dependentTargetNames = transitiveClosure(productTargetNames, successors: { targetName in
+            targetsByName[targetName]?.dependencies.compactMap({ dependency in
+                switch dependency {
+                case .target(let name),
+                     .byName(let name):
+                    return targetsByName.keys.contains(name) ? name : nil
+                default:
+                    return nil
+                }
+            }) ?? []
+        })
+
+        let requiredTargetNames = Set(productTargetNames).union(dependentTargetNames)
+        let requiredTargets = requiredTargetNames.compactMap({ targetsByName[$0] })
+        return requiredTargets
+    }
+
+    /// Returns the package dependencies required for building the provided products. If the tools version is less than
+    /// 5.2, this function returns all dependencies as we can't link target dependencies with package dependencies.
+    public func dependenciesRequired(for products: [ProductDescription]) -> [PackageDependencyDescription] {
+        guard toolsVersion >= .v5_2 else {
+            return dependencies
+        }
+
+        var requiredDependencyNames: Set<String> = []
+
+        for target in targetsRequired(for: products) {
+            for targetDependency in target.dependencies {
+                if let dependency = packageDependency(referencedBy: targetDependency) {
+                    requiredDependencyNames.insert(dependency.name!)
+                }
+            }
+        }
+
+        let dependenciesByName = Dictionary(dependencies.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
+        let requiredDependencies = requiredDependencyNames.compactMap({ dependenciesByName[$0] })
+        return requiredDependencies
     }
 
     /// Finds the package dependency referenced by the specified target dependency.

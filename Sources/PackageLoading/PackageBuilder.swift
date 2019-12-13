@@ -192,9 +192,6 @@ public final class PackageBuilder {
     /// The diagnostics engine.
     private let diagnostics: DiagnosticsEngine
 
-    /// True if this is the root package.
-    private let isRootPackage: Bool
-
     /// Create multiple test products.
     ///
     /// If set to true, one test product will be created for each test target.
@@ -213,7 +210,6 @@ public final class PackageBuilder {
     ///   - path: The root path of the package.
     ///   - fileSystem: The file system on which the builder should be run.
     ///   - diagnostics: The diagnostics engine.
-    ///   - isRootPackage: If this is a root package.
     ///   - createMultipleTestProducts: If enabled, create one test product for
     ///     each test target.
     public init(
@@ -222,11 +218,9 @@ public final class PackageBuilder {
         additionalFileRules: [FileRuleDescription] = [],
         fileSystem: FileSystem = localFileSystem,
         diagnostics: DiagnosticsEngine,
-        isRootPackage: Bool,
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false
     ) {
-        self.isRootPackage = isRootPackage
         self.manifest = manifest
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
@@ -242,19 +236,21 @@ public final class PackageBuilder {
     ///     - packagePath: The absolute path of the package root.
     ///     - swiftCompiler: The absolute path of a `swiftc` executable.
     ///         Its associated resources will be used by the loader.
+    ///     - kind: The kind of package.
     public static func loadPackage(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
         diagnostics: DiagnosticsEngine,
-        isRootPackage: Bool = true) throws -> Package {
-
+        kind: PackageReference.Kind = .root
+    ) throws -> Package {
         let manifest = try ManifestLoader.loadManifest(
-            packagePath: packagePath, swiftCompiler: swiftCompiler)
+            packagePath: packagePath,
+            swiftCompiler: swiftCompiler,
+            packageKind: kind)
         let builder = PackageBuilder(
             manifest: manifest,
             path: packagePath,
-            diagnostics: diagnostics,
-            isRootPackage: isRootPackage)
+            diagnostics: diagnostics)
         return try builder.construct()
     }
 
@@ -367,6 +363,14 @@ public final class PackageBuilder {
 
     /// Private function that creates and returns a list of targets defined by a package.
     private func constructTargets() throws -> [Target] {
+
+        // Ensure no dupicate target definitions are found.
+        let duplicateTargetNames: [String] = manifest.allRequiredTargets.map({ $0.name
+        }).spm_findDuplicates()
+
+        if !duplicateTargetNames.isEmpty {
+            throw Target.Error.duplicateTargets(duplicateTargetNames)
+        }
 
         // Check for a modulemap file, which indicates a system target.
         let moduleMapPath = packagePath.appending(component: moduleMapFilename)
@@ -492,7 +496,7 @@ public final class PackageBuilder {
 
         // Create potential targets.
         let potentialTargets: [PotentialModule]
-        potentialTargets = try manifest.targets.map({ target in
+        potentialTargets = try manifest.allRequiredTargets.map({ target in
             let path = try findPath(for: target)
             return PotentialModule(name: target.name, path: path, type: target.type)
         })
@@ -502,11 +506,12 @@ public final class PackageBuilder {
     // Create targets from the provided potential targets.
     private func createModules(_ potentialModules: [PotentialModule]) throws -> [Target] {
         // Find if manifest references a target which isn't present on disk.
-        let allReferencedModules = manifest.allReferencedModules()
+        let allVisibleModuleNames = manifest.allVisibleModuleNames()
         let potentialModulesName = Set(potentialModules.map({ $0.name }))
-        let missingModules = allReferencedModules.subtracting(potentialModulesName).intersection(allReferencedModules)
-        if let missingModule = missingModules.first {
-            throw ModuleError.moduleNotFound(missingModule, potentialModules.first(where: { $0.name == missingModule })?.type ?? .regular)
+        let missingModuleNames = allVisibleModuleNames.subtracting(potentialModulesName)
+        if let missingModuleName = missingModuleNames.first {
+            let type = potentialModules.first(where: { $0.name == missingModuleName })?.type ?? .regular
+            throw ModuleError.moduleNotFound(missingModuleName, type)
         }
 
         let potentialModuleMap = Dictionary(potentialModules.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
@@ -991,7 +996,7 @@ public final class PackageBuilder {
         }
 
         // Only create implicit executables for root packages.
-        if isRootPackage {
+        if manifest.packageKind == .root {
             // Compute the list of targets which are being used in an
             // executable product so we don't create implicit executables
             // for them.
@@ -1100,9 +1105,9 @@ private struct PotentialModule: Hashable {
 }
 
 private extension Manifest {
-    /// Returns the names of all the referenced targets in the manifest.
-    func allReferencedModules() -> Set<String> {
-        let names = targets.flatMap({ target in
+    /// Returns the names of all the visible targets in the manifest.
+    func allVisibleModuleNames() -> Set<String> {
+        let names = allRequiredTargets.flatMap({ target in
             [target.name] + target.dependencies.compactMap({
                 switch $0 {
                 case .target(let name):

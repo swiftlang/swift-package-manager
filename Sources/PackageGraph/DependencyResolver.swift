@@ -1009,8 +1009,8 @@ public class DependencyResolver {
             let incompatibleConstraints = constraints.filter{ $0.requirement == .unversioned }
             guard incompatibleConstraints.isEmpty else {
                 self.error = DependencyResolverError.revisionDependencyContainsLocalPackage(
-                    dependency: container.identifier.identity,
-                    localPackage: incompatibleConstraints[0].identifier.identity
+                    dependency: container.identifier.name,
+                    localPackage: incompatibleConstraints[0].identifier.name
                 )
                 return AnySequence([])
             }

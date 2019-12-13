@@ -192,7 +192,7 @@ public class Workspace {
 
             let inputIdentities: [PackageReference] = root.manifests.map({
                 let identity = PackageReference.computeIdentity(packageURL: $0.url)
-                return PackageReference(identity: identity, path: $0.url)
+                return PackageReference(identity: identity, path: $0.url, kind: $0.packageKind)
             }) + root.dependencies.map({
                 let url = workspace.config.mirroredURL(forURL: $0.url)
                 let identity = PackageReference.computeIdentity(packageURL: url)
@@ -201,7 +201,7 @@ public class Workspace {
 
             var requiredIdentities = transitiveClosure(inputIdentities) { identity in
                 guard let manifest = manifestsMap[identity.identity] else { return [] }
-                return manifest.dependencies.map({
+                return manifest.allRequiredDependencies.map({
                     let url = workspace.config.mirroredURL(forURL: $0.url)
                     let identity = PackageReference.computeIdentity(packageURL: url)
                     return PackageReference(identity: identity, path: url)
@@ -212,7 +212,7 @@ public class Workspace {
 
             let availableIdentities: Set<PackageReference> = Set(manifestsMap.map({
                 let url = workspace.config.mirroredURL(forURL: $0.1.url)
-                return PackageReference(identity: $0.key, path: url)
+                return PackageReference(identity: $0.key, path: url, kind: $0.1.packageKind)
             }))
             // We should never have loaded a manifest we don't need.
             assert(availableIdentities.isSubset(of: requiredIdentities), "\(availableIdentities) | \(requiredIdentities)")
@@ -237,7 +237,7 @@ public class Workspace {
                     let ref = PackageReference(
                         identity: managedDependency.packageRef.identity,
                         path: managedDependency.packageRef.path,
-                        isLocal: true
+                        kind: .local
                     )
                     let constraint = RepositoryPackageConstraint(
                         container: ref,
@@ -266,7 +266,7 @@ public class Workspace {
                 let ref = PackageReference(
                     identity: managedDependency.packageRef.identity,
                     path: workspace.path(for: managedDependency).pathString,
-                    isLocal: true
+                    kind: .local
                 )
                 let constraint = RepositoryPackageConstraint(
                     container: ref,
@@ -401,6 +401,7 @@ public class Workspace {
             repositoryManager: repositoryManager,
             config: self.config,
             manifestLoader: manifestLoader,
+            currentToolsVersion: currentToolsVersion,
             toolsVersionLoader: toolsVersionLoader
         )
         self.fileSystem = fileSystem
@@ -752,7 +753,7 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) -> [Manifest] {
         let rootManifests = packages.compactMap({ package -> Manifest? in
-            loadManifest(packagePath: package, url: package.pathString, diagnostics: diagnostics)
+            loadManifest(packagePath: package, url: package.pathString, packageKind: .root, diagnostics: diagnostics)
         })
 
         // Check for duplicate root packages.
@@ -775,7 +776,7 @@ extension Workspace {
         for dependency: ManagedDependency,
         diagnostics: DiagnosticsEngine
     ) -> CheckoutState? {
-        let name = dependency.packageRef.name ?? dependency.packageRef.identity
+        let name = dependency.packageRef.name
         switch dependency.state {
         case .checkout(let checkoutState):
             return checkoutState
@@ -810,7 +811,11 @@ extension Workspace {
         // a valid manifest with name same as the package we are trying to edit.
         if fileSystem.exists(destination) {
             let manifest = loadManifest(
-                packagePath: destination, url: dependency.packageRef.repository.url, diagnostics: diagnostics)
+                packagePath: destination,
+                url: dependency.packageRef.repository.url,
+                packageKind: .local,
+                diagnostics: diagnostics
+            )
 
             guard manifest?.name == packageName else {
                 return diagnostics.emit(error: "package at '\(destination)' is \(manifest?.name ?? "<unknown>") but was expecting \(packageName)")
@@ -901,7 +906,7 @@ extension Workspace {
         switch dependency.state {
         // If the dependency isn't in edit mode, we can't unedit it.
         case .checkout, .local:
-            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyName: dependency.packageRef.identity)
+            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyName: dependency.packageRef.name)
 
         case .edited(let path):
             if path != nil {
@@ -1094,12 +1099,15 @@ extension Workspace {
             return nil
         }
 
-        // The version, if known.
+        // The kind and version, if known.
+        let packageKind: PackageReference.Kind
         let version: Version?
         switch managedDependency.state {
         case .checkout(let checkoutState):
+            packageKind = .remote
             version = checkoutState.version
         case .edited, .local:
+            packageKind = .local
             version = nil
         }
 
@@ -1111,6 +1119,7 @@ extension Workspace {
             packagePath: packagePath,
             url: managedDependency.packageRef.path,
             version: version,
+            packageKind: packageKind,
             diagnostics: diagnostics
         )
     }
@@ -1122,6 +1131,7 @@ extension Workspace {
         packagePath: AbsolutePath,
         url: String,
         version: Version? = nil,
+        packageKind: PackageReference.Kind,
         diagnostics: DiagnosticsEngine
     ) -> Manifest? {
         return diagnostics.wrap(with: PackageLocation.Local(packagePath: packagePath), {
@@ -1140,6 +1150,7 @@ extension Workspace {
                 baseURL: url,
                 version: version,
                 toolsVersion: toolsVersion,
+                packageKind: packageKind,
                 diagnostics: diagnostics
             )
         })
@@ -1736,7 +1747,7 @@ extension Workspace {
                 case .checkout(let checkoutState):
                     // If some checkout dependency has been removed, clone it again.
                     _ = try clone(package: dependency.packageRef, at: checkoutState)
-                    diagnostics.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.identity))
+                    diagnostics.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.name))
 
                 case .edited:
                     // If some edited dependency has been removed, mark it as unedited.
@@ -1746,7 +1757,7 @@ extension Workspace {
                     // of some other resolve operation (i.e. resolve, update, etc).
                     try unedit(dependency: dependency, forceRemove: true, diagnostics: diagnostics)
 
-                    diagnostics.emit(.editedDependencyMissing(packageName: dependency.packageRef.identity))
+                    diagnostics.emit(.editedDependencyMissing(packageName: dependency.packageRef.name))
 
                 case .local:
                     managedDependencies[forURL: dependency.packageRef.path] = nil
@@ -1940,7 +1951,7 @@ extension Workspace {
     fileprivate func remove(package: PackageReference) throws {
 
         guard let dependency = managedDependencies[forURL: package.path] else {
-            fatalError("This should never happen, trying to remove \(package.identity) which isn't in workspace")
+            fatalError("This should never happen, trying to remove \(package.name) which isn't in workspace")
         }
 
         // We only need to update the managed dependency structure to "remove"

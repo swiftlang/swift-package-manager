@@ -145,7 +145,7 @@ public final class ManagedDependency: JSONMappable, JSONSerializable, CustomStri
     }
 
     public var description: String {
-        return "<ManagedDependency: \(packageRef.name ?? packageRef.identity) \(state)>"
+        return "<ManagedDependency: \(packageRef.name) \(state)>"
     }
 
     /// Returns true if the dependency is edited.
@@ -211,9 +211,10 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
 
     /// The schema version of the resolved file.
     ///
+    /// * 3: Package kind.
     /// * 2: Package identity.
     /// * 1: Initial version.
-    static let schemaVersion: Int = 2
+    static let schemaVersion: Int = 3
 
     /// The current state of managed dependencies.
     ///
@@ -234,6 +235,7 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
         self.persistence = SimplePersistence(
             fileSystem: fileSystem,
             schemaVersion: ManagedDependencies.schemaVersion,
+            supportedSchemaVersions: [2],
             statePath: statePath)
 
         // Load the state from disk, if possible.

@@ -1657,7 +1657,7 @@ final class PackageBuilderTester {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
                 manifest: manifest, path: path, fileSystem: fs, diagnostics: diagnostics,
-                isRootPackage: true, shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts, createREPLProduct: createREPLProduct)
+                shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts, createREPLProduct: createREPLProduct)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.targets)
