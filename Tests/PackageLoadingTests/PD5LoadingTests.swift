@@ -29,7 +29,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
                 name: "Trivial",
                 products: [
                     .executable(name: "tool", targets: ["tool"]),
-                    .library(name: "Foo", targets: ["Foo"]),
+                    .library(name: "Foo", targets: ["foo"]),
                 ],
                 dependencies: [
                     .package(url: "/foo1", from: "1.0.0"),
@@ -38,6 +38,8 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
                     .target(
                         name: "foo",
                         dependencies: ["dep1", .product(name: "product"), .target(name: "target")]),
+                    .target(
+                        name: "tool"),
                     .testTarget(
                         name: "bar",
                         dependencies: ["foo"]),
@@ -74,7 +76,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
             let fooProduct = products["Foo"]!
             XCTAssertEqual(fooProduct.name, "Foo")
             XCTAssertEqual(fooProduct.type, .library(.automatic))
-            XCTAssertEqual(fooProduct.targets, ["Foo"])
+            XCTAssertEqual(fooProduct.targets, ["foo"])
         }
     }
 

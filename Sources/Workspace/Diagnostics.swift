@@ -29,6 +29,23 @@ public struct ManifestParseDiagnostic: DiagnosticData {
     }
 }
 
+public struct ManifestEmptyProductTargets: DiagnosticData {
+    public let productName: String
+
+    public var description: String {
+        "manifest parse error: product '\(productName)' doesn't reference any targets\n"
+    }
+}
+
+public struct ManifestProductTargetNotFound: DiagnosticData {
+    public let productName: String
+    public let targetName: String
+
+    public var description: String {
+        "manifest parse error: target '\(targetName)' referenced in product '\(productName)' could not be found\n"
+    }
+}
+
 public struct ManifestDuplicateDependencyURLsDiagnostic: DiagnosticData {
     public let duplicates: [[PackageDependencyDescription]]
 
@@ -94,6 +111,10 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestParseDiagnostic([error], diagnosticFile: diagnisticFile)
         case .runtimeManifestErrors(let errors):
             return ManifestParseDiagnostic(errors, diagnosticFile: nil)
+        case .emptyProductTargets(let productName):
+            return ManifestEmptyProductTargets(productName: productName)
+        case .productTargetNotFound(let productName, let targetName):
+            return ManifestProductTargetNotFound(productName: productName, targetName: targetName)
         case .duplicateDependencyURLs(let duplicates):
             return ManifestDuplicateDependencyURLsDiagnostic(duplicates: duplicates)
         case .duplicateTargetNames(let targetNames):

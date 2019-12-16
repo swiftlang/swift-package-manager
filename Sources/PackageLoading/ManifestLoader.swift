@@ -22,6 +22,12 @@ public enum ManifestParseError: Swift.Error {
     /// The manifest was successfully loaded by swift interpreter but there were runtime issues.
     case runtimeManifestErrors([String])
 
+    /// The manifest contains a product that references no targets.
+    case emptyProductTargets(productName: String)
+
+    /// The manifest contains a product that references a target that does not exist.
+    case productTargetNotFound(productName: String, targetName: String)
+
     /// The manifest contains dependencies with the same URL.
     case duplicateDependencyURLs([[PackageDependencyDescription]])
 
@@ -293,12 +299,29 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Validate the provided manifest.
     private func validate(_ manifest: Manifest, toolsVersion: ToolsVersion) throws {
+        try validateProducts(manifest)
         try validateDependencyURLs(manifest)
 
         // Checks reserved for tools version 5.2 features
         if toolsVersion >= .v5_2 {
             try validateDependencyNames(manifest)
             try validateTargetDependencyReferences(manifest)
+        }
+    }
+
+    private func validateProducts(_ manifest: Manifest) throws {
+        for product in manifest.products {
+            // Check that the product contains targets.
+            guard !product.targets.isEmpty else {
+                throw ManifestParseError.emptyProductTargets(productName: product.name)
+            }
+
+            // Check that the product references existing targets.
+            for target in product.targets {
+                if !manifest.targetMap.keys.contains(target) {
+                    throw ManifestParseError.productTargetNotFound(productName: product.name, targetName: target)
+                }
+            }
         }
     }
 
