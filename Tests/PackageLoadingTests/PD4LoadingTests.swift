@@ -148,12 +148,16 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
         stream <<< """
             import PackageDescription
             let package = Package(
-               name: "Foo",
-               products: [
-                   .executable(name: "tool", targets: ["tool"]),
-                   .library(name: "Foo", targets: ["Foo"]),
-                   .library(name: "FooDy", type: .dynamic, targets: ["Foo"]),
-               ]
+                name: "Foo",
+                products: [
+                    .executable(name: "tool", targets: ["tool"]),
+                    .library(name: "Foo", targets: ["Foo"]),
+                    .library(name: "FooDy", type: .dynamic, targets: ["Foo"]),
+                ],
+                targets: [
+                    .target(name: "Foo"),
+                    .target(name: "tool"),
+                ]
             )
             """
         loadManifest(stream.bytes) { manifest in
@@ -367,6 +371,77 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
             )
         } catch ManifestParseError.duplicateTargetNames(let targetNames) {
             XCTAssertEqual(Set(targetNames), ["A", "B"])
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+    }
+
+    func testEmptyProductTargets() throws {
+        let fs = InMemoryFileSystem()
+        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+        let stream = BufferedOutputByteStream()
+
+        stream <<< """
+            import PackageDescription
+
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .library(name: "Product", targets: []),
+                ],
+                targets: [
+                    .target(name: "Target"),
+                ]
+            )
+            """
+
+        try fs.writeFileContents(manifestPath, bytes: stream.bytes)
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try manifestLoader.load(
+                package: .root, baseURL: "/Foo",
+                toolsVersion: .v4, packageKind: .root,
+                fileSystem: fs, diagnostics: diagnostics
+            )
+        } catch ManifestParseError.emptyProductTargets(let productName) {
+            XCTAssertEqual(productName, "Product")
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+    }
+
+    func testProductTargetNotFound() throws {
+        let fs = InMemoryFileSystem()
+        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+        let stream = BufferedOutputByteStream()
+
+        stream <<< """
+            import PackageDescription
+
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .library(name: "Product", targets: ["A", "B"]),
+                ],
+                targets: [
+                    .target(name: "A"),
+                ]
+            )
+            """
+
+        try fs.writeFileContents(manifestPath, bytes: stream.bytes)
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try manifestLoader.load(
+                package: .root, baseURL: "/Foo",
+                toolsVersion: .v4, packageKind: .root,
+                fileSystem: fs, diagnostics: diagnostics
+            )
+        } catch ManifestParseError.productTargetNotFound(let productName, let targetName) {
+            XCTAssertEqual(productName, "Product")
+            XCTAssertEqual(targetName, "B")
         } catch {
             XCTFail(error.localizedDescription)
         }

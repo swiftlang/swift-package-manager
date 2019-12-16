@@ -154,18 +154,15 @@ extension Target.Error.ModuleNameProblem: CustomStringConvertible {
 extension Product {
     /// An error in a product definition.
     enum Error: Swift.Error {
-        case noModules(String)
-        case moduleNotFound(product: String, target: String)
+        case moduleEmpty(product: String, target: String)
     }
 }
 
 extension Product.Error: CustomStringConvertible {
     var description: String {
         switch self {
-        case .noModules(let product):
-            return "product '\(product)' doesn't reference any targets"
-        case .moduleNotFound(let product, let target):
-            return "target '\(target)' referenced in product '\(product)' could not be found"
+        case .moduleEmpty(let product, let target):
+            return "target '\(target)' referenced in product '\(product)' is empty"
         }
     }
 }
@@ -969,17 +966,14 @@ public final class PackageBuilder {
 
         /// Helper method to get targets from target names.
         func modulesFrom(targetNames names: [String], product: String) throws -> [Target] {
-            // Ensure the target names are non-empty.
-            guard !names.isEmpty else { throw Product.Error.noModules(product) }
             // Get targets from target names.
-            let productModules: [Target] = try names.map({ targetName in
+            return try names.map({ targetName in
                 // Ensure we have this target.
                 guard let target = modulesMap[targetName] else {
-                    throw Product.Error.moduleNotFound(product: product, target: targetName)
+                    throw Product.Error.moduleEmpty(product: product, target: targetName)
                 }
                 return target
             })
-            return productModules
         }
 
         // Only create implicit executables for root packages.
