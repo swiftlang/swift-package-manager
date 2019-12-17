@@ -226,13 +226,13 @@ public final class ClangTargetBuildDescription {
             args += buildParameters.indexStoreArguments(for: target)
         }
 
-        if !buildParameters.triple.isWindows() {
-            // Using modules currently conflicts with the Windows SDKs.
+        if !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid() {
+            // Using modules currently conflicts with the Windows and Android SDKs.
             args += ["-fmodules", "-fmodule-name=" + target.c99name]
         }
         args += ["-I", clangTarget.includeDir.pathString]
         args += additionalFlags
-        if !buildParameters.triple.isWindows() {
+        if !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid() {
             args += moduleCacheArgs
         }
         args += buildParameters.sanitizers.compileCFlags()
