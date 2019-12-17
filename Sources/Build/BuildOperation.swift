@@ -134,7 +134,12 @@ public final class BuildOperation: PackageStructureDelegate {
         let success = buildSystem.build(target: llbuildTarget)
 
         buildDelegate?.progressAnimation.complete(success: success)
-        guard success else { throw Diagnostics.fatalError }
+        guard success else {
+            if !diags.hasErrors {
+                diags.emit(error: "build failed but did not emit any diagnostics")
+            }
+            throw Diagnostics.fatalError
+        }
 
         // Create backwards-compatibilty symlink to old build path.
         let oldBuildPath = buildParameters.dataPath.parentDirectory.appending(
@@ -163,6 +168,7 @@ public final class BuildOperation: PackageStructureDelegate {
             ) {
                 return result
             }
+            diags.emit(error: "computing llbuild target name failed")
             throw Diagnostics.fatalError
         }
     }
@@ -187,6 +193,9 @@ public final class BuildOperation: PackageStructureDelegate {
 
         // Build the package structure target which will re-generate the llbuild manifest, if necessary.
         if !buildSystem.build(target: "PackageStructure") {
+            if !diags.hasErrors {
+                diags.emit(error: "building package structure failed but did not emit any diagnostics")
+            }
             throw Diagnostics.fatalError
         }
     }
