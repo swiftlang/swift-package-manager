@@ -535,7 +535,7 @@ def get_swiftpm_flags(args):
     build_flags = [
         # No need for indexing while building.
         "--disable-index-store",
-        "--build-path", args.build_dir
+        "--build-path", args.build_dir,
     ]
 
     if args.release:

@@ -9,7 +9,7 @@
 add_subdirectory(Build)
 add_subdirectory(Commands)
 add_subdirectory(LLBuildManifest)
-add_subdirectory(PackageDescription4)
+add_subdirectory(PackageDescription)
 add_subdirectory(PackageGraph)
 add_subdirectory(PackageLoading)
 add_subdirectory(PackageModel)

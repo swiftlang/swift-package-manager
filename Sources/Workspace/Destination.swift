@@ -57,21 +57,10 @@ public struct Destination: Encodable {
     private static func hostBinDir(
         originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory
     ) -> AbsolutePath {
-      #if Xcode
-        // For Xcode, set bin directory to the build directory containing the fake
-        // toolchain created during bootstraping. This is obviously not production ready
-        // and only exists as a development utility right now.
-        //
-        // This also means that we should have bootstrapped with the same Swift toolchain
-        // we're using inside Xcode otherwise we will not be able to load the runtime libraries.
-        return AbsolutePath(#file).parentDirectory
-            .parentDirectory.parentDirectory.appending(components: ".build", hostTargetTriple.tripleString, "debug")
-      #else
         guard let cwd = originalWorkingDirectory else {
             return try! AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory
         }
         return AbsolutePath(CommandLine.arguments[0], relativeTo: cwd).parentDirectory
-      #endif
     }
 
     /// The destination describing the host OS.

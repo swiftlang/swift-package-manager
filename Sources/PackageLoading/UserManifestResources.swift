@@ -15,15 +15,18 @@ public struct UserManifestResources: ManifestResourceProvider {
     public let swiftCompiler: AbsolutePath
     public let libDir: AbsolutePath
     public let sdkRoot: AbsolutePath?
+    public let binDir: AbsolutePath?
 
     public init(
         swiftCompiler: AbsolutePath,
         libDir: AbsolutePath,
-        sdkRoot: AbsolutePath? = nil
-        ) {
+        sdkRoot: AbsolutePath? = nil,
+        binDir: AbsolutePath? = nil
+    ) {
         self.swiftCompiler = swiftCompiler
         self.libDir = libDir
         self.sdkRoot = sdkRoot
+        self.binDir = binDir
     }
 
     public static func libDir(forBinDir binDir: AbsolutePath) -> AbsolutePath {

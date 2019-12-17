@@ -56,12 +56,19 @@ public protocol ManifestResourceProvider {
     ///
     /// If provided, it will be passed to the swift interpreter.
     var sdkRoot: AbsolutePath? { get }
+
+    /// The bin directory.
+    var binDir: AbsolutePath? { get }
 }
 
 /// Default implemention for the resource provider.
 public extension ManifestResourceProvider {
 
     var sdkRoot: AbsolutePath? {
+        return nil
+    }
+
+    var binDir: AbsolutePath? {
         return nil
     }
 }
@@ -478,7 +485,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // and validates it.
 
             // Compute the path to runtime we need to load.
-            let runtimePath = self.runtimePath(for: toolsVersion).pathString
+            let runtimePath = self.runtimePath(for: toolsVersion)
             let interpreterFlags = self.interpreterFlags(for: toolsVersion)
 
             // FIXME: Workaround for the module cache bug that's been haunting Swift CI
@@ -501,7 +508,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += [resources.swiftCompiler.pathString]
             cmd += ["--driver-mode=swift"]
             cmd += verbosity.ccArgs
-            cmd += ["-L", runtimePath, "-lPackageDescription"]
+          #if Xcode
+            cmd += ["-F", runtimePath.appending(component: "PackageFrameworks").pathString, "-framework", "PackageDescription"]
+          #else
+            cmd += ["-L", runtimePath.pathString, "-lPackageDescription"]
+          #endif
             cmd += interpreterFlags
             if let moduleCachePath = moduleCachePath {
                 cmd += ["-module-cache-path", moduleCachePath]
@@ -619,7 +630,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Returns the runtime path given the manifest version and path to libDir.
     private func runtimePath(for version: ToolsVersion) -> AbsolutePath {
-        return resources.libDir.appending(version.runtimeSubpath)
+        // Bin dir will be set when developing swiftpm without building all of the runtimes.
+        return resources.binDir ?? resources.libDir.appending(version.runtimeSubpath)
     }
 
     /// Returns the build engine.

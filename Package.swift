@@ -71,14 +71,24 @@ let package = Package(
                 "TSCUtility",
             ]
         ),
+
+        .library(
+            name: "PackageDescription",
+            type: .dynamic,
+            targets: ["PackageDescription"]
+        ),
     ],
     targets: [
-        // The `PackageDescription` targets are special, they define the API which
-        // is available to the `Package.swift` manifest files.
+        // The `PackageDescription` targets define the API which is available to
+        // the `Package.swift` manifest files. We build the latest API version
+        // here which is used when building and running swiftpm without the
+        // bootstrap script.
         .target(
-            /** Package Definition API version 4 */
-            name: "PackageDescription4",
-            dependencies: []),
+            /** Package Definition API */
+            name: "PackageDescription",
+            swiftSettings: [
+                .define("PACKAGE_DESCRIPTION_4_2"),
+            ]),
 
         // MARK: Tools support core targets
         // keep up to date with https://github.com/apple/swift-tools-support-core
@@ -226,7 +236,7 @@ let package = Package(
             dependencies: ["swift-build", "swift-package", "swift-test", "SPMTestSupport"]),
         .testTarget(
             name: "PackageDescription4Tests",
-            dependencies: ["PackageDescription4"]),
+            dependencies: ["PackageDescription"]),
         .testTarget(
             name: "PackageLoadingTests",
             dependencies: ["PackageLoading", "SPMTestSupport"],

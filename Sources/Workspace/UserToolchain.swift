@@ -103,7 +103,10 @@ public final class UserToolchain: Toolchain {
         } else if let SWIFT_EXEC = SWIFT_EXEC {
             resolvedBinDirCompiler = SWIFT_EXEC
         } else {
-            throw InvalidToolchainDiagnostic("could not find the `swiftc\(hostExecutableSuffix)` at expected path \(binDirCompiler)")
+            // Try to lookup swift compiler on the system which is possible when
+            // we're built outside of the Swift toolchain.
+            let foundPath = try Process.checkNonZeroExit(arguments: whichArgs + ["swiftc"]).spm_chomp()
+            resolvedBinDirCompiler = try AbsolutePath(validating: foundPath)
         }
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
@@ -251,7 +254,9 @@ public final class UserToolchain: Toolchain {
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompilers.manifest,
             libDir: pdLibDir,
-            sdkRoot: self.destination.sdk
+            sdkRoot: self.destination.sdk,
+            // Set the bin directory if we don't have a lib dir.
+            binDir: localFileSystem.exists(pdLibDir) ? nil : binDir
         )
     }
 }

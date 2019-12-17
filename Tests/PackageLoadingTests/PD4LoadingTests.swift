@@ -22,6 +22,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testTrivial() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -39,6 +41,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testTargetDependencies() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -81,6 +85,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testCompatibleSwiftVersions() throws {
+        guard Resources.havePD4Runtime else { return }
+
         var stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -117,6 +123,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageDependencies() throws {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -144,6 +152,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testProducts() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -181,6 +191,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testSystemPackage() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -204,6 +216,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testCTarget() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -228,6 +242,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testTargetProperties() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -261,6 +277,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testUnavailableAPIs() throws {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream.write("""
             import PackageDescription
@@ -288,6 +306,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testLanguageStandards() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -308,6 +328,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testManifestWithWarnings() throws {
+        guard Resources.havePD4Runtime else { return }
+
         let fs = InMemoryFileSystem()
         let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
         let stream = BufferedOutputByteStream()
@@ -342,6 +364,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testDuplicateTargets() throws {
+        guard Resources.havePD4Runtime else { return }
+
         let fs = InMemoryFileSystem()
         let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
         let stream = BufferedOutputByteStream()
@@ -377,6 +401,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testEmptyProductTargets() throws {
+        guard Resources.havePD4Runtime else { return }
+
         let fs = InMemoryFileSystem()
         let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
         let stream = BufferedOutputByteStream()
@@ -412,6 +438,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testProductTargetNotFound() throws {
+        guard Resources.havePD4Runtime else { return }
+
         let fs = InMemoryFileSystem()
         let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
         let stream = BufferedOutputByteStream()
