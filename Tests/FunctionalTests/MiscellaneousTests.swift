@@ -475,6 +475,9 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testTrivialSwiftAPIDiff() throws {
+        // FIXME: Looks like this test isn't really working at all.
+        guard Resources.havePD4Runtime else { return }
+
         if (try? Resources.default.toolchain.getSwiftAPIDigester()) == nil {
             print("unable to find swift-api-digester, skipping \(#function)")
             return

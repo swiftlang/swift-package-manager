@@ -146,7 +146,6 @@ final class WorkspaceTests: XCTestCase {
                         """
                 }
 
-                XCTAssertMatch((ws.interpreterFlags(for: foo)), [.contains("pm/4")])
                 XCTAssertMatch((ws.interpreterFlags(for: foo)), [.equal("-swift-version"), .equal("4")])
             }
 
@@ -3400,6 +3399,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSimpleAPI() throws {
+        guard Resources.havePD4Runtime else { return }
+
         // This verifies that the simplest possible loading APIs are available for package clients.
 
         // This checkout of the SwiftPM package.

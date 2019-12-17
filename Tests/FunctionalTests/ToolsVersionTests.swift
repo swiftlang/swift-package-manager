@@ -32,7 +32,7 @@ class ToolsVersionTests: XCTestCase {
 
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
                 $0 <<< """
-                    // swift-tools-version:4.2
+                    // swift-tools-version:5.0
                     import PackageDescription
                     let package = Package(
                         name: "Dep",
@@ -87,7 +87,7 @@ class ToolsVersionTests: XCTestCase {
                     """
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set", "4.0"], packagePath: primaryPath).spm_chomp()
+                ["tools-version", "--set", "4.2"], packagePath: primaryPath).spm_chomp()
 
             // Build the primary package.
             _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
@@ -114,11 +114,11 @@ class ToolsVersionTests: XCTestCase {
                         name: "Primary",
                         dependencies: [.package(url: "../Dep", from: "1.0.0")],
                         targets: [.target(name: "Primary", dependencies: ["Dep"], path: ".")],
-                        swiftLanguageVersions: [1000])
+                        swiftLanguageVersions: [.version("1000")])
                     """
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set", "4.0"], packagePath: primaryPath).spm_chomp()
+                ["tools-version", "--set", "4.2"], packagePath: primaryPath).spm_chomp()
 
             do {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
@@ -134,11 +134,11 @@ class ToolsVersionTests: XCTestCase {
                         name: "Primary",
                         dependencies: [.package(url: "../Dep", from: "1.0.0")],
                         targets: [.target(name: "Primary", dependencies: ["Dep"], path: ".")],
-                        swiftLanguageVersions: [\(ToolsVersion.currentToolsVersion.major), 1000])
+                        swiftLanguageVersions: [.version("\(ToolsVersion.currentToolsVersion.major)"), .version("1000")])
                     """
              }
              _ = try SwiftPMProduct.SwiftPackage.execute(
-                 ["tools-version", "--set", "4.0"], packagePath: primaryPath).spm_chomp()
+                 ["tools-version", "--set", "4.2"], packagePath: primaryPath).spm_chomp()
              _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
         }
     }
