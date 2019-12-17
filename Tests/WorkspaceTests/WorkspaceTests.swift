@@ -757,7 +757,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertNoMatch(workspace.delegate.events, [.contains("updating repo")])
     }
 
-    func testIsResolutionRequired_empty() throws {
+    func testPrecomputeResolution_empty() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -782,7 +782,7 @@ final class WorkspaceTests: XCTestCase {
         let bRef = PackageReference(identity: "b", path: bRepo.url)
         let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkIsResolutionRequired(
+        try testWorkspace.checkPrecomputeResolution(
             pins: [bRef: v1_5, cRef: v2],
             managedDependencies: [
                 ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5)
@@ -790,18 +790,17 @@ final class WorkspaceTests: XCTestCase {
             ],
             { result in
                 XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.isRequired, false)
+                XCTAssertEqual(result.result.isRequired, false)
             }
         )
     }
 
-    func testIsResolutionRequired_inputNotSatisfiable() throws {
+    func testPrecomputeResolution_newPackages() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
-        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
+        let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
 
         let testWorkspace = try TestWorkspace(
             sandbox: sandbox,
@@ -814,6 +813,61 @@ final class WorkspaceTests: XCTestCase {
                     dependencies: [
                         TestDependency(name: "B", requirement: v1Requirement),
                         TestDependency(name: "C", requirement: v1Requirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: bRepo.url)
+
+        try testWorkspace.checkPrecomputeResolution(
+            pins: [bRef: v1],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1)
+            ],
+            { result in
+                XCTAssertEqual(result.diagnostics.hasErrors, false)
+                XCTAssertEqual(result.result, .required(reason: .newPackages(packages: [cRef])))
+            }
+        )
+    }
+
+    func testPrecomputeResolution_requirementChange_versionToBranch() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let branchRequirement: TestDependency.Requirement = .branch("master")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+
+        let testWorkspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: branchRequirement),
                     ]
                 ),
             ],
@@ -838,27 +892,214 @@ final class WorkspaceTests: XCTestCase {
         let bRef = PackageReference(identity: "b", path: bRepo.url)
         let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkIsResolutionRequired(
-            pins: [bRef: v1_5, cRef: v2],
+        try testWorkspace.checkPrecomputeResolution(
+            pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5)
-                    .editedDependency(subpath: bPath, unmanagedPath: nil)
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
             ],
             { result in
                 XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.isRequired, true)
+                XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                    package: cRef,
+                    state: .checkout(v1_5),
+                    requirement: .revision("master")
+                )))
             }
         )
     }
 
-    func testIsResolutionRequired_managedDependenciesOutOfSync() throws {
+    func testPrecomputeResolution_requirementChange_localToBranch() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let masterRequirement: TestDependency.Requirement = .branch("master")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+
+        let testWorkspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: masterRequirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
+
+        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+
+        try testWorkspace.checkPrecomputeResolution(
+            pins: [bRef: v1_5],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency.local(packageRef: cRef)
+            ],
+            { result in
+                XCTAssertEqual(result.diagnostics.hasErrors, false)
+                XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                    package: cRef,
+                    state: .local,
+                    requirement: .revision("master")
+                )))
+            }
+        )
+    }
+
+    func testPrecomputeResolution_requirementChange_versionToLocal() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let localRequirement: TestDependency.Requirement = .localPackage
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+
+        let testWorkspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: localRequirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
+
+        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+
+        try testWorkspace.checkPrecomputeResolution(
+            pins: [bRef: v1_5, cRef: v1_5],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+            ],
+            { result in
+                XCTAssertEqual(result.diagnostics.hasErrors, false)
+                XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                    package: cRef,
+                    state: .checkout(v1_5),
+                    requirement: .unversioned
+                )))
+            }
+        )
+    }
+
+    func testPrecomputeResolution_requirementChange_branchToLocal() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let localRequirement: TestDependency.Requirement = .localPackage
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let master = CheckoutState(revision: Revision(identifier: "master"), branch: "master")
+
+        let testWorkspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: localRequirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
+
+        let bRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+
+        try testWorkspace.checkPrecomputeResolution(
+            pins: [bRef: v1_5, cRef: master],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: master),
+            ],
+            { result in
+                XCTAssertEqual(result.diagnostics.hasErrors, false)
+                XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                    package: cRef,
+                    state: .checkout(master),
+                    requirement: .unversioned
+                )))
+            }
+        )
+    }
+
+    func testPrecomputeResolution_other() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
-        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
 
         let testWorkspace = try TestWorkspace(
             sandbox: sandbox,
@@ -895,20 +1136,20 @@ final class WorkspaceTests: XCTestCase {
         let bRef = PackageReference(identity: "b", path: bRepo.url)
         let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkIsResolutionRequired(
-            pins: [bRef: v1_5, cRef: v2],
+        try testWorkspace.checkPrecomputeResolution(
+            pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5)
-                    .editedDependency(subpath: bPath, unmanagedPath: nil)
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
             ],
             { result in
                 XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.isRequired, true)
+                XCTAssertEqual(result.result, .required(reason: .other))
             }
         )
     }
 
-    func testIsResolutionRequired_notRequired() throws {
+    func testPrecomputeResolution_notRequired() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -953,7 +1194,7 @@ final class WorkspaceTests: XCTestCase {
         let bRef = PackageReference(identity: "b", path: bRepo.url)
         let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        try testWorkspace.checkIsResolutionRequired(
+        try testWorkspace.checkPrecomputeResolution(
             pins: [bRef: v1_5, cRef: v2],
             managedDependencies: [
                 ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
@@ -961,7 +1202,7 @@ final class WorkspaceTests: XCTestCase {
             ],
             { result in
                 XCTAssertEqual(result.diagnostics.hasErrors, false)
-                XCTAssertEqual(result.isRequired, false)
+                XCTAssertEqual(result.result.isRequired, false)
             }
         )
     }

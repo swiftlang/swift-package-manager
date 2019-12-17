@@ -27,10 +27,14 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The stream to use for reporting progress.
     private let stdoutStream: ThreadSafeOutputByteStream
 
-    init(_ stdoutStream: OutputByteStream) {
+    /// Wether the tool is in a verbose mode.
+    private let isVerbose: Bool
+
+    init(_ stdoutStream: OutputByteStream, isVerbose: Bool) {
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.stdoutStream = stdoutStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(stdoutStream)
+        self.isVerbose = isVerbose
     }
 
     func fetchingWillBegin(repository: String) {
@@ -78,6 +82,62 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func warning(message: String) {
         // FIXME: We should emit warnings through the diagnostic engine.
         stdoutStream <<< "warning: " <<< message
+        stdoutStream <<< "\n"
+        stdoutStream.flush()
+    }
+
+    func willResolveDependencies(reason: WorkspaceResolveReason) {
+        guard isVerbose else { return }
+
+        stdoutStream <<< "Running resolver because "
+
+        switch reason {
+        case .forced:
+            stdoutStream <<< "it was forced"
+        case .newPackages(let packages):
+            let dependencies = packages.lazy.map({ "'\($0.path)'" }).joined(separator: ", ")
+            stdoutStream <<< "the following dependencies were added: \(dependencies)"
+        case .packageRequirementChange(let package, let state, let requirement):
+            stdoutStream <<< "dependency '\(package.name)' was "
+
+            switch state {
+            case .checkout(let checkoutState)?:
+                let requirement = checkoutState.requirement()
+                switch requirement {
+                case .versionSet(.exact(let version)):
+                    stdoutStream <<< "resolved to '\(version)'"
+                case .versionSet(_):
+                    // Impossible
+                    break
+                case .revision(let revision):
+                    stdoutStream <<< "resolved to '\(revision)'"
+                case .unversioned:
+                    stdoutStream <<< "unversioned"
+                }
+            case .edited?:
+                stdoutStream <<< "edited"
+            case .local?:
+                stdoutStream <<< "versioned"
+            case nil:
+                stdoutStream <<< "root"
+            }
+
+            stdoutStream <<< " but now has a "
+
+            switch requirement {
+            case .versionSet:
+                stdoutStream <<< "different version-based"
+            case .revision:
+                stdoutStream <<< "different revision-based"
+            case .unversioned:
+                stdoutStream <<< "unversioned"
+            }
+
+            stdoutStream <<< " requirement."
+        default:
+            stdoutStream <<< " requirements have changed."
+        }
+
         stdoutStream <<< "\n"
         stdoutStream.flush()
     }
@@ -467,7 +527,7 @@ public class SwiftTool<Options: ToolOptions> {
         if let workspace = _workspace {
             return workspace
         }
-        let delegate = ToolWorkspaceDelegate(self.stdoutStream)
+        let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: options.verbosity != 0)
         let provider = GitRepositoryProvider(processSet: processSet)
         let workspace = Workspace(
             dataPath: buildPath,

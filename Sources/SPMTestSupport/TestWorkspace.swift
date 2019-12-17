@@ -297,15 +297,15 @@ public final class TestWorkspace {
         result(graph, diagnostics)
     }
 
-    public struct IsResolutionRequiredResult {
-        public let isRequired: Bool
+    public struct ResolutionPrecomputationResult {
+        public let result: Workspace.ResolutionPrecomputationResult
         public let diagnostics: DiagnosticsEngine
     }
 
-    public func checkIsResolutionRequired(
+    public func checkPrecomputeResolution(
         pins: [PackageReference: CheckoutState],
         managedDependencies: [ManagedDependency],
-        _ check: (IsResolutionRequiredResult) -> ()
+        _ check: (ResolutionPrecomputationResult) -> ()
     ) throws {
         let diagnostics = DiagnosticsEngine()
         let workspace = createWorkspace()
@@ -328,14 +328,14 @@ public final class TestWorkspace {
 
         let dependencyManifests = workspace.loadDependencyManifests(root: root, diagnostics: diagnostics)
 
-        let isRequired = workspace.isResolutionRequired(
+        let result = workspace.precomputeResolution(
             root: root,
             dependencyManifests: dependencyManifests,
             pinsStore: pinsStore,
             extraConstraints: []
         )
 
-        check(IsResolutionRequiredResult(isRequired: isRequired, diagnostics: diagnostics))
+        check(ResolutionPrecomputationResult(result: result, diagnostics: diagnostics))
     }
 
     public enum State {
@@ -612,7 +612,7 @@ public final class TestWorkspaceDelegate: WorkspaceDelegate {
         events.append("removing repo: \(repository)")
     }
 
-    public func willResolveDependencies() {
+    public func willResolveDependencies(reason: WorkspaceResolveReason) {
         events.append("will resolve dependencies")
     }
 }

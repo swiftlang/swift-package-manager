@@ -14,6 +14,19 @@ import TSCBasic
 import TSCUtility
 import SourceControl
 
+/// Enumeration of the different errors that can arise from the `ResolverPrecomputationProvider` provider.
+enum ResolverPrecomputationError: Error {
+    /// Represents the error when a package was requested but couldn't be found.
+    case missingPackage(package: PackageReference)
+
+    /// Represents the error when a different requirement of a package was requested.
+    case differentRequirement(
+        package: PackageReference,
+        state: ManagedDependency.State?,
+        requirement: PackageRequirement
+    )
+}
+
 /// PackageContainerProvider implementation used by Workspace to do a dependency pre-calculation using the cached
 /// dependency information (Workspace.DependencyManifests) to check if dependency resolution is required before
 /// performing a full resolution.
@@ -30,21 +43,16 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     /// The tools version currently in use.
     let currentToolsVersion: ToolsVersion
 
-    /// The diagnostics engine to report errors.
-    let diagnostics: DiagnosticsEngine
-
     init(
         root: PackageGraphRoot,
         dependencyManifests: Workspace.DependencyManifests,
         config: SwiftPMConfig,
-        currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        diagnostics: DiagnosticsEngine
+        currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
     ) {
         self.root = root
         self.dependencyManifests = dependencyManifests
         self.config = config
         self.currentToolsVersion = currentToolsVersion
-        self.diagnostics = diagnostics
     }
 
     func getContainer(
@@ -55,6 +63,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
         // Start by searching manifests from the Workspace's resolved dependencies.
         if let manifest = dependencyManifests.dependencies.first(where: { $1.packageRef == identifier }) {
             let container = LocalPackageContainer(
+                package: identifier,
                 manifest: manifest.manifest,
                 dependency: manifest.dependency,
                 config: config,
@@ -68,6 +77,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
         // FIXME: We might want to use a dictionary for faster lookups.
         if let index = dependencyManifests.root.packageRefs.firstIndex(of: identifier) {
             let container = LocalPackageContainer(
+                package: identifier,
                 manifest: dependencyManifests.root.manifests[index],
                 dependency: nil,
                 config: config,
@@ -78,11 +88,12 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
         }
 
         // As we don't have anything else locally, error out.
-        completion(.failure(Diagnostics.fatalError))
+        completion(.failure(ResolverPrecomputationError.missingPackage(package: identifier)))
     }
 }
 
 private struct LocalPackageContainer: PackageContainer {
+    let package: PackageReference
     let manifest: Manifest
     /// The managed dependency if the package is not a root package.
     let dependency: ManagedDependency?
@@ -125,18 +136,19 @@ private struct LocalPackageContainer: PackageContainer {
     }
 
     func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
-        // Throw an error when the dependency is not at the correct version to fail resolution.
-        guard dependency?.checkoutState?.version == version else {
-            throw Diagnostics.fatalError
-        }
-
+        // Because of the implementation of `reversedVersions`, we should only get the exact same version.
+        precondition(dependency?.checkoutState?.version == version)
         return manifest.dependencyConstraints(config: config)
     }
 
     func getDependencies(at revision: String) throws -> [PackageContainerConstraint] {
         // Throw an error when the dependency is not at the correct revision to fail resolution.
         guard dependency?.checkoutState?.revision.identifier == revision else {
-            throw Diagnostics.fatalError
+            throw ResolverPrecomputationError.differentRequirement(
+                package: package,
+                state: dependency?.state,
+                requirement: .revision(revision)
+            )
         }
 
         return manifest.dependencyConstraints(config: config)
@@ -145,7 +157,11 @@ private struct LocalPackageContainer: PackageContainer {
     func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
         // Throw an error when the dependency is not unversioned to fail resolution.
         guard dependency?.state.isCheckout != true else {
-            throw Diagnostics.fatalError
+            throw ResolverPrecomputationError.differentRequirement(
+                package: package,
+                state: dependency?.state,
+                requirement: .unversioned
+            )
         }
 
         return manifest.dependencyConstraints(config: config)
