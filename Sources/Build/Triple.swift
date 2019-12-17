@@ -61,7 +61,7 @@ public struct Triple: Encodable {
 
     public enum ABI: String, Encodable {
         case unknown
-        case android = "androideabi"
+        case android
     }
 
     public init(_ string: String) throws {
@@ -81,8 +81,7 @@ public struct Triple: Encodable {
             throw Error.unknownOS
         }
 
-        let abiString = components.count > 3 ? components[3] : nil
-        let abi = abiString.flatMap(ABI.init)
+        let abi = components.count > 3 ? Triple.parseABI(components[3]) : nil
 
         self.tripleString = string
         self.arch = arch
@@ -98,6 +97,13 @@ public struct Triple: Encodable {
             }
         }
 
+        return nil
+    }
+
+    fileprivate static func parseABI(_ string: String) -> ABI? {
+        if string.hasPrefix(ABI.android.rawValue) {
+            return ABI.android
+        }
         return nil
     }
 
