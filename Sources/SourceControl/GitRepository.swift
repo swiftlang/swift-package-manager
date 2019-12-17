@@ -741,4 +741,12 @@ private class GitFileSystemView: FileSystem {
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         throw FileSystemError.unsupported
     }
+
+    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        fatalError("will never be supported")
+    }
+
+    func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        fatalError("will never be supported")
+    }
 }

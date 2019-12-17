@@ -219,6 +219,82 @@ class FileSystemTests: XCTestCase {
         }
     }
 
+    func testCopyAndMoveItem() throws {
+        let fs = TSCBasic.localFileSystem
+
+        mktmpdir { path in
+            let source = path.appending(component: "source")
+            let destination = path.appending(component: "destination")
+
+            // Copy with no source
+
+            XCTAssertThrows(FileSystemError.noEntry) {
+                try fs.copy(from: source, to: destination)
+            }
+            XCTAssertThrows(FileSystemError.noEntry) {
+                try fs.move(from: source, to: destination)
+            }
+
+            // Copy with a file at destination
+
+            try fs.writeFileContents(source, bytes: "source1")
+            try fs.writeFileContents(destination, bytes: "destination")
+
+            XCTAssertThrows(FileSystemError.alreadyExistsAtDestination) {
+                try fs.copy(from: source, to: destination)
+            }
+            XCTAssertThrows(FileSystemError.alreadyExistsAtDestination) {
+                try fs.move(from: source, to: destination)
+            }
+
+            // Copy file
+
+            try fs.removeFileTree(destination)
+
+            XCTAssertNoThrow(try fs.copy(from: source, to: destination))
+            XCTAssert(fs.exists(source))
+            XCTAssertEqual(try fs.readFileContents(destination).cString, "source1")
+
+            // Move file
+
+            try fs.removeFileTree(destination)
+            try fs.writeFileContents(source, bytes: "source2")
+
+            XCTAssertNoThrow(try fs.move(from: source, to: destination))
+            XCTAssert(!fs.exists(source))
+            XCTAssertEqual(try fs.readFileContents(destination).cString, "source2")
+
+            let sourceChild = source.appending(component: "child")
+            let destinationChild = destination.appending(component: "child")
+
+            // Copy directory
+
+            try fs.createDirectory(source)
+            try fs.writeFileContents(sourceChild, bytes: "source3")
+            try fs.removeFileTree(destination)
+
+            XCTAssertNoThrow(try fs.copy(from: source, to: destination))
+            XCTAssertEqual(try fs.readFileContents(destinationChild).cString, "source3")
+
+            // Move directory
+
+            try fs.writeFileContents(sourceChild, bytes: "source4")
+            try fs.removeFileTree(destination)
+
+            XCTAssertNoThrow(try fs.move(from: source, to: destination))
+            XCTAssert(!fs.exists(source))
+            XCTAssertEqual(try fs.readFileContents(destinationChild).cString, "source4")
+
+            // Copy to non-existant folder
+
+            try fs.writeFileContents(source, bytes: "source3")
+            try fs.removeFileTree(destination)
+
+            XCTAssertThrowsError(try fs.copy(from: source, to: destinationChild))
+            XCTAssertThrowsError(try fs.move(from: source, to: destinationChild))
+        }
+    }
+
     // MARK: InMemoryFileSystem Tests
 
     func testInMemoryBasics() throws {
@@ -370,6 +446,80 @@ class FileSystemTests: XCTestCase {
         try removeFileTreeTester(fs: fs, basePath: .root)
     }
 
+    func testInMemCopyAndMoveItem() throws {
+        let fs = InMemoryFileSystem()
+        let path = AbsolutePath("/tmp")
+        try fs.createDirectory(path)
+        let source = path.appending(component: "source")
+        let destination = path.appending(component: "destination")
+
+        // Copy with no source
+
+        XCTAssertThrows(FileSystemError.noEntry) {
+            try fs.copy(from: source, to: destination)
+        }
+        XCTAssertThrows(FileSystemError.noEntry) {
+            try fs.move(from: source, to: destination)
+        }
+
+        // Copy with a file at destination
+
+        try fs.writeFileContents(source, bytes: "source1")
+        try fs.writeFileContents(destination, bytes: "destination")
+
+        XCTAssertThrows(FileSystemError.alreadyExistsAtDestination) {
+            try fs.copy(from: source, to: destination)
+        }
+        XCTAssertThrows(FileSystemError.alreadyExistsAtDestination) {
+            try fs.move(from: source, to: destination)
+        }
+
+        // Copy file
+
+        try fs.removeFileTree(destination)
+
+        XCTAssertNoThrow(try fs.copy(from: source, to: destination))
+        XCTAssert(fs.exists(source))
+        XCTAssertEqual(try fs.readFileContents(destination).cString, "source1")
+
+        // Move file
+
+        try fs.removeFileTree(destination)
+        try fs.writeFileContents(source, bytes: "source2")
+
+        XCTAssertNoThrow(try fs.move(from: source, to: destination))
+        XCTAssert(!fs.exists(source))
+        XCTAssertEqual(try fs.readFileContents(destination).cString, "source2")
+
+        let sourceChild = source.appending(component: "child")
+        let destinationChild = destination.appending(component: "child")
+
+        // Copy directory
+
+        try fs.createDirectory(source)
+        try fs.writeFileContents(sourceChild, bytes: "source3")
+        try fs.removeFileTree(destination)
+
+        XCTAssertNoThrow(try fs.copy(from: source, to: destination))
+        XCTAssertEqual(try fs.readFileContents(destinationChild).cString, "source3")
+
+        // Move directory
+
+        try fs.writeFileContents(sourceChild, bytes: "source4")
+        try fs.removeFileTree(destination)
+
+        XCTAssertNoThrow(try fs.move(from: source, to: destination))
+        XCTAssert(!fs.exists(source))
+        XCTAssertEqual(try fs.readFileContents(destinationChild).cString, "source4")
+
+        // Copy to non-existant folder
+
+        try fs.writeFileContents(source, bytes: "source3")
+        try fs.removeFileTree(destination)
+
+        XCTAssertThrowsError(try fs.copy(from: source, to: destinationChild))
+        XCTAssertThrowsError(try fs.move(from: source, to: destinationChild))
+    }
 
     // MARK: RootedFileSystem Tests
 

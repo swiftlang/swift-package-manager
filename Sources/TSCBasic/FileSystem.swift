@@ -58,6 +58,12 @@ public enum FileSystemError: Swift.Error {
 
     /// An unspecific operating system error.
     case unknownOSError
+
+    /// File or folder already exists at destination.
+    ///
+    /// This is thrown when copying or moving a file or directory but the destination
+    /// path already contains a file or folder.
+    case alreadyExistsAtDestination
 }
 
 extension FileSystemError {
@@ -179,11 +185,16 @@ public protocol FileSystem: class {
     /// Change file mode.
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws
 
-
     /// Returns the file info of the given path.
     ///
     /// The method throws if the underlying stat call fails.
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo
+
+    /// Copy a file or directory.
+    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
+
+    /// Move a file or directory.
+    func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
 }
 
 /// Convenience implementations (default arguments aren't permitted in protocol
@@ -407,6 +418,18 @@ private class LocalFileSystem: FileSystem {
         while let path = traverse.nextObject() {
             try setMode(path: (path as! URL).path)
         }
+    }
+
+    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        guard exists(sourcePath) else { throw FileSystemError.noEntry }
+        guard !exists(destinationPath) else { throw FileSystemError.alreadyExistsAtDestination }
+        try FileManager.default.copyItem(at: sourcePath.asURL, to: destinationPath.asURL)
+    }
+
+    func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        guard exists(sourcePath) else { throw FileSystemError.noEntry }
+        guard !exists(destinationPath) else { throw FileSystemError.alreadyExistsAtDestination }
+        try FileManager.default.moveItem(at: sourcePath.asURL, to: destinationPath.asURL)
     }
 }
 
@@ -675,6 +698,45 @@ public class InMemoryFileSystem: FileSystem {
     public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         // FIXME: We don't have these semantics in InMemoryFileSystem.
     }
+
+    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        // Get the source node.
+        guard let source = try getNode(sourcePath) else {
+            throw FileSystemError.noEntry
+        }
+
+        // Create directory to destination parent.
+        guard let destinationParent = try getNode(destinationPath.parentDirectory) else {
+            throw FileSystemError.noEntry
+        }
+
+        // Check that the parent is a directory.
+        guard case .directory(let contents) = destinationParent.contents else {
+            throw FileSystemError.notDirectory
+        }
+
+        guard contents.entries[destinationPath.basename] == nil else {
+            throw FileSystemError.alreadyExistsAtDestination
+        }
+
+        contents.entries[destinationPath.basename] = source
+    }
+
+    public func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        // Get the source parent node.
+        guard let sourceParent = try getNode(sourcePath.parentDirectory) else {
+            throw FileSystemError.noEntry
+        }
+
+        // Check that the parent is a directory.
+        guard case .directory(let contents) = sourceParent.contents else {
+            throw FileSystemError.notDirectory
+        }
+
+        try copy(from: sourcePath, to: destinationPath)
+
+        contents.entries[sourcePath.basename] = nil
+    }
 }
 
 /// A rerooted view on an existing FileSystem.
@@ -766,6 +828,14 @@ public class RerootedFileSystemView: FileSystem {
 
     public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         try underlyingFileSystem.chmod(mode, path: path, options: options)
+    }
+
+    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        try underlyingFileSystem.copy(from: formUnderlyingPath(sourcePath), to: formUnderlyingPath(sourcePath))
+    }
+
+    public func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        try underlyingFileSystem.move(from: formUnderlyingPath(sourcePath), to: formUnderlyingPath(sourcePath))
     }
 }
 
