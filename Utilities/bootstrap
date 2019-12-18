@@ -18,8 +18,10 @@ import argparse
 from distutils import dir_util
 from distutils import file_util
 import errno
+import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -229,34 +231,15 @@ def get_ninja_path(args):
 
 def get_build_target(args):
     """Returns the target-triple of the current machine."""
-    if platform.system() == 'Darwin':
-        return "x86_64-apple-macosx"
-    elif platform.system() == 'Linux':
-        if 'ANDROID_DATA' in os.environ:
-            if platform.machine().startswith('armv7'):
-                return 'armv7a-unknown-linux-androideabi'
-            elif platform.machine() == 'aarch64':
-                return 'aarch64-unknown-linux-android'
-            else:
-                raise SystemExit("ERROR: unsupported Android platform:", platform.machine())
-        elif platform.machine() == 'x86_64':
-            return "x86_64-unknown-linux-gnu"
-        elif platform.machine() == "i686":
-            return "i686-unknown-linux"
-        elif platform.machine() == 's390x':
-            return "s390x-unknown-linux"
-        elif platform.machine() == 'ppc64le':
-            return 'powerpc64le-unknown-linux'
-        elif platform.machine().startswith("armv7"):
-            return 'armv7-unknown-linux-gnueabihf'
-        elif platform.machine() == 'aarch64':
-            return 'aarch64-unknown-linux'
+    try:
+        target_info_json = subprocess.check_output([args.swiftc_path, '-print-target-info'], universal_newlines=True).strip()
+    except Exception as e:
+        if platform.system() == 'Darwin':
+            return 'x86_64-apple-macosx'
         else:
-            raise SystemExit("ERROR: unsupported machine:", platform.machine())
-    elif platform.system() == 'Windows':
-        return 'x86_64-unknown-windows-msvc'
-    else:
-        raise SystemExit("ERROR: unsupported system:", platform.system(), platform.machine())
+            error(str(e))
+    args.target_info = json.loads(target_info_json)
+    return args.target_info["target"]["unversionedTriple"]
 
 # -----------------------------------------------------------
 # Actions
@@ -563,15 +546,22 @@ def get_swiftpm_flags(args):
             "-Xlinker", "@executable_path/../../../../../SharedFrameworks",
         ])
 
-    # Add a rpath to find core swift libraries on linux and Android. We don't
-    # need a rpath for Darwin because the Swift libraries are present in the OS.
-    if platform.system() == 'Linux':
-        if 'ANDROID_DATA' in os.environ:
-            build_flags.extend(["-Xlinker", "-rpath=$ORIGIN/../lib/swift/android"])
-            # Don't use GNU strerror_r on Android.
-            build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-U_GNU_SOURCE"])
-        else:
-            build_flags.extend(["-Xlinker", "-rpath=$ORIGIN/../lib/swift/linux"])
+    # Add a relative rpath to find core Swift libraries on non-Darwin platforms,
+    # where they aren't present as part of the base OS.
+    if platform.system() != 'Darwin':
+        platform_path = None
+        for path in args.target_info["paths"]["runtimeLibraryPaths"]:
+            platform_path = re.search(r'(lib/swift/[^/]+)$', path)
+            if platform_path:
+                build_flags.extend(["-Xlinker", "-rpath=$ORIGIN/../" + platform_path.group(1)])
+                break
+
+        if not platform_path:
+            error("the command `%s -print-target-info` didn't return a valid runtime library path" % args.swiftc_path)
+
+    # Don't use GNU strerror_r on Android.
+    if 'ANDROID_DATA' in os.environ:
+        build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-U_GNU_SOURCE"])
 
     return build_flags
 
