@@ -319,13 +319,13 @@ public struct PackageContainerConstraintSet: Collection, Hashable {
     /// Create an constraint set from known values.
     ///
     /// The initial constraints should never be unsatisfiable.
-    init(_ constraints: [PackageReference: PackageRequirement]) {
+    public init(_ constraints: [PackageReference: PackageRequirement]) {
         assert(constraints.values.filter({ $0 == .versionSet(.empty) }).isEmpty)
         self.constraints = constraints
     }
 
     /// The list of containers with entries in the set.
-    var containerIdentifiers: AnySequence<PackageReference> {
+    public var containerIdentifiers: AnySequence<PackageReference> {
         return AnySequence(constraints.keys)
     }
 
@@ -398,7 +398,7 @@ public struct PackageContainerConstraintSet: Collection, Hashable {
     ///
     /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
     /// when the resulting set is satisfiable, if it was already so.
-    func merging(
+    public func merging(
         _ constraints: PackageContainerConstraintSet
     ) -> PackageContainerConstraintSet? {
         var result = self
@@ -443,7 +443,7 @@ public struct PackageContainerConstraintSet: Collection, Hashable {
 /// The set itself is designed to only ever contain a consistent set of
 /// assignments, i.e. each assignment should satisfy the induced
 /// `constraints`, but this invariant is not explicitly enforced.
-struct VersionAssignmentSet: Equatable, Sequence {
+public struct VersionAssignmentSet: Equatable, Sequence {
 
     // FIXME: Does it really make sense to key on the identifier here. Should we
     // require referential equality of containers and use that to simplify?
@@ -452,19 +452,19 @@ struct VersionAssignmentSet: Equatable, Sequence {
     fileprivate var assignments: OrderedDictionary<PackageReference, (container: PackageContainer, binding: BoundVersion)>
 
     /// Create an empty assignment.
-    init() {
+    public init() {
         assignments = [:]
     }
 
     /// The assignment for the given container `identifier.
-    subscript(identifier: PackageReference) -> BoundVersion? {
+    public subscript(identifier: PackageReference) -> BoundVersion? {
         get {
             return assignments[identifier]?.binding
         }
     }
 
     /// The assignment for the given `container`.
-    subscript(container: PackageContainer) -> BoundVersion? {
+    public subscript(container: PackageContainer) -> BoundVersion? {
         get {
             return self[container.identifier]
         }
@@ -483,7 +483,7 @@ struct VersionAssignmentSet: Equatable, Sequence {
     ///
     /// - Returns: The new assignment, or nil if the merge cannot be made (the
     /// assignments contain incompatible versions).
-    func merging(_ assignment: VersionAssignmentSet) -> VersionAssignmentSet? {
+    public func merging(_ assignment: VersionAssignmentSet) -> VersionAssignmentSet? {
         // In order to protect the assignment set, we first have to test whether
         // the merged constraint sets are satisfiable.
         //
@@ -520,7 +520,7 @@ struct VersionAssignmentSet: Equatable, Sequence {
     ///
     /// The resulting constraint set is guaranteed to be non-empty for each
     /// mapping, assuming the invariants on the set are followed.
-    var constraints: PackageContainerConstraintSet {
+    public var constraints: PackageContainerConstraintSet {
         // Collect all of the constraints.
         var result = PackageContainerConstraintSet()
 
@@ -561,7 +561,7 @@ struct VersionAssignmentSet: Equatable, Sequence {
     // FIXME: This is currently very inefficient.
     //
     /// Check if the given `binding` for `container` is valid within the assignment.
-    func isValid(binding: BoundVersion, for container: PackageContainer) -> Bool {
+    public func isValid(binding: BoundVersion, for container: PackageContainer) -> Bool {
         switch binding {
         case .excluded:
             // A package can be excluded if there are no constraints on the
@@ -594,7 +594,7 @@ struct VersionAssignmentSet: Equatable, Sequence {
     }
 
     /// Check if the assignment is valid and complete.
-    func checkIfValidAndComplete() -> Bool {
+    public func checkIfValidAndComplete() -> Bool {
         // Validity should hold trivially, because it is an invariant of the collection.
         for (_, assignment) in assignments {
             if !isValid(binding: assignment.binding, for: assignment.container) {
@@ -621,9 +621,9 @@ struct VersionAssignmentSet: Equatable, Sequence {
     // FIXME: This should really be a collection, but that takes significantly
     // more work given our current backing collection.
 
-    typealias Iterator = AnyIterator<(PackageContainer, BoundVersion)>
+    public typealias Iterator = AnyIterator<(PackageContainer, BoundVersion)>
 
-    func makeIterator() -> Iterator {
+    public func makeIterator() -> Iterator {
         var it = assignments.makeIterator()
         return AnyIterator {
             if let (_, next) = it.next() {
@@ -635,7 +635,7 @@ struct VersionAssignmentSet: Equatable, Sequence {
     }
 }
 
-func ==(lhs: VersionAssignmentSet, rhs: VersionAssignmentSet) -> Bool {
+public func ==(lhs: VersionAssignmentSet, rhs: VersionAssignmentSet) -> Bool {
     if lhs.assignments.count != rhs.assignments.count { return false }
     for (container, lhsBinding) in lhs {
         switch rhs[container] {
@@ -720,10 +720,8 @@ public class DependencyResolver {
     /// Lock used to get and set the error variable.
     private let errorLock: Lock = Lock()
 
-    // FIXME: @testable private
-    //
     /// Contains any error encountered during dependency resolution.
-    var error: Swift.Error? {
+    public var error: Swift.Error? {
         get {
             return errorLock.withLock { self.__error }
         } set {
@@ -851,7 +849,7 @@ public class DependencyResolver {
     ///                  constraints for the same container identifier.
     /// - Returns: A satisfying assignment of containers and versions.
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
-    func resolveAssignment(
+    public func resolveAssignment(
         constraints: [PackageContainerConstraint],
         pins: [PackageContainerConstraint] = []
     ) throws -> VersionAssignmentSet {
@@ -915,8 +913,6 @@ public class DependencyResolver {
     // FIXME: This needs to a way to return information on the failure, or we
     // will need to have it call the delegate directly.
     //
-    // FIXME: @testable private
-    //
     /// Resolve an individual container dependency tree.
     ///
     /// This is the primary method in our bottom-up algorithm for resolving
@@ -931,7 +927,7 @@ public class DependencyResolver {
     ///   - constraints: The external constraints which must be honored by the solution.
     ///   - exclusions: The list of individually excluded package versions.
     /// - Returns: A sequence of feasible solutions, starting with the most preferable.
-    func resolveSubtree(
+    public func resolveSubtree(
         _ container: Container,
         subjectTo allConstraints: PackageContainerConstraintSet,
         excluding allExclusions: [PackageReference: Set<Version>]

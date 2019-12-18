@@ -651,7 +651,7 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
     private var closeOnDeinit: Bool
 
     /// Instantiate using the file pointer.
-    init(filePointer: UnsafeMutablePointer<FILE>, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
+    public init(filePointer: UnsafeMutablePointer<FILE>, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
         self.filePointer = filePointer
         self.closeOnDeinit = closeOnDeinit
         super.init(buffered: buffered)

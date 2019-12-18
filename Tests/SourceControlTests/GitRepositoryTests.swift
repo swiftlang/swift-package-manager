@@ -16,8 +16,6 @@ import TSCUtility
 
 import SPMTestSupport
 
-@testable import class SourceControl.GitRepository
-
 class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testRepositorySpecifier() {

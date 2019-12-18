@@ -9,7 +9,7 @@
  */
 
 import XCTest
-@testable import Build
+import Build
 
 class MockSwiftCompilerOutputParserDelegate: SwiftCompilerOutputParserDelegate {
     private var messages: [SwiftCompilerMessage] = []

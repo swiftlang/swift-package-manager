@@ -162,7 +162,7 @@ extension SystemPackageProviderDescription {
 /// compiler/linker. List of allowed flags:
 /// cFlags: -I, -F
 /// libs: -L, -l, -F, -framework, -w
-func whitelist(
+public func whitelist(
     pcFile: String,
     flags: (cFlags: [String], libs: [String])
 ) -> (cFlags: [String], libs: [String], unallowed: [String]) {
@@ -204,7 +204,7 @@ func whitelist(
 ///
 /// This behavior is similar to pkg-config cli tool and helps avoid conflicts between
 /// sdk and default search paths in macOS.
-func removeDefaultFlags(cFlags: [String], libs: [String]) -> ([String], [String]) {
+public func removeDefaultFlags(cFlags: [String], libs: [String]) -> ([String], [String]) {
     /// removes a flag from given array of flags.
     func remove(flag: (String, String), from flags: [String]) -> [String] {
         var result = [String]()

@@ -10,7 +10,7 @@
 
 extension Collection where Iterator.Element : Equatable {
     /// Split around a delimiting subsequence with maximum number of splits == 2
-    func spm_split(around delimiter: [Iterator.Element]) -> ([Iterator.Element], [Iterator.Element]?) {
+    public func spm_split(around delimiter: [Iterator.Element]) -> ([Iterator.Element], [Iterator.Element]?) {
 
         let orig = Array(self)
         let end = orig.endIndex

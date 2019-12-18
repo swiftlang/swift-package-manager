@@ -12,14 +12,13 @@ import XCTest
 import Foundation
 
 import TSCBasic
-@testable import Commands
+import Commands
 import Xcodeproj
 import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCUtility
 import Workspace
-@testable import class Workspace.PinsStore
 
 final class PackageToolTests: XCTestCase {
     @discardableResult

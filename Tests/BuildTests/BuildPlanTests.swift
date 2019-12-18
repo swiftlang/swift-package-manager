@@ -16,7 +16,7 @@ import SPMTestSupport
 import PackageModel
 import PackageLoading
 
-@testable import Build
+import Build
 
 #if os(macOS)
     let defaultTargetTriple: String = Triple.hostTriple.tripleString(forPlatformVersion: "10.10")

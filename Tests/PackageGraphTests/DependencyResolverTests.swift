@@ -18,8 +18,6 @@ import struct TSCUtility.Version
 
 import SPMTestSupport
 
-// FIXME: We have no @testable way to import generic structures.
-@testable import PackageGraph
 import PackageModel
 
 private typealias MockPackageConstraint = PackageContainerConstraint

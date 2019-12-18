@@ -150,7 +150,7 @@ private enum PackageResolver {
 /// This class does *not* support concurrent operations.
 public class Workspace {
     /// A struct representing all the current manifests (root + external) in a package graph.
-    struct DependencyManifests {
+    public struct DependencyManifests {
         /// The package graph root.
         let root: PackageGraphRoot
 
@@ -171,12 +171,12 @@ public class Workspace {
         }
 
         /// Returns all manifests contained in DependencyManifests.
-        func allManifests() -> [Manifest] {
+        public func allManifests() -> [Manifest] {
             return dependencies.map({ $0.manifest })
         }
 
         /// Computes the identities which are declared in the manifests but aren't present in dependencies.
-        func missingPackageURLs() -> Set<PackageReference> {
+        public func missingPackageURLs() -> Set<PackageReference> {
             return computePackageURLs().missing
         }
 
@@ -241,7 +241,6 @@ public class Workspace {
             return (requiredIdentities, missingIdentities)
         }
 
-        // FIXME: @testable(internal)
         /// Returns constraints of the dependencies, including edited package constraints.
         func dependencyConstraints() -> [RepositoryPackageConstraint] {
             var allConstraints = [RepositoryPackageConstraint]()
@@ -272,7 +271,7 @@ public class Workspace {
 
         // FIXME: @testable(internal)
         /// Returns a list of constraints for all 'edited' package.
-        func editedPackagesConstraints() -> [RepositoryPackageConstraint] {
+        public func editedPackagesConstraints() -> [RepositoryPackageConstraint] {
             var constraints = [RepositoryPackageConstraint]()
 
             for (_, managedDependency) in dependencies {
@@ -1064,7 +1063,7 @@ extension Workspace {
     /// This will load the manifests for the root package as well as all the
     /// current dependencies from the working checkouts.
     // @testable internal
-    func loadDependencyManifests(
+    public func loadDependencyManifests(
         root: PackageGraphRoot,
         diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
@@ -1444,11 +1443,11 @@ extension Workspace {
         return false
     }
 
-    enum ResolutionPrecomputationResult: Equatable {
+    public enum ResolutionPrecomputationResult: Equatable {
         case required(reason: WorkspaceResolveReason)
         case notRequired
 
-        var isRequired: Bool {
+        public var isRequired: Bool {
             switch self {
             case .required: return true
             case .notRequired: return false
@@ -1460,7 +1459,7 @@ extension Workspace {
     ///
     /// - Returns: Returns a result defining whether dependency resolution is required and the reason for it.
     // @testable internal
-    func precomputeResolution(
+    public func precomputeResolution(
         root: PackageGraphRoot,
         dependencyManifests: DependencyManifests,
         pinsStore: PinsStore,
@@ -1917,8 +1916,6 @@ extension Workspace {
         return path
     }
 
-    // FIXME: @testable internal
-    //
     /// Create a local clone of the given `repository` checked out to `version`.
     ///
     /// If an existing clone is present, the repository will be reset to the

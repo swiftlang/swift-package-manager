@@ -12,7 +12,7 @@ import XCTest
 import TSCBasic
 import TSCTestSupport
 
-@testable import TSCUtility
+import TSCUtility
 
 final class PkgConfigParserTests: XCTestCase {
 

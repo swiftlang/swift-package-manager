@@ -12,7 +12,7 @@ import TSCBasic
 import TSCUtility
 import Xcodeproj
 
-final class WatchmanHelper {
+public final class WatchmanHelper {
 
     /// Name of the watchman-make tool.
     static let watchmanMakeTool: String = "watchman-make"
@@ -28,7 +28,7 @@ final class WatchmanHelper {
 
     let diagnostics: DiagnosticsEngine
 
-    init(
+    public init(
         diagnostics: DiagnosticsEngine,
         watchmanScriptsDir: AbsolutePath,
         packageRoot: AbsolutePath,
@@ -45,7 +45,7 @@ final class WatchmanHelper {
         try run(scriptPath)
     }
 
-    func createXcodegenScript(_ options: XcodeprojOptions) throws -> AbsolutePath {
+    public func createXcodegenScript(_ options: XcodeprojOptions) throws -> AbsolutePath {
         let scriptPath = watchmanScriptsDir.appending(component: "gen-xcodeproj.sh")
 
         let stream = BufferedOutputByteStream()

@@ -13,7 +13,7 @@ import XCTest
 import TSCBasic
 import PackageLoading
 import PackageModel
-@testable import PackageGraph
+import PackageGraph
 import SourceControl
 
 import SPMTestSupport

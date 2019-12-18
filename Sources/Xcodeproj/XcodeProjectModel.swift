@@ -60,12 +60,12 @@ public struct Xcode {
     /// a list of targets, and some additional information.  Note that schemes
     /// are outside of the project data model.
     public class Project {
-        let mainGroup: Group
-        var buildSettings: BuildSettingsTable
-        var productGroup: Group?
-        var projectDir: String
-        var targets: [Target]
-        init() {
+        public let mainGroup: Group
+        public var buildSettings: BuildSettingsTable
+        public var productGroup: Group?
+        public var projectDir: String
+        public var targets: [Target]
+        public init() {
             self.mainGroup = Group(path: "")
             self.buildSettings = BuildSettingsTable()
             self.productGroup = nil
@@ -86,12 +86,12 @@ public struct Xcode {
     public class Reference {
         /// Relative path of the reference.  It is usually a literal, but may
         /// in fact contain build settings.
-        var path: String
+        public var path: String
         /// Determines the base path for the reference's relative path.
-        var pathBase: RefPathBase
+        public var pathBase: RefPathBase
         /// Name of the reference, if different from the last path component
         /// (if not set, Xcode will use the last path component as the name).
-        var name: String?
+        public var name: String?
 
         /// Determines the base path for a reference's relative path (this is
         /// what for some reason is called a "source tree" in Xcode).
@@ -108,7 +108,7 @@ public struct Xcode {
             case buildDir = "BUILT_PRODUCTS_DIR"
         }
 
-        init(path: String, pathBase: RefPathBase = .groupDir, name: String? = nil) {
+        public init(path: String, pathBase: RefPathBase = .groupDir, name: String? = nil) {
             self.path = path
             self.pathBase = pathBase
             self.name = name
@@ -117,8 +117,8 @@ public struct Xcode {
 
     /// A reference to a file system entity (a file, folder, etc).
     public class FileReference: Reference {
-        var objectID: String?
-        var fileType: String?
+        public var objectID: String?
+        public var fileType: String?
 
         init(path: String, pathBase: RefPathBase = .groupDir, name: String? = nil, fileType: String? = nil, objectID: String? = nil) {
             super.init(path: path, pathBase: pathBase, name: name)
@@ -131,7 +131,7 @@ public struct Xcode {
     /// The resolved path of a group is used as the base path for any child
     /// references whose source tree type is GroupRelative.
     public class Group: Reference {
-        var subitems = [Reference]()
+        public var subitems = [Reference]()
 
         /// Creates and appends a new Group to the list of subitems.
         /// The new group is returned so that it can be configured.
@@ -161,14 +161,14 @@ public struct Xcode {
 
     /// An Xcode target, representing a single entity to build.
     public class Target {
-        var objectID: String?
-        var name: String
-        var productName: String
-        var productType: ProductType?
-        var buildSettings: BuildSettingsTable
-        var buildPhases: [BuildPhase]
-        var productReference: FileReference?
-        var dependencies: [TargetDependency]
+        public var objectID: String?
+        public var name: String
+        public var productName: String
+        public var productType: ProductType?
+        public var buildSettings: BuildSettingsTable
+        public var buildPhases: [BuildPhase]
+        public var productReference: FileReference?
+        public var dependencies: [TargetDependency]
         public enum ProductType: String {
             case application = "com.apple.product-type.application"
             case staticArchive = "com.apple.product-type.library.static"
@@ -240,14 +240,14 @@ public struct Xcode {
 
         /// A simple wrapper to prevent ownership cycles in the `dependencies`
         /// property.
-        struct TargetDependency {
-            unowned var target: Target
+        public struct TargetDependency {
+            public unowned var target: Target
         }
     }
 
     /// Abstract base class for all build phases in a target.
     public class BuildPhase {
-        var files: [BuildFile] = []
+        public var files: [BuildFile] = []
 
         /// Adds a new build file that refers to `fileRef`.
         @discardableResult public func addBuildFile(fileRef: FileReference) -> BuildFile {
@@ -278,7 +278,7 @@ public struct Xcode {
     /// A "copy files" build phase, i.e. one that copies files to an arbitrary
     /// location relative to the product.
     public class CopyFilesBuildPhase: BuildPhase {
-        var dstDir: String
+        public var dstDir: String
         init(dstDir: String) {
             self.dstDir = dstDir
         }
@@ -286,7 +286,7 @@ public struct Xcode {
 
     /// A "shell script" build phase, i.e. one that runs a custom shell script.
     public class ShellScriptBuildPhase: BuildPhase {
-        var script: String
+        public var script: String
         init(script: String) {
             self.script = script
         }
@@ -295,7 +295,7 @@ public struct Xcode {
     /// A build file, representing the membership of a file reference in a
     /// build phase of a target.
     public class BuildFile {
-        weak var fileRef: FileReference?
+        public weak var fileRef: FileReference?
         init(fileRef: FileReference) {
             self.fileRef = fileRef
         }
@@ -304,7 +304,10 @@ public struct Xcode {
 
         /// A set of file settings.
         public struct Settings {
-            var ATTRIBUTES: [String]?
+            public var ATTRIBUTES: [String]?
+
+            public init() {
+            }
         }
     }
 
@@ -315,18 +318,21 @@ public struct Xcode {
     public class BuildSettingsTable {
         /// Common build settings are in both generated configurations (Debug
         /// and Release).
-        var common = BuildSettings()
+        public var common = BuildSettings()
 
         /// Debug build settings are overlaid over the common settings in the
         /// generated Debug configuration.
-        var debug = BuildSettings()
+        public var debug = BuildSettings()
 
         /// Release build settings are overlaid over the common settings in the
         /// generated Release configuration.
-        var release = BuildSettings()
+        public var release = BuildSettings()
 
         /// An optional file reference to an .xcconfig file.
-        var xcconfigFileRef: FileReference?
+        public var xcconfigFileRef: FileReference?
+
+        public init() {
+        }
 
         /// A set of build settings, which is represented as a struct of optional
         /// build settings.  This is not optimally efficient, but it is great for
@@ -335,52 +341,52 @@ public struct Xcode {
             // Note: although some of these build settings sound like booleans,
             // they are all either strings or arrays of strings, because even
             // a boolean may be a macro reference expression.
-            var CLANG_CXX_LANGUAGE_STANDARD: String?
-            var CLANG_ENABLE_MODULES: String?
-            var CLANG_ENABLE_OBJC_ARC: String?
-            var COMBINE_HIDPI_IMAGES: String?
-            var COPY_PHASE_STRIP: String?
-            var DEBUG_INFORMATION_FORMAT: String?
-            var DEFINES_MODULE: String?
-            var DYLIB_INSTALL_NAME_BASE: String?
-            var EMBEDDED_CONTENT_CONTAINS_SWIFT: String?
-            var ENABLE_NS_ASSERTIONS: String?
-            var ENABLE_TESTABILITY: String?
-            var FRAMEWORK_SEARCH_PATHS: [String]?
-            var GCC_C_LANGUAGE_STANDARD: String?
-            var GCC_OPTIMIZATION_LEVEL: String?
-            var GCC_PREPROCESSOR_DEFINITIONS: [String]?
-            var HEADER_SEARCH_PATHS: [String]?
-            var INFOPLIST_FILE: String?
-            var LD_RUNPATH_SEARCH_PATHS: [String]?
-            var LIBRARY_SEARCH_PATHS: [String]?
-            var MACOSX_DEPLOYMENT_TARGET: String?
-            var IPHONEOS_DEPLOYMENT_TARGET: String?
-            var TVOS_DEPLOYMENT_TARGET: String?
-            var WATCHOS_DEPLOYMENT_TARGET: String?
-            var MODULEMAP_FILE: String?
-            var ONLY_ACTIVE_ARCH: String?
-            var OTHER_CFLAGS: [String]?
-            var OTHER_CPLUSPLUSFLAGS: [String]?
-            var OTHER_LDFLAGS: [String]?
-            var OTHER_SWIFT_FLAGS: [String]?
-            var PRODUCT_BUNDLE_IDENTIFIER: String?
-            var PRODUCT_MODULE_NAME: String?
-            var PRODUCT_NAME: String?
-            var PROJECT_NAME: String?
-            var SDKROOT: String?
-            var SKIP_INSTALL: String?
-            var SUPPORTED_PLATFORMS: [String]?
-            var SWIFT_ACTIVE_COMPILATION_CONDITIONS: [String]?
-            var SWIFT_FORCE_STATIC_LINK_STDLIB: String?
-            var SWIFT_FORCE_DYNAMIC_LINK_STDLIB: String?
-            var SWIFT_OPTIMIZATION_LEVEL: String?
-            var SWIFT_VERSION: String?
-            var TARGET_NAME: String?
-            var USE_HEADERMAP: String?
-            var LD: String?
+            public var CLANG_CXX_LANGUAGE_STANDARD: String?
+            public var CLANG_ENABLE_MODULES: String?
+            public var CLANG_ENABLE_OBJC_ARC: String?
+            public var COMBINE_HIDPI_IMAGES: String?
+            public var COPY_PHASE_STRIP: String?
+            public var DEBUG_INFORMATION_FORMAT: String?
+            public var DEFINES_MODULE: String?
+            public var DYLIB_INSTALL_NAME_BASE: String?
+            public var EMBEDDED_CONTENT_CONTAINS_SWIFT: String?
+            public var ENABLE_NS_ASSERTIONS: String?
+            public var ENABLE_TESTABILITY: String?
+            public var FRAMEWORK_SEARCH_PATHS: [String]?
+            public var GCC_C_LANGUAGE_STANDARD: String?
+            public var GCC_OPTIMIZATION_LEVEL: String?
+            public var GCC_PREPROCESSOR_DEFINITIONS: [String]?
+            public var HEADER_SEARCH_PATHS: [String]?
+            public var INFOPLIST_FILE: String?
+            public var LD_RUNPATH_SEARCH_PATHS: [String]?
+            public var LIBRARY_SEARCH_PATHS: [String]?
+            public var MACOSX_DEPLOYMENT_TARGET: String?
+            public var IPHONEOS_DEPLOYMENT_TARGET: String?
+            public var TVOS_DEPLOYMENT_TARGET: String?
+            public var WATCHOS_DEPLOYMENT_TARGET: String?
+            public var MODULEMAP_FILE: String?
+            public var ONLY_ACTIVE_ARCH: String?
+            public var OTHER_CFLAGS: [String]?
+            public var OTHER_CPLUSPLUSFLAGS: [String]?
+            public var OTHER_LDFLAGS: [String]?
+            public var OTHER_SWIFT_FLAGS: [String]?
+            public var PRODUCT_BUNDLE_IDENTIFIER: String?
+            public var PRODUCT_MODULE_NAME: String?
+            public var PRODUCT_NAME: String?
+            public var PROJECT_NAME: String?
+            public var SDKROOT: String?
+            public var SKIP_INSTALL: String?
+            public var SUPPORTED_PLATFORMS: [String]?
+            public var SWIFT_ACTIVE_COMPILATION_CONDITIONS: [String]?
+            public var SWIFT_FORCE_STATIC_LINK_STDLIB: String?
+            public var SWIFT_FORCE_DYNAMIC_LINK_STDLIB: String?
+            public var SWIFT_OPTIMIZATION_LEVEL: String?
+            public var SWIFT_VERSION: String?
+            public var TARGET_NAME: String?
+            public var USE_HEADERMAP: String?
+            public var LD: String?
 
-            init(
+            public init(
                 CLANG_CXX_LANGUAGE_STANDARD: String? = nil,
                 CLANG_ENABLE_MODULES: String? = nil,
                 CLANG_ENABLE_OBJC_ARC: String? = nil,

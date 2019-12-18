@@ -15,7 +15,7 @@ import PackageLoading
 import PackageModel
 import SourceControl
 
-@testable import PackageGraph
+import PackageGraph
 
 // There's some useful helper utilities defined below for easier testing:
 //

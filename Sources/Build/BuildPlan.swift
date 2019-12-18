@@ -151,7 +151,7 @@ public final class ClangTargetBuildDescription {
     }
 
     /// The modulemap file for this target, if any.
-    private(set) var moduleMap: AbsolutePath?
+    public private(set) var moduleMap: AbsolutePath?
 
     /// Path to the temporary directory for this target.
     var tempsPath: AbsolutePath {
@@ -159,7 +159,7 @@ public final class ClangTargetBuildDescription {
     }
 
     /// The objects in this target.
-    var objects: [AbsolutePath] {
+    public var objects: [AbsolutePath] {
         return compilePaths().map({ $0.object })
     }
 
@@ -349,10 +349,10 @@ public final class SwiftTargetBuildDescription {
     }
 
     /// The list of all source files in the target, including the derived ones.
-    var sources: [AbsolutePath] { target.sources.paths + derivedSources.paths }
+    public var sources: [AbsolutePath] { target.sources.paths + derivedSources.paths }
 
     /// The objects in this target.
-    var objects: [AbsolutePath] {
+    public var objects: [AbsolutePath] {
         let relativePaths = target.sources.relativePaths + derivedSources.relativePaths
         return relativePaths.map{ tempsPath.appending(RelativePath("\($0.pathString).o")) }
     }
@@ -811,7 +811,7 @@ public final class ProductBuildDescription {
     /// The objects in this product.
     ///
     // Computed during build planning.
-    fileprivate(set) var objects = SortedArray<AbsolutePath>()
+    public fileprivate(set) var objects = SortedArray<AbsolutePath>()
 
     /// The dynamic libraries this product needs to link with.
     // Computed during build planning.

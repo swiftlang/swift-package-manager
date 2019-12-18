@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-@testable import TSCBasic
+import TSCBasic
 import TSCLibc
 
 public final class PseudoTerminal {

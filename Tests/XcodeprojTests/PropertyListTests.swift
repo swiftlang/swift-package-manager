@@ -9,7 +9,7 @@
 */
 
 import XCTest
-@testable import Xcodeproj
+import Xcodeproj
 
 class PropertyListTests: XCTestCase {
     func testBasics() {

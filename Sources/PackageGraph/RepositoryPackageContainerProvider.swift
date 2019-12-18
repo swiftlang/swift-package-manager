@@ -268,7 +268,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
-    private(set) var validToolsVersionsCache: [Version: Bool] = [:]
+    public private(set) var validToolsVersionsCache: [Version: Bool] = [:]
 
     /// The available version list (in reverse order).
     public override func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {

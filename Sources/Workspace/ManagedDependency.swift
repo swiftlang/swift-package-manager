@@ -68,9 +68,9 @@ public final class ManagedDependency: JSONMappable, JSONSerializable, CustomStri
     ///
     /// This information is useful so it can be restored when users
     /// unedit a package.
-    var basedOn: ManagedDependency?
+    public internal(set) var basedOn: ManagedDependency?
 
-    init(
+    public init(
         packageRef: PackageReference,
         subpath: RelativePath,
         checkoutState: CheckoutState
@@ -82,7 +82,7 @@ public final class ManagedDependency: JSONMappable, JSONSerializable, CustomStri
     }
 
     /// Create a dependency present locally on the filesystem.
-    static func local(
+    public static func local(
         packageRef: PackageReference
     ) -> ManagedDependency {
         return ManagedDependency(
@@ -124,7 +124,7 @@ public final class ManagedDependency: JSONMappable, JSONSerializable, CustomStri
     /// - Parameters:
     ///     - subpath: The subpath inside the editables directory.
     ///     - unmanagedPath: A custom absolute path instead of the subpath.
-    func editedDependency(subpath: RelativePath, unmanagedPath: AbsolutePath?) -> ManagedDependency {
+    public func editedDependency(subpath: RelativePath, unmanagedPath: AbsolutePath?) -> ManagedDependency {
         return ManagedDependency(basedOn: self, subpath: subpath, unmanagedPath: unmanagedPath)
     }
 
@@ -222,7 +222,7 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
     private var dependencyMap: [String: ManagedDependency]
 
     /// Path to the state file.
-    let statePath: AbsolutePath
+    public let statePath: AbsolutePath
 
     /// persistence helper
     let persistence: SimplePersistence
@@ -264,7 +264,7 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
     }
 
     /// Returns the dependency given a name or identity.
-    func dependency(forNameOrIdentity nameOrIdentity: String) throws -> ManagedDependency {
+    public func dependency(forNameOrIdentity nameOrIdentity: String) throws -> ManagedDependency {
         for value in values {
             if value.packageRef.name == nameOrIdentity {
                 return value
@@ -284,7 +284,7 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
         try saveState()
     }
 
-    func saveState() throws {
+    public func saveState() throws {
         try self.persistence.saveState(self)
     }
 

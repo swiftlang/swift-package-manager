@@ -20,7 +20,7 @@ import FoundationXML
 /// A bare minimum loader for Xcode workspaces.
 ///
 /// Warning: This is only useful for debugging workspaces that contain Swift packages.
-final class XcodeWorkspaceLoader {
+public final class XcodeWorkspaceLoader {
 
     /// The parsed location.
     private struct Location {
@@ -38,13 +38,13 @@ final class XcodeWorkspaceLoader {
 
     let fs: FileSystem
 
-    init(diagnostics: DiagnosticsEngine, fs: FileSystem = localFileSystem) {
+    public init(diagnostics: DiagnosticsEngine, fs: FileSystem = localFileSystem) {
         self.diagnostics = diagnostics
         self.fs = fs
     }
 
     /// Load the given workspace and return the file ref paths from it.
-    func load(workspace: AbsolutePath) throws -> [AbsolutePath] {
+    public func load(workspace: AbsolutePath) throws -> [AbsolutePath] {
         let path = workspace.appending(component: "contents.xcworkspacedata")
         let contents = try Data(fs.readFileContents(path).contents)
 

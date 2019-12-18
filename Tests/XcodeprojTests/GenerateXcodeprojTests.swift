@@ -13,7 +13,7 @@ import SPMTestSupport
 import PackageGraph
 import PackageModel
 import SourceControl
-@testable import Xcodeproj
+import Xcodeproj
 import TSCUtility
 import XCTest
 

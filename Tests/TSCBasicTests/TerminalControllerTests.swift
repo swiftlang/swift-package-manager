@@ -11,7 +11,7 @@
 import XCTest
 import TSCTestSupport
 import TSCLibc
-@testable import TSCBasic
+import TSCBasic
 
 final class TerminalControllerTests: XCTestCase {
     func testBasic() {
