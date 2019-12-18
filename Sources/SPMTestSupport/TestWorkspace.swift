@@ -13,7 +13,7 @@ import XCTest
 import TSCBasic
 import PackageModel
 import PackageLoading
-@testable import Workspace
+import Workspace
 import PackageGraph
 import SourceControl
 

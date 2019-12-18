@@ -12,7 +12,7 @@ import XCTest
 
 import TSCBasic
 import PackageModel
-@testable import PackageLoading
+import PackageLoading
 
 class ModuleMapGeneration: XCTestCase {
 

@@ -53,7 +53,7 @@ public func pbxproj(
 /// and cause a linker error (SR-3398).
 fileprivate let invalidXcodeModuleNames = Set(["Modules", "Headers", "Versions"])
 
-func xcodeProject(
+public func xcodeProject(
     xcodeprojPath: AbsolutePath,
     graph: PackageGraph,
     extraDirs: [AbsolutePath],

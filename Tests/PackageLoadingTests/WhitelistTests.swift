@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import PackageLoading
+import PackageLoading
 import XCTest
 
 final class PkgConfigWhitelistTests: XCTestCase {

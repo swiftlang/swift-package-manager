@@ -21,7 +21,7 @@ public final class PinsStore {
         /// The pinned state.
         public let state: CheckoutState
 
-        init(
+        public init(
             packageRef: PackageReference,
             state: CheckoutState
         ) {

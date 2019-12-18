@@ -366,7 +366,7 @@ extension Xcode.BuildSettingsTable: PropertyListSerializable {
     }
 }
 
-protocol PropertyListDictionaryConvertible {
+public protocol PropertyListDictionaryConvertible {
     func asPropertyList() -> PropertyList
 }
 
@@ -384,7 +384,7 @@ extension PropertyListDictionaryConvertible {
     /// applies to classes.  Creating a property list representation is totally
     /// independent of that serialization infrastructure (though it might well
     /// be invoked during of serialization of actual model objects).
-    func asPropertyList() -> PropertyList {
+    public func asPropertyList() -> PropertyList {
         // Borderline hacky, but the main thing is that adding or changing a
         // build setting does not require any changes to the property list
         // representation code.  Using a handcoded serializer might be more

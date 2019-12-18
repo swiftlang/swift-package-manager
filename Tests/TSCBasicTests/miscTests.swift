@@ -10,7 +10,7 @@
 
 import XCTest
 import TSCTestSupport
-@testable import TSCBasic
+import TSCBasic
 
 class miscTests: XCTestCase {
 

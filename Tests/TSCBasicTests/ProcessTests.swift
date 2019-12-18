@@ -12,7 +12,7 @@ import TSCTestSupport
 import XCTest
 import TSCLibc
 
-@testable import TSCBasic
+import TSCBasic
 
 typealias ProcessID = TSCBasic.Process.ProcessID
 typealias Process = TSCBasic.Process

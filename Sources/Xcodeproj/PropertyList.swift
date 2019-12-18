@@ -57,7 +57,7 @@ extension PropertyList: CustomStringConvertible {
 
 extension PropertyList {
     /// Serializes the Plist enum to string.
-    func serialize() -> String {
+    public func serialize() -> String {
         return generatePlistRepresentation(plist: self, indentation: Indentation())
     }
 

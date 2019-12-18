@@ -13,10 +13,10 @@ import XCTest
 import TSCBasic
 import TSCUtility
 import PackageModel
-@testable import PackageGraph
+import PackageGraph
 import SPMTestSupport
 import SourceControl
-@testable import Workspace
+import Workspace
 
 final class PinsStoreTests: XCTestCase {
 

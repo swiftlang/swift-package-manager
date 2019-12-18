@@ -511,7 +511,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         return false
     }
 
-    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
+    public func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
         queue.async {
             if self.isVerbose {
                 if let text = message.verboseProgressText {
@@ -534,7 +534,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         }
     }
 
-    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
+    public func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         diagnostics.emit(.swiftCompilerOutputParsingError(message))
         onCommmandFailure?()

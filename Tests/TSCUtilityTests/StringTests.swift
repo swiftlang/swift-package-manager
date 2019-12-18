@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import TSCUtility
+import TSCUtility
 import XCTest
 
 class StringTests: XCTestCase {

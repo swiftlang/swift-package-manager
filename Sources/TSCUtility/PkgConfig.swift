@@ -28,12 +28,12 @@ public enum PkgConfigError: Swift.Error, CustomStringConvertible {
     }
 }
 
-struct PCFileFinder {
+public struct PCFileFinder {
     /// DiagnosticsEngine to emit warnings
     let diagnostics: DiagnosticsEngine
 
     /// Cached results of locations `pkg-config` will search for `.pc` files
-    private(set) static var pkgConfigPaths: [AbsolutePath]? // FIXME: @testable(internal)
+    public private(set) static var pkgConfigPaths: [AbsolutePath]? // FIXME: @testable(internal)
     private static var shouldEmitPkgConfigPathsDiagnostic = false
 
     /// The built-in search path list.
@@ -51,7 +51,7 @@ struct PCFileFinder {
     ///
     /// This is needed because on Linux machines, the search paths can be different
     /// from the standard locations that we are currently searching.
-    public init (diagnostics: DiagnosticsEngine, brewPrefix: AbsolutePath?) {
+    public init(diagnostics: DiagnosticsEngine, brewPrefix: AbsolutePath?) {
         self.diagnostics = diagnostics
         if PCFileFinder.pkgConfigPaths == nil {
             do {
@@ -183,22 +183,22 @@ public struct PkgConfig {
 /// Parser for the `pkg-config` `.pc` file format.
 ///
 /// See: https://www.freedesktop.org/wiki/Software/pkg-config/
-struct PkgConfigParser {
-    let pcFile: AbsolutePath
+public struct PkgConfigParser {
+    public let pcFile: AbsolutePath
     private let fileSystem: FileSystem
-    private(set) var variables = [String: String]()
-    var dependencies = [String]()
-    var privateDependencies = [String]()
-    var cFlags = [String]()
-    var libs = [String]()
+    public private(set) var variables = [String: String]()
+    public private(set) var dependencies = [String]()
+    public private(set) var privateDependencies = [String]()
+    public private(set) var cFlags = [String]()
+    public private(set) var libs = [String]()
 
-    init(pcFile: AbsolutePath, fileSystem: FileSystem) {
+    public init(pcFile: AbsolutePath, fileSystem: FileSystem) {
         precondition(fileSystem.isFile(pcFile))
         self.pcFile = pcFile
         self.fileSystem = fileSystem
     }
 
-    mutating func parse() throws {
+    public mutating func parse() throws {
         func removeComment(line: String) -> String {
             if let commentIndex = line.firstIndex(of: "#") {
                 return String(line[line.startIndex..<commentIndex])

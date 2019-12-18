@@ -12,7 +12,7 @@ import XCTest
 import TSCUtility
 import TSCLibc
 import TSCTestSupport
-@testable import TSCBasic
+import TSCBasic
 
 typealias Thread = TSCBasic.Thread
 

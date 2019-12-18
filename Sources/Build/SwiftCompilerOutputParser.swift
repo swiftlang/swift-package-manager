@@ -12,29 +12,58 @@ import Foundation
 import TSCBasic
 
 /// Represents a message output by the Swift compiler in JSON output mode.
-struct SwiftCompilerMessage {
-    enum Kind {
-        struct Output {
-            let type: String
-            let path: String
+public struct SwiftCompilerMessage {
+    public enum Kind {
+        public struct Output {
+            public let type: String
+            public let path: String
+
+            public init(type: String, path: String) {
+                self.type = type
+                self.path = path
+            }
         }
 
-        struct BeganInfo {
-            let pid: Int
-            let inputs: [String]
-            let outputs: [Output]
-            let commandExecutable: String
-            let commandArguments: [String]
+        public struct BeganInfo {
+            public let pid: Int
+            public let inputs: [String]
+            public let outputs: [Output]
+            public let commandExecutable: String
+            public let commandArguments: [String]
+
+            public init(
+                pid: Int,
+                inputs: [String],
+                outputs: [Output],
+                commandExecutable: String,
+                commandArguments: [String]
+            ) {
+                self.pid = pid
+                self.inputs = inputs
+                self.outputs = outputs
+                self.commandExecutable = commandExecutable
+                self.commandArguments = commandArguments
+            }
         }
 
-        struct SkippedInfo {
-            let inputs: [String]
-            let outputs: [Output]
+        public struct SkippedInfo {
+            public let inputs: [String]
+            public let outputs: [Output]
+
+            public init(inputs: [String], outputs: [SwiftCompilerMessage.Kind.Output]) {
+                self.inputs = inputs
+                self.outputs = outputs
+            }
         }
 
-        struct OutputInfo {
-            let pid: Int
-            let output: String?
+        public struct OutputInfo {
+            public let pid: Int
+            public let output: String?
+
+            public init(pid: Int, output: String?) {
+                self.pid = pid
+                self.output = output
+            }
         }
 
         case began(BeganInfo)
@@ -44,12 +73,17 @@ struct SwiftCompilerMessage {
         case unparsableOutput(String)
     }
 
-    let name: String
-    let kind: Kind
+    public let name: String
+    public let kind: Kind
+
+    public init(name: String, kind: SwiftCompilerMessage.Kind) {
+        self.name = name
+        self.kind = kind
+    }
 }
 
 /// Protocol for the parser delegate to get notified of parsing events.
-protocol SwiftCompilerOutputParserDelegate: class {
+public protocol SwiftCompilerOutputParserDelegate: class {
     /// Called for each message parsed.
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage)
 
@@ -58,7 +92,7 @@ protocol SwiftCompilerOutputParserDelegate: class {
 }
 
 /// Parser for the Swift compiler JSON output mode.
-final class SwiftCompilerOutputParser {
+public final class SwiftCompilerOutputParser {
 
     /// State of the parser state machine.
     private enum State {
@@ -86,7 +120,7 @@ final class SwiftCompilerOutputParser {
     private let decoder: JSONDecoder
 
     /// Initializes the parser with a delegate to notify of parsing events.
-    init(targetName: String, delegate: SwiftCompilerOutputParserDelegate) {
+    public init(targetName: String, delegate: SwiftCompilerOutputParserDelegate) {
         self.targetName = targetName
         self.delegate = delegate
         let decoder = JSONDecoder()
@@ -97,7 +131,7 @@ final class SwiftCompilerOutputParser {
     /// Parse the next bytes of the Swift compiler JSON output.
     /// - Note: If a parsing error is encountered, the delegate will be notified and the parser won't accept any further
     ///   input.
-    func parse<C>(bytes: C) where C: Collection, C.Element == UInt8 {
+    public func parse<C>(bytes: C) where C: Collection, C.Element == UInt8 {
         guard !hasFailed else { return }
 
         do {
@@ -199,7 +233,7 @@ extension SwiftCompilerMessage: Decodable, Equatable {
         case name
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
         kind = try Kind(from: decoder)
@@ -211,7 +245,7 @@ extension SwiftCompilerMessage.Kind: Decodable, Equatable {
         case kind
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(String.self, forKey: .kind)
         switch kind {

@@ -12,7 +12,7 @@ import XCTest
 
 import SPMTestSupport
 import TSCBasic
-@testable import Commands
+import Commands
 import Workspace
 
 final class MultiRootSupportTests: XCTestCase {

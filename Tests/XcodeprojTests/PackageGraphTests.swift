@@ -14,7 +14,7 @@ import TSCBasic
 import PackageGraph
 import SPMTestSupport
 import PackageModel
-@testable import Xcodeproj
+import Xcodeproj
 
 class PackageGraphTests: XCTestCase {
     func testBasics() throws {
