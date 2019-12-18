@@ -540,8 +540,7 @@ def get_swiftpm_flags(args):
 
     if args.release:
         build_flags.extend([
-            "-Xswiftc", "-enable-testing",
-            "--configuration", "release"
+            "--configuration", "release",
         ])
 
     if args.verbose:
