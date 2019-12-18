@@ -63,7 +63,7 @@ class DependencyResolverPerfTests: XCTestCasePerf {
             try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
             try fs.writeFileContents(dep.appending(component: "Package.swift")) {
                 $0 <<< """
-                    // swift-tools-version:4.0
+                    // swift-tools-version:4.2
                     import PackageDescription
                     let package = Package(
                         name: "dep",
