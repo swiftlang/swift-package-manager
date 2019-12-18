@@ -83,6 +83,76 @@ public func XCTNonNil<T>(
     }
 }
 
+public func XCTAssertResultSuccess<Success, Failure: Error>(
+    _ result: Result<Success, Failure>,
+    file: StaticString = #file,
+    line: UInt = #line
+) {
+    switch result {
+    case .success:
+        return
+    case .failure(let error):
+        XCTFail("unexpected error: \(error)", file: file, line: line)
+    }
+}
+
+public func XCTAssertResultSuccess<Success, Failure: Error>(
+    _ result: Result<Success, Failure>,
+    file: StaticString = #file,
+    line: UInt = #line,
+    _ body: (Success) throws -> Void
+) rethrows {
+    switch result {
+    case .success(let value):
+        try body(value)
+    case .failure(let error):
+        XCTFail("unexpected error: \(error)", file: file, line: line)
+    }
+}
+
+public func XCTAssertResultFailure<Success, Failure: Error>(
+    _ result: Result<Success, Failure>,
+    file: StaticString = #file,
+    line: UInt = #line
+) {
+    switch result {
+    case .success(let value):
+        XCTFail("unexpected success: \(value)", file: file, line: line)
+    case .failure:
+        return
+    }
+}
+
+public func XCTAssertResultFailure<Success, Failure: Error, ExpectedFailure: Error>(
+    _ result: Result<Success, Failure>,
+    equals expectedError: ExpectedFailure,
+    file: StaticString = #file,
+    line: UInt = #line
+) where ExpectedFailure: Equatable {
+    switch result {
+    case .success(let value):
+        XCTFail("unexpected success: \(value)", file: file, line: line)
+    case .failure(let error as ExpectedFailure):
+        XCTAssertEqual(error, expectedError, file: file, line: line)
+    case .failure(let error):
+        XCTFail("unexpected error: \(error)", file: file, line: line)
+    }
+}
+
+public func XCTAssertResultFailure<Success, Failure: Error>(
+    _ result: Result<Success, Failure>,
+    file: StaticString = #file,
+    line: UInt = #line,
+    _ body: (Failure) throws -> Void
+) rethrows {
+    switch result {
+    case .success(let value):
+        XCTFail("unexpected success: \(value)", file: file, line: line)
+    case .failure(let error):
+        try body(error)
+    }
+}
+
 public func XCTAssertNoDiagnostics(_ engine: DiagnosticsEngine, file: StaticString = #file, line: UInt = #line) {
     let diagnostics = engine.diagnostics
     if diagnostics.isEmpty { return }
