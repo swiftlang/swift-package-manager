@@ -35,10 +35,9 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 dependencies = []
                 targets = [TargetDescription(name: name, path: ".")]
             } else {
-                let name = "Foo\(pkg + 1)"
-                let depUrl = "/\(name)"
-                dependencies = [PackageDependencyDescription(name: name, url: depUrl, requirement: .upToNextMajor(from: "1.0.0"))]
-                targets = [TargetDescription(name: name, dependencies: [.byName(name: "Foo\(pkg + 1)")], path: ".")]
+                let depName = "Foo\(pkg + 1)"
+                dependencies = [PackageDependencyDescription(name: depName, url: "/" + depName, requirement: .upToNextMajor(from: "1.0.0"))]
+                targets = [TargetDescription(name: "Foo\(pkg)", dependencies: [.byName(name: depName)], path: ".")]
             }
             // Create manifest.
             let isRoot = pkg == 1
@@ -48,7 +47,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
                 version: "1.0.0",
-                toolsVersion: .v4,
+                toolsVersion: .v4_2,
                 packageKind: isRoot ? .root : .remote,
                 dependencies: dependencies,
                 products: [

@@ -37,7 +37,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                     let manifest = try! self.manifestLoader.load(
                         package: path,
                         baseURL: "/Trivial",
-                        toolsVersion: .v4,
+                        toolsVersion: .v4_2,
                         packageKind: .root)
                     XCTAssertEqual(manifest.name, "Trivial")
                 }
@@ -67,7 +67,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                     let manifest = try! self.manifestLoader.load(
                         package: path,
                         baseURL: "/Trivial",
-                        toolsVersion: .v4,
+                        toolsVersion: .v4_2,
                         packageKind: .root)
                     XCTAssertEqual(manifest.name, "Foo")
                 }
