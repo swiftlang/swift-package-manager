@@ -508,11 +508,16 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += [resources.swiftCompiler.pathString]
             cmd += ["--driver-mode=swift"]
             cmd += verbosity.ccArgs
-          #if Xcode
-            cmd += ["-F", runtimePath.appending(component: "PackageFrameworks").pathString, "-framework", "PackageDescription"]
-          #else
-            cmd += ["-L", runtimePath.pathString, "-lPackageDescription"]
-          #endif
+
+            // If we got the binDir that means we could be developing SwiftPM in Xcode
+            // which produces a framework for dynamic package products.
+            let runtimeFrameworkPath = runtimePath.appending(component: "PackageFrameworks")
+            if resources.binDir != nil, localFileSystem.exists(runtimeFrameworkPath)  {
+                cmd += ["-F", runtimeFrameworkPath.pathString, "-framework", "PackageDescription"]
+            } else {
+                cmd += ["-L", runtimePath.pathString, "-lPackageDescription"]
+            }
+
             cmd += interpreterFlags
             if let moduleCachePath = moduleCachePath {
                 cmd += ["-module-cache-path", moduleCachePath]
