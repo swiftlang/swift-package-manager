@@ -33,6 +33,8 @@ RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true && \
         ca-certificates \
         gnupg \
         wget \
+        zip \
+        unzip \
         software-properties-common && \
     wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | apt-key add - && \
     apt-add-repository 'deb https://apt.kitware.com/ubuntu/ bionic main' && \
