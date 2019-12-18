@@ -47,7 +47,7 @@ public func XCTAssertThrows<T: Swift.Error>(
     } catch let error as T {
         XCTAssertEqual(error, expectedError, file: file, line: line)
     } catch {
-        XCTFail("unexpected error thrown", file: file, line: line)
+        XCTFail("unexpected error thrown: \(error)", file: file, line: line)
     }
 }
 
@@ -61,9 +61,9 @@ public func XCTAssertThrows<T: Swift.Error, Ignore>(
         let result = try expression()
         XCTFail("body completed successfully: \(result)", file: file, line: line)
     } catch let error as T {
-        XCTAssertTrue(errorHandler(error), "Error handler returned false")
+        XCTAssertTrue(errorHandler(error), "Error handler returned false", file: file, line: line)
     } catch {
-        XCTFail("unexpected error thrown", file: file, line: line)
+        XCTFail("unexpected error thrown: \(error)", file: file, line: line)
     }
 }
 

@@ -125,6 +125,8 @@ extension FileSystemTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__FileSystemTests = [
+        ("testCopyAndMoveItem", testCopyAndMoveItem),
+        ("testInMemCopyAndMoveItem", testInMemCopyAndMoveItem),
         ("testInMemoryBasics", testInMemoryBasics),
         ("testInMemoryCreateDirectory", testInMemoryCreateDirectory),
         ("testInMemoryFsCopy", testInMemoryFsCopy),
