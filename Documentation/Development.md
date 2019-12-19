@@ -30,6 +30,9 @@ Simply open SwiftPM's `Package.swift` manifest with the latest release (includin
 
 Note: PackageDescription v4 is not available when developing using this method.
 
+You can also run SwiftPM performance tests in Xcode using the SwiftPM-Perf
+scheme.
+
 ## Self Hosting
 
 It is possible to build SwiftPM with itself using SwiftPM present in latest
@@ -47,6 +50,14 @@ $ swift test --filter PackageGraphTests.DependencyResolverTests/testBasics
 ```
 
 Note: PackageDescription v4 is not available when developing using this method.
+
+This method can also used be used for performance testing. Use the following
+command run SwiftPM's performance tests:
+
+```
+$ export TSC_ENABLE_PERF_TESTS=1
+$ swift test -c release --filter PerformanceTests
+```
 
 ## Using a Trunk Snapshot
 
