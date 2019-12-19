@@ -18,7 +18,7 @@ import LLBuildManifest
 
 typealias Diagnostic = TSCBasic.Diagnostic
 
-class CustomLLBuildCommand: ExternalCommand {
+class CustomLLBuildCommand: SPMLLBuild.ExternalCommand {
     let ctx: BuildExecutionContext
 
     required init(_ ctx: BuildExecutionContext) {
@@ -29,7 +29,10 @@ class CustomLLBuildCommand: ExternalCommand {
         return []
     }
 
-    func execute(_ command: SPMLLBuild.Command) -> Bool {
+    func execute(
+        _ command: SPMLLBuild.Command,
+        _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
         fatalError("subclass responsibility")
     }
 }
@@ -130,7 +133,10 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         return Format.asRepeating(string: " ", count: spaces)
     }
 
-    override func execute(_ command: SPMLLBuild.Command) -> Bool {
+    override func execute(
+        _ command: SPMLLBuild.Command,
+        _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
         // This tool will never run without the build description.
         let buildDescription = ctx.buildDescription!
         guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
@@ -311,13 +317,19 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         return [UInt8](hash)
     }
 
-    override func execute(_ command: SPMLLBuild.Command) -> Bool {
+    override func execute(
+        _ command: SPMLLBuild.Command,
+        _ commandInterface: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
         return self.ctx.packageStructureDelegate.packageStructureChanged()
     }
 }
 
 final class CopyCommand: CustomLLBuildCommand {
-    override func execute(_ command: SPMLLBuild.Command) -> Bool {
+    override func execute(
+        _ command: SPMLLBuild.Command,
+        _ commandInterface: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
         // This tool will never run without the build description.
         let buildDescription = ctx.buildDescription!
         guard let tool = buildDescription.copyCommands[command.name] else {
