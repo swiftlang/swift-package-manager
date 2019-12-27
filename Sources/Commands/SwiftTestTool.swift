@@ -196,7 +196,6 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         case .runSerial:
             let toolchain = try getToolchain()
             let testProducts = try buildTestsIfNeeded()
-            var ranSuccessfully = true
             let buildParameters = try self.buildParameters()
 
             // Clean out the code coverage directory that may contain stale
@@ -205,18 +204,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 try localFileSystem.removeFileTree(buildParameters.codeCovPath)
             }
 
+            let xctestArg: String?
+
             switch options.testCaseSpecifier {
             case .none:
-                let runner = TestRunner(
-                    bundlePaths: testProducts.map { $0.bundlePath },
-                    xctestArg: nil,
-                    processSet: processSet,
-                    toolchain: toolchain,
-                    diagnostics: diagnostics,
-                    options: self.options,
-                    buildParameters: buildParameters
-                )
-                ranSuccessfully = runner.test()
+                xctestArg = nil
 
             case .regex, .specific, .skip:
                 // If old specifier `-s` option was used, emit deprecation notice.
@@ -233,21 +225,21 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                     diagnostics.emit(.noMatchingTests)
                 }
 
-                // Finally, run the tests.
-                for test in tests {
-                    let runner = TestRunner(
-                        bundlePaths: [test.productPath],
-                        xctestArg: test.specifier,
-                        processSet: processSet,
-                        toolchain: toolchain,
-                        diagnostics: diagnostics,
-                        options: self.options,
-                        buildParameters: try self.buildParameters()
-                    )
-                    ranSuccessfully = runner.test() && ranSuccessfully
-                }
+                xctestArg = tests.map { $0.specifier }.joined(separator: ",")
             }
 
+            let runner = TestRunner(
+                bundlePaths: testProducts.map { $0.bundlePath },
+                xctestArg: xctestArg,
+                processSet: processSet,
+                toolchain: toolchain,
+                diagnostics: diagnostics,
+                options: self.options,
+                buildParameters: buildParameters
+            )
+
+            // Finally, run the tests.
+            let ranSuccessfully: Bool = runner.test()
             if !ranSuccessfully {
                 executionStatus = .failure
             }

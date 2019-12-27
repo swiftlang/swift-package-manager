@@ -201,4 +201,35 @@ final class BasicTests: XCTestCase {
             XCTAssertEqual(runOutput, "1 \"two\"\n")
         }
     }
+
+    func testSwiftTest() throws {
+        try withTemporaryDirectory { dir in
+            let toolDir = dir.appending(component: "swiftTest")
+            try localFileSystem.createDirectory(toolDir)
+            try sh(swiftPackage, "--package-path", toolDir, "init", "--type", "library")
+            try localFileSystem.writeFileContents(
+                toolDir.appending(components: "Tests", "swiftTestTests", "MyTests.swift"),
+                bytes: ByteString(encodingAsUTF8: """
+                    import XCTest
+
+                    final class MyTests: XCTestCase {
+                        func testFoo() {
+                            XCTAssertTrue(1 == 1)
+                        }
+                        func testBar() {
+                            XCTAssertFalse(1 == 2)
+                        }
+                        func testBaz() { }
+                    }
+                    """))
+            let testOutput = try sh(swiftTest, "--package-path", toolDir, "--filter", "MyTests.*").stderr
+
+            // Check the test log.
+            XCTAssertContents(testOutput) { checker in
+                checker.check(.contains("Test Suite 'MyTests' started"))
+                checker.check(.contains("Test Suite 'MyTests' passed"))
+                checker.check(.contains("Executed 3 tests, with 0 failures"))
+            }
+        }
+    }
 }
