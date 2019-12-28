@@ -167,6 +167,29 @@ class ArchiverTests: XCTestCase {
       wait(for: [expectation], timeout: 1.0)
     }
   }
+  
+  func testTarNotImplementedExtension() {
+    mktmpdir { tmpdir in
+
+    let expectation = XCTestExpectation(description: "failure")
+
+    let archiver = TarArchiver()
+    let inputArchivePath = AbsolutePath(#file).parentDirectory
+        .appending(components: "Inputs", "archive.tar.lzo")
+    archiver.extract(from: inputArchivePath, to: tmpdir, completion: { result in
+        XCTAssertResultFailure(result) { error in
+            guard let stringError = error as? StringError else {
+                XCTFail("unexpected error: \(error)")
+                return
+            }
+            XCTAssertMatch(stringError.description, .contains("is in the `supportedExtensions` but have no concrete implementation"))
+        }
+        expectation.fulfill()
+    })
+
+    wait(for: [expectation], timeout: 1.0)
+  }
+  }
 
   func testTarArchiverInvalidArchive() {
       let archiveFileNames = ["invalid_archive.tar", "invalid_archive.tar.bz2", "invalid_archive.tar.gz", "invalid_archive.tar.lzma", "invalid_archive.tar.xz", "invalid_archive.tar.z"]

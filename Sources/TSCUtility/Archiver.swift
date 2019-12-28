@@ -129,7 +129,7 @@ public struct TarArchiver: Archiver {
               case "lzma", "tlz":
                 try untar("--lzma", "-xf")
               default:
-                fatalError("\(String(describing: archivePath.extension)) is in the `supportedExtensions` but have no concrete implementation")
+                throw StringError("\(String(describing: archivePath.extension)) is in the `supportedExtensions` but have no concrete implementation")
               }
             } catch {
                 completion(.failure(error))

@@ -11,6 +11,7 @@ extension ArchiverTests {
         ("testTarArchiverDestinationIsFile", testTarArchiverDestinationIsFile),
         ("testTarArchiverInvalidArchive", testTarArchiverInvalidArchive),
         ("testTarArchiverSuccess", testTarArchiverSuccess),
+        ("testTarNotImplementedExtension", testTarNotImplementedExtension),
         ("testZipArchiverArchiveDoesntExist", testZipArchiverArchiveDoesntExist),
         ("testZipArchiverDestinationDoesntExist", testZipArchiverDestinationDoesntExist),
         ("testZipArchiverDestinationIsFile", testZipArchiverDestinationIsFile),
