@@ -99,13 +99,13 @@ class ArchiverTests: XCTestCase {
   // MARK: - TarArchiver Tests
   
   func testTarArchiverSuccess() {
-      let tarTypes = TarArchiver().supportedExtensions
-      tarTypes.forEach { (supportedExtension) in
+      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz"]
+      archiveFileNames.forEach { (archiveFileName) in
       mktmpdir { tmpdir in
           let expectation = XCTestExpectation(description: "success")
 
           let archiver = TarArchiver()
-          let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "archive.\(supportedExtension)")
+          let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", archiveFileName)
           archiver.extract(from: inputArchivePath, to: tmpdir, completion: { result in
               XCTAssertResultSuccess(result) { _ in
                   let content = tmpdir.appending(component: "file")
@@ -121,13 +121,13 @@ class ArchiverTests: XCTestCase {
   }
 
   func testTarArchiverArchiveDoesntExist() {
-      let tarTypes = TarArchiver().supportedExtensions
-      tarTypes.forEach { (supportedExtension) in
+      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz"]
+      archiveFileNames.forEach { (archiveFileName) in
       let expectation = XCTestExpectation(description: "failure")
 
       let fileSystem = InMemoryFileSystem()
       let archiver = TarArchiver(fileSystem: fileSystem)
-      archiver.extract(from: AbsolutePath("/archive.\(supportedExtension)"), to: AbsolutePath("/"), completion: { result in
+      archiver.extract(from: AbsolutePath("/\(archiveFileName)"), to: AbsolutePath("/"), completion: { result in
           XCTAssertResultFailure(result, equals: FileSystemError.noEntry)
           expectation.fulfill()
       })
@@ -137,13 +137,13 @@ class ArchiverTests: XCTestCase {
   }
 
   func testTarArchiverDestinationDoesntExist() {
-      let tarTypes = TarArchiver().supportedExtensions
-      tarTypes.forEach { (supportedExtension) in
+      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz"]
+      archiveFileNames.forEach { (archiveFileName) in
       let expectation = XCTestExpectation(description: "failure")
 
-      let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.\(supportedExtension)")
+      let fileSystem = InMemoryFileSystem(emptyFiles: "/\(archiveFileName)")
       let archiver = TarArchiver(fileSystem: fileSystem)
-      archiver.extract(from: AbsolutePath("/archive.\(supportedExtension)"), to: AbsolutePath("/destination"), completion: { result in
+      archiver.extract(from: AbsolutePath("/\(archiveFileName)"), to: AbsolutePath("/destination"), completion: { result in
           XCTAssertResultFailure(result, equals: FileSystemError.notDirectory)
           expectation.fulfill()
       })
@@ -153,13 +153,13 @@ class ArchiverTests: XCTestCase {
   }
 
   func testTarArchiverDestinationIsFile() {
-      let tarTypes = TarArchiver().supportedExtensions
-      tarTypes.forEach { (supportedExtension) in
+      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz"]
+      archiveFileNames.forEach { (archiveFileName) in
       let expectation = XCTestExpectation(description: "failure")
 
-      let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.\(supportedExtension)", "/destination")
+      let fileSystem = InMemoryFileSystem(emptyFiles: "/\(archiveFileName)", "/destination")
       let archiver = TarArchiver(fileSystem: fileSystem)
-      archiver.extract(from: AbsolutePath("/archive.\(supportedExtension)"), to: AbsolutePath("/destination"), completion: { result in
+      archiver.extract(from: AbsolutePath("/\(archiveFileName)"), to: AbsolutePath("/destination"), completion: { result in
           XCTAssertResultFailure(result, equals: FileSystemError.notDirectory)
           expectation.fulfill()
       })
@@ -169,21 +169,21 @@ class ArchiverTests: XCTestCase {
   }
 
   func testTarArchiverInvalidArchive() {
-      let tarTypes = TarArchiver().supportedExtensions
-      tarTypes.forEach { (supportedExtension) in
+      let archiveFileNames = ["invalid_archive.tar", "invalid_archive.tar.bz2", "invalid_archive.tar.gz", "invalid_archive.tar.lzma", "invalid_archive.tar.xz"]
+      archiveFileNames.forEach { (archiveFileName) in
       mktmpdir { tmpdir in
           let expectation = XCTestExpectation(description: "failure")
 
           let archiver = TarArchiver()
           let inputArchivePath = AbsolutePath(#file).parentDirectory
-              .appending(components: "Inputs", "invalid_archive.\(supportedExtension)")
+              .appending(components: "Inputs", archiveFileName)
           archiver.extract(from: inputArchivePath, to: tmpdir, completion: { result in
               XCTAssertResultFailure(result) { error in
                   guard let stringError = error as? StringError else {
                       XCTFail("unexpected error: \(error)")
                       return
                   }
-                  XCTAssertMatch(stringError.description, .contains("Error reading"))
+                  XCTAssertMatch(stringError.description, .contains("Unrecognized archive format"))
               }
               expectation.fulfill()
           })

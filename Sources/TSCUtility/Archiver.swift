@@ -77,7 +77,7 @@ public struct ZipArchiver: Archiver {
 
 /// An `Archiver` that handles TAR archives using the command-line `tar` tools.
 public struct TarArchiver: Archiver {
-    public var supportedExtensions: Set<String> { ["tar", "bz2", "gz", "xz"] }
+    public var supportedExtensions: Set<String> { ["tar", "bz2", "tb2", "tbz", "tbz2", "tz2", "gz", "taz", "tgz", "tpz", "xz", "txz", "lzma", "tlz"] }
 
     /// The file-system implementation used for various file-system operations and checks.
     private let fileSystem: FileSystem
@@ -106,7 +106,7 @@ public struct TarArchiver: Archiver {
         }
 
         let untar = { (decoder : String) in
-                let result = try Process.popen(args: "tar", "\(decoder)fC", destinationPath.pathString, archivePath.pathString)
+                let result = try Process.popen(args: "tar", decoder, archivePath.pathString, "-C", destinationPath.pathString)
                 guard result.exitStatus == .terminated(code: 0) else { throw try StringError(result.utf8stderrOutput()) }
                 completion(.success(()))
         }
@@ -115,15 +115,20 @@ public struct TarArchiver: Archiver {
             do {
               switch archivePath.extension {
               case "tar":
-                try untar("x")
-              case "bz2":
-                try untar("xj")
-              case "gz":
-                try untar("xz")
-              case "xz":
-                try untar("xJ")
+                try untar("xf")
+              case "bz2", "tb2", "tbz", "tbz2", "tz2":
+                try untar("xjf")
+              case "gz", "taz", "tgz", "tpz":
+                try untar("xzf")
+              case "xz", "txz":
+                try untar("xJf")
+              case "lzma", "tlz":
+                let result = try Process.popen(args: "tar", "--lzma", "-xf", archivePath.pathString, "-C", destinationPath.pathString)
+                guard result.exitStatus == .terminated(code: 0) else { throw try StringError(result.utf8stderrOutput()) }
+                completion(.success(()))
+
               default:
-                completion(.failure(FileSystemError.unsupported))
+                completion(.failure(FileSystemError.unsupported)) // this should never happen
               }
             } catch {
                 completion(.failure(error))
