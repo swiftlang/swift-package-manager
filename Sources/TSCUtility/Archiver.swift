@@ -74,3 +74,66 @@ public struct ZipArchiver: Archiver {
         }
     }
 }
+
+/// An `Archiver` that handles TAR archives using the command-line `tar` tools.
+public struct TarArchiver: Archiver {
+  public var supportedExtensions: Set<String> { ["tar", "bz2", "tb2", "tbz", "tbz2", "tz2", "gz", "tgz", "tpz", "xz", "txz", "lzma", "tlz", "z", "taz", "tz"] }
+
+    /// The file-system implementation used for various file-system operations and checks.
+    private let fileSystem: FileSystem
+
+    /// Creates a `TarArchiver`.
+    ///
+    /// - Parameters:
+    ///   - fileSystem: The file-system to used by the `TarArchiver`.
+    public init(fileSystem: FileSystem = localFileSystem) {
+        self.fileSystem = fileSystem
+    }
+  
+    public func extract(
+        from archivePath: AbsolutePath,
+        to destinationPath: AbsolutePath,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard fileSystem.exists(archivePath) else {
+            completion(.failure(FileSystemError.noEntry))
+            return
+        }
+
+        guard fileSystem.isDirectory(destinationPath) else {
+            completion(.failure(FileSystemError.notDirectory))
+            return
+        }
+
+        let untar = { (args : String...) in
+            var arguments = ["tar", archivePath.pathString, "-C", destinationPath.pathString]
+            arguments.insert(contentsOf: args, at: 1)
+            let result = try Process.popen(arguments: arguments)
+                guard result.exitStatus == .terminated(code: 0) else { throw try StringError(result.utf8stderrOutput()) }
+                completion(.success(()))
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+              switch archivePath.extension {
+              case "tar":
+                try untar("xf")
+              case "z", "taz", "tz":
+                try untar("xfZ")
+              case "bz2", "tb2", "tbz", "tbz2", "tz2":
+                try untar("xjf")
+              case "gz", "tgz", "tpz":
+                try untar("xzf")
+              case "xz", "txz":
+                try untar("xJf")
+              case "lzma", "tlz":
+                try untar("--lzma", "-xf")
+              default:
+                fatalError("\(String(describing: archivePath.extension)) is in the `supportedExtensions` but have no concrete implementation")
+              }
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+}

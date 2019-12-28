@@ -95,6 +95,103 @@ class ArchiverTests: XCTestCase {
             wait(for: [expectation], timeout: 1.0)
         }
     }
+
+  // MARK: - TarArchiver Tests
+  
+  func testTarArchiverSuccess() {
+      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz", "archive.tar.z"]
+      archiveFileNames.forEach { (archiveFileName) in
+      mktmpdir { tmpdir in
+          let expectation = XCTestExpectation(description: "success")
+
+          let archiver = TarArchiver()
+          let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", archiveFileName)
+          archiver.extract(from: inputArchivePath, to: tmpdir, completion: { result in
+              XCTAssertResultSuccess(result) { _ in
+                  let content = tmpdir.appending(component: "file")
+                  XCTAssert(localFileSystem.exists(content))
+                  XCTAssertEqual((try? localFileSystem.readFileContents(content))?.cString, "Hello World!")
+              }
+              expectation.fulfill()
+          })
+
+          wait(for: [expectation], timeout: 1.0)
+      }
+    }
+  }
+
+  func testTarArchiverArchiveDoesntExist() {
+      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz", "archive.tar.z"]
+      archiveFileNames.forEach { (archiveFileName) in
+      let expectation = XCTestExpectation(description: "failure")
+
+      let fileSystem = InMemoryFileSystem()
+      let archiver = TarArchiver(fileSystem: fileSystem)
+      archiver.extract(from: AbsolutePath("/\(archiveFileName)"), to: AbsolutePath("/"), completion: { result in
+          XCTAssertResultFailure(result, equals: FileSystemError.noEntry)
+          expectation.fulfill()
+      })
+
+      wait(for: [expectation], timeout: 1.0)
+    }
+  }
+
+  func testTarArchiverDestinationDoesntExist() {
+      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz", "archive.tar.z"]
+      archiveFileNames.forEach { (archiveFileName) in
+      let expectation = XCTestExpectation(description: "failure")
+
+      let fileSystem = InMemoryFileSystem(emptyFiles: "/\(archiveFileName)")
+      let archiver = TarArchiver(fileSystem: fileSystem)
+      archiver.extract(from: AbsolutePath("/\(archiveFileName)"), to: AbsolutePath("/destination"), completion: { result in
+          XCTAssertResultFailure(result, equals: FileSystemError.notDirectory)
+          expectation.fulfill()
+      })
+
+      wait(for: [expectation], timeout: 1.0)
+    }
+  }
+
+  func testTarArchiverDestinationIsFile() {
+      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz", "archive.tar.z"]
+      archiveFileNames.forEach { (archiveFileName) in
+      let expectation = XCTestExpectation(description: "failure")
+
+      let fileSystem = InMemoryFileSystem(emptyFiles: "/\(archiveFileName)", "/destination")
+      let archiver = TarArchiver(fileSystem: fileSystem)
+      archiver.extract(from: AbsolutePath("/\(archiveFileName)"), to: AbsolutePath("/destination"), completion: { result in
+          XCTAssertResultFailure(result, equals: FileSystemError.notDirectory)
+          expectation.fulfill()
+      })
+
+      wait(for: [expectation], timeout: 1.0)
+    }
+  }
+
+  func testTarArchiverInvalidArchive() {
+      let archiveFileNames = ["invalid_archive.tar", "invalid_archive.tar.bz2", "invalid_archive.tar.gz", "invalid_archive.tar.lzma", "invalid_archive.tar.xz", "invalid_archive.tar.z"]
+      archiveFileNames.forEach { (archiveFileName) in
+      mktmpdir { tmpdir in
+          let expectation = XCTestExpectation(description: "failure")
+
+          let archiver = TarArchiver()
+          let inputArchivePath = AbsolutePath(#file).parentDirectory
+              .appending(components: "Inputs", archiveFileName)
+          archiver.extract(from: inputArchivePath, to: tmpdir, completion: { result in
+              XCTAssertResultFailure(result) { error in
+                  guard let stringError = error as? StringError else {
+                      XCTFail("unexpected error: \(error)")
+                      return
+                  }
+                  XCTAssertMatch(stringError.description, .contains("Unrecognized archive format"))
+              }
+              expectation.fulfill()
+          })
+
+          wait(for: [expectation], timeout: 1.0)
+      }
+  }
+  }
 }
 
 private struct DummyError: Error, Equatable {
