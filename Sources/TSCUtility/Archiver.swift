@@ -90,17 +90,6 @@ public struct TarArchiver: Archiver {
         self.fileSystem = fileSystem
     }
   
-    private func untar(
-        from archivePath: AbsolutePath,
-        to destinationPath: AbsolutePath,
-        completion: @escaping (Result<Void, Error>) -> Void,
-        decoder : String = ""
-    ) throws {
-        let result = try Process.popen(args: "tar", "-xfC\(decoder)", destinationPath.pathString, archivePath.pathString)
-        guard result.exitStatus == .terminated(code: 0) else { throw try StringError(result.utf8stderrOutput()) }
-        completion(.success(()))
-    }
-
     public func extract(
         from archivePath: AbsolutePath,
         to destinationPath: AbsolutePath,
@@ -117,7 +106,7 @@ public struct TarArchiver: Archiver {
         }
 
         let untar = { (decoder : String) in
-                let result = try Process.popen(args: "tar", "-\(decoder)fC", destinationPath.pathString, archivePath.pathString)
+                let result = try Process.popen(args: "tar", "\(decoder)fC", destinationPath.pathString, archivePath.pathString)
                 guard result.exitStatus == .terminated(code: 0) else { throw try StringError(result.utf8stderrOutput()) }
                 completion(.success(()))
         }

@@ -95,6 +95,103 @@ class ArchiverTests: XCTestCase {
             wait(for: [expectation], timeout: 1.0)
         }
     }
+
+  // MARK: - TarArchiver Tests
+  
+  func testTarArchiverSuccess() {
+      let tarTypes = TarArchiver().supportedExtensions
+      tarTypes.forEach { (supportedExtension) in
+      mktmpdir { tmpdir in
+          let expectation = XCTestExpectation(description: "success")
+
+          let archiver = TarArchiver()
+          let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "archive.\(supportedExtension)")
+          archiver.extract(from: inputArchivePath, to: tmpdir, completion: { result in
+              XCTAssertResultSuccess(result) { _ in
+                  let content = tmpdir.appending(component: "file")
+                  XCTAssert(localFileSystem.exists(content))
+                  XCTAssertEqual((try? localFileSystem.readFileContents(content))?.cString, "Hello World!")
+              }
+              expectation.fulfill()
+          })
+
+          wait(for: [expectation], timeout: 1.0)
+      }
+    }
+  }
+
+  func testTarArchiverArchiveDoesntExist() {
+      let tarTypes = TarArchiver().supportedExtensions
+      tarTypes.forEach { (supportedExtension) in
+      let expectation = XCTestExpectation(description: "failure")
+
+      let fileSystem = InMemoryFileSystem()
+      let archiver = TarArchiver(fileSystem: fileSystem)
+      archiver.extract(from: AbsolutePath("/archive.\(supportedExtension)"), to: AbsolutePath("/"), completion: { result in
+          XCTAssertResultFailure(result, equals: FileSystemError.noEntry)
+          expectation.fulfill()
+      })
+
+      wait(for: [expectation], timeout: 1.0)
+    }
+  }
+
+  func testTarArchiverDestinationDoesntExist() {
+      let tarTypes = TarArchiver().supportedExtensions
+      tarTypes.forEach { (supportedExtension) in
+      let expectation = XCTestExpectation(description: "failure")
+
+      let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.\(supportedExtension)")
+      let archiver = TarArchiver(fileSystem: fileSystem)
+      archiver.extract(from: AbsolutePath("/archive.\(supportedExtension)"), to: AbsolutePath("/destination"), completion: { result in
+          XCTAssertResultFailure(result, equals: FileSystemError.notDirectory)
+          expectation.fulfill()
+      })
+
+      wait(for: [expectation], timeout: 1.0)
+    }
+  }
+
+  func testTarArchiverDestinationIsFile() {
+      let tarTypes = TarArchiver().supportedExtensions
+      tarTypes.forEach { (supportedExtension) in
+      let expectation = XCTestExpectation(description: "failure")
+
+      let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.\(supportedExtension)", "/destination")
+      let archiver = TarArchiver(fileSystem: fileSystem)
+      archiver.extract(from: AbsolutePath("/archive.\(supportedExtension)"), to: AbsolutePath("/destination"), completion: { result in
+          XCTAssertResultFailure(result, equals: FileSystemError.notDirectory)
+          expectation.fulfill()
+      })
+
+      wait(for: [expectation], timeout: 1.0)
+    }
+  }
+
+  func testTarArchiverInvalidArchive() {
+      let tarTypes = TarArchiver().supportedExtensions
+      tarTypes.forEach { (supportedExtension) in
+      mktmpdir { tmpdir in
+          let expectation = XCTestExpectation(description: "failure")
+
+          let archiver = TarArchiver()
+          let inputArchivePath = AbsolutePath(#file).parentDirectory
+              .appending(components: "Inputs", "invalid_archive.\(supportedExtension)")
+          archiver.extract(from: inputArchivePath, to: tmpdir, completion: { result in
+              XCTAssertResultFailure(result) { error in
+                  guard let stringError = error as? StringError else {
+                      XCTFail("unexpected error: \(error)")
+                      return
+                  }
+                  XCTAssertMatch(stringError.description, .contains("Error reading"))
+              }
+              expectation.fulfill()
+          })
+
+          wait(for: [expectation], timeout: 1.0)
+      }
+  }
+  }
 }
 
 private struct DummyError: Error, Equatable {
