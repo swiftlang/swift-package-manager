@@ -77,7 +77,7 @@ public struct ZipArchiver: Archiver {
 
 /// An `Archiver` that handles TAR archives using the command-line `tar` tools.
 public struct TarArchiver: Archiver {
-    public var supportedExtensions: Set<String> { ["tar", "bz2", "tb2", "tbz", "tbz2", "tz2", "gz", "taz", "tgz", "tpz", "xz", "txz", "lzma", "tlz"] }
+  public var supportedExtensions: Set<String> { ["tar", "bz2", "tb2", "tbz", "tbz2", "tz2", "gz", "taz", "tgz", "tpz", "xz", "txz", "lzma", "tlz", "z", "taz", "tz"] }
 
     /// The file-system implementation used for various file-system operations and checks.
     private let fileSystem: FileSystem
@@ -116,6 +116,8 @@ public struct TarArchiver: Archiver {
               switch archivePath.extension {
               case "tar":
                 try untar("xf")
+              case "z", "taz", "tz":
+                try untar("xfZ")
               case "bz2", "tb2", "tbz", "tbz2", "tz2":
                 try untar("xjf")
               case "gz", "taz", "tgz", "tpz":

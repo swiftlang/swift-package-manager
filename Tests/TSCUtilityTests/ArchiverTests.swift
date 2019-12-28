@@ -99,7 +99,7 @@ class ArchiverTests: XCTestCase {
   // MARK: - TarArchiver Tests
   
   func testTarArchiverSuccess() {
-      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz"]
+      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz", "archive.tar.z"]
       archiveFileNames.forEach { (archiveFileName) in
       mktmpdir { tmpdir in
           let expectation = XCTestExpectation(description: "success")
@@ -121,7 +121,7 @@ class ArchiverTests: XCTestCase {
   }
 
   func testTarArchiverArchiveDoesntExist() {
-      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz"]
+      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz", "archive.tar.z"]
       archiveFileNames.forEach { (archiveFileName) in
       let expectation = XCTestExpectation(description: "failure")
 
@@ -137,7 +137,7 @@ class ArchiverTests: XCTestCase {
   }
 
   func testTarArchiverDestinationDoesntExist() {
-      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz"]
+      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz", "archive.tar.z"]
       archiveFileNames.forEach { (archiveFileName) in
       let expectation = XCTestExpectation(description: "failure")
 
@@ -153,7 +153,7 @@ class ArchiverTests: XCTestCase {
   }
 
   func testTarArchiverDestinationIsFile() {
-      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz"]
+      let archiveFileNames = ["archive.tar", "archive.tar.bz2", "archive.tar.gz", "archive.tar.lzma", "archive.tar.xz", "archive.tar.z"]
       archiveFileNames.forEach { (archiveFileName) in
       let expectation = XCTestExpectation(description: "failure")
 
@@ -169,7 +169,7 @@ class ArchiverTests: XCTestCase {
   }
 
   func testTarArchiverInvalidArchive() {
-      let archiveFileNames = ["invalid_archive.tar", "invalid_archive.tar.bz2", "invalid_archive.tar.gz", "invalid_archive.tar.lzma", "invalid_archive.tar.xz"]
+      let archiveFileNames = ["invalid_archive.tar", "invalid_archive.tar.bz2", "invalid_archive.tar.gz", "invalid_archive.tar.lzma", "invalid_archive.tar.xz", "invalid_archive.tar.z"]
       archiveFileNames.forEach { (archiveFileName) in
       mktmpdir { tmpdir in
           let expectation = XCTestExpectation(description: "failure")
