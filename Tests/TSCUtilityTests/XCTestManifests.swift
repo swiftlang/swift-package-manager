@@ -6,6 +6,11 @@ extension ArchiverTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__ArchiverTests = [
+        ("testTarArchiverArchiveDoesntExist", testTarArchiverArchiveDoesntExist),
+        ("testTarArchiverDestinationDoesntExist", testTarArchiverDestinationDoesntExist),
+        ("testTarArchiverDestinationIsFile", testTarArchiverDestinationIsFile),
+        ("testTarArchiverInvalidArchive", testTarArchiverInvalidArchive),
+        ("testTarArchiverSuccess", testTarArchiverSuccess),
         ("testZipArchiverArchiveDoesntExist", testZipArchiverArchiveDoesntExist),
         ("testZipArchiverDestinationDoesntExist", testZipArchiverDestinationDoesntExist),
         ("testZipArchiverDestinationIsFile", testZipArchiverDestinationIsFile),
