@@ -74,3 +74,71 @@ public struct ZipArchiver: Archiver {
         }
     }
 }
+
+/// An `Archiver` that handles TAR archives using the command-line `tar` tools.
+public struct TarArchiver: Archiver {
+    public var supportedExtensions: Set<String> { ["tar", "bz2", "gz", "xz"] }
+
+    /// The file-system implementation used for various file-system operations and checks.
+    private let fileSystem: FileSystem
+
+    /// Creates a `TarArchiver`.
+    ///
+    /// - Parameters:
+    ///   - fileSystem: The file-system to used by the `TarArchiver`.
+    public init(fileSystem: FileSystem = localFileSystem) {
+        self.fileSystem = fileSystem
+    }
+  
+    private func untar(
+        from archivePath: AbsolutePath,
+        to destinationPath: AbsolutePath,
+        completion: @escaping (Result<Void, Error>) -> Void,
+        decoder : String = ""
+    ) throws {
+        let result = try Process.popen(args: "tar", "-xfC\(decoder)", destinationPath.pathString, archivePath.pathString)
+        guard result.exitStatus == .terminated(code: 0) else { throw try StringError(result.utf8stderrOutput()) }
+        completion(.success(()))
+    }
+
+    public func extract(
+        from archivePath: AbsolutePath,
+        to destinationPath: AbsolutePath,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard fileSystem.exists(archivePath) else {
+            completion(.failure(FileSystemError.noEntry))
+            return
+        }
+
+        guard fileSystem.isDirectory(destinationPath) else {
+            completion(.failure(FileSystemError.notDirectory))
+            return
+        }
+
+        let untar = { (decoder : String) in
+                let result = try Process.popen(args: "tar", "-\(decoder)fC", destinationPath.pathString, archivePath.pathString)
+                guard result.exitStatus == .terminated(code: 0) else { throw try StringError(result.utf8stderrOutput()) }
+                completion(.success(()))
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+              switch archivePath.extension {
+              case "tar":
+                try untar("x")
+              case "bz2":
+                try untar("xj")
+              case "gz":
+                try untar("xz")
+              case "xz":
+                try untar("xJ")
+              default:
+                completion(.failure(FileSystemError.unsupported))
+              }
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+}
