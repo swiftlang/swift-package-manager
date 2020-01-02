@@ -224,7 +224,8 @@ public final class BuildOperation: PackageStructureDelegate {
         let buildSystem = BuildSystem(
             buildFile: buildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
-            delegate: buildDelegate
+            delegate: buildDelegate,
+            schedulerLanes: buildParameters.jobs
         )
         buildDelegate.onCommmandFailure = { buildSystem.cancel() }
 

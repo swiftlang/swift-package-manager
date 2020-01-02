@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import class Foundation.ProcessInfo
+
 import TSCBasic
 import TSCUtility
 
@@ -54,6 +56,9 @@ public struct BuildParameters: Encodable {
     /// The tools version to use.
     public var toolsVersion: ToolsVersion
 
+    /// How many jobs should llbuild and the Swift compiler spawn
+    public var jobs: UInt32
+
     /// If should link the Swift stdlib statically.
     public var shouldLinkStaticSwiftStdlib: Bool
 
@@ -88,6 +93,7 @@ public struct BuildParameters: Encodable {
         destinationTriple: Triple = Triple.hostTriple,
         flags: BuildFlags,
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
+        jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
@@ -103,6 +109,7 @@ public struct BuildParameters: Encodable {
         self.triple = destinationTriple
         self.flags = flags
         self.toolsVersion = toolsVersion
+        self.jobs = jobs
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         self.shouldEnableManifestCaching = shouldEnableManifestCaching
         self.sanitizers = sanitizers

@@ -477,7 +477,7 @@ public final class SwiftTargetBuildDescription {
         args += optimizationArguments
         args += testingArguments
         args += ["-g"]
-        args += ["-j\(ProcessInfo.processInfo.activeProcessorCount)"]
+        args += ["-j\(buildParameters.jobs)"]
         args += activeCompilationConditions
         args += additionalFlags
         args += moduleCacheArgs
@@ -553,7 +553,7 @@ public final class SwiftTargetBuildDescription {
         result += optimizationArguments
         result += testingArguments
         result += ["-g"]
-        result += ["-j\(ProcessInfo.processInfo.activeProcessorCount)"]
+        result += ["-j\(buildParameters.jobs)"]
         result += activeCompilationConditions
         result += additionalFlags
         result += moduleCacheArgs
@@ -601,7 +601,7 @@ public final class SwiftTargetBuildDescription {
         result += optimizationArguments
         result += testingArguments
         result += ["-g"]
-        result += ["-j\(ProcessInfo.processInfo.activeProcessorCount)"]
+        result += ["-j\(buildParameters.jobs)"]
         result += activeCompilationConditions
         result += additionalFlags
         result += moduleCacheArgs
