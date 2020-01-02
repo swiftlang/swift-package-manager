@@ -41,11 +41,6 @@ def main():
     parser_clean.set_defaults(func=clean)
     add_global_args(parser_clean)
 
-    # build-runtimes
-    parser_build_runtimes = subparsers.add_parser("build-runtimes", help="builds the runtime libraries")
-    parser_build_runtimes.set_defaults(func=build_runtimes)
-    add_build_args(parser_build_runtimes)
-
     # build
     parser_build = subparsers.add_parser("build", help="builds SwiftPM and runtime libraries")
     parser_build.set_defaults(func=build)
@@ -268,15 +263,6 @@ def clean(args):
     parse_global_args(args)
 
     call(["rm", "-rf", args.build_dir], verbose=args.verbose)
-
-def build_runtimes(args):
-    """Builds the PackageDescription runtime libraries."""
-    note("Building runtimes")
-    parse_build_args(args)
-
-    source_dir = os.path.join(args.project_root, "Utilities/BuildRuntimesOnly")
-    build_dir = os.path.join(args.target_dir, "runtimes_only")
-    build_with_cmake(args, [], source_dir, build_dir)
 
 def build(args):
     """Builds SwiftPM using a two-step process: first using CMake, then with itself."""
