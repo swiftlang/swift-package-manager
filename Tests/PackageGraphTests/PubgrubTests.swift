@@ -963,7 +963,7 @@ final class PubgrubTests: XCTestCase {
             "b": .version(v1),
         ])
 
-        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+        let result = resolver.solve(dependencies: dependencies, pinsMap: pinsStore.pinsMap)
 
         // Since a was pinned, we shouldn't have computed bounds for its incomaptibilities.
         let aIncompat = resolver.positiveIncompatibilities(for: builder.reference(for: "a"))![0]
@@ -997,7 +997,7 @@ final class PubgrubTests: XCTestCase {
             "b": .version(v1),
         ])
 
-        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+        let result = resolver.solve(dependencies: dependencies, pinsMap: pinsStore.pinsMap)
 
         AssertResult(result, [
             ("a", .version(v1)),
@@ -1023,7 +1023,7 @@ final class PubgrubTests: XCTestCase {
             "b": .branch("master", revision: "master-sha-2"),
         ])
 
-        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+        let result = resolver.solve(dependencies: dependencies, pinsMap: pinsStore.pinsMap)
 
         AssertResult(result, [
             ("a", .revision("develop")),
