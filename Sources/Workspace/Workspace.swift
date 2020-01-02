@@ -119,11 +119,11 @@ private enum PackageResolver {
     func resolve(
         dependencies: [PackageContainerConstraint],
         pins: [PackageContainerConstraint],
-        pinsStore: PinsStore?
+        pinsMap: PinsStore.PinsMap
     ) -> DependencyResolver.Result {
         switch self {
         case .pubgrub(let resolver):
-            return resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+            return resolver.solve(dependencies: dependencies, pinsMap: pinsMap)
         case .legacy(let resolver):
             return resolver.resolve(dependencies: dependencies, pins: pins)
         }
@@ -656,7 +656,12 @@ extension Workspace {
         let resolver = createResolver()
         activeResolver = resolver
 
-        let updateResults = resolveDependencies(resolver: resolver, dependencies: updateConstraints, pinsStore: nil, diagnostics: diagnostics)
+        let updateResults = resolveDependencies(
+            resolver: resolver,
+            dependencies: updateConstraints,
+            pinsMap: [:],
+            diagnostics: diagnostics
+        )
 
         // Reset the active resolver.
         activeResolver = nil
@@ -1353,7 +1358,7 @@ extension Workspace {
             resolver: resolver,
             dependencies: constraints,
             pins: validPins,
-            pinsStore: pinsStore,
+            pinsMap: pinsStore.pinsMap,
             diagnostics: resolverDiagnostics)
         activeResolver = nil
 
@@ -1370,7 +1375,7 @@ extension Workspace {
             }
 
             // Run using the same resolver so we don't re-add the containers, we already have.
-            result = resolveDependencies(resolver: resolver, dependencies: constraints, pinsStore: pinsStore, diagnostics: diagnostics)
+            result = resolveDependencies(resolver: resolver, dependencies: constraints, pinsMap: pinsStore.pinsMap, diagnostics: diagnostics)
             guard !diagnostics.hasErrors else {
                 return currentManifests
             }
@@ -1479,7 +1484,7 @@ extension Workspace {
         )
 
         let resolver = PubgrubDependencyResolver(precomputationProvider)
-        let result = resolver.solve(dependencies: constraints, pinsStore: pinsStore)
+        let result = resolver.solve(dependencies: constraints, pinsMap: pinsStore.pinsMap)
 
         switch result {
         case .success:
@@ -1729,7 +1734,7 @@ extension Workspace {
         resolver: PackageResolver,
         dependencies: [RepositoryPackageConstraint],
         pins: [RepositoryPackageConstraint] = [],
-        pinsStore: PinsStore?,
+        pinsMap: PinsStore.PinsMap,
         diagnostics: DiagnosticsEngine
     ) -> [(container: PackageReference, binding: BoundVersion)] {
 
@@ -1738,7 +1743,7 @@ extension Workspace {
         os_log(log: .swiftpm, "Starting resolution using %s resolver", self.enablePubgrubResolver ? "pubgrub" : "legacy")
       #endif
         os_signpost(.begin, log: .swiftpm, name: SignpostName.resolution)
-        let result = resolver.resolve(dependencies: dependencies, pins: pins, pinsStore: pinsStore)
+        let result = resolver.resolve(dependencies: dependencies, pins: pins, pinsMap: pinsMap)
         os_signpost(.end, log: .swiftpm, name: SignpostName.resolution)
 
         // Take an action based on the result.

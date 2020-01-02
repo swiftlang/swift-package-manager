@@ -116,6 +116,7 @@ extension Package: ObjectIdentifierProtocol {
 ///
 /// This represents a reference to a package containing its identity and location.
 public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConvertible, Equatable, Hashable {
+    public typealias PackageIdentity = String
 
     /// The kind of package reference.
     public enum Kind: String, Codable {
@@ -148,7 +149,7 @@ public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConv
     }
 
     /// The identity of the package.
-    public let identity: String
+    public let identity: PackageIdentity
 
     /// The name of the package, if available.
     public var name: String {

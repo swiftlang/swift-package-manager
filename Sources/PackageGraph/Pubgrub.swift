@@ -559,11 +559,11 @@ public final class PubgrubDependencyResolver {
     private(set) var root: PackageReference?
 
     /// Reference to the pins store, if provided.
-    private var pinsStore: PinsStore?
+    private var pinsMap: PinsStore.PinsMap = [:]
 
     /// The container provider used to load package containers.
     private lazy var provider: ContainerProvider = {
-        ContainerProvider(self.packageContainerProvider, skipUpdate: self.skipUpdate, pinsStore: self.pinsStore)
+        ContainerProvider(self.packageContainerProvider, skipUpdate: self.skipUpdate, pinsMap: self.pinsMap)
     }()
 
     /// The resolver's delegate.
@@ -694,9 +694,9 @@ public final class PubgrubDependencyResolver {
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(dependencies: [Constraint], pinsStore: PinsStore? = nil) -> Result {
+    public func solve(dependencies: [Constraint], pinsMap: PinsStore.PinsMap = [:]) -> Result {
         do {
-            return try .success(solve(constraints: dependencies, pinsStore: pinsStore))
+            return try .success(solve(constraints: dependencies, pinsMap: pinsMap))
         } catch {
             var error = error
 
@@ -827,7 +827,7 @@ public final class PubgrubDependencyResolver {
             // latest commit on that branch. Note that if this revision-based dependency is
             // already a commit, then its pin entry doesn't matter in practice.
             let revisionForDependencies: String
-            if let pin = pinsStore?.pinsMap[package.identity], pin.state.branch == revision {
+            if let pin = pinsMap[package.identity], pin.state.branch == revision {
                 revisionForDependencies = pin.state.revision.identifier
             } else {
                 revisionForDependencies = revision
@@ -892,7 +892,7 @@ public final class PubgrubDependencyResolver {
     ///            before this is called.
     private func solve(
         constraints: [Constraint],
-        pinsStore: PinsStore?
+        pinsMap: PinsStore.PinsMap = [:]
     ) throws -> [(container: PackageReference, binding: BoundVersion)] {
         let root = PackageReference(
             identity: "<synthesized-root>",
@@ -902,11 +902,11 @@ public final class PubgrubDependencyResolver {
         )
 
         self.root = root
-        self.pinsStore = pinsStore
+        self.pinsMap = pinsMap
 
         // Prefetch the containers if prefetching is enabled.
         if isPrefetchingEnabled {
-            let pins = pinsStore?.pins.map{ $0.packageRef } ?? []
+            let pins = pinsMap.values.map{ $0.packageRef }
             self.provider.prefetch(containers: pins)
         }
 
@@ -1523,21 +1523,21 @@ private final class PubGrubPackageContainer {
     /// The underlying package container.
     let packageContainer: PackageContainer
 
-    /// Reference to the pins store.
-    let pinsStore: PinsStore?
+    /// Reference to the pins map.
+    let pinsMap: PinsStore.PinsMap
 
     var package: PackageReference {
         packageContainer.identifier
     }
 
-    init(_ container: PackageContainer, pinsStore: PinsStore?) {
+    init(_ container: PackageContainer, pinsMap: PinsStore.PinsMap) {
         self.packageContainer = container
-        self.pinsStore = pinsStore
+        self.pinsMap = pinsMap
     }
 
     /// Returns the pinned version for this package, if any.
     var pinnedVersion: Version? {
-        return pinsStore?.pinsMap[packageContainer.identifier.identity]?.state.version
+        return pinsMap[packageContainer.identifier.identity]?.state.version
     }
 
     /// Returns the numbers of versions that are satisfied by the given version requirement.
@@ -1787,12 +1787,12 @@ private final class ContainerProvider {
     let skipUpdate: Bool
 
     /// Reference to the pins store.
-    let pinsStore: PinsStore?
+    let pinsMap: PinsStore.PinsMap
 
-    init(_ provider: PackageContainerProvider, skipUpdate: Bool, pinsStore: PinsStore?) {
+    init(_ provider: PackageContainerProvider, skipUpdate: Bool, pinsMap: PinsStore.PinsMap) {
         self.provider = provider
         self.skipUpdate = skipUpdate
-        self.pinsStore = pinsStore
+        self.pinsMap = pinsMap
     }
 
     /// Condition for container management structures.
@@ -1824,7 +1824,7 @@ private final class ContainerProvider {
 
             // Otherwise, fetch the container synchronously.
             let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
-            let pubGrubContainer = PubGrubPackageContainer(container, pinsStore: pinsStore)
+            let pubGrubContainer = PubGrubPackageContainer(container, pinsMap: pinsMap)
             self._fetchedContainers[identifier] = .success(pubGrubContainer)
             return pubGrubContainer
         }
@@ -1849,7 +1849,7 @@ private final class ContainerProvider {
                         // Update the structures and signal any thread waiting
                         // on prefetching to finish.
                         let pubGrubContainer = container.map {
-                            PubGrubPackageContainer($0, pinsStore: self.pinsStore)
+                            PubGrubPackageContainer($0, pinsMap: self.pinsMap)
                         }
                         self._fetchedContainers[identifier] = pubGrubContainer
                         self._prefetchingContainers.remove(identifier)

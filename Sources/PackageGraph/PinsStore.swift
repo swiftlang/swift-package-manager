@@ -14,6 +14,8 @@ import SourceControl
 import PackageModel
 
 public final class PinsStore {
+    public typealias PinsMap = [PackageReference.PackageIdentity: PinsStore.Pin]
+
     public struct Pin {
         /// The package reference of the pinned dependency.
         public let packageRef: PackageReference
@@ -42,9 +44,7 @@ public final class PinsStore {
     fileprivate var fileSystem: FileSystem
 
     /// The pins map.
-    ///
-    /// Key -> Package Identity.
-    public fileprivate(set) var pinsMap: [String: Pin]
+    public fileprivate(set) var pinsMap: PinsMap
 
     /// The current pins.
     public var pins: AnySequence<Pin> {
