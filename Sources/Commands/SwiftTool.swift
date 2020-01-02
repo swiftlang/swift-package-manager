@@ -9,6 +9,7 @@
  */
 
 import func Foundation.NSUserName
+import class Foundation.ProcessInfo
 
 import TSCLibc
 import TSCBasic
@@ -686,6 +687,7 @@ public class SwiftTool<Options: ToolOptions> {
                 toolchain: toolchain,
                 destinationTriple: triple,
                 flags: options.buildFlags,
+                jobs: options.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
                 sanitizers: options.sanitizers,
                 enableCodeCoverage: options.shouldEnableCodeCoverage,

@@ -50,7 +50,7 @@ final class BuildPlanTests: XCTestCase {
 
     /// The j argument.
     private var j: String {
-        return "-j\(ProcessInfo.processInfo.activeProcessorCount)"
+        return "-j3"
     }
 
     func mockBuildParameters(
@@ -67,6 +67,7 @@ final class BuildPlanTests: XCTestCase {
             toolchain: MockToolchain(),
             destinationTriple: destinationTriple,
             flags: flags,
+            jobs: 3,
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
             indexStoreMode: indexStoreMode
         )
