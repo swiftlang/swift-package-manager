@@ -624,6 +624,7 @@ extension Workspace {
     ///       and notes.
     @discardableResult public func updateDependencies(
         root: PackageGraphRootInput,
+        packages: [String] = [],
         diagnostics: DiagnosticsEngine,
         dryRun: Bool = false
     ) -> [(PackageReference, Workspace.PackageStateChange)]? {
@@ -656,10 +657,20 @@ extension Workspace {
         let resolver = createResolver()
         activeResolver = resolver
 
+        let pinsMap: PinsStore.PinsMap
+        if packages.isEmpty {
+            // No input packages so we have to do a full update. Set pins map to empty.
+            pinsMap = [:]
+        } else {
+            // We have input packages so we have to partially update the package graph. Remove
+            // the pins for the input packages so only those packages are updated.
+            pinsMap = pinsStore.pinsMap.filter{ !packages.contains($0.value.packageRef.name) }
+        }
+
         let updateResults = resolveDependencies(
             resolver: resolver,
             dependencies: updateConstraints,
-            pinsMap: [:],
+            pinsMap: pinsMap,
             diagnostics: diagnostics
         )
 

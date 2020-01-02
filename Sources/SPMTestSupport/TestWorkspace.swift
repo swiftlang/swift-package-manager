@@ -248,6 +248,7 @@ public final class TestWorkspace {
     public func checkUpdate(
         roots: [String] = [],
         deps: [TestWorkspace.PackageDependency] = [],
+        packages: [String] = [],
         _ result: (DiagnosticsEngine) -> ()
     ) {
         let dependencies = deps.map({ $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) })
@@ -255,7 +256,7 @@ public final class TestWorkspace {
         let workspace = createWorkspace()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies)
-        workspace.updateDependencies(root: rootInput, diagnostics: diagnostics)
+        workspace.updateDependencies(root: rootInput, packages: packages, diagnostics: diagnostics)
         result(diagnostics)
     }
     

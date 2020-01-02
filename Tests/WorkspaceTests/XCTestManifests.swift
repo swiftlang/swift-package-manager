@@ -71,6 +71,7 @@ extension WorkspaceTests {
         ("testMissingEditCanRestoreOriginalCheckout", testMissingEditCanRestoreOriginalCheckout),
         ("testMultipleRootPackages", testMultipleRootPackages),
         ("testPackageMirror", testPackageMirror),
+        ("testPartialUpdate", testPartialUpdate),
         ("testPrecomputeResolution_empty", testPrecomputeResolution_empty),
         ("testPrecomputeResolution_newPackages", testPrecomputeResolution_newPackages),
         ("testPrecomputeResolution_notRequired", testPrecomputeResolution_notRequired),

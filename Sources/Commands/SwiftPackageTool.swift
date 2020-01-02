@@ -196,13 +196,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             
             let changes = try workspace.updateDependencies(
                 root: getWorkspaceRoot(),
+                packages: options.updateOptions.packages,
                 diagnostics: diagnostics,
-                dryRun: options.updateDryRun
+                dryRun: options.updateOptions.dryRun
             )
             
             if let pinsStore = diagnostics.wrap({ try workspace.pinsStore.load() }),
                 let changes = changes,
-                options.updateDryRun {
+                options.updateOptions.dryRun {
                 logPackageChanges(changes: changes, pins: pinsStore)
             }
 
@@ -423,10 +424,16 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         
         let updateParser = parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
         binder.bind(
+            positional: updateParser.add(
+                positional: "packages", kind: [String].self, optional: true, strategy: .upToNextOption,
+                usage: "The packages to update (optional)"),
+            to: { $0.updateOptions.packages = $1 })
+
+        binder.bind(
         option: updateParser.add(
             option: "--dry-run", shortName: "-n", kind: Bool.self,
             usage: "Display the list of dependencies that can be updated"),
-            to: { $0.updateDryRun = $1 })
+            to: { $0.updateOptions.dryRun = $1 })
 
         let formatParser = parser.add(subparser: PackageMode.format.rawValue, overview: "")
         binder.bindArray(
@@ -699,8 +706,12 @@ public class PackageToolOptions: ToolOptions {
         case setCurrent
     }
     var toolsVersionMode: ToolsVersionMode = .display
-    
-    var updateDryRun = false
+
+    struct UpdateOptions {
+        var packages: [String] = []
+        var dryRun: Bool = false
+    }
+    var updateOptions = UpdateOptions()
 
     enum ConfigMode: String {
         case setMirror = "set-mirror"
