@@ -523,10 +523,8 @@ def get_swiftpm_env_cmd(args):
         env_cmd.append("SDKROOT=%s" % args.sysroot)
 
     if args.llbuild_link_framework:
-        # FIXME: We always need to pass this.
-        env_cmd.append("SWIFTPM_BOOTSTRAP=1")
-    else:
-        env_cmd.append("SWIFTCI_USE_LOCAL_DEPS=1")
+        env_cmd.append("SWIFTPM_LLBUILD_FWK=1")
+    env_cmd.append("SWIFTCI_USE_LOCAL_DEPS=1")
 
     libs_joined = ":".join([
         os.path.join(args.bootstrap_dir, "lib"),
