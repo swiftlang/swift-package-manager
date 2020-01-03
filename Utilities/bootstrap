@@ -329,7 +329,7 @@ def install(args):
             install_binary(args, module + ".swiftdoc", dest)
 
         # Install the C headers.
-        tscclibc_include_dir = os.path.join(args.source_root, "TSCclibc/include")
+        tscclibc_include_dir = os.path.join(args.tsc_source_dir, "Sources/TSCclibc/include")
         tscclibc_include_dir_dest = os.path.join(dest, "TSCclibc")
         dir_util.copy_tree(tscclibc_include_dir, tscclibc_include_dir_dest)
 
