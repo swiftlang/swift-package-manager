@@ -233,13 +233,14 @@ def get_build_target(args):
     """Returns the target-triple of the current machine."""
     try:
         target_info_json = subprocess.check_output([args.swiftc_path, '-print-target-info'], universal_newlines=True).strip()
+        args.target_info = json.loads(target_info_json)
+        return args.target_info["target"]["unversionedTriple"]
     except Exception as e:
+        # Temporary fallback for Darwin.
         if platform.system() == 'Darwin':
             return 'x86_64-apple-macosx'
         else:
             error(str(e))
-    args.target_info = json.loads(target_info_json)
-    return args.target_info["target"]["unversionedTriple"]
 
 # -----------------------------------------------------------
 # Actions
