@@ -413,7 +413,7 @@ public final class Target {
     ///   - path: The custom path for the target. By default, a targets sources are expected to be located in the predefined search paths,
     ///       such as `[PackageRoot]/Sources/[TargetName]`.
     ///       Do not escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
-     ///  - pkgConfig: The name of the `pkg-config` file for this system library.
+    ///   - pkgConfig: The name of the `pkg-config` file for this system library.
     ///   - providers: The providers for this system library.
     public static func systemLibrary(
         name: String,
