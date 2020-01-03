@@ -908,6 +908,55 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
+    func testPrecomputeResolution_requirementChange_versionToRevision() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let cPath = RelativePath("C")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+
+        let testWorkspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "C", requirement: .revision("hello")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
+
+        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+
+        try testWorkspace.checkPrecomputeResolution(
+            pins: [cRef: v1_5],
+            managedDependencies: [
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+            ],
+            { result in
+                XCTAssertEqual(result.diagnostics.hasErrors, false)
+                XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                    package: cRef,
+                    state: .checkout(v1_5),
+                    requirement: .revision("hello")
+                )))
+            }
+        )
+    }
+
+
     func testPrecomputeResolution_requirementChange_localToBranch() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
