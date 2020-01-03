@@ -75,6 +75,10 @@ def add_global_args(parser):
         "-v", "--verbose",
         action="store_true",
         help="whether to print verbose output")
+    parser.add_argument(
+        "--reconfigure",
+        action="store_true",
+        help="whether to always reconfigure cmake")
 
 def add_build_args(parser):
     """Configures the parser with the arguments necessary for build-related actions."""
@@ -377,7 +381,7 @@ def install_binary(args, binary, dest_dir):
 def build_with_cmake(args, cmake_args, source_path, build_dir):
     """Runs CMake if needed, then builds with Ninja."""
     cache_path = os.path.join(build_dir, "CMakeCache.txt")
-    if not os.path.isfile(cache_path):
+    if not os.path.isfile(cache_path) or args.reconfigure:
         swift_flags = ""
         if args.sysroot:
             swift_flags = "-sdk %s" % args.sysroot
