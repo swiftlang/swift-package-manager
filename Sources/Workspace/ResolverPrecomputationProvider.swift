@@ -142,16 +142,18 @@ private struct LocalPackageContainer: PackageContainer {
     }
 
     func getDependencies(at revision: String) throws -> [PackageContainerConstraint] {
-        // Throw an error when the dependency is not at the correct revision to fail resolution.
-        guard dependency?.checkoutState?.revision.identifier == revision else {
-            throw ResolverPrecomputationError.differentRequirement(
-                package: package,
-                state: dependency?.state,
-                requirement: .revision(revision)
-            )
+        // Return the dependencies if the checkout state matches the revision.
+        if let checkoutState = dependency?.checkoutState,
+            checkoutState.version == nil,
+            checkoutState.revision.identifier == revision {
+            return manifest.dependencyConstraints(config: config)
         }
 
-        return manifest.dependencyConstraints(config: config)
+        throw ResolverPrecomputationError.differentRequirement(
+            package: self.package,
+            state: self.dependency?.state,
+            requirement: .revision(revision)
+        )
     }
 
     func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
