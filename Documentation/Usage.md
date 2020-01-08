@@ -132,13 +132,13 @@ builds an executable:
 Edit the `Sources/main.swift` so it consists of this code:
 
 ```swift
-import Clibgit
+import Clibgit2
 
 let options = git_repository_init_options()
 print(options)
 ```
 
-To `import Clibgit`, the package manager requires that the libgit2 library has
+To `import Clibgit2`, the package manager requires that the libgit2 library has
 been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.). The
 following files from the libgit2 system-package are of interest:
 
@@ -151,13 +151,13 @@ differently from regular Swift packages.
 Note that the system library may be located elsewhere on your system, such as
 `/usr/` rather than `/usr/local/`.
 
-Create a directory called `Clibgit` next to the `example` directory and
+Create a directory called `Clibgit2` next to the `example` directory and
 initialize it as a package that builds a system module:
 
     example$ cd ..
-    $ mkdir Clibgit
-    $ cd Clibgit
-    Clibgit$ swift package init --type system-module
+    $ mkdir Clibgit2
+    $ cd Clibgit2
+    Clibgit2$ swift package init --type system-module
 
 This creates `Package.swift` and `module.modulemap` files in the directory.
 Edit `Package.swift` and add `pkgConfig` parameter:
@@ -166,7 +166,7 @@ Edit `Package.swift` and add `pkgConfig` parameter:
 import PackageDescription
 
 let package = Package(
-    name: "Clibgit",
+    name: "Clibgit2",
     pkgConfig: "libgit2"
 )
 ```
@@ -180,7 +180,7 @@ parameter you can pass the path of a directory containing the library using the
 
 Edit `module.modulemap` so it consists of the following:
 
-    module Clibgit [system] {
+    module Clibgit2 [system] {
       header "/usr/local/include/git2.h"
       link "git2"
       export *
@@ -196,12 +196,12 @@ Packages are Git repositories, tagged with semantic versions, containing a
 `Package.swift` file, but to make it a usable package we need to initialize a
 Git repository with at least one version tag:
 
-    Clibgit$ git init
-    Clibgit$ git add .
-    Clibgit$ git commit -m "Initial Commit"
-    Clibgit$ git tag 1.0.0
+    Clibgit2$ git init
+    Clibgit2$ git add .
+    Clibgit2$ git commit -m "Initial Commit"
+    Clibgit2$ git tag 1.0.0
 
-Now to use the Clibgit package we must declare our dependency in our example
+Now to use the Clibgit2 package we must declare our dependency in our example
 app’s `Package.swift`:
 
 ```swift
@@ -210,7 +210,7 @@ import PackageDescription
 let package = Package(
     name: "example",
     dependencies: [
-        .package(url: "../Clibgit", from: "1.0.0")
+        .package(url: "../Clibgit2", from: "1.0.0")
     ]
 )
 ```
