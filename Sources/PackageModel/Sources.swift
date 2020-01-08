@@ -39,6 +39,16 @@ public struct Sources {
             return SupportedLanguageExtension.cppExtensions.contains(ext)
         })
     }
+
+    /// Returns true if the sources contain C++ files.
+    public var containsObjcFiles: Bool {
+        return paths.contains(where: {
+            guard let ext = $0.extension else {
+                return false
+            }
+            return ext == SupportedLanguageExtension.m.rawValue
+        })
+    }
 }
 
 /// An enum representing supported source file extensions.

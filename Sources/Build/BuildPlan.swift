@@ -154,9 +154,15 @@ public final class ClangTargetBuildDescription {
     public private(set) var moduleMap: AbsolutePath?
 
     /// Path to the temporary directory for this target.
-    var tempsPath: AbsolutePath {
-        return buildParameters.buildPath.appending(component: target.c99name + ".build")
-    }
+    var tempsPath: AbsolutePath
+
+    /// The directory containing derived sources of this target.
+    ///
+    /// These are the source files generated during the build.
+    private var derivedSources: Sources
+
+    /// Path to the resource accessor header file, if generated.
+    public private(set) var resourceAccessorHeaderFile: AbsolutePath?
 
     /// The objects in this target.
     public var objects: [AbsolutePath] {
@@ -180,23 +186,34 @@ public final class ClangTargetBuildDescription {
         self.fileSystem = fileSystem
         self.target = target
         self.buildParameters = buildParameters
+        self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
+        self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
 
         // Try computing modulemap path for a C library.
         if target.type == .library {
             self.moduleMap = try computeModulemapPath()
         }
+
+        try self.generateResourceAccessor()
     }
 
     /// An array of tuple containing filename, source, object and dependency path for each of the source in this target.
     public func compilePaths()
         -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)]
     {
-        return target.sources.relativePaths.map({ source in
-            let path = target.sources.root.appending(source)
-            let object = tempsPath.appending(RelativePath("\(source.pathString).o"))
-            let deps = tempsPath.appending(RelativePath("\(source.pathString).d"))
-            return (source, path, object, deps)
-        })
+        let sources = [
+            target.sources.root: target.sources.relativePaths,
+            derivedSources.root: derivedSources.relativePaths,
+        ]
+
+        return sources.flatMap { (root, relativePaths) in
+            relativePaths.map { source in
+                let path = root.appending(source)
+                let object = tempsPath.appending(RelativePath("\(source.pathString).o"))
+                let deps = tempsPath.appending(RelativePath("\(source.pathString).d"))
+                return (source, path, object, deps)
+            }
+        }
     }
 
     /// Builds up basic compilation arguments for this target.
@@ -239,6 +256,10 @@ public final class ClangTargetBuildDescription {
 
         // Add agruments from declared build settings.
         args += self.buildSettingsFlags()
+
+        if let resourceAccessorHeaderFile = self.resourceAccessorHeaderFile {
+            args += ["-include", resourceAccessorHeaderFile.pathString]
+        }
 
         // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
         args += buildParameters.flags.cCompilerFlags
@@ -323,6 +344,53 @@ public final class ClangTargetBuildDescription {
     /// Module cache arguments.
     private var moduleCacheArgs: [String] {
         return ["-fmodules-cache-path=\(buildParameters.moduleCache.pathString)"]
+    }
+
+    /// Generate the resource bundle accessor, if appropriate.
+    private func generateResourceAccessor() throws {
+        // Only generate access when we have a bundle and ObjC files.
+        guard let bundlePath = self.bundlePath, clangTarget.sources.containsObjcFiles else { return }
+
+        // Compute the basename of the bundle.
+        let bundleBasename = bundlePath.basename
+
+        let implFileStream = BufferedOutputByteStream()
+        implFileStream <<< """
+        #import <Foundation/Foundation.h>
+
+        NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE() {
+            NSURL *bundleURL = [[[NSBundle mainBundle] bundleURL] URLByAppendingPathComponent:@"\(bundleBasename)"];
+            return [NSBundle bundleWithURL:bundleURL];
+        }
+        """
+
+        let implFileSubpath = RelativePath("resource_bundle_accessor.m")
+
+        // Add the file to the dervied sources.
+        derivedSources.relativePaths.append(implFileSubpath)
+
+        // Write this file out.
+        // FIXME: We should generate this file during the actual build.
+        try fileSystem.writeIfChanged(
+            path: derivedSources.root.appending(implFileSubpath),
+            bytes: implFileStream.bytes
+        )
+
+        let headerFileStream = BufferedOutputByteStream()
+        headerFileStream <<< """
+        #import <Foundation/Foundation.h>
+
+        NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE(void);
+
+        #define SWIFTPM_MODULE_BUNDLE \(target.c99name)_SWIFTPM_MODULE_BUNDLE()
+        """
+        let headerFile = derivedSources.root.appending(component: "resource_bundle_accessor.h")
+        self.resourceAccessorHeaderFile = headerFile
+
+        try fileSystem.writeIfChanged(
+            path: headerFile,
+            bytes: headerFileStream.bytes
+        )
     }
 }
 
@@ -446,14 +514,7 @@ public final class SwiftTargetBuildDescription {
         // Write this file out.
         // FIXME: We should generate this file during the actual build.
         let path = derivedSources.root.appending(subpath)
-        try fs.createDirectory(path.parentDirectory, recursive: true)
-
-        // Return early if the contents are identical.
-        if fs.isFile(path), try fs.readFileContents(path) == stream.bytes {
-            return
-        }
-
-        try fs.writeFileContents(path, bytes: stream.bytes)
+        try fs.writeIfChanged(path: path, bytes: stream.bytes)
     }
 
     /// The arguments needed to compile this target.
@@ -1564,5 +1625,19 @@ extension BuildParameters {
         target.underlyingTarget.bundleName
         .map{ $0 + triple.nsbundleExtension }
         .map(buildPath.appending(component:))
+    }
+}
+
+extension FileSystem {
+    /// Write bytes to the path if the given contents are different.
+    func writeIfChanged(path: AbsolutePath, bytes: ByteString) throws {
+        try createDirectory(path.parentDirectory, recursive: true)
+
+        // Return if the contents are same.
+        if isFile(path), try readFileContents(path) == bytes {
+            return
+        }
+
+        try writeFileContents(path, bytes: bytes)
     }
 }
