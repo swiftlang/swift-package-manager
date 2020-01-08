@@ -2,8 +2,7 @@
 
 int main(int argc, const char * argv[]) {
     @autoreleasepool {
-        NSString *bundlePath = [NSString stringWithFormat:@"%@/Resources_SeaResource.bundle", NSBundle.mainBundle.bundlePath];
-        NSBundle *bundle = [NSBundle bundleWithPath:bundlePath];
+        NSBundle *bundle = SWIFTPM_MODULE_BUNDLE;
         NSString *foo = [bundle pathForResource:@"foo" ofType:@"txt"];
         NSData *data = [NSFileManager.defaultManager contentsAtPath:foo];
         NSString *contents = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
