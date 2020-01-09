@@ -20,7 +20,9 @@ extension ByteStringTests {
         ("testByteStreamable", testByteStreamable),
         ("testDescription", testDescription),
         ("testHashable", testHashable),
+        ("testHexadecimalRepresentation", testHexadecimalRepresentation),
         ("testInitializers", testInitializers),
+        ("testWithData", testWithData),
     ]
 }
 
