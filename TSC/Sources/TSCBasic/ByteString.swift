@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Foundation
+
 /// A `ByteString` represents a sequence of bytes.
 ///
 /// This struct provides useful operations for working with buffers of
@@ -72,6 +74,33 @@ public struct ByteString: ExpressibleByArrayLiteral, Hashable {
     @inlinable
     public var count: Int {
         return _bytes.count
+    }
+
+    /// Gives a non-escaping closure temporary access to an immutable `Data` instance wrapping the `ByteString` without
+    /// copying any memory around.
+    ///
+    /// - Parameters:
+    ///   - closure: The closure that will have access to a `Data` instance for the duration of its lifetime.
+    @inlinable
+    public func withData<T>(_ closure: (Data) throws -> T) rethrows -> T {
+        return try _bytes.withUnsafeBytes { pointer -> T in
+            let mutatingPointer = UnsafeMutableRawPointer(mutating: pointer.baseAddress!)
+            let data = Data(bytesNoCopy: mutatingPointer, count: pointer.count, deallocator: .none)
+            return try closure(data)
+        }
+    }
+
+    /// Returns a `String` lowercase hexadecimal representation of the contents of the `ByteString`.
+    @inlinable
+    public var hexadecimalRepresentation: String {
+        _bytes.reduce("") {
+            var str = String($1, radix: 16)
+            // The above method does not do zero padding.
+            if str.count == 1 {
+                str = "0" + str
+            }
+            return $0 + str
+        }
     }
 }
 

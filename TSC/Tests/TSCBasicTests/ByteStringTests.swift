@@ -67,4 +67,20 @@ class ByteStringTests: XCTestCase {
         s <<< ByteString([1, 2, 3])
         XCTAssertEqual(s.bytes, [1, 2, 3])
     }
+
+    func testWithData() {
+        let byteString = ByteString([0xde, 0xad, 0xbe, 0xef])
+        byteString.withData { data in
+            XCTAssertEqual(data.count, 4)
+            XCTAssertEqual(data[0], 0xde)
+            XCTAssertEqual(data[1], 0xad)
+            XCTAssertEqual(data[2], 0xbe)
+            XCTAssertEqual(data[3], 0xef)
+        }
+    }
+
+    func testHexadecimalRepresentation() {
+        let byteString = ByteString([0xde, 0xad, 0xbe, 0xef])
+        XCTAssertEqual(byteString.hexadecimalRepresentation, "deadbeef")
+    }
 }
