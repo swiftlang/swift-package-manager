@@ -15,6 +15,7 @@ import TSCBasic
 class SHA256Tests: XCTestCase {
 
     func testBasics() throws {
+        let sha256 = SHA256()
         let knownHashes = [
             "": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "The quick brown fox jumps over the lazy dog": "d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592",
@@ -25,7 +26,7 @@ class SHA256Tests: XCTestCase {
 
         // Test known hashes.
         for (input, hash) in knownHashes {
-            XCTAssertEqual(SHA256(input).digestString(), hash, "Incorrect value for \(input)")
+            XCTAssertEqual(sha256.hash(ByteString(input)).hexadecimalRepresentation, hash, "Incorrect value for \(input)")
         }
 
         // Test a big input.
@@ -34,12 +35,12 @@ class SHA256Tests: XCTestCase {
         for _ in 0..<20000 {
             stream <<< byte
         }
-        XCTAssertEqual(SHA256(stream.bytes).digestString(), "23d00697ba26b4140869bab958431251e7e41982794d41b605b6a1d5dee56abf")
+        XCTAssertEqual(sha256.hash(stream.bytes).hexadecimalRepresentation, "23d00697ba26b4140869bab958431251e7e41982794d41b605b6a1d5dee56abf")
     }
 
     func testLargeData() {
         let data: [UInt8] = (0..<1788).map { _ in 0x03 }
-        let digest = SHA256(data).digestString()
+        let digest = SHA256().hash(ByteString(data)).hexadecimalRepresentation
         XCTAssertEqual(digest, "907422e2f24d749d0add2b504ccae8ad1aa392477591905880fb2dc494e33d63")
     }
 }

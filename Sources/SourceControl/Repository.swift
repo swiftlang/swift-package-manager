@@ -26,7 +26,7 @@ public struct RepositorySpecifier: Hashable {
     /// unique for each repository.
     public var fileSystemIdentifier: String {
         // Use first 8 chars of a stable hash.
-        let hash = SHA256(url).digestString()
+        let hash = SHA256().hash(url).hexadecimalRepresentation
         let suffix = hash.dropLast(hash.count - 8)
 
         return basename + "-" + suffix

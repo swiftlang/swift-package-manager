@@ -9,12 +9,12 @@
 add_library(TSCBasic
   Await.swift
   ByteString.swift
+  CStringArray.swift
   CacheableSequence.swift
   CodableResult.swift
   CollectionAlgorithms.swift
   CollectionExtensions.swift
   Condition.swift
-  CStringArray.swift
   DeltaAlgorithm.swift
   DiagnosticsEngine.swift
   DictionaryExtensions.swift
@@ -23,12 +23,12 @@ add_library(TSCBasic
   FileInfo.swift
   FileSystem.swift
   GraphAlgorithms.swift
+  HashAlgorithms.swift
   JSON.swift
   JSONMapper.swift
   KeyedPair.swift
   LazyCache.swift
   Lock.swift
-  misc.swift
   OSLog.swift
   ObjectIdentifierProtocol.swift
   OrderedDictionary.swift
@@ -41,14 +41,14 @@ add_library(TSCBasic
   ProcessSet.swift
   RegEx.swift
   Result.swift
-  SHA256.swift
   SortedArray.swift
   StringConversions.swift
   SynchronizedQueue.swift
   TemporaryFile.swift
   TerminalController.swift
   Thread.swift
-  Tuple.swift)
+  Tuple.swift
+  misc.swift)
 target_link_libraries(TSCBasic PUBLIC
   TSCLibc)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)

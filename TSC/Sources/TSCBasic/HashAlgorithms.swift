@@ -8,15 +8,31 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+public protocol HashAlgorithm {
+
+    /// Hashes the input bytes, returning the digest.
+    ///
+    /// - Parameters:
+    ///   - bytes: The input bytes.
+    /// - Returns: The output digest.
+    func hash(_ bytes: ByteString) -> ByteString
+}
+
+extension HashAlgorithm {
+    public func hash(_ string: String) -> ByteString {
+        hash(ByteString([UInt8](string.utf8)))
+    }
+}
+
 /// SHA-256 implementation from Secure Hash Algorithm 2 (SHA-2) set of
 /// cryptographic hash functions (FIPS PUB 180-2).
-public final class SHA256 {
+public struct SHA256: HashAlgorithm {
 
     /// The length of the output digest (in bits).
-    let digestLength = 256
+    private static let digestLength = 256
 
     /// The size of each blocks (in bits).
-    let blockBitSize = 512
+    private static let blockBitSize = 512
 
     /// The initial hash value.
     private static let initalHashValue: [UInt32] = [
@@ -35,60 +51,28 @@ public final class SHA256 {
         0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
     ]
 
-    /// The hash that is being computed.
-    private var hash = SHA256.initalHashValue
-
-    /// The input that was provided. It will be padded when computing the digest.
-    private var input: [UInt8]
-
-    /// The result, once computed.
-    private var result: [UInt8]?
-
-    public init(_ input: [UInt8]) {
-        self.input = input
+    public init() {
     }
 
-    public init(_ bytes: ByteString) {
-        self.input = bytes.contents
-    }
-
-    public init(_ string: String) {
-        self.input = [UInt8](string.utf8)
-    }
-
-    /// Returns the digest as hexadecimal string.
-    public func digestString() -> String {
-        return digest().reduce("") {
-            var str = String($1, radix: 16)
-            // The above method does not do zero padding.
-            if str.count == 1 {
-                str = "0" + str
-            }
-            return $0 + str
-        }
-    }
-
-    /// Returns the digest.
-    public func digest() -> [UInt8] {
-
-        // If we already have the result, we're done.
-        if let result = self.result {
-            return result
-        }
+    public func hash(_ bytes: ByteString) -> ByteString {
+        var input = bytes.contents
 
         // Pad the input.
         pad(&input)
 
         // Break the input into N 512-bit blocks.
-        let messageBlocks = input.blocks(size: blockBitSize / 8)
+        let messageBlocks = input.blocks(size: SHA256.blockBitSize / 8)
+
+        /// The hash that is being computed.
+        var hash = SHA256.initalHashValue
 
         // Process each block.
         for block in messageBlocks {
-            process(block)
+            process(block, hash: &hash)
         }
 
         // Finally, compute the result.
-        var result = [UInt8](repeating: 0, count: digestLength / 8)
+        var result = [UInt8](repeating: 0, count: SHA256.digestLength / 8)
         for (idx, element) in hash.enumerated() {
             let pos = idx * 4
             result[pos + 0] = UInt8((element >> 24) & 0xff)
@@ -97,12 +81,11 @@ public final class SHA256 {
             result[pos + 3] = UInt8(element & 0xff)
         }
 
-        self.result = result
-        return result
+        return ByteString(result)
     }
 
     /// Process and compute hash from a block.
-    private func process(_ block: ArraySlice<UInt8>) {
+    private func process(_ block: ArraySlice<UInt8>, hash: inout [UInt32]) {
 
         // Compute message schedule.
         var W = [UInt32](repeating: 0, count: SHA256.konstants.count)
