@@ -115,7 +115,7 @@ extension Package: ObjectIdentifierProtocol {
 /// A package reference.
 ///
 /// This represents a reference to a package containing its identity and location.
-public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConvertible, Equatable, Hashable {
+public struct PackageReference: JSONMappable, JSONSerializable, Codable, CustomStringConvertible, Equatable, Hashable {
     public typealias PackageIdentity = String
 
     /// The kind of package reference.

@@ -128,6 +128,8 @@ extension PackageDescription5_2LoadingTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__PackageDescription5_2LoadingTests = [
+        ("testBinaryTargetsTrivial", testBinaryTargetsTrivial),
+        ("testBinaryTargetsValidation", testBinaryTargetsValidation),
         ("testDuplicateDependencyNames", testDuplicateDependencyNames),
         ("testMissingTargetProductDependencyPackage", testMissingTargetProductDependencyPackage),
         ("testPackageName", testPackageName),

@@ -79,7 +79,7 @@ public final class SchemesGenerator {
         // Finally, create one master scheme for the entire package.
         let regularTargets = rootPackage.targets.filter({ 
             switch $0.type {
-            case .test, .systemModule:
+            case .test, .systemModule, .binary:
                 return false
             case .executable, .library:
                 return true
