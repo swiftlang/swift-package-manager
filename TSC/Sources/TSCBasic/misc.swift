@@ -85,33 +85,24 @@ public func lookupExecutablePath(
         return nil
     }
 
-    let path: AbsolutePath
+    var paths: [AbsolutePath] = []
+
     if let cwd = currentWorkingDirectory {
         // We have a value, but it could be an absolute or a relative path.
-        path = AbsolutePath(value, relativeTo: cwd)
+        paths.append(AbsolutePath(value, relativeTo: cwd))
     } else if let absPath = try? AbsolutePath(validating: value) {
         // Current directory not being available is not a problem
         // for the absolute-specified paths.
-        path = absPath
-    } else {
-        return nil
+        paths.append(absPath)
     }
 
-    if localFileSystem.isExecutableFile(path) {
-        return path
-    }
     // Ensure the value is not a path.
-    guard !value.contains("/") else {
-        return nil
+    if !value.contains("/") {
+        // Try to locate in search paths.
+        paths.append(contentsOf: searchPaths.map({ $0.appending(component: value) }))
     }
-    // Try to locate in search paths.
-    for path in searchPaths {
-        let exec = path.appending(component: value)
-        if localFileSystem.isExecutableFile(exec) {
-            return exec
-        }
-    }
-    return nil
+
+    return paths.first(where: { localFileSystem.isExecutableFile($0) })
 }
 
 /// A wrapper for Range to make it Codable.
