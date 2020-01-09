@@ -99,6 +99,7 @@ extension ManifestBuilder {
             name: try json.get("name"),
             dependencies: dependencies,
             path: json.get("path"),
+            url: json.get("url"),
             exclude: try json.get("exclude"),
             sources: try? json.get("sources"),
             resources: try parseResources(json),
@@ -106,7 +107,8 @@ extension ManifestBuilder {
             type: try .init(v4: json.get("type")),
             pkgConfig: json.get("pkgConfig"),
             providers: providers,
-            settings: try parseBuildSettings(json)
+            settings: try parseBuildSettings(json),
+            checksum: json.get("checksum")
         )
     }
 
@@ -318,6 +320,8 @@ extension TargetDescription.TargetType {
             self = .test
         case "system":
             self = .system
+        case "binary":
+            self = .binary
         default:
             fatalError()
         }

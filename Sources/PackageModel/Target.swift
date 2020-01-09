@@ -17,6 +17,7 @@ public class Target: ObjectIdentifierProtocol {
         case library
         case systemModule = "system-target"
         case test
+        case binary
     }
 
     /// The name of the target.
@@ -250,6 +251,30 @@ public class ClangTarget: Target {
             dependencies: dependencies,
             productDependencies: productDependencies,
             buildSettings: buildSettings
+        )
+    }
+}
+
+public class BinaryTarget: Target {
+
+    /// The binary artifact path.
+    public var artifactPath: AbsolutePath {
+        return sources.root
+    }
+
+    public init(
+        name: String,
+        platforms: [SupportedPlatform] = [],
+        artifactPath: AbsolutePath
+    ) {
+        let sources = Sources(paths: [], root: artifactPath)
+        super.init(
+            name: name,
+            platforms: platforms,
+            type: .binary,
+            sources: sources,
+            dependencies: [],
+            buildSettings: .init()
         )
     }
 }

@@ -43,7 +43,7 @@ extension ResolvedTarget {
             return "com.apple.product-type.framework"
         case .executable:
             return "com.apple.product-type.tool"
-        case .systemModule:
+        case .systemModule, .binary:
             fatalError()
         }
     }
@@ -56,7 +56,7 @@ extension ResolvedTarget {
             return "wrapper.framework"
         case .executable:
             return "compiled.mach-o.executable"
-        case .systemModule:
+        case .systemModule, .binary:
             fatalError()
         }
     }
@@ -69,7 +69,7 @@ extension ResolvedTarget {
             return RelativePath("\(c99name).framework")
         case .executable:
             return RelativePath(name)
-        case .systemModule:
+        case .systemModule, .binary:
             fatalError()
         }
     }
@@ -81,7 +81,7 @@ extension ResolvedTarget {
             return "'lib$(TARGET_NAME)'"
         case .test, .executable:
             return "'$(TARGET_NAME)'"
-        case .systemModule:
+        case .systemModule, .binary:
             fatalError()
         }
     }

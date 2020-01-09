@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Foundation
+
 /// A target, the basic building block of a Swift package.
 ///
 /// Each target contains a set of source files that are compiled into a module or test suite.
@@ -24,6 +26,8 @@ public final class Target {
         case test
         /// A target that adapts a library on the system to work with Swift packages.
         case system
+        /// A target that references a binary artifact.
+        case _binary = "binary"
     }
 
     /// The different types of a target's dependency on another entity.
@@ -55,6 +59,13 @@ public final class Target {
     ///
     /// Do not escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
     public var path: String?
+
+    /// The url of the binary target.
+    public var _url: String? {
+        get { __url }
+        set { __url = newValue }
+    }
+    public var __url: String?
 
     /// The source files in this target.
     ///
@@ -136,11 +147,19 @@ public final class Target {
     }
     private var _linkerSettings: [LinkerSetting]?
 
+    /// The binary target's checksum.
+    public var _checksum: String? {
+        get { __checksum }
+        set { __checksum = newValue }
+    }
+    public var __checksum: String?
+
     /// Construct a target.
     private init(
         name: String,
         dependencies: [Dependency],
         path: String?,
+        _url: String? = nil,
         exclude: [String],
         sources: [String]?,
         resources: [Resource]? = nil,
@@ -151,11 +170,13 @@ public final class Target {
         cSettings: [CSetting]? = nil,
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
-        linkerSettings: [LinkerSetting]? = nil
+        linkerSettings: [LinkerSetting]? = nil,
+        _checksum: String? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
         self.path = path
+        self.__url = _url
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
         self._resources = resources
@@ -167,11 +188,44 @@ public final class Target {
         self._cxxSettings = cxxSettings
         self._swiftSettings = swiftSettings
         self._linkerSettings = linkerSettings
+        self.__checksum = _checksum
 
         switch type {
         case .regular, .test:
-            precondition(pkgConfig == nil && providers == nil)
-        case .system: break
+            precondition(
+                _url == nil &&
+                pkgConfig == nil &&
+                providers == nil &&
+                _checksum == nil
+            )
+        case .system:
+            precondition(
+                _url == nil &&
+                dependencies.isEmpty &&
+                exclude.isEmpty &&
+                sources == nil &&
+                resources == nil &&
+                publicHeadersPath == nil &&
+                cSettings == nil &&
+                cxxSettings == nil &&
+                swiftSettings == nil &&
+                linkerSettings == nil &&
+                _checksum == nil
+            )
+        case ._binary:
+            precondition(
+                dependencies.isEmpty &&
+                exclude.isEmpty &&
+                sources == nil &&
+                resources == nil &&
+                publicHeadersPath == nil &&
+                pkgConfig == nil &&
+                providers == nil &&
+                cSettings == nil &&
+                cxxSettings == nil &&
+                swiftSettings == nil &&
+                linkerSettings == nil
+            )
         }
     }
 
@@ -432,6 +486,57 @@ public final class Target {
             pkgConfig: pkgConfig,
             providers: providers)
     }
+
+    /// Create a binary target referencing a remote artifact.
+    ///
+    /// A binary target provides the url to a pre-built binary artifact for the target. Currently only supports
+    /// artifacts for Apple platforms.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - url: The URL to the binary artifact. Should point to a `zip` archive containing a `XCFramework`.
+    ///   - checksum: The checksum of the artifact archive for validation.
+    @available(_PackageDescription, introduced: 5.2)
+    public static func _binaryTarget(
+        name: String,
+        url: String,
+        checksum: String
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: [],
+            path: nil,
+            _url: url,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: ._binary,
+            _checksum: checksum)
+    }
+
+    /// Create a binary target referencing an artifact on disk.
+    ///
+    /// A binary target provides the path to a pre-built binary artifact for the target. Currently only supports
+    /// artifacts for Apple platforms.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - path: The path to the binary artifact. Can point directly to a `XCFramework` or a zip containing the
+    ///       `XCFramework`.
+    @available(_PackageDescription, introduced: 5.2)
+    public static func _binaryTarget(
+        name: String,
+        path: String
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: [],
+            path: path,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: ._binary)
+    }
   #endif
 }
 
@@ -439,6 +544,7 @@ extension Target: Encodable {
     private enum CodingKeys: CodingKey {
         case name
         case path
+        case url
         case sources
         case resources
         case exclude
@@ -451,6 +557,7 @@ extension Target: Encodable {
         case cxxSettings
         case swiftSettings
         case linkerSettings
+        case checksum
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -458,6 +565,7 @@ extension Target: Encodable {
 
         try container.encode(name, forKey: .name)
         try container.encode(path, forKey: .path)
+        try container.encode(_url, forKey: .url)
         try container.encode(sources, forKey: .sources)
         try container.encode(_resources, forKey: .resources)
         try container.encode(exclude, forKey: .exclude)
@@ -466,6 +574,7 @@ extension Target: Encodable {
         try container.encode(type, forKey: .type)
         try container.encode(pkgConfig, forKey: .pkgConfig)
         try container.encode(providers, forKey: .providers)
+        try container.encode(_checksum, forKey: .checksum)
 
         if let cSettings = self._cSettings {
             try container.encode(cSettings, forKey: .cSettings)

@@ -1219,7 +1219,7 @@ public class BuildPlan {
                     target: target,
                     buildParameters: buildParameters,
                     fileSystem: fileSystem))
-             case is SystemLibraryTarget:
+             case is SystemLibraryTarget, is BinaryTarget:
                  break
              default:
                  fatalError("unhandled \(target.underlyingTarget)")
@@ -1418,6 +1418,9 @@ public class BuildPlan {
                 // Add system target targets to system targets array.
                 case .systemModule:
                     systemModules.append(target)
+                case .binary:
+                    // TODO: Implement
+                    break
                 }
 
             case .product(let product):

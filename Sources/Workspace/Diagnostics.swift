@@ -46,6 +46,18 @@ public struct ManifestProductTargetNotFound: DiagnosticData {
     }
 }
 
+public struct ManifestInvalidBinaryProductType: DiagnosticData {
+    public let productName: String
+
+    public var description: String {
+        """
+        manifest parse error: invalid type for binary product '\(productName)'; a binary product can only be a library \
+        with no defined type
+
+        """
+    }
+}
+
 public struct ManifestDuplicateDependencyURLsDiagnostic: DiagnosticData {
     public let duplicates: [[PackageDependencyDescription]]
 
@@ -104,6 +116,40 @@ public struct ManifestDuplicateTargetNamesDiagnostic: DiagnosticData {
     }
 }
 
+public struct ManifestInvalidBinaryLocationDiagnostic: DiagnosticData {
+    public let targetName: String
+
+    public var description: String {
+        "manifest parse error: invalid location of binary target '\(targetName)'\n"
+    }
+}
+
+public struct ManifestInvalidBinaryURLSchemeDiagnostic: DiagnosticData {
+    public let targetName: String
+    public let validSchemes: [String]
+
+    public var description: String {
+        """
+        manifest parse error: invalid URL scheme for binary target '\(targetName)' (valid schemes are \
+        \(validSchemes.joined(separator: ", "))
+
+        """
+    }
+}
+
+public struct ManifestInvalidBinaryLocationExtensionDiagnostic: DiagnosticData {
+    public let targetName: String
+    public let validExtensions: [String]
+
+    public var description: String {
+        """
+        manifest parse error: unsupported extension of binary target '\(targetName)' (valid extensions are \
+        \(validExtensions.joined(separator: ", ")))
+
+        """
+    }
+}
+
 extension ManifestParseError: DiagnosticDataConvertible {
     public var diagnosticData: DiagnosticData {
         switch self {
@@ -115,6 +161,8 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestEmptyProductTargets(productName: productName)
         case .productTargetNotFound(let productName, let targetName):
             return ManifestProductTargetNotFound(productName: productName, targetName: targetName)
+        case .invalidBinaryProductType(let productName):
+            return ManifestInvalidBinaryProductType(productName: productName)
         case .duplicateDependencyURLs(let duplicates):
             return ManifestDuplicateDependencyURLsDiagnostic(duplicates: duplicates)
         case .duplicateTargetNames(let targetNames):
@@ -123,6 +171,12 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestTargetDependencyUnknownPackageDiagnostic(targetName: targetName, packageName: packageName)
         case .duplicateDependencyNames(let duplicates):
             return ManifestDuplicateDependencyNamesDiagnostic(duplicates: duplicates)
+        case .invalidBinaryLocation(let targetName):
+            return ManifestInvalidBinaryLocationDiagnostic(targetName: targetName)
+        case .invalidBinaryURLScheme(let targetName, let validSchemes):
+            return ManifestInvalidBinaryURLSchemeDiagnostic(targetName: targetName, validSchemes: validSchemes)
+        case .invalidBinaryLocationExtension(let targetName, let validExtensions):
+            return ManifestInvalidBinaryLocationExtensionDiagnostic(targetName: targetName, validExtensions: validExtensions)
         }
     }
 }
@@ -250,6 +304,10 @@ public enum WorkspaceDiagnostics {
 }
 
 extension Diagnostic.Message {
+    static func dependencyNotFound(packageName: String) -> Diagnostic.Message {
+        .warning("dependency '\(packageName)' was not found")
+    }
+
     static func editBranchNotCheckedOut(packageName: String, branchName: String) -> Diagnostic.Message {
         .warning("dependency '\(packageName)' already exists at the edit destination; not checking-out branch '\(branchName)'")
     }
