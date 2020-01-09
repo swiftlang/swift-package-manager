@@ -8,5 +8,6 @@ cd "${__dir}/.."
 
 set -x
 
+swift package update
 swift build
 swift test --parallel
