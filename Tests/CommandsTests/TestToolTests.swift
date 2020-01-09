@@ -14,20 +14,20 @@ import SPMTestSupport
 import Commands
 
 final class TestToolTests: XCTestCase {
-    private func execute(_ args: [String]) throws -> String {
+    private func execute(_ args: [String]) throws -> (stdout: String, stderr: String) {
         return try SwiftPMProduct.SwiftTest.execute(args)
     }
     
     func testUsage() throws {
-        XCTAssert(try execute(["--help"]).contains("USAGE: swift test"))
+        XCTAssert(try execute(["--help"]).stdout.contains("USAGE: swift test"))
     }
 
     func testSeeAlso() throws {
-        XCTAssert(try execute(["--help"]).contains("SEE ALSO: swift build, swift run, swift package"))
+        XCTAssert(try execute(["--help"]).stdout.contains("SEE ALSO: swift build, swift run, swift package"))
     }
 
     func testVersion() throws {
-        XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
+        XCTAssert(try execute(["--version"]).stdout.contains("Swift Package Manager"))
     }
 
     // Test that thread sanitizer works.

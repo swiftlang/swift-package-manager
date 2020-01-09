@@ -30,7 +30,7 @@ class MiscellaneousTestCase: XCTestCase {
         // the selected version of the package
 
         fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let output = try executeSwiftBuild(prefix.appending(component: "Bar"))
+            let (output, _) = try executeSwiftBuild(prefix.appending(component: "Bar"))
             XCTAssertMatch(output, .regex("Resolving .* at 1\\.2\\.3"))
             XCTAssertMatch(output, .contains("Compiling Foo Foo.swift"))
             XCTAssertMatch(output, .contains("Merging module Foo"))
@@ -259,8 +259,8 @@ class MiscellaneousTestCase: XCTestCase {
     func testSwiftTestFilter() throws {
         #if os(macOS)
             fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-                let output = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1"], packagePath: prefix)
-                XCTAssert(output.contains("testExample1"))
+                let (_, stderr) = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1"], packagePath: prefix)
+                XCTAssertMatch(stderr, .contains("testExample1"))
             }
         #endif
     }
@@ -510,7 +510,7 @@ class MiscellaneousTestCase: XCTestCase {
                 """
             }
 
-            let diff = try SwiftPMProduct.SwiftPackage.execute(["experimental-api-diff", "1.0.0"], packagePath: package)
+            let (diff, _) = try SwiftPMProduct.SwiftPackage.execute(["experimental-api-diff", "1.0.0"], packagePath: package)
             XCTAssertMatch(diff, .contains("Func Foo.foo() has been renamed to Func foo(param:)"))
             XCTAssertMatch(diff, .contains("Func Foo.foo() has return type change from Swift.String to Swift.Int"))
         }

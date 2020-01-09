@@ -146,7 +146,7 @@ public func executeSwiftBuild(
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: [String: String]? = nil
-) throws -> String {
+) throws -> (stdout: String, stderr: String) {
     var args = ["--configuration"]
     switch configuration {
     case .Debug:
