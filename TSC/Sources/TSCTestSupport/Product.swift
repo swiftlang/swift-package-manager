@@ -57,7 +57,7 @@ extension Product {
         _ args: [String],
         packagePath: AbsolutePath? = nil,
         env: [String: String]? = nil
-    ) throws -> String {
+    ) throws -> (stdout: String, stderr: String) {
 
         let result = try executeProcess(
             args, packagePath: packagePath,
@@ -67,8 +67,7 @@ extension Product {
         let stderr = try result.utf8stderrOutput()
 
         if result.exitStatus == .terminated(code: 0) {
-            // FIXME: We should return stderr separately.
-            return output + stderr
+            return (stdout: output, stderr: stderr)
         }
         throw SwiftPMProductError.executionFailure(
             error: ProcessResult.Error.nonZeroExit(result),

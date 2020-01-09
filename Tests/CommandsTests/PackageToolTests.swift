@@ -22,20 +22,24 @@ import Workspace
 
 final class PackageToolTests: XCTestCase {
     @discardableResult
-    private func execute(_ args: [String], packagePath: AbsolutePath? = nil, env: [String: String]? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: env).spm_chomp()
+    private func execute(
+        _ args: [String],
+        packagePath: AbsolutePath? = nil,
+        env: [String: String]? = nil
+    ) throws -> (stdout: String, stderr: String) {
+        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: env)
     }
 
     func testUsage() throws {
-        XCTAssert(try execute(["--help"]).contains("USAGE: swift package"))
+        XCTAssert(try execute(["--help"]).stdout.contains("USAGE: swift package"))
     }
 
     func testSeeAlso() throws {
-        XCTAssert(try execute(["--help"]).contains("SEE ALSO: swift build, swift run, swift test"))
+        XCTAssert(try execute(["--help"]).stdout.contains("SEE ALSO: swift build, swift run, swift test"))
     }
 
     func testVersion() throws {
-        XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
+        XCTAssert(try execute(["--version"]).stdout.contains("Swift Package Manager"))
     }
 
     func testResolve() throws {
@@ -90,7 +94,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(targets?[2]["type"]?.stringValue, "library")
             XCTAssertEqual(targets?[1]["sources"]?.array?.map{$0.stringValue} ?? [], ["main.swift"])
 
-            let textOutput = try execute(["describe"], packagePath: prefix)
+            let (textOutput, _) = try execute(["describe"], packagePath: prefix)
 
             XCTAssert(textOutput.hasPrefix("Name: SwiftCMixed"))
             XCTAssert(textOutput.contains("    C99name: CExec"))
@@ -102,7 +106,7 @@ final class PackageToolTests: XCTestCase {
     func testDumpPackage() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let packageRoot = prefix.appending(component: "app")
-            let dumpOutput = try execute(["dump-package"], packagePath: packageRoot)
+            let (dumpOutput, _) = try execute(["dump-package"], packagePath: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
             guard case let .string(name)? = contents["name"] else { XCTFail("unexpected result"); return }
@@ -216,7 +220,7 @@ final class PackageToolTests: XCTestCase {
     func testPackageEditAndUnedit() {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
-            func build() throws -> String {
+            func build() throws -> (stdout: String, stderr: String) {
                 return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
             }
 
@@ -238,9 +242,9 @@ final class PackageToolTests: XCTestCase {
 
             // Do a modification in bar and build.
             try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 88888\n")
-            let buildOutput = try build()
+            let (_, stderr) = try build()
 
-            XCTAssert(buildOutput.contains("dependency 'baz' was being edited but is missing; falling back to original checkout"))
+            XCTAssertMatch(stderr, .contains("dependency 'baz' was being edited but is missing; falling back to original checkout"))
             // We should be able to see that modification now.
             XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec), "88888\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.
@@ -342,7 +346,7 @@ final class PackageToolTests: XCTestCase {
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath)
+                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath).stdout
             }
 
             try execute("update")
@@ -384,8 +388,7 @@ final class PackageToolTests: XCTestCase {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
             func build() throws -> String {
-                let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
-                return buildOutput
+                return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath).stdout
             }
             let exec = [fooPath.appending(components: ".build", Destination.host.target.tripleString, "debug", "foo").pathString]
 
@@ -420,7 +423,7 @@ final class PackageToolTests: XCTestCase {
 
             @discardableResult
             func execute(_ args: String...) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath)
+                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath).stdout
             }
 
             // Try to pin bar.
@@ -574,10 +577,10 @@ final class PackageToolTests: XCTestCase {
             XCTAssertTrue(try fs.readFileContents(configOverride).description.contains("mygithub"))
 
             // Test reading.
-            XCTAssertEqual(try execute(["config", "get-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot),
-                "https://mygithub.com/foo/bar")
-            XCTAssertEqual(try execute(["config", "get-mirror", "--package-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot),
-                "git@mygithub.com:foo/swift-package-manager.git")
+            var (stdout, stderr) = try execute(["config", "get-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot)
+            XCTAssertEqual(stdout.spm_chomp(), "https://mygithub.com/foo/bar")
+            (stdout, _) = try execute(["config", "get-mirror", "--package-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
+            XCTAssertEqual(stdout.spm_chomp(), "git@mygithub.com:foo/swift-package-manager.git")
 
             func check(stderr: String, _ block: () throws -> ()) {
                 do {

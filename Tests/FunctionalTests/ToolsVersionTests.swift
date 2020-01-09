@@ -87,7 +87,7 @@ class ToolsVersionTests: XCTestCase {
                     """
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set", "4.2"], packagePath: primaryPath).spm_chomp()
+                ["tools-version", "--set", "4.2"], packagePath: primaryPath).stdout.spm_chomp()
 
             // Build the primary package.
             _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
@@ -97,7 +97,7 @@ class ToolsVersionTests: XCTestCase {
 
             // Set the tools version to something high.
             _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set", "10000.1"], packagePath: primaryPath).spm_chomp()
+                ["tools-version", "--set", "10000.1"], packagePath: primaryPath)
 
             do {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
@@ -118,7 +118,7 @@ class ToolsVersionTests: XCTestCase {
                     """
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set", "4.2"], packagePath: primaryPath).spm_chomp()
+                ["tools-version", "--set", "4.2"], packagePath: primaryPath).stdout.spm_chomp()
 
             do {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
@@ -138,7 +138,7 @@ class ToolsVersionTests: XCTestCase {
                     """
              }
              _ = try SwiftPMProduct.SwiftPackage.execute(
-                 ["tools-version", "--set", "4.2"], packagePath: primaryPath).spm_chomp()
+                 ["tools-version", "--set", "4.2"], packagePath: primaryPath).stdout.spm_chomp()
              _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
         }
     }
