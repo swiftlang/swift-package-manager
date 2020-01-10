@@ -8,6 +8,7 @@
 
 add_library(Build
   BuildDelegate.swift
+  BuildOperation.swift
   BuildParameters.swift
   BuildPlan.swift
   BuildOperation.swift
