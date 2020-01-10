@@ -30,20 +30,40 @@ public enum DownloaderError: Error {
 /// The `Downloader` protocol abstract away the download of a file with a progress report.
 public protocol Downloader {
 
+    /// The progress closure type. The first arguments contains the number of bytes downloaded, and the second argument
+    /// contains the total number of bytes to download, if known.
+    typealias Progress = (Int64, Int64?) -> Void
+
+    /// The completion closure type. The only argument contains the result type containing the
+    /// `DownloaderError` encountered on failure.
+    typealias Completion = (Result<Void, DownloaderError>) -> Void
+
     /// Downloads a file and keeps the caller updated on the progress and completion.
     ///
     /// - Parameters:
     ///   - url: The `URL` to the file to download.
     ///   - destination: The `AbsolutePath` to download the file to.
-    ///   - progress: A closure to receive the download's progress as a fractional value between `0.0` and `1.0`.
-    ///   - completion: A closure to be notifed of the completion of the download as a `Result` type containing the
-    ///   `DownloaderError` encountered on failure.
+    ///   - progress: A closure to receive the download's progress as number of bytes.
+    ///   - completion: A closure to be notifed of the completion of the download.
     func downloadFile(
         at url: Foundation.URL,
         to destination: AbsolutePath,
-        progress: @escaping (Double) -> Void,
-        completion: @escaping (Result<Void, DownloaderError>) -> Void
+        progress: @escaping Progress,
+        completion: @escaping Completion
     )
+}
+
+extension DownloaderError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .clientError(let error):
+            return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        case .serverError(let statusCode):
+            return "invalid status code \(statusCode)"
+        case .fileSystemError(let error):
+            return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
 }
 
 /// A `Downloader` conformance that uses Foundation's `URLSession`.
@@ -56,8 +76,8 @@ public final class FoundationDownloader: NSObject, Downloader {
     fileprivate struct Download {
         let task: URLSessionDownloadTask
         let destination: AbsolutePath
-        let progress: (Double) -> Void
-        let completion: (Result<Void, DownloaderError>) -> Void
+        let progress: Downloader.Progress
+        let completion: Downloader.Completion
     }
 
     /// The `URLSession` used for all downloads.
@@ -89,8 +109,8 @@ public final class FoundationDownloader: NSObject, Downloader {
     public func downloadFile(
         at url: Foundation.URL,
         to destination: AbsolutePath,
-        progress: @escaping (Double) -> Void,
-        completion: @escaping (Result<Void, DownloaderError>) -> Void
+        progress: @escaping Downloader.Progress,
+        completion: @escaping Downloader.Completion
     ) {
         queue.addOperation {
             let task = self.session.downloadTask(with: url)
@@ -114,8 +134,9 @@ extension FoundationDownloader: URLSessionDownloadDelegate {
         totalBytesExpectedToWrite: Int64
     ) {
         let download = self.download(for: downloadTask)
-        let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-        download.notifyProgress(progress)
+        let totalBytesToDownload = totalBytesExpectedToWrite != NSURLSessionTransferSizeUnknown ?
+            totalBytesExpectedToWrite : nil
+        download.notifyProgress(bytesDownloaded: totalBytesWritten, totalBytesToDownload: totalBytesToDownload)
     }
 
     public func urlSession(
@@ -162,9 +183,9 @@ extension FoundationDownloader {
 }
 
 extension FoundationDownloader.Download {
-    func notifyProgress(_ progress: Double) {
+    func notifyProgress(bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         DispatchQueue.global().async {
-            self.progress(progress)
+            self.progress(bytesDownloaded, totalBytesToDownload)
         }
     }
 
