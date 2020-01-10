@@ -92,18 +92,6 @@ public struct TargetSourcesBuilder {
             pathToRule[path] = findRule(for: path)
         }
 
-        // Emit an error if we found files without a matching rule in tools version >= 5.2
-        if toolsVersion >= .v5_2 {
-            let filesWithNoRules = pathToRule.filter{ $0.value == .none }
-            if !filesWithNoRules.isEmpty {
-                var error = "found \(filesWithNoRules.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
-                for (file, _) in filesWithNoRules {
-                    error += "    " + file.pathString + "\n"
-                }
-                diags.emit(.error(error))
-            }
-        }
-
         let compilePaths = pathToRule.filter{ $0.value == .compile }.map{ $0.key }
         let sources = Sources(paths: compilePaths, root: targetPath)
 
