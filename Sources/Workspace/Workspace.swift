@@ -337,6 +337,9 @@ public class Workspace {
     /// The package container provider.
     fileprivate let containerProvider: RepositoryPackageContainerProvider
 
+    /// The algorithm used for generating file checksums.
+    fileprivate let checksumAlgorithm: HashAlgorithm
+
     /// Enable prefetching containers in resolver.
     fileprivate let isResolverPrefetchingEnabled: Bool
 
@@ -386,6 +389,7 @@ public class Workspace {
         config: SwiftPMConfig = SwiftPMConfig(),
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
+        checksumAlgorithm: HashAlgorithm = SHA256(),
         additionalFileRules: [FileRuleDescription] = [],
         isResolverPrefetchingEnabled: Bool = false,
         enablePubgrubResolver: Bool = false,
@@ -399,6 +403,7 @@ public class Workspace {
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
+        self.checksumAlgorithm = checksumAlgorithm
         self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
         self.enablePubgrubResolver = enablePubgrubResolver
         self.skipUpdate = skipUpdate
@@ -799,6 +804,22 @@ extension Workspace {
         }
 
         return rootManifests
+    }
+
+    /// Generates the checksum
+    public func checksum(
+        forBinaryArtifactAt path: AbsolutePath,
+        diagnostics: DiagnosticsEngine
+    ) -> String {
+        guard fileSystem.isFile(path) else {
+            diagnostics.emit(error: "file not found at path: \(path.pathString)")
+            return ""
+        }
+
+        return diagnostics.wrap {
+            let contents = try fileSystem.readFileContents(path)
+            return checksumAlgorithm.hash(contents).hexadecimalRepresentation
+        } ?? ""
     }
 }
 

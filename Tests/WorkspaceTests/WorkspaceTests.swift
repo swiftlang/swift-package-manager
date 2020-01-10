@@ -3243,8 +3243,8 @@ final class WorkspaceTests: XCTestCase {
             result.check(notPresent: "Baz")
         }
 
-        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forPackageURL: workspace.packagesDir.appending(component: "Bar").pathString)
-        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forPackageURL: workspace.packagesDir.appending(component: "Bam").pathString)
+        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bar").pathString)
+        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bam").pathString)
 
         let deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
