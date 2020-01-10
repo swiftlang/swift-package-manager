@@ -60,6 +60,9 @@ public final class SimplePersistence {
     /// The path at which we persist the state.
     private let statePath: AbsolutePath
 
+    /// The list of paths to search for restore if no state was found at statePath.
+    private let otherStatePaths: [AbsolutePath]
+
     /// Writes the state files with pretty print JSON.
     private let prettyPrint: Bool
 
@@ -68,6 +71,7 @@ public final class SimplePersistence {
         schemaVersion: Int,
         supportedSchemaVersions: Set<Int> = [],
         statePath: AbsolutePath,
+        otherStatePaths: [AbsolutePath] = [],
         prettyPrint: Bool = false
     ) {
         assert(!supportedSchemaVersions.contains(schemaVersion), "Supported schema versions should not include the current schema")
@@ -75,6 +79,7 @@ public final class SimplePersistence {
         self.schemaVersion = schemaVersion
         self.supportedSchemaVersions = supportedSchemaVersions
         self.statePath = statePath
+        self.otherStatePaths = otherStatePaths
         self.prettyPrint = prettyPrint
     }
 
@@ -88,12 +93,11 @@ public final class SimplePersistence {
     }
 
     private func _restoreState(_ object: SimplePersistanceProtocol) throws -> Bool {
-        // If the state doesn't exist, don't try to load and fail.
-        if !fileSystem.exists(statePath) {
+        guard let path = findStatePath() else {
             return false
         }
         // Load the state.
-        let json = try JSON(bytes: try fileSystem.readFileContents(statePath))
+        let json = try JSON(bytes: try fileSystem.readFileContents(path))
         // Get the schema version.
         let version: Int = try json.get("version")
 
@@ -107,6 +111,11 @@ public final class SimplePersistence {
 
         default:
             throw Error.invalidSchemaVersion(version)
+        }
+
+        // If we loaded an old file path, migrate to the new one.
+        if path != statePath {
+            try fileSystem.move(from: path, to: statePath)
         }
 
         return true
@@ -152,6 +161,13 @@ public final class SimplePersistence {
 
     /// Returns true if the state file exists on the filesystem.
     public func stateFileExists() -> Bool {
-        return fileSystem.exists(statePath)
+        return findStatePath() != nil
+    }
+
+    private func findStatePath() -> AbsolutePath? {
+        // Return the first path that exists.
+        let allPaths = [statePath] + otherStatePaths
+        let path = allPaths.first(where: { fileSystem.exists($0) })
+        return path
     }
 }
