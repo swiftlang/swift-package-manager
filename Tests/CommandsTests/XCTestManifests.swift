@@ -30,6 +30,7 @@ extension PackageToolTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__PackageToolTests = [
+        ("testComputeChecksum", testComputeChecksum),
         ("testDescribe", testDescribe),
         ("testDumpPackage", testDumpPackage),
         ("testInitCustomNameExecutable", testInitCustomNameExecutable),

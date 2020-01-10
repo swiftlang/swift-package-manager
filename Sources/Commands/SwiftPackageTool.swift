@@ -48,12 +48,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             switch configMode {
             case .getMirror:
-                guard let packageURL = options.configOptions.packageURL else {
-                    diagnostics.emit(.missingRequiredArg("--package-url"))
+                guard let originalURL = options.configOptions.originalURL else {
+                    diagnostics.emit(.missingRequiredArg("--original-url"))
                     return
                 }
 
-                if let mirror = config.getMirror(forURL: packageURL) {
+                if let mirror = config.getMirror(forURL: originalURL) {
                     print(mirror)
                 } else {
                     stderrStream <<< "not found\n"
@@ -62,16 +62,17 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 }
 
             case .unsetMirror:
-                guard let packageOrMirror = options.configOptions.packageURL ?? options.configOptions.mirrorURL else {
-                    diagnostics.emit(.missingRequiredArg("--package-url or --mirror-url"))
+                guard let originalOrMirrorURL = options.configOptions.originalURL ?? options.configOptions.mirrorURL
+                else {
+                    diagnostics.emit(.missingRequiredArg("--original-url or --mirror-url"))
                     return
                 }
 
-                try config.unset(packageOrMirrorURL: packageOrMirror)
+                try config.unset(originalOrMirrorURL: originalOrMirrorURL)
 
             case .setMirror:
-                guard let packageURL = options.configOptions.packageURL else {
-                    diagnostics.emit(.missingRequiredArg("--package-url"))
+                guard let originalURL = options.configOptions.originalURL else {
+                    diagnostics.emit(.missingRequiredArg("--original-url"))
                     return
                 }
                 guard let mirrorURL = options.configOptions.mirrorURL else {
@@ -79,7 +80,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                     return
                 }
 
-                try config.set(mirrorURL: mirrorURL, forPackageURL: packageURL)
+                try config.set(mirrorURL: mirrorURL, forURL: originalURL)
             }
 
         case .initPackage:
@@ -379,6 +380,21 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             default:
                 preconditionFailure("somehow we ended up with an invalid positional argument")
             }
+
+        case .computeChecksum:
+            let workspace = try getActiveWorkspace()
+            let checksum = workspace.checksum(
+                forBinaryArtifactAt: options.computeChecksumOptions.path,
+                diagnostics: diagnostics
+            )
+
+            guard !diagnostics.hasErrors else {
+                return
+            }
+
+            stdoutStream <<< checksum <<< "\n"
+            stdoutStream.flush()
+
         case .help:
             parser.printUsage(on: stdoutStream)
         }
@@ -507,17 +523,19 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         let setMirrorParser = configParser.add(
             subparser: PackageToolOptions.ConfigMode.setMirror.rawValue,
             overview: "Set a mirror for a dependency")
-
         binder.bind(
             setMirrorParser.add(
                 option: "--package-url", kind: String.self,
                 usage: "The package dependency url"),
             setMirrorParser.add(
+                option: "--original-url", kind: String.self,
+                usage: "The original url"),
+            setMirrorParser.add(
                 option: "--mirror-url", kind: String.self,
                 usage: "The mirror url"),
             to: {
-                $0.configOptions.packageURL = $1
-                $0.configOptions.mirrorURL = $2
+                $0.configOptions.originalURL = $1 ?? $2
+                $0.configOptions.mirrorURL = $3
             }
         )
 
@@ -529,11 +547,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 option: "--package-url", kind: String.self,
                 usage: "The package dependency url"),
             unsetMirrorParser.add(
+                option: "--original-url", kind: String.self,
+                usage: "The original url"),
+            unsetMirrorParser.add(
                 option: "--mirror-url", kind: String.self,
                 usage: "The mirror url"),
             to: {
-                $0.configOptions.packageURL = $1
-                $0.configOptions.mirrorURL = $2
+                $0.configOptions.originalURL = $1 ?? $2
+                $0.configOptions.mirrorURL = $3
             }
         )
 
@@ -541,10 +562,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             subparser: PackageToolOptions.ConfigMode.getMirror.rawValue,
             overview: "Print mirror configuration for the given package dependency")
         binder.bind(
-            option: getMirrorParser.add(
-                option: "--package-url", kind: String.self, usage: "The package dependency url"),
+            getMirrorParser.add(
+                option: "--package-url", kind: String.self,
+                usage: "The package dependency url"),
+            getMirrorParser.add(
+                option: "--original-url", kind: String.self,
+                usage: "The original url"),
             to: {
-                $0.configOptions.packageURL = $1
+                $0.configOptions.originalURL = $1 ?? $2
             }
         )
 
@@ -635,9 +660,29 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 usage: "Invert the baseline which is helpful for determining API additions"),
             to: { $0.apiDiffOptions.invertBaseline = $1 })
 
+        let computeChecksumParser = parser.add(
+            subparser: PackageMode.computeChecksum.rawValue,
+            overview: "Compute the checksum for a binary artifact.")
+        binder.bind(
+            positional: computeChecksumParser.add(
+                positional: "file", kind: PathArgument.self,
+                usage: "The absolute or relative path to the binary artifact"),
+            to: { $0.computeChecksumOptions.path = $1.path })
+
         binder.bind(
             parser: parser,
             to: { $0.mode = PackageMode(rawValue: $1)! })
+    }
+
+    override class func postprocessArgParserResult(
+        result: ArgumentParser.Result,
+        diagnostics: DiagnosticsEngine
+    ) throws {
+        try super.postprocessArgParserResult(result: result, diagnostics: diagnostics)
+
+        if result.exists(arg: "--package-url") {
+            diagnostics.emit(warning: "'--package-url' option is deprecated; use '--original-url' instead")
+        }
     }
 }
 
@@ -700,6 +745,11 @@ public class PackageToolOptions: ToolOptions {
     }
     var apiDiffOptions = APIDiffOptions()
 
+    struct ComputeChecksumOptions {
+        var path: AbsolutePath!
+    }
+    var computeChecksumOptions = ComputeChecksumOptions()
+
     enum ToolsVersionMode {
         case display
         case set(String)
@@ -721,7 +771,7 @@ public class PackageToolOptions: ToolOptions {
     var configMode: ConfigMode?
 
     struct ConfigOptions {
-        var packageURL: String?
+        var originalURL: String?
         var mirrorURL: String?
     }
     var configOptions = ConfigOptions()
@@ -749,6 +799,7 @@ public enum PackageMode: String, StringEnumArgument {
     case update
     case version
     case apidiff = "experimental-api-diff"
+    case computeChecksum = "compute-checksum"
     case help
 
     // PackageMode is not used as an argument; completions will be

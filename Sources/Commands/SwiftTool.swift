@@ -468,7 +468,7 @@ public class SwiftTool<Options: ToolOptions> {
             (packageRoot ?? cwd).appending(component: ".build")
     }
 
-    static func postprocessArgParserResult(result: ArgumentParser.Result, diagnostics: DiagnosticsEngine) throws {
+    class func postprocessArgParserResult(result: ArgumentParser.Result, diagnostics: DiagnosticsEngine) throws {
         if result.exists(arg: "--chdir") || result.exists(arg: "-C") {
             diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }

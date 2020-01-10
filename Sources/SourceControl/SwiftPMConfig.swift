@@ -51,19 +51,19 @@ public final class SwiftPMConfig {
         self.persistence = nil
     }
 
-    /// Set a mirror URL for the given package URL.
-    public func set(mirrorURL: String, forPackageURL packageURL: String) throws {
-        mirrors[packageURL] = Mirror(original: packageURL, mirror: mirrorURL)
+    /// Set a mirror URL for the given URL.
+    public func set(mirrorURL: String, forURL url: String) throws {
+        mirrors[url] = Mirror(original: url, mirror: mirrorURL)
         try saveState()
     }
 
-    /// Unset a mirror for the given package or mirror URL.
+    /// Unset a mirror for the given URL.
     ///
     /// This method will throw if there is no mirror for the given input.
-    public func unset(packageOrMirrorURL: String) throws {
-        if mirrors.keys.contains(packageOrMirrorURL) {
-            mirrors[packageOrMirrorURL] = nil
-        } else if let mirror = mirrors.first(where: { $0.value.mirror == packageOrMirrorURL }) {
+    public func unset(originalOrMirrorURL: String) throws {
+        if mirrors.keys.contains(originalOrMirrorURL) {
+            mirrors[originalOrMirrorURL] = nil
+        } else if let mirror = mirrors.first(where: { $0.value.mirror == originalOrMirrorURL }) {
             mirrors[mirror.key] = nil
         } else {
             throw Error.mirrorNotFound
