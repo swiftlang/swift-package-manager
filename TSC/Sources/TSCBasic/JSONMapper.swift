@@ -152,3 +152,21 @@ extension Double: JSONMappable {
         self = double
     }
 }
+
+extension Array where Element: JSONMappable {
+    public init(json: JSON) throws {
+        guard case .array(let array) = json else {
+            throw JSON.MapError.custom(key: nil, message: "expected array, got \(json)")
+        }
+        self = try array.map({ try Element(json: $0) })
+    }
+}
+
+extension Dictionary where Key == String, Value: JSONMappable {
+    public init(json: JSON) throws {
+        guard case .dictionary(let dictionary) = json else {
+            throw JSON.MapError.custom(key: nil, message: "expected dictionary, got \(json)")
+        }
+        self = try dictionary.mapValues({ try Value(json: $0) })
+    }
+}

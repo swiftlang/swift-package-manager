@@ -257,6 +257,19 @@ public class ClangTarget: Target {
 
 public class BinaryTarget: Target {
 
+    /// The original source of the binary artifact.
+    public enum ArtifactSource: Equatable {
+
+        /// Represents an artifact that was downloaded from a remote URL.
+        case remote(url: String)
+
+        /// Represents an artifact that was available locally.
+        case local
+    }
+
+    /// The binary artifact's source.
+    public let artifactSource: ArtifactSource
+
     /// The binary artifact path.
     public var artifactPath: AbsolutePath {
         return sources.root
@@ -265,9 +278,11 @@ public class BinaryTarget: Target {
     public init(
         name: String,
         platforms: [SupportedPlatform] = [],
-        artifactPath: AbsolutePath
+        path: AbsolutePath,
+        artifactSource: ArtifactSource
     ) {
-        let sources = Sources(paths: [], root: artifactPath)
+        self.artifactSource = artifactSource
+        let sources = Sources(paths: [], root: path)
         super.init(
             name: name,
             platforms: platforms,

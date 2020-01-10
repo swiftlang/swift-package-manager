@@ -11,12 +11,12 @@ add_library(Workspace
   Diagnostics.swift
   Export.swift
   InitPackage.swift
-  ManagedDependency.swift
   misc.swift
   ResolverPrecomputationProvider.swift
   ToolsVersionWriter.swift
   UserToolchain.swift
-  Workspace.swift)
+  Workspace.swift
+  WorkspaceState.swift)
 target_link_libraries(Workspace PUBLIC
   TSCBasic
   TSCUtility

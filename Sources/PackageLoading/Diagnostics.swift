@@ -69,10 +69,6 @@ extension Diagnostic.Message {
     static func brokenSymlink(_ path: AbsolutePath) -> Diagnostic.Message {
         .warning("ignoring broken symlink \(path)")
     }
-
-    static func missingBinaryTargetArtifact(target: String) -> Diagnostic.Message {
-        .error("missing artifact for binary target '\(target)'")
-    }
 }
 
 public struct ManifestLoadingDiagnostic: DiagnosticData {

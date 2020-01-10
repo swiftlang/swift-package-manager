@@ -9,12 +9,12 @@
 */
 
 import TSCBasic
+import TSCUtility
 import Foundation
 import PackageLoading
 import PackageModel
 import PackageGraph
 import SourceControl
-import TSCUtility
 
 /// Enumeration of the different reasons for which the resolver needs to be run.
 public enum WorkspaceResolveReason: Equatable {
@@ -69,6 +69,12 @@ public protocol WorkspaceDelegate: class {
     ///
     /// This is only fired when activated using Workspace's watchResolvedFile() method.
     func resolvedFileChanged()
+
+    /// The workspace is downloading a binary artifact.
+    func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
+
+    /// The workspace finished downloading all binary artifacts.
+    func didDownloadBinaryArtifacts()
 }
 
 public extension WorkspaceDelegate {
@@ -78,6 +84,8 @@ public extension WorkspaceDelegate {
     func willResolveDependencies(reason: WorkspaceResolveReason) {}
     func dependenciesUpToDate() {}
     func resolvedFileChanged() {}
+    func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {}
+    func didDownloadBinaryArtifacts() {}
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -171,7 +179,7 @@ public class Workspace {
         }
 
         /// Returns all manifests contained in DependencyManifests.
-        public func allManifests() -> [Manifest] {
+        public func allDependencyManifests() -> [Manifest] {
             return dependencies.map({ $0.manifest })
         }
 
@@ -304,8 +312,8 @@ public class Workspace {
     /// The swiftpm config.
     fileprivate let config: SwiftPMConfig
 
-    /// The current state of managed dependencies.
-    public let managedDependencies: ManagedDependencies
+    /// The current persisted state of the workspace.
+    public let state: WorkspaceState
 
     /// The Pins store. The pins file will be created when first pin is added to pins store.
     public let pinsStore: LoadableResult<PinsStore>
@@ -315,6 +323,9 @@ public class Workspace {
 
     /// The path for working repository clones (checkouts).
     public let checkoutsPath: AbsolutePath
+
+    /// The path for downloaded binary artifacts.
+    public let artifactsPath: AbsolutePath
 
     /// The path where packages which are put in edit mode are checked out.
     public let editablesPath: AbsolutePath
@@ -336,6 +347,12 @@ public class Workspace {
 
     /// The package container provider.
     fileprivate let containerProvider: RepositoryPackageContainerProvider
+
+    /// The downloader used for downloading binary artifacts.
+    fileprivate let downloader: Downloader
+
+    /// The downloader used for unarchiving binary artifacts.
+    fileprivate let archiver: Archiver
 
     /// The algorithm used for generating file checksums.
     fileprivate let checksumAlgorithm: HashAlgorithm
@@ -389,6 +406,8 @@ public class Workspace {
         config: SwiftPMConfig = SwiftPMConfig(),
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
+        downloader: Downloader = FoundationDownloader(),
+        archiver: Archiver = ZipArchiver(),
         checksumAlgorithm: HashAlgorithm = SHA256(),
         additionalFileRules: [FileRuleDescription] = [],
         isResolverPrefetchingEnabled: Bool = false,
@@ -403,6 +422,8 @@ public class Workspace {
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
+        self.downloader = downloader
+        self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
         self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
         self.enablePubgrubResolver = enablePubgrubResolver
@@ -420,6 +441,7 @@ public class Workspace {
         self.repositoryManager = repositoryManager
 
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
+        self.artifactsPath = self.dataPath.appending(component: "artifacts")
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
             config: self.config,
@@ -432,7 +454,7 @@ public class Workspace {
         self.pinsStore = LoadableResult {
             try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem)
         }
-        self.managedDependencies = ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
+        self.state = WorkspaceState(dataPath: dataPath, fileSystem: fileSystem)
     }
 
     /// A convenience method for creating a workspace for the given root
@@ -507,7 +529,11 @@ extension Workspace {
         root: PackageGraphRootInput,
         diagnostics: DiagnosticsEngine
     ) throws {
-        let dependency = try managedDependencies.dependency(forNameOrIdentity: packageName)
+        guard let dependency = state.dependencies[forNameOrIdentity: packageName] else {
+            diagnostics.emit(.dependencyNotFound(packageName: packageName))
+            return
+        }
+
         try unedit(dependency: dependency, forceRemove: forceRemove, root: root, diagnostics: diagnostics)
     }
 
@@ -534,7 +560,8 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) {
         // Look up the dependency and check if we can pin it.
-        guard let dependency = diagnostics.wrap({ try managedDependencies.dependency(forNameOrIdentity: packageName) }) else {
+        guard let dependency = state.dependencies[forNameOrIdentity: packageName] else {
+            diagnostics.emit(.dependencyNotFound(packageName: packageName))
             return
         }
         guard let currentState = checkoutState(for: dependency, diagnostics: diagnostics) else {
@@ -567,15 +594,16 @@ extension Workspace {
     public func clean(with diagnostics: DiagnosticsEngine) {
 
         // These are the things we don't want to remove while cleaning.
-        let protectedAssets = Set<String>([
+        let protectedAssets = [
             repositoryManager.path,
             checkoutsPath,
-            managedDependencies.statePath,
-            ].map({ path in
-                // Assert that these are present inside data directory.
-                assert(path.parentDirectory == dataPath)
-                return path.basename
-            }))
+            artifactsPath,
+            state.path,
+        ].map({ path -> String in
+            // Assert that these are present inside data directory.
+            assert(path.parentDirectory == dataPath)
+            return path.basename
+        })
 
         // If we have no data yet, we're done.
         guard fileSystem.exists(dataPath) else {
@@ -601,8 +629,8 @@ extension Workspace {
     public func reset(with diagnostics: DiagnosticsEngine) {
         let removed = diagnostics.wrap({
             try fileSystem.chmod(.userWritable, path: checkoutsPath, options: [.recursive, .onlyFiles])
-            // Reset manaked dependencies.
-            try managedDependencies.reset()
+            // Reset state.
+            try state.reset()
         })
 
         guard removed else { return }
@@ -689,17 +717,22 @@ extension Workspace {
         }
 
         // Update the checkouts based on new dependency resolution.
-        updateCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, diagnostics: diagnostics)
+        let packageStateChanges = updateCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, diagnostics: diagnostics)
 
         // Load the updated manifests.
         let updatedDependencyManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
-
-        guard !diagnostics.hasErrors else { return nil }
 
         // Update the pins store.
         pinAll(
             dependencyManifests: updatedDependencyManifests,
             pinsStore: pinsStore,
+            diagnostics: diagnostics)
+
+        // Update the binary target artifacts.
+        let addedOrUpdatedPackages = packageStateChanges.compactMap({ $0.1.isAddedOrUpdated ? $0.0 : nil })
+        updateBinaryArtifacts(
+            manifests: updatedDependencyManifests,
+            addedOrUpdatedPackages: addedOrUpdatedPackages,
             diagnostics: diagnostics)
         
         return nil
@@ -744,16 +777,24 @@ extension Workspace {
         } else {
             manifests = self._resolve(root: root, forceResolution: false, diagnostics: diagnostics)
         }
-        let externalManifests = manifests.allManifests()
+
+        let remoteArtifacts = state.artifacts.compactMap({ artifact -> RemoteArtifact? in
+            if case .remote(let url, _, _) = artifact.source {
+                return RemoteArtifact(url: url, path: path(for: artifact)!)
+            } else {
+                return nil
+            }
+        })
 
         // Load the graph.
         return PackageGraphLoader().load(
             root: manifests.root,
             config: config,
             additionalFileRules: additionalFileRules,
-            externalManifests: externalManifests,
+            externalManifests: manifests.allDependencyManifests(),
             requiredDependencies: manifests.computePackageURLs().required,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
+            remoteArtifacts: remoteArtifacts,
             diagnostics: diagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
@@ -851,7 +892,10 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) throws {
         // Look up the dependency and check if we can edit it.
-        let dependency = try managedDependencies.dependency(forNameOrIdentity: packageName)
+        guard let dependency = state.dependencies[forNameOrIdentity: packageName] else {
+            diagnostics.emit(.dependencyNotFound(packageName: packageName))
+            return
+        }
 
         guard let checkoutState = checkoutState(for: dependency, diagnostics: diagnostics) else {
             return
@@ -940,10 +984,8 @@ extension Workspace {
         }
 
         // Save the new state.
-        let url = dependency.packageRef.path
-        managedDependencies[forURL: url] = dependency.editedDependency(
-            subpath: RelativePath(packageName), unmanagedPath: path)
-        try managedDependencies.saveState()
+        state.dependencies.add(dependency.editedDependency(subpath: RelativePath(packageName), unmanagedPath: path))
+        try state.saveState()
     }
 
     /// Unedit a managed dependency. See public API unedit(packageName:forceRemove:).
@@ -999,8 +1041,8 @@ extension Workspace {
             _ = try clone(package: dependency.packageRef, at: checkoutState)
         } else {
             // The original dependency was removed, update the managed dependency state.
-            managedDependencies[forURL: dependency.packageRef.path] = nil
-            try managedDependencies.saveState()
+            state.dependencies.remove(forURL: dependency.packageRef.path)
+            try state.saveState()
         }
 
         // Resolve the dependencies if workspace root is provided. We do this to
@@ -1027,7 +1069,7 @@ extension Workspace {
 
         let requiredURLs = dependencyManifests.computePackageURLs().required
 
-        for dependency in managedDependencies.values  {
+        for dependency in state.dependencies  {
             if requiredURLs.contains(where: { $0.path == dependency.packageRef.path }) {
                 pinsStore.pin(dependency)
             }
@@ -1062,6 +1104,7 @@ extension Workspace {
         do {
             try fileSystem.createDirectory(repositoryManager.path, recursive: true)
             try fileSystem.createDirectory(checkoutsPath, recursive: true)
+            try fileSystem.createDirectory(artifactsPath, recursive: true)
         } catch {
             diagnostics.emit(error)
         }
@@ -1080,6 +1123,16 @@ extension Workspace {
             return path ?? editablesPath.appending(dependency.subpath)
 		case .local:
             return AbsolutePath(dependency.packageRef.path)
+        }
+    }
+
+    /// Returns the location of the artifact.
+    public func path(for artifact: ManagedArtifact) -> AbsolutePath? {
+        switch artifact.source {
+        case .remote(_, _, let subpath):
+            return artifactsPath.appending(subpath)
+        case .local:
+            return nil
         }
     }
 
@@ -1106,7 +1159,8 @@ extension Workspace {
     ) -> DependencyManifests {
 
         // Remove any managed dependency which has become a root.
-        for dependency in managedDependencies.values {
+        let dependenciesToCheck = Array(state.dependencies)
+        for dependency in dependenciesToCheck {
             if root.packageRefs.contains(dependency.packageRef) {
                 diagnostics.wrap {
                     try self.remove(package: dependency.packageRef)
@@ -1140,7 +1194,7 @@ extension Workspace {
         }
 
         let allDependencyManifests = allManifests.map({ $0.item }).filter({ !root.manifests.contains($0) })
-        let deps = allDependencyManifests.map({ ($0, managedDependencies[forURL: $0.url]!) })
+        let deps = allDependencyManifests.map({ ($0, state.dependencies[forURL: $0.url]!) })
 
         return DependencyManifests(root: root, dependencies: deps, workspace: self)
     }
@@ -1149,7 +1203,7 @@ extension Workspace {
     /// Loads the given manifest, if it is present in the managed dependencies.
     fileprivate func loadManifest(forURL packageURL: String, diagnostics: DiagnosticsEngine) -> Manifest? {
         // Check if this dependency is available.
-        guard let managedDependency = managedDependencies[forURL: packageURL] else {
+        guard let managedDependency = state.dependencies[forURL: packageURL] else {
             return nil
         }
 
@@ -1209,6 +1263,203 @@ extension Workspace {
             )
         })
     }
+
+    fileprivate func updateBinaryArtifacts(
+        manifests: DependencyManifests,
+        addedOrUpdatedPackages: [PackageReference],
+        diagnostics: DiagnosticsEngine
+    ) {
+        let updatedArtifacts = artifacts(from: manifests)
+
+        var artifactsToRemove: [ManagedArtifact] = []
+        var artifactsToAdd: [ManagedArtifact] = []
+        var artifactsToDownload: [ManagedArtifact] = []
+
+        for artifact in state.artifacts {
+            if !updatedArtifacts.contains(where: {
+                $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName
+            }) {
+                artifactsToRemove.append(artifact)
+            }
+        }
+
+        for artifact in updatedArtifacts {
+            let existingArtifact = state.artifacts[
+                packageURL: artifact.packageRef.path,
+                targetName: artifact.targetName
+            ]
+
+            switch artifact.source {
+            case .local:
+                if let existingArtifact = existingArtifact, case .remote = existingArtifact.source {
+                    // If we go from a remote to a local artifact, we can remove the old remote artifact.
+                    artifactsToRemove.append(existingArtifact)
+                }
+
+                artifactsToAdd.append(artifact)
+            case .remote(_, let checksum, _):
+                if let existingArtifact = existingArtifact,
+                    case .remote(_, let existingChecksum, _) = existingArtifact.source
+                {
+                    // If we already have an artifact with the same checksum, we don't need to download it again.
+                    if checksum == existingChecksum {
+                        continue
+                    }
+
+                    // If the checksum is different but the package wasn't updated, this is a security risk.
+                    if !addedOrUpdatedPackages.contains(artifact.packageRef) {
+                        diagnostics.emit(.artifactChecksumChanged(targetName: artifact.targetName))
+                        continue
+                    }
+
+                    artifactsToRemove.append(existingArtifact)
+                }
+
+                artifactsToAdd.append(artifact)
+                artifactsToDownload.append(artifact)
+            }
+        }
+
+        // Remove the artifacts and directories which are not needed anymore.
+        diagnostics.wrap {
+            for artifact in artifactsToRemove {
+                state.artifacts.remove(packageURL: artifact.packageRef.path, targetName: artifact.targetName)
+
+                guard let path = path(for: artifact) else {
+                    fatalError("we shouldn't be removing local artifacts")
+                }
+
+                try fileSystem.removeFileTree(path)
+            }
+
+            for directory in try fileSystem.getDirectoryContents(artifactsPath) {
+                let directoryPath = artifactsPath.appending(component: directory)
+                if try fileSystem.isDirectory(directoryPath) && fileSystem.getDirectoryContents(directoryPath).isEmpty {
+                    try fileSystem.removeFileTree(directoryPath)
+                }
+            }
+        }
+
+        guard !diagnostics.hasErrors else {
+            return
+        }
+
+        download(artifactsToDownload, diagnostics: diagnostics)
+
+        for artifact in artifactsToAdd {
+            state.artifacts.add(artifact)
+        }
+
+        diagnostics.wrap {
+            try state.saveState()
+        }
+    }
+
+    private func artifacts(from manifests: DependencyManifests) -> [ManagedArtifact] {
+        let packageAndManifests: [(PackageReference, Manifest)] =
+            zip(manifests.root.packageRefs, manifests.root.manifests) + // Root package and manifests.
+            manifests.dependencies.map({ ($1.packageRef, $0) }) // Dependency package and manifests.
+
+        var artifacts: [ManagedArtifact] = []
+
+        for (packageRef, manifest) in packageAndManifests {
+            for target in manifest.targets where target.type == .binary {
+                if let path = target.path {
+                    let artifact = ManagedArtifact.local(packageRef: packageRef, targetName: target.name, path: path)
+                    artifacts.append(artifact)
+                } else if let url = target.url, let checksum = target.checksum {
+                    let subpath = artifactSubpath(packageRef: packageRef, targetName: target.name)
+                    let artifact = ManagedArtifact.remote(
+                        packageRef: packageRef,
+                        targetName: target.name,
+                        url: url,
+                        checksum: checksum,
+                        subpath: subpath)
+                    artifacts.append(artifact)
+                } else {
+                    fatalError("a binary target should have either a path or a URL and a checksum")
+                }
+            }
+        }
+
+        return artifacts
+    }
+
+    private func artifactSubpath(packageRef: PackageReference, targetName: String) -> RelativePath {
+        RelativePath("\(packageRef.name)/\(targetName).xcframework")
+    }
+
+    private func download(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) {
+        let group = DispatchGroup()
+        let tempDiagnostics = DiagnosticsEngine()
+
+        for artifact in artifacts {
+            group.enter()
+
+            guard case .remote(let url, let checksum, _) = artifact.source, let destination = path(for: artifact) else {
+                fatalError("Can't download local artifact")
+            }
+
+            let parentDirectory = destination.parentDirectory
+
+            do {
+                try fileSystem.createDirectory(parentDirectory, recursive: true)
+            } catch {
+                tempDiagnostics.emit(error)
+                continue
+            }
+
+            let parsedURL = URL(string: url)!
+            let archivePath = parentDirectory.appending(component: parsedURL.lastPathComponent)
+            downloader.downloadFile(
+                at: parsedURL,
+                to: archivePath,
+                progress: { bytesDownloaded, totalBytesToDownload in
+                    self.delegate?.downloadingBinaryArtifact(
+                        from: url,
+                        bytesDownloaded: bytesDownloaded,
+                        totalBytesToDownload: totalBytesToDownload)
+                },
+                completion: { downloadResult in
+                    switch downloadResult {
+                    case .success:
+                        let archiveChecksum = self.checksum(
+                            forBinaryArtifactAt: archivePath,
+                            diagnostics: tempDiagnostics)
+                        guard archiveChecksum == checksum else {
+                            tempDiagnostics.emit(.artifactInvalidChecksum(targetName: artifact.targetName))
+                            tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
+                            group.leave()
+                            return
+                        }
+
+                        self.archiver.extract(from: archivePath, to: parentDirectory, completion: { extractResult in
+                            switch extractResult {
+                            case .success:
+                                break
+                            case .failure(let error):
+                                let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                                tempDiagnostics.emit(.artifactFailedExtraction(targetName: artifact.targetName, reason: reason))
+                            }
+
+                            tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
+                            group.leave()
+                        })
+                    case .failure(let error):
+                        let reason = error.errorDescription ?? error.localizedDescription
+                        tempDiagnostics.emit(.artifactFailedDownload(targetName: artifact.targetName, reason: reason))
+                        group.leave()
+                    }
+                })
+        }
+
+        group.wait()
+        delegate?.didDownloadBinaryArtifacts()
+
+        for diagnostic in tempDiagnostics.diagnostics {
+            diagnostics.emit(diagnostic.message, location: diagnostic.location)
+        }
+    }
 }
 
 // MARK: - Dependency Management
@@ -1265,7 +1516,7 @@ extension Workspace {
         // We require cloning if there is no checkout or if the checkout doesn't
         // match with the pin.
         let requiredPins = pins.filter({ pin in
-            guard let dependency = managedDependencies[forURL: pin.packageRef.path] else {
+            guard let dependency = state.dependencies[forURL: pin.packageRef.path] else {
                 return true
             }
             switch dependency.state {
@@ -1290,10 +1541,10 @@ extension Workspace {
             let dependencies = rootManifest.dependencies.filter{ $0.requirement == .localPackage }
             for localPackage in dependencies {
                 let package = localPackage.createPackageRef(config: self.config)
-                managedDependencies[forURL: package.path] = ManagedDependency.local(packageRef: package)
+                state.dependencies.add(ManagedDependency.local(packageRef: package))
             }
         }
-        diagnostics.wrap { try managedDependencies.saveState() }
+        diagnostics.wrap { try state.saveState() }
 
         let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
@@ -1306,6 +1557,8 @@ extension Workspace {
         if precomputationResult.isRequired {
             diagnostics.emit(error: "cannot update Package.resolved file because automatic resolution is disabled")
         }
+
+        updateBinaryArtifacts(manifests: currentManifests, addedOrUpdatedPackages: [], diagnostics: diagnostics)
 
         return currentManifests
     }
@@ -1370,6 +1623,11 @@ extension Workspace {
 
             switch result {
             case .notRequired:
+                updateBinaryArtifacts(
+                    manifests: currentManifests,
+                    addedOrUpdatedPackages: [],
+                    diagnostics: diagnostics)
+
                 return currentManifests
             case .required(let reason):
                 delegate?.willResolveDependencies(reason: reason)
@@ -1414,7 +1672,7 @@ extension Workspace {
         }
 
         // Update the checkouts with dependency resolution result.
-        updateCheckouts(root: graphRoot, updateResults: result, diagnostics: diagnostics)
+        let packageStateChanges = updateCheckouts(root: graphRoot, updateResults: result, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else {
             return currentManifests
         }
@@ -1456,6 +1714,12 @@ extension Workspace {
         }
 
         self.pinAll(dependencyManifests: updatedDependencyManifests, pinsStore: pinsStore, diagnostics: diagnostics)
+
+        let addedOrUpdatedPackages = packageStateChanges.compactMap({ $0.1.isAddedOrUpdated ? $0.0 : nil })
+        updateBinaryArtifacts(
+            manifests: updatedDependencyManifests,
+            addedOrUpdatedPackages: addedOrUpdatedPackages,
+            diagnostics: diagnostics)
 
         return updatedDependencyManifests
     }
@@ -1543,7 +1807,7 @@ extension Workspace {
 		let pins = pinsStore.pinsMap.keys
         let requiredURLs = dependencyManifests.computePackageURLs().required
 
-        for dependency in managedDependencies.values {
+        for dependency in state.dependencies {
             switch dependency.state {
             case .checkout: break
             case .edited, .local: continue
@@ -1626,6 +1890,14 @@ extension Workspace {
             }
         }
 
+        public var isAddedOrUpdated: Bool {
+            switch self {
+            case .added, .updated:
+                return true
+            case .unchanged, .removed:
+                return false
+            }
+        }
     }
 
     /// Computes states of the packages based on last stored state.
@@ -1642,7 +1914,7 @@ extension Workspace {
         for (packageRef, binding) in resolvedDependencies {
             // Get the existing managed dependency for this package ref, if any.
             let currentDependency: ManagedDependency?
-            if let existingDependency = managedDependencies[forURL: packageRef.path] {
+            if let existingDependency = state.dependencies[forURL: packageRef.path] {
                 currentDependency = existingDependency
             } else {
                 // Check if this is a edited dependency.
@@ -1653,7 +1925,7 @@ extension Workspace {
                 // original checkout in somewhat of a dangling state when computing
                 // the state changes this method. We basically need to ensure that
                 // the edited checkout is unchanged.
-                if let editedDependency = managedDependencies.values.first(where: {
+                if let editedDependency = state.dependencies.first(where: {
                     guard $0.basedOn != nil else { return false }
                     return path(for: $0).pathString == packageRef.path
                 }) {
@@ -1732,8 +2004,7 @@ extension Workspace {
             }
         }
         // Set the state of any old package that might have been removed.
-        let dependencies = managedDependencies.values
-        for packageRef in dependencies.lazy.map({ $0.packageRef }) where packageStateChanges[packageRef.path] == nil {
+        for packageRef in state.dependencies.lazy.map({ $0.packageRef }) where packageStateChanges[packageRef.path] == nil {
             packageStateChanges[packageRef.path] = (packageRef, .removed)
         }
 
@@ -1809,11 +2080,11 @@ extension Workspace {
     fileprivate func fixManagedDependencies(with diagnostics: DiagnosticsEngine) {
 
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
-        if managedDependencies.values.contains(where: { _ in true }) && !managedDependencies.stateFileExists() {
-            try? managedDependencies.reset()
+        if !state.dependencies.isEmpty && !state.stateFileExists() {
+            try? state.reset()
         }
 
-        for dependency in managedDependencies.values {
+        for dependency in state.dependencies {
             diagnostics.wrap {
 
                 // If the dependency is present, we're done.
@@ -1837,8 +2108,8 @@ extension Workspace {
                     diagnostics.emit(.editedDependencyMissing(packageName: dependency.packageRef.name))
 
                 case .local:
-                    managedDependencies[forURL: dependency.packageRef.path] = nil
-                    try managedDependencies.saveState()
+                    state.dependencies.remove(forURL: dependency.packageRef.path)
+                    try state.saveState()
                 }
             }
         }
@@ -1857,17 +2128,18 @@ extension Workspace {
     ///   - diagnostics: The diagnostics engine that reports errors, warnings
     ///     and notes.
     ///   - updateBranches: If the branches should be updated in case they're pinned.
+    @discardableResult
     fileprivate func updateCheckouts(
         root: PackageGraphRoot,
         updateResults: [(PackageReference, BoundVersion)],
         updateBranches: Bool = false,
         diagnostics: DiagnosticsEngine
-    ) {
+    ) -> [(PackageReference, PackageStateChange)] {
         // Get the update package states from resolved results.
         guard let packageStateChanges = diagnostics.wrap({
             try computePackageStateChanges(root: root, resolvedDependencies: updateResults, updateBranches: updateBranches)
         }) else {
-            return
+            return []
         }
 
         // First remove the checkouts that are no longer required.
@@ -1898,6 +2170,8 @@ extension Workspace {
         if packageStateChanges.filter({ $0.1 == .unchanged }).count == packageStateChanges.count {
             delegate?.dependenciesUpToDate()
         }
+
+        return packageStateChanges
     }
 
     /// Fetch a given `repository` and create a local checkout for it.
@@ -1909,7 +2183,7 @@ extension Workspace {
     /// - Throws: If the operation could not be satisfied.
     private func fetch(package: PackageReference) throws -> AbsolutePath {
         // If we already have it, fetch to update the repo from its remote.
-        if let dependency = managedDependencies[forURL: package.path] {
+        if let dependency = state.dependencies[forURL: package.path] {
             let path = checkoutsPath.appending(dependency.subpath)
 
             // Make sure the directory is not missing (we will have to clone again
@@ -1982,11 +2256,11 @@ extension Workspace {
         try? fileSystem.chmod(.userUnWritable, path: path, options: [.recursive, .onlyFiles])
 
         // Write the state record.
-        managedDependencies[forURL: package.path] = ManagedDependency(
+        state.dependencies.add(ManagedDependency(
             packageRef: package,
             subpath: path.relative(to: checkoutsPath),
-            checkoutState: checkoutState)
-        try managedDependencies.saveState()
+            checkoutState: checkoutState))
+        try state.saveState()
 
         return path
     }
@@ -2014,8 +2288,8 @@ extension Workspace {
             checkoutState = CheckoutState(revision: revision, branch: branch)
 
         case .unversioned:
-            managedDependencies[forURL: package.path] = ManagedDependency.local(packageRef: package)
-            try managedDependencies.saveState()
+            state.dependencies.add(ManagedDependency.local(packageRef: package))
+            try state.saveState()
             return AbsolutePath(package.path)
         }
 
@@ -2025,7 +2299,7 @@ extension Workspace {
     /// Removes the clone and checkout of the provided specifier.
     fileprivate func remove(package: PackageReference) throws {
 
-        guard let dependency = managedDependencies[forURL: package.path] else {
+        guard let dependency = state.dependencies[forURL: package.path] else {
             fatalError("This should never happen, trying to remove \(package.name) which isn't in workspace")
         }
 
@@ -2035,8 +2309,8 @@ extension Workspace {
         // Note that we don't actually remove a local package from disk.
         switch dependency.state {
         case .local:
-            managedDependencies[forURL: package.path] = nil
-            try managedDependencies.saveState()
+            state.dependencies.remove(forURL: package.path)
+            try state.saveState()
             return
         case .checkout, .edited:
             break
@@ -2052,10 +2326,10 @@ extension Workspace {
             // Remove the underlying dependency for edited packages.
             dependencyToRemove = basedOn
             dependency.basedOn = nil
-            managedDependencies[forURL: dependency.packageRef.path] = dependency
+            state.dependencies.add(dependency)
         } else {
             dependencyToRemove = dependency
-            managedDependencies[forURL: dependencyToRemove.packageRef.path] = nil
+            state.dependencies.remove(forURL: dependencyToRemove.packageRef.path)
         }
 
         // Remove the checkout.
@@ -2072,7 +2346,7 @@ extension Workspace {
         try repositoryManager.remove(repository: dependencyToRemove.packageRef.repository)
 
         // Save the state.
-        try managedDependencies.saveState()
+        try state.saveState()
     }
 }
 

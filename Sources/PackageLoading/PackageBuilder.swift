@@ -24,8 +24,11 @@ public enum ModuleError: Swift.Error {
     /// Indicates two targets with the same name and their corresponding packages.
     case duplicateModule(String, [String])
 
-    /// The eferenced target could not be found.
+    /// The referenced target could not be found.
     case moduleNotFound(String, TargetDescription.TargetType)
+
+    /// The artifact for the binary target could not be found.
+    case artifactNotFound(String)
 
     /// Invalid custom path.
     case invalidCustomPath(target: String, path: String)
@@ -70,6 +73,8 @@ extension ModuleError: CustomStringConvertible {
         case .moduleNotFound(let target, let type):
             let folderName = type == .test ? "Tests" : "Sources"
             return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
+        case .artifactNotFound(let target):
+            return "artifact not found for target \(target)"
         case .invalidLayout(let type):
             return "package has unsupported layout; \(type)"
         case .invalidManifestConfig(let package, let message):
@@ -167,6 +172,21 @@ extension Product.Error: CustomStringConvertible {
     }
 }
 
+/// A structure representing the remote artifact information necessary to construct the package.
+public struct RemoteArtifact {
+
+    /// The URl the artifact was downloaded from.
+    public let url: String
+
+    /// The path to the downloaded artifact.
+    public let path: AbsolutePath
+
+    public init(url: String, path: AbsolutePath) {
+        self.url = url
+        self.path = path
+    }
+}
+
 /// Helper for constructing a package following the convention system.
 ///
 /// The 'builder' here refers to the builder pattern and not any build system
@@ -177,6 +197,9 @@ public final class PackageBuilder {
 
     /// The path of the package.
     private let packagePath: AbsolutePath
+
+    /// Information concerning the different downloaded binary target artifacts.
+    private let remoteArtifacts: [RemoteArtifact]
 
     /// The filesystem package builder will run on.
     private let fileSystem: FileSystem
@@ -200,6 +223,7 @@ public final class PackageBuilder {
     /// - Parameters:
     ///   - manifest: The manifest of this package.
     ///   - path: The root path of the package.
+    ///   - artifactPaths: Paths to the downloaded binary target artifacts.
     ///   - fileSystem: The file system on which the builder should be run.
     ///   - diagnostics: The diagnostics engine.
     ///   - createMultipleTestProducts: If enabled, create one test product for
@@ -208,6 +232,7 @@ public final class PackageBuilder {
         manifest: Manifest,
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription] = [],
+        remoteArtifacts: [RemoteArtifact] = [],
         fileSystem: FileSystem = localFileSystem,
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
@@ -216,6 +241,7 @@ public final class PackageBuilder {
         self.manifest = manifest
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
+        self.remoteArtifacts = remoteArtifacts
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
@@ -459,6 +485,12 @@ public final class PackageBuilder {
                     return path
                 }
                 throw ModuleError.invalidCustomPath(target: target.name, path: subpath)
+            } else if target.type == .binary {
+                if let artifact = remoteArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) {
+                    return artifact.path
+                } else {
+                    throw ModuleError.artifactNotFound(target.name)
+                }
             }
 
             // Check if target is present in the predefined directory.
@@ -618,6 +650,15 @@ public final class PackageBuilder {
                 path: potentialModule.path, isImplicit: false,
                 pkgConfig: manifestTarget.pkgConfig,
                 providers: manifestTarget.providers
+            )
+        } else if potentialModule.type == .binary {
+            let remoteURL = remoteArtifacts.first(where: { $0.path == potentialModule.path })
+            let artifactSource: BinaryTarget.ArtifactSource = remoteURL.map({ .remote(url: $0.url) }) ?? .local
+            return BinaryTarget(
+                name: potentialModule.name,
+                platforms: self.platforms(),
+                path: potentialModule.path,
+                artifactSource: artifactSource
             )
         }
 
