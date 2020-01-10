@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public struct Resource: Encodable {
+struct Resource: Encodable {
 
     /// The rule for the resource.
     private let rule: String

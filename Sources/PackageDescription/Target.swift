@@ -64,14 +64,6 @@ public final class Target {
     /// recursively inside it.
     public var sources: [String]?
 
-    /// The explicit list of resource files in the target.
-    @available(_PackageDescription, introduced: 5.2)
-    public var resources: [Resource]? {
-        get { _resources }
-        set { _resources = newValue }
-    }
-    private var _resources: [Resource]?
-
     /// The paths you want to exclude from source inference.
     ///
     /// Excluded paths are relative to the target path.
@@ -143,7 +135,6 @@ public final class Target {
         path: String?,
         exclude: [String],
         sources: [String]?,
-        resources: [Resource]? = nil,
         publicHeadersPath: String?,
         type: TargetType,
         pkgConfig: String? = nil,
@@ -158,7 +149,6 @@ public final class Target {
         self.path = path
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
-        self._resources = resources
         self.exclude = exclude
         self.type = type
         self.pkgConfig = pkgConfig
@@ -237,7 +227,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 5, obsoleted: 5.2)
+    @available(_PackageDescription, introduced: 5)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -256,61 +246,6 @@ public final class Target {
             path: path,
             exclude: exclude,
             sources: sources,
-            publicHeadersPath: publicHeadersPath,
-            type: .regular,
-            cSettings: cSettings,
-            cxxSettings: cxxSettings,
-            swiftSettings: swiftSettings,
-            linkerSettings: linkerSettings
-        )
-    }
-
-    /// Create a library or executable target.
-    ///
-    /// A target can either contain Swift or C-family source files. You can't
-    /// mix Swift and C-family source files within a target. A target is
-    /// considered to be an executable target if there is a `main.swift`,
-    /// `main.m`, `main.c`, or `main.cpp` file in the target's directory. All
-    /// other targets are considered to be library targets.
-    ///
-    /// - Parameters:
-    ///   - name: The name of the target.
-    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
-    ///   - path: The custom path for the target. By default, a targets sources are expected to be located in the predefined search paths,
-    ///       such as `[PackageRoot]/Sources/[TargetName]`.
-    ///       Do not escape the package root; that is, values like `../Foo` or `/Foo` are invalid..
-    ///   - exclude: A list of paths to files or directories that should not be considered source files. This path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
-    ///   - sources: An explicit list of source files. In case of a directory, the Swift Package Manager searches for valid source files
-    ///       recursively.
-    ///   - resources: An explicit list of resources files.
-    ///   - publicHeadersPath: The directory containing public headers of a C-family family library target.
-    ///   - cSettings: The C settings for this target.
-    ///   - cxxSettings: The C++ settings for this target.
-    ///   - swiftSettings: The Swift settings for this target.
-    ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 5.2)
-    public static func target(
-        name: String,
-        dependencies: [Dependency] = [],
-        path: String? = nil,
-        exclude: [String] = [],
-        sources: [String]? = nil,
-        // FIXME: Underscored until the evolution process is finished.
-        __resources: [Resource]? = nil,
-        publicHeadersPath: String? = nil,
-        cSettings: [CSetting]? = nil,
-        cxxSettings: [CXXSetting]? = nil,
-        swiftSettings: [SwiftSetting]? = nil,
-        linkerSettings: [LinkerSetting]? = nil
-    ) -> Target {
-        return Target(
-            name: name,
-            dependencies: dependencies,
-            path: path,
-            exclude: exclude,
-            sources: sources,
-            resources: __resources,
             publicHeadersPath: publicHeadersPath,
             type: .regular,
             cSettings: cSettings,
@@ -440,7 +375,6 @@ extension Target: Encodable {
         case name
         case path
         case sources
-        case resources
         case exclude
         case dependencies
         case publicHeadersPath
@@ -459,7 +393,6 @@ extension Target: Encodable {
         try container.encode(name, forKey: .name)
         try container.encode(path, forKey: .path)
         try container.encode(sources, forKey: .sources)
-        try container.encode(_resources, forKey: .resources)
         try container.encode(exclude, forKey: .exclude)
         try container.encode(dependencies, forKey: .dependencies)
         try container.encode(publicHeadersPath, forKey: .publicHeadersPath)
