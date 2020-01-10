@@ -7,17 +7,18 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(TSCUtility
+  Archiver.swift
   ArgumentParser.swift
   ArgumentParserShellCompletion.swift
   BuildFlags.swift
   CollectionExtensions.swift
   Diagnostics.swift
-  dlopen.swift
+  Downloader.swift
   FSWatch.swift
+  FloatingPointExtensions.swift
   Git.swift
   IndexStore.swift
   InterruptHandler.swift
-  misc.swift
   OSLog.swift
   PkgConfig.swift
   Platform.swift
@@ -28,7 +29,9 @@ add_library(TSCUtility
   URL.swift
   Verbosity.swift
   Version.swift
-  Versioning.swift)
+  Versioning.swift
+  dlopen.swift
+  misc.swift)
 target_link_libraries(TSCUtility PUBLIC
   TSCBasic)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
