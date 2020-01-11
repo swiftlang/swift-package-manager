@@ -515,4 +515,10 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertMatch(diff, .contains("Func Foo.foo() has return type change from Swift.String to Swift.Int"))
         }
     }
+    
+    func testDeprecatedFunctionalityInTests() {
+        fixture(name: "Miscellaneous/TestingDeprecatedFunctionality") { prefix in
+            XCTAssertSwiftTest(prefix, args: ["-Xswiftc", "-warnings-as-errors", "--enable-test-discovery"])
+        }
+    }
 }

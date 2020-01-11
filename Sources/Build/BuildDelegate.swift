@@ -52,6 +52,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         for klass in tests {
             stream <<< "\n"
             stream <<< "fileprivate extension " <<< klass.name <<< " {" <<< "\n"
+            stream <<< indent(4) <<< "@available(*, deprecated, message: \"not actually deprecated. Just deprecated to allow deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
             stream <<< indent(4) <<< "static let __allTests__\(klass.name) = [" <<< "\n"
             for method in klass.methods {
                 let method = method.hasSuffix("()") ? String(method.dropLast(2)) : method
@@ -61,6 +62,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             stream <<< "}" <<< "\n"
         }
 
+        stream <<< "@available(*, deprecated, message: \"not actually deprecated. Just deprecated to allow deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
         stream <<< """
         func __allTests_\(module)() -> [XCTestCaseEntry] {
             return [\n
@@ -119,12 +121,18 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         let stream = try LocalFileOutputByteStream(mainFile)
 
         stream <<< "import XCTest" <<< "\n\n"
-        stream <<< "var tests = [XCTestCaseEntry]()" <<< "\n"
+        stream <<< "protocol MainRunner { func run() }" <<< "\n"
+        stream <<< "class MainRunnerImpl: MainRunner {" <<< "\n"
+        stream <<< indent(4) <<< "@available(*, deprecated, message: \"not actually deprecated. Just deprecated to allow deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
+        stream <<< indent(4) <<< "func run() {" <<< "\n"
+        stream <<< indent(8) <<< "var tests = [XCTestCaseEntry]()" <<< "\n"
         for module in testsByModule.keys {
-            stream <<< "tests += __allTests_\(module)()" <<< "\n"
+            stream <<< indent(8) <<< "tests += __allTests_\(module)()" <<< "\n"
         }
-        stream <<< "\n"
-        stream <<< "XCTMain(tests)" <<< "\n"
+        stream <<< indent(8) <<< "XCTMain(tests)" <<< "\n"
+        stream <<< indent (4) <<< "}" <<< "\n"
+        stream <<< "}" <<< "\n"
+        stream <<< "(MainRunnerImpl() as MainRunner).run()" <<< "\n"
 
         stream.flush()
     }

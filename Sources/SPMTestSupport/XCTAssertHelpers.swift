@@ -54,10 +54,11 @@ public func XCTAssertSwiftTest(
     _ path: AbsolutePath,
     file: StaticString = #file,
     line: UInt = #line,
-    env: [String: String]? = nil
+    env: [String: String]? = nil,
+    args: [String] = []
 ) {
     do {
-        _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: path, env: env)
+        _ = try SwiftPMProduct.SwiftTest.execute(args, packagePath: path, env: env)
     } catch {
         XCTFail("""
             `swift test' failed:
