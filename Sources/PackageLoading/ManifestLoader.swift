@@ -648,7 +648,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // Find SDKROOT on macOS using xcrun.
       #if os(macOS)
         let foundPath = try? Process.checkNonZeroExit(
-            args: "xcrun", "--sdk", "macosx", "--show-sdk-path")
+            args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path")
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil
         }
