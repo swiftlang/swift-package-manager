@@ -15,7 +15,7 @@ import protocol Build.Toolchain
 import TSCUtility
 
 #if os(macOS)
-private let whichArgs: [String] = ["xcrun", "--find"]
+private let whichArgs: [String] = ["/usr/bin/xcrun", "--find"]
 #else
 private let whichArgs = ["which"]
 #endif
@@ -215,7 +215,7 @@ public final class UserToolchain: Toolchain {
         // We require xctest to exist on macOS.
       #if os(macOS)
         // FIXME: We should have some general utility to find tools.
-        let xctestFindArgs = ["xcrun", "--sdk", "macosx", "--find", "xctest"]
+        let xctestFindArgs = ["/usr/bin/xcrun", "--sdk", "macosx", "--find", "xctest"]
         self.xctest = try AbsolutePath(validating: Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment).spm_chomp())
       #else
         self.xctest = nil
