@@ -42,11 +42,15 @@ extension WorkspaceTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__WorkspaceTests = [
+        ("testArtifactChecksumChange", testArtifactChecksumChange),
+        ("testArtifactDownload", testArtifactDownload),
+        ("testArtifactDownloaderOrArchiverError", testArtifactDownloaderOrArchiverError),
         ("testBasics", testBasics),
         ("testBranchAndRevision", testBranchAndRevision),
         ("testCanResolveWithIncompatiblePins", testCanResolveWithIncompatiblePins),
         ("testCanUneditRemovedDependencies", testCanUneditRemovedDependencies),
         ("testChangeOneDependency", testChangeOneDependency),
+        ("testChecksumForBinaryArtifact", testChecksumForBinaryArtifact),
         ("testCleanAndReset", testCleanAndReset),
         ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory),
         ("testDependencyManifestLoading", testDependencyManifestLoading),

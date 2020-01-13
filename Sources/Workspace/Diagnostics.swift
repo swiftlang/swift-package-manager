@@ -323,4 +323,20 @@ extension Diagnostic.Message {
     static func checkedOutDependencyMissing(packageName: String) -> Diagnostic.Message {
         .warning("dependency '\(packageName)' is missing; cloning again")
     }
+
+    static func artifactChecksumChanged(targetName: String) -> Diagnostic.Message {
+        .error("artifact of binary target '\(targetName)' has changed checksum; this is a potential security risk so the new artifact won't be downloaded")
+    }
+
+    static func artifactInvalidChecksum(targetName: String) -> Diagnostic.Message {
+        .error("downloaded artifact of binary target '\(targetName)' has an invalid checksum")
+    }
+
+    static func artifactFailedDownload(targetName: String, reason: String) -> Diagnostic.Message {
+        .error("artifact of binary target '\(targetName)' failed download: \(reason)")
+    }
+
+    static func artifactFailedExtraction(targetName: String, reason: String) -> Diagnostic.Message {
+        .error("artifact of binary target '\(targetName)' failed extraction: \(reason)")
+    }
 }

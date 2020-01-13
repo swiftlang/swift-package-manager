@@ -56,6 +56,7 @@ extension PackageGraphError: CustomStringConvertible {
 
 /// A helper class for loading a package graph.
 public struct PackageGraphLoader {
+
     /// Create a package loader.
     public init() { }
 
@@ -67,6 +68,7 @@ public struct PackageGraphLoader {
         externalManifests: [Manifest],
         requiredDependencies: Set<PackageReference> = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
+        remoteArtifacts: [RemoteArtifact] = [],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
         shouldCreateMultipleTestProducts: Bool = false,
@@ -121,6 +123,7 @@ public struct PackageGraphLoader {
                 manifest: manifest,
                 path: packagePath,
                 additionalFileRules: additionalFileRules,
+                remoteArtifacts: remoteArtifacts,
                 fileSystem: fileSystem,
                 diagnostics: diagnostics,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
