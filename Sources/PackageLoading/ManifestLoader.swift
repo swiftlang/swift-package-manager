@@ -486,39 +486,34 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // Compute the path to runtime we need to load.
             let runtimePath = self.runtimePath(for: toolsVersion)
-            let interpreterFlags = self.interpreterFlags(for: toolsVersion)
+            let compilerFlags = self.interpreterFlags(for: toolsVersion)
 
             // FIXME: Workaround for the module cache bug that's been haunting Swift CI
             // <rdar://problem/48443680>
             let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
 
-            var cmd = [String]()
-          #if os(macOS)
-            // If enabled, use sandbox-exec on macOS. This provides some safety against
-            // arbitrary code execution when parsing manifest files. We only allow
-            // the permissions which are absolutely necessary for manifest parsing.
-            if isManifestSandboxEnabled {
-                let cacheDirs = [
-                    cacheDir,
-                    moduleCachePath.map{ AbsolutePath($0) }
-                ].compactMap{$0}
-                cmd += ["sandbox-exec", "-p", sandboxProfile(cacheDirs)]
-            }
-          #endif
+            var cmd: [String] = []
             cmd += [resources.swiftCompiler.pathString]
-            cmd += ["--driver-mode=swift"]
             cmd += verbosity.ccArgs
 
             // If we got the binDir that means we could be developing SwiftPM in Xcode
             // which produces a framework for dynamic package products.
-            let runtimeFrameworkPath = runtimePath.appending(component: "PackageFrameworks")
-            if resources.binDir != nil, localFileSystem.exists(runtimeFrameworkPath)  {
-                cmd += ["-F", runtimeFrameworkPath.pathString, "-framework", "PackageDescription"]
+            let packageFrameworkPath = runtimePath.appending(component: "PackageFrameworks")
+            if resources.binDir != nil, localFileSystem.exists(packageFrameworkPath)  {
+                cmd += [
+                    "-F", packageFrameworkPath.pathString,
+                    "-framework", "PackageDescription",
+                    "-Xlinker", "-rpath", "-Xlinker", packageFrameworkPath.pathString,
+                ]
             } else {
-                cmd += ["-L", runtimePath.pathString, "-lPackageDescription"]
+                cmd += [
+                    "-L", runtimePath.pathString,
+                    "-lPackageDescription",
+                    "-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString
+                ]
             }
 
-            cmd += interpreterFlags
+            cmd += compilerFlags
             if let moduleCachePath = moduleCachePath {
                 cmd += ["-module-cache-path", moduleCachePath]
             }
@@ -534,36 +529,50 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             cmd += [manifestPath.pathString]
 
-            // Create and open a temporary file to write json to.
             try withTemporaryFile { file in
-                // Pass the fd in arguments.
-                cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
+                // Set path to compiled manifest executable.
+                cmd += ["-o", file.path.pathString]
 
-                // Prefer swiftinterface if both swiftmodule and swiftinterface files are present.
-                //
-                // This will avoid failures during incremental builds when the
-                // slate swiftmodule file is still present from the previous
-                // install. We should be able to remove this after some
-                // transition period.
-                var env = ProcessEnv.vars
-              #if os(macOS)
-                env["SWIFT_FORCE_MODULE_LOADING"] = "prefer-parseable"
-              #endif
+                try Process.popen(arguments: cmd)
 
-                // Run the command.
-                let result = try Process.popen(arguments: cmd, environment: env)
-                let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle()
-                manifestParseResult.compilerOutput = output
+                // Compile the manifest.
+                let compilerResult = try Process.popen(arguments: cmd)
+                let compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
+                manifestParseResult.compilerOutput = compilerOutput
 
                 // Return now if there was an error.
-                if result.exitStatus != .terminated(code: 0) {
+                if compilerResult.exitStatus != .terminated(code: 0) {
                     return
                 }
 
-                guard let json = try localFileSystem.readFileContents(file.path).validDescription else {
-                    throw StringError("the manifest has invalid encoding")
+                // Pass the fd in arguments.
+                cmd = [file.path.pathString, "-fileno", "1"]
+
+              #if os(macOS)
+                // If enabled, use sandbox-exec on macOS. This provides some safety against
+                // arbitrary code execution when parsing manifest files. We only allow
+                // the permissions which are absolutely necessary for manifest parsing.
+                if isManifestSandboxEnabled {
+                    let cacheDirectories = [
+                        cacheDir,
+                        moduleCachePath.map({ AbsolutePath($0) })
+                    ].compactMap({ $0 })
+                    let profile = sandboxProfile(toolsVersion: toolsVersion, cacheDirectories: cacheDirectories)
+                    cmd += ["sandbox-exec", "-p", profile]
                 }
-                manifestParseResult.parsedManifest = json
+              #endif
+
+                // Run the command.
+                let runResult = try Process.popen(arguments: cmd)
+                let runOutput = try (runResult.utf8Output() + runResult.utf8stderrOutput()).spm_chuzzle()
+
+                // Return now if there was an error.
+                if runResult.exitStatus != .terminated(code: 0) {
+                    manifestParseResult.errorOutput = runOutput
+                    return
+                }
+
+                manifestParseResult.parsedManifest = runOutput
             }
         }
 
@@ -625,10 +634,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cmd += ["-I", runtimePath.pathString]
       #if os(macOS)
         cmd += ["-target", "x86_64-apple-macosx10.10"]
-      #endif
         if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
             cmd += ["-sdk", sdkRoot.pathString]
         }
+      #endif
         cmd += ["-package-description-version", toolsVersion.description]
         return cmd
     }
@@ -660,26 +669,31 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.
-private func sandboxProfile(_ cacheDirs: [AbsolutePath] = []) -> String {
+private func sandboxProfile(toolsVersion: ToolsVersion, cacheDirectories: [AbsolutePath] = []) -> String {
     let stream = BufferedOutputByteStream()
     stream <<< "(version 1)" <<< "\n"
     // Deny everything by default.
     stream <<< "(deny default)" <<< "\n"
     // Import the system sandbox profile.
     stream <<< "(import \"system.sb\")" <<< "\n"
-    // Allow reading all files.
-    stream <<< "(allow file-read*)" <<< "\n"
-    // These are required by the Swift compiler.
-    stream <<< "(allow process*)" <<< "\n"
-    stream <<< "(allow sysctl*)" <<< "\n"
-    // Allow writing in temporary locations.
-    stream <<< "(allow file-write*" <<< "\n"
-    for directory in Platform.darwinCacheDirectories() {
-        stream <<< "    (regex #\"^\(directory.pathString)/org\\.llvm\\.clang.*\")" <<< "\n"
+
+    // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
+    if toolsVersion < .vNext {
+        // Allow reading all files.
+        stream <<< "(allow file-read*)" <<< "\n"
+        // These are required by the Swift compiler.
+        stream <<< "(allow process*)" <<< "\n"
+        stream <<< "(allow sysctl*)" <<< "\n"
+        // Allow writing in temporary locations.
+        stream <<< "(allow file-write*" <<< "\n"
+        for directory in Platform.darwinCacheDirectories() {
+            stream <<< "    (regex #\"^\(directory.pathString)/org\\.llvm\\.clang.*\")" <<< "\n"
+        }
+        for directory in cacheDirectories {
+            stream <<< "    (subpath \"\(directory.pathString)\")" <<< "\n"
+        }
     }
-    for cacheDir in cacheDirs {
-        stream <<< "    (subpath \"\(cacheDir.pathString)\")" <<< "\n"
-    }
+
     stream <<< ")" <<< "\n"
     return stream.bytes.description
 }
