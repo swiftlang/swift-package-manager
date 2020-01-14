@@ -29,6 +29,8 @@ foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
             $<$<COMPILE_LANGUAGE:Swift>:-enable-library-evolution>)
         target_compile_options(PD${PACKAGE_DESCRIPTION_VERSION} PUBLIC
             $<$<COMPILE_LANGUAGE:Swift>:-emit-module-interface-path$<SEMICOLON>${SWIFT_INTERFACE_PATH}>)
+        target_link_options(PD${PACKAGE_DESCRIPTION_VERSION} PRIVATE
+            "SHELL:-Xlinker -install_name -Xlinker @rpath/libPackageDescription.dylib")
     endif()
 
     set_target_properties(PD${PACKAGE_DESCRIPTION_VERSION} PROPERTIES
