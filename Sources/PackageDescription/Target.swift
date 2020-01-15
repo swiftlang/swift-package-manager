@@ -350,8 +350,7 @@ public final class Target {
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
-        // FIXME: Underscored until the evolution process is finished.
-        __resources: [Resource]? = nil,
+        resources: [Resource]? = nil,
         publicHeadersPath: String? = nil,
         cSettings: [CSetting]? = nil,
         cxxSettings: [CXXSetting]? = nil,
@@ -364,7 +363,7 @@ public final class Target {
             path: path,
             exclude: exclude,
             sources: sources,
-            resources: __resources,
+            resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .regular,
             cSettings: cSettings,
