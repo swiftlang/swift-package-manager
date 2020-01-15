@@ -6,14 +6,14 @@ let package = Package(
     targets: [
         .target(
             name: "SwiftyResource",
-            __resources: [
+            resources: [
                 .copy("foo.txt"),
             ]
         ),
 
         .target(
             name: "SeaResource",
-            __resources: [
+            resources: [
                 .copy("foo.txt"),
             ]
         ),

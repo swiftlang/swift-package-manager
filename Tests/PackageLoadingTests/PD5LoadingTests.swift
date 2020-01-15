@@ -395,7 +395,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
                targets: [
                    .target(
                        name: "Foo",
-                       __resources: [
+                       resources: [
                            .copy("foo.txt"),
                            .process("bar.txt"),
                        ]
