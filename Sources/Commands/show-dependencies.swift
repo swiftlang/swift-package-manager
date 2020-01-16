@@ -81,25 +81,40 @@ private final class FlatListDumper: DependenciesDumper {
 
 private final class DotDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage) {
+        var nodesAlreadyPrinted: Set<String> = []
+        func printNode(_ package: ResolvedPackage) {
+            let url = package.manifest.url
+            if nodesAlreadyPrinted.contains(url) { return }
+            let pkgVersion = package.manifest.version?.description ?? "unspecified"
+            print("""
+                "\(url)" [label="\(package.name)\\n\(url)\\n\(pkgVersion)"]
+                """)
+            nodesAlreadyPrinted.insert(url)
+        }
+        
+        struct DependencyURLs: Hashable {
+            var root: String
+            var dependency: String
+        }
+        var dependenciesAlreadyPrinted: Set<DependencyURLs> = []
         func recursiveWalk(rootpkg: ResolvedPackage) {
             printNode(rootpkg)
             for dependency in rootpkg.dependencies {
+                let rootURL = rootpkg.manifest.url
+                let dependencyURL = dependency.manifest.url
+                let urlPair = DependencyURLs(root: rootURL, dependency: dependencyURL)
+                if dependenciesAlreadyPrinted.contains(urlPair) { continue }
+                
                 printNode(dependency)
                 print("""
-                    "\(rootpkg.manifest.url)" -> "\(dependency.manifest.url)"
+                    "\(rootURL)" -> "\(dependencyURL)"
                     """)
+                dependenciesAlreadyPrinted.insert(urlPair)
 
                 if !dependency.dependencies.isEmpty {
                     recursiveWalk(rootpkg: dependency)
                 }
             }
-        }
-
-        func printNode(_ package: ResolvedPackage) {
-            let pkgVersion = package.manifest.version?.description ?? "unspecified"
-            print("""
-                "\(package.manifest.url)"[label="\(package.name)\\n\(package.manifest.url)\\n\(pkgVersion)"]
-                """)
         }
 
         if !rootpkg.dependencies.isEmpty {
