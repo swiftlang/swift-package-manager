@@ -21,36 +21,6 @@ public enum ManifestParseError: Swift.Error {
 
     /// The manifest was successfully loaded by swift interpreter but there were runtime issues.
     case runtimeManifestErrors([String])
-
-    /// The manifest contains a product that references no targets.
-    case emptyProductTargets(productName: String)
-
-    /// The manifest contains a product that references a target that does not exist.
-    case productTargetNotFound(productName: String, targetName: String)
-
-    /// The manifest contains a binary-only product of the wrong type.
-    case invalidBinaryProductType(productName: String)
-
-    /// The manifest contains dependencies with the same URL.
-    case duplicateDependencyURLs([[PackageDependencyDescription]])
-
-    /// The manifest contains dependencies with the same name.
-    case duplicateDependencyNames([[PackageDependencyDescription]])
-
-    /// The manifest contains targets with the same name.
-    case duplicateTargetNames([String])
-
-    /// The manifest contains target product dependencies that reference an unknown package.
-    case unknownTargetDependencyPackage(targetName: String, packageName: String)
-
-    /// The manifest contains a binary target with an invalid artifact path/url.
-    case invalidBinaryLocation(targetName: String)
-
-    /// The manifest contains a binary target with an invalid arfiact url scheme.
-    case invalidBinaryURLScheme(targetName: String, validSchemes: [String])
-
-    /// The manifest contains a binary target with an invalid artifact extension.
-    case invalidBinaryLocationExtension(targetName: String, validExtensions: [String])
 }
 
 /// Resources required for manifest loading.
@@ -287,12 +257,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             throw ManifestParseError.runtimeManifestErrors(manifestBuilder.errors)
         }
 
-        // Ensure no dupicate target definitions are found.
-        let duplicateTargetNames: [String] = manifestBuilder.targets.map({ $0.name }).spm_findDuplicates()
-        if !duplicateTargetNames.isEmpty {
-            throw ManifestParseError.duplicateTargetNames(duplicateTargetNames)
-        }
-
         let manifest = Manifest(
             name: manifestBuilder.name,
             platforms: manifestBuilder.platforms,
@@ -311,97 +275,119 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             targets: manifestBuilder.targets
         )
 
-        try validate(manifest, toolsVersion: toolsVersion)
+        try validate(manifest, toolsVersion: toolsVersion, diagnostics: diagnostics)
+
+        if let diagnostics = diagnostics, diagnostics.hasErrors {
+            throw Diagnostics.fatalError
+        }
 
         return manifest
     }
 
     /// Validate the provided manifest.
-    private func validate(_ manifest: Manifest, toolsVersion: ToolsVersion) throws {
-        try validateProducts(manifest)
-        try validateDependencyURLs(manifest)
+    private func validate(_ manifest: Manifest, toolsVersion: ToolsVersion, diagnostics: DiagnosticsEngine?) throws {
+        try validateTargets(manifest, diagnostics: diagnostics)
+        try validateProducts(manifest, diagnostics: diagnostics)
+        try validateDependencies(manifest, toolsVersion: toolsVersion, diagnostics: diagnostics)
 
         // Checks reserved for tools version 5.2 features
         if toolsVersion >= .v5_2 {
-            try validateDependencyNames(manifest)
-            try validateTargetDependencyReferences(manifest)
-            try validateBinaryTargets(manifest)
+            try validateTargetDependencyReferences(manifest, diagnostics: diagnostics)
+            try validateBinaryTargets(manifest, diagnostics: diagnostics)
         }
     }
 
-    private func validateProducts(_ manifest: Manifest) throws {
+    private func validateTargets(_ manifest: Manifest, diagnostics: DiagnosticsEngine?) throws {
+        let duplicateTargetNames = manifest.targets.map({ $0.name }).spm_findDuplicates()
+        for name in duplicateTargetNames {
+            try diagnostics.emit(.duplicateTargetName(targetName: name))
+        }
+    }
+
+    private func validateProducts(_ manifest: Manifest, diagnostics: DiagnosticsEngine?) throws {
         for product in manifest.products {
             // Check that the product contains targets.
             guard !product.targets.isEmpty else {
-                throw ManifestParseError.emptyProductTargets(productName: product.name)
+                try diagnostics.emit(.emptyProductTargets(productName: product.name))
+                continue
             }
 
             // Check that the product references existing targets.
             for target in product.targets {
                 if !manifest.targetMap.keys.contains(target) {
-                    throw ManifestParseError.productTargetNotFound(productName: product.name, targetName: target)
+                    try diagnostics.emit(.productTargetNotFound(productName: product.name, targetName: target))
                 }
             }
 
             // Check that products that reference only binary targets don't define a type.
             let areTargetsBinary = product.targets.allSatisfy({ manifest.targetMap[$0]!.type == .binary })
             if areTargetsBinary && product.type != .library(.automatic) {
-                throw ManifestParseError.invalidBinaryProductType(productName: product.name)
+                try diagnostics.emit(.invalidBinaryProductType(productName: product.name))
             }
         }
     }
 
-    private func validateDependencyURLs(_ manifest: Manifest) throws {
-        let duplicateDependenciesByURL = manifest.dependencies
+    private func validateDependencies(
+        _ manifest: Manifest,
+        toolsVersion: ToolsVersion,
+        diagnostics: DiagnosticsEngine?
+    ) throws {
+        let dependenciesByIdentity = Dictionary(grouping: manifest.dependencies, by: { dependency in
+            PackageReference.computeIdentity(packageURL: dependency.url)
+        })
+
+        let duplicateDependencyIdentities = dependenciesByIdentity
             .lazy
-            .map({ KeyedPair($0, key: PackageReference.computeIdentity(packageURL: $0.url)) })
-            .spm_findDuplicateElements()
-        if !duplicateDependenciesByURL.isEmpty {
-            let duplicates = duplicateDependenciesByURL.map({ $0.map({ $0.item }) })
-            throw ManifestParseError.duplicateDependencyURLs(duplicates)
+            .filter({ $0.value.count > 1 })
+            .map({ $0.key })
+
+        for identity in duplicateDependencyIdentities {
+            try diagnostics.emit(.duplicateDependency(dependencyIdentity: identity))
+        }
+
+        if toolsVersion >= .v5_2 {
+            let duplicateDependencies = duplicateDependencyIdentities.flatMap({ dependenciesByIdentity[$0]! })
+            let duplicateDependencyNames = manifest.dependencies
+                .lazy
+                .filter({ !duplicateDependencies.contains($0) })
+                .map({ $0.name! })
+                .spm_findDuplicates()
+
+            for name in duplicateDependencyNames {
+                try diagnostics.emit(.duplicateDependencyName(dependencyName: name))
+            }
         }
     }
 
-    /// Validates that all dependencies have different names.
-    private func validateDependencyNames(_ manifest: Manifest) throws {
-        let duplicateDependenciesByName = manifest.dependencies
-            .lazy
-            .map({ KeyedPair($0, key: $0.name!) })
-            .spm_findDuplicateElements()
-        if !duplicateDependenciesByName.isEmpty {
-            let duplicates = duplicateDependenciesByName.map({ $0.map({ $0.item }) })
-            throw ManifestParseError.duplicateDependencyNames(duplicates)
-        }
-    }
-
-    private func validateBinaryTargets(_ manifest: Manifest) throws {
+    private func validateBinaryTargets(_ manifest: Manifest, diagnostics: DiagnosticsEngine?) throws {
         // Check that binary targets point to the right file type.
         for target in manifest.targets where target.type == .binary {
             guard let location = URL(string: target.url ?? target.path!) else {
-                throw ManifestParseError.invalidBinaryLocation(targetName: target.name)
+                try diagnostics.emit(.invalidBinaryLocation(targetName: target.name))
+                continue
             }
 
             let isRemote = target.url != nil
             let validSchemes = ["https"]
-            guard !isRemote || (location.scheme.map({ validSchemes.contains($0) }) ?? false) else {
-                throw ManifestParseError.invalidBinaryURLScheme(
+            if isRemote && (location.scheme.map({ !validSchemes.contains($0) }) ?? true) {
+                try diagnostics.emit(.invalidBinaryURLScheme(
                     targetName: target.name,
                     validSchemes: validSchemes
-                )
+                ))
             }
 
-            let validExtensions = isRemote ? ["zip"] : ["zip", "xcframework"]
-            guard validExtensions.contains(location.pathExtension) else {
-                throw ManifestParseError.invalidBinaryLocationExtension(
+            let validExtensions = isRemote ? ["zip"] : ["xcframework"]
+            if !validExtensions.contains(location.pathExtension) {
+                try diagnostics.emit(.unsupportedBinaryLocationExtension(
                     targetName: target.name,
                     validExtensions: validExtensions
-                )
+                ))
             }
         }
     }
 
     /// Validates that product target dependencies reference an existing package.
-    private func validateTargetDependencyReferences(_ manifest: Manifest) throws {
+    private func validateTargetDependencyReferences(_ manifest: Manifest, diagnostics: DiagnosticsEngine?) throws {
         for target in manifest.targets {
             for targetDependency in target.dependencies {
                 // If this is a target dependency (or byName that references a target), we don't need to check.
@@ -419,10 +405,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         fatalError("Invalid case: this shouldn't be a target, or a product with no name")
                     }
 
-                    throw ManifestParseError.unknownTargetDependencyPackage(
+                    try diagnostics.emit(.unknownPackageInTargetDependencies(
                         targetName: target.name,
                         packageName: packageName
-                    )
+                    ))
                 }
             }
         }
@@ -962,3 +948,45 @@ extension ManifestPathOrContents: Codable {
 }
 
 extension CodableResult: LLBuildValue { }
+
+extension TSCBasic.Diagnostic.Message {
+    static func duplicateTargetName(targetName: String) -> Self {
+        .error("duplicate target named '\(targetName)'")
+    }
+
+    static func emptyProductTargets(productName: String) -> Self {
+        .error("product '\(productName)' doesn't reference any targets")
+    }
+
+    static func productTargetNotFound(productName: String, targetName: String) -> Self {
+        .error("target '\(targetName)' referenced in product '\(productName)' could not be found")
+    }
+
+    static func invalidBinaryProductType(productName: String) -> Self {
+        .error("invalid type for binary product '\(productName)'; products referencing only binary targets must have a type of 'library'")
+    }
+
+    static func duplicateDependency(dependencyIdentity: String) -> Self {
+        .error("duplicate dependency '\(dependencyIdentity)'")
+    }
+
+    static func duplicateDependencyName(dependencyName: String) -> Self {
+        .error("duplicate dependency named '\(dependencyName)'; consider differentiating them using the 'name' argument")
+    }
+
+    static func unknownPackageInTargetDependencies(targetName: String, packageName: String) -> Self {
+        .error("unknown package '\(packageName)' in dependencies of target '\(targetName)'")
+    }
+
+    static func invalidBinaryLocation(targetName: String) -> Self {
+        .error("invalid location for binary target '\(targetName)'")
+    }
+
+    static func invalidBinaryURLScheme(targetName: String, validSchemes: [String]) -> Self {
+        .error("invalid URL scheme for binary target '\(targetName)'; valid schemes are: \(validSchemes.joined(separator: ", "))")
+    }
+
+    static func unsupportedBinaryLocationExtension(targetName: String, validExtensions: [String]) -> Self {
+        .error("unsupported extension for binary target '\(targetName)'; valid extensions are: \(validExtensions.joined(separator: ", "))")
+    }
+}

@@ -13,36 +13,6 @@ import TSCUtility
 
 import XCTest
 
-public enum StringCheck: ExpressibleByStringLiteral {
-    case equal(String)
-    case contains(String)
-
-    func check(
-        input: String,
-        file: StaticString = #file,
-        line: UInt = #line
-    ) {
-        switch self {
-        case .equal(let str):
-            XCTAssertEqual(str, input, file: file, line: line)
-        case .contains(let str):
-            XCTAssert(input.contains(str), "\(input) does not contain \(str)", file: file, line: line)
-        }
-    }
-
-    public init(stringLiteral value: String) {
-        self = .equal(value)
-    }
-
-    public init(extendedGraphemeClusterLiteral value: String) {
-        self.init(stringLiteral: value)
-    }
-
-    public init(unicodeScalarLiteral value: String) {
-        self.init(stringLiteral: value)
-    }
-}
-
 public func DiagnosticsEngineTester(
     _ engine: DiagnosticsEngine,
     ignoreNotes: Bool = false,
@@ -73,7 +43,7 @@ final public class DiagnosticsEngineResult {
     }
 
     public func check(
-        diagnostic: StringCheck,
+        diagnostic: StringPattern,
         checkContains: Bool = false,
         behavior: Diagnostic.Behavior,
         location: String? = nil,
@@ -87,7 +57,7 @@ final public class DiagnosticsEngineResult {
         let location = location ?? UnknownLocation.location.description
         let theDiagnostic = uncheckedDiagnostics.removeFirst()
 
-        diagnostic.check(input: theDiagnostic.description, file: file, line: line)
+        XCTAssertMatch(theDiagnostic.description, diagnostic, file: file, line: line)
         XCTAssertEqual(theDiagnostic.message.behavior, behavior, file: file, line: line)
         XCTAssertEqual(theDiagnostic.location.description, location, file: file, line: line)
     }

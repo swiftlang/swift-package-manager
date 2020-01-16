@@ -113,7 +113,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         self.dependencies = dependencies
         self.products = products
         self.targets = targets
-        self.targetMap = Dictionary(uniqueKeysWithValues: targets.lazy.map({ ($0.name, $0) }))
+        self.targetMap = Dictionary(targets.lazy.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
     }
 
     public var description: String {

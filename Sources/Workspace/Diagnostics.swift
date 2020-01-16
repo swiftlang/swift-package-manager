@@ -29,47 +29,6 @@ public struct ManifestParseDiagnostic: DiagnosticData {
     }
 }
 
-public struct ManifestDuplicateDependencyURLsDiagnostic: DiagnosticData {
-    public let duplicates: [[PackageDependencyDescription]]
-
-    public var description: String {
-        let stream = BufferedOutputByteStream()
-
-        stream <<< "manifest parse error(s): duplicate dependency URLs\n"
-        let indent = Format.asRepeating(string: " ", count: 4)
-
-        for duplicateGroup in duplicates {
-            for duplicate in duplicateGroup {
-                stream <<< indent <<< duplicate.url <<< " @ " <<< "\(duplicate.requirement)" <<< "\n"
-            }
-            stream <<< "\n"
-        }
-
-        return stream.bytes.description
-    }
-}
-
-public struct ManifestDuplicateDependencyNamesDiagnostic: DiagnosticData {
-    public let duplicates: [[PackageDependencyDescription]]
-
-    public var description: String {
-        let stream = BufferedOutputByteStream()
-
-        stream <<< "manifest parse error(s): duplicate dependency names\n"
-        let indent = Format.asRepeating(string: " ", count: 4)
-
-        for duplicateGroup in duplicates {
-            for duplicate in duplicateGroup {
-                stream <<< indent <<< duplicate.url <<< " @ " <<< "\(duplicate.requirement)" <<< "\n"
-            }
-            stream <<< "\n"
-        }
-
-        stream <<< "consider differentiating them using the 'name' argument.\n"
-        return stream.bytes.description
-    }
-}
-
 extension ManifestParseError: DiagnosticDataConvertible {
     public var diagnosticData: DiagnosticData {
         switch self {
@@ -77,26 +36,6 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestParseDiagnostic([error], diagnosticFile: diagnisticFile)
         case .runtimeManifestErrors(let errors):
             return ManifestParseDiagnostic(errors, diagnosticFile: nil)
-        case .emptyProductTargets(let productName):
-            return Diagnostic.Message.emptyProductTargets(productName: productName).data
-        case .productTargetNotFound(let productName, let targetName):
-            return Diagnostic.Message.productTargetNotFound(productName: productName, targetName: targetName).data
-        case .invalidBinaryProductType(let productName):
-            return Diagnostic.Message.invalidBinaryProductType(productName: productName).data
-        case .duplicateDependencyURLs(let duplicates):
-            return ManifestDuplicateDependencyURLsDiagnostic(duplicates: duplicates)
-        case .duplicateTargetNames(let targetNames):
-            return Diagnostic.Message.duplicateTargetNames(duplicates: targetNames).data
-        case .unknownTargetDependencyPackage(let targetName, let packageName):
-            return Diagnostic.Message.unknownTargetDependencyPackage(targetName: targetName, packageName: packageName).data
-        case .duplicateDependencyNames(let duplicates):
-            return ManifestDuplicateDependencyNamesDiagnostic(duplicates: duplicates)
-        case .invalidBinaryLocation(let targetName):
-            return Diagnostic.Message.invalidBinaryLocation(targetName: targetName).data
-        case .invalidBinaryURLScheme(let targetName, let validSchemes):
-            return Diagnostic.Message.invalidBinaryURLScheme(targetName: targetName, validSchemes: validSchemes).data
-        case .invalidBinaryLocationExtension(let targetName, let validExtensions):
-            return Diagnostic.Message.invalidBinaryLocationExtension(targetName: targetName, validExtensions: validExtensions).data
         }
     }
 }
@@ -258,37 +197,5 @@ extension Diagnostic.Message {
 
     static func artifactFailedExtraction(targetName: String, reason: String) -> Diagnostic.Message {
         .error("artifact of binary target '\(targetName)' failed extraction: \(reason)")
-    }
-
-    static func productTargetNotFound(productName: String, targetName: String) -> Diagnostic.Message {
-        .error("manifest parse error: target '\(targetName)' referenced in product '\(productName)' could not be found")
-    }
-
-    static func emptyProductTargets(productName: String) -> Diagnostic.Message {
-        .error("manifest parse error: product '\(productName)' doesn't reference any targets")
-    }
-
-    static func invalidBinaryProductType(productName: String) -> Diagnostic.Message {
-        .error("manifest parse error: invalid type for binary product '\(productName)'; a binary product can only be a library with no defined type")
-    }
-
-    static func duplicateTargetNames(duplicates: [String]) -> Diagnostic.Message {
-        .error("manifest parse error: duplicate target names: \(duplicates.joined(separator: ", "))")
-    }
-
-    static func unknownTargetDependencyPackage(targetName: String, packageName: String) -> Diagnostic.Message {
-        .error("manifest parse error: target '\(targetName)' depends on an unknown package '\(packageName)'")
-    }
-
-    static func invalidBinaryLocation(targetName: String) -> Diagnostic.Message {
-        .error("manifest parse error: invalid location of binary target '\(targetName)'")
-    }
-
-    static func invalidBinaryURLScheme(targetName: String, validSchemes: [String]) -> Diagnostic.Message {
-        .error("manifest parse error: invalid URL scheme for binary target '\(targetName)' (valid schemes are \(validSchemes.joined(separator: ", "))")
-    }
-
-    static func invalidBinaryLocationExtension(targetName: String, validExtensions: [String]) -> Diagnostic.Message {
-        .error("manifest parse error: unsupported extension of binary target '\(targetName)' (valid extensions are \(validExtensions.joined(separator: ", "))")
     }
 }

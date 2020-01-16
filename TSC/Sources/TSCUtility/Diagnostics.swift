@@ -35,28 +35,28 @@ extension DiagnosticsEngine {
 
     public func emit(
         error: String,
-        location: DiagnosticLocation = UnknownLocation.location
+        location: DiagnosticLocation? = nil
     ) {
         emit(.error(error), location: location)
     }
 
     public func emit(
         warning: String,
-        location: DiagnosticLocation = UnknownLocation.location
+        location: DiagnosticLocation? = nil
     ) {
         emit(.warning(warning), location: location)
     }
 
     public func emit(
         note: String,
-        location: DiagnosticLocation = UnknownLocation.location
+        location: DiagnosticLocation? = nil
     ) {
         emit(.note(note), location: location)
     }
 
   public func emit(
       remark: String,
-      location: DiagnosticLocation = UnknownLocation.location
+      location: DiagnosticLocation? = nil
   ) {
       emit(.remark(remark), location: location)
   }
@@ -67,7 +67,7 @@ extension DiagnosticsEngine {
     /// Otherwise, they will be emitted as AnyDiagnostic.
     public func emit(
         _ error: Swift.Error,
-        location: DiagnosticLocation = UnknownLocation.location
+        location: DiagnosticLocation? = nil
     ) {
         if let diagnosticData = error as? DiagnosticData {
             emit(.error(diagnosticData), location: location)
@@ -81,9 +81,15 @@ extension DiagnosticsEngine {
     /// Emit a diagnostic data convertible instance.
     public func emit(
         _ convertible: DiagnosticDataConvertible,
-        location: DiagnosticLocation = UnknownLocation.location
+        location: DiagnosticLocation? = nil
      ) {
         emit(.error(convertible.diagnosticData), location: location)
+    }
+
+    @discardableResult
+    public func with<T>(location: DiagnosticLocation, _ closure: (DiagnosticsEngine) -> T) -> T {
+        let innerDiagnostics = DiagnosticsEngine(handlers: [self.emit], defaultLocation: location)
+        return closure(innerDiagnostics)
     }
 
     /// Wrap a throwing closure, returning an optional value and
@@ -93,14 +99,13 @@ extension DiagnosticsEngine {
     ///     - closure: Closure to wrap.
     /// - Returns: Returns the return value of the closure wrapped
     ///   into an optional. If the closure throws, nil is returned.
-    public func wrap<T>(
-        with constuctLocation: @autoclosure () -> (DiagnosticLocation) = UnknownLocation.location,
-        _ closure: () throws -> T
-    ) -> T? {
+    public func wrap<T>(_ closure: () throws -> T) -> T? {
         do {
             return try closure()
+        } catch Diagnostics.fatalError {
+            return nil
         } catch {
-            emit(error, location: constuctLocation())
+            emit(error)
             return nil
         }
     }
@@ -113,16 +118,61 @@ extension DiagnosticsEngine {
     /// - Returns: Returns true if the wrapped closure did not throw
     ///   and false otherwise.
     @discardableResult
-    public func wrap(
-        with constuctLocation: @autoclosure () -> (DiagnosticLocation) = UnknownLocation.location,
-        _ closure: () throws -> Void
-    ) -> Bool {
+    public func wrap(_ closure: () throws -> Void) -> Bool {
         do {
             try closure()
             return true
-        } catch {
-            emit(error, location: constuctLocation())
+        } catch Diagnostics.fatalError {
             return false
+        } catch {
+            emit(error)
+            return false
+        }
+    }
+}
+
+extension Optional where Wrapped == DiagnosticsEngine {
+    public func emit(
+        error: String,
+        location: DiagnosticLocation? = nil
+    ) throws {
+        if case let diagnostics? = self {
+            diagnostics.emit(.error(error), location: location)
+        } else {
+            throw Diagnostics.fatalError
+        }
+    }
+
+    public func emit(
+        _ error: Swift.Error,
+        location: DiagnosticLocation? = nil
+    ) throws {
+        if case let diagnostics? = self {
+            diagnostics.emit(error, location: location)
+        } else {
+            throw Diagnostics.fatalError
+        }
+    }
+
+    public func emit(
+        _ convertible: DiagnosticDataConvertible,
+        location: DiagnosticLocation? = nil
+    ) throws {
+        if case let diagnostics? = self {
+            diagnostics.emit(.error(convertible.diagnosticData), location: location)
+        } else {
+            throw Diagnostics.fatalError
+        }
+    }
+
+    public func emit(
+        _ message: Diagnostic.Message,
+        location: DiagnosticLocation? = nil
+    ) throws {
+        if case let diagnostics? = self {
+            diagnostics.emit(message, location: location)
+        } else if message.behavior == .error {
+            throw Diagnostics.fatalError
         }
     }
 }

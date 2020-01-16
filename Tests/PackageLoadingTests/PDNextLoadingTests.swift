@@ -114,18 +114,14 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                         .library(name: "FooLibrary", type: .static, targets: ["Foo"]),
                     ],
                     targets: [
-                        .binaryTarget(name: "Foo", path: "Foo.zip"),
+                        .binaryTarget(name: "Foo", path: "Foo.xcframework"),
                     ]
                 )
                 """
 
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+                diagnostics.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", behavior: .error)
             }
-        } catch ManifestParseError.invalidBinaryProductType(let productName) {
-            XCTAssertEqual(productName, "FooLibrary")
-        } catch {
-            XCTFail(error.localizedDescription)
         }
 
         do {
@@ -138,18 +134,14 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                         .executable(name: "FooLibrary", targets: ["Foo"]),
                     ],
                     targets: [
-                        .binaryTarget(name: "Foo", path: "Foo.zip"),
+                        .binaryTarget(name: "Foo", path: "Foo.xcframework"),
                     ]
                 )
                 """
 
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+                diagnostics.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", behavior: .error)
             }
-        } catch ManifestParseError.invalidBinaryProductType(let productName) {
-            XCTAssertEqual(productName, "FooLibrary")
-        } catch {
-            XCTFail(error.localizedDescription)
         }
 
         do {
@@ -162,13 +154,13 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                         .library(name: "FooLibrary", type: .static, targets: ["Foo", "Bar"]),
                     ],
                     targets: [
-                        .binaryTarget(name: "Foo", path: "Foo.zip"),
+                        .binaryTarget(name: "Foo", path: "Foo.xcframework"),
                         .target(name: "Bar"),
                     ]
                 )
                 """
 
-            loadManifest(stream.bytes) { _ in }
+            XCTAssertManifestLoadNoThrows(stream.bytes)
         }
 
         do {
@@ -186,13 +178,29 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+                diagnostics.check(diagnostic: "invalid location for binary target 'Foo'", behavior: .error)
             }
-        } catch ManifestParseError.invalidBinaryLocation(let targetName) {
-            XCTAssertEqual(targetName, "Foo")
-        } catch {
-            XCTFail(error.localizedDescription)
+        }
+
+        do {
+            let stream = BufferedOutputByteStream()
+            stream <<< """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [
+                        .library(name: "Foo", targets: ["Foo"]),
+                    ],
+                    targets: [
+                        .binaryTarget(name: "Foo", url: "http://foo.com/foo.zip", checksum: "checksum"),
+                    ]
+                )
+                """
+
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+                diagnostics.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: https", behavior: .error)
+            }
         }
 
         do {
@@ -210,14 +218,9 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: xcframework", behavior: .error)
             }
-        } catch ManifestParseError.invalidBinaryLocationExtension(let targetName, let validExtensions) {
-            XCTAssertEqual(targetName, "Foo")
-            XCTAssertEqual(Set(validExtensions), ["zip", "xcframework"])
-        } catch {
-            XCTFail(error.localizedDescription)
         }
 
         do {
@@ -238,14 +241,9 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: zip", behavior: .error)
             }
-        } catch ManifestParseError.invalidBinaryLocationExtension(let targetName, let validExtensions) {
-            XCTAssertEqual(targetName, "Foo")
-            XCTAssertEqual(Set(validExtensions), ["zip"])
-        } catch {
-            XCTFail(error.localizedDescription)
         }
 
         do {
@@ -263,14 +261,9 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: xcframework", behavior: .error)
             }
-        } catch ManifestParseError.invalidBinaryLocationExtension(let targetName, let validExtensions) {
-            XCTAssertEqual(targetName, "Foo")
-            XCTAssertEqual(Set(validExtensions), ["zip", "xcframework"])
-        } catch {
-            XCTFail(error.localizedDescription)
         }
 
         do {
@@ -291,14 +284,9 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: zip", behavior: .error)
             }
-        } catch ManifestParseError.invalidBinaryLocationExtension(let targetName, let validExtensions) {
-            XCTAssertEqual(targetName, "Foo")
-            XCTAssertEqual(Set(validExtensions), ["zip"])
-        } catch {
-            XCTFail(error.localizedDescription)
         }
     }
 }

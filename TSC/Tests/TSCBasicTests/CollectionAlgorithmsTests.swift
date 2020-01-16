@@ -14,7 +14,8 @@ import TSCBasic
 
 class CollectionAlgorithmsTests: XCTestCase {
     func testFindDuplicates() {
-        XCTAssertEqual([1, 2, 3, 2, 1].spm_findDuplicates(), [2, 1])
+        XCTAssertEqual(Set([1, 2, 3, 2, 1].spm_findDuplicates()), [1, 2])
+        XCTAssertEqual(Set([1, 2, 3, 2, 1, 2].spm_findDuplicates()), [1, 2])
         XCTAssertEqual(["foo", "bar"].spm_findDuplicates(), [])
         XCTAssertEqual(["foo", "Foo"].spm_findDuplicates(), [])
     }
