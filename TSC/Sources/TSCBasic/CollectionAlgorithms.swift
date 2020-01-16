@@ -8,15 +8,16 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-extension Sequence where Iterator.Element: Hashable {
+extension Sequence where Element: Hashable {
 
     /// Finds duplicates in given sequence of Hashables.
     /// - Returns: duplicated elements in the invoking sequence.
-    public func spm_findDuplicates() -> [Iterator.Element] {
-        var unique: Set<Iterator.Element> = []
-        return filter {
-            !unique.insert($0).inserted
+    public func spm_findDuplicates() -> [Element] {
+        var counts: [Element: Int] = [:]
+        for element in self {
+            counts[element, default: 0] += 1
         }
+        return Array(counts.lazy.filter({ $0.value > 1 }).map({ $0.key }))
     }
 }
 

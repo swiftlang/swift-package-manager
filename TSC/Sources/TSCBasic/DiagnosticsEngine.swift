@@ -101,23 +101,27 @@ public final class DiagnosticsEngine: CustomStringConvertible {
     /// The handler will be called on an unknown queue.
     private let handlers: [DiagnosticsHandler]
 
+    /// The default location to apply to location-less diagnostics.
+    public let defaultLocation: DiagnosticLocation
+
     /// Returns true if there is an error diagnostics in the engine.
     public var hasErrors: Bool {
         return diagnostics.contains(where: { $0.message.behavior == .error })
     }
 
-    public init(handlers: [DiagnosticsHandler] = []) {
+    public init(handlers: [DiagnosticsHandler] = [], defaultLocation: DiagnosticLocation = UnknownLocation.location) {
         self.handlers = handlers
+        self.defaultLocation = defaultLocation
     }
 
     public func emit(
         _ message: Diagnostic.Message,
-        location: DiagnosticLocation = UnknownLocation.location
+        location: DiagnosticLocation? = nil
     ) {
-        emit(Diagnostic(message: message, location: location))
+        emit(Diagnostic(message: message, location: location ?? defaultLocation))
     }
 
-    private func emit(_ diagnostic: Diagnostic) {
+    public func emit(_ diagnostic: Diagnostic) {
         queue.sync {
             _diagnostics.append(diagnostic)
         }

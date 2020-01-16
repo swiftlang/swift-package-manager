@@ -130,15 +130,18 @@ public struct PackageGraphLoader {
                 createREPLProduct: manifest.packageKind == .root ? createREPLProduct : false
             )
 
-            diagnostics.wrap(with: PackageLocation.Local(name: manifest.name, packagePath: packagePath), {
-                let package = try builder.construct()
-                manifestToPackage[manifest] = package
+            let packageLocation = PackageLocation.Local(name: manifest.name, packagePath: packagePath)
+            diagnostics.with(location: packageLocation) { diagnostics in
+                diagnostics.wrap {
+                    let package = try builder.construct()
+                    manifestToPackage[manifest] = package
 
-                // Throw if any of the non-root package is empty.
-                if package.targets.isEmpty && manifest.packageKind != .root {
-                    throw PackageGraphError.noModules(package)
+                    // Throw if any of the non-root package is empty.
+                    if package.targets.isEmpty && manifest.packageKind != .root {
+                        throw PackageGraphError.noModules(package)
+                    }
                 }
-            })
+            }
         }
 
         // Resolve dependencies and create resolved packages.

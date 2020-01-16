@@ -109,12 +109,9 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+                diagnostics.check(diagnostic: "unknown package 'foo1' in dependencies of target 'foo'", behavior: .error)
             }
-        } catch ManifestParseError.unknownTargetDependencyPackage(let targetName, let packageName) {
-            XCTAssertEqual(targetName, "foo")
-            XCTAssertEqual(packageName, "foo1")
         }
 
         do {
@@ -135,12 +132,9 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+                diagnostics.check(diagnostic: "unknown package 'bar' in dependencies of target 'foo'", behavior: .error)
             }
-        } catch ManifestParseError.unknownTargetDependencyPackage(let targetName, let packageName) {
-            XCTAssertEqual(targetName, "foo")
-            XCTAssertEqual(packageName, "bar")
         }
     }
 
@@ -179,39 +173,32 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testDuplicateDependencyNames() {
-        do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
-                import PackageDescription
-                let package = Package(
-                    name: "Foo",
-                    products: [],
-                    dependencies: [
-                        .package(name: "Bar", url: "/bar1", from: "1.0.0"),
-                        .package(name: "Bar", path: "/bar2"),
-                        .package(name: "Biz", url: "/biz1", from: "1.0.0"),
-                        .package(name: "Biz", path: "/biz2"),
-                    ],
-                    targets: [
-                        .target(
-                            name: "Foo",
-                            dependencies: [
-                                .product(name: "Something", package: "Bar"),
-                                .product(name: "Something", package: "Biz"),
-                            ]),
-                    ]
-                )
-                """
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                products: [],
+                dependencies: [
+                    .package(name: "Bar", url: "/bar1", from: "1.0.0"),
+                    .package(name: "Bar", path: "/bar2"),
+                    .package(name: "Biz", url: "/biz1", from: "1.0.0"),
+                    .package(name: "Biz", path: "/biz2"),
+                ],
+                targets: [
+                    .target(
+                        name: "Foo",
+                        dependencies: [
+                            .product(name: "Something", package: "Bar"),
+                            .product(name: "Something", package: "Biz"),
+                        ]),
+                ]
+            )
+            """
 
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
-            }
-        } catch ManifestParseError.duplicateDependencyNames(let duplicates) {
-            XCTAssertEqual(duplicates.count, 2)
-            let urls = duplicates.flatMap({ $0 }).map({ $0.url }).sorted()
-            XCTAssertEqual(urls, ["/bar1", "/bar2", "/biz1", "/biz2"])
-        } catch {
-            XCTFail(error.localizedDescription)
+        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+            diagnostics.check(diagnostic: .regex("duplicate dependency named '(Bar|Biz)'; consider differentiating them using the 'name' argument"), behavior: .error)
+            diagnostics.check(diagnostic: .regex("duplicate dependency named '(Bar|Biz)'; consider differentiating them using the 'name' argument"), behavior: .error)
         }
     }
 
@@ -233,10 +220,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        do {
-            try loadManifestThrowing(stream.bytes) { _ in }
-            XCTFail("Unexpected success")
-        } catch {
+        XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
             guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                 return XCTFail("\(error)")
             }
@@ -262,10 +246,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            do {
-                try loadManifestThrowing(stream.bytes) { _ in }
-                XCTFail()
-            } catch {
+            XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
                 guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                     return XCTFail("\(error)")
                 }
@@ -291,10 +272,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            do {
-                try loadManifestThrowing(stream.bytes) { _ in }
-                XCTFail()
-            } catch {
+            XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
                 guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                     return XCTFail("\(error)")
                 }

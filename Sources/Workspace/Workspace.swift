@@ -1242,26 +1242,28 @@ extension Workspace {
         packageKind: PackageReference.Kind,
         diagnostics: DiagnosticsEngine
     ) -> Manifest? {
-        return diagnostics.wrap(with: PackageLocation.Local(packagePath: packagePath), {
-            // Load the tools version for the package.
-            let toolsVersion = try toolsVersionLoader.load(
-                at: packagePath, fileSystem: fileSystem)
+        return diagnostics.with(location: PackageLocation.Local(packagePath: packagePath)) { diagnostics in
+            return diagnostics.wrap {
+                // Load the tools version for the package.
+                let toolsVersion = try toolsVersionLoader.load(
+                    at: packagePath, fileSystem: fileSystem)
 
-            // Validate the tools version.
-            try toolsVersion.validateToolsVersion(
-                currentToolsVersion, packagePath: packagePath.pathString)
+                // Validate the tools version.
+                try toolsVersion.validateToolsVersion(
+                    currentToolsVersion, packagePath: packagePath.pathString)
 
-            // Load the manifest.
-            // FIXME: We should have a cache for this.
-            return try manifestLoader.load(
-                package: packagePath,
-                baseURL: url,
-                version: version,
-                toolsVersion: toolsVersion,
-                packageKind: packageKind,
-                diagnostics: diagnostics
-            )
-        })
+                // Load the manifest.
+                // FIXME: We should have a cache for this.
+                return try manifestLoader.load(
+                    package: packagePath,
+                    baseURL: url,
+                    version: version,
+                    toolsVersion: toolsVersion,
+                    packageKind: packageKind,
+                    diagnostics: diagnostics
+                )
+            }
+        }
     }
 
     fileprivate func updateBinaryArtifacts(
