@@ -207,6 +207,10 @@ extension InMemoryGitRepository: FileSystem {
         return AbsolutePath("/")
     }
 
+    public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
+        fatalError("Unsupported")
+    }
+
     public var homeDirectory: AbsolutePath {
         fatalError("Unsupported")
     }

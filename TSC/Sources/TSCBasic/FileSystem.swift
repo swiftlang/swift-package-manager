@@ -148,6 +148,11 @@ public protocol FileSystem: class {
     /// This follows the POSIX `getcwd(3)` semantics.
     var currentWorkingDirectory: AbsolutePath? { get }
 
+    /// Change the current working directory.
+    /// - Parameters:
+    ///   - path: The path to the directory to change the current working directory to.
+    func changeCurrentWorkingDirectory(to path: AbsolutePath) throws
+
     /// Get the home directory of current user
     var homeDirectory: AbsolutePath { get }
 
@@ -277,6 +282,16 @@ private class LocalFileSystem: FileSystem {
     var currentWorkingDirectory: AbsolutePath? {
         let cwdStr = FileManager.default.currentDirectoryPath
         return try? AbsolutePath(validating: cwdStr)
+    }
+
+    func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
+        guard isDirectory(path) else {
+            throw FileSystemError.notDirectory
+        }
+
+        guard FileManager.default.changeCurrentDirectoryPath(path.pathString) else {
+            throw FileSystemError.unknownOSError
+        }
     }
 
     var homeDirectory: AbsolutePath {
@@ -570,6 +585,10 @@ public class InMemoryFileSystem: FileSystem {
         return AbsolutePath("/")
     }
 
+    public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
+        fatalError("Unsupported")
+    }
+
     public var homeDirectory: AbsolutePath {
         // FIXME: Maybe we should allow setting this when creating the fs.
         return AbsolutePath("/home/user")
@@ -798,6 +817,10 @@ public class RerootedFileSystemView: FileSystem {
     /// Virtualized current working directory.
     public var currentWorkingDirectory: AbsolutePath? {
         return AbsolutePath("/")
+    }
+
+    public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
+        fatalError("Unsupported")
     }
 
     public var homeDirectory: AbsolutePath {

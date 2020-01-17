@@ -692,6 +692,10 @@ private class GitFileSystemView: FileSystem {
         return AbsolutePath("/")
     }
 
+    func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
+        fatalError("Unsupported")
+    }
+
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let entry = try getEntry(path) else {
             throw FileSystemError.noEntry

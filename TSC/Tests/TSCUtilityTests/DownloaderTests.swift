@@ -320,6 +320,10 @@ class FailingFileSystem: FileSystem {
         fatalError("unexpected call")
     }
 
+    func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
+        fatalError("unexpected call")
+    }
+
     func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
         fatalError("unexpected call")
     }
