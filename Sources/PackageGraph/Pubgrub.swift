@@ -11,6 +11,7 @@
 import struct TSCUtility.Version
 import TSCBasic
 import struct PackageModel.PackageReference
+import Dispatch
 
 /// A term represents a statement about a package that may be true or false.
 public struct Term: Equatable, Hashable {
@@ -1845,15 +1846,17 @@ private final class ContainerProvider {
                 _prefetchingContainers.insert(identifier)
 
                 provider.getContainer(for: identifier, skipUpdate: skipUpdate) { container in
-                    self.fetchCondition.whileLocked {
-                        // Update the structures and signal any thread waiting
-                        // on prefetching to finish.
-                        let pubGrubContainer = container.map {
-                            PubGrubPackageContainer($0, pinsMap: self.pinsMap)
+                    DispatchQueue.global().async {
+                        self.fetchCondition.whileLocked {
+                            // Update the structures and signal any thread waiting
+                            // on prefetching to finish.
+                            let pubGrubContainer = container.map {
+                                PubGrubPackageContainer($0, pinsMap: self.pinsMap)
+                            }
+                            self._fetchedContainers[identifier] = pubGrubContainer
+                            self._prefetchingContainers.remove(identifier)
+                            self.fetchCondition.signal()
                         }
-                        self._fetchedContainers[identifier] = pubGrubContainer
-                        self._prefetchingContainers.remove(identifier)
-                        self.fetchCondition.signal()
                     }
                 }
             }
