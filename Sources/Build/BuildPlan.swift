@@ -500,7 +500,7 @@ public final class SwiftTargetBuildDescription {
         import class Foundation.Bundle
 
         extension Foundation.Bundle {
-            static var moduleResources: Bundle = {
+            static var module: Bundle = {
                 return Bundle(path: Bundle.main.bundlePath + "/" + "\(bundleBasename)")!
             }()
         }

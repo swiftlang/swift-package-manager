@@ -1,6 +1,6 @@
 import Foundation
 
-let bundle = Bundle.moduleResources
+let bundle = Bundle.module
 
 let foo = bundle.path(forResource: "foo", ofType: "txt")!
 let contents = FileManager.default.contents(atPath: foo)!
