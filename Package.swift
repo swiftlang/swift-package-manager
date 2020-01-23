@@ -107,6 +107,12 @@ let package = Package(
             /** Builds Modules and Products */
             name: "Build",
             dependencies: ["SwiftToolsSupport-auto", "PackageGraph", "LLBuildManifest"]),
+
+        .target(
+            /** Support for building using Xcode's build system */
+            name: "XCBuildSupport",
+            dependencies: ["PackageModel", "PackageGraph"]),
+
         .target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
@@ -121,7 +127,7 @@ let package = Package(
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["SwiftToolsSupport-auto", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace"]),
+            dependencies: ["SwiftToolsSupport-auto", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport"]),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
