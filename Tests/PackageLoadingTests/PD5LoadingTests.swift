@@ -386,43 +386,6 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testResources() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
-            import PackageDescription
-            let package = Package(
-               name: "Foo",
-               targets: [
-                   .target(
-                       name: "Foo",
-                       resources: [
-                           .copy("foo.txt"),
-                           .process("bar.txt"),
-                       ]
-                   ),
-               ]
-            )
-            """
-
-        do {
-            try loadManifestThrowing(stream.bytes) { _ in }
-            XCTFail("Unexpected success")
-        } catch {
-            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
-                return XCTFail("\(error)")
-            }
-
-            XCTAssertMatch(message, .contains("is unavailable"))
-            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
-        }
-
-        loadManifest(stream.bytes, toolsVersion: .v5_2) { manifest in
-            let resources = manifest.targets[0].resources
-            XCTAssertEqual(resources[0], TargetDescription.Resource(rule: .copy, path: "foo.txt"))
-            XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process, path: "bar.txt"))
-        }
-    }
-
     func testWindowsPlatform() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -494,66 +457,6 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
 
             XCTAssertMatch(message, .contains("is unavailable"))
             XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
-        }
-    }
-
-    // TODO: Remove the underscore when we have fixed what tools version binary targets will appear in.
-    func _testBinaryTargetUnavailable() throws {
-        do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
-                import PackageDescription
-                let package = Package(
-                    name: "Foo",
-                    products: [],
-                    targets: [
-                        .binaryTarget(
-                            name: "Foo",
-                            path: "../Foo.xcframework"),
-                    ]
-                )
-                """
-
-            do {
-                try loadManifestThrowing(stream.bytes) { _ in }
-                XCTFail()
-            } catch {
-                guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
-                    return XCTFail("\(error)")
-                }
-
-                XCTAssertMatch(message, .contains("is unavailable"))
-                XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
-            }
-        }
-
-        do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
-                import PackageDescription
-                let package = Package(
-                    name: "Foo",
-                    products: [],
-                    targets: [
-                        .binaryTarget(
-                            name: "Foo",
-                            url: "https://foo.com/foo.zip",
-                            checksum: "21321441231232"),
-                    ]
-                )
-                """
-
-            do {
-                try loadManifestThrowing(stream.bytes) { _ in }
-                XCTFail()
-            } catch {
-                guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
-                    return XCTFail("\(error)")
-                }
-
-                XCTAssertMatch(message, .contains("is unavailable"))
-                XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
-            }
         }
     }
 }

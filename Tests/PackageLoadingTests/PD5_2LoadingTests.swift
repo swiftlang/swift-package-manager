@@ -215,206 +215,64 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testBinaryTargetsTrivial() {
+    func testResourcesUnavailable() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
             let package = Package(
-                name: "Foo",
-                products: [
-                    .library(name: "Foo1", targets: ["Foo1"]),
-                    .library(name: "Foo2", targets: ["Foo2"])
-                ],
-                targets: [
-                    ._binaryTarget(
-                        name: "Foo1",
-                        path: "../Foo1.xcframework"),
-                    ._binaryTarget(
-                        name: "Foo2",
-                        url: "https://foo.com/Foo2-1.0.0.zip",
-                        checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"),
-                ]
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "Foo",
+                       resources: [
+                           .copy("foo.txt"),
+                           .process("bar.txt"),
+                       ]
+                   ),
+               ]
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
-            let targets = Dictionary(uniqueKeysWithValues: manifest.targets.map({ ($0.name, $0) }))
-            let foo1 = targets["Foo1"]!
-            let foo2 = targets["Foo2"]!
-            XCTAssertEqual(foo1, TargetDescription(
-                name: "Foo1",
-                dependencies: [],
-                path: "../Foo1.xcframework",
-                url: nil,
-                exclude: [],
-                sources: nil,
-                resources: [],
-                publicHeadersPath: nil,
-                type: .binary,
-                pkgConfig: nil,
-                providers: nil,
-                settings: [],
-                checksum: nil))
-            XCTAssertEqual(foo2, TargetDescription(
-                name: "Foo2",
-                dependencies: [],
-                path: nil,
-                url: "https://foo.com/Foo2-1.0.0.zip",
-                exclude: [],
-                sources: nil,
-                resources: [],
-                publicHeadersPath: nil,
-                type: .binary,
-                pkgConfig: nil,
-                providers: nil,
-                settings: [],
-                checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"))
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("\(error)")
+            }
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 999"))
         }
     }
 
-    func testBinaryTargetsValidation() {
+    func testBinaryTargetUnavailable() throws {
         do {
             let stream = BufferedOutputByteStream()
             stream <<< """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
-                    products: [
-                        .library(name: "FooLibrary", type: .static, targets: ["Foo"]),
-                    ],
+                    products: [],
                     targets: [
-                        ._binaryTarget(name: "Foo", path: "Foo.zip"),
-                    ]
-                )
-                """
-
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
-            }
-        } catch ManifestParseError.invalidBinaryProductType(let productName) {
-            XCTAssertEqual(productName, "FooLibrary")
-        } catch {
-            XCTFail(error.localizedDescription)
-        }
-
-        do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
-                import PackageDescription
-                let package = Package(
-                    name: "Foo",
-                    products: [
-                        .executable(name: "FooLibrary", targets: ["Foo"]),
-                    ],
-                    targets: [
-                        ._binaryTarget(name: "Foo", path: "Foo.zip"),
-                    ]
-                )
-                """
-
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
-            }
-        } catch ManifestParseError.invalidBinaryProductType(let productName) {
-            XCTAssertEqual(productName, "FooLibrary")
-        } catch {
-            XCTFail(error.localizedDescription)
-        }
-
-        do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
-                import PackageDescription
-                let package = Package(
-                    name: "Foo",
-                    products: [
-                        .library(name: "FooLibrary", type: .static, targets: ["Foo", "Bar"]),
-                    ],
-                    targets: [
-                        ._binaryTarget(name: "Foo", path: "Foo.zip"),
-                        .target(name: "Bar"),
-                    ]
-                )
-                """
-
-            loadManifest(stream.bytes) { _ in }
-        }
-
-        do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
-                import PackageDescription
-                let package = Package(
-                    name: "Foo",
-                    products: [
-                        .library(name: "Foo", targets: ["Foo"]),
-                    ],
-                    targets: [
-                        ._binaryTarget(name: "Foo", path: " "),
-                    ]
-                )
-                """
-
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
-            }
-        } catch ManifestParseError.invalidBinaryLocation(let targetName) {
-            XCTAssertEqual(targetName, "Foo")
-        } catch {
-            XCTFail(error.localizedDescription)
-        }
-
-        do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
-                import PackageDescription
-                let package = Package(
-                    name: "Foo",
-                    products: [
-                        .library(name: "Foo", targets: ["Foo"]),
-                    ],
-                    targets: [
-                        ._binaryTarget(name: "Foo", path: "../Foo"),
-                    ]
-                )
-                """
-
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
-            }
-        } catch ManifestParseError.invalidBinaryLocationExtension(let targetName, let validExtensions) {
-            XCTAssertEqual(targetName, "Foo")
-            XCTAssertEqual(Set(validExtensions), ["zip", "xcframework"])
-        } catch {
-            XCTFail(error.localizedDescription)
-        }
-
-        do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
-                import PackageDescription
-                let package = Package(
-                    name: "Foo",
-                    products: [
-                        .library(name: "Foo", targets: ["Foo"]),
-                    ],
-                    targets: [
-                        ._binaryTarget(
+                        .binaryTarget(
                             name: "Foo",
-                            url: "https://foo.com/foo-1",
-                            checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"),
+                            path: "../Foo.xcframework"),
                     ]
                 )
                 """
 
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+            do {
+                try loadManifestThrowing(stream.bytes) { _ in }
+                XCTFail()
+            } catch {
+                guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                    return XCTFail("\(error)")
+                }
+
+                XCTAssertMatch(message, .contains("is unavailable"))
+                XCTAssertMatch(message, .contains("was introduced in PackageDescription 999"))
             }
-        } catch ManifestParseError.invalidBinaryLocationExtension(let targetName, let validExtensions) {
-            XCTAssertEqual(targetName, "Foo")
-            XCTAssertEqual(Set(validExtensions), ["zip"])
-        } catch {
-            XCTFail(error.localizedDescription)
         }
 
         do {
@@ -423,51 +281,27 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
-                    products: [
-                        .library(name: "Foo", targets: ["Foo"]),
-                    ],
+                    products: [],
                     targets: [
-                        ._binaryTarget(name: "Foo", path: "../Foo.a"),
-                    ]
-                )
-                """
-
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
-            }
-        } catch ManifestParseError.invalidBinaryLocationExtension(let targetName, let validExtensions) {
-            XCTAssertEqual(targetName, "Foo")
-            XCTAssertEqual(Set(validExtensions), ["zip", "xcframework"])
-        } catch {
-            XCTFail(error.localizedDescription)
-        }
-
-        do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
-                import PackageDescription
-                let package = Package(
-                    name: "Foo",
-                    products: [
-                        .library(name: "Foo", targets: ["Foo"]),
-                    ],
-                    targets: [
-                        ._binaryTarget(
+                        .binaryTarget(
                             name: "Foo",
-                            url: "https://foo.com/foo-1.0.0.xcframework",
-                            checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"),
+                            url: "https://foo.com/foo.zip",
+                            checksum: "21321441231232"),
                     ]
                 )
                 """
 
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+            do {
+                try loadManifestThrowing(stream.bytes) { _ in }
+                XCTFail()
+            } catch {
+                guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                    return XCTFail("\(error)")
+                }
+
+                XCTAssertMatch(message, .contains("is unavailable"))
+                XCTAssertMatch(message, .contains("was introduced in PackageDescription 999"))
             }
-        } catch ManifestParseError.invalidBinaryLocationExtension(let targetName, let validExtensions) {
-            XCTAssertEqual(targetName, "Foo")
-            XCTAssertEqual(Set(validExtensions), ["zip"])
-        } catch {
-            XCTFail(error.localizedDescription)
         }
     }
 }

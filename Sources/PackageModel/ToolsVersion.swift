@@ -104,6 +104,11 @@ public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable, Codab
         version: String? = nil,
         packagePath: String
     ) throws {
+        // We don't want to throw any error when using the special vNext version.
+        if self == .vNext {
+            return
+        }
+
         // Make sure the package has the right minimum tools version.
         guard self >= .minimumRequired else {
             throw UnsupportedToolsVersion(
