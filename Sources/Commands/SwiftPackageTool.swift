@@ -16,6 +16,7 @@ import PackageGraph
 import SourceControl
 import TSCUtility
 import Xcodeproj
+import XCBuildSupport
 import Workspace
 import Foundation
 
@@ -360,6 +361,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let jsonString = String(data: jsonData, encoding: .utf8)!
             print(jsonString)
 
+        case .dumpPIF:
+            let graph = try loadPackageGraph()
+            print(try PackagePIFBuilder(graph).generatePIF())
+
         case .completionTool:
             switch options.completionToolMode {
             case .generateBashScript?:
@@ -409,6 +414,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             to: { $0.describeMode = $1 })
 
         _ = parser.add(subparser: PackageMode.dumpPackage.rawValue, overview: "Print parsed Package.swift as JSON")
+        _ = parser.add(subparser: PackageMode.dumpPIF.rawValue, overview: "")
 
         let editParser = parser.add(subparser: PackageMode.edit.rawValue, overview: "Put a package in editable mode")
         binder.bind(
@@ -786,6 +792,7 @@ public enum PackageMode: String, StringEnumArgument {
     case format = "_format"
     case describe
     case dumpPackage = "dump-package"
+    case dumpPIF = "dump-pif"
     case edit
     case fetch
     case generateXcodeproj = "generate-xcodeproj"
