@@ -234,7 +234,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         name = package.name
         path = package.path
         projectDirectory = package.path
-        developmentRegion = "en"
+        developmentRegion = package.manifest.defaultLocalization ?? "en"
         binaryGroup = groupTree.addGroup(path: "/", sourceTree: .absolute, name: "Binaries")
 
         // Configure the project-wide build settings.  First we set those that are in common between the "Debug" and

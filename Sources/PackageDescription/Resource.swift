@@ -10,15 +10,29 @@
 
 public struct Resource: Encodable {
 
+    /// Defines the explicit type of localization for resources.
+    public enum Localization: String, Encodable {
+
+        /// The Package's default localization.
+        case `default`
+
+        /// Localization for base internationalization.
+        case base
+    }
+
     /// The rule for the resource.
     private let rule: String
 
     /// The path of the resource.
     private let path: String
 
-    private init(rule: String, path: String) {
+    /// The explicit type of localization for the resource.
+    private let localization: Localization?
+
+    private init(rule: String, path: String, localization: Localization?) {
         self.rule = rule
         self.path = path
+        self.localization = localization
     }
 
     /// Apply the platform-specific rule to the given path.
@@ -31,9 +45,9 @@ public struct Resource: Encodable {
     /// for its file type.
     ///
     /// If path is a directory, the rule is applied recursively to each file in the
-    /// directory. 
-    public static func process(_ path: String) -> Resource {
-        return Resource(rule: "process", path: path)
+    /// directory.
+    public static func process(_ path: String, localization: Localization? = nil) -> Resource {
+        return Resource(rule: "process", path: path, localization: localization)
     }
 
     /// Apply the copy rule to the given path.
@@ -41,6 +55,6 @@ public struct Resource: Encodable {
     /// Matching paths will be copied as-is and will be at the top-level
     /// in the bundle. The structure is retained if path is a directory.
     public static func copy(_ path: String) -> Resource {
-        return Resource(rule: "copy", path: path)
+        return Resource(rule: "copy", path: path, localization: nil)
     }
 }

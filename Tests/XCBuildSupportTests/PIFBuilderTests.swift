@@ -102,6 +102,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
+                    defaultLocalization: "fr",
                     path: "/Foo",
                     url: "/Foo",
                     v: .v5_2,
@@ -146,7 +147,7 @@ class PIFBuilderTests: XCTestCase {
                 XCTAssertEqual(project.path.pathString, "/Foo")
                 XCTAssertEqual(project.projectDirectory.pathString, "/Foo")
                 XCTAssertEqual(project.name, "Foo")
-                XCTAssertEqual(project.developmentRegion, "en")
+                XCTAssertEqual(project.developmentRegion, "fr")
 
                 project.checkTarget("PACKAGE-PRODUCT:foo")
                 project.checkTarget("PACKAGE-PRODUCT:FooTests")

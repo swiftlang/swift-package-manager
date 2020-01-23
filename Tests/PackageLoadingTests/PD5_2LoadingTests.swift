@@ -316,4 +316,33 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertMatch(message, .contains("was introduced in PackageDescription 999"))
         }
     }
+
+    func testDefaultLocalizationUnavailable() throws {
+        do {
+            let stream = BufferedOutputByteStream()
+            stream <<< """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    defaultLocalization: "fr",
+                    products: [],
+                    targets: [
+                        .target(name: "Foo"),
+                    ]
+                )
+                """
+
+            do {
+                try loadManifestThrowing(stream.bytes) { _ in }
+                XCTFail()
+            } catch {
+                guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                    return XCTFail("\(error)")
+                }
+
+                XCTAssertMatch(message, .contains("is unavailable"))
+                XCTAssertMatch(message, .contains("was introduced in PackageDescription 999"))
+            }
+        }
+    }
 }

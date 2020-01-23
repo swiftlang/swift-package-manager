@@ -50,6 +50,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             packagePath: .root,
             target: target,
             path: .root,
+            defaultLocalization: nil,
             toolsVersion: .v5,
             fs: fs,
             diags: diags
@@ -93,6 +94,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             packagePath: .root,
             target: target,
             path: .root,
+            defaultLocalization: nil,
             toolsVersion: .vNext,
             fs: fs,
             diags: diags
@@ -223,6 +225,185 @@ class TargetSourcesBuilderTests: XCTestCase {
                 diagnostics.checkUnordered(diagnostic: "found 'B/Copy'", behavior: .note)
             }
         }
+
+        // Conflict between processed localizations.
+
+        do {
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .process, path: "A"),
+                .init(rule: .process, path: "B"),
+            ])
+
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/A/en.lproj/foo.txt",
+                "/B/EN.lproj/foo.txt"
+            )
+
+            build(target: target, toolsVersion: .vNext, fs: fs) { _, _, diagnostics in
+                diagnostics.check(diagnostic: "multiple resources named 'en.lproj/foo.txt' in target 'Foo'", behavior: .error)
+                diagnostics.checkUnordered(diagnostic: "found 'A/en.lproj/foo.txt'", behavior: .note)
+                diagnostics.checkUnordered(diagnostic: "found 'B/EN.lproj/foo.txt'", behavior: .note)
+            }
+        }
+
+        // Conflict between processed localizations and copied resources.
+
+        do {
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .process, path: "A"),
+                .init(rule: .copy, path: "B/en.lproj"),
+            ])
+
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/A/EN.lproj/foo.txt",
+                "/B/en.lproj/foo.txt"
+            )
+
+            build(target: target, toolsVersion: .vNext, fs: fs) { _, _, diagnostics in
+                diagnostics.check(diagnostic: "resource 'B/en.lproj' in target 'Foo' conflicts with other localization directories", behavior: .error)
+            }
+        }
+    }
+
+    func testLocalizationDirectoryIgnoredOn5_2() {
+        let target = TargetDescription(name: "Foo")
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/en.lproj/Localizable.strings"
+        )
+
+        build(target: target, toolsVersion: .v5_2, fs: fs) { _, resources, _ in
+            XCTAssert(resources.isEmpty)
+            // No diagnostics
+        }
+    }
+
+    func testLocalizationDirectorySubDirectory() {
+        let target = TargetDescription(name: "Foo", resources: [
+            .init(rule: .process, path: "Processed"),
+            .init(rule: .copy, path: "Copied")
+        ])
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Processed/en.lproj/sub/Localizable.strings",
+            "/Copied/en.lproj/sub/Localizable.strings"
+        )
+
+        build(target: target, toolsVersion: .vNext, fs: fs) { _, _, diagnostics in
+            diagnostics.check(diagnostic: "localization directory 'Processed/en.lproj' in target 'Foo' contains sub-directories, which is forbidden", behavior: .error)
+        }
+    }
+
+    func testExplicitLocalizationInLocalizationDirectory() {
+        let target = TargetDescription(name: "Foo", resources: [
+            .init(rule: .process, path: "Resources", localization: .base),
+        ])
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Resources/en.lproj/Localizable.strings"
+        )
+
+        build(target: target, toolsVersion: .vNext, fs: fs) { _, _, diagnostics in
+            diagnostics.check(
+                diagnostic: .contains("""
+                    resource 'Resources/en.lproj/Localizable.strings' in target 'Foo' is in a localization directory \
+                    and has an explicit localization declaration
+                    """),
+                behavior: .error)
+        }
+    }
+
+    func testMissingDefaultLocalization() {
+        let target = TargetDescription(name: "Foo", resources: [
+            .init(rule: .process, path: "Resources"),
+            .init(rule: .process, path: "Image.png", localization: .default),
+            .init(rule: .process, path: "Icon.png", localization: .base),
+        ])
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Resources/en.lproj/Localizable.strings",
+            "/Resources/en.lproj/Icon.png",
+            "/Resources/fr.lproj/Localizable.strings",
+            "/Resources/fr.lproj/Sign.png",
+            "/Resources/Base.lproj/Storyboard.storyboard",
+            "/Image.png",
+            "/Icon.png"
+        )
+
+        build(target: target, defaultLocalization: "fr", toolsVersion: .vNext, fs: fs) { _, _, diagnostics in
+            diagnostics.check(
+                diagnostic: .contains("resource 'Icon.png' in target 'Foo' is missing the default localization 'fr'"),
+                behavior: .warning)
+        }
+    }
+
+    func testLocalizedAndUnlocalizedResources() {
+        let target = TargetDescription(name: "Foo", resources: [
+            .init(rule: .process, path: "Resources"),
+            .init(rule: .process, path: "Image.png", localization: .default),
+            .init(rule: .process, path: "Icon.png", localization: .base),
+        ])
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Resources/en.lproj/Localizable.strings",
+            "/Resources/Localizable.strings",
+            "/Resources/Base.lproj/Storyboard.storyboard",
+            "/Resources/Storyboard.storyboard",
+            "/Resources/Image.png",
+            "/Resources/Icon.png",
+            "/Image.png",
+            "/Icon.png"
+        )
+
+        build(target: target, toolsVersion: .vNext, fs: fs) { _, _, diagnostics in
+            diagnostics.checkUnordered(
+                diagnostic: .contains("resource 'Localizable.strings' in target 'Foo' has both localized and un-localized variants"),
+                behavior: .warning)
+            diagnostics.checkUnordered(
+                diagnostic: .contains("resource 'Storyboard.storyboard' in target 'Foo' has both localized and un-localized variants"),
+                behavior: .warning)
+            diagnostics.checkUnordered(
+                diagnostic: .contains("resource 'Image.png' in target 'Foo' has both localized and un-localized variants"),
+                behavior: .warning)
+            diagnostics.checkUnordered(
+                diagnostic: .contains("resource 'Icon.png' in target 'Foo' has both localized and un-localized variants"),
+                behavior: .warning)
+        }
+    }
+
+    func testLocalizedResources() {
+        let target = TargetDescription(name: "Foo", resources: [
+            .init(rule: .process, path: "Processed"),
+            .init(rule: .copy, path: "Copied"),
+            .init(rule: .process, path: "Other/Launch.storyboard", localization: .base),
+            .init(rule: .process, path: "Other/Image.png", localization: .default),
+        ])
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Processed/foo.txt",
+            "/Processed/En-uS.lproj/Localizable.stringsdict",
+            "/Processed/en-US.lproj/Localizable.strings",
+            "/Processed/fr.lproj/Localizable.strings",
+            "/Processed/fr.lproj/Localizable.stringsdict",
+            "/Processed/Base.lproj/Storyboard.storyboard",
+            "/Copied/en.lproj/Localizable.strings",
+            "/Other/Launch.storyboard",
+            "/Other/Image.png"
+        )
+
+        build(target: target, defaultLocalization: "fr", toolsVersion: .vNext, fs: fs) { _, resources, diagnostics in
+            XCTAssertEqual(Set(resources), [
+                Resource(rule: .process, path: AbsolutePath("/Processed/foo.txt"), localization: nil),
+                Resource(rule: .process, path: AbsolutePath("/Processed/En-uS.lproj/Localizable.stringsdict"), localization: "en-us"),
+                Resource(rule: .process, path: AbsolutePath("/Processed/en-US.lproj/Localizable.strings"), localization: "en-us"),
+                Resource(rule: .process, path: AbsolutePath("/Processed/fr.lproj/Localizable.strings"), localization: "fr"),
+                Resource(rule: .process, path: AbsolutePath("/Processed/fr.lproj/Localizable.stringsdict"), localization: "fr"),
+                Resource(rule: .process, path: AbsolutePath("/Processed/Base.lproj/Storyboard.storyboard"), localization: "Base"),
+                Resource(rule: .copy, path: AbsolutePath("/Copied"), localization: nil),
+                Resource(rule: .process, path: AbsolutePath("/Other/Launch.storyboard"), localization: "Base"),
+                Resource(rule: .process, path: AbsolutePath("/Other/Image.png"), localization: "fr"),
+            ])
+        }
     }
 
     func testInfoPlistResource() {
@@ -261,6 +442,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
     func build(
         target: TargetDescription,
+        defaultLocalization: String? = nil,
         additionalFileRules: [FileRuleDescription] = [],
         toolsVersion: ToolsVersion,
         fs: FileSystem,
@@ -274,6 +456,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             packagePath: .root,
             target: target,
             path: .root,
+            defaultLocalization: defaultLocalization,
             additionalFileRules: additionalFileRules,
             toolsVersion: toolsVersion,
             fs: fs,

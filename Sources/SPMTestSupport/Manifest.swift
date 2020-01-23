@@ -50,6 +50,7 @@ extension Manifest {
 
     public static func createManifest(
         name: String,
+        defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
         path: String = "/",
         url: String = "/",
@@ -67,6 +68,7 @@ extension Manifest {
     ) -> Manifest {
         return Manifest(
             name: name,
+            defaultLocalization: defaultLocalization,
             platforms: platforms,
             path: AbsolutePath(path).appending(component: Manifest.filename),
             url: url,

@@ -90,6 +90,9 @@ public class Target: ObjectIdentifierProtocol {
     /// name) name in many cases, instead use c99name if you need uniqueness.
     public let name: String
 
+    /// The default localization for resources.
+    public let defaultLocalization: String?
+
     /// The dependencies of this target.
     public let dependencies: [Dependency]
 
@@ -125,6 +128,7 @@ public class Target: ObjectIdentifierProtocol {
     fileprivate init(
         name: String,
         bundleName: String? = nil,
+        defaultLocalization: String?,
         platforms: [SupportedPlatform],
         type: Kind,
         sources: Sources,
@@ -134,6 +138,7 @@ public class Target: ObjectIdentifierProtocol {
     ) {
         self.name = name
         self.bundleName = bundleName
+        self.defaultLocalization = defaultLocalization
         self.platforms = platforms
         self.type = type
         self.sources = sources
@@ -154,6 +159,7 @@ public class SwiftTarget: Target {
 
         super.init(
             name: name,
+            defaultLocalization: nil,
             platforms: [],
             type: .executable,
             sources: testDiscoverySrc,
@@ -183,12 +189,12 @@ public class SwiftTarget: Target {
 
         super.init(
             name: name,
+            defaultLocalization: nil,
             platforms: platforms,
             type: .executable,
             sources: sources,
             dependencies: dependencies,
             buildSettings: .init()
-
         )
     }
 
@@ -198,6 +204,7 @@ public class SwiftTarget: Target {
     public init(
         name: String,
         bundleName: String? = nil,
+        defaultLocalization: String? = nil,
         platforms: [SupportedPlatform] = [],
         isTest: Bool = false,
         sources: Sources,
@@ -211,6 +218,7 @@ public class SwiftTarget: Target {
         super.init(
             name: name,
             bundleName: bundleName,
+            defaultLocalization: defaultLocalization,
             platforms: platforms,
             type: type,
             sources: sources,
@@ -252,6 +260,7 @@ public class SystemLibraryTarget: Target {
         self.isImplicit = isImplicit
         super.init(
             name: name,
+            defaultLocalization: nil,
             platforms: platforms,
             type: .systemModule,
             sources: sources,
@@ -281,6 +290,7 @@ public class ClangTarget: Target {
     public init(
         name: String,
         bundleName: String? = nil,
+        defaultLocalization: String? = nil,
         platforms: [SupportedPlatform] = [],
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
@@ -300,6 +310,7 @@ public class ClangTarget: Target {
         super.init(
             name: name,
             bundleName: bundleName,
+            defaultLocalization: defaultLocalization,
             platforms: platforms,
             type: type,
             sources: sources,
@@ -340,6 +351,7 @@ public class BinaryTarget: Target {
         let sources = Sources(paths: [], root: path)
         super.init(
             name: name,
+            defaultLocalization: nil,
             platforms: platforms,
             type: .binary,
             sources: sources,

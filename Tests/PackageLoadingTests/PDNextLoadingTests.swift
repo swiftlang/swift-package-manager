@@ -33,6 +33,8 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                        resources: [
                            .copy("foo.txt"),
                            .process("bar.txt"),
+                           .process("biz.txt", localization: .default),
+                           .process("baz.txt", localization: .base),
                        ]
                    ),
                ]
@@ -43,9 +45,11 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             let resources = manifest.targets[0].resources
             XCTAssertEqual(resources[0], TargetDescription.Resource(rule: .copy, path: "foo.txt"))
             XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process, path: "bar.txt"))
+            XCTAssertEqual(resources[2], TargetDescription.Resource(rule: .process, path: "biz.txt", localization: .default))
+            XCTAssertEqual(resources[3], TargetDescription.Resource(rule: .process, path: "baz.txt", localization: .base))
         }
     }
-    
+
     func testBinaryTargetsTrivial() {
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -319,6 +323,24 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(dependencies[1], .target(name: "Bar", condition: .init(platformNames: ["linux"], config: nil)))
             XCTAssertEqual(dependencies[2], .product(name: "Baz", package: "Baz", condition: .init(platformNames: ["macos"])))
             XCTAssertEqual(dependencies[3], .byName(name: "Bar", condition: .init(platformNames: ["watchos", "ios"])))
+        }
+    }
+
+    func testDefaultLocalization() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                defaultLocalization: "fr",
+                targets: [
+                    .target(name: "Foo"),
+                ]
+            )
+            """
+
+        XCTAssertManifestLoadNoThrows(stream.bytes) { manifest, _ in
+            XCTAssertEqual(manifest.defaultLocalization, "fr")
         }
     }
 }

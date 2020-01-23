@@ -1874,6 +1874,27 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
+
+    func testMissingDefaultLocalization() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Foo/Sources/Foo/Resources/en.lproj/Localizable.strings"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "Foo",
+            v: .vNext,
+            targets: [
+                TargetDescription(name: "Foo", resources: [
+                    .init(rule: .process, path: "Resources")
+                ]),
+            ]
+        )
+
+        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), in: fs) { _, diagnostics in
+            diagnostics.check(diagnostic: "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources", behavior: .error)
+        }
+    }
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}

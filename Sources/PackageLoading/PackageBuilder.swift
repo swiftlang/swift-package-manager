@@ -62,6 +62,9 @@ public enum ModuleError: Swift.Error {
 
     /// Invalid header search path.
     case invalidHeaderSearchPath(String)
+
+    /// Default localization not set in the presence of localized resources.
+    case defaultLocalizationNotSet
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -104,6 +107,8 @@ extension ModuleError: CustomStringConvertible {
             return "invalid custom path '\(path)' for target '\(target)'"
         case .invalidHeaderSearchPath(let path):
             return "invalid header search path '\(path)'; header search path should not be outside the package root"
+        case .defaultLocalizationNotSet:
+            return "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources"
         }
     }
 }
@@ -683,12 +688,19 @@ public final class PackageBuilder {
             packagePath: packagePath,
             target: manifestTarget,
             path: potentialModule.path,
+            defaultLocalization: manifest.defaultLocalization,
             additionalFileRules: additionalFileRules,
             toolsVersion: manifest.toolsVersion,
             fs: fileSystem,
             diags: diagnostics
         )
         let (sources, resources) = try sourcesBuilder.run()
+
+        // Make sure defaultLocalization is set if the target has localized resources.
+        let hasLocalizedResources = resources.contains(where: { $0.localization != nil })
+        if hasLocalizedResources && manifest.defaultLocalization == nil {
+            throw ModuleError.defaultLocalizationNotSet
+        }
 
         // The name of the bundle, if one is being generated.
         let bundleName = resources.isEmpty ? nil : manifest.name + "_" + potentialModule.name
@@ -703,6 +715,7 @@ public final class PackageBuilder {
             return SwiftTarget(
                 name: potentialModule.name,
                 bundleName: bundleName,
+                defaultLocalization: manifest.defaultLocalization,
                 platforms: self.platforms(),
                 isTest: potentialModule.isTest,
                 sources: sources,
@@ -715,6 +728,7 @@ public final class PackageBuilder {
             return ClangTarget(
                 name: potentialModule.name,
                 bundleName: bundleName,
+                defaultLocalization: manifest.defaultLocalization,
                 platforms: self.platforms(),
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
@@ -895,16 +909,16 @@ public final class PackageBuilder {
     /// Validates that the sources of a target are not already present in another target.
     private func validateSourcesOverlapping(forTarget target: String, sources: [AbsolutePath]) throws {
         // Compute the sources which overlap with already computed targets.
-        var overlappingSources = [AbsolutePath]()
+        var overlappingSources: Set<AbsolutePath> = []
         for source in sources {
             if !allSources.insert(source).inserted {
-                overlappingSources.append(source)
+                overlappingSources.insert(source)
             }
         }
 
         // Throw if we found any overlapping sources.
         if !overlappingSources.isEmpty {
-            throw ModuleError.overlappingSources(target: target, sources: overlappingSources)
+            throw ModuleError.overlappingSources(target: target, sources: Array(overlappingSources))
         }
     }
 
