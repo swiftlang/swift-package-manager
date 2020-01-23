@@ -43,6 +43,9 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The name of the package.
     public let name: String
 
+    /// The default localization for resources.
+    public let defaultLocalization: String?
+
     /// Whether kind of package this manifest is from.
     public let packageKind: PackageReference.Kind
 
@@ -84,6 +87,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
 
     public init(
         name: String,
+        defaultLocalization: String? = nil,
         platforms: [PlatformDescription],
         path: AbsolutePath,
         url: String,
@@ -100,6 +104,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         targets: [TargetDescription] = []
     ) {
         self.name = name
+        self.defaultLocalization = defaultLocalization
         self.platforms = platforms
         self.path = path
         self.url = url
@@ -321,15 +326,25 @@ public struct TargetDescription: Equatable, Codable {
             case copy
         }
 
+        public enum Localization: String, Codable, Equatable {
+            case `default`
+            case base
+        }
+
         /// The rule for the resource.
         public let rule: Rule
 
         /// The path of the resource.
         public let path: String
 
-        public init(rule: Rule, path: String) {
+        /// The explicit localization of the resource.
+        public let localization: Localization?
+
+        public init(rule: Rule, path: String, localization: Localization? = nil) {
+            precondition(rule == .process || localization == nil)
             self.rule = rule
             self.path = path
+            self.localization = localization
         }
     }
 

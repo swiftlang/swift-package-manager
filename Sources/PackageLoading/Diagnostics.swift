@@ -70,8 +70,8 @@ extension Diagnostic.Message {
         .warning("ignoring broken symlink \(path)")
     }
 
-    static func conflictingResource(filename: String, targetName: String) -> Self {
-        .error("multiple resources named '\(filename)' in target '\(targetName)'")
+    static func conflictingResource(path: RelativePath, targetName: String) -> Self {
+        .error("multiple resources named '\(path)' in target '\(targetName)'")
     }
 
     static func fileReference(path: RelativePath) -> Self {
@@ -85,6 +85,39 @@ extension Diagnostic.Message {
         .error("""
             resource '\(path)' in target '\(targetName)' is forbidden; Info.plist is not supported as a top-level \
             resource file in the resources bundle
+            """)
+    }
+
+    static func copyConflictWithLocalizationDirectory(path: RelativePath, targetName: String) -> Self {
+        .error("resource '\(path)' in target '\(targetName)' conflicts with other localization directories")
+    }
+
+    static func missingDefaultLocalization() -> Self {
+        .error("missing manifest property 'defaultLocalization'; it is required in the presence of localized resources")
+    }
+
+    static func localizationAmbiguity(path: RelativePath, targetName: String) -> Self {
+        .error("""
+            resource '\(path)' in target '\(targetName)' is in a localization directory and has an explicit \
+            localization declaration in the package manifest; choose one or the other to avoid any ambiguity
+            """)
+    }
+
+    static func localizedAndUnlocalizedVariants(resource: String, targetName: String) -> Self {
+        .warning("""
+            resource '\(resource)' in target '\(targetName)' has both localized and un-localized variants; the \
+            localized variants will never be chosen
+            """)
+    }
+
+    static func missingDefaultLocalizationResource(
+        resource: String,
+        targetName: String,
+        defaultLocalization: String
+    ) -> Self {
+        .warning("""
+            resource '\(resource)' in target '\(targetName)' is missing the default localization \
+            '\(defaultLocalization)'; the default localization is used as a fallback when no other localization matches
             """)
     }
 }

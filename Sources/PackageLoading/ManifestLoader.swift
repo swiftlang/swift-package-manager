@@ -259,6 +259,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         let manifest = Manifest(
             name: manifestBuilder.name,
+            defaultLocalization: manifestBuilder.defaultLocalization,
             platforms: manifestBuilder.platforms,
             path: inputPath,
             url: baseURL,
@@ -998,5 +999,12 @@ extension TSCBasic.Diagnostic.Message {
 
     static func unsupportedBinaryLocationExtension(targetName: String, validExtensions: [String]) -> Self {
         .error("unsupported extension for binary target '\(targetName)'; valid extensions are: \(validExtensions.joined(separator: ", "))")
+    }
+
+    static func invalidLanguageTag(_ languageTag: String) -> Self {
+        .error("""
+            invalid language tag '\(languageTag)'; the pattern for language tags is groups of latin characters and \
+            digits separated by hyphens
+            """)
     }
 }

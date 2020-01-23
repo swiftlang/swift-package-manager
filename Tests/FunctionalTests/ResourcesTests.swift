@@ -15,16 +15,33 @@ import TSCBasic
 
 class ResourcesTests: XCTestCase {
     func testSimpleResources() {
-      #if os(macOS)
         fixture(name: "Resources/Simple") { prefix in
-            try executeSwiftBuild(prefix)
+            var executables = ["SwiftyResource"]
 
-            for execName in ["SwiftyResource", "SeaResource"] {
-                let exec = prefix.appending(RelativePath(".build/debug/\(execName)"))
-                let output = try Process.checkNonZeroExit(args: exec.pathString)
+            // Objective-C module requires macOS
+            #if os(macOS)
+            executables.append("SeaResource")
+            #endif
+
+            for execName in executables {
+                let (output, _) = try executeSwiftRun(prefix, execName)
                 XCTAssertTrue(output.contains("foo"), output)
             }
         }
-      #endif
+    }
+
+    func testLocalizedResources() {
+        fixture(name: "Resources/Localized") { prefix in
+            try executeSwiftBuild(prefix)
+
+            let exec = prefix.appending(RelativePath(".build/debug/exe"))
+            let output = try Process.checkNonZeroExit(args: exec.pathString)
+            XCTAssertEqual(output, """
+                ¡Hola Mundo!
+                Hallo Welt!
+                Bonjour le monde !
+
+                """)
+        }
     }
 }
