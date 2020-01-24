@@ -92,7 +92,7 @@ public final class LLBuildEngine {
             throw Error.failed(errors: delegate.errors)
         }
 
-        return T.BuildValue(value)
+        return try T.BuildValue(value)
     }
 
     public func attachDB(path: String, schemaVersion: Int = 2) throws {
@@ -219,18 +219,8 @@ public extension LLBuildKey {
 }
 
 public extension LLBuildValue {
-    init(_ value: Value) {
-        do {
-            self = try fromBytes(value.data)
-        } catch {
-            let stringValue: String
-            if let str = String(bytes: value.data, encoding: .utf8) {
-                stringValue = str
-            } else {
-                stringValue = String(describing: value.data)
-            }
-            fatalError("Please file a bug at https://bugs.swift.org with this info -- LLBuildValue: ###\(error)### ----- ###\(stringValue)###")
-        }
+    init(_ value: Value) throws {
+        self = try fromBytes(value.data)
     }
 
     func toValue() -> Value {
