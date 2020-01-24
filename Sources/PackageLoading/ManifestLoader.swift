@@ -804,8 +804,12 @@ final class ManifestLoadRule: LLBuildRule {
 
     override func isResultValid(_ priorValue: Value) -> Bool {
         // Always rebuild if we had a failure.
-        let value = RuleKey.BuildValue(priorValue)
-        if value.hasErrors { return false }
+        do {
+            let value = try RuleKey.BuildValue(priorValue)
+            if value.hasErrors { return false }
+        } catch {
+            return false
+        }
 
         return super.isResultValid(priorValue)
     }
@@ -869,13 +873,13 @@ final class FileInfoRule: LLBuildRule {
     }
 
     override func isResultValid(_ priorValue: Value) -> Bool {
-        let priorValue = RuleValue(priorValue)
+        let priorValue = try? RuleValue(priorValue)
 
         // Always rebuild if we had a failure.
-        if case .failure = priorValue.result {
+        if case .failure = priorValue?.result {
             return false
         }
-        return getFileInfo(key.path).result == priorValue.result
+        return getFileInfo(key.path).result == priorValue?.result
     }
 
     override func inputsAvailable(_ engine: LLTaskBuildEngine) {
