@@ -27,7 +27,7 @@ public final class Target {
         /// A target that adapts a library on the system to work with Swift packages.
         case system
         /// A target that references a binary artifact.
-        case _binary = "binary"
+        case binary
     }
 
     /// The different types of a target's dependency on another entity.
@@ -61,11 +61,11 @@ public final class Target {
     public var path: String?
 
     /// The url of the binary target.
-    public var _url: String? {
-        get { __url }
-        set { __url = newValue }
+    public var url: String? {
+        get { _url }
+        set { _url = newValue }
     }
-    public var __url: String?
+    public var _url: String?
 
     /// The source files in this target.
     ///
@@ -76,7 +76,7 @@ public final class Target {
     public var sources: [String]?
 
     /// The explicit list of resource files in the target.
-    @available(_PackageDescription, introduced: 5.2)
+    @available(_PackageDescription, introduced: 999)
     public var resources: [Resource]? {
         get { _resources }
         set { _resources = newValue }
@@ -148,18 +148,19 @@ public final class Target {
     private var _linkerSettings: [LinkerSetting]?
 
     /// The binary target's checksum.
-    public var _checksum: String? {
-        get { __checksum }
-        set { __checksum = newValue }
+    @available(_PackageDescription, introduced: 999)
+    public var checksum: String? {
+        get { _checksum }
+        set { _checksum = newValue }
     }
-    public var __checksum: String?
+    public var _checksum: String?
 
     /// Construct a target.
     private init(
         name: String,
         dependencies: [Dependency],
         path: String?,
-        _url: String? = nil,
+        url: String? = nil,
         exclude: [String],
         sources: [String]?,
         resources: [Resource]? = nil,
@@ -171,12 +172,12 @@ public final class Target {
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
-        _checksum: String? = nil
+        checksum: String? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
         self.path = path
-        self.__url = _url
+        self._url = url
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
         self._resources = resources
@@ -188,19 +189,19 @@ public final class Target {
         self._cxxSettings = cxxSettings
         self._swiftSettings = swiftSettings
         self._linkerSettings = linkerSettings
-        self.__checksum = _checksum
+        self._checksum = checksum
 
         switch type {
         case .regular, .test:
             precondition(
-                _url == nil &&
+                url == nil &&
                 pkgConfig == nil &&
                 providers == nil &&
-                _checksum == nil
+                checksum == nil
             )
         case .system:
             precondition(
-                _url == nil &&
+                url == nil &&
                 dependencies.isEmpty &&
                 exclude.isEmpty &&
                 sources == nil &&
@@ -210,9 +211,9 @@ public final class Target {
                 cxxSettings == nil &&
                 swiftSettings == nil &&
                 linkerSettings == nil &&
-                _checksum == nil
+                checksum == nil
             )
-        case ._binary:
+        case .binary:
             precondition(
                 dependencies.isEmpty &&
                 exclude.isEmpty &&
@@ -291,7 +292,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 5, obsoleted: 5.2)
+    @available(_PackageDescription, introduced: 5, obsoleted: 999)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -343,7 +344,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 5.2)
+    @available(_PackageDescription, introduced: 999)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -495,8 +496,8 @@ public final class Target {
     ///   - name: The name of the target.
     ///   - url: The URL to the binary artifact. Should point to a `zip` archive containing a `XCFramework`.
     ///   - checksum: The checksum of the artifact archive for validation.
-    @available(_PackageDescription, introduced: 5.2)
-    public static func _binaryTarget(
+    @available(_PackageDescription, introduced: 999)
+    public static func binaryTarget(
         name: String,
         url: String,
         checksum: String
@@ -505,12 +506,12 @@ public final class Target {
             name: name,
             dependencies: [],
             path: nil,
-            _url: url,
+            url: url,
             exclude: [],
             sources: nil,
             publicHeadersPath: nil,
-            type: ._binary,
-            _checksum: checksum)
+            type: .binary,
+            checksum: checksum)
     }
 
     /// Create a binary target referencing an artifact on disk.
@@ -522,8 +523,8 @@ public final class Target {
     ///   - name: The name of the target.
     ///   - path: The path to the binary artifact. Can point directly to a `XCFramework` or a zip containing the
     ///       `XCFramework`.
-    @available(_PackageDescription, introduced: 5.2)
-    public static func _binaryTarget(
+    @available(_PackageDescription, introduced: 999)
+    public static func binaryTarget(
         name: String,
         path: String
     ) -> Target {
@@ -534,7 +535,7 @@ public final class Target {
             exclude: [],
             sources: nil,
             publicHeadersPath: nil,
-            type: ._binary)
+            type: .binary)
     }
   #endif
 }
