@@ -32,7 +32,7 @@ public indirect enum StringPattern {
     case or(StringPattern, StringPattern)
 }
 
-extension StringPattern: ExpressibleByStringLiteral {
+extension StringPattern: ExpressibleByStringInterpolation {
     public typealias UnicodeScalarLiteralType = StringLiteralType
     public typealias ExtendedGraphemeClusterLiteralType = StringLiteralType
     
