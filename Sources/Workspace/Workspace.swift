@@ -1327,11 +1327,9 @@ extension Workspace {
             for artifact in artifactsToRemove {
                 state.artifacts.remove(packageURL: artifact.packageRef.path, targetName: artifact.targetName)
 
-                guard let path = path(for: artifact) else {
-                    fatalError("we shouldn't be removing local artifacts")
+                if let path = path(for: artifact) {
+                    try fileSystem.removeFileTree(path)
                 }
-
-                try fileSystem.removeFileTree(path)
             }
 
             for directory in try fileSystem.getDirectoryContents(artifactsPath) {

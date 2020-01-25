@@ -16,7 +16,8 @@ add_library(Build
   SwiftCompilerOutputParser.swift
   Toolchain.swift
   ManifestBuilder.swift
-  Triple.swift)
+  Triple.swift
+  XCFrameworkInfo.swift)
 target_link_libraries(Build PUBLIC
   TSCBasic
   PackageGraph

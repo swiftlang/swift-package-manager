@@ -74,7 +74,7 @@ extension ModuleError: CustomStringConvertible {
             let folderName = type == .test ? "Tests" : "Sources"
             return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
         case .artifactNotFound(let target):
-            return "artifact not found for target \(target)"
+            return "artifact not found for target '\(target)'"
         case .invalidLayout(let type):
             return "package has unsupported layout; \(type)"
         case .invalidManifestConfig(let package, let message):
