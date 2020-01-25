@@ -382,8 +382,8 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
             """
 
         XCTAssertManifestLoadThrows(stream.bytes) { _, diagnotics in
-            diagnotics.check(diagnostic: .regex("duplicate target named '(A|B)'"), behavior: .error)
-            diagnotics.check(diagnostic: .regex("duplicate target named '(A|B)'"), behavior: .error)
+            diagnotics.checkUnordered(diagnostic: "duplicate target named 'A'", behavior: .error)
+            diagnotics.checkUnordered(diagnostic: "duplicate target named 'B'", behavior: .error)
         }
     }
 

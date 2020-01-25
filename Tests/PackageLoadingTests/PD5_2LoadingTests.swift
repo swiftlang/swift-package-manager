@@ -197,8 +197,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-            diagnostics.check(diagnostic: .regex("duplicate dependency named '(Bar|Biz)'; consider differentiating them using the 'name' argument"), behavior: .error)
-            diagnostics.check(diagnostic: .regex("duplicate dependency named '(Bar|Biz)'; consider differentiating them using the 'name' argument"), behavior: .error)
+            diagnostics.checkUnordered(diagnostic: "duplicate dependency named 'Bar'; consider differentiating them using the 'name' argument", behavior: .error)
+            diagnostics.checkUnordered(diagnostic: "duplicate dependency named 'Biz'; consider differentiating them using the 'name' argument", behavior: .error)
         }
     }
 
