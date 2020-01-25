@@ -177,6 +177,7 @@ extension TargetSourcesBuilderTests {
     static let __allTests__TargetSourcesBuilderTests = [
         ("testBasicFileContentsComputation", testBasicFileContentsComputation),
         ("testBasicRuleApplication", testBasicRuleApplication),
+        ("testResourceConflicts", testResourceConflicts),
     ]
 }
 

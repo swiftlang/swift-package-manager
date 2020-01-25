@@ -118,6 +118,19 @@ public struct TargetSourcesBuilder {
             }
         }
 
+        // Diagnose conflicting resources.
+        let duplicateResources = resources
+            .spm_findDuplicateElements(by: \.path.basename)
+        for resources in duplicateResources {
+            let filename = resources[0].path.basename
+            diags.emit(.conflictingResource(filename: filename, targetName: target.name))
+
+            for resource in resources {
+                let relativePath = resource.path.relative(to: targetPath)
+                diags.emit(.fileReference(path: relativePath))
+            }
+        }
+
         // It's an error to contain mixed language source files.
         if sources.containsMixedLanguage {
             throw Target.Error.mixedSources(targetPath)
