@@ -61,4 +61,28 @@ final public class DiagnosticsEngineResult {
         XCTAssertEqual(theDiagnostic.message.behavior, behavior, file: file, line: line)
         XCTAssertEqual(theDiagnostic.location.description, location, file: file, line: line)
     }
+
+    public func checkUnordered(
+        diagnostic diagnosticPattern: StringPattern,
+        checkContains: Bool = false,
+        behavior: Diagnostic.Behavior,
+        location: String? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
+        guard !uncheckedDiagnostics.isEmpty else {
+            return XCTFail("No diagnostics left to check", file: file, line: line)
+        }
+
+        let locationDescription = location ?? UnknownLocation.location.description
+        let matchIndex = uncheckedDiagnostics.firstIndex(where: { diagnostic in
+            diagnosticPattern ~= diagnostic.description &&
+            diagnostic.message.behavior == behavior &&
+            diagnostic.location.description == locationDescription
+        })
+
+        if let index = matchIndex {
+            uncheckedDiagnostics.remove(at: index)
+        }
+    }
 }
