@@ -496,7 +496,8 @@ fileprivate class PropertyListSerializer {
     /// then adding that dictionary to the serializer.  This may in turn cause
     /// recursive invocations of `serialize(object:)`; the closure of these
     /// invocations end up serializing the whole object graph.
-    @discardableResult func serialize(object: PropertyListSerializable) -> String {
+    @discardableResult
+    func serialize(object: PropertyListSerializable) -> String {
         // Assign an id for the object, if it doesn't already have one.
         let id = self.id(of: object)
 

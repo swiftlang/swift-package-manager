@@ -22,26 +22,11 @@ import Foundation
 
 /// The top-level PIF object.
 public enum PIF {
-    struct PIFObject: Encodable {
-        let workspace: Workspace
-
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.unkeyedContainer()
-
-            // Encode the workspace.
-            try container.encode(workspace)
-
-            // Encode the projects and their targets.
-            for project in workspace.projects {
-                try container.encode(project)
-                for target in project.targets {
-                    try container.encode(target)
-                }
-            }
-        }
+    public struct TopLevelObject {
+        let workspace: PIF.Workspace
     }
 
-    public final class Workspace: Encodable {
+    public final class Workspace {
         public let signature: String
         public let guid: String
         public var path: String
@@ -56,41 +41,23 @@ public enum PIF {
             self.signature = UUID().uuidString  // temporary
         }
 
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: StringKey.self)
-
-            try container.encode(signature, forKey: "signature")
-            try container.encode("workspace", forKey: "type")
-
-            var contents = container.nestedContainer(keyedBy: StringKey.self, forKey: "contents")
-            try contents.encode(guid, forKey: "guid")
-            try contents.encode(path, forKey: "path")
-            try contents.encode(name, forKey: "name")
-            try contents.encode(projects.map{ $0.signature }, forKey: "projects")
-        }
-
-        /// Generate PIF data for the workspace.
-        public func generatePIF(prettyPrint: Bool = true) throws -> Data {
-            let encoder = JSONEncoder()
-          #if os(macOS)
-            if #available(OSX 10.13, *) {
-                encoder.outputFormatting = [.sortedKeys]
-                if prettyPrint {
-                    encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
-                }
-            }
-          #else
-            if prettyPrint {
-                encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
-            }
-          #endif
-
-            return try encoder.encode(PIFObject(workspace: self))
+        @discardableResult
+        public func addProject(
+            id: String,
+            path: String,
+            projectDir: String,
+            name: String
+        ) -> Project {
+            precondition(!name.isEmpty)
+            let project = Project(id: id, path: path, projectDir: projectDir, name: name)
+            projects.append(project)
+            return project
         }
     }
 
-    /// A PIF project, consisting of a tree of groups and file references, a list of targets, and some additional information.
-    public class Project {
+    /// A PIF project, consisting of a tree of groups and file references, a list of targets, and some additional
+    /// information.
+    public final class Project {
         public let id: String
         public var signature: String?
         public let name: String
@@ -120,46 +87,44 @@ public enum PIF {
             return "\(self.id)::TARGET_\(targets.count)"
         }
 
-        // Creates and adds a new empty target, i.e. one that does not initially have any build phases.  If provided, the ID must be non-empty and unique within the PIF workspace; if not provided, an arbitrary guaranteed-to-be-unique identifier will be assigned.  The name must not be empty and must not be equal to the name of any existing target in the project.
-        @discardableResult public func addTarget(
-            id idOpt: String? = nil,
+        /// Creates and adds a new empty target, i.e. one that does not initially have any build phases. If provided,
+        /// the ID must be non-empty and unique within the PIF workspace; if not provided, an arbitrary
+        /// guaranteed-to-be-unique identifier will be assigned. The name must not be empty and must not be equal to the
+        /// name of any existing target in the project.
+        @discardableResult
+        public func addTarget(
+            id: String? = nil,
             productType: Target.ProductType,
             name: String,
             productName: String
         ) -> Target {
-            let id = idOpt ?? nextTargetId
+            let id = id ?? nextTargetId
             precondition(!id.isEmpty)
-            precondition(!targets.contains { $0.id == id })
+            precondition(!targets.contains(where: { $0.id == id }))
             precondition(!name.isEmpty)
-            let target = Target(
-                id: id,
-                productType: productType,
-                name: name,
-                productName: productName
-            )
+            let target = Target(id: id, productType: productType, name: name, productName: productName)
             targets.append(target)
             return target
         }
 
-        @discardableResult public func addAggregateTarget(id idOpt: String? = nil, name: String)
-            -> AggregateTarget
-        {
-            let id = idOpt ?? nextTargetId
+        @discardableResult
+        public func addAggregateTarget(id: String? = nil, name: String) -> AggregateTarget {
+            let id = id ?? nextTargetId
             precondition(!id.isEmpty)
-            precondition(!targets.contains { $0.id == id })
+            precondition(!targets.contains(where: { $0.id == id }))
             precondition(!name.isEmpty)
             let target = AggregateTarget(id: id, name: name)
             targets.append(target)
             return target
         }
 
-        /// Creates and adds a new empty build configuration, i.e. one that does not initially have any build settings.  The name must not be empty and must not be equal to the name of any existing build configuration in the project.
-        @discardableResult public func addBuildConfig(
-            name: String,
-            settings: BuildSettings = BuildSettings()
-        ) -> BuildConfig {
+        /// Creates and adds a new empty build configuration, i.e. one that does not initially have any build settings.
+        /// The name must not be empty and must not be equal to the name of any existing build configuration in the
+        /// project.
+        @discardableResult
+        public func addBuildConfig(name: String, settings: BuildSettings = BuildSettings()) -> BuildConfig {
             precondition(!name.isEmpty)
-            precondition(!buildConfigs.contains { $0.name == name })
+            precondition(!buildConfigs.contains(where: { $0.name == name }))
             let id = "\(self.id)::BUILDCONFIG_\(buildConfigs.count)"
             let buildConfig = BuildConfig(id: id, name: name, settings: settings)
             buildConfigs.append(buildConfig)
@@ -169,9 +134,6 @@ public enum PIF {
 
     /// Abstract base class for all items in the group hierarhcy.
     public class Reference: Encodable {
-        public func encode(to encoder: Encoder) throws {
-            fatalError("subclass responsibility")
-        }
 
         public let id: String
 
@@ -181,7 +143,8 @@ public enum PIF {
         /// Determines the base path for the reference's relative path.
         public var pathBase: RefPathBase
 
-        /// Name of the reference, if different from the last path component (if not set, the last path component will be used as the name).
+        /// Name of the reference, if different from the last path component (if not set, the last path component will
+        /// be used as the name).
         public var name: String? = nil
 
         /// Determines the base path for a reference's relative path.
@@ -192,7 +155,8 @@ public enum PIF {
             /// Indicates that the path is relative to the path of the parent group.
             case groupDir = "<group>"
 
-            /// Indicates that the path is relative to the effective build directory (which varies depending on active scheme, active run destination, or even an overridden build setting.
+            /// Indicates that the path is relative to the effective build directory (which varies depending on active
+            /// scheme, active run destination, or even an overridden build setting.
             case buildDir = "BUILT_PRODUCTS_DIR"
 
             /// Indicates that the path is an absolute path.
@@ -202,7 +166,7 @@ public enum PIF {
             public var asString: String { return rawValue }
         }
 
-        public init(
+        fileprivate init(
             id: String,
             path: String,
             pathBase: RefPathBase = .groupDir,
@@ -213,10 +177,14 @@ public enum PIF {
             self.pathBase = pathBase
             self.name = name
         }
+
+        public func encode(to encoder: Encoder) throws {
+            fatalError("subclass responsibility")
+        }
     }
 
     /// A reference to a file system entity (a file, folder, etc).
-    public class FileReference: Reference {
+    public final class FileReference: Reference {
         public var fileType: String?
 
         public init(
@@ -235,18 +203,18 @@ public enum PIF {
         }
     }
 
-    /// A group that can contain References (FileReferences and other Groups).  The resolved path of a group is used as the base path for any child references whose source tree type is GroupRelative.
-    public class Group: Reference {
-        public var subitems = [Reference]()
+    /// A group that can contain References (FileReferences and other Groups). The resolved path of a group is used as
+    /// the base path for any child references whose source tree type is GroupRelative.
+    public final class Group: Reference {
+        public var subitems: [Reference] = []
 
         private var nextRefId: String {
             return "\(self.id)::REF_\(subitems.count)"
         }
 
-        /// Creates and appends a new Group to the list of subitems.  The new group is returned so that it can be configured.
-        public func addGroup(path: String, pathBase: RefPathBase = .groupDir, name: String? = nil)
-            -> Group
-        {
+        /// Creates and appends a new Group to the list of subitems.  The new group is returned so that it can be
+        /// configured.
+        public func addGroup(path: String, pathBase: RefPathBase = .groupDir, name: String? = nil) -> Group {
             let group = Group(id: nextRefId, path: path, pathBase: pathBase, name: name)
             subitems.append(group)
             return group
@@ -287,7 +255,8 @@ public enum PIF {
         public var impartedBuildProperties: ImpartedBuildProperties
         public var buildPhases: [BuildPhase]
         public var dependencies: [TargetDependency]
-        public init(id: String, name: String) {
+
+        fileprivate init(id: String, name: String) {
             self.id = id
             self.name = name
             self.buildConfigs = []
@@ -301,13 +270,16 @@ public enum PIF {
             impartedBuildProperties = ImpartedBuildProperties(settings: settings)
         }
 
-        /// Creates and adds a new empty build configuration, i.e. one that does not initially have any build settings.  The name must not be empty and must not be equal to the name of any existing build configuration in the target.
-        @discardableResult public func addBuildConfig(
+        /// Creates and adds a new empty build configuration, i.e. one that does not initially have any build settings.
+        /// The name must not be empty and must not be equal to the name of any existing build configuration in the
+        /// target.
+        @discardableResult
+        public func addBuildConfig(
             name: String,
             settings: BuildSettings = BuildSettings()
         ) -> BuildConfig {
             precondition(!name.isEmpty)
-            precondition(!buildConfigs.contains { $0.name == name })
+            precondition(!buildConfigs.contains(where: { $0.name == name }))
             let id = "\(self.id)::BUILDCONFIG_\(buildConfigs.count)"
             let buildConfig = BuildConfig(id: id, name: name, settings: settings)
             buildConfigs.append(buildConfig)
@@ -321,17 +293,14 @@ public enum PIF {
         }
     }
 
-    public class AggregateTarget: BaseTarget {
+    public final class AggregateTarget: BaseTarget {
         override public func encode(to encoder: Encoder) throws {
             try _encode(to: encoder)
         }
     }
 
     /// An Xcode target, representing a single entity to build.
-    public class Target: BaseTarget {
-        public var productName: String
-        public var productType: ProductType
-        public var productReference: FileReference?
+    public final class Target: BaseTarget {
         public enum ProductType: String {
             case application = "com.apple.product-type.application"
             case staticArchive = "com.apple.product-type.library.static"
@@ -344,6 +313,11 @@ public enum PIF {
             case packageProduct = "packageProduct"
             public var asString: String { return rawValue }
         }
+
+        public var productName: String
+        public var productType: ProductType
+        public var productReference: FileReference?
+
         public init(id: String, productType: ProductType, name: String, productName: String) {
             self.productType = productType
             self.productName = productName
@@ -358,68 +332,80 @@ public enum PIF {
             return "\(self.id)::BUILDPHASE_\(buildPhases.count)"
         }
 
-        /// Adds a "headers" build phase, i.e. one that copies headers into a directory of the product, after suitable processing.
-        @discardableResult public func addHeadersBuildPhase() -> HeadersBuildPhase {
+        /// Adds a "headers" build phase, i.e. one that copies headers into a directory of the product, after suitable
+        /// processing.
+        @discardableResult
+        public func addHeadersBuildPhase() -> HeadersBuildPhase {
             let phase = HeadersBuildPhase(id: nextBuildPhaseId)
             buildPhases.append(phase)
             return phase
         }
 
-        /// Adds a "sources" build phase, i.e. one that compiles sources and provides them to be linked into the executable code of the product.
-        @discardableResult public func addSourcesBuildPhase() -> SourcesBuildPhase {
+        /// Adds a "sources" build phase, i.e. one that compiles sources and provides them to be linked into the
+        /// executable code of the product.
+        @discardableResult
+        public func addSourcesBuildPhase() -> SourcesBuildPhase {
             let phase = SourcesBuildPhase(id: nextBuildPhaseId)
             buildPhases.append(phase)
             return phase
         }
 
-        /// Adds a "frameworks" build phase, i.e. one that links compiled code and libraries into the executable of the product.
-        @discardableResult public func addFrameworksBuildPhase() -> FrameworksBuildPhase {
+        /// Adds a "frameworks" build phase, i.e. one that links compiled code and libraries into the executable of the
+        /// product.
+        @discardableResult
+        public func addFrameworksBuildPhase() -> FrameworksBuildPhase {
             let phase = FrameworksBuildPhase(id: nextBuildPhaseId)
             buildPhases.append(phase)
             return phase
         }
 
-        @discardableResult public func addCopyBundleResourcesBuildPhase()
-            -> CopyBundleResourcesBuildPhase
-        {
+        @discardableResult
+        public func addCopyBundleResourcesBuildPhase() -> CopyBundleResourcesBuildPhase {
             let phase = CopyBundleResourcesBuildPhase(id: nextBuildPhaseId)
             buildPhases.append(phase)
             return phase
         }
 
-        /// Adds a dependency on another target.  It is the caller's responsibility to avoid creating dependency cycles.  A dependency of one target on another ensures that the other target is built first.  If `linkProduct` is true, the receiver will also be configured to link against the product produced by the other target (this presumes that the product type is one that can be linked against).
+        /// Adds a dependency on another target. It is the caller's responsibility to avoid creating dependency cycles.
+        /// A dependency of one target on another ensures that the other target is built first. If `linkProduct` is
+        /// true, the receiver will also be configured to link against the product produced by the other target (this
+        /// presumes that the product type is one that can be linked against).
         public func addDependency(on targetId: String, linkProduct: Bool) {
             dependencies.append(TargetDependency(targetId: targetId))
             if linkProduct {
-                let frameworksPhase = buildPhases.first { $0 is FrameworksBuildPhase }
+                let frameworksPhase = buildPhases.first(where: { $0 is FrameworksBuildPhase })
                     ?? addFrameworksBuildPhase()
                 frameworksPhase.addBuildFile(productOf: targetId)
             }
         }
 
         /// Convenience function to add a file reference to the Headers build phase, after creating it if needed.
-        @discardableResult public func addHeaderFile(ref: FileReference) -> BuildFile {
-            let headerPhase = buildPhases.first { $0 is HeadersBuildPhase }
+        @discardableResult
+        public func addHeaderFile(ref: FileReference) -> BuildFile {
+            let headerPhase = buildPhases.first(where: { $0 is HeadersBuildPhase })
                 ?? addHeadersBuildPhase()
             return headerPhase.addBuildFile(fileRef: ref)
         }
 
         /// Convenience function to add a file reference to the Sources build phase, after creating it if needed.
-        @discardableResult public func addSourceFile(ref: FileReference) -> BuildFile {
-            let sourcesPhase = buildPhases.first { $0 is SourcesBuildPhase }
+        @discardableResult
+        public func addSourceFile(ref: FileReference) -> BuildFile {
+            let sourcesPhase = buildPhases.first(where: { $0 is SourcesBuildPhase })
                 ?? addSourcesBuildPhase()
             return sourcesPhase.addBuildFile(fileRef: ref)
         }
 
         /// Convenience function to add a file reference to the Frameworks build phase, after creating it if needed.
-        @discardableResult public func addLibrary(ref: FileReference) -> BuildFile {
-            let frameworksPhase = buildPhases.first { $0 is FrameworksBuildPhase }
+        @discardableResult
+        public func addLibrary(ref: FileReference) -> BuildFile {
+            let frameworksPhase = buildPhases.first(where: { $0 is FrameworksBuildPhase })
                 ?? addFrameworksBuildPhase()
             return frameworksPhase.addBuildFile(fileRef: ref)
         }
 
-        @discardableResult public func addResourceFile(ref: FileReference) -> BuildFile {
-            let resourcesPhase = buildPhases.first { $0 is CopyBundleResourcesBuildPhase }
+        @discardableResult
+        public func addResourceFile(ref: FileReference) -> BuildFile {
+            let resourcesPhase = buildPhases.first(where: { $0 is CopyBundleResourcesBuildPhase })
                 ?? addCopyBundleResourcesBuildPhase()
             return resourcesPhase.addBuildFile(fileRef: ref)
         }
@@ -434,7 +420,7 @@ public enum PIF {
         public let id: String
         public var files: [BuildFile]
 
-        public init(id: String) {
+        fileprivate init(id: String) {
             self.id = id
             self.files = []
         }
@@ -444,22 +430,25 @@ public enum PIF {
         }
 
         /// Adds a new build file that refers to `fileRef`.
-        @discardableResult public func addBuildFile(fileRef: FileReference) -> BuildFile {
+        @discardableResult
+        public func addBuildFile(fileRef: FileReference) -> BuildFile {
             let buildFile = BuildFile(id: nextBuildFileId, reference: fileRef)
             files.append(buildFile)
             return buildFile
         }
 
         /// Adds a new build file that refers to the product of the target with ID `targetId`.
-        @discardableResult public func addBuildFile(productOf targetId: String) -> BuildFile {
+        @discardableResult
+        public func addBuildFile(productOf targetId: String) -> BuildFile {
             let buildFile = BuildFile(id: nextBuildFileId, targetId: targetId)
             files.append(buildFile)
             return buildFile
         }
     }
 
-    /// A "headers" build phase, i.e. one that copies headers into a directory of the product, after suitable processing.
-    public class HeadersBuildPhase: BuildPhase {
+    /// A "headers" build phase, i.e. one that copies headers into a directory of the product, after suitable
+    /// processing.
+    public final class HeadersBuildPhase: BuildPhase {
         override class var type: String {
             "com.apple.buildphase.headers"
         }
@@ -469,8 +458,9 @@ public enum PIF {
         }
     }
 
-    /// A "sources" build phase, i.e. one that compiles sources and provides them to be linked into the executable code of the product.
-    public class SourcesBuildPhase: BuildPhase {
+    /// A "sources" build phase, i.e. one that compiles sources and provides them to be linked into the executable code
+    /// of the product.
+    public final class SourcesBuildPhase: BuildPhase {
         override class var type: String {
             "com.apple.buildphase.sources"
         }
@@ -481,7 +471,7 @@ public enum PIF {
     }
 
     /// A "frameworks" build phase, i.e. one that links compiled code and libraries into the executable of the product.
-    public class FrameworksBuildPhase: BuildPhase {
+    public final class FrameworksBuildPhase: BuildPhase {
         override class var type: String {
             "com.apple.buildphase.frameworks"
         }
@@ -491,7 +481,7 @@ public enum PIF {
         }
     }
 
-    public class CopyBundleResourcesBuildPhase: BuildPhase {
+    public final class CopyBundleResourcesBuildPhase: BuildPhase {
         override class var type: String {
             "com.apple.buildphase.resources"
         }
@@ -502,23 +492,26 @@ public enum PIF {
     }
 
     /// A build file, representing the membership of either a file or target product reference in a build phase.
-    public class BuildFile {
-        public let id: String
-        public let ref: Ref
+    public final class BuildFile {
         public enum Ref {
             case reference(id: String)
             case targetProduct(id: String)
         }
-        public var headerVisibility: HeaderVisibility? = nil
+
         public enum HeaderVisibility: String {
             case `public` = "public"
             case `private` = "private"
         }
 
+        public let id: String
+        public let ref: Ref
+        public var headerVisibility: HeaderVisibility? = nil
+
         public init(id: String, reference: FileReference) {
             self.id = id
             self.ref = .reference(id: reference.id)
         }
+
         public init(id: String, targetId: String) {
             self.id = id
             self.ref = .targetProduct(id: targetId)
@@ -526,7 +519,7 @@ public enum PIF {
     }
 
     /// A build configuration, which is a named collection of build settings.
-    public class BuildConfig {
+    public final class BuildConfig {
         public let id: String
         public let name: String
         public let settings: BuildSettings
@@ -539,7 +532,7 @@ public enum PIF {
         }
     }
 
-    public class ImpartedBuildProperties {
+    public final class ImpartedBuildProperties {
         public let settings: BuildSettings
 
         public init(settings: BuildSettings) {
@@ -547,7 +540,8 @@ public enum PIF {
         }
     }
 
-    /// A set of build settings, which is represented as a struct of optional build settings.  This is not optimally efficient, but it is great for code completion and type-checking.
+    /// A set of build settings, which is represented as a struct of optional build settings. This is not optimally
+    /// efficient, but it is great for code completion and type-checking.
     public struct BuildSettings {
         public enum Declaration: String, CaseIterable {
             case GCC_PREPROCESSOR_DEFINITIONS
@@ -576,18 +570,8 @@ public enum PIF {
             }
         }
 
-        public var platformSpecificSettings = [Platform: [Declaration: [String]]]()
-
-        public init() {
-            Platform.allCases.forEach { platform in
-                platformSpecificSettings[platform] = [Declaration: [String]]()
-                Declaration.allCases.forEach { declaration in
-                    platformSpecificSettings[platform]![declaration] = ["$(inherited)"]
-                }
-            }
-        }
-
-        // Note: although some of these build settings sound like booleans, they are all either strings or arrays of strings, because even a boolean may be a macro reference expression.
+        // Note: although some of these build settings sound like booleans, they are all either strings or arrays of
+        // strings, because even a boolean may be a macro reference expression.
         public var APPLICATION_EXTENSION_API_ONLY: String?
         public var BUILT_PRODUCTS_DIR: String?
         public var CLANG_CXX_LANGUAGE_STANDARD: String?
@@ -660,23 +644,21 @@ public enum PIF {
         public var WATCHOS_DEPLOYMENT_TARGET: String?
         public var MARKETING_VERSION: String?
         public var CURRENT_PROJECT_VERSION: String?
+        public var platformSpecificSettings = [Platform: [Declaration: [String]]]()
+
+        public init() {
+            Platform.allCases.forEach { platform in
+                platformSpecificSettings[platform] = [Declaration: [String]]()
+                Declaration.allCases.forEach { declaration in
+                    platformSpecificSettings[platform]![declaration] = ["$(inherited)"]
+                }
+            }
+        }
     }
 }
 
 /// Repesents a filetype recognized by the Xcode build system. 
-public struct XCBuildFileType {
-    public var fileTypes: Set<String>
-    public var fileTypeIdentifier: String
-
-    public init(fileTypes: Set<String>, fileTypeIdentifier: String) {
-        self.fileTypes = fileTypes
-        self.fileTypeIdentifier = fileTypeIdentifier
-    }
-
-    public init(fileType: String, fileTypeIdentifier: String) {
-        self.init(fileTypes: [fileType], fileTypeIdentifier: fileTypeIdentifier)
-    }
-
+public struct XCBuildFileType: CaseIterable {
     public static let xcdatamodeld: XCBuildFileType = XCBuildFileType(
         fileType: "xcdatamodeld",
         fileTypeIdentifier: "wrapper.xcdatamodeld"
@@ -692,9 +674,21 @@ public struct XCBuildFileType {
         fileTypeIdentifier: "wrapper.xcmappingmodel"
     )
 
-    public static let all: [XCBuildFileType] = [
+    public static let allCases: [XCBuildFileType] = [
         .xcdatamodeld,
         .xcdatamodel,
         .xcmappingmodel,
     ]
+
+    public let fileTypes: Set<String>
+    public let fileTypeIdentifier: String
+
+    private init(fileTypes: Set<String>, fileTypeIdentifier: String) {
+        self.fileTypes = fileTypes
+        self.fileTypeIdentifier = fileTypeIdentifier
+    }
+
+    private init(fileType: String, fileTypeIdentifier: String) {
+        self.init(fileTypes: [fileType], fileTypeIdentifier: fileTypeIdentifier)
+    }
 }

@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Foundation
+
 import TSCBasic
 import TSCUtility
 
@@ -15,18 +17,33 @@ import PackageModel
 import PackageGraph
 
 /// PIF object builder for a package.
-public final class PackagePIFBuilder {
+public struct PackagePIFBuilder {
     /// The package graph we're operating on.
     let graph: PackageGraph
     
-    public init(_ graph: PackageGraph){
+    public init(_ graph: PackageGraph) {
         self.graph = graph
     }
 
     /// Generates the PIF representation.
-    public func generatePIF() throws -> String {
-        let rootPackage = graph.rootPackages[0]
+    public func generatePIF(prettyPrint: Bool = true) throws -> String {
+        let encoder = JSONEncoder()
+        if prettyPrint {
+            encoder.outputFormatting = .prettyPrinted
+          #if os(macOS)
+            if #available(OSX 10.13, *) {
+                encoder.outputFormatting.insert(.sortedKeys)
+            }
+          #endif
+        }
 
+        let workspace = try createWorkspace()
+        let pifData = try encoder.encode(PIF.TopLevelObject(workspace: workspace))
+        return String(data: pifData, encoding: .utf8)!
+    }
+
+    private func createWorkspace() throws -> PIF.Workspace {
+        let rootPackage = graph.rootPackages[0]
         let workspace = PIF.Workspace(
             guid: "Workspace:\(rootPackage.path.pathString)",
             path: rootPackage.path.pathString,
@@ -34,22 +51,22 @@ public final class PackagePIFBuilder {
         )
 
         for package in graph.packages {
-            try workspace.projects.append(createPIFProject(package))
+            try createProject(for: package, in: workspace)
         }
 
-        let pifData = try workspace.generatePIF()
-        return String(data: pifData, encoding: .utf8)!
+        return workspace
     }
 
-    func createPIFProject(_ package: ResolvedPackage) throws -> PIF.Project {
-        let pifProject = PIF.Project(
+    private func createProject(for package: ResolvedPackage, in workspace: PIF.Workspace) throws {
+        let project = workspace.addProject(
             id: "PACKAGE:\(package.manifest.url)",
             path: package.path.pathString,
             projectDir: package.path.pathString,
             name: package.name
         )
 
-        // Configure the project-wide build settings.  First we set those that are in common between the "Debug" and "Release" configurations, and then we set those that are different.
+        // Configure the project-wide build settings.  First we set those that are in common between the "Debug" and
+        // "Release" configurations, and then we set those that are different.
         var settings = PIF.BuildSettings()
         settings.PRODUCT_NAME = "$(TARGET_NAME)"
         settings.SUPPORTED_PLATFORMS = ["$(AVAILABLE_PLATFORMS)"]
@@ -96,7 +113,7 @@ public final class PackagePIFBuilder {
         debugSettings.ENABLE_TESTABILITY = "YES"
         debugSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS = (settings.SWIFT_ACTIVE_COMPILATION_CONDITIONS ?? []) + ["DEBUG"]
         debugSettings.GCC_PREPROCESSOR_DEFINITIONS = (settings.GCC_PREPROCESSOR_DEFINITIONS ?? ["$(inherited)"]) + ["DEBUG=1"]
-        pifProject.addBuildConfig(name: "Debug", settings: debugSettings)
+        project.addBuildConfig(name: "Debug", settings: debugSettings)
 
         // Add the build settings that are specific to release builds, and set those as the "Release" configuration.
         var releaseSettings = settings
@@ -104,59 +121,67 @@ public final class PackagePIFBuilder {
         releaseSettings.DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"
         releaseSettings.GCC_OPTIMIZATION_LEVEL = "s"
         releaseSettings.SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule"
-        pifProject.addBuildConfig(name: "Release", settings: releaseSettings)
+        project.addBuildConfig(name: "Release", settings: releaseSettings)
 
         for product in package.products {
-            guard product.type == .executable else {
-                fatalError()
-            }
-
-            let pifTarget = pifProject.addTarget(
-                id: pifTargetIdForProductName(product.name),
-                productType: .executable,
-                name: product.name,
-                productName: product.name
-            )
-
-            // Configure the target-wide build settings.
-            var settings = PIF.BuildSettings()
-            settings.TARGET_NAME = product.name
-            settings.PACKAGE_RESOURCE_TARGET_KIND = "regular"
-            settings.PRODUCT_NAME = product.name
-            settings.PRODUCT_MODULE_NAME = product.executableModule.c99name
-            settings.PRODUCT_BUNDLE_IDENTIFIER = product.name
-            settings.EXECUTABLE_NAME = product.name
-            settings.CLANG_ENABLE_MODULES = "YES"
-            settings.DEFINES_MODULE = "YES"
-            settings.SWIFT_FORCE_STATIC_LINK_STDLIB = "NO"
-            settings.SWIFT_FORCE_DYNAMIC_LINK_STDLIB = "YES"
-
-            // FIXME: Don't hardcode.
-            settings.SWIFT_VERSION = "5.0"
-
-            let target = product.executableModule
-            let mainTargetSourceFileGroup = pifProject.mainGroup.addGroup(path: target.sources.root.pathString, pathBase: .absolute)
-
-            for source in target.sources.relativePaths {
-                pifTarget.addSourceFile(ref: mainTargetSourceFileGroup.addFileReference(
-                    path: source.pathString, pathBase: .groupDir))
-            }
-
-            let debugSettings = settings
-            let releaseSettings = settings
-            pifTarget.addBuildConfig(name: "Debug", settings: debugSettings)
-            pifTarget.addBuildConfig(name: "Release", settings: releaseSettings)
+            try createTarget(for: product, in: project)
         }
-
-        return pifProject
     }
 
-    // Helper function to consistently generate a PIF target identifier string for a product in a package.  This format helps make sure that there is no collision with any other PIF targets, and in particular that a PIF target and a PIF product can have the same name (as they often do).
+    private func createTarget(for product: ResolvedProduct, in project: PIF.Project) throws {
+        guard product.type == .executable else {
+            fatalError("product is not an executable: \(product)")
+        }
+
+        let pifTarget = project.addTarget(
+            id: pifTargetIdForProductName(product.name),
+            productType: .executable,
+            name: product.name,
+            productName: product.name
+        )
+
+        // Configure the target-wide build settings.
+        var settings = PIF.BuildSettings()
+        settings.TARGET_NAME = product.name
+        settings.PACKAGE_RESOURCE_TARGET_KIND = "regular"
+        settings.PRODUCT_NAME = product.name
+        settings.PRODUCT_MODULE_NAME = product.executableModule.c99name
+        settings.PRODUCT_BUNDLE_IDENTIFIER = product.name
+        settings.EXECUTABLE_NAME = product.name
+        settings.CLANG_ENABLE_MODULES = "YES"
+        settings.DEFINES_MODULE = "YES"
+        settings.SWIFT_FORCE_STATIC_LINK_STDLIB = "NO"
+        settings.SWIFT_FORCE_DYNAMIC_LINK_STDLIB = "YES"
+
+        // FIXME: Don't hardcode.
+        settings.SWIFT_VERSION = "5.0"
+
+        let target = product.executableModule
+        let mainTargetSourceFileGroup = project.mainGroup.addGroup(
+            path: target.sources.root.pathString,
+            pathBase: .absolute)
+
+        for source in target.sources.relativePaths {
+            pifTarget.addSourceFile(ref: mainTargetSourceFileGroup.addFileReference(
+                path: source.pathString, pathBase: .groupDir))
+        }
+
+        let debugSettings = settings
+        let releaseSettings = settings
+        pifTarget.addBuildConfig(name: "Debug", settings: debugSettings)
+        pifTarget.addBuildConfig(name: "Release", settings: releaseSettings)
+    }
+
+    // Helper function to consistently generate a PIF target identifier string for a product in a package. This format
+    // helps make sure that there is no collision with any other PIF targets, and in particular that a PIF target and a
+    // PIF product can have the same name (as they often do).
     func pifTargetIdForProductName(_ name: String) -> String {
         return "PACKAGE-PRODUCT:\(name)"
     }
 
-    // Helper function to consistently generate a PIF target identifier string for a target in a package.  This format helps make sure that there is no collision with any other PIF targets, and in particular that a PIF target and a PIF product can have the same name (as they often do).
+    // Helper function to consistently generate a PIF target identifier string for a target in a package. This format
+    // helps make sure that there is no collision with any other PIF targets, and in particular that a PIF target and a
+    // PIF product can have the same name (as they often do).
     func pifTargetIdForTargetName(_ name: String) -> String {
         return "PACKAGE-TARGET:\(name)"
     }

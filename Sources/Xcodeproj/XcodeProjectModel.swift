@@ -135,7 +135,8 @@ public struct Xcode {
 
         /// Creates and appends a new Group to the list of subitems.
         /// The new group is returned so that it can be configured.
-        @discardableResult public func addGroup(
+        @discardableResult
+        public func addGroup(
             path: String,
             pathBase: RefPathBase = .groupDir,
             name: String? = nil
@@ -146,7 +147,8 @@ public struct Xcode {
         }
 
         /// Creates and appends a new FileReference to the list of subitems.
-        @discardableResult public func addFileReference(
+        @discardableResult
+        public func addFileReference(
             path: String,
             pathBase: RefPathBase = .groupDir,
             name: String? = nil,
@@ -193,7 +195,8 @@ public struct Xcode {
 
         /// Adds a "headers" build phase, i.e. one that copies headers into a
         /// directory of the product, after suitable processing.
-        @discardableResult public func addHeadersBuildPhase() -> HeadersBuildPhase {
+        @discardableResult
+        public func addHeadersBuildPhase() -> HeadersBuildPhase {
             let phase = HeadersBuildPhase()
             buildPhases.append(phase)
             return phase
@@ -201,7 +204,8 @@ public struct Xcode {
 
         /// Adds a "sources" build phase, i.e. one that compiles sources and
         /// provides them to be linked into the executable code of the product.
-        @discardableResult public func addSourcesBuildPhase() -> SourcesBuildPhase {
+        @discardableResult
+        public func addSourcesBuildPhase() -> SourcesBuildPhase {
             let phase = SourcesBuildPhase()
             buildPhases.append(phase)
             return phase
@@ -209,7 +213,8 @@ public struct Xcode {
 
         /// Adds a "frameworks" build phase, i.e. one that links compiled code
         /// and libraries into the executable of the product.
-        @discardableResult public func addFrameworksBuildPhase() -> FrameworksBuildPhase {
+        @discardableResult
+        public func addFrameworksBuildPhase() -> FrameworksBuildPhase {
             let phase = FrameworksBuildPhase()
             buildPhases.append(phase)
             return phase
@@ -217,7 +222,8 @@ public struct Xcode {
 
         /// Adds a "copy files" build phase, i.e. one that copies files to an
         /// arbitrary location relative to the product.
-        @discardableResult public func addCopyFilesBuildPhase(dstDir: String) -> CopyFilesBuildPhase {
+        @discardableResult
+        public func addCopyFilesBuildPhase(dstDir: String) -> CopyFilesBuildPhase {
             let phase = CopyFilesBuildPhase(dstDir: dstDir)
             buildPhases.append(phase)
             return phase
@@ -225,7 +231,8 @@ public struct Xcode {
 
         /// Adds a "shell script" build phase, i.e. one that runs a custom
         /// shell script as part of the build.
-        @discardableResult public func addShellScriptBuildPhase(script: String) -> ShellScriptBuildPhase {
+        @discardableResult
+        public func addShellScriptBuildPhase(script: String) -> ShellScriptBuildPhase {
             let phase = ShellScriptBuildPhase(script: script)
             buildPhases.append(phase)
             return phase
@@ -250,7 +257,8 @@ public struct Xcode {
         public var files: [BuildFile] = []
 
         /// Adds a new build file that refers to `fileRef`.
-        @discardableResult public func addBuildFile(fileRef: FileReference) -> BuildFile {
+        @discardableResult
+        public func addBuildFile(fileRef: FileReference) -> BuildFile {
             let buildFile = BuildFile(fileRef: fileRef)
             files.append(buildFile)
             return buildFile
