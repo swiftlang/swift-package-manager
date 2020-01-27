@@ -266,10 +266,6 @@ typedef struct {
   indexstore_string_ref_t
   (*unit_event_get_unit_name)(indexstore_unit_event_t);
 
-  struct timespec
-  (*unit_event_get_modification_time)(indexstore_unit_event_t);
-
-
   #if INDEXSTORE_HAS_BLOCKS
   void
   (*store_set_unit_event_handler)(indexstore_t,
