@@ -9,9 +9,43 @@
 */
 
 import TSCBasic
+import Foundation
 
-/// This is used as part of the signature for the high-level PIF objects, to ensure that changes to the PIF schema are represented by the objects which do not use a content-based signature scheme (workspaces and projects, currently).
+/// This is used as part of the signature for the high-level PIF objects, to ensure that changes to the PIF schema are
+/// represented by the objects which do not use a content-based signature scheme (workspaces and projects, currently).
 let pifEncodingSchemaVersion = 11
+
+extension PIF.TopLevelObject: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+
+        // Encode the workspace.
+        try container.encode(workspace)
+
+        // Encode the projects and their targets.
+        for project in workspace.projects {
+            try container.encode(project)
+
+            for target in project.targets {
+                try container.encode(target)
+            }
+        }
+    }
+}
+
+extension PIF.Workspace: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: StringKey.self)
+        try container.encode(signature, forKey: "signature")
+        try container.encode("workspace", forKey: "type")
+
+        var contents = container.nestedContainer(keyedBy: StringKey.self, forKey: "contents")
+        try contents.encode(guid, forKey: "guid")
+        try contents.encode(path, forKey: "path")
+        try contents.encode(name, forKey: "name")
+        try contents.encode(projects.map({ $0.signature }), forKey: "projects")
+    }
+}
 
 extension PIF.Project: Encodable {
     public func encode(to encoder: Encoder) throws {
@@ -20,29 +54,29 @@ extension PIF.Project: Encodable {
         try container.encode("project", forKey: "type")
 
         var contents = container.nestedContainer(keyedBy: StringKey.self, forKey: "contents")
-        try contents.encode(id, forKey: StringKey("guid"))
-        try contents.encode(name, forKey: StringKey("projectName"))
-        try contents.encode("true", forKey: StringKey("projectIsPackage"))
-        try contents.encode(path, forKey: StringKey("path"))
-        try contents.encode(projectDir, forKey: StringKey("projectDirectory"))
-        try contents.encode("en", forKey: StringKey("developmentRegion"))
-        try contents.encode(buildConfigs, forKey: StringKey("buildConfigurations"))
-        try contents.encode("Release", forKey: StringKey("defaultConfigurationName"))
-        try contents.encode(mainGroup, forKey: StringKey("groupTree"))
-        try contents.encode(targets.map{ $0.signature }, forKey: StringKey("targets"))
+        try contents.encode(id, forKey: "guid")
+        try contents.encode(name, forKey: "projectName")
+        try contents.encode("true", forKey: "projectIsPackage")
+        try contents.encode(path, forKey: "path")
+        try contents.encode(projectDir, forKey: "projectDirectory")
+        // TODO: Replace by developmentRegion once localization implementation is merged.
+        try contents.encode("en", forKey: "developmentRegion")
+        try contents.encode(buildConfigs, forKey: "buildConfigurations")
+        try contents.encode("Release", forKey: "defaultConfigurationName")
+        try contents.encode(mainGroup, forKey: "groupTree")
+        try contents.encode(targets.map({ $0.signature }), forKey: "targets")
     }
 }
 
 extension PIF.Group {
     func _encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: StringKey.self)
-
-        try container.encode("group", forKey: StringKey("type"))
-        try container.encode(id, forKey: StringKey("guid"))
-        try container.encode(pathBase.asString, forKey: StringKey("sourceTree"))
-        try container.encode(path, forKey: StringKey("path"))
-        try container.encode(name ?? path, forKey: StringKey("name"))
-        try container.encode(subitems, forKey: StringKey("children"))
+        try container.encode("group", forKey: "type")
+        try container.encode(id, forKey: "guid")
+        try container.encode(pathBase.asString, forKey: "sourceTree")
+        try container.encode(path, forKey: "path")
+        try container.encode(name ?? path, forKey: "name")
+        try container.encode(subitems, forKey: "children")
     }
 }
 
@@ -97,41 +131,32 @@ extension PIF.FileReference {
             return "wrapper.xcframework"
 
         default:
-            return
-                pathExtension.flatMap { pathExtension in
-                    XCBuildFileType.all.first { $0.fileTypes.contains(pathExtension) }
-                }?.fileTypeIdentifier ?? "file"
+            return pathExtension.flatMap({ pathExtension in
+                XCBuildFileType.allCases.first(where:{ $0.fileTypes.contains(pathExtension) })
+            })?.fileTypeIdentifier ?? "file"
         }
     }
 
     func _encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: StringKey.self)
-
-        try container.encode("file", forKey: StringKey("type"))
-        try container.encode(id, forKey: StringKey("guid"))
-        try container.encode(pathBase.asString, forKey: StringKey("sourceTree"))
-        try container.encode(path, forKey: StringKey("path"))
-        try container.encode(
-            fileType ?? fileTypeIdentifier(for: path),
-            forKey: StringKey("fileType")
-        )
+        try container.encode("file", forKey: "type")
+        try container.encode(id, forKey: "guid")
+        try container.encode(pathBase.asString, forKey: "sourceTree")
+        try container.encode(path, forKey: "path")
+        try container.encode(fileType ?? fileTypeIdentifier(for: path), forKey: "fileType")
     }
 }
 
 extension PIF.AggregateTarget {
     func _encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: StringKey.self)
-
-        try container.encode("aggregate", forKey: StringKey("type"))
-        try container.encode(id, forKey: StringKey("guid"))
-        try container.encode(name, forKey: StringKey("name"))
-        try container.encode(
-            dependencies.map { ["guid": $0.targetId] },
-            forKey: StringKey("dependencies")
-        )
-        try container.encode(buildPhases, forKey: StringKey("buildPhases"))
-        try container.encode(buildConfigs, forKey: StringKey("buildConfigurations"))
-        try container.encode(impartedBuildProperties, forKey: StringKey("impartedBuildProperties"))
+        try container.encode("aggregate", forKey: "type")
+        try container.encode(id, forKey: "guid")
+        try container.encode(name, forKey: "name")
+        try container.encode(dependencies.map({ ["guid": $0.targetId] }), forKey: "dependencies")
+        try container.encode(buildPhases, forKey: "buildPhases")
+        try container.encode(buildConfigs, forKey: "buildConfigurations")
+        try container.encode(impartedBuildProperties, forKey: "impartedBuildProperties")
     }
 }
 
@@ -144,53 +169,46 @@ extension PIF.Target {
         var contents = container.nestedContainer(keyedBy: StringKey.self, forKey: "contents")
 
         if productType == .packageProduct {
-            try contents.encode("packageProduct", forKey: StringKey("type"))
-            try contents.encode(id, forKey: StringKey("guid"))
-            try contents.encode(name, forKey: StringKey("name"))
-            try contents.encode(
-                dependencies.map { ["guid": $0.targetId] },
-                forKey: StringKey("dependencies")
-            )
-            try contents.encode(buildConfigs, forKey: StringKey("buildConfigurations"))
+            try contents.encode("packageProduct", forKey: "type")
+            try contents.encode(id, forKey: "guid")
+            try contents.encode(name, forKey: "name")
+            try contents.encode(dependencies.map({ ["guid": $0.targetId] }), forKey: "dependencies")
+            try contents.encode(buildConfigs, forKey: "buildConfigurations")
 
             // Add the framework build phase, if present.
             if let phase = buildPhases.first as? PIF.FrameworksBuildPhase {
-                try contents.encode(phase, forKey: StringKey("frameworksBuildPhase"))
+                try contents.encode(phase, forKey: "frameworksBuildPhase")
             }
+
             return
         }
 
-        try contents.encode("standard", forKey: StringKey("type"))
-        try contents.encode(id, forKey: StringKey("guid"))
-        try contents.encode(name, forKey: StringKey("name"))
-        try contents.encode(
-            dependencies.map { ["guid": $0.targetId] },
-            forKey: StringKey("dependencies")
-        )
-
-        try contents.encode(productType.asString, forKey: StringKey("productTypeIdentifier"))
+        try contents.encode("standard", forKey: "type")
+        try contents.encode(id, forKey: "guid")
+        try contents.encode(name, forKey: "name")
+        try contents.encode(dependencies.map({ ["guid": $0.targetId] }), forKey: "dependencies")
+        try contents.encode(productType.asString, forKey: "productTypeIdentifier")
 
         let productReference = [
             "type": "file",
             "guid": "PRODUCTREF-\(id)",
             "name": productName,
         ]
-        try contents.encode(productReference, forKey: StringKey("productReference"))
+        try contents.encode(productReference, forKey: "productReference")
 
-        try contents.encode([String](), forKey: StringKey("buildRules"))
-        try contents.encode(buildPhases, forKey: StringKey("buildPhases"))
-        try contents.encode(buildConfigs, forKey: StringKey("buildConfigurations"))
-        try contents.encode(impartedBuildProperties, forKey: StringKey("impartedBuildProperties"))
+        try contents.encode([String](), forKey: "buildRules")
+        try contents.encode(buildPhases, forKey: "buildPhases")
+        try contents.encode(buildConfigs, forKey: "buildConfigurations")
+        try contents.encode(impartedBuildProperties, forKey: "impartedBuildProperties")
     }
 }
 
 extension PIF.BuildPhase: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: StringKey.self)
-
-        try container.encode(Swift.type(of: self).type, forKey: StringKey("type"))
-        try container.encode(id, forKey: StringKey("guid"))
-        try container.encode(files, forKey: StringKey("buildFiles"))
+        try container.encode(Swift.type(of: self).type, forKey: "type")
+        try container.encode(id, forKey: "guid")
+        try container.encode(files, forKey: "buildFiles")
     }
 }
 
@@ -198,14 +216,13 @@ extension PIF.BuildFile: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: StringKey.self)
-
-        try container.encode(id, forKey: StringKey("guid"))
+        try container.encode(id, forKey: "guid")
 
         switch self.ref {
         case .reference(let refId):
-            try container.encode(refId, forKey: StringKey("fileReference"))
+            try container.encode(refId, forKey: "fileReference")
         case .targetProduct(let refId):
-            try container.encode(refId, forKey: StringKey("targetReference"))
+            try container.encode(refId, forKey: "targetReference")
         }
     }
 }
@@ -213,17 +230,16 @@ extension PIF.BuildFile: Encodable {
 extension PIF.BuildConfig: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: StringKey.self)
-
-        try container.encode(id, forKey: StringKey("guid"))
-        try container.encode(name, forKey: StringKey("name"))
-        try container.encode(settings, forKey: StringKey("buildSettings"))
+        try container.encode(id, forKey: "guid")
+        try container.encode(name, forKey: "name")
+        try container.encode(settings, forKey: "buildSettings")
     }
 }
 
 extension PIF.ImpartedBuildProperties: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: StringKey.self)
-        try container.encode(settings, forKey: StringKey("buildSettings"))
+        try container.encode(settings, forKey: "buildSettings")
     }
 }
 
@@ -255,16 +271,16 @@ extension PIF.BuildSettings: Encodable {
                     if value == ["$(inherited)"] {
                         return
                     }
-                    try container.encode(value, forKey: StringKey("\(key.rawValue)[\(condition)]"))
+                    try container.encode(value, forKey: "\(key.rawValue)[\(condition)]")
                 }
             }
         }
     }
 }
 
-struct StringKey: CodingKey, ExpressibleByStringLiteral {
-
+struct StringKey: CodingKey, ExpressibleByStringInterpolation {
     var stringValue: String
+    var intValue: Int?
 
     init(stringLiteral stringValue: String) {
         self.stringValue = stringValue
@@ -278,8 +294,7 @@ struct StringKey: CodingKey, ExpressibleByStringLiteral {
         self.stringValue = value
     }
 
-    var intValue: Int?
     init?(intValue: Int) {
-        fatalError()
+        fatalError("does not support integer keys")
     }
 }

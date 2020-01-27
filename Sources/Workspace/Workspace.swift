@@ -655,7 +655,8 @@ extension Workspace {
     /// - Parameters:
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
-    @discardableResult public func updateDependencies(
+    @discardableResult
+    public func updateDependencies(
         root: PackageGraphRootInput,
         packages: [String] = [],
         diagnostics: DiagnosticsEngine,
