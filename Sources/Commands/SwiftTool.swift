@@ -732,7 +732,8 @@ public class SwiftTool<Options: ToolOptions> {
             buildSystem = try XcodeBuildSystem(
                 buildParameters: buildParameters(),
                 packageGraphLoader: graphLoader,
-                diagnostics: diagnostics
+                diagnostics: diagnostics,
+                stdoutStream: stdoutStream
             )
         }
 
