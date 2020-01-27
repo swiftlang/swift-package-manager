@@ -99,26 +99,124 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/some/path/toBeCopied/cool/hello.swift",
         ])
 
-        let diags = DiagnosticsEngine()
-
         let somethingRule = FileRuleDescription(
             rule: .processResource,
             toolsVersion: .minimumRequired,
             fileTypes: ["something"])
 
+        build(target: target, additionalFileRules: [somethingRule], toolsVersion: .v5, fs: fs) { _, _, _ in
+            // No diagnostics
+        }
+    }
+
+    func testResourceConflicts() throws {
+        // Conflict between processed resources.
+
+        do {
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .process, path: "Resources")
+            ])
+
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Resources/foo.txt",
+                "/Resources/Sub/foo.txt"
+            )
+
+            build(target: target, toolsVersion: .vNext, fs: fs) { _, _, diagnostics in
+                diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", behavior: .error)
+                diagnostics.checkUnordered(diagnostic: "found 'Resources/foo.txt'", behavior: .note)
+                diagnostics.checkUnordered(diagnostic: "found 'Resources/Sub/foo.txt'", behavior: .note)
+            }
+        }
+
+        // Conflict between processed and copied resources.
+
+        do {
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .process, path: "Processed"),
+                .init(rule: .copy, path: "Copied/foo.txt"),
+            ])
+
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Processed/foo.txt",
+                "/Copied/foo.txt"
+            )
+
+            build(target: target, toolsVersion: .vNext, fs: fs) { _, _, diagnostics in
+                diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", behavior: .error)
+                diagnostics.checkUnordered(diagnostic: "found 'Processed/foo.txt'", behavior: .note)
+                diagnostics.checkUnordered(diagnostic: "found 'Copied/foo.txt'", behavior: .note)
+            }
+        }
+
+        // No conflict between processed and copied in sub-path resources.
+
+        do {
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .process, path: "Processed"),
+                .init(rule: .copy, path: "Copied"),
+            ])
+
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Processed/foo.txt",
+                "/Copied/foo.txt"
+            )
+
+            build(target: target, toolsVersion: .vNext, fs: fs) { _, _, diagnostics in
+                // No diagnostics
+            }
+        }
+
+        // Conflict between copied directory resources.
+
+        do {
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .copy, path: "A/Copy"),
+                .init(rule: .copy, path: "B/Copy"),
+            ])
+
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/A/Copy/foo.txt",
+                "/B/Copy/foo.txt"
+            )
+
+            build(target: target, toolsVersion: .vNext, fs: fs) { _, _, diagnostics in
+                diagnostics.check(diagnostic: "multiple resources named 'Copy' in target 'Foo'", behavior: .error)
+                diagnostics.checkUnordered(diagnostic: "found 'A/Copy'", behavior: .note)
+                diagnostics.checkUnordered(diagnostic: "found 'B/Copy'", behavior: .note)
+            }
+        }
+    }
+
+    func build(
+        target: TargetDescription,
+        additionalFileRules: [FileRuleDescription] = [],
+        toolsVersion: ToolsVersion,
+        fs: FileSystem,
+        file: StaticString = #file,
+        line: UInt = #line,
+        checker: (Sources, [Resource], DiagnosticsEngineResult) -> ()
+    ) {
+        let diagnostics = DiagnosticsEngine()
         let builder = TargetSourcesBuilder(
             packageName: "",
             packagePath: .root,
             target: target,
             path: .root,
-            additionalFileRules: [somethingRule],
-            toolsVersion: .v5,
+            additionalFileRules: additionalFileRules,
+            toolsVersion: toolsVersion,
             fs: fs,
-            diags: diags
+            diags: diagnostics
         )
 
-        let contents = try builder.run()
-        print(contents)
-        XCTAssertNoDiagnostics(diags)
+        do {
+            let (sources, resources) = try builder.run()
+
+            DiagnosticsEngineTester(diagnostics, file: file, line: line) { diagnostics in
+                checker(sources, resources, diagnostics)
+            }
+        } catch {
+            XCTFail(error.localizedDescription, file: file, line: line)
+        }
     }
 }

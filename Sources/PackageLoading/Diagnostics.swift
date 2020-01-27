@@ -69,6 +69,14 @@ extension Diagnostic.Message {
     static func brokenSymlink(_ path: AbsolutePath) -> Diagnostic.Message {
         .warning("ignoring broken symlink \(path)")
     }
+
+    static func conflictingResource(filename: String, targetName: String) -> Self {
+        .error("multiple resources named '\(filename)' in target '\(targetName)'")
+    }
+
+    static func fileReference(path: RelativePath) -> Self {
+        .note("found '\(path)'")
+    }
 }
 
 public struct ManifestLoadingDiagnostic: DiagnosticData {
