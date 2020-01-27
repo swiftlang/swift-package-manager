@@ -878,6 +878,18 @@ extension FileSystem {
         }
     }
 
+    /// Write bytes to the path if the given contents are different.
+    public func writeIfChanged(path: AbsolutePath, bytes: ByteString) throws {
+        try createDirectory(path.parentDirectory, recursive: true)
+
+        // Return if the contents are same.
+        if isFile(path), try readFileContents(path) == bytes {
+            return
+        }
+
+        try writeFileContents(path, bytes: bytes)
+    }
+
     /// Helper method to recurse and print the tree.
     private func recurse(fs: FileSystem, path: AbsolutePath, prefix: String = "") throws {
         let contents = try fs.getDirectoryContents(path)

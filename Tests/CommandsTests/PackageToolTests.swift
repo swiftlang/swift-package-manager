@@ -617,7 +617,8 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
-    func testComputeChecksum() {
+    // FIXME: Re-enable once we have a better fixture
+    func _testComputeChecksum() {
         fixture(name: "BinaryTargets") { prefix in
             let invalid = prefix.appending(component: "MyFwk.xcframework")
             do {

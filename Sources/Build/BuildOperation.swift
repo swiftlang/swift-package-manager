@@ -36,7 +36,7 @@ public final class BuildOperation: PackageStructureDelegate {
     public let buildParameters: BuildParameters
 
     /// The diagnostics engine.
-    public let diags: DiagnosticsEngine
+    public let diagnostics: DiagnosticsEngine
 
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> PackageGraph
@@ -60,13 +60,13 @@ public final class BuildOperation: PackageStructureDelegate {
         buildParameters: BuildParameters,
         useBuildManifestCaching: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
-        diags: DiagnosticsEngine,
+        diagnostics: DiagnosticsEngine,
         stdoutStream: OutputByteStream
     ) {
         self.buildParameters = buildParameters
         self.useBuildManifestCaching = useBuildManifestCaching
         self.packageGraphLoader = packageGraphLoader
-        self.diags = diags
+        self.diagnostics = diagnostics
         self.stdoutStream = stdoutStream
     }
 
@@ -99,7 +99,7 @@ public final class BuildOperation: PackageStructureDelegate {
                 // Silently regnerate the build description if we failed to decode (which could happen
                 // because the existing file was created by different version of swiftpm).
                 if !(error is DecodingError) {
-                    diags.emit(
+                    diagnostics.emit(
                         warning:
                             "failed to load the build description; running build planning\n    \(error)"
                     )
@@ -158,7 +158,7 @@ public final class BuildOperation: PackageStructureDelegate {
             let graph = try getPackageGraph()
             if let result = subset.llbuildTargetName(
                 for: graph,
-                diagnostics: diags,
+                diagnostics: diagnostics,
                 config: buildParameters.configuration.dirname
             ) {
                 return result
@@ -173,7 +173,7 @@ public final class BuildOperation: PackageStructureDelegate {
         let plan = try BuildPlan(
             buildParameters: buildParameters,
             graph: graph,
-            diagnostics: diags
+            diagnostics: diagnostics
         )
         self.buildPlan = plan
 
@@ -213,7 +213,7 @@ public final class BuildOperation: PackageStructureDelegate {
         // Create the build delegate.
         let buildDelegate = BuildDelegate(
             bctx: bctx,
-            diagnostics: diags,
+            diagnostics: diagnostics,
             outputStream: self.stdoutStream,
             progressAnimation: progressAnimation
         )
@@ -240,7 +240,7 @@ public final class BuildOperation: PackageStructureDelegate {
             return false
         }
         catch {
-            diags.emit(error)
+            diagnostics.emit(error)
             return false
         }
         return true

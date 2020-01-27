@@ -41,8 +41,12 @@ def main():
         help="path to the LLDB binary to use for tests",
         metavar="PATH")
     parser.add_argument(
-        "--swiftpm-build-dir",
+        "--swiftpm-bin-dir",
         help="path to the SwiftPM binary directory to get SwiftPM executables from",
+        metavar="PATH")
+    parser.add_argument(
+        "--filter",
+        help="filter which tests to run",
         metavar="PATH")
     parser.add_argument(
         "-v", "--verbose",
@@ -86,9 +90,10 @@ def clean_args(args):
 
     # Add substitutions for swiftpm executables.
 
-    if args.swiftpm_build_dir:
-        note("testing using swiftpm build directory: %s" % args.swiftpm_build_dir)
-        args.swift_test_path = os.path.join(args.swiftpm_build_dir, "swift-test")
+    if args.swiftpm_bin_dir:
+        args.swiftpm_bin_dir = os.path.abspath(args.swiftpm_bin_dir)
+        note("testing using swiftpm binary directory: %s" % args.swiftpm_bin_dir)
+        args.swift_test_path = os.path.join(args.swiftpm_bin_dir, "swift-test")
     else:
         args.swift_test_path = args.swift_path + '-test'
 
@@ -99,13 +104,16 @@ def test(args):
             error("Can't set environment variable %s as it contains a space: %s" % (key, value))
         else:
             cmd += ['%s=%s' % (key,value)]
-    
+
     integration_test_dir = os.path.join(args.project_root, "IntegrationTests")
     cmd += [
         args.swift_test_path,
         "--package-path", integration_test_dir,
         "--parallel"
     ]
+
+    if args.filter:
+        cmd += ["--filter", args.filter]
 
     call(cmd, cwd=args.project_root, verbose=True)
 
@@ -120,8 +128,8 @@ def get_env(args):
         env['SWIFTC_PATH'] = args.swiftc_path
     if args.lldb_path:
         env['LLDB_PATH'] = args.lldb_path
-    if args.swiftpm_build_dir:
-        env["SWIFTPM_BUILD_DIR"] = args.swiftpm_build_dir,
+    if args.swiftpm_bin_dir:
+        env["SWIFTPM_BIN_DIR"] = args.swiftpm_bin_dir
 
     return env
 

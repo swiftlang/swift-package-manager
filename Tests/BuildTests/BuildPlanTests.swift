@@ -2340,32 +2340,6 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-L", "/path/to/build/debug", .anySequence])
         XCTAssertMatch(clibraryLinkArguments, ["-lStaticLibrary"])
     }
-
-    func testBinaryTargetFixture() {
-      #if os(macOS)
-        fixture(name: "BinaryTargets") { prefix in
-            do {
-                let (stdout, stderr) = try SwiftPMProduct.SwiftRun.execute(["exe"], packagePath: prefix)
-                XCTAssertNoMatch(stderr, .contains("warning: "))
-                XCTAssertEqual(stdout, """
-                    Framework()
-                    Library(framework: MyFwk.Framework())
-
-                    """)
-            } catch {
-                XCTFail("\(error)")
-            }
-
-            do {
-                let (stdout, stderr) = try SwiftPMProduct.SwiftRun.execute(["cexe"], packagePath: prefix)
-                XCTAssertNoMatch(stderr, .contains("warning: "))
-                XCTAssertMatch(stdout, .contains("<CLibrary: "))
-            } catch {
-                XCTFail("\(error)")
-            }
-        }
-      #endif
-    }
 }
 
 // MARK:- Test Helpers

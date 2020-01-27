@@ -22,6 +22,7 @@ import class Foundation.Bundle
 public func XCTAssertBuilds(
     _ path: AbsolutePath,
     configurations: Set<Configuration> = [.Debug, .Release],
+    extraArgs: [String] = [],
     file: StaticString = #file,
     line: UInt = #line,
     Xcc: [String] = [],
@@ -35,6 +36,7 @@ public func XCTAssertBuilds(
             _ = try executeSwiftBuild(
                 path,
                 configuration: conf,
+                extraArgs: extraArgs,
                 Xcc: Xcc,
                 Xld: Xld,
                 Xswiftc: Xswiftc,

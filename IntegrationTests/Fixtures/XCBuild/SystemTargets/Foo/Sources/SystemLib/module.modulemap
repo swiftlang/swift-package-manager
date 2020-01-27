@@ -1,0 +1,4 @@
+module SystemLib [system] {
+    header "../../../Inputs/libsys.h"
+    export *
+}

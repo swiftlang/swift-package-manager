@@ -73,7 +73,7 @@ let package = Package(
             /** The llbuild manifest model */
             name: "LLBuildManifest",
             dependencies: ["SwiftToolsSupport-auto"]),
-        
+
         .target(
             /** Source control operations */
             name: "SourceControl",
@@ -157,7 +157,7 @@ let package = Package(
             dependencies: ["SwiftToolsSupport-auto", "TSCTestSupport", "PackageGraph", "PackageLoading", "SourceControl", "Commands", "XCBuildSupport"]),
 
         // MARK: SwiftPM tests
-        
+
         .testTarget(
             name: "BuildTests",
             dependencies: ["Build", "SPMTestSupport"]),

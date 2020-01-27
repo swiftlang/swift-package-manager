@@ -433,6 +433,10 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--emit-swift-module-separately", kind: Bool.self, usage: nil),
             to: { $0.emitSwiftModuleSeparately = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--build-system", kind: BuildSystemKind.self, usage: nil),
+            to: { $0.buildSystem = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -451,12 +455,17 @@ public class SwiftTool<Options: ToolOptions> {
                 try ProcessEnv.chdir(packagePath)
             }
 
+            // Force building with the native build system on other platforms than macOS.
+          #if !os(macOS)
+            options.buildSystem = .native
+          #endif
+
             let processSet = ProcessSet()
             let buildSystemRef = BuildSystemRef()
             interruptHandler = try InterruptHandler {
                 // Terminate all processes on receiving an interrupt signal.
                 processSet.terminate()
-                buildSystemRef.buildOp?.cancel()
+                buildSystemRef.buildSystem?.cancel()
 
               #if os(Windows)
                 // Exit as if by signal()
@@ -697,13 +706,39 @@ public class SwiftTool<Options: ToolOptions> {
             buildParameters: buildParameters(),
             useBuildManifestCaching: useBuildManifestCaching && canUseBuildManifestCaching(),
             packageGraphLoader: graphLoader,
-            diags: diagnostics,
+            diagnostics: diagnostics,
             stdoutStream: self.stdoutStream
         )
 
         // Save the instance so it can be cancelled from the int handler.
-        buildSystemRef.buildOp = buildOp
+        buildSystemRef.buildSystem = buildOp
         return buildOp
+    }
+
+    func createBuildSystem(useBuildManifestCaching: Bool = true) throws -> BuildSystem {
+        let buildSystem: BuildSystem
+        switch options.buildSystem {
+        case .native:
+            let graphLoader = { try self.loadPackageGraph() }
+            buildSystem = try BuildOperation(
+                buildParameters: buildParameters(),
+                useBuildManifestCaching: useBuildManifestCaching && canUseBuildManifestCaching(),
+                packageGraphLoader: graphLoader,
+                diagnostics: diagnostics,
+                stdoutStream: stdoutStream
+            )
+        case .xcode:
+            let graphLoader = { try self.loadPackageGraph(createMultipleTestProducts: true) }
+            buildSystem = try XcodeBuildSystem(
+                buildParameters: buildParameters(),
+                packageGraphLoader: graphLoader,
+                diagnostics: diagnostics
+            )
+        }
+
+        // Save the instance so it can be cancelled from the int handler.
+        buildSystemRef.buildSystem = buildSystem
+        return buildSystem
     }
 
     /// Return the build parameters.
@@ -728,7 +763,8 @@ public class SwiftTool<Options: ToolOptions> {
                 indexStoreMode: options.indexStoreMode,
                 enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
                 enableTestDiscovery: options.enableTestDiscovery,
-                emitSwiftModuleSeparately: options.emitSwiftModuleSeparately
+                emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
+                isXcodeBuildSystemEnabled: options.buildSystem == .xcode
             )
         })
     }()
@@ -838,7 +874,7 @@ extension BuildConfiguration: StringEnumArgument {
 /// A wrapper to hold the build system so we can use it inside
 /// the int. handler without requiring to initialize it.
 final class BuildSystemRef {
-    var buildOp: BuildOperation?
+    var buildSystem: BuildSystem?
 }
 
 extension Diagnostic.Message {
