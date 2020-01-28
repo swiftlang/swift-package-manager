@@ -84,6 +84,32 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testSymlinkedSourcesDirectory() throws {
+        mktmpdir { path in
+            let fs = localFileSystem
+
+            let sources = path.appending(components: "Sources")
+            let foo = sources.appending(components: "foo")
+            let bar = sources.appending(components: "bar")
+            try fs.createDirectory(foo, recursive: true)
+            try fs.writeFileContents(foo.appending(components: "foo.swift"), bytes: "")
+
+            // Create a symlink to foo.
+            try createSymlink(bar, pointingAt: foo)
+
+            let manifest = Manifest.createV4Manifest(
+                name: "pkg",
+                targets: [
+                    TargetDescription(name: "bar"),
+                ]
+            )
+
+            PackageBuilderTester(manifest, path: path, in: fs) { package in
+                package.checkModule("bar")
+            }
+        }
+    }
+
     func testCInTests() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/MyPackage/main.swift",
