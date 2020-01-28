@@ -52,6 +52,7 @@ extension PackageBuilderTests {
         ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
         ("testSpecialTargetDir", testSpecialTargetDir),
         ("testSpecifiedCustomPathDoesNotExist", testSpecifiedCustomPathDoesNotExist),
+        ("testSymlinkedSourcesDirectory", testSymlinkedSourcesDirectory),
         ("testSystemLibraryTarget", testSystemLibraryTarget),
         ("testSystemLibraryTargetDiagnostics", testSystemLibraryTargetDiagnostics),
         ("testSystemPackageDeclaresTargetsDiagnostic", testSystemPackageDeclaresTargetsDiagnostic),

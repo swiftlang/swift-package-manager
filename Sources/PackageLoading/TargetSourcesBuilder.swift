@@ -231,13 +231,7 @@ public struct TargetSourcesBuilder {
             }
 
             // At this point, curr can only be a directory.
-
-            // The path is a symlinked directory. Warn and continue.
-            if fs.isSymlink(curr) {
-                // FIXME: Emit warning here.
-                continue
-            }
-
+            //
             // Check if the directory is marked to be copied.
             let directoryMarkedToBeCopied = target.resources.contains{ resource in
                 let resourcePath = self.targetPath.appending(RelativePath(resource.path))
