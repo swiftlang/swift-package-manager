@@ -73,7 +73,7 @@ let package = Package(
             /** The llbuild manifest model */
             name: "LLBuildManifest",
             dependencies: ["SwiftToolsSupport-auto"]),
-        
+
         .target(
             /** Source control operations */
             name: "SourceControl",
@@ -151,7 +151,7 @@ let package = Package(
             dependencies: ["SwiftToolsSupport-auto", "TSCTestSupport", "PackageGraph", "PackageLoading", "SourceControl", "Commands"]),
 
         // MARK: SwiftPM tests
-        
+
         .testTarget(
             name: "BuildTests",
             dependencies: ["Build", "SPMTestSupport"]),
@@ -210,7 +210,7 @@ import class Foundation.ProcessInfo
 if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
-            .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
+            .package(url: "https://github.com/apple/swift-llbuild.git", .branch("swift-5.2-branch")),
         ]
     } else {
         // In Swift CI, use a local path to llbuild to interoperate with tools
@@ -224,7 +224,7 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
+        .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("swift-5.2-branch")),
     ]
 } else {
     package.dependencies += [
