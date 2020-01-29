@@ -71,7 +71,13 @@ public struct ManifestTargetDependencyUnknownPackageDiagnostic: DiagnosticData {
     public let packageName: String
 
     public var description: String {
-        "manifest parse error: target '\(targetName)' depends on an unknown package '\(packageName)'\n"
+        """
+        manifest parse error: unknown package '\(packageName)' in dependencies of target '\(targetName)'; if the \
+        package is named differently from the product, either use '.product(name: "\(packageName)", package: \
+        <package-name>)' to specify the package name or give the package the '\(packageName)' name using \
+        '.package(name: "\(packageName)", ...)'
+
+        """
     }
 }
 
