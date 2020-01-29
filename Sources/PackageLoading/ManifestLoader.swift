@@ -979,7 +979,12 @@ extension TSCBasic.Diagnostic.Message {
     }
 
     static func unknownPackageInTargetDependencies(targetName: String, packageName: String) -> Self {
-        .error("unknown package '\(packageName)' in dependencies of target '\(targetName)'")
+        .error("""
+            unknown package '\(packageName)' in dependencies of target '\(targetName)'; if the package is named \
+            differently from the product, either use '.product(name: "\(packageName)", package: <package-name>)' to \
+            specify the package name or give the package the '\(packageName)' name using '.package(name: \
+            "\(packageName)", ...)'
+            """)
     }
 
     static func invalidBinaryLocation(targetName: String) -> Self {

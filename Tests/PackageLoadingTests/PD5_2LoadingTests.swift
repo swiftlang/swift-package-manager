@@ -110,7 +110,11 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-                diagnostics.check(diagnostic: "unknown package 'foo1' in dependencies of target 'foo'", behavior: .error)
+                diagnostics.check(diagnostic: """
+                    unknown package 'foo1' in dependencies of target 'foo'; if the package is named differently from \
+                    the product, either use '.product(name: "foo1", package: <package-name>)' to specify the package \
+                    name or give the package the 'foo1' name using '.package(name: "foo1", ...)'
+                    """, behavior: .error)
             }
         }
 
@@ -133,7 +137,11 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-                diagnostics.check(diagnostic: "unknown package 'bar' in dependencies of target 'foo'", behavior: .error)
+                diagnostics.check(diagnostic: """
+                    unknown package 'bar' in dependencies of target 'foo'; if the package is named differently from \
+                    the product, either use '.product(name: "bar", package: <package-name>)' to specify the package \
+                    name or give the package the 'bar' name using '.package(name: "bar", ...)'
+                    """, behavior: .error)
             }
         }
     }
