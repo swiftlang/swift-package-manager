@@ -259,8 +259,15 @@ public final class WorkspaceState: SimplePersistanceProtocol {
     }
 
     public func restore(from json: JSON) throws {
+        try restore(from: json, supportedSchemaVersion: WorkspaceState.schemaVersion)
+    }
+
+    public func restore(from json: JSON, supportedSchemaVersion: Int) throws {
         dependencies = try ManagedDependencies(json: json.get("dependencies"))
-        artifacts = try ManagedArtifacts(json: json.get("artifacts"))
+
+        if supportedSchemaVersion >= 4 {
+            artifacts = try ManagedArtifacts(json: json.get("artifacts"))
+        }
     }
 
     public func toJSON() -> JSON {
