@@ -18,10 +18,11 @@ import PackageLoading
 
 import Build
 
+let hostTriple = Resources.default.toolchain.triple
 #if os(macOS)
-    let defaultTargetTriple: String = Triple.hostTriple.tripleString(forPlatformVersion: "10.10")
+    let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.10")
 #else
-    let defaultTargetTriple: String = Triple.hostTriple.tripleString
+    let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
 private struct MockToolchain: Toolchain {
@@ -58,7 +59,7 @@ final class BuildPlanTests: XCTestCase {
         config: BuildConfiguration = .debug,
         flags: BuildFlags = BuildFlags(),
         shouldLinkStaticSwiftStdlib: Bool = false,
-        destinationTriple: Triple = Triple.hostTriple,
+        destinationTriple: Triple = hostTriple,
         indexStoreMode: BuildParameters.IndexStoreMode = .off
     ) -> BuildParameters {
         return BuildParameters(
@@ -2427,4 +2428,11 @@ fileprivate extension TargetBuildDescription {
             throw Error.error("Unexpected \(self) type")
         }
     }
+}
+
+fileprivate extension Triple {
+    static let x86_64Linux = try! Triple("x86_64-unknown-linux-gnu")
+    static let arm64Linux = try! Triple("aarch64-unknown-linux-gnu")
+    static let arm64Android = try! Triple("aarch64-unknown-linux-android")
+    static let windows = try! Triple("x86_64-unknown-windows-msvc")
 }

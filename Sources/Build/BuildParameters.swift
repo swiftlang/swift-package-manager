@@ -95,7 +95,7 @@ public struct BuildParameters: Encodable {
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
         toolchain: Toolchain,
-        destinationTriple: Triple = Triple.hostTriple,
+        destinationTriple: Triple? = nil,
         flags: BuildFlags,
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
@@ -111,7 +111,7 @@ public struct BuildParameters: Encodable {
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
-        self.triple = destinationTriple
+        self.triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
         self.flags = flags
         self.toolsVersion = toolsVersion
         self.jobs = jobs

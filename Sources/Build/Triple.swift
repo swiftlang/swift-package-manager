@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import TSCBasic
+
 /// Triple - Helper class for working with Destination.target values
 ///
 /// Used for parsing values such as x86_64-apple-macosx10.10 into
@@ -132,47 +134,25 @@ public struct Triple: Encodable {
     }
 
     public static let macOS = try! Triple("x86_64-apple-macosx")
-    public static let x86_64Linux = try! Triple("x86_64-unknown-linux-gnu")
-    public static let i686Linux = try! Triple("i686-unknown-linux")
-    public static let ppc64leLinux = try! Triple("powerpc64le-unknown-linux")
-    public static let s390xLinux = try! Triple("s390x-unknown-linux")
-    public static let arm64Linux = try! Triple("aarch64-unknown-linux-gnu")
-    public static let armLinux = try! Triple("armv7-unknown-linux-gnueabihf")
-    public static let armAndroid = try! Triple("armv7a-unknown-linux-androideabi")
-    public static let arm64Android = try! Triple("aarch64-unknown-linux-android")
-    public static let x86_64Android = try! Triple("x86_64-unknown-linux-android")
-    public static let i686Android = try! Triple("i686-unknown-linux-android")
-    public static let windows = try! Triple("x86_64-unknown-windows-msvc")
 
-  #if os(macOS)
-    public static let hostTriple: Triple = .macOS
-  #elseif os(Windows)
-    public static let hostTriple: Triple = .windows
-  #elseif os(Linux)
-    #if arch(x86_64)
-      public static let hostTriple: Triple = .x86_64Linux
-    #elseif arch(i386)
-      public static let hostTriple: Triple = .i686Linux
-    #elseif arch(powerpc64le)
-      public static let hostTriple: Triple = .ppc64leLinux
-    #elseif arch(s390x)
-      public static let hostTriple: Triple = .s390xLinux
-    #elseif arch(arm64)
-      public static let hostTriple: Triple = .arm64Linux
-    #elseif arch(arm)
-      public static let hostTriple: Triple = .armLinux    
-    #endif
-  #elseif os(Android)
-    #if arch(arm)
-      public static let hostTriple: Triple = .armAndroid
-    #elseif arch(arm64)
-      public static let hostTriple: Triple = .arm64Android
-    #elseif arch(x86_64)
-      public static let hostTriple: Triple = .x86_64Android
-    #elseif arch(i386)
-      public static let hostTriple: Triple = .i686Android
-    #endif
-  #endif
+    /// Determine the host triple using the Swift compiler.
+    public static func getHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) -> Triple {
+        do {
+            let result = try Process.popen(args: swiftCompiler.pathString, "-print-target-info")
+            let output = try result.utf8Output().spm_chomp()
+            let targetInfo = try JSON(string: output)
+            let tripleString: String = try targetInfo.get("target").get("unversionedTriple")
+            return try Triple(tripleString)
+        } catch {
+            // FIXME: Remove the macOS special-casing once the latest version of Xcode comes with
+            // a Swift compiler that supports -print-target-info.
+          #if os(macOS)
+            return .macOS
+          #else
+            fatalError("could not determine host triple: \(error)")
+          #endif
+        }
+    }
 }
 
 extension Triple {
