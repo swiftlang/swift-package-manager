@@ -188,6 +188,40 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
+    func testInfoPlistResource() {
+        do {
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .process, path: "Resources"),
+            ])
+
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Resources/Processed/Info.plist"
+            )
+
+            build(target: target, toolsVersion: .vNext, fs: fs) { _, _, diagnostics in
+                diagnostics.check(
+                    diagnostic: .contains("resource 'Resources/Processed/Info.plist' in target 'Foo' is forbidden"),
+                    behavior: .error)
+            }
+        }
+
+        do {
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .copy, path: "Resources/Copied/Info.plist"),
+            ])
+
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Resources/Copied/Info.plist"
+            )
+
+            build(target: target, toolsVersion: .vNext, fs: fs) { _, _, diagnostics in
+                diagnostics.check(
+                    diagnostic: .contains("resource 'Resources/Copied/Info.plist' in target 'Foo' is forbidden"),
+                    behavior: .error)
+            }
+        }
+    }
+
     func build(
         target: TargetDescription,
         additionalFileRules: [FileRuleDescription] = [],

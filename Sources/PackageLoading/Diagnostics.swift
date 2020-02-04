@@ -77,6 +77,16 @@ extension Diagnostic.Message {
     static func fileReference(path: RelativePath) -> Self {
         .note("found '\(path)'")
     }
+
+    static func infoPlistResourceConflict(
+        path: RelativePath,
+        targetName: String
+    ) -> Self {
+        .error("""
+            resource '\(path)' in target '\(targetName)' is forbidden; Info.plist is not supported as a top-level \
+            resource file in the resources bundle
+            """)
+    }
 }
 
 public struct ManifestLoadingDiagnostic: DiagnosticData {

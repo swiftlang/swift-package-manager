@@ -20,6 +20,11 @@ public struct Resource {
     /// The path of the resource file.
     public let path: AbsolutePath
 
+    /// The relative location of the resource in the resource bundle.
+    public var destination: RelativePath {
+        return RelativePath(path.basename)
+    }
+
     public init(rule: Rule, path: AbsolutePath) {
         self.rule = rule
         self.path = path

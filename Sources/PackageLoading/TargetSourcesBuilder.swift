@@ -131,6 +131,8 @@ public struct TargetSourcesBuilder {
             }
         }
 
+        diagnoseInfoPlistConflicts(in: resources)
+
         // It's an error to contain mixed language source files.
         if sources.containsMixedLanguage {
             throw Target.Error.mixedSources(targetPath)
@@ -185,6 +187,16 @@ public struct TargetSourcesBuilder {
         }
 
         return matchedRule
+    }
+
+    private func diagnoseInfoPlistConflicts(in resources: [Resource]) {
+        for resource in resources {
+            if resource.destination == RelativePath("Info.plist") {
+                diags.emit(.infoPlistResourceConflict(
+                    path: resource.path.relative(to: targetPath),
+                    targetName: target.name))
+            }
+        }
     }
 
     /// Compute the contents of the files in a target.
