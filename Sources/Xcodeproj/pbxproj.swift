@@ -490,7 +490,7 @@ public func xcodeProject(
 
         // Add header search paths for any C target on which we depend.
         var hdrInclPaths = ["$(inherited)"]
-        for depModule in [target] + target.recursiveDependencies() {
+        for depModule in [target] + target.recursiveTargetDependencies() {
             // FIXME: Possibly factor this out into a separate protocol; the
             // idea would be that we would ask the target how it contributes
             // to the overall build environment for client targets, which can
@@ -618,12 +618,12 @@ public func xcodeProject(
             // Process each assignment of a build settings declaration.
             for assignment in assignments {
                 // Skip this assignment if it doesn't contain macOS platform.
-                if let platformsCondition = assignment.conditions.compactMap({ $0 as? BuildSettings.PlatformsCondition }).first {
+                if let platformsCondition = assignment.conditions.compactMap({ $0 as? PlatformsCondition }).first {
                     if !platformsCondition.platforms.contains(.macOS) {
                         continue
                     }
                 }
-                let config = assignment.conditions.compactMap({ $0 as? BuildSettings.ConfigurationCondition }).first?.config
+                let config = assignment.conditions.compactMap { $0 as? ConfigurationCondition }.first?.configuration
                 appendSetting(assignment.value, forDecl: decl, to: xcodeTarget.buildSettings, config: config)
             }
         }
@@ -640,7 +640,7 @@ public func xcodeProject(
 
         // For each target on which this one depends, add a target dependency
         // and also link against the target's product.
-        for dependency in target.recursiveDependencies() {
+        for dependency in target.recursiveTargetDependencies() {
             // We should never find ourself in the list of dependencies.
             assert(dependency != target)
 

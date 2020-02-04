@@ -56,6 +56,7 @@ public struct Platform: Equatable, Hashable {
     public static let watchOS: Platform = Platform(name: "watchos", oldestSupportedVersion: "2.0")
     public static let linux: Platform = Platform(name: "linux", oldestSupportedVersion: .unknown)
     public static let android: Platform = Platform(name: "android", oldestSupportedVersion: .unknown)
+    public static let windows: Platform = Platform(name: "windows", oldestSupportedVersion: .unknown)
 }
 
 /// Represents a platform version.

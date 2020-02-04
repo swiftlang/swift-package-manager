@@ -75,6 +75,8 @@ public func generate(
     options: XcodeprojOptions,
     diagnostics: DiagnosticsEngine
 ) throws -> Xcode.Project {
+    diagnoseConditionalTargetDependencies(graph: graph, diagnostics: diagnostics)
+
     // Note that the output directory might be completely separate from the
     // path of the root package (which is where the sources live).
 
@@ -159,6 +161,22 @@ public func generate(
     }
 
     return project
+}
+
+private func diagnoseConditionalTargetDependencies(graph: PackageGraph, diagnostics: DiagnosticsEngine) {
+    let targetsWithConditionalDependencies = graph.allTargets.lazy.filter { target in
+        target.dependencies.contains { dependency in
+            !dependency.conditions.isEmpty
+        }
+    }
+
+    if !targetsWithConditionalDependencies.isEmpty {
+        let targetNames = targetsWithConditionalDependencies.map { $0.name }.joined(separator: ", ")
+        diagnostics.emit(warning: """
+            Xcode project generation does not support conditional target dependencies, so the generated project might \
+            not build successfully. The offending targets are: \(targetNames).
+            """)
+    }
 }
 
 /// Writes the contents to the file specified.

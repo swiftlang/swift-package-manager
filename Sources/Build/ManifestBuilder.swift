@@ -36,6 +36,7 @@ public class LLBuildManifestBuilder {
 
     var buildConfig: String { buildParameters.configuration.dirname }
     var buildParameters: BuildParameters { plan.buildParameters }
+    var buildEnvironment: BuildEnvironment { buildParameters.buildEnvironment }
 
     /// Create a new builder with a build plan.
     public init(_ plan: BuildPlan) {
@@ -268,12 +269,12 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for dependency in target.target.dependencies {
+        for dependency in target.target.buildDependencies(in: buildEnvironment) {
             switch dependency {
-            case .target(let target):
+            case .target(let target, _):
                 addStaticTargetInputs(target)
 
-            case .product(let product):
+            case .product(let product, _):
                 switch product.type {
                 case .executable, .library(.dynamic):
                     // Establish a dependency on binary of the product.
@@ -368,12 +369,12 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for dependency in target.target.dependencies {
+        for dependency in target.target.buildDependencies(in: buildEnvironment) {
             switch dependency {
-            case .target(let target):
+            case .target(let target, _):
                 addStaticTargetInputs(target)
 
-            case .product(let product):
+            case .product(let product, _):
                 switch product.type {
                 case .executable, .library(.dynamic):
                     // Establish a dependency on binary of the product.

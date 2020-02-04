@@ -73,6 +73,24 @@ final class BuildPlanTests: XCTestCase {
         )
     }
 
+    func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
+        let triple: Triple
+        switch environment.platform {
+        case .macOS:
+            triple = Triple.macOS
+        case .linux:
+            triple = Triple.arm64Linux
+        case .android:
+            triple = Triple.arm64Android
+        case .windows:
+            triple = Triple.windows
+        default:
+            fatalError("unsupported platform in tests")
+        }
+
+        return mockBuildParameters(config: environment.configuration, destinationTriple: triple)
+    }
+
     func testBasicSwiftPackage() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -141,6 +159,112 @@ final class BuildPlanTests: XCTestCase {
       #else
         XCTAssertNoDiagnostics(diagnostics)
       #endif
+    }
+
+    func testSwiftConditionalDependency() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/PkgLib/lib.swift",
+            "/ExtPkg/Sources/ExtLib/lib.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    dependencies: [
+                        PackageDependencyDescription(name: nil, url: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: [
+                            .target(name: "PkgLib", condition: PackageConditionDescription(
+                                platformNames: ["linux", "android"],
+                                config: nil
+                            ))
+                        ]),
+                        TargetDescription(name: "PkgLib", dependencies: [
+                            .product(name: "ExtLib", package: "ExtPkg", condition: PackageConditionDescription(
+                                platformNames: [],
+                                config: "debug"
+                            ))
+                        ]),
+                    ]
+                ),
+                Manifest.createV4Manifest(
+                    name: "ExtPkg",
+                    path: "/ExtPkg",
+                    url: "/ExtPkg",
+                    packageKind: .remote,
+                    products: [
+                        ProductDescription(name: "ExtLib", targets: ["ExtLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ExtLib", dependencies: []),
+                    ]
+                ),
+            ]
+        )
+
+        XCTAssertNoDiagnostics(diagnostics)
+
+        do {
+            let plan = try BuildPlan(
+                buildParameters: mockBuildParameters(environment: BuildEnvironment(
+                    platform: .linux,
+                    configuration: .release
+                )),
+                graph: graph,
+                diagnostics: diagnostics,
+                fileSystem: fs
+            )
+
+            let linkedFileList = try fs.readFileContents(AbsolutePath("/path/to/build/release/exe.product/Objects.LinkFileList"))
+            XCTAssertMatch(linkedFileList.description, .contains("PkgLib"))
+            XCTAssertNoMatch(linkedFileList.description, .contains("ExtLib"))
+
+            mktmpdir { path in
+                let yaml = path.appending(component: "release.yaml")
+                let llbuild = LLBuildManifestBuilder(plan)
+                try llbuild.generateManifest(at: yaml)
+                let contents = try localFileSystem.readFileContents(yaml).description
+                XCTAssertMatch(contents, .contains("""
+                      "C.exe-release.module":
+                        tool: swift-compiler
+                        inputs: ["/Pkg/Sources/exe/main.swift","/path/to/build/release/PkgLib.swiftmodule"]
+                    """))
+            }
+        }
+
+        do {
+            let plan = try BuildPlan(
+                buildParameters: mockBuildParameters(environment: BuildEnvironment(
+                    platform: .macOS,
+                    configuration: .debug
+                )),
+                graph: graph,
+                diagnostics: diagnostics,
+                fileSystem: fs
+            )
+
+            let linkedFileList = try fs.readFileContents(AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList"))
+            XCTAssertNoMatch(linkedFileList.description, .contains("PkgLib"))
+            XCTAssertNoMatch(linkedFileList.description, .contains("ExtLib"))
+
+            mktmpdir { path in
+                let yaml = path.appending(component: "debug.yaml")
+                let llbuild = LLBuildManifestBuilder(plan)
+                try llbuild.generateManifest(at: yaml)
+                let contents = try localFileSystem.readFileContents(yaml).description
+                XCTAssertMatch(contents, .contains("""
+                      "C.exe-debug.module":
+                        tool: swift-compiler
+                        inputs: ["/Pkg/Sources/exe/main.swift"]
+                    """))
+            }
+        }
     }
 
     func testBasicExtPackages() throws {
@@ -359,6 +483,96 @@ final class BuildPlanTests: XCTestCase {
           /path/to/build/debug/lib.build/lib.c.o
 
           """)
+    }
+
+    func testClangConditionalDependency() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.c",
+            "/Pkg/Sources/PkgLib/lib.c",
+            "/Pkg/Sources/PkgLib/lib.S",
+            "/Pkg/Sources/PkgLib/include/lib.h",
+            "/ExtPkg/Sources/ExtLib/extlib.c",
+            "/ExtPkg/Sources/ExtLib/include/ext.h"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(
+            fs: fs,
+            diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    dependencies: [
+                        PackageDependencyDescription(name: nil, url: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: [
+                            .target(name: "PkgLib", condition: PackageConditionDescription(
+                                platformNames: ["linux", "android"],
+                                config: nil
+                            ))
+                        ]),
+                        TargetDescription(name: "PkgLib", dependencies: [
+                            .product(name: "ExtPkg", package: "ExtPkg", condition: PackageConditionDescription(
+                                platformNames: [],
+                                config: "debug"
+                            ))
+                        ]),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "ExtPkg",
+                    path: "/ExtPkg",
+                    url: "/ExtPkg",
+                    packageKind: .remote,
+                    products: [
+                        ProductDescription(name: "ExtPkg", targets: ["ExtLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ExtLib", dependencies: []),
+                    ]),
+            ]
+        )
+
+        XCTAssertNoDiagnostics(diagnostics)
+
+        do {
+            let result = BuildPlanResult(plan: try BuildPlan(
+                buildParameters: mockBuildParameters(environment: BuildEnvironment(
+                    platform: .linux,
+                    configuration: .release
+                )),
+                graph: graph,
+                diagnostics: diagnostics,
+                fileSystem: fs
+            ))
+
+            let exeArguments = try result.target(for: "exe").clangTarget().basicArguments()
+            XCTAssert(exeArguments.contains { $0.contains("PkgLib") })
+            XCTAssert(exeArguments.allSatisfy { !$0.contains("ExtLib") })
+
+            let libArguments = try result.target(for: "PkgLib").clangTarget().basicArguments()
+            XCTAssert(libArguments.allSatisfy { !$0.contains("ExtLib") })
+        }
+
+        do {
+            let result = BuildPlanResult(plan: try BuildPlan(
+                buildParameters: mockBuildParameters(environment: BuildEnvironment(
+                    platform: .macOS,
+                    configuration: .debug
+                )),
+                graph: graph,
+                diagnostics: diagnostics,
+                fileSystem: fs
+            ))
+
+            let arguments = try result.target(for: "exe").clangTarget().basicArguments()
+            XCTAssert(arguments.allSatisfy { !$0.contains("PkgLib") && !$0.contains("ExtLib")  })
+
+            let libArguments = try result.target(for: "PkgLib").clangTarget().basicArguments()
+            XCTAssert(libArguments.contains { $0.contains("ExtLib") })
+        }
     }
 
     func testCLanguageStandard() throws {
@@ -1006,19 +1220,147 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
         XCTAssertNoDiagnostics(diagnostics)
+        let graphResult = PackageGraphResult(graph)
+        graphResult.check(reachableProducts: "aexec", "BLibrary")
+        graphResult.check(reachableTargets: "ATarget", "BTarget1")
+        graphResult.check(products: "aexec", "BLibrary", "bexec", "cexec")
+        graphResult.check(targets: "ATarget", "BTarget1", "BTarget2", "CTarget")
 
-        XCTAssertEqual(Set(graph.reachableProducts.map({ $0.name })), ["aexec", "BLibrary"])
-        XCTAssertEqual(Set(graph.reachableTargets.map({ $0.name })), ["ATarget", "BTarget1"])
-        XCTAssertEqual(Set(graph.allProducts.map({ $0.name })), ["aexec", "BLibrary", "bexec", "cexec"])
-        XCTAssertEqual(Set(graph.allTargets.map({ $0.name })), ["ATarget", "BTarget1", "BTarget2", "CTarget"])
-
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let planResult = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
-            graph: graph, diagnostics: diagnostics,
-            fileSystem: fileSystem))
+            graph: graph,
+            diagnostics: diagnostics,
+            fileSystem: fileSystem
+        ))
 
-        XCTAssertEqual(Set(result.productMap.keys), ["aexec", "BLibrary", "bexec", "cexec"])
-        XCTAssertEqual(Set(result.targetMap.keys), ["ATarget", "BTarget1", "BTarget2", "CTarget"])
+        planResult.checkProductsCount(4)
+        planResult.checkTargetsCount(4)
+    }
+
+    func testReachableBuildProductsAndTargets() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/ATarget/main.swift",
+            "/B/Sources/BTarget1/source.swift",
+            "/B/Sources/BTarget2/source.swift",
+            "/B/Sources/BTarget3/source.swift",
+            "/C/Sources/CTarget/source.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(
+            fs: fileSystem,
+            diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "A",
+                    path: "/A",
+                    url: "/A",
+                    dependencies: [
+                        PackageDependencyDescription(name: nil, url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(name: nil, url: "/C", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "aexec", type: .executable, targets: ["ATarget"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ATarget", dependencies: [
+                            .product(name: "BLibrary1", package: "B", condition: PackageConditionDescription(
+                                platformNames: ["linux"],
+                                config: nil
+                            )),
+                            .product(name: "BLibrary2", package: "B", condition: PackageConditionDescription(
+                                platformNames: [],
+                                config: "debug"
+                            )),
+                            .product(name: "CLibrary", package: "C", condition: PackageConditionDescription(
+                                platformNames: ["android"],
+                                config: "release"
+                            )),
+                        ])
+                    ]
+                ),
+                Manifest.createV4Manifest(
+                    name: "B",
+                    path: "/B",
+                    url: "/B",
+                    packageKind: .remote,
+                    products: [
+                        ProductDescription(name: "BLibrary1", type: .library(.static), targets: ["BTarget1"]),
+                        ProductDescription(name: "BLibrary2", type: .library(.static), targets: ["BTarget2"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "BTarget1", dependencies: []),
+                        TargetDescription(name: "BTarget2", dependencies: [
+                            .target(name: "BTarget3", condition: PackageConditionDescription(
+                                platformNames: ["macos"],
+                                config: nil
+                            )),
+                        ]),
+                        TargetDescription(name: "BTarget3", dependencies: []),
+                    ]
+                ),
+                Manifest.createV4Manifest(
+                    name: "C",
+                    path: "/C",
+                    url: "/C",
+                    packageKind: .remote,
+                    products: [
+                        ProductDescription(name: "CLibrary", type: .library(.static), targets: ["CTarget"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "CTarget", dependencies: []),
+                    ]
+                ),
+            ]
+        )
+
+        XCTAssertNoDiagnostics(diagnostics)
+        let graphResult = PackageGraphResult(graph)
+
+        do {
+            let linuxDebug = BuildEnvironment(platform: .linux, configuration: .debug)
+            graphResult.check(reachableBuildProducts: "aexec", "BLibrary1", "BLibrary2", in: linuxDebug)
+            graphResult.check(reachableBuildTargets: "ATarget", "BTarget1", "BTarget2", in: linuxDebug)
+
+            let planResult = BuildPlanResult(plan: try BuildPlan(
+                buildParameters: mockBuildParameters(environment: linuxDebug),
+                graph: graph,
+                diagnostics: diagnostics,
+                fileSystem: fileSystem
+            ))
+            planResult.checkProductsCount(4)
+            planResult.checkTargetsCount(5)
+        }
+
+        do {
+            let macosDebug = BuildEnvironment(platform: .macOS, configuration: .debug)
+            graphResult.check(reachableBuildProducts: "aexec", "BLibrary2", in: macosDebug)
+            graphResult.check(reachableBuildTargets: "ATarget", "BTarget2", "BTarget3", in: macosDebug)
+
+            let planResult = BuildPlanResult(plan: try BuildPlan(
+                buildParameters: mockBuildParameters(environment: macosDebug),
+                graph: graph,
+                diagnostics: diagnostics,
+                fileSystem: fileSystem
+            ))
+            planResult.checkProductsCount(4)
+            planResult.checkTargetsCount(5)
+        }
+
+        do {
+            let androidRelease = BuildEnvironment(platform: .android, configuration: .release)
+            graphResult.check(reachableBuildProducts: "aexec", "CLibrary", in: androidRelease)
+            graphResult.check(reachableBuildTargets: "ATarget", "CTarget", in: androidRelease)
+
+            let planResult = BuildPlanResult(plan: try BuildPlan(
+                buildParameters: mockBuildParameters(environment: androidRelease),
+                graph: graph,
+                diagnostics: diagnostics,
+                fileSystem: fileSystem
+            ))
+            planResult.checkProductsCount(4)
+            planResult.checkTargetsCount(5)
+        }
     }
 
     func testSystemPackageBuildPlan() throws {

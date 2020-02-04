@@ -27,6 +27,7 @@ extension PackageBuilderTests {
         ("testBuildSettings", testBuildSettings),
         ("testCInTests", testCInTests),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
+        ("testConditionalDependencies", testConditionalDependencies),
         ("testCustomTargetDependencies", testCustomTargetDependencies),
         ("testCustomTargetPaths", testCustomTargetPaths),
         ("testCustomTargetPathsOverlap", testCustomTargetPathsOverlap),
@@ -129,6 +130,7 @@ extension PackageDescription5_2LoadingTests {
     // to regenerate.
     static let __allTests__PackageDescription5_2LoadingTests = [
         ("testBinaryTargetUnavailable", testBinaryTargetUnavailable),
+        ("testConditionalTargetDependenciesUnavailable", testConditionalTargetDependenciesUnavailable),
         ("testDuplicateDependencyNames", testDuplicateDependencyNames),
         ("testMissingTargetProductDependencyPackage", testMissingTargetProductDependencyPackage),
         ("testPackageName", testPackageName),
@@ -145,6 +147,7 @@ extension PackageDescriptionNextLoadingTests {
     static let __allTests__PackageDescriptionNextLoadingTests = [
         ("testBinaryTargetsTrivial", testBinaryTargetsTrivial),
         ("testBinaryTargetsValidation", testBinaryTargetsValidation),
+        ("testConditionalTargetDependencies", testConditionalTargetDependencies),
         ("testResources", testResources),
     ]
 }

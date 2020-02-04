@@ -452,6 +452,7 @@ extension Target.Dependency: Encodable {
         case type
         case name
         case package
+        case condition
     }
 
     private enum Kind: String, Codable {
@@ -477,16 +478,19 @@ extension Target.Dependency: Encodable {
         }
       #else
         switch self {
-        case ._targetItem(let name):
+        case ._targetItem(let name, let condition):
             try container.encode(Kind.target, forKey: .type)
             try container.encode(name, forKey: .name)
-        case ._productItem(let name, let package):
+            try container.encode(condition, forKey: .condition)
+        case ._productItem(let name, let package, let condition):
             try container.encode(Kind.product, forKey: .type)
             try container.encode(name, forKey: .name)
             try container.encode(package, forKey: .package)
-        case ._byNameItem(let name):
+            try container.encode(condition, forKey: .condition)
+        case ._byNameItem(let name, let condition):
             try container.encode(Kind.byName, forKey: .type)
             try container.encode(name, forKey: .name)
+            try container.encode(condition, forKey: .condition)
         }
       #endif
     }

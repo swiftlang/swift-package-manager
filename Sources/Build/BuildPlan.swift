@@ -76,7 +76,7 @@ extension BuildParameters {
     }
 
     /// The current platform we're building for.
-    fileprivate var currentPlatform: PackageModel.Platform {
+    var currentPlatform: PackageModel.Platform {
         if self.triple.isDarwin() {
             return .macOS
         } else if self.triple.isAndroid() {
@@ -88,7 +88,7 @@ extension BuildParameters {
 
     /// Returns the scoped view of build settings for a given target.
     fileprivate func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
-        return BuildSettings.Scope(target.underlyingTarget.buildSettings, boundCondition: (currentPlatform, configuration))
+        return BuildSettings.Scope(target.underlyingTarget.buildSettings, environment: buildEnvironment)
     }
 }
 
@@ -154,6 +154,11 @@ public final class ClangTargetBuildDescription {
 
     /// The build parameters.
     let buildParameters: BuildParameters
+
+    /// The build environment.
+    var buildEnvironment: BuildEnvironment {
+        buildParameters.buildEnvironment
+    }
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
@@ -1132,6 +1137,11 @@ public class BuildPlan {
     /// The build parameters.
     public let buildParameters: BuildParameters
 
+    /// The build environment.
+    private var buildEnvironment: BuildEnvironment {
+        buildParameters.buildEnvironment
+    }
+
     /// The package graph.
     public let graph: PackageGraph
 
@@ -1200,10 +1210,11 @@ public class BuildPlan {
             let swiftTarget = SwiftTarget(
                 testDiscoverySrc: src,
                 name: testProduct.name,
-                dependencies: testProduct.underlyingProduct.targets)
+                dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) }
+            )
             let linuxMainTarget = ResolvedTarget(
                 target: swiftTarget,
-                dependencies: testProduct.targets.map(ResolvedTarget.Dependency.target)
+                dependencies: testProduct.targets.map { .target($0, conditions: []) }
             )
 
             let target = try SwiftTargetBuildDescription(
@@ -1238,7 +1249,7 @@ public class BuildPlan {
             for dependency in target.dependencies {
                 switch dependency {
                 case .target: break
-                case .product(let product):
+                case .product(let product, _):
                     if buildParameters.triple.isDarwin() {
                         BuildPlan.validateDeploymentVersionOfProductDependency(
                             product, forTarget: target, diagnostics: diagnostics)
@@ -1426,19 +1437,19 @@ public class BuildPlan {
     ) {
 
         // Sort the product targets in topological order.
-        let nodes = product.targets.map(ResolvedTarget.Dependency.target)
+        let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
         let allTargets = try! topologicalSort(nodes, successors: { dependency in
             switch dependency {
             // Include all the depenencies of a target.
-            case .target(let target):
-                return target.dependencies
+            case .target(let target, _):
+                return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
 
             // For a product dependency, we only include its content only if we
             // need to statically link it.
-            case .product(let product):
+            case .product(let product, _):
                 switch product.type {
                 case .library(.automatic), .library(.static):
-                    return product.targets.map(ResolvedTarget.Dependency.target)
+                    return product.targets.map { .target($0, conditions: []) }
                 case .library(.dynamic), .test, .executable:
                     return []
                 }
@@ -1453,7 +1464,7 @@ public class BuildPlan {
 
         for dependency in allTargets {
             switch dependency {
-            case .target(let target):
+            case .target(let target, _):
                 switch target.type {
                 // Include executable and tests only if they're top level contents
                 // of the product. Otherwise they are just build time dependency.
@@ -1477,7 +1488,7 @@ public class BuildPlan {
                     }
                 }
 
-            case .product(let product):
+            case .product(let product, _):
                 // Add the dynamic products to array of libraries to link.
                 if product.type == .library(.dynamic) {
                     linkLibraries.append(product)
@@ -1496,10 +1507,11 @@ public class BuildPlan {
 
     /// Plan a Clang target.
     private func plan(clangTarget: ClangTargetBuildDescription) {
-        for dependency in clangTarget.target.recursiveDependencies() {
-            switch dependency.underlyingTarget {
+        let recursiveBuildTargets = clangTarget.target.recursiveBuildTargetDependencies(in: buildEnvironment)
+        for targetDependency in recursiveBuildTargets {
+            switch targetDependency.underlyingTarget {
             case is SwiftTarget:
-                if case let .swift(dependencyTargetDescription)? = targetMap[dependency] {
+                if case let .swift(dependencyTargetDescription)? = targetMap[targetDependency] {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
@@ -1510,7 +1522,7 @@ public class BuildPlan {
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
 
                 // Add the modulemap of the dependency if it has one.
-                if case let .clang(dependencyTargetDescription)? = targetMap[dependency] {
+                if case let .clang(dependencyTargetDescription)? = targetMap[targetDependency] {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
@@ -1534,10 +1546,13 @@ public class BuildPlan {
     private func plan(swiftTarget: SwiftTargetBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
-        for dependency in swiftTarget.target.recursiveDependencies() {
-            switch dependency.underlyingTarget {
+        let recursiveBuildTargets = swiftTarget.target
+            .recursiveBuildDependencies(in: buildEnvironment)
+            .compactMap { $0.target }
+        for targetDependency in recursiveBuildTargets {
+            switch targetDependency.underlyingTarget {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
-                guard case let .clang(target)? = targetMap[dependency] else {
+                guard case let .clang(target)? = targetMap[targetDependency] else {
                     fatalError("unexpected clang target \(underlyingTarget)")
                 }
                 // Add the path to modulemap of the dependency. Currently we require that all Clang targets have a

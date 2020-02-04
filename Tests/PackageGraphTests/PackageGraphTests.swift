@@ -75,9 +75,9 @@ class PackageGraphTests: XCTestCase {
             result.check(packages: "Bar", "Foo", "Baz")
             result.check(targets: "Bar", "Foo", "Baz", "FooDep")
             result.check(testModules: "BazTests")
-            result.check(dependencies: "FooDep", target: "Foo")
-            result.check(dependencies: "Foo", target: "Bar")
-            result.check(dependencies: "Bar", target: "Baz")
+            result.checkTarget("Foo") { result in result.check(dependencies: "FooDep") }
+            result.checkTarget("Bar") { result in result.check(dependencies: "Foo") }
+            result.checkTarget("Baz") { result in result.check(dependencies: "Bar") }
         }
     }
 
@@ -122,8 +122,8 @@ class PackageGraphTests: XCTestCase {
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo")
             result.check(targets: "Bar", "CBar", "Foo")
-            result.check(dependencies: "Bar", "CBar", target: "Foo")
-            result.check(dependencies: "CBar", target: "Bar")
+            result.checkTarget("Foo") { result in result.check(dependencies: "Bar", "CBar") }
+            result.checkTarget("Bar") { result in result.check(dependencies: "CBar") }
         }
     }
 
@@ -815,6 +815,85 @@ class PackageGraphTests: XCTestCase {
         DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
             result.check(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), behavior: .error)
             result.check(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), behavior: .error)
+        }
+    }
+
+    func testConditionalTargetDependency() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
+            "/Foo/Sources/Bar/source.swift",
+            "/Foo/Sources/Baz/source.swift",
+            "/Biz/Sources/Biz/source.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(
+            fs: fs,
+            diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    url: "/Foo",
+                    dependencies: [
+                        PackageDependencyDescription(name: nil, url: "/Biz", requirement: .localPackage),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: [
+                            .target(name: "Bar", condition: PackageConditionDescription(
+                                platformNames: ["linux"],
+                                config: nil
+                            )),
+                            .byName(name: "Baz", condition: PackageConditionDescription(
+                                platformNames: [],
+                                config: "debug"
+                            )),
+                            .product(name: "Biz", package: "Biz", condition: PackageConditionDescription(
+                                platformNames: ["watchos", "ios"],
+                                config: "release"
+                            ))
+                        ]),
+                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Baz"),
+                    ]
+                ),
+                Manifest.createV4Manifest(
+                    name: "Biz",
+                    path: "/Biz",
+                    url: "/Biz",
+                    packageKind: .remote,
+                    products: [
+                        ProductDescription(name: "Biz", targets: ["Biz"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Biz"),
+                    ]
+                ),
+            ]
+        )
+
+        XCTAssertNoDiagnostics(diagnostics)
+        PackageGraphTester(graph) { result in
+            result.check(targets: "Foo", "Bar", "Baz", "Biz")
+            result.checkTarget("Foo") { result in
+                result.check(dependencies: "Bar", "Baz", "Biz")
+                result.checkDependency("Bar") { result in
+                    result.checkConditions(satisfy: .init(platform: .linux, configuration: .debug))
+                    result.checkConditions(satisfy: .init(platform: .linux, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .macOS, configuration: .release))
+                }
+                result.checkDependency("Baz") { result in
+                    result.checkConditions(satisfy: .init(platform: .watchOS, configuration: .debug))
+                    result.checkConditions(satisfy: .init(platform: .tvOS, configuration: .debug))
+                    result.checkConditions(dontSatisfy: .init(platform: .tvOS, configuration: .release))
+                }
+                result.checkDependency("Biz") { result in
+                    result.checkConditions(satisfy: .init(platform: .watchOS, configuration: .release))
+                    result.checkConditions(satisfy: .init(platform: .iOS, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .iOS, configuration: .debug))
+                    result.checkConditions(dontSatisfy: .init(platform: .macOS, configuration: .release))
+                }
+            }
         }
     }
 }

@@ -20,6 +20,70 @@ public class Target: ObjectIdentifierProtocol {
         case binary
     }
 
+    /// A reference to a product from a target dependency.
+    public struct ProductReference {
+
+        /// The name of the product dependency.
+        public let name: String
+
+        /// The name of the package containing the product.
+        public let package: String?
+
+        /// Creates a product reference instance.
+        public init(name: String, package: String?) {
+            self.name = name
+            self.package = package
+        }
+    }
+
+    /// A target dependency to a target or product.
+    public enum Dependency {
+
+        /// A dependency referencing another target, with conditions.
+        case target(_ target: Target, conditions: [PackageConditionProtocol])
+
+        /// A dependency referencing a product, with conditions.
+        case product(_ product: ProductReference, conditions: [PackageConditionProtocol])
+
+        /// The target if the dependency is a target dependency.
+        public var target: Target? {
+            if case .target(let target, _) = self {
+                return target
+            } else {
+                return nil
+            }
+        }
+
+        /// The product reference if the dependency is a product dependency.
+        public var product: ProductReference? {
+            if case .product(let product, _) = self {
+                return product
+            } else {
+                return nil
+            }
+        }
+
+        /// The dependency conditions.
+        public var conditions: [PackageConditionProtocol] {
+            switch self {
+            case .target(_, let conditions):
+                return conditions
+            case .product(_, let conditions):
+                return conditions
+            }
+        }
+
+        /// The name of the target or product of the dependency.
+        public var name: String {
+            switch self {
+            case .target(let target, _):
+                return target.name
+            case .product(let product, _):
+                return product.name
+            }
+        }
+    }
+
     /// The name of the target.
     ///
     /// NOTE: This name is not the language-level target (i.e., the importable
@@ -27,10 +91,7 @@ public class Target: ObjectIdentifierProtocol {
     public let name: String
 
     /// The dependencies of this target.
-    public let dependencies: [Target]
-
-    /// The product dependencies of this target.
-    public let productDependencies: [(name: String, package: String?)]
+    public let dependencies: [Dependency]
 
     /// The language-level target name.
     public let c99name: String
@@ -68,8 +129,7 @@ public class Target: ObjectIdentifierProtocol {
         type: Kind,
         sources: Sources,
         resources: [Resource] = [],
-        dependencies: [Target],
-        productDependencies: [(name: String, package: String?)] = [],
+        dependencies: [Target.Dependency],
         buildSettings: BuildSettings.AssignmentTable
     ) {
         self.name = name
@@ -79,7 +139,6 @@ public class Target: ObjectIdentifierProtocol {
         self.sources = sources
         self.resources = resources
         self.dependencies = dependencies
-        self.productDependencies = productDependencies
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = buildSettings
     }
@@ -90,7 +149,7 @@ public class SwiftTarget: Target {
     /// The file name of linux main file.
     public static let linuxMainBasename = "LinuxMain.swift"
 
-    public init(testDiscoverySrc: Sources, name: String, dependencies: [Target]) {
+    public init(testDiscoverySrc: Sources, name: String, dependencies: [Target.Dependency]) {
         self.swiftVersion = .v5
 
         super.init(
@@ -104,14 +163,14 @@ public class SwiftTarget: Target {
     }
 
     /// Create an executable Swift target from linux main test manifest file.
-    init(linuxMain: AbsolutePath, name: String, dependencies: [Target]) {
+    init(linuxMain: AbsolutePath, name: String, dependencies: [Target.Dependency]) {
         // Look for the first swift test target and use the same swift version
         // for linux main target. This will need to change if we move to a model
         // where we allow per target swift language version build settings.
-        let swiftTestTarget = dependencies.first(where: {
-            guard case let target as SwiftTarget = $0 else { return false }
+        let swiftTestTarget = dependencies.first {
+            guard case .target(let target as SwiftTarget, _) = $0 else { return false }
             return target.type == .test
-        }).flatMap({ $0 as? SwiftTarget })
+        }.flatMap { $0.target as? SwiftTarget }
 
         // FIXME: This is not very correct but doesn't matter much in practice.
         // We need to select the latest Swift language version that can
@@ -143,8 +202,7 @@ public class SwiftTarget: Target {
         isTest: Bool = false,
         sources: Sources,
         resources: [Resource] = [],
-        dependencies: [Target] = [],
-        productDependencies: [(name: String, package: String?)] = [],
+        dependencies: [Target.Dependency] = [],
         swiftVersion: SwiftLanguageVersion,
         buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
@@ -158,7 +216,6 @@ public class SwiftTarget: Target {
             sources: sources,
             resources: resources,
             dependencies: dependencies,
-            productDependencies: productDependencies,
             buildSettings: buildSettings
         )
     }
@@ -231,8 +288,7 @@ public class ClangTarget: Target {
         isTest: Bool = false,
         sources: Sources,
         resources: [Resource] = [],
-        dependencies: [Target] = [],
-        productDependencies: [(name: String, package: String?)] = [],
+        dependencies: [Target.Dependency] = [],
         buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
         assert(includeDir.contains(sources.root), "\(includeDir) should be contained in the source root \(sources.root)")
@@ -249,7 +305,6 @@ public class ClangTarget: Target {
             sources: sources,
             resources: resources,
             dependencies: dependencies,
-            productDependencies: productDependencies,
             buildSettings: buildSettings
         )
     }

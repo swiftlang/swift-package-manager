@@ -289,4 +289,36 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testConditionalTargetDependencies() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                dependencies: [
+                    .package(path: "/Baz"),
+                ],
+                targets: [
+                    .target(name: "Foo", dependencies: [
+                        .target(name: "Biz"),
+                        .target(name: "Bar", condition: .when(platforms: [.linux])),
+                        .product(name: "Baz", package: "Baz", condition: .when(configuration: .release)),
+                        .byName(name: "Bar", condition: .when(platforms: [.watchOS, .iOS], configuration: .debug)),
+                    ]),
+                    .target(name: "Bar"),
+                    .target(name: "Biz"),
+                ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            let dependencies = manifest.targets[0].dependencies
+
+            XCTAssertEqual(dependencies[0], .target(name: "Biz"))
+            XCTAssertEqual(dependencies[1], .target(name: "Bar", condition: .init(platformNames: ["linux"], config: nil)))
+            XCTAssertEqual(dependencies[2], .product(name: "Baz", package: "Baz", condition: .init(platformNames: [], config: "release")))
+            XCTAssertEqual(dependencies[3], .byName(name: "Bar", condition: .init(platformNames: ["watchos", "ios"], config: "debug")))
+        }
+    }
 }
