@@ -105,7 +105,7 @@ public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable, Codab
         packagePath: String
     ) throws {
         // We don't want to throw any error when using the special vNext version.
-        if self == .vNext {
+        if Versioning.currentVersion.isDevelopment && self == .vNext {
             return
         }
 
