@@ -34,7 +34,7 @@ public struct Destination: Encodable {
     ///  - abi = eabi, gnu, android, macho, elf, etc.
     ///
     /// for more information see //https://clang.llvm.org/docs/CrossCompilation.html
-    public let target: Triple
+    public let target: Triple?
 
     /// The SDK used to compile for the destination.
     public let sdk: AbsolutePath
@@ -102,7 +102,7 @@ public struct Destination: Encodable {
         }
 
         return Destination(
-            target: hostTargetTriple,
+            target: nil,
             sdk: sdkPath,
             binDir: binDir,
             extraCCFlags: extraCCFlags,
@@ -111,7 +111,7 @@ public struct Destination: Encodable {
         )
       #else
         return Destination(
-            target: hostTargetTriple,
+            target: nil,
             sdk: .root,
             binDir: binDir,
             extraCCFlags: ["-fPIC"],
@@ -147,9 +147,6 @@ public struct Destination: Encodable {
     }
     /// Cache storage for sdk platform path.
     private static var _sdkPlatformFrameworkPath: (fwk: AbsolutePath, lib: AbsolutePath)? = nil
-
-    /// Target triple for the host system.
-    private static let hostTargetTriple = Triple.hostTriple
 }
 
 extension Destination {

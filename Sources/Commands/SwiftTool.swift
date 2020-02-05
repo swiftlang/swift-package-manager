@@ -722,10 +722,10 @@ public class SwiftTool<Options: ToolOptions> {
     private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
             let toolchain = try self.getToolchain()
-            let triple = toolchain.destination.target
+            let triple = toolchain.triple
 
             return BuildParameters(
-                dataPath: buildPath.appending(component: toolchain.destination.target.tripleString),
+                dataPath: buildPath.appending(component: triple.tripleString),
                 configuration: options.configuration,
                 toolchain: toolchain,
                 destinationTriple: triple,

@@ -55,6 +55,9 @@ public final class UserToolchain: Toolchain {
     /// The compilation destination object.
     public let destination: Destination
 
+    /// The target triple that should be used for compilation.
+    public let triple: Triple
+
     /// Search paths from the PATH environment variable.
     let envSearchPaths: [AbsolutePath]
 
@@ -221,13 +224,15 @@ public final class UserToolchain: Toolchain {
         self.xctest = nil
       #endif
 
-        self.extraSwiftCFlags = (destination.target.isDarwin()
+        // Use the triple from destination or compute the host triple using swiftc.
+        self.triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        self.extraSwiftCFlags = (triple.isDarwin()
                                     ? ["-sdk", destination.sdk.pathString]
                                     : [])
                                   + destination.extraSwiftCFlags
 
         self.extraCCFlags = [
-            destination.target.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
+            triple.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
         ] + destination.extraCCFlags
 
         // Compute the path of directory containing the PackageDescription libraries.
