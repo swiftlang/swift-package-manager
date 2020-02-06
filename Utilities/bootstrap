@@ -543,8 +543,18 @@ def get_swiftpm_flags(args):
         build_flags.extend([
             "-Xswiftc", "-F" + args.llbuild_build_dir,
             "-Xlinker", "-F" + args.llbuild_build_dir,
+
+            # For LLBuild in Xcode.
             "-Xlinker", "-rpath",
             "-Xlinker", "@executable_path/../../../../../SharedFrameworks",
+
+            # For TensorFlow.
+            "-Xlinker", "-rpath",
+            "-Xlinker", "@executable_path/../lib/swift/macosx",
+
+            # For LLBuild in CLT.
+            "-Xlinker", "-rpath",
+            "-Xlinker", "@executable_path/../lib/swift/pm/llbuild",
         ])
 
     # Add a relative rpath to find core Swift libraries on non-Darwin platforms,
