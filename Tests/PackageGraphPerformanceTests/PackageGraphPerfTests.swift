@@ -36,9 +36,9 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 targets = [TargetDescription(name: name, path: ".")]
             } else {
                 let depName = "Foo\(pkg + 1)"
-                let depUrl = "/\(name)"
+                let depUrl = "/\(depName)"
                 dependencies = [PackageDependencyDescription(name: depName, url: depUrl, requirement: .upToNextMajor(from: "1.0.0"))]
-                targets = [TargetDescription(name: depName, dependencies: [.byName(name: depName, condition: nil)], path: ".")]
+                targets = [TargetDescription(name: name, dependencies: [.byName(name: depName, condition: nil)], path: ".")]
             }
             // Create manifest.
             let isRoot = pkg == 1
