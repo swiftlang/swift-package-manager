@@ -298,10 +298,10 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
             }
             XCTFail("this package should not load succesfully")
         } catch ManifestParseError.invalidManifestFormat(let error, _) {
-            XCTAssert(error.contains("error: 'package(url:version:)' is unavailable: use package(url:_:) with the .exact(Version) initializer instead\n"))
-            XCTAssert(error.contains("error: 'package(url:branch:)' is unavailable: use package(url:_:) with the .branch(String) initializer instead\n"))
-            XCTAssert(error.contains("error: 'package(url:revision:)' is unavailable: use package(url:_:) with the .revision(String) initializer instead\n"))
-            XCTAssert(error.contains("error: 'package(url:range:)' is unavailable: use package(url:_:) without the range label instead\n"))
+            XCTAssert(error.contains("error: 'package(url:version:)' is unavailable: use package(url:_:) with the .exact(Version) initializer instead\n"), "\(error)")
+            XCTAssert(error.contains("error: 'package(url:branch:)' is unavailable: use package(url:_:) with the .branch(String) initializer instead\n"), "\(error)")
+            XCTAssert(error.contains("error: 'package(url:revision:)' is unavailable: use package(url:_:) with the .revision(String) initializer instead\n"), "\(error)")
+            XCTAssert(error.contains("error: 'package(url:range:)' is unavailable: use package(url:_:) without the range label instead\n"), "\(error)")
         }
     }
 
