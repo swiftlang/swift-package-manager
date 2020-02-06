@@ -23,3 +23,20 @@ extension Collection {
         }
     }
 }
+
+extension Collection where Element: Hashable {
+    /// Returns a new list of element removing duplicate elements.
+    ///
+    /// Note: The order of elements is preseved.
+    /// Complexity: O(n)
+    public func spm_uniqueElements() -> [Element] {
+        var set = Set<Element>()
+        var result = [Element]()
+        for element in self {
+            if set.insert(element).inserted {
+                result.append(element)
+            }
+        }
+        return result
+    }
+}

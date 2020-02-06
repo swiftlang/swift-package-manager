@@ -215,6 +215,37 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testPublicIncludeDirMixedWithSources() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/clib/nested/nested.h",
+            "/Sources/clib/nested/nested.c",
+            "/Sources/clib/clib.h",
+            "/Sources/clib/clib.c",
+            "/Sources/clib/clib2.h",
+            "/Sources/clib/clib2.c",
+            "/done"
+        )
+
+        let manifest = Manifest.createV4Manifest(
+            name: "MyPackage",
+            targets: [
+                TargetDescription(
+                    name: "clib",
+                    path: "Sources",
+                    sources: ["clib", "clib"],
+                    publicHeadersPath: "."
+                ),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { package, diags in
+            diags.check(diagnostic: "found duplicate sources declaration in the package manifest: /Sources/clib", behavior: .warning)
+            package.checkModule("clib") { module in
+                module.check(c99name: "clib", type: .library)
+                module.checkSources(root: "/Sources", paths: "clib/clib.c", "clib/clib2.c", "clib/nested/nested.c")
+            }
+        }
+    }
+
     func testDeclaredExecutableProducts() {
         // Check that declaring executable product doesn't collide with the
         // inferred products.

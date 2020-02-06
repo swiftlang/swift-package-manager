@@ -30,6 +30,9 @@ public struct TargetSourcesBuilder {
     /// The path of the target.
     public let targetPath: AbsolutePath
 
+    /// The list of declared sources in the package manifest.
+    public let declaredSources: [AbsolutePath]?
+
     /// The rules that can be applied to files in the target.
     public let rules: [FileRuleDescription]
 
@@ -49,7 +52,6 @@ public struct TargetSourcesBuilder {
         target: TargetDescription,
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription] = [],
-        extraExcludes: [AbsolutePath] = [],
         toolsVersion: ToolsVersion = .currentToolsVersion,
         fs: FileSystem = localFileSystem,
         diags: DiagnosticsEngine
@@ -63,7 +65,19 @@ public struct TargetSourcesBuilder {
         self.toolsVersion = toolsVersion
         self.fs = fs
         let excludedPaths = target.exclude.map{ path.appending(RelativePath($0)) }
-        self.excludedPaths = Set(excludedPaths + extraExcludes)
+        self.excludedPaths = Set(excludedPaths)
+
+        let declaredSources = target.sources?.map{ path.appending(RelativePath($0)) }
+        if let declaredSources = declaredSources {
+            // Diagnose duplicate entries.
+            let duplicates = declaredSources.spm_findDuplicateElements()
+            if !duplicates.isEmpty {
+                for duplicate in duplicates {
+                    diags.emit(warning: "found duplicate sources declaration in the package manifest: \(duplicate.map{ $0.pathString }[0])")
+                }
+            }
+        }
+        self.declaredSources = declaredSources?.spm_uniqueElements()
 
       #if DEBUG
         validateRules(self.rules)
@@ -92,8 +106,10 @@ public struct TargetSourcesBuilder {
             pathToRule[path] = findRule(for: path)
         }
 
-        // Emit an error if we found files without a matching rule in tools version >= 5.2
-        if toolsVersion >= .v5_2 {
+        // Emit an error if we found files without a matching rule in
+        // tools version >= vNext. This will be activated once resources
+        // support is complete.
+        if toolsVersion >= .vNext {
             let filesWithNoRules = pathToRule.filter{ $0.value == .none }
             if !filesWithNoRules.isEmpty {
                 var error = "found \(filesWithNoRules.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
@@ -109,7 +125,7 @@ public struct TargetSourcesBuilder {
 
         let resources: [Resource] = pathToRule.compactMap {
             switch $0.value {
-            case .compile, .none, .modulemap:
+            case .compile, .none, .modulemap, .header:
                 return nil
             case .processResource:
                 return Resource(rule: .process, path: $0.key)
@@ -157,14 +173,20 @@ public struct TargetSourcesBuilder {
         }
 
         // Match any sources explicitly declared in the manifest file.
-        if let declaredSources = target.sources {
-            for declaredSource in declaredSources {
-                let sourcePath = self.targetPath.appending(RelativePath(declaredSource))
+        if let declaredSources = self.declaredSources {
+            for sourcePath in declaredSources {
                 if path.contains(sourcePath) {
                     if matchedRule != .none {
                         diags.emit(.error("Duplicate rule compile found for \(path)"))
                     }
-                    matchedRule = .compile
+
+                    // Check for header files as they're allowed to be mixed with sources.
+                    if let ext = path.extension,
+                      FileRuleDescription.header.fileTypes.contains(ext) {
+                        matchedRule = .header
+                    } else {
+                        matchedRule = .compile
+                    }
                 }
             }
         }
@@ -294,6 +316,9 @@ public struct FileRuleDescription {
         /// The modulemap rule.
         case modulemap
 
+        /// A header file.
+        case header
+
         /// Sentinal to indicate that no rule was chosen for a given file.
         case none
     }
@@ -363,12 +388,22 @@ public struct FileRuleDescription {
         )
     }()
 
+    /// The rule for detecting header files.
+    public static var header: FileRuleDescription = {
+        .init(
+            rule: .header,
+            toolsVersion: .minimumRequired,
+            fileTypes: ["h"]
+        )
+    }()
+
     /// List of all the builtin rules.
     public static let builtinRules: [FileRuleDescription] = [
         swift,
         clang,
         asm,
         modulemap,
+        header,
     ]
 }
 
