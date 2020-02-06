@@ -49,6 +49,7 @@ extension PackageBuilderTests {
         ("testPlatforms", testPlatforms),
         ("testPredefinedTargetSearchError", testPredefinedTargetSearchError),
         ("testPublicHeadersPath", testPublicHeadersPath),
+        ("testPublicIncludeDirMixedWithSources", testPublicIncludeDirMixedWithSources),
         ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
         ("testSpecialTargetDir", testSpecialTargetDir),
         ("testSpecifiedCustomPathDoesNotExist", testSpecifiedCustomPathDoesNotExist),

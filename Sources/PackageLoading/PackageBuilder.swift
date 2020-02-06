@@ -637,19 +637,12 @@ public final class PackageBuilder {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
 
-        // Exclude public headers path directory from source searching if it's not
-        // the target root.
-        // FIXME: This means we'll try to assign rules to header files
-        // which is currently not handled by the sources builder.
-        let extraExcludes = publicHeadersPath != potentialModule.path ? [publicHeadersPath] : []
-
         let sourcesBuilder = TargetSourcesBuilder(
             packageName: manifest.name,
             packagePath: packagePath,
             target: manifestTarget,
             path: potentialModule.path,
             additionalFileRules: additionalFileRules,
-            extraExcludes: extraExcludes,
             toolsVersion: manifest.toolsVersion,
             fs: fileSystem,
             diags: diagnostics
