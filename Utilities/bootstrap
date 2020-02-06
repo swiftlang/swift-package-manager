@@ -547,27 +547,41 @@ def get_swiftpm_flags(args):
             "-Xlinker", "-rpath",
             "-Xlinker", "@executable_path/../../../../../SharedFrameworks",
 
-            # For TensorFlow.
-            "-Xlinker", "-rpath",
-            "-Xlinker", "@executable_path/../lib/swift/macosx",
-
             # For LLBuild in CLT.
             "-Xlinker", "-rpath",
             "-Xlinker", "@executable_path/../lib/swift/pm/llbuild",
         ])
 
-    # Add a relative rpath to find core Swift libraries on non-Darwin platforms,
-    # where they aren't present as part of the base OS.
-    if platform.system() != 'Darwin':
-        platform_path = None
-        for path in args.target_info["paths"]["runtimeLibraryPaths"]:
-            platform_path = re.search(r'(lib/swift/[^/]+)$', path)
-            if platform_path:
-                build_flags.extend(["-Xlinker", "-rpath=$ORIGIN/../" + platform_path.group(1)])
-                break
+    # Add a relative rpath to find Swift libraries in toolchains.
+    # On non-Darwin platforms, a relative rpath is necessary because Swift
+    # libraries are not part of the OS.
+    # On Darwin platforms, a relative rpath is necessary for experimental
+    # toolchains that include libraries not part of the OS (e.g. PythonKit or
+    # TensorFlow).
+    if platform.system() == "Darwin":
+        swift_library_rpath_prefix = "@executable_path/../"
+    elif platform.system() == 'Linux':
+        # `$ORIGIN` is an ELF construct.
+        swift_library_rpath_prefix = "$ORIGIN/../"
+    platform_path = None
+    for path in args.target_info["paths"]["runtimeLibraryPaths"]:
+        platform_path = re.search(r"(lib/swift/[^/]+)$", path)
+        if platform_path:
+            build_flags.extend(
+                [
+                    "-Xlinker",
+                    "-rpath",
+                    "-Xlinker",
+                    swift_library_rpath_prefix + platform_path.group(1),
+                ]
+            )
+            break
 
-        if not platform_path:
-            error("the command `%s -print-target-info` didn't return a valid runtime library path" % args.swiftc_path)
+    if not platform_path:
+        error(
+            "the command `%s -print-target-info` didn't return a valid runtime library path"
+            % args.swiftc_path
+        )
 
     # Don't use GNU strerror_r on Android.
     if 'ANDROID_DATA' in os.environ:
