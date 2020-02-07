@@ -853,14 +853,9 @@ extension Workspace {
         forBinaryArtifactAt path: AbsolutePath,
         diagnostics: DiagnosticsEngine
     ) -> String {
-        // Give a hint that an XCFramework is expected to be zipped.
-        guard path.extension != "xcframework" else {
-            diagnostics.emit(error: "expected a `.zip` file, not an xcframework: \(path.pathString)")
-            return ""
-        }
-
-        guard fileSystem.isFile(path) else {
-            diagnostics.emit(error: "file not found at path: \(path.pathString)")
+        guard let pathExtension = path.extension, archiver.supportedExtensions.contains(pathExtension) else {
+            let supportedExtensionList = archiver.supportedExtensions.joined(separator: ", ")
+            diagnostics.emit(error: "unexpected file type; supported extensions are: \(supportedExtensionList)")
             return ""
         }
 

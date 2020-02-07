@@ -3987,7 +3987,9 @@ final class WorkspaceTests: XCTestCase {
             let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: diagnostics)
             XCTAssertEqual(checksum, "")
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("file not found at path: /tmp/ws/unknown"), behavior: .error)
+                let supportedExtensionList = workspace.archiver.supportedExtensions.joined(separator: ", ")
+                let expectedDiagnostic = "unexpected file type; supported extensions are: \(supportedExtensionList)"
+                result.check(diagnostic: .contains(expectedDiagnostic), behavior: .error)
             }
         }
     }
