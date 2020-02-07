@@ -17,7 +17,7 @@ import Foundation
 
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
-    fileprivate var moduleCache: AbsolutePath {
+    public var moduleCache: AbsolutePath {
         // FIXME: We use this hack to let swiftpm's functional test use shared
         // cache so it doesn't become painfully slow.
         if let path = ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] {
@@ -61,7 +61,7 @@ extension BuildParameters {
     }
 
     /// Computes the target triple arguments for a given resolved target.
-    fileprivate func targetTripleArgs(for target: ResolvedTarget) -> [String] {
+    public func targetTripleArgs(for target: ResolvedTarget) -> [String] {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if triple.isDarwin() {

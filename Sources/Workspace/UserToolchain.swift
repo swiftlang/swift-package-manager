@@ -199,6 +199,19 @@ public final class UserToolchain: Toolchain {
         throw InvalidToolchainDiagnostic("could not find swift-api-digester")
     }
 
+    public func getSymbolGraphExtract() throws -> AbsolutePath {
+        if let envValue = UserToolchain.lookup(variable: "SWIFT_SYMBOLGRAPH_EXTRACT", searchPaths: envSearchPaths) {
+            return envValue
+        }
+
+        let candidate = swiftCompiler.parentDirectory.appending(component: "swift-symbolgraph-extract")
+        if localFileSystem.exists(candidate) {
+            return candidate
+        }
+
+        throw InvalidToolchainDiagnostic("could not find swift-api-digester")
+    }
+
     public init(destination: Destination, environment: [String: String] = ProcessEnv.vars) throws {
         self.destination = destination
         self.processEnvironment = environment

@@ -21,6 +21,7 @@ add_library(Commands
   SwiftRunTool.swift
   SwiftTestTool.swift
   SwiftTool.swift
+  SymbolGraphExtract.swift
   WatchmanHelper.swift)
 target_link_libraries(Commands PUBLIC
   TSCBasic

@@ -193,6 +193,20 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 baselineSDKJSON: invertBaseline ? currentSDKJSON : baselineSDKJSON
             )
 
+        case .dumpSymbolGraph:
+            let symbolGraphExtract = try SymbolGraphExtract(
+                tool: getToolchain().getSymbolGraphExtract())
+
+            // Build the current package.
+            //
+            // We turn build manifest caching off because we need the build plan.
+            let buildOp = try createBuildOperation(useBuildManifestCaching: false)
+            try buildOp.build()
+
+            try symbolGraphExtract.dumpSymbolGraph(
+                buildPlan: buildOp.buildPlan!
+            )
+
         case .update:
             let workspace = try getActiveWorkspace()
             
@@ -666,6 +680,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 usage: "Invert the baseline which is helpful for determining API additions"),
             to: { $0.apiDiffOptions.invertBaseline = $1 })
 
+        _ = parser.add(
+            subparser: PackageMode.dumpSymbolGraph.rawValue,
+            overview: ""
+        )
+
         let computeChecksumParser = parser.add(
             subparser: PackageMode.computeChecksum.rawValue,
             overview: "Compute the checksum for a binary artifact.")
@@ -751,6 +770,11 @@ public class PackageToolOptions: ToolOptions {
     }
     var apiDiffOptions = APIDiffOptions()
 
+    struct SymbolGraphOptions {
+        var path: AbsolutePath!
+    }
+    var symbolGraphOptions = SymbolGraphOptions()
+
     struct ComputeChecksumOptions {
         var path: AbsolutePath!
     }
@@ -806,6 +830,7 @@ public enum PackageMode: String, StringEnumArgument {
     case update
     case version
     case apidiff = "experimental-api-diff"
+    case dumpSymbolGraph = "dump-symbol-graph"
     case computeChecksum = "compute-checksum"
     case help
 
