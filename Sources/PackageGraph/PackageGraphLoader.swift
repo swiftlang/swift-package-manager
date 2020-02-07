@@ -27,6 +27,17 @@ enum PackageGraphError: Swift.Error {
     /// The product dependency was found but the package name did not match.
     case productDependencyIncorrectPackage(name: String, package: String)
 
+    /// The package dependency name does not match the package name.w
+    case incorrectPackageDependencyName(dependencyName: String, dependencyURL: String, packageName: String)
+
+    /// The product dependency was found but the package name was not referenced correctly (tools version > 5.2).
+    case productDependencyMissingPackage(
+        productName: String,
+        targetName: String,
+        packageName: String,
+        packageDependency: PackageDependencyDescription
+    )
+
     /// A product was found in multiple packages.
     case duplicateProduct(product: String, packages: [String])
 }
@@ -43,10 +54,47 @@ extension PackageGraphError: CustomStringConvertible {
                 " -> " + cycle.cycle[0].name
 
         case .productDependencyNotFound(let name, let target):
-            return "Product '\(name)' not found. It is required by target '\(target)'."
+            return "product '\(name)' not found. It is required by target '\(target)'."
 
         case .productDependencyIncorrectPackage(let name, let package):
             return "product dependency '\(name)' in package '\(package)' not found"
+
+        case .incorrectPackageDependencyName(let dependencyName, let dependencyURL, let packageName):
+            return """
+                declared name '\(dependencyName)' for package dependency '\(dependencyURL)' does not match the actual \
+                package name '\(packageName)'
+                """
+
+        case .productDependencyMissingPackage(
+                let productName,
+                let targetName,
+                let packageName,
+                let packageDependency
+            ):
+
+            var solutionSteps: [String] = []
+
+            // If the package dependency name is the same as the package name, or if the product name and package name
+            // don't correspond, we need to rewrite the target dependency to explicit specify the package name.
+            if packageDependency.name == packageName || productName != packageName {
+                solutionSteps.append("""
+                    reference the package in the target dependency with '.product(name: "\(productName)", package: \
+                    "\(packageName)")'
+                    """)
+            }
+
+            // If the name of the product and the package are the same, or if the package dependency implicit name
+            // deduced from the URL is not correct, we need to rewrite the package dependency declaration to specify the
+            // package name.
+            if productName == packageName || packageDependency.name != packageName {
+                let dependencySwiftRepresentation = packageDependency.swiftRepresentation(overridingName: packageName)
+                solutionSteps.append("""
+                    provide the name of the package dependency with '\(dependencySwiftRepresentation)'
+                    """)
+            }
+
+            let solution = solutionSteps.joined(separator: " and ")
+            return "dependency '\(productName)' in target '\(targetName)' requires explicit declaration; \(solution)"
 
         case .duplicateProduct(let product, let packages):
             return "multiple products named '\(product)' in: \(packages.joined(separator: ", "))"
@@ -234,9 +282,24 @@ private func createResolvedPackages(
         let package = packageBuilder.package
 
         // Establish the manifest-declared package dependencies.
-        packageBuilder.dependencies = package.manifest.allRequiredDependencies.compactMap({
-            let url = config.mirroredURL(forURL: $0.url)
-            return packageMap[PackageReference.computeIdentity(packageURL: url)]
+        packageBuilder.dependencies = package.manifest.allRequiredDependencies.compactMap({ dependency in
+            let url = config.mirroredURL(forURL: dependency.url)
+            let resolvedPackage = packageMap[PackageReference.computeIdentity(packageURL: url)]
+
+            // We check that the explicit package dependency name matches the package name.
+            if let resolvedPackage = resolvedPackage,
+                let explicitDependencyName = dependency.explicitName,
+                resolvedPackage.package.name != dependency.explicitName
+            {
+                let error = PackageGraphError.incorrectPackageDependencyName(
+                    dependencyName: explicitDependencyName,
+                    dependencyURL: dependency.url,
+                    packageName: resolvedPackage.package.name)
+                let diagnosticLocation = PackageLocation.Local(name: package.name, packagePath: package.path)
+                diagnostics.emit(error, location: diagnosticLocation)
+            }
+
+            return resolvedPackage
         })
 
         // Create target builders for each target in the package.
@@ -345,6 +408,29 @@ private func createResolvedPackages(
                             name: productRef.name, package: packageName)
                         diagnostics.emit(error, location: diagnosticLocation())
                         continue
+                    }
+                } else if packageBuilder.package.manifest.toolsVersion >= .v5_2 {
+                    // Starting in 5.2, and target-based dependency, we require target product dependencies to
+                    // explicitly reference the package containing the product, or for the product, package and
+                    // dependency to share the same name. We don't check this in manifest loading for root-packages so
+                    // we can provide a more detailed diagnostic here.
+                    let referencedPackageURL = config.mirroredURL(forURL: product.packageBuilder.package.manifest.url)
+                    let referencedPackageIdentity = PackageReference.computeIdentity(packageURL: referencedPackageURL)
+                    let packageDependency = packageBuilder.package.manifest.dependencies.first { package in
+                        let packageURL = config.mirroredURL(forURL: package.url)
+                        let packageIdentity = PackageReference.computeIdentity(packageURL: packageURL)
+                        return packageIdentity == referencedPackageIdentity
+                    }!
+
+                    let packageName = product.packageBuilder.package.name
+                    if productRef.name != packageDependency.name || packageDependency.name != packageName {
+                        let error = PackageGraphError.productDependencyMissingPackage(
+                            productName: productRef.name,
+                            targetName: targetBuilder.target.name,
+                            packageName: packageName,
+                            packageDependency: packageDependency
+                        )
+                        diagnostics.emit(error, location: diagnosticLocation())
                     }
                 }
 
@@ -505,6 +591,44 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
             targets: targets.map({ $0.construct() }),
             products: products.map({ $0.construct() })
         )
+    }
+}
+
+private extension PackageDependencyDescription {
+    func swiftRepresentation(overridingName: String? = nil) -> String {
+        var parameters: [String] = []
+
+        if let name = overridingName ?? explicitName {
+            parameters.append("name: \"\(name)\"")
+        }
+
+        if requirement == .localPackage {
+            parameters.append("path: \"\(url)\"")
+        } else {
+            parameters.append("url: \"\(url)\"")
+
+            switch requirement {
+            case .branch(let branch):
+                parameters.append(".branch(\"\(branch)\")")
+            case .exact(let version):
+                parameters.append(".exact(\"\(version)\")")
+            case .revision(let revision):
+                parameters.append(".revision(\"\(revision)\")")
+            case .range(let range):
+                if range.upperBound == Version(range.lowerBound.major + 1, 0, 0) {
+                    parameters.append("from: \"\(range.lowerBound)\"")
+                } else if range.upperBound == Version(range.lowerBound.major, range.lowerBound.minor + 1, 0) {
+                    parameters.append(".upToNextMinor(\"\(range.lowerBound)\")")
+                } else {
+                    parameters.append(".upToNextMinor(\"\(range.lowerBound)\"..<\"\(range.upperBound)\")")
+                }
+            case .localPackage:
+                fatalError("handled above")
+            }
+        }
+
+        let swiftRepresentation = ".package(\(parameters.joined(separator: ", ")))"
+        return swiftRepresentation
     }
 }
 

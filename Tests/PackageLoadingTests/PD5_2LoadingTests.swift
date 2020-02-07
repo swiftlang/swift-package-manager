@@ -76,17 +76,15 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            XCTAssertEqual(manifest.dependencies, [
-                .init(name: "Foo", url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")),
-                .init(name: "Foo2", url: "/foo2", requirement: .localPackage),
-                .init(name: "Foo3", url: "/foo3", requirement: .upToNextMajor(from: "1.0.0")),
-                .init(name: "Foo4", url: "/foo4", requirement: .range("1.0.0"..<"2.0.0")),
-                .init(name: "Foo5", url: "/foo5", requirement: .range("1.0.0"..<"2.0.1")),
-                .init(name: "bar", url: "/bar", requirement: .upToNextMajor(from: "1.0.0")),
-                .init(name: "Bar2", url: "https://github.com/foo/Bar2.git/", requirement: .upToNextMajor(from: "1.0.0")),
-                .init(name: "Baz", url: "https://github.com/foo/Baz.git", requirement: .upToNextMajor(from: "1.0.0")),
-                .init(name: "swift", url: "https://github.com/apple/swift", requirement: .upToNextMajor(from: "1.0.0")),
-            ])
+            XCTAssertEqual(manifest.dependencies[0].name, "Foo")
+            XCTAssertEqual(manifest.dependencies[1].name, "Foo2")
+            XCTAssertEqual(manifest.dependencies[2].name, "Foo3")
+            XCTAssertEqual(manifest.dependencies[3].name, "Foo4")
+            XCTAssertEqual(manifest.dependencies[4].name, "Foo5")
+            XCTAssertEqual(manifest.dependencies[5].name, "bar")
+            XCTAssertEqual(manifest.dependencies[6].name, "Bar2")
+            XCTAssertEqual(manifest.dependencies[7].name, "Baz")
+            XCTAssertEqual(manifest.dependencies[8].name, "swift")
         }
     }
 
@@ -103,18 +101,18 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                     ],
                     targets: [
                         .target(
-                            name: "foo",
+                            name: "Target1",
                             dependencies: [.product(name: "product", package: "foo1")]),
+                        .target(
+                            name: "Target2",
+                            dependencies: ["foos"]),
                     ]
                 )
                 """
 
-            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-                diagnostics.check(diagnostic: """
-                    unknown package 'foo1' in dependencies of target 'foo'; if the package is named differently from \
-                    the product, either use '.product(name: "foo1", package: <package-name>)' to specify the package \
-                    name or give the package the 'foo1' name using '.package(name: "foo1", ...)'
-                    """, behavior: .error)
+            XCTAssertManifestLoadThrows(stream.bytes, packageKind: .remote) { _, diagnostics in
+                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'", behavior: .error)
+                diagnostics.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'", behavior: .error)
             }
         }
 
@@ -130,18 +128,17 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                     ],
                     targets: [
                         .target(
-                            name: "foo",
-                            dependencies: ["bar"]),
+                            name: "Target1",
+                            dependencies: [.product(name: "product", package: "foo1")]),
+                        .target(
+                            name: "Target2",
+                            dependencies: ["foos"]),
                     ]
                 )
                 """
 
-            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-                diagnostics.check(diagnostic: """
-                    unknown package 'bar' in dependencies of target 'foo'; if the package is named differently from \
-                    the product, either use '.product(name: "bar", package: <package-name>)' to specify the package \
-                    name or give the package the 'bar' name using '.package(name: "bar", ...)'
-                    """, behavior: .error)
+            XCTAssertManifestLoadThrows(stream.bytes, packageKind: .root) { _, diagnostics in
+                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'", behavior: .error)
             }
         }
     }

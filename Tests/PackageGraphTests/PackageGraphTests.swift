@@ -548,7 +548,87 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "Product 'Barx' not found. It is required by target 'Foo'.", behavior: .error, location: "'Foo' /Foo")
+            result.check(diagnostic: "product 'Barx' not found. It is required by target 'Foo'.", behavior: .error, location: "'Foo' /Foo")
+        }
+    }
+
+    func testProductDependencyNotFoundImprovedDiagnostic() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/BarLib/bar.swift",
+            "/BizPath/Sources/Biz/biz.swift",
+            "/FizPath/Sources/FizLib/fiz.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    url: "/Foo",
+                    v: .v5_2,
+                    packageKind: .root,
+                    dependencies: [
+                        PackageDependencyDescription(name: "Bar", url: "/Bar", requirement: .branch("master")),
+                        PackageDependencyDescription(name: nil, url: "/BizPath", requirement: .exact("1.2.3")),
+                        PackageDependencyDescription(name: nil, url: "/FizPath", requirement: .upToNextMajor(from: "1.1.2")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["BarLib", "Biz", "FizLib"]),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    url: "/Bar",
+                    packageKind: .remote,
+                    products: [
+                        ProductDescription(name: "BarLib", targets: ["BarLib"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "BarLib"),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "Biz",
+                    path: "/BizPath",
+                    url: "/BizPath",
+                    version: "1.2.3",
+                    packageKind: .remote,
+                    products: [
+                        ProductDescription(name: "Biz", targets: ["Biz"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Biz"),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "Fiz",
+                    path: "/FizPath",
+                    url: "/FizPath",
+                    version: "1.2.3",
+                    packageKind: .remote,
+                    products: [
+                        ProductDescription(name: "FizLib", targets: ["FizLib"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "FizLib"),
+                    ]),
+            ]
+        )
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.checkUnordered(diagnostic: """
+                dependency 'BarLib' in target 'Foo' requires explicit declaration; reference the package in the target \
+                dependency with '.product(name: "BarLib", package: "Bar")'
+                """, behavior: .error, location: "'Foo' /Foo")
+            result.checkUnordered(diagnostic: """
+                dependency 'Biz' in target 'Foo' requires explicit declaration; provide the name of the package \
+                dependency with '.package(name: "Biz", url: "/BizPath", .exact("1.2.3"))'
+                """, behavior: .error, location: "'Foo' /Foo")
+            result.checkUnordered(diagnostic: """
+                dependency 'FizLib' in target 'Foo' requires explicit declaration; reference the package in the target \
+                dependency with '.product(name: "FizLib", package: "Fiz")' and provide the name of the package \
+                dependency with '.package(name: "Fiz", url: "/FizPath", from: "1.1.2")'
+                """, behavior: .error, location: "'Foo' /Foo")
         }
     }
 
@@ -815,6 +895,51 @@ class PackageGraphTests: XCTestCase {
         DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
             result.check(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), behavior: .error)
             result.check(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), behavior: .error)
+        }
+    }
+
+    func testInvalidExplicitPackageDependencyName() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Baar/bar.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    url: "/Foo",
+                    packageKind: .root,
+                    dependencies: [
+                        PackageDependencyDescription(name: "Baar", url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Baar"]),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    url: "/Bar",
+                    packageKind: .local,
+                    products: [
+                        ProductDescription(name: "Baar", targets: ["Baar"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Baar"),
+                    ]),
+            ]
+        )
+
+        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            result.check(
+                diagnostic: """
+                    declared name 'Baar' for package dependency '/Bar' does not match the actual package name 'Bar'
+                    """,
+                behavior: .error,
+                location: "'Foo' /Foo"
+            )
         }
     }
 

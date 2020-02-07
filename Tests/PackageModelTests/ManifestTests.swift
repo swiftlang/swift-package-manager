@@ -93,7 +93,7 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.allRequiredDependencies.map({ $0.name! }).sorted(), [
+            XCTAssertEqual(manifest.allRequiredDependencies.map({ $0.name }).sorted(), [
                 "Bar1",
                 "Bar2",
                 "Bar3",
@@ -112,7 +112,7 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.allRequiredDependencies.map({ $0.name! }).sorted(), [
+            XCTAssertEqual(manifest.allRequiredDependencies.map({ $0.name }).sorted(), [
                 "Bar1",
                 "Bar2",
                 "Bar3",
@@ -131,7 +131,7 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.allRequiredDependencies.map({ $0.name! }).sorted(), [
+            XCTAssertEqual(manifest.allRequiredDependencies.map({ $0.name }).sorted(), [
                 "Bar1",
                 "Bar2",
                 "Bar3",
@@ -150,7 +150,7 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.allRequiredDependencies.map({ $0.name! }).sorted(), [
+            XCTAssertEqual(manifest.allRequiredDependencies.map({ $0.name }).sorted(), [
                 "Bar1",
                 "Bar2",
             ])
