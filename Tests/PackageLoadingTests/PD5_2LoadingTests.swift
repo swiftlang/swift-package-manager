@@ -76,17 +76,15 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            XCTAssertEqual(manifest.dependencies, [
-                .init(name: "Foo", url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")),
-                .init(name: "Foo2", url: "/foo2", requirement: .localPackage),
-                .init(name: "Foo3", url: "/foo3", requirement: .upToNextMajor(from: "1.0.0")),
-                .init(name: "Foo4", url: "/foo4", requirement: .range("1.0.0"..<"2.0.0")),
-                .init(name: "Foo5", url: "/foo5", requirement: .range("1.0.0"..<"2.0.1")),
-                .init(name: "bar", url: "/bar", requirement: .upToNextMajor(from: "1.0.0")),
-                .init(name: "Bar2", url: "https://github.com/foo/Bar2.git/", requirement: .upToNextMajor(from: "1.0.0")),
-                .init(name: "Baz", url: "https://github.com/foo/Baz.git", requirement: .upToNextMajor(from: "1.0.0")),
-                .init(name: "swift", url: "https://github.com/apple/swift", requirement: .upToNextMajor(from: "1.0.0")),
-            ])
+            XCTAssertEqual(manifest.dependencies[0].name, "Foo")
+            XCTAssertEqual(manifest.dependencies[1].name, "Foo2")
+            XCTAssertEqual(manifest.dependencies[2].name, "Foo3")
+            XCTAssertEqual(manifest.dependencies[3].name, "Foo4")
+            XCTAssertEqual(manifest.dependencies[4].name, "Foo5")
+            XCTAssertEqual(manifest.dependencies[5].name, "bar")
+            XCTAssertEqual(manifest.dependencies[6].name, "Bar2")
+            XCTAssertEqual(manifest.dependencies[7].name, "Baz")
+            XCTAssertEqual(manifest.dependencies[8].name, "swift")
         }
     }
 
@@ -103,7 +101,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                     ],
                     targets: [
                         .target(
-                            name: "foo",
+                            name: "Target",
                             dependencies: [.product(name: "product", package: "foo1")]),
                     ]
                 )
@@ -112,9 +110,9 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             try loadManifestThrowing(stream.bytes) { manifest in
                 return XCTFail("did not generate eror")
             }
-        } catch ManifestParseError.unknownTargetDependencyPackage(let targetName, let packageName) {
-            XCTAssertEqual(targetName, "foo")
+        } catch ManifestParseError.unknownTargetPackageDependency(let packageName, let targetName) {
             XCTAssertEqual(packageName, "foo1")
+            XCTAssertEqual(targetName, "Target")
         }
 
         do {
@@ -129,8 +127,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                     ],
                     targets: [
                         .target(
-                            name: "foo",
-                            dependencies: ["bar"]),
+                            name: "Target",
+                            dependencies: ["foos"]),
                     ]
                 )
                 """
@@ -138,9 +136,61 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             try loadManifestThrowing(stream.bytes) { manifest in
                 return XCTFail("did not generate eror")
             }
-        } catch ManifestParseError.unknownTargetDependencyPackage(let targetName, let packageName) {
-            XCTAssertEqual(targetName, "foo")
-            XCTAssertEqual(packageName, "bar")
+        } catch ManifestParseError.unknownTargetDependency(let dependency, let targetName) {
+            XCTAssertEqual(dependency, "foos")
+            XCTAssertEqual(targetName, "Target")
+        }
+
+        do {
+            let stream = BufferedOutputByteStream()
+            stream <<< """
+                import PackageDescription
+                let package = Package(
+                    name: "Trivial",
+                    products: [],
+                    dependencies: [
+                        .package(name: "Foo", url: "/foo1", from: "1.0.0"),
+                    ],
+                    targets: [
+                        .target(
+                            name: "Target",
+                            dependencies: [.product(name: "product", package: "foo1")]),
+                    ]
+                )
+                """
+
+            try loadManifestThrowing(stream.bytes) { manifest in
+                return XCTFail("did not generate eror")
+            }
+        } catch ManifestParseError.unknownTargetPackageDependency(let packageName, let targetName) {
+            XCTAssertEqual(packageName, "foo1")
+            XCTAssertEqual(targetName, "Target")
+        }
+
+        do {
+            let stream = BufferedOutputByteStream()
+            stream <<< """
+                import PackageDescription
+                let package = Package(
+                    name: "Trivial",
+                    products: [],
+                    dependencies: [
+                        .package(name: "Foo", url: "/foo1", from: "1.0.0"),
+                    ],
+                    targets: [
+                        .target(
+                            name: "Target",
+                            dependencies: ["foos"]),
+                    ]
+                )
+                """
+
+            try loadManifestThrowing(stream.bytes) { manifest in
+                return XCTFail("did not generate eror")
+            }
+        } catch ManifestParseError.unknownTargetDependency(let dependency, let targetName) {
+            XCTAssertEqual(dependency, "foos")
+            XCTAssertEqual(targetName, "Target")
         }
     }
 

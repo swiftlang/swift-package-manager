@@ -477,13 +477,13 @@ public struct TestTarget {
     }
 
     public let name: String
-    public let dependencies: [String]
+    public let dependencies: [TargetDescription.Dependency]
     public let settings: [TargetBuildSettingDescription.Setting]
     public let type: Type
 
     public init(
         name: String,
-        dependencies: [String] = [],
+        dependencies: [TargetDescription.Dependency] = [],
         type: Type = .regular,
         settings: [TargetBuildSettingDescription.Setting] = []
     ) {
@@ -496,9 +496,9 @@ public struct TestTarget {
     fileprivate func convert() -> TargetDescription {
         switch type {
         case .regular:
-            return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular, settings: settings)
+            return TargetDescription(name: name, dependencies: dependencies, path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular, settings: settings)
         case .test:
-            return TargetDescription(name: name, dependencies: dependencies.map({ .byName(name: $0) }), path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .test, settings: settings)
+            return TargetDescription(name: name, dependencies: dependencies, path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .test, settings: settings)
         }
     }
 }
@@ -515,19 +515,27 @@ public struct TestProduct {
 }
 
 public struct TestDependency {
-    public let name: String
+    public let name: String?
+    public let path: String
     public let requirement: Requirement
     public typealias Requirement = PackageDependencyDescription.Requirement
 
     public init(name: String, requirement: Requirement) {
         self.name = name
+        self.path = name
+        self.requirement = requirement
+    }
+
+    public init(name: String?, path: String, requirement: Requirement) {
+        self.name = name
+        self.path = path
         self.requirement = requirement
     }
 
     public func convert(baseURL: AbsolutePath) -> PackageDependencyDescription {
         return PackageDependencyDescription(
             name: name,
-            url: baseURL.appending(RelativePath(name)).pathString,
+            url: baseURL.appending(RelativePath(path)).pathString,
             requirement: requirement
         )
     }
