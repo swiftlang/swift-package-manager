@@ -17,4 +17,10 @@ class CollectionExtensionsTests: XCTestCase {
         XCTAssertEqual([42].spm_only, 42)
         XCTAssertEqual([42, 24].spm_only, nil)
     }
+
+    func testUniqueElements() {
+        XCTAssertEqual([1, 2, 2, 4, 2, 1, 1, 4].spm_uniqueElements(), [1, 2, 4])
+        XCTAssertEqual([1, 2, 2, 4, 2, 1, 1, 4, 9].spm_uniqueElements(), [1, 2, 4, 9])
+        XCTAssertEqual([3, 2, 1].spm_uniqueElements(), [3, 2, 1])
+    }
 }
