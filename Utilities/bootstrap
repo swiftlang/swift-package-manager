@@ -101,6 +101,9 @@ def add_build_args(parser):
         metavar='PATH',
         help='path to the ninja binary to use for building with CMake')
     parser.add_argument(
+        "--tsc-build-dir",
+        help="path to TSC build directory")
+    parser.add_argument(
         "--llbuild-build-dir",
         help="path to llbuild build directory")
     parser.add_argument(
@@ -155,6 +158,11 @@ def parse_build_args(args):
 
     if args.llbuild_build_dir:
         args.llbuild_build_dir = os.path.abspath(args.llbuild_build_dir)
+
+    args.tsc_vendor = True
+    if args.tsc_build_dir:
+        args.tsc_build_dir = os.path.abspath(args.tsc_build_dir)
+        args.tsc_vendor = False
 
     args.swiftc_path = get_swiftc_path(args)
     args.clang_path = get_clang_path(args)
@@ -260,7 +268,9 @@ def build(args):
     if not args.llbuild_build_dir:
         build_llbuild(args)
 
-    build_tsc(args)
+    if not args.tsc_build_dir:
+        build_tsc(args)
+
     build_swiftpm_with_cmake(args)
     build_swiftpm_with_swiftpm(args)
 
@@ -450,12 +460,17 @@ def build_swiftpm_with_swiftpm(args):
     """Builds SwiftPM using the version of SwiftPM built with CMake."""
     note("Building SwiftPM (with swift-build)")
 
-    call_swiftpm(args, [
+    cmd = []
+    if args.tsc_vendor:
+        cmd.append("SWIFTPM_USE_VENDORED_TSC=1")
+    cmd += [
         "SWIFT_EXEC=" + args.swiftc_path,
         "SWIFTPM_PD_LIBS=" + os.path.join(args.bootstrap_dir, "pm"),
         os.path.join(args.bootstrap_dir, "bin/swift-build"),
         "--disable-sandbox",
-    ])
+    ]
+
+    call_swiftpm(args, cmd)
 
     # Setup symlinks that'll allow using swiftpm from the build directory.
     symlink_force(args.swiftc_path, os.path.join(args.target_dir, args.conf, "swiftc"))
