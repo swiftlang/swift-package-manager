@@ -294,7 +294,7 @@ extension PackageDependencyDescription {
 
         let requirement = try Requirement(v4: json.get("requirement"))
         let url = try fixURL(json.get("url"), requirement: requirement)
-        let name = json.get("name") ?? PackageReference.computeDefaultName(fromURL: url)
+        let name: String? = json.get("name")
         self.init(name: name, url: url, requirement: requirement)
     }
 }

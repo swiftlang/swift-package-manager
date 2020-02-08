@@ -255,7 +255,7 @@ extension Manifest {
         for target in targetsRequired(for: products) {
             for targetDependency in target.dependencies {
                 if let dependency = packageDependency(referencedBy: targetDependency) {
-                    requiredDependencyNames.insert(dependency.name!)
+                    requiredDependencyNames.insert(dependency.name)
                 }
             }
         }
@@ -507,8 +507,11 @@ public struct PackageDependencyDescription: Equatable, Codable {
         }
     }
 
-    /// The name of the dependency.
-    public let name: String?
+    /// The name of the dependency explicitly defined in the manifest.
+    public let explicitName: String?
+
+    /// The name of the dependency, either explicitly defined in the manifest, or deduced from the URL.
+    public let name: String
 
     /// The url of the dependency.
     public let url: String
@@ -518,7 +521,8 @@ public struct PackageDependencyDescription: Equatable, Codable {
 
     /// Create a dependency.
     public init(name: String?, url: String, requirement: Requirement) {
-        self.name = name
+        self.explicitName = name
+        self.name = name ?? PackageReference.computeDefaultName(fromURL: url)
         self.url = url
         self.requirement = requirement
     }

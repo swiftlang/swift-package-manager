@@ -350,7 +350,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let duplicateDependencyNames = manifest.dependencies
                 .lazy
                 .filter({ !duplicateDependencies.contains($0) })
-                .map({ $0.name! })
+                .map({ $0.name })
                 .spm_findDuplicates()
 
             for name in duplicateDependencyNames {
@@ -390,25 +390,28 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func validateTargetDependencyReferences(_ manifest: Manifest, diagnostics: DiagnosticsEngine?) throws {
         for target in manifest.targets {
             for targetDependency in target.dependencies {
-                // If this is a target dependency (or byName that references a target), we don't need to check.
-                if case .target = targetDependency { continue }
-                if case .byName(let name, _) = targetDependency, manifest.targetMap.keys.contains(name) { continue }
-
-                // If we can't find the package dependency it references, the manifest is invalid.
-                if manifest.packageDependency(referencedBy: targetDependency) == nil {
-                    let packageName: String
-                    switch targetDependency {
-                    case .product(_, package: let name?, _),
-                         .byName(let name, _):
-                        packageName = name
-                    default:
-                        fatalError("Invalid case: this shouldn't be a target, or a product with no name")
+                switch targetDependency {
+                case .target:
+                    // If this is a target dependency, we don't need to check anything.
+                    break
+                case .product(_, let packageName, _):
+                    if manifest.packageDependency(referencedBy: targetDependency) == nil {
+                        try diagnostics.emit(.unknownTargetPackageDependency(
+                            packageName: packageName!,
+                            targetName: target.name
+                        ))
                     }
-
-                    try diagnostics.emit(.unknownPackageInTargetDependencies(
-                        targetName: target.name,
-                        packageName: packageName
-                    ))
+                case .byName(let name, _):
+                    // Don't diagnose root manifests so we can emit a better diagnostic during package loading.
+                    if manifest.packageKind != .root &&
+                       !manifest.targetMap.keys.contains(name) &&
+                       manifest.packageDependency(referencedBy: targetDependency) == nil
+                    {
+                        try diagnostics.emit(.unknownTargetDependency(
+                            dependency: name,
+                            targetName: target.name
+                        ))
+                    }
                 }
             }
         }
@@ -978,13 +981,12 @@ extension TSCBasic.Diagnostic.Message {
         .error("duplicate dependency named '\(dependencyName)'; consider differentiating them using the 'name' argument")
     }
 
-    static func unknownPackageInTargetDependencies(targetName: String, packageName: String) -> Self {
-        .error("""
-            unknown package '\(packageName)' in dependencies of target '\(targetName)'; if the package is named \
-            differently from the product, either use '.product(name: "\(packageName)", package: <package-name>)' to \
-            specify the package name or give the package the '\(packageName)' name using '.package(name: \
-            "\(packageName)", ...)'
-            """)
+    static func unknownTargetDependency(dependency: String, targetName: String) -> Self {
+        .error("unknown dependency '\(dependency)' in target '\(targetName)'")
+    }
+
+    static func unknownTargetPackageDependency(packageName: String, targetName: String) -> Self {
+        .error("unknown package '\(packageName)' in dependencies of target '\(targetName)'")
     }
 
     static func invalidBinaryLocation(targetName: String) -> Self {
