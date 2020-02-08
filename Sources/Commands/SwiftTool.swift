@@ -408,16 +408,6 @@ public class SwiftTool<Options: ToolOptions> {
             to: { if $1 { $0.indexStoreMode = .off } })
 
         binder.bind(
-            option: parser.add(option: "--enable-pubgrub-resolver", kind: Bool.self,
-                usage: "Enable the new Pubgrub dependency resolver"),
-            to: { $0.enablePubgrubResolver = $1 })
-
-        binder.bind(
-            option: parser.add(option: "--use-legacy-resolver", kind: Bool.self,
-                usage: "Use the legacy dependency resolver"),
-            to: { $0.enablePubgrubResolver = !$1 })
-
-        binder.bind(
             option: parser.add(option: "--enable-parseable-module-interfaces", kind: Bool.self),
             to: { $0.shouldEnableParseableModuleInterfaces = $1 })
 
@@ -583,7 +573,6 @@ public class SwiftTool<Options: ToolOptions> {
             config: try getSwiftPMConfig(),
             repositoryProvider: provider,
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
-            enablePubgrubResolver: options.enablePubgrubResolver,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace
         )
