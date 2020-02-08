@@ -16,7 +16,6 @@ import SourceControl
 
 import struct TSCUtility.Version
 
-public typealias MockDependencyResolver = DependencyResolver
 public typealias MockPackageConstraint = PackageContainerConstraint
 
 extension MockPackageConstraint {
@@ -231,13 +230,7 @@ extension DependencyResolver {
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> [(container: String, version: Version)] {
-        return try resolve(constraints: constraints).compactMap({
-            guard case .version(let version) = $0.binding else {
-                XCTFail("Unexpected non version binding \($0.binding)", file: file, line: line)
-                return nil
-            }
-            return ($0.container.identity, version)
-        })
+        fatalError()
     }
 }
 

@@ -1988,10 +1988,6 @@ extension Workspace {
         case .success(let bindings):
             return bindings
 
-        case .unsatisfiable(let dependencies, let pins):
-            diagnostics.emit(.error(ResolverDiagnostics.Unsatisfiable(dependencies: dependencies, pins: pins)))
-            return []
-
         case .error(let error):
             switch error {
             // Emit proper error if we were not able to parse some manifest during dependency resolution.

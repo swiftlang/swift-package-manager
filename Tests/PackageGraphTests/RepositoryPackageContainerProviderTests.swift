@@ -130,25 +130,6 @@ private class MockResolverDelegate: DependencyResolverDelegate, RepositoryManage
     }
 }
 
-private struct MockDependencyResolver {
-    let repositories: MockRepositories
-    let delegate: MockResolverDelegate
-    private let resolver: DependencyResolver
-
-    init(directory: AbsolutePath, repositories: MockRepository...) {
-        self.repositories = MockRepositories(repositories: repositories)
-        self.delegate = MockResolverDelegate()
-        let repositoryManager = RepositoryManager(path: directory, provider: self.repositories, delegate: self.delegate)
-        let provider = RepositoryPackageContainerProvider(
-            repositoryManager: repositoryManager, manifestLoader: self.repositories.manifestLoader)
-        self.resolver = DependencyResolver(provider, delegate)
-    }
-
-    func resolve(constraints: [RepositoryPackageConstraint]) throws -> [(container: PackageReference, binding: BoundVersion)] {
-        return try resolver.resolve(constraints: constraints)
-    }
-}
-
 // Some handy versions & ranges.
 //
 // The convention is that the name matches how specific the version is, so "v1"
@@ -175,62 +156,6 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         assertIdentity("https://foo/bar/baz.git", "baz")
         assertIdentity("git@github.com/foo/bar/baz.git", "baz")
         assertIdentity("/path/to/foo/bar/baz.git", "baz")
-    }
-
-    func testBasics() throws {
-        let fs = InMemoryFileSystem()
-        try fs.writeFileContents(AbsolutePath("/Package.swift"), bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)\n"))
-        let repoA = MockRepository(
-            fs: fs,
-            url: "A",
-            versions: [
-                v1: Manifest(
-                    name: "Foo",
-                    platforms: [],
-                    path: AbsolutePath("/Package.swift"),
-                    url: "A",
-                    version: v1,
-                    toolsVersion: .v4,
-                    packageKind: .local,
-                    dependencies: [PackageDependencyDescription(name: "B", url: "B", requirement: .upToNextMajor(from: "2.0.0"))]
-                )
-            ])
-        let repoB = MockRepository(
-            fs: fs,
-            url: "B",
-            versions: [
-                v2: Manifest(
-                    name: "Bar",
-                    platforms: [],
-                    path: AbsolutePath("/Package.swift"),
-                    url: "B",
-                    version: v2,
-                    toolsVersion: .v4,
-                    packageKind: .local
-                )
-            ])
-
-        try! withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDirPath in
-            let resolver = MockDependencyResolver(directory: tmpDirPath, repositories: repoA, repoB)
-
-            let constraints = [
-                RepositoryPackageConstraint(
-                    container: repoA.packageRef,
-                    versionRequirement: v1Range)
-            ]
-            let result: [(PackageReference, Version)] = try resolver.resolve(constraints: constraints).compactMap {
-                guard case .version(let version) = $0.binding else {
-                    XCTFail("Unexpecting non version binding \($0.binding)")
-                    return nil
-                }
-                return ($0.container, version)
-            }
-            XCTAssertEqual(result, [
-                    repoA.packageRef: v1,
-                    repoB.packageRef: v2,
-                ])
-            XCTAssertEqual(resolver.delegate.fetched, [repoA.specifier, repoB.specifier])
-        }
     }
 
     func testVprefixVersions() throws {
