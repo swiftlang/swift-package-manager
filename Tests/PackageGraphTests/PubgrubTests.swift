@@ -312,7 +312,7 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(dependencies: deps)
 
         switch result {
-        case .error, .unsatisfiable:
+        case .error:
             XCTFail("Unexpected error")
         case .success(let bindings):
             XCTAssertEqual(bindings.count, 1)
@@ -1774,8 +1774,6 @@ private func AssertResult(
     switch result {
     case .success(let bindings):
         AssertBindings(bindings, packages, file: file, line: line)
-    case .unsatisfiable(dependencies: let constraints, pins: let pins):
-        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
     case .error(let error):
         XCTFail("Unexpected error: \(error)", file: file, line: line)
     }
@@ -1792,8 +1790,6 @@ private func AssertError(
     case .success(let bindings):
         let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
         XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
-    case .unsatisfiable(dependencies: let constraints, pins: let pins):
-        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
     case .error(let foundError):
         XCTAssertEqual(String(describing: foundError), String(describing: expectedError), file: file, line: line)
     }

@@ -6,21 +6,6 @@ extension DependencyResolverTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__DependencyResolverTests = [
-        ("testBasics", testBasics),
-        ("testCompleteness", testCompleteness),
-        ("testContainerConstraintSet", testContainerConstraintSet),
-        ("testCycle", testCycle),
-        ("testDiagnostics", testDiagnostics),
-        ("testExactConstraint", testExactConstraint),
-        ("testIncompleteMode", testIncompleteMode),
-        ("testLazyResolve", testLazyResolve),
-        ("testPrereleaseResolve", testPrereleaseResolve),
-        ("testResolve", testResolve),
-        ("testResolveSubtree", testResolveSubtree),
-        ("testRevisionConstraint2", testRevisionConstraint2),
-        ("testRevisionConstraint", testRevisionConstraint),
-        ("testUnversionedConstraint", testUnversionedConstraint),
-        ("testVersionAssignment", testVersionAssignment),
         ("testVersionSetSpecifier", testVersionSetSpecifier),
     ]
 }
@@ -164,7 +149,6 @@ extension RepositoryPackageContainerProviderTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__RepositoryPackageContainerProviderTests = [
-        ("testBasics", testBasics),
         ("testDependencyConstraints", testDependencyConstraints),
         ("testPackageReference", testPackageReference),
         ("testPrereleaseVersions", testPrereleaseVersions),

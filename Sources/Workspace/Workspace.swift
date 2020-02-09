@@ -120,30 +120,6 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     }
 }
 
-private enum PackageResolver {
-    case pubgrub(PubgrubDependencyResolver)
-    case legacy(DependencyResolver)
-
-    func resolve(
-        dependencies: [PackageContainerConstraint],
-        pins: [PackageContainerConstraint],
-        pinsMap: PinsStore.PinsMap
-    ) -> DependencyResolver.Result {
-        switch self {
-        case .pubgrub(let resolver):
-            return resolver.solve(dependencies: dependencies, pinsMap: pinsMap)
-        case .legacy(let resolver):
-            return resolver.resolve(dependencies: dependencies, pins: pins)
-        }
-    }
-
-    /// Returns true if the resolver is PubGrub.
-    var isPubGrub: Bool {
-        if case .pubgrub = self { return true }
-        return false
-    }
-}
-
 /// A workspace represents the state of a working project directory.
 ///
 /// The workspace is responsible for managing the persistent working state of a
@@ -360,14 +336,11 @@ public class Workspace {
     /// Enable prefetching containers in resolver.
     fileprivate let isResolverPrefetchingEnabled: Bool
 
-    /// Enable the new Pubgrub dependency resolver.
-    fileprivate let enablePubgrubResolver: Bool
-
     /// Skip updating containers while fetching them.
     fileprivate let skipUpdate: Bool
 
     /// The active package resolver. This is set during a dependency resolution operation.
-    fileprivate var activeResolver: PackageResolver?
+    fileprivate var activeResolver: PubgrubDependencyResolver?
 
     /// Write dependency resolver trace to a file.
     fileprivate let enableResolverTrace: Bool
@@ -375,10 +348,6 @@ public class Workspace {
     fileprivate var resolvedFileWatcher: ResolvedFileWatcher?
 
     fileprivate let additionalFileRules: [FileRuleDescription]
-
-    /// Typealias for dependency resolver we use in the workspace.
-    fileprivate typealias PackageDependencyResolver = DependencyResolver
-    fileprivate typealias PubgrubResolver = PubgrubDependencyResolver
 
     /// Create a new package workspace.
     ///
@@ -426,7 +395,6 @@ public class Workspace {
         self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
         self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
-        self.enablePubgrubResolver = enablePubgrubResolver
         self.skipUpdate = skipUpdate
         self.enableResolverTrace = enableResolverTrace
         self.resolvedFile = pinsFile
@@ -640,14 +608,8 @@ extension Workspace {
     }
 
     /// Cancel the active dependency resolution operation.
-    ///
-    /// Only legacy resolver is supported right now. This method is thread-safe.
     public func cancelActiveResolverOperation() {
-        switch activeResolver {
-        case .legacy(let resolver)?:
-            resolver.cancel()
-        default: break
-        }
+        // FIXME: Need to add cancel support.
     }
 
     /// Updates the current dependencies.
@@ -1641,35 +1603,19 @@ extension Workspace {
         constraints += graphRoot.constraints(config: config) + extraConstraints
 
         // Perform dependency resolution.
-        let resolverDiagnostics = DiagnosticsEngine()
         let resolver = createResolver()
         activeResolver = resolver
 
-        var result = resolveDependencies(
+        let result = resolveDependencies(
             resolver: resolver,
             dependencies: constraints,
             pins: validPins,
             pinsMap: pinsStore.pinsMap,
-            diagnostics: resolverDiagnostics)
+            diagnostics: diagnostics)
         activeResolver = nil
 
-        // If we fail, we just try again without any pins because the pins might
-        // be completely incompatible.
-        //
-        // FIXME: We should only do this if resolver emits "unresolvable" error.
-        if resolverDiagnostics.hasErrors {
-            // If there are no pins or if we're using pubgrub (since pubgrub can
-            // handle pins natively), merge diagnostics and return now.
-            if validPins.isEmpty || resolver.isPubGrub {
-                diagnostics.merge(resolverDiagnostics)
-                return currentManifests
-            }
-
-            // Run using the same resolver so we don't re-add the containers, we already have.
-            result = resolveDependencies(resolver: resolver, dependencies: constraints, pinsMap: pinsStore.pinsMap, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors else {
-                return currentManifests
-            }
+        guard !diagnostics.hasErrors else {
+            return currentManifests
         }
 
         // Update the checkouts with dependency resolution result.
@@ -2013,51 +1959,34 @@ extension Workspace {
     }
 
     /// Creates resolver for the workspace.
-    fileprivate func createResolver() -> PackageResolver {
+    fileprivate func createResolver() -> PubgrubDependencyResolver {
         let resolverDelegate = WorkspaceResolverDelegate()
-        // Create pubgrub resolver if enabled.
-        if enablePubgrubResolver {
-            let traceFile = enableResolverTrace ? self.dataPath.appending(components: "resolver.trace") : nil
-            let resolver = PubgrubResolver(
-                containerProvider, resolverDelegate,
-                isPrefetchingEnabled: isResolverPrefetchingEnabled,
-                skipUpdate: skipUpdate, traceFile: traceFile)
-            return .pubgrub(resolver)
-        }
+        let traceFile = enableResolverTrace ? self.dataPath.appending(components: "resolver.trace") : nil
 
-        // Otherwise, use the legacy resolver.
-        let resolver = DependencyResolver(
+        return PubgrubDependencyResolver(
             containerProvider, resolverDelegate,
             isPrefetchingEnabled: isResolverPrefetchingEnabled,
-            skipUpdate: skipUpdate)
-        return .legacy(resolver)
+            skipUpdate: skipUpdate, traceFile: traceFile
+        )
     }
 
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(
-        resolver: PackageResolver,
+        resolver: PubgrubDependencyResolver,
         dependencies: [RepositoryPackageConstraint],
         pins: [RepositoryPackageConstraint] = [],
         pinsMap: PinsStore.PinsMap,
         diagnostics: DiagnosticsEngine
     ) -> [(container: PackageReference, binding: BoundVersion)] {
 
-      #if os(macOS)
-        // This crashes the compiler on Linux: https://bugs.swift.org/browse/SR-11394
-        os_log(log: .swiftpm, "Starting resolution using %s resolver", self.enablePubgrubResolver ? "pubgrub" : "legacy")
-      #endif
         os_signpost(.begin, log: .swiftpm, name: SignpostName.resolution)
-        let result = resolver.resolve(dependencies: dependencies, pins: pins, pinsMap: pinsMap)
+        let result = resolver.solve(dependencies: dependencies, pinsMap: pinsMap)
         os_signpost(.end, log: .swiftpm, name: SignpostName.resolution)
 
         // Take an action based on the result.
         switch result {
         case .success(let bindings):
             return bindings
-
-        case .unsatisfiable(let dependencies, let pins):
-            diagnostics.emit(.error(ResolverDiagnostics.Unsatisfiable(dependencies: dependencies, pins: pins)))
-            return []
 
         case .error(let error):
             switch error {

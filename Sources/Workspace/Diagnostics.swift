@@ -40,56 +40,6 @@ extension ManifestParseError: DiagnosticDataConvertible {
     }
 }
 
-public enum ResolverDiagnostics {
-
-    public struct Unsatisfiable: DiagnosticData {
-        static func toString(_ constraint: RepositoryPackageConstraint) -> String {
-            let stream = BufferedOutputByteStream()
-            stream <<< constraint.identifier.path <<< " @ "
-
-            switch constraint.requirement {
-            case .versionSet(let set):
-                stream <<< set.description
-            case .revision(let revision):
-                stream <<< revision
-            case .unversioned:
-                stream <<< "unversioned"
-            }
-
-            return stream.bytes.description
-        }
-
-        /// The conflicting dependencies.
-        public let dependencies: [RepositoryPackageConstraint]
-
-        /// The conflicting pins.
-        public let pins: [RepositoryPackageConstraint]
-
-        public init( dependencies: [RepositoryPackageConstraint], pins: [RepositoryPackageConstraint]) {
-            self.dependencies = dependencies
-            self.pins = pins
-        }
-
-        public var description: String {
-            var diag = "the package dependency graph could not be resolved"
-
-            // If we don't have any additional data, return empty string.
-            if self.dependencies.isEmpty && self.pins.isEmpty {
-                return diag
-            }
-
-            diag += "; possibly because of these requirements:"
-            let indent = "    "
-
-            if !self.dependencies.isEmpty {
-                diag += self.dependencies.map({ indent + Unsatisfiable.toString($0) }).joined(separator: "\n")
-            }
-
-            return diag
-        }
-    }
-}
-
 public struct InvalidToolchainDiagnostic: DiagnosticData, Error {
     public let error: String
 
