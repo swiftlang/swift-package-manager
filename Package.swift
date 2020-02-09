@@ -228,16 +228,12 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += ["llbuildSwift"]
 }
 
-if ProcessInfo.processInfo.environment["SWIFTPM_USE_VENDORED_TSC"] != nil {
-    package.dependencies += [
-        .package(path: "./TSC"),
-    ]
-} else if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
         .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
     ]
 } else {
     package.dependencies += [
-        .package(path: "../swift-tools-support-core"),
+        .package(path: "./TSC"),
     ]
 }
