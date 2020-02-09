@@ -13,15 +13,18 @@ import TSCTestSupport
 
 class SortedArrayPerfTests: XCTestCasePerf {
     func testPerformanceOfSortedArrayInAscendingOrder() {
+      #if os(macOS)
         measure() {
             var arr = SortedArray<Int>(areInIncreasingOrder: <)
             for i in 1...200_000 {
                 arr.insert(i)
             }
         }
+      #endif
     }
 
     func testPerformanceOfSortedArrayInsertWithDuplicates() {
+      #if os(macOS)
         let initial = SortedArray<Int>(0..<80_000, areInIncreasingOrder: <)
         
         measure() {
@@ -30,18 +33,22 @@ class SortedArrayPerfTests: XCTestCasePerf {
                 arr.insert(element)
             }
         }
+      #endif
     }
 
     func testPerformanceOfSortedArrayInsertContentsOfWithDuplicates() {
+      #if os(macOS)
         let initial = SortedArray<Int>(0..<120_000, areInIncreasingOrder: <)
         
         measure() {
             var arr = initial
             arr.insert(contentsOf: 60_000..<180_000)
         }
+      #endif
     }
 
     func testPerformanceOfSmallSortedArrayInsertContentsOfWithDuplicates() {
+      #if os(macOS)
         let initial = SortedArray<Int>(0..<100, areInIncreasingOrder: <)
 
         measure() {
@@ -50,5 +57,6 @@ class SortedArrayPerfTests: XCTestCasePerf {
                 arr.insert(contentsOf: 50..<150)
             }
         }
+      #endif
     }
 }
