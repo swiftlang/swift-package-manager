@@ -37,8 +37,9 @@ public enum ManifestParseError: Swift.Error {
     /// The manifest contains targets with the same name.
     case duplicateTargetNames([String])
 
-    /// The manifest contains target product dependencies that reference an unknown package.
-    case unknownTargetDependencyPackage(targetName: String, packageName: String)
+    case unknownTargetDependency(dependency: String, targetName: String)
+
+    case unknownTargetPackageDependency(packageName: String, targetName: String)
 }
 
 /// Resources required for manifest loading.
@@ -347,7 +348,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func validateDependencyNames(_ manifest: Manifest) throws {
         let duplicateDependenciesByName = manifest.dependencies
             .lazy
-            .map({ KeyedPair($0, key: $0.name!) })
+            .map({ KeyedPair($0, key: $0.name) })
             .spm_findDuplicateElements()
         if !duplicateDependenciesByName.isEmpty {
             let duplicates = duplicateDependenciesByName.map({ $0.map({ $0.item }) })
@@ -359,25 +360,28 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func validateTargetDependencyReferences(_ manifest: Manifest) throws {
         for target in manifest.targets {
             for targetDependency in target.dependencies {
-                // If this is a target dependency (or byName that references a target), we don't need to check.
-                if case .target = targetDependency { continue }
-                if case .byName(let name) = targetDependency, manifest.targetMap.keys.contains(name) { continue }
-
-                // If we can't find the package dependency it references, the manifest is invalid.
-                if manifest.packageDependency(referencedBy: targetDependency) == nil {
-                    let packageName: String
-                    switch targetDependency {
-                    case .product(_, package: let name?),
-                         .byName(let name):
-                        packageName = name
-                    default:
-                        fatalError("Invalid case: this shouldn't be a target, or a product with no name")
+                switch targetDependency {
+                case .target:
+                    // If this is a target dependency, we don't need to check anything.
+                    break
+                case .product(_, let packageName):
+                    if manifest.packageDependency(referencedBy: targetDependency) == nil {
+                        throw ManifestParseError.unknownTargetPackageDependency(
+                            packageName: packageName!,
+                            targetName: target.name
+                        )
                     }
-
-                    throw ManifestParseError.unknownTargetDependencyPackage(
-                        targetName: target.name,
-                        packageName: packageName
-                    )
+                case .byName(let name):
+                    // Don't diagnose root manifests so we can emit a better diagnostic during package loading.
+                    if manifest.packageKind != .root &&
+                       !manifest.targetMap.keys.contains(name) &&
+                       manifest.packageDependency(referencedBy: targetDependency) == nil
+                    {
+                        throw ManifestParseError.unknownTargetDependency(
+                            dependency: name,
+                            targetName: target.name
+                        )
+                    }
                 }
             }
         }

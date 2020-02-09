@@ -26,6 +26,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
     func loadManifestThrowing(
         _ contents: ByteString,
         toolsVersion: ToolsVersion? = nil,
+        packageKind: PackageReference.Kind = .local,
         line: UInt = #line,
         body: (Manifest) -> Void
     ) throws {
@@ -37,7 +38,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
             package: AbsolutePath.root,
             baseURL: "/foo",
             toolsVersion: toolsVersion,
-            packageKind: .local,
+            packageKind: packageKind,
             fileSystem: fs)
         guard m.toolsVersion == toolsVersion else {
             return XCTFail("Invalid manfiest version")
@@ -48,12 +49,19 @@ class PackageDescriptionLoadingTests: XCTestCase {
     func loadManifest(
         _ contents: ByteString,
         toolsVersion: ToolsVersion? = nil,
+        packageKind: PackageReference.Kind = .local,
         line: UInt = #line,
         body: (Manifest) -> Void
     ) {
         do {
             let toolsVersion = toolsVersion ?? self.toolsVersion
-            try loadManifestThrowing(contents, toolsVersion: toolsVersion, line: line, body: body)
+            try loadManifestThrowing(
+                contents,
+                toolsVersion: toolsVersion,
+                packageKind: packageKind,
+                line: line,
+                body: body
+            )
         } catch ManifestParseError.invalidManifestFormat(let error, _) {
             print(error)
             XCTFail(file: #file, line: line)

@@ -238,8 +238,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "bazzz", requirement: .upToNextMajor(from: "1.0.0")),
-                    ]
+                        TestDependency(name: nil, path: "bazzz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5
                 ),
                 TestPackage(
                     name: "Bar",
@@ -415,7 +416,8 @@ final class WorkspaceTests: XCTestCase {
                     products: [],
                     dependencies: [
                         TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
-                    ]
+                    ],
+                    toolsVersion: .v5
                 ),
                 TestPackage(
                     name: "Baz",
@@ -3179,7 +3181,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     dependencies: [
                         TestDependency(name: "Dep", requirement: .upToNextMajor(from: "1.0.0")),
-                    ]
+                    ],
+                    toolsVersion: .v5
                 ),
             ],
             packages: [
@@ -3192,9 +3195,10 @@ final class WorkspaceTests: XCTestCase {
                         TestProduct(name: "Dep", targets: ["Dep"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: nil, path: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    versions: ["1.0.0", "1.5.0"]
+                    versions: ["1.0.0", "1.5.0"],
+                    toolsVersion: .v5
                 ),
                 TestPackage(
                     name: "Bar",
@@ -3308,9 +3312,10 @@ final class WorkspaceTests: XCTestCase {
                          TestProduct(name: "Bar", targets: ["Bar"]),
                      ],
                      dependencies: [
-                        TestDependency(name: "Nested/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: nil, path: "Nested/Foo", requirement: .upToNextMajor(from: "1.0.0")),
                      ],
-                     versions: ["1.1.0"]
+                     versions: ["1.1.0"],
+                     toolsVersion: .v5
                  ),
                  TestPackage(
                      name: "Foo",

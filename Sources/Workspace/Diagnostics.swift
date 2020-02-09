@@ -66,18 +66,21 @@ public struct ManifestDuplicateDependencyURLsDiagnostic: DiagnosticData {
     }
 }
 
-public struct ManifestTargetDependencyUnknownPackageDiagnostic: DiagnosticData {
+public struct ManifestUnknownTargetDependencyDiagnostic: DiagnosticData {
+    public let dependency: String
     public let targetName: String
-    public let packageName: String
 
     public var description: String {
-        """
-        manifest parse error: unknown package '\(packageName)' in dependencies of target '\(targetName)'; if the \
-        package is named differently from the product, either use '.product(name: "\(packageName)", package: \
-        <package-name>)' to specify the package name or give the package the '\(packageName)' name using \
-        '.package(name: "\(packageName)", ...)'
+        "unknown dependency '\(dependency)' in target '\(targetName)'"
+    }
+}
 
-        """
+public struct ManifestUnknownTargetPackageDependencyDiagnostic: DiagnosticData {
+    public let packageName: String
+    public let targetName: String
+
+    public var description: String {
+        "unknown package '\(packageName)' in dependencies of target '\(targetName)'"
     }
 }
 
@@ -125,8 +128,10 @@ extension ManifestParseError: DiagnosticDataConvertible {
             return ManifestDuplicateDependencyURLsDiagnostic(duplicates: duplicates)
         case .duplicateTargetNames(let targetNames):
             return ManifestDuplicateTargetNamesDiagnostic(duplicates: targetNames)
-        case .unknownTargetDependencyPackage(let targetName, let packageName):
-            return ManifestTargetDependencyUnknownPackageDiagnostic(targetName: targetName, packageName: packageName)
+        case .unknownTargetDependency(let dependency, let targetName):
+            return ManifestUnknownTargetDependencyDiagnostic(dependency: dependency, targetName: targetName)
+        case .unknownTargetPackageDependency(let packageName, let targetName):
+            return ManifestUnknownTargetPackageDependencyDiagnostic(packageName: packageName, targetName: targetName)
         case .duplicateDependencyNames(let duplicates):
             return ManifestDuplicateDependencyNamesDiagnostic(duplicates: duplicates)
         }
