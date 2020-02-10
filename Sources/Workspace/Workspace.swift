@@ -853,9 +853,16 @@ extension Workspace {
         forBinaryArtifactAt path: AbsolutePath,
         diagnostics: DiagnosticsEngine
     ) -> String {
+        // Validate the path has a supported extension.
         guard let pathExtension = path.extension, archiver.supportedExtensions.contains(pathExtension) else {
             let supportedExtensionList = archiver.supportedExtensions.joined(separator: ", ")
             diagnostics.emit(error: "unexpected file type; supported extensions are: \(supportedExtensionList)")
+            return ""
+        }
+
+        // Ensure that the path with the accepted extension is a file.
+        guard fileSystem.isFile(path) else {
+            diagnostics.emit(error: "file not found at path: \(path.pathString)")
             return ""
         }
 
