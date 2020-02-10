@@ -105,21 +105,6 @@ public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProt
         }
     }
 
-    /// Returns the recursive dependencies, limited to the target's package.
-    public func recursivePackageDependencies() -> [Dependency] {
-        return try! topologicalSort(self.dependencies, successors: { $0.packageDependencies })
-    }
-
-    /// Returns the recursive dependencies, limited to the target's package, which satisfy the input build environment,
-    /// based on their conditions.
-    /// - Parameters:
-    ///     - environment: The build environment to use to filter dependencies on.
-    public func recursivePackageDependencies(satisfying environment: BuildEnvironment) -> [Dependency] {
-        return try! topologicalSort(dependencies(satisfying: environment)) { dependency in
-            return dependency.packageDependencies.filter { $0.satisfies(environment) }
-        }
-    }
-
     /// The language-level target name.
     public var c99name: String {
         return underlyingTarget.c99name
