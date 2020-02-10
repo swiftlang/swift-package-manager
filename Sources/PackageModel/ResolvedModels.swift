@@ -78,33 +78,46 @@ public final class ResolvedTarget: CustomStringConvertible, ObjectIdentifierProt
     /// The dependencies of this target.
     public let dependencies: [Dependency]
 
-    /// Returns the recursive dependencies.
-    public func recursiveDependencies() -> [Dependency] {
-        return try! topologicalSort(self.dependencies, successors: { $0.dependencies })
-    }
-
-    /// Returns the recursive target dependencies.
-    public func recursiveTargetDependencies() -> [ResolvedTarget] {
-        return recursiveDependencies().compactMap { $0.target }
-    }
-
     /// Returns dependencies which satisfy the input build environment, based on their conditions.
     /// - Parameters:
-    ///     - environment: The build environmen to use to filter dependencies on.
-    public func buildDependencies(in environment: BuildEnvironment) -> [Dependency] {
+    ///     - environment: The build environment to use to filter dependencies on.
+    public func dependencies(satisfying environment: BuildEnvironment) -> [Dependency] {
         return dependencies.filter { $0.satisfies(environment) }
     }
 
-    /// Returns the recursive dependencies which satisfy the input build environment, based on their conditions.
-    public func recursiveBuildDependencies(in environment: BuildEnvironment) -> [Dependency] {
-        return try! topologicalSort(buildDependencies(in: environment), successors: { dependency in
-            return dependency.dependencies.filter { $0.satisfies(environment) }
-        })
+    /// Returns the recursive dependencies, accross the whole package-graph.
+    public func recursiveDependencies() -> [Dependency] {
+        return try! topologicalSort(self.dependencies) { $0.dependencies }
     }
 
-    /// Returns the recursive target dependencies which satisfy the input build environment, based on their conditions.
-    public func recursiveBuildTargetDependencies(in environment: BuildEnvironment) -> [ResolvedTarget] {
-        return recursiveBuildDependencies(in: environment).compactMap { $0.target }
+    /// Returns the recursive target dependencies, accross the whole package-graph.
+    public func recursiveTargetDependencies() -> [ResolvedTarget] {
+        return try! topologicalSort(self.dependencies) { $0.dependencies }.compactMap { $0.target }
+    }
+
+    /// Returns the recursive dependencies, accross the whole package-graph, which satisfy the input build environment,
+    /// based on their conditions.
+    /// - Parameters:
+    ///     - environment: The build environment to use to filter dependencies on.
+    public func recursiveDependencies(satisfying environment: BuildEnvironment) -> [Dependency] {
+        return try! topologicalSort(dependencies(satisfying: environment)) { dependency in
+            return dependency.dependencies.filter { $0.satisfies(environment) }
+        }
+    }
+
+    /// Returns the recursive dependencies, limited to the target's package.
+    public func recursivePackageDependencies() -> [Dependency] {
+        return try! topologicalSort(self.dependencies, successors: { $0.packageDependencies })
+    }
+
+    /// Returns the recursive dependencies, limited to the target's package, which satisfy the input build environment,
+    /// based on their conditions.
+    /// - Parameters:
+    ///     - environment: The build environment to use to filter dependencies on.
+    public func recursivePackageDependencies(satisfying environment: BuildEnvironment) -> [Dependency] {
+        return try! topologicalSort(dependencies(satisfying: environment)) { dependency in
+            return dependency.packageDependencies.filter { $0.satisfies(environment) }
+        }
     }
 
     /// The language-level target name.
@@ -241,13 +254,23 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
 
 extension ResolvedTarget.Dependency: CustomStringConvertible {
 
-    /// Returns the dependencies of the underlying dependency.
+    /// Returns the direct dependencies of the underlying dependency, accross the package graph.
     public var dependencies: [ResolvedTarget.Dependency] {
         switch self {
         case .target(let target, _):
             return target.dependencies
         case .product(let product, _):
             return product.targets.map { .target($0, conditions: []) }
+        }
+    }
+
+    /// Returns the direct dependencies of the underlying dependency, limited to the target's package.
+    public var packageDependencies: [ResolvedTarget.Dependency] {
+        switch self {
+        case .target(let target, _):
+            return target.dependencies
+        case .product:
+            return []
         }
     }
 

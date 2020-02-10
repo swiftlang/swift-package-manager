@@ -99,7 +99,8 @@ public final class PackageGraphResult {
     private func reachableBuildTargets(in environment: BuildEnvironment) -> Set<ResolvedTarget> {
         let inputTargets = graph.inputPackages.lazy.flatMap { $0.targets }
         let recursiveBuildTargetDependencies = inputTargets
-            .flatMap { $0.recursiveBuildTargetDependencies(in: environment) }
+            .flatMap { $0.recursiveDependencies(satisfying: environment) }
+            .compactMap { $0.target }
         return Set(inputTargets).union(recursiveBuildTargetDependencies)
     }
 
@@ -107,7 +108,7 @@ public final class PackageGraphResult {
         let recursiveBuildProductDependencies = graph.inputPackages
             .lazy
             .flatMap { $0.targets }
-            .flatMap { $0.recursiveBuildDependencies(in: environment) }
+            .flatMap { $0.recursiveDependencies(satisfying: environment) }
             .compactMap { $0.product }
         return Set(graph.inputPackages.flatMap { $0.products }).union(recursiveBuildProductDependencies)
     }

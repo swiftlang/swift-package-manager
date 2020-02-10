@@ -269,7 +269,7 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for dependency in target.target.buildDependencies(in: buildEnvironment) {
+        for dependency in target.target.dependencies(satisfying: buildEnvironment) {
             switch dependency {
             case .target(let target, _):
                 addStaticTargetInputs(target)
@@ -369,7 +369,7 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for dependency in target.target.buildDependencies(in: buildEnvironment) {
+        for dependency in target.target.dependencies(satisfying: buildEnvironment) {
             switch dependency {
             case .target(let target, _):
                 addStaticTargetInputs(target)

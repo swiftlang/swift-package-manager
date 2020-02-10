@@ -640,7 +640,7 @@ public func xcodeProject(
 
         // For each target on which this one depends, add a target dependency
         // and also link against the target's product.
-        for dependency in target.recursiveTargetDependencies() {
+        for case .target(let dependency, _) in target.recursiveDependencies() {
             // We should never find ourself in the list of dependencies.
             assert(dependency != target)
 

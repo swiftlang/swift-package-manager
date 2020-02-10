@@ -166,6 +166,7 @@ public func loadPackageGraph(
     fs: FileSystem,
     diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
     manifests: [Manifest],
+    shouldCreateMultipleTestProducts: Bool = false,
     createREPLProduct: Bool = false
 ) -> PackageGraph {
     let rootManifests = manifests.filter({ $0.packageKind == .root })
@@ -179,6 +180,7 @@ public func loadPackageGraph(
         externalManifests: externalManifests,
         diagnostics: diagnostics,
         fileSystem: fs,
+        shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
         createREPLProduct: createREPLProduct
     )
 }

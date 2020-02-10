@@ -639,6 +639,7 @@ public class SwiftTool<Options: ToolOptions> {
     /// Fetch and load the complete package graph.
     @discardableResult
     func loadPackageGraph(
+        createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false
     ) throws -> PackageGraph {
         do {
@@ -647,6 +648,7 @@ public class SwiftTool<Options: ToolOptions> {
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph(
                 root: getWorkspaceRoot(),
+                createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.forceResolvedVersions,
                 diagnostics: diagnostics
