@@ -624,7 +624,7 @@ final class PackageToolTests: XCTestCase {
                 try execute(["compute-checksum", invalid.pathString], packagePath: prefix)
                 XCTFail("expected to fail")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: file not found at path: \(invalid.pathString)"))
+                XCTAssertMatch(stderr, .contains("error: unexpected file type; supported extensions are: zip"))
             } catch {
                 XCTFail("unexpected error: \(error)")
             }
