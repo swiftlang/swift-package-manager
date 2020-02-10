@@ -86,7 +86,7 @@ public struct BuildParameters: Encodable {
     /// module to finish building.
     public var emitSwiftModuleSeparately: Bool
 
-    /// Whether tp create dylibs for dynamic library products.
+    /// Whether to create dylibs for dynamic library products.
     public var shouldCreateDylibForDynamicProducts: Bool
 
     /// The current build environment.
