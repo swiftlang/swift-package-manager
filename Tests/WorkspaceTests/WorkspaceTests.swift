@@ -3996,26 +3996,26 @@ final class WorkspaceTests: XCTestCase {
 
         // Checks a supported extension that is not a file (does not exist).
         do {
-            let unknownPath = sandbox.appending(component: "unknownDir.zip")
+            let unknownPath = sandbox.appending(component: "missingFile.zip")
             let diagnostics = DiagnosticsEngine()
             let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: diagnostics)
             XCTAssertEqual(checksum, "")
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("file not found at path: /tmp/ws/unknownDir.zip"),
+                result.check(diagnostic: .contains("file not found at path: /tmp/ws/missingFile.zip"),
                              behavior: .error)
             }
         }
 
         // Checks a supported extension that is a directory instead of a file.
         do {
-            let unknownPath = sandbox.appending(component: "unknownDir.zip")
+            let unknownPath = sandbox.appending(component: "aDirectory.zip")
             try fs.createDirectory(unknownPath)
 
             let diagnostics = DiagnosticsEngine()
             let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: diagnostics)
             XCTAssertEqual(checksum, "")
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("file not found at path: /tmp/ws/unknownDir.zip"),
+                result.check(diagnostic: .contains("file not found at path: /tmp/ws/aDirectory.zip"),
                              behavior: .error)
             }
         }
