@@ -401,31 +401,19 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // Compute the path to runtime we need to load.
             let runtimePath = self.runtimePath(for: manifestVersion).pathString
-            let interpreterFlags = self.interpreterFlags(for: manifestVersion)
+            let compilerFlags = self.interpreterFlags(for: manifestVersion)
 
             // FIXME: Workaround for the module cache bug that's been haunting Swift CI
             // <rdar://problem/48443680>
             let moduleCachePath = Process.env["SWIFTPM_MODULECACHE_OVERRIDE"] ?? Process.env["SWIFTPM_TESTS_MODULECACHE"]
 
             var cmd = [String]()
-          #if os(macOS)
-            // If enabled, use sandbox-exec on macOS. This provides some safety against
-            // arbitrary code execution when parsing manifest files. We only allow
-            // the permissions which are absolutely necessary for manifest parsing.
-            if isManifestSandboxEnabled {
-                let cacheDirs = [
-                    cacheDir,
-                    moduleCachePath.map{ AbsolutePath($0) }
-                ].compactMap{$0}
-                cmd += ["sandbox-exec", "-p", sandboxProfile(cacheDirs)]
-            }
-          #endif
             cmd += [resources.swiftCompiler.pathString]
-            cmd += ["--driver-mode=swift"]
             cmd += bootstrapArgs()
             cmd += verbosity.ccArgs
             cmd += ["-L", runtimePath, "-lPackageDescription"]
-            cmd += interpreterFlags
+            cmd += ["-Xlinker", "-rpath", "-Xlinker", runtimePath]
+            cmd += compilerFlags
             if let moduleCachePath = moduleCachePath {
                 cmd += ["-module-cache-path", moduleCachePath]
             }
@@ -441,25 +429,50 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             cmd += [manifestPath.pathString]
 
-            // Create and open a temporary file to write json to.
             let file = try TemporaryFile()
-            // Pass the fd in arguments.
-            cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
+            // Set path to compiled manifest executable.
+            cmd += ["-o", file.path.pathString]
 
-            // Run the command.
-            let result = try Process.popen(arguments: cmd)
-            let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle()
-            manifestParseResult.compilerOutput = output
+            try Process.popen(arguments: cmd)
+
+            // Compile the manifest.
+            let compilerResult = try Process.popen(arguments: cmd)
+            let compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
+            manifestParseResult.compilerOutput = compilerOutput
 
             // Return now if there was an error.
-            if result.exitStatus != .terminated(code: 0) {
+            if compilerResult.exitStatus != .terminated(code: 0) {
                 return
             }
 
-            guard let json = try localFileSystem.readFileContents(file.path).validDescription else {
-                throw StringError("the manifest has invalid encoding")
+            // Pass the fd in arguments.
+            cmd = [file.path.pathString, "-fileno", "1"]
+
+          #if os(macOS)
+            // If enabled, use sandbox-exec on macOS. This provides some safety against
+            // arbitrary code execution when parsing manifest files. We only allow
+            // the permissions which are absolutely necessary for manifest parsing.
+            if isManifestSandboxEnabled {
+                let cacheDirectories = [
+                    cacheDir,
+                    moduleCachePath.map({ AbsolutePath($0) })
+                ].compactMap({ $0 })
+                let profile = sandboxProfile(cacheDirectories)
+                cmd += ["sandbox-exec", "-p", profile]
             }
-            manifestParseResult.parsedManifest = json
+          #endif
+
+            // Run the command.
+            let runResult = try Process.popen(arguments: cmd)
+            let runOutput = try (runResult.utf8Output() + runResult.utf8stderrOutput()).spm_chuzzle()
+
+            // Return now if there was an error.
+            if runResult.exitStatus != .terminated(code: 0) {
+                manifestParseResult.errorOutput = runOutput
+                return
+            }
+
+            manifestParseResult.parsedManifest = runOutput
         }
 
         var manifestParseResult = ManifestParseResult()
