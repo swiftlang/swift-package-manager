@@ -616,7 +616,7 @@ public enum TargetBuildSettingDescription {
 }
 
 /// The configuration of the build environment.
-public enum BuildConfiguration: String, Encodable {
+public enum BuildConfiguration: String, Encodable, CaseIterable {
     case debug
     case release
 

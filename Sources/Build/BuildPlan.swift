@@ -1507,11 +1507,10 @@ public class BuildPlan {
 
     /// Plan a Clang target.
     private func plan(clangTarget: ClangTargetBuildDescription) {
-        let recursiveBuildTargets = clangTarget.target.recursiveBuildTargetDependencies(in: buildEnvironment)
-        for targetDependency in recursiveBuildTargets {
-            switch targetDependency.underlyingTarget {
+        for case .target(let dependency, _) in clangTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
+            switch dependency.underlyingTarget {
             case is SwiftTarget:
-                if case let .swift(dependencyTargetDescription)? = targetMap[targetDependency] {
+                if case let .swift(dependencyTargetDescription)? = targetMap[dependency] {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
@@ -1522,7 +1521,7 @@ public class BuildPlan {
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
 
                 // Add the modulemap of the dependency if it has one.
-                if case let .clang(dependencyTargetDescription)? = targetMap[targetDependency] {
+                if case let .clang(dependencyTargetDescription)? = targetMap[dependency] {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
@@ -1546,13 +1545,10 @@ public class BuildPlan {
     private func plan(swiftTarget: SwiftTargetBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
-        let recursiveBuildTargets = swiftTarget.target
-            .recursiveBuildDependencies(in: buildEnvironment)
-            .compactMap { $0.target }
-        for targetDependency in recursiveBuildTargets {
-            switch targetDependency.underlyingTarget {
+        for case .target(let dependency, _) in swiftTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
+            switch dependency.underlyingTarget {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
-                guard case let .clang(target)? = targetMap[targetDependency] else {
+                guard case let .clang(target)? = targetMap[dependency] else {
                     fatalError("unexpected clang target \(underlyingTarget)")
                 }
                 // Add the path to modulemap of the dependency. Currently we require that all Clang targets have a

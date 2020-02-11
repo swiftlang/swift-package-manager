@@ -86,6 +86,9 @@ public struct BuildParameters: Encodable {
     /// module to finish building.
     public var emitSwiftModuleSeparately: Bool
 
+    /// Whether tp create dylibs for dynamic library products.
+    public var shouldCreateDylibForDynamicProducts: Bool
+
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
         BuildEnvironment(platform: currentPlatform, configuration: configuration)
@@ -101,6 +104,7 @@ public struct BuildParameters: Encodable {
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
+        shouldCreateDylibForDynamicProducts: Bool = false,
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
@@ -117,6 +121,7 @@ public struct BuildParameters: Encodable {
         self.jobs = jobs
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         self.shouldEnableManifestCaching = shouldEnableManifestCaching
+        self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
         self.sanitizers = sanitizers
         self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode
