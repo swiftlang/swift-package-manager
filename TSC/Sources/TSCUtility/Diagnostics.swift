@@ -109,7 +109,7 @@ extension DiagnosticsEngine {
             return nil
         }
     }
-    
+
     /// Wrap a throwing closure, returning a success boolean and
     /// emitting any thrown errors.
     ///
@@ -139,7 +139,7 @@ extension Optional where Wrapped == DiagnosticsEngine {
         if case let diagnostics? = self {
             diagnostics.emit(.error(error), location: location)
         } else {
-            throw Diagnostics.fatalError
+            throw StringError(error)
         }
     }
 
@@ -150,7 +150,7 @@ extension Optional where Wrapped == DiagnosticsEngine {
         if case let diagnostics? = self {
             diagnostics.emit(error, location: location)
         } else {
-            throw Diagnostics.fatalError
+            throw error
         }
     }
 
@@ -161,7 +161,7 @@ extension Optional where Wrapped == DiagnosticsEngine {
         if case let diagnostics? = self {
             diagnostics.emit(.error(convertible.diagnosticData), location: location)
         } else {
-            throw Diagnostics.fatalError
+            throw StringError(convertible.diagnosticData.description)
         }
     }
 
@@ -172,7 +172,7 @@ extension Optional where Wrapped == DiagnosticsEngine {
         if case let diagnostics? = self {
             diagnostics.emit(message, location: location)
         } else if message.behavior == .error {
-            throw Diagnostics.fatalError
+            throw StringError(message.text)
         }
     }
 }
