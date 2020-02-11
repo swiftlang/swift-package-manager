@@ -221,6 +221,11 @@ public struct TargetSourcesBuilder {
         }
     }
 
+    /// Returns true if the given path is a declared source.
+    func isDeclaredSource(_ path: AbsolutePath) -> Bool {
+        return path == targetPath || declaredSources?.contains(path) == true
+    }
+
     /// Compute the contents of the files in a target.
     ///
     /// This avoids recursing into certain directories like exclude or the
@@ -258,14 +263,22 @@ public struct TargetSourcesBuilder {
                 continue
             }
 
-            // Append and continue if the path doesn't have an extension or is not a directory.
-            if curr.extension != nil || !fs.isDirectory(curr) {
+            // Consider non-directories as source files.
+            if !fs.isDirectory(curr) {
                 contents.append(curr)
                 continue
             }
 
             // At this point, curr can only be a directory.
             //
+            // Starting tools version with resources, pick directories as
+            // sources that have an extension but are not explicitly
+            // declared as sources in the manifest.
+            if toolsVersion >= .vNext && curr.extension != nil && !isDeclaredSource(curr) {
+                contents.append(curr)
+                continue
+            }
+
             // Check if the directory is marked to be copied.
             let directoryMarkedToBeCopied = target.resources.contains{ resource in
                 let resourcePath = self.targetPath.appending(RelativePath(resource.path))
