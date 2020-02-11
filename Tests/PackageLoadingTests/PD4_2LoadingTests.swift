@@ -677,6 +677,27 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testProductTargetNotFound() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .library(name: "Product", targets: ["B"]),
+                ],
+                targets: [
+                    .target(name: "A"),
+                ]
+            )
+            """
+
+        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found", behavior: .error)
+        }
+    }
+
     final class ManifestTestDelegate: ManifestLoaderDelegate {
         var loaded: [AbsolutePath] = []
         var parsed: [AbsolutePath] = []
