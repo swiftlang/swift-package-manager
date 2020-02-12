@@ -618,8 +618,8 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testComputeChecksum() {
-        fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { prefix in
-            let invalid = prefix.appending(component: "invalid-file")
+        fixture(name: "BinaryTargets") { prefix in
+            let invalid = prefix.appending(component: "MyFwk.xcframework")
             do {
                 try execute(["compute-checksum", invalid.pathString], packagePath: prefix)
                 XCTFail("expected to fail")
@@ -629,9 +629,9 @@ final class PackageToolTests: XCTestCase {
                 XCTFail("unexpected error: \(error)")
             }
 
-            let readme = prefix.appending(component: "README.md")
+            let readme = prefix.appending(component: "MyFwk.zip")
             let (stdout, _) = try execute(["compute-checksum", readme.pathString], packagePath: prefix)
-            XCTAssertEqual(stdout.spm_chomp(), "5a2cd751cc6e8005a56c836c7269b038bbd536ee998275a1497c37fc986c4352")
+            XCTAssertEqual(stdout.spm_chomp(), "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158")
         }
     }
 }
