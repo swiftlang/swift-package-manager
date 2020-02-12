@@ -1,0 +1,113 @@
+# This source file is part of the Swift.org open source project
+#
+# Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+# Licensed under Apache License v2.0 with Runtime Library Exception
+
+# See http://swift.org/LICENSE.txt for license information
+# See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+
+name: Android Tests
+
+on: [push, pull_request]
+
+jobs:
+  Android:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: Validate
+      run: |
+        echo 'Fetching Swift...'
+        repository_directory=$(pwd)
+        mkdir -p .build/Android/Swift
+        cd .build/Android/Swift
+        curl -o Swift.tar.gz 'https://swift.org/builds/development/ubuntu1804/swift-DEVELOPMENT-SNAPSHOT-2020-02-11-a/swift-DEVELOPMENT-SNAPSHOT-2020-02-11-a-ubuntu18.04.tar.gz'
+        tar --extract --file Swift.tar.gz
+        sudo cp -R swift-DEVELOPMENT-SNAPSHOT-2020-02-11-a-ubuntu18.04/usr/* /usr/
+        cd "${repository_directory}"
+        swift --version
+
+        echo 'Fetching Swift cross‐compilation toolchain...'
+        mkdir -p .build/Android/Experimental_Swift
+        cd .build/Android/Experimental_Swift
+        curl -L -o toolchain-linux-x64.zip 'https://github.com/SDGGiesbrecht/Workspace/releases/download/experimental%E2%80%90swift%E2%80%90pre%E2%80%905.2%E2%80%902020%E2%80%9002%E2%80%9005/toolchain-linux-x64.zip'
+        unzip toolchain-linux-x64.zip
+        sudo mv toolchain-linux-x64/Library /Library
+        chmod -R a+rwx /Library
+        cd "${repository_directory}"
+        /Library/Developer/Toolchains/unknown-Asserts-development.xctoolchain/usr/bin/swift --version
+
+        echo 'Fetching Swift Android SDK...'
+        cd .build/Android/Experimental_Swift
+        curl -L -o sdk-android-x64.zip 'https://github.com/SDGGiesbrecht/Workspace/releases/download/experimental%E2%80%90swift%E2%80%90pre%E2%80%905.2%E2%80%902020%E2%80%9002%E2%80%9005/sdk-android-x64.zip'
+        unzip sdk-android-x64.zip
+        mv sdk-android-x64/Library/Developer/Platforms /Library/Developer/Platforms
+        sed -i -e s~C:/Microsoft/AndroidNDK64/android-ndk-r16b~${ANDROID_HOME}/ndk-bundle~g /Library/Developer/Platforms/Android.platform/Developer/SDKs/Android.sdk/usr/lib/swift/android/x86_64/glibc.modulemap
+        sudo apt-get update --yes
+        sudo apt-get install --yes patchelf
+        patchelf --replace-needed lib/swift/android/x86_64/libswiftCore.so libswiftCore.so /Library/Developer/Platforms/Android.platform/Developer/SDKs/Android.sdk/usr/lib/swift/android/libswiftSwiftOnoneSupport.so
+        patchelf --replace-needed lib/swift/android/x86_64/libswiftCore.so libswiftCore.so /Library/Developer/Platforms/Android.platform/Developer/SDKs/Android.sdk/usr/lib/swift/android/libswiftGlibc.so
+        cp -R "${ANDROID_HOME}/ndk-bundle/platforms/android-29/arch-x86_64/"* /Library/Developer/Platforms/Android.platform/Developer/SDKs/Android.sdk
+        cd "${repository_directory}"
+
+        echo 'Fetching ICU...'
+        cd .build/Android/Experimental_Swift
+        curl -L -o icu-android-x64.zip 'https://github.com/SDGGiesbrecht/Workspace/releases/download/experimental%E2%80%90swift%E2%80%90pre%E2%80%905.2%E2%80%902020%E2%80%9002%E2%80%9005/icu-android-x64.zip'
+        unzip icu-android-x64.zip
+        mv icu-android-x64/Library/icu-64 /Library/icu-64
+        curl -L -o libicudt64.so 'https://github.com/SDGGiesbrecht/Workspace/releases/download/experimental%E2%80%90swift%E2%80%90pre%E2%80%905.2%E2%80%902020%E2%80%9002%E2%80%9005/libicudt64.so'
+        mv libicudt64.so /Library/icu-64/usr/lib/libicudt64.so
+        cd "${repository_directory}"
+
+        echo 'Fetching dependencies...'
+        sudo apt-get update --yes
+        sudo apt-get install --yes libsqlite3-dev libncurses-dev
+
+        echo 'Building SwiftPM...'
+        swift build
+
+        echo 'Building package...'
+        swift run swift-build --package-path Fixtures/Miscellaneous/CrossPlatform \
+          --destination .github/workflows/Android/SDK.json \
+          --build-tests --enable-test-discovery \
+          -Xswiftc -sdk -Xswiftc /Library/Developer/Platforms/Android.platform/Developer/SDKs/Android.sdk \
+          -Xswiftc -resource-dir -Xswiftc /Library/Developer/Platforms/Android.platform/Developer/SDKs/Android.sdk/usr/lib/swift \
+          -Xswiftc -tools-directory -Xswiftc ${ANDROID_HOME}/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64/bin \
+          -Xswiftc -Xclang-linker -Xswiftc --gcc-toolchain=${ANDROID_HOME}/ndk-bundle/toolchains/x86_64-4.9/prebuilt/linux-x86_64 \
+          -Xcc -I${ANDROID_HOME}/ndk-bundle/sysroot/usr/include \
+          -Xcc -I${ANDROID_HOME}/ndk-bundle/sysroot/usr/include/x86_64-linux-android \
+          -Xswiftc -I -Xswiftc /Library/Developer/Platforms/Android.platform/Developer/Library/XCTest-development/usr/lib/swift/android/x86_64 \
+          -Xswiftc -L -Xswiftc /Library/Developer/Platforms/Android.platform/Developer/Library/XCTest-development/usr/lib/swift/android
+
+        echo 'Copying libraries...'
+        cp -R "${ANDROID_HOME}/ndk-bundle/sources/cxx-stl/llvm-libc++/libs/x86_64/"* Fixtures/Miscellaneous/CrossPlatform/.build/x86_64-unknown-linux-android/debug
+        cp -R /Library/icu-64/usr/lib/* Fixtures/Miscellaneous/CrossPlatform/.build/x86_64-unknown-linux-android/debug
+        cp -R /Library/Developer/Platforms/Android.platform/Developer/SDKs/Android.sdk/usr/lib/swift/android/* Fixtures/Miscellaneous/CrossPlatform/.build/x86_64-unknown-linux-android/debug
+        cp -R /Library/Developer/Platforms/Android.platform/Developer/Library/XCTest-development/usr/lib/swift/android/* Fixtures/Miscellaneous/CrossPlatform/.build/x86_64-unknown-linux-android/debug
+    - uses: actions/upload-artifact@v1
+      with:
+        name: products
+        path: Fixtures/Miscellaneous/CrossPlatform/.build/x86_64-unknown-linux-android/debug
+  AndroidII:
+    runs-on: macos-latest
+    needs: Android
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions/download-artifact@v1
+      with:
+        name: products
+        path: .build/x86_64-unknown-linux-android/debug
+    - run: |
+        mkdir -p .build/Android
+        echo '
+        set -e
+        adb -e push .build/x86_64-unknown-linux-android/debug /data/local/tmp/Android/.build/x86_64-unknown-linux-android/debug
+        adb -e shell chmod -R +x /data/local/tmp/Android/.build/x86_64-unknown-linux-android/debug
+        adb -e shell LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/data/local/tmp/Android/.build/x86_64-unknown-linux-android/debug /data/local/tmp/Android/.build/x86_64-unknown-linux-android/debug/CrossPlatformPackageTests.xctest
+        ' > .build/Android/Emulator.sh
+        chmod +x .build/Android/Emulator.sh
+    - uses: malinskiy/action-android/install-sdk@release/0.0.5
+    - uses: malinskiy/action-android/emulator-run-cmd@release/0.0.5
+      with:
+        abi: x86_64
+        cmd: .build/Android/Emulator.sh
