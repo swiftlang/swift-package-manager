@@ -3975,6 +3975,7 @@ final class WorkspaceTests: XCTestCase {
 
         let ws = workspace.createWorkspace()
 
+        // Checks the valid case.
         do {
             let binaryPath = sandbox.appending(component: "binary.zip")
             try fs.writeFileContents(binaryPath, bytes: ByteString([0xaa, 0xbb, 0xcc]))
@@ -3986,13 +3987,41 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(checksum, "ccbbaa")
         }
 
+        // Checks an unsupported extension.
         do {
             let unknownPath = sandbox.appending(component: "unknown")
             let diagnostics = DiagnosticsEngine()
             let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: diagnostics)
             XCTAssertEqual(checksum, "")
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("file not found at path: /tmp/ws/unknown"), behavior: .error)
+                let expectedDiagnostic = "unexpected file type; supported extensions are: zip"
+                result.check(diagnostic: .contains(expectedDiagnostic), behavior: .error)
+            }
+        }
+
+        // Checks a supported extension that is not a file (does not exist).
+        do {
+            let unknownPath = sandbox.appending(component: "missingFile.zip")
+            let diagnostics = DiagnosticsEngine()
+            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: diagnostics)
+            XCTAssertEqual(checksum, "")
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("file not found at path: /tmp/ws/missingFile.zip"),
+                             behavior: .error)
+            }
+        }
+
+        // Checks a supported extension that is a directory instead of a file.
+        do {
+            let unknownPath = sandbox.appending(component: "aDirectory.zip")
+            try fs.createDirectory(unknownPath)
+
+            let diagnostics = DiagnosticsEngine()
+            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: diagnostics)
+            XCTAssertEqual(checksum, "")
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("file not found at path: /tmp/ws/aDirectory.zip"),
+                             behavior: .error)
             }
         }
     }
