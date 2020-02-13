@@ -26,6 +26,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
     }
 
     func testTrivialManifestLoading_X1() {
+      #if os(macOS)
         let N = 1
         let trivialManifest = ByteString(encodingAsUTF8: ("""
             import PackageDescription
@@ -43,9 +44,11 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                 }
             }
         }
+      #endif
     }
 
     func testNonTrivialManifestLoading_X1() {
+      #if os(macOS)
         let N = 1
         let manifest = ByteString(encodingAsUTF8: """
             import PackageDescription
@@ -73,5 +76,6 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                 }
             }
         }
+      #endif
     }
 }

@@ -10,4 +10,4 @@ set -x
 
 swift package update
 swift build
-swift test --parallel
+swift test --parallel --enable-test-discovery

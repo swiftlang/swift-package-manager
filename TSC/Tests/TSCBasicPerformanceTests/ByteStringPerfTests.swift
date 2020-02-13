@@ -15,6 +15,7 @@ import TSCTestSupport
 
 class ByteStringPerfTests: XCTestCasePerf {
     func testInitialization() {
+      #if os(macOS)
         let listOfStrings: [String] = (0..<10).map { "This is the number: \($0)!\n" }
         let expectedTotalCount = listOfStrings.map({ $0.utf8.count }).reduce(0, +)
         measure {
@@ -28,5 +29,6 @@ class ByteStringPerfTests: XCTestCasePerf {
             }
             XCTAssertEqual(count, expectedTotalCount * N)
         }
+      #endif
     }
 }

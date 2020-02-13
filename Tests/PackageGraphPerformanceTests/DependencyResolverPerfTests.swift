@@ -26,19 +26,27 @@ private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
 
     func testKituraPubGrub_X100() throws {
+      #if os(macOS)
         try runPackageTestPubGrub(name: "kitura.json", N: 100)
+      #endif
     }
 
     func testZewoPubGrub_X100() throws {
+      #if os(macOS)
         try runPackageTestPubGrub(name: "ZewoHTTPServer.json", N: 100)
+      #endif
     }
 
     func testPerfectPubGrub_X100() throws {
+      #if os(macOS)
         try runPackageTestPubGrub(name: "PerfectHTTPServer.json", N: 100)
+      #endif
     }
 
     func testSourceKittenPubGrub_X100() throws {
+      #if os(macOS)
         try runPackageTestPubGrub(name: "SourceKitten.json", N: 100)
+      #endif
     }
 
     func runPackageTestPubGrub(name: String, N: Int = 1) throws {
