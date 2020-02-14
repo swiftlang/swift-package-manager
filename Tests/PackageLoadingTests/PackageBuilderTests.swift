@@ -290,6 +290,32 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testOverlappingDeclaredSources() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/clib/subfolder/foo.h",
+            "/Sources/clib/subfolder/foo.c",
+            "/Sources/clib/bar.h",
+            "/Sources/clib/bar.c",
+            "/done"
+        )
+
+        let manifest = Manifest.createV4Manifest(
+            name: "MyPackage",
+            targets: [
+                TargetDescription(
+                    name: "clib",
+                    path: "Sources",
+                    sources: ["clib", "clib/subfolder"]
+                ),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkModule("clib") { module in
+                module.checkSources(sources: ["clib/bar.c", "clib/subfolder/foo.c"])
+            }
+        }
+    }
+
     func testDeclaredExecutableProducts() {
         // Check that declaring executable product doesn't collide with the
         // inferred products.
