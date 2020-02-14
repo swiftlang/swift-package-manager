@@ -446,10 +446,10 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     /// Note: It is a fatalError if we are not able to locate the tool.
     ///
     /// - Returns: Path to XCTestHelper tool.
-    private static func xctestHelperPath() -> AbsolutePath {
+    private func xctestHelperPath() -> AbsolutePath {
         let xctestHelperBin = "swiftpm-xctest-helper"
         let binDirectory = AbsolutePath(CommandLine.arguments.first!,
-            relativeTo: localFileSystem.currentWorkingDirectory!).parentDirectory
+            relativeTo: originalWorkingDirectory).parentDirectory
         // XCTestHelper tool is installed in libexec.
         let maybePath = binDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", xctestHelperBin)
         if localFileSystem.isFile(maybePath) {
@@ -478,7 +478,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         // Run the correct tool.
       #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
-            let args = [SwiftTestTool.xctestHelperPath().pathString, path.pathString, tempFile.path.pathString]
+            let args = [xctestHelperPath().pathString, path.pathString, tempFile.path.pathString]
             var env = try constructTestEnvironment(toolchain: try getToolchain(), options: self.options, buildParameters: self.buildParameters())
             // Add the sdk platform path if we have it. If this is not present, we
             // might always end up failing.
