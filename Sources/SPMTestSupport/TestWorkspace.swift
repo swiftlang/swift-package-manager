@@ -154,6 +154,7 @@ public final class TestWorkspace {
             config: config,
             fileSystem: fs,
             repositoryProvider: repoProvider,
+            isResolverPrefetchingEnabled: true,
             enablePubgrubResolver: enablePubGrub,
             skipUpdate: skipUpdate
         )

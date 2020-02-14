@@ -905,12 +905,6 @@ public final class PubgrubDependencyResolver {
         self.root = root
         self.pinsMap = pinsMap
 
-        // Prefetch the containers if prefetching is enabled.
-        if isPrefetchingEnabled {
-            let pins = pinsMap.values.map{ $0.packageRef }
-            self.provider.prefetch(containers: pins)
-        }
-
         // Add the root incompatibility.
         let rootIncompatibility = Incompatibility(
             terms: [Term(not: root, .exact("1.0.0"))],
@@ -920,6 +914,17 @@ public final class PubgrubDependencyResolver {
 
         let inputs = try processInputs(with: constraints)
         self.overriddenPackages = inputs.overriddenPackages
+
+        // Prefetch the containers if prefetching is enabled.
+        if isPrefetchingEnabled {
+            // We avoid prefetching packages that are overridden since
+            // otherwise we'll end up creating a repository container
+            // for them.
+            let pins = pinsMap.values
+                .map{ $0.packageRef }
+                .filter{ !overriddenPackages.keys.contains($0) }
+            self.provider.prefetch(containers: pins)
+        }
 
         // Add all the root incompatibilities.
         for incompat in inputs.rootIncompatibilities {
