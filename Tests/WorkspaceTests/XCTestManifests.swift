@@ -81,6 +81,7 @@ extension WorkspaceTests {
         ("testPrecomputeResolution_requirementChange_versionToBranch", testPrecomputeResolution_requirementChange_versionToBranch),
         ("testPrecomputeResolution_requirementChange_versionToLocal", testPrecomputeResolution_requirementChange_versionToLocal),
         ("testPrecomputeResolution_requirementChange_versionToRevision", testPrecomputeResolution_requirementChange_versionToRevision),
+        ("testPrefetchingWithOverridenPackage", testPrefetchingWithOverridenPackage),
         ("testResolutionFailureWithEditedDependency", testResolutionFailureWithEditedDependency),
         ("testResolve", testResolve),
         ("testResolvedFileUpdate", testResolvedFileUpdate),
