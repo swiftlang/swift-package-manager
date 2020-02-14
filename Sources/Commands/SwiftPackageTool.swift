@@ -376,8 +376,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             print(jsonString)
 
         case .dumpPIF:
-            let graph = try loadPackageGraph()
-            print(try PackagePIFBuilder(graph).generatePIF())
+            let graph = try loadPackageGraph(createMultipleTestProducts: true)
+            let buildParameters = try self.buildParameters()
+            let parameters = PIFBuilderParameters(
+                buildEnvironment: buildParameters.buildEnvironment,
+                shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts)
+            let builder = PIFBuilder(graph: graph, parameters: parameters, diagnostics: diagnostics)
+            let pif = try builder.generatePIF()
+            print(pif)
 
         case .completionTool:
             switch options.completionToolMode {

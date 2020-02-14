@@ -9,9 +9,9 @@
 add_library(XCBuildSupport
   PIF.swift
   PIFBuilder.swift
-  PIFSerialization.swift
 )
 target_link_libraries(XCBuildSupport PUBLIC
+  Build
   TSCBasic
   TSCUtility
   PackageGraph
