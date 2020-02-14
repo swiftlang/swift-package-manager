@@ -158,6 +158,10 @@ public struct TargetSourcesBuilder {
                     } else {
                         matchedRule = .compile
                     }
+                    // The source file might have been declared twice so
+                    // exit on first match.
+                    // FIXME: We should emitting warnings for duplicate// declarations.
+                    break
                 }
             }
         }
