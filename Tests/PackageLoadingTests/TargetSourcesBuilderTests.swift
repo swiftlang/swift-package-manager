@@ -60,7 +60,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertEqual(contents, [
             "/Bar.swift",
             "/Foo.swift",
-            "/Hello.something",
+            "/Hello.something/hello.txt",
             "/file",
             "/path/to/somefile.txt",
             "/some/path.swift",

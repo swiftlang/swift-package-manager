@@ -243,6 +243,53 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testDeclaredSourcesWithDot() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/swift.lib/foo.swift",
+            "/Sources/swiftlib1/swift.lib/foo.swift",
+            "/Sources/swiftlib2/swift.lib/foo.swift",
+            "/Sources/swiftlib3/swift.lib/foo.swift",
+            "/Sources/swiftlib3/swift.lib/foo.bar/bar.swift",
+            "/done"
+        )
+
+        let manifest = Manifest.createV4Manifest(
+            name: "MyPackage",
+            targets: [
+                TargetDescription(
+                    name: "swift.lib"
+                ),
+                TargetDescription(
+                    name: "swiftlib1",
+                    path: "Sources/swiftlib1",
+                    sources: ["swift.lib"]
+                ),
+                TargetDescription(
+                    name: "swiftlib2",
+                    path: "Sources/swiftlib2/swift.lib"
+                ),
+                TargetDescription(
+                    name: "swiftlib3",
+                    path: "Sources/swiftlib3/swift.lib"
+                ),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { result in
+            result.checkModule("swift.lib") { module in
+                module.checkSources(sources: ["foo.swift"])
+            }
+            result.checkModule("swiftlib1") { module in
+                module.checkSources(sources: ["swift.lib/foo.swift"])
+            }
+            result.checkModule("swiftlib2") { module in
+                module.checkSources(sources: ["foo.swift"])
+            }
+            result.checkModule("swiftlib3") { module in
+                module.checkSources(sources: ["foo.bar/bar.swift", "foo.swift"])
+            }
+        }
+    }
+
     func testDeclaredExecutableProducts() {
         // Check that declaring executable product doesn't collide with the
         // inferred products.
