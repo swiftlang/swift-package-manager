@@ -677,6 +677,57 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testProductTargetNotFound() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .library(name: "Product", targets: ["B"]),
+                ],
+                targets: [
+                    .target(name: "A"),
+                ]
+            )
+            """
+
+        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found", behavior: .error)
+        }
+    }
+
+    func testLoadingWithoutDiagnostics() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .library(name: "Product", targets: ["B"]),
+                ],
+                targets: [
+                    .target(name: "A"),
+                ]
+            )
+            """
+
+        do {
+            _ = try loadManifest(
+                stream.bytes,
+                toolsVersion: toolsVersion,
+                packageKind: .remote,
+                diagnostics: nil
+            )
+
+            XCTFail("Unexpected success")
+        } catch let error as StringError {
+            XCTAssertMatch(error.description, "target 'B' referenced in product 'Product' could not be found")
+        }
+    }
+
     final class ManifestTestDelegate: ManifestLoaderDelegate {
         var loaded: [AbsolutePath] = []
         var parsed: [AbsolutePath] = []

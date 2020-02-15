@@ -320,7 +320,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
 
             // Check that products that reference only binary targets don't define a type.
-            let areTargetsBinary = product.targets.allSatisfy({ manifest.targetMap[$0]!.type == .binary })
+            let areTargetsBinary = product.targets.allSatisfy { manifest.targetMap[$0]?.type == .binary }
             if areTargetsBinary && product.type != .library(.automatic) {
                 try diagnostics.emit(.invalidBinaryProductType(productName: product.name))
             }
