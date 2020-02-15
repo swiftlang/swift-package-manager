@@ -166,6 +166,7 @@ public final class TestWorkspace {
             downloader: downloader,
             archiver: archiver,
             checksumAlgorithm: checksumAlgorithm,
+            isResolverPrefetchingEnabled: true,
             enablePubgrubResolver: enablePubGrub,
             skipUpdate: skipUpdate
         )
