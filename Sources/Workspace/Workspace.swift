@@ -1129,8 +1129,9 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
 
-        // Remove any managed dependency which has become a root.
+        // Make a copy of dependencies as we might mutate them in the for loop.
         let dependenciesToCheck = Array(state.dependencies)
+        // Remove any managed dependency which has become a root.
         for dependency in dependenciesToCheck {
             if root.packageRefs.contains(dependency.packageRef) {
                 diagnostics.wrap {
@@ -2022,7 +2023,9 @@ extension Workspace {
             try? state.reset()
         }
 
-        for dependency in state.dependencies {
+        // Make a copy of dependencies as we might mutate them in the for loop.
+        let allDependencies = Array(state.dependencies)
+        for dependency in allDependencies {
             diagnostics.wrap {
 
                 // If the dependency is present, we're done.
