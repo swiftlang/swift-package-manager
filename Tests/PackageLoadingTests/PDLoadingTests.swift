@@ -148,13 +148,13 @@ class PackageDescriptionLoadingTests: XCTestCase {
         }
     }
 
-    private func loadManifest(
+    func loadManifest(
         _ contents: ByteString,
         toolsVersion: ToolsVersion?,
         packageKind: PackageReference.Kind,
         diagnostics: DiagnosticsEngine?,
-        file: StaticString,
-        line: UInt
+        file: StaticString = #file,
+        line: UInt = #line
     ) throws -> Manifest {
         let toolsVersion = toolsVersion ?? self.toolsVersion
         let fileSystem = InMemoryFileSystem()
