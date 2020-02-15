@@ -563,11 +563,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             cmd += [manifestPath.pathString]
 
-            try withTemporaryFile { file in
+            try withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
                 // Set path to compiled manifest executable.
-                cmd += ["-o", file.path.pathString]
-
-                try Process.popen(arguments: cmd)
+                let file = tmpDir.appending(components: "\(packageIdentity)-manifest")
+                cmd += ["-o", file.pathString]
 
                 // Compile the manifest.
                 let compilerResult = try Process.popen(arguments: cmd)
@@ -580,7 +579,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 }
 
                 // Pass the fd in arguments.
-                cmd = [file.path.pathString, "-fileno", "1"]
+                cmd = [file.pathString, "-fileno", "1"]
 
               #if os(macOS)
                 // If enabled, use sandbox-exec on macOS. This provides some safety against
