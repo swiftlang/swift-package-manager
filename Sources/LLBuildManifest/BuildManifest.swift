@@ -36,12 +36,13 @@ public struct BuildManifest {
         return result
     }
 
-    func createTarget(_ name: TargetName) -> Target {
-        Target(name: name, nodes: [])
+    public mutating func createTarget(_ name: TargetName) {
+        guard !targets.keys.contains(name) else { return }
+        targets[name] = Target(name: name, nodes: [])
     }
 
     public mutating func addNode(_ node: Node, toTarget target: TargetName) {
-        targets[target, default: createTarget(target)].nodes.append(node)
+        targets[target, default: Target(name: target, nodes: [])].nodes.append(node)
     }
 
     public mutating func addPhonyCmd(

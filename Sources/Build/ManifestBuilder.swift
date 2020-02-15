@@ -45,6 +45,8 @@ public class LLBuildManifestBuilder {
 
     /// Generate manifest at the given path.
     public func generateManifest(at path: AbsolutePath) throws {
+        manifest.createTarget(TargetKind.main.targetName)
+        manifest.createTarget(TargetKind.test.targetName)
         manifest.defaultTarget = TargetKind.main.targetName
 
         addPackageStructureCommand()
