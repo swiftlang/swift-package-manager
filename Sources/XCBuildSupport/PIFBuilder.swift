@@ -78,8 +78,11 @@ public struct PIFBuilder {
         if prettyPrint {
             encoder.outputFormatting = .prettyPrinted
           #if os(macOS)
-            if #available(OSX 10.13, *) {
+            if #available(macOS 10.13, *) {
                 encoder.outputFormatting.insert(.sortedKeys)
+            }
+            if #available(macOS 10.15, *) {
+                encoder.outputFormatting.insert(.withoutEscapingSlashes)
             }
           #endif
         }
