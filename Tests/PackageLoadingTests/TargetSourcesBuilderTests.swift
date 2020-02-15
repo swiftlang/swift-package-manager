@@ -60,11 +60,48 @@ class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertEqual(contents, [
             "/Bar.swift",
             "/Foo.swift",
-            "/Hello.something",
+            "/Hello.something/hello.txt",
             "/file",
             "/path/to/somefile.txt",
             "/some/path.swift",
             "/some/path/toBeCopied",
+        ])
+
+        XCTAssertNoDiagnostics(diags)
+    }
+
+    func testDirectoryWithExt() throws {
+        let target = TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: ["some2"],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: .root, files: [
+            "/.some2/hello.swift",
+            "/Hello.something/hello.txt",
+        ])
+
+        let diags = DiagnosticsEngine()
+
+        let builder = TargetSourcesBuilder(
+            packageName: "",
+            packagePath: .root,
+            target: target,
+            path: .root,
+            toolsVersion: .vNext,
+            fs: fs,
+            diags: diags
+        )
+
+        let contents = builder.computeContents().map{ $0.pathString }.sorted()
+
+        XCTAssertEqual(contents, [
+            "/Hello.something",
         ])
 
         XCTAssertNoDiagnostics(diags)
