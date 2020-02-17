@@ -1761,17 +1761,3 @@ extension BuildParameters {
         .map(buildPath.appending(component:))
     }
 }
-
-extension FileSystem {
-    /// Write bytes to the path if the given contents are different.
-    func writeIfChanged(path: AbsolutePath, bytes: ByteString) throws {
-        try createDirectory(path.parentDirectory, recursive: true)
-
-        // Return if the contents are same.
-        if isFile(path), try readFileContents(path) == bytes {
-            return
-        }
-
-        try writeFileContents(path, bytes: bytes)
-    }
-}

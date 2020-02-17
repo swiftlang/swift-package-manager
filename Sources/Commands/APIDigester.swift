@@ -111,7 +111,7 @@ struct APIDigesterBaselineDumper {
             buildParameters: buildParameters,
             useBuildManifestCaching: false,
             packageGraphLoader: { graph },
-            diags: diags,
+            diagnostics: diags,
             stdoutStream: stdoutStream
         )
 

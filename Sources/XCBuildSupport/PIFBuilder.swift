@@ -39,6 +39,12 @@ public struct PIFBuilderParameters {
 /// PIF object builder for a package graph.
 public struct PIFBuilder {
 
+    /// Name of the PIF target aggregating all targets (excluding tests).
+    public static let allExcludingTestsTargetName = "AllExcludingTests"
+
+    /// Name of the PIF target aggregating all targets (including tests).
+    public static let allIncludingTestsTargetName = "AllIncludingTests"
+
     /// The package graph to build from.
     public let graph: PackageGraph
 
@@ -93,15 +99,17 @@ public struct PIFBuilder {
     public func construct() -> PIF.TopLevelObject {
         let rootPackage = graph.rootPackages[0]
 
-        let sortedPackages = graph.packages.sorted(by: { $0.name < $1.name })
-        let projects = sortedPackages.map { package in
-            PIFProjectBuilder(
+        let sortedPackages = graph.packages.sorted { $0.name < $1.name }
+        var projects: [PIFProjectBuilder] = sortedPackages.map { package in
+            PackagePIFProjectBuilder(
                 package: package,
                 parameters: parameters,
                 diagnostics: diagnostics,
                 fileSystem: fileSystem
             )
         }
+
+        projects.append(AggregatePIFProjectBuilder(projects: projects))
 
         let workspace = PIF.Workspace(
             guid: "Workspace:\(rootPackage.path.pathString)",
@@ -114,15 +122,93 @@ public struct PIFBuilder {
     }
 }
 
-final class PIFProjectBuilder {
+class PIFProjectBuilder {
+    let groupTree: PIFGroupBuilder
+    private(set) var targets: [PIFBaseTargetBuilder]
+    private(set) var buildConfigurations: [PIFBuildConfigurationBuilder]
+
+    @DelayedImmutable
+    var guid: PIF.GUID
+    @DelayedImmutable
+    var name: String
+    @DelayedImmutable
+    var path: AbsolutePath
+    @DelayedImmutable
+    var projectDirectory: AbsolutePath
+    @DelayedImmutable
+    var developmentRegion: String
+
+    fileprivate init() {
+        groupTree = PIFGroupBuilder(path: "")
+        targets = []
+        buildConfigurations = []
+    }
+
+    /// Creates and adds a new empty build configuration, i.e. one that does not initially have any build settings.
+    /// The name must not be empty and must not be equal to the name of any existing build configuration in the target.
+    @discardableResult
+    func addBuildConfiguration(
+        name: String,
+        settings: PIF.BuildSettings = PIF.BuildSettings()
+    ) -> PIFBuildConfigurationBuilder {
+        let builder = PIFBuildConfigurationBuilder(name: name, settings: settings)
+        buildConfigurations.append(builder)
+        return builder
+    }
+
+    /// Creates and adds a new empty target, i.e. one that does not initially have any build phases. If provided,
+    /// the ID must be non-empty and unique within the PIF workspace; if not provided, an arbitrary guaranteed-to-be-
+    /// unique identifier will be assigned. The name must not be empty and must not be equal to the name of any existing
+    /// target in the project.
+    @discardableResult
+    func addTarget(
+        guid: PIF.GUID,
+        name: String,
+        productType: PIF.Target.ProductType,
+        productName: String
+    ) -> PIFTargetBuilder {
+        let target = PIFTargetBuilder(guid: guid, name: name, productType: productType, productName: productName)
+        targets.append(target)
+        return target
+    }
+
+    @discardableResult
+    func addAggregateTarget(guid: PIF.GUID, name: String) -> PIFAggregateTargetBuilder {
+        let target = PIFAggregateTargetBuilder(guid: guid, name: name)
+        targets.append(target)
+        return target
+    }
+
+    func construct() -> PIF.Project {
+        let buildConfigurations = self.buildConfigurations.map { builder -> PIF.BuildConfiguration in
+            builder.guid = "\(guid)::BUILDCONFIG_\(builder.name)"
+            return builder.construct()
+        }
+
+        // Construct group tree before targets to make sure file references have GUIDs.
+        groupTree.guid = "\(guid)::MAINGROUP"
+        let groupTree = self.groupTree.construct() as! PIF.Group
+        let targets = self.targets.map { $0.construct() }
+
+        return PIF.Project(
+            guid: guid,
+            name: name,
+            path: path,
+            projectDirectory: projectDirectory,
+            developmentRegion: developmentRegion,
+            buildConfigurations: buildConfigurations,
+            targets: targets,
+            groupTree: groupTree
+        )
+    }
+}
+
+final class PackagePIFProjectBuilder: PIFProjectBuilder {
     private let package: ResolvedPackage
     private let parameters: PIFBuilderParameters
     private let diagnostics: DiagnosticsEngine
     private let fileSystem: FileSystem
-    private let groupTree: PIFGroupBuilder
-    private let binaryGroup: PIFGroupBuilder
-    private(set) var targets: [PIFBaseTargetBuilder]
-    private(set) var buildConfigurations: [PIFBuildConfigurationBuilder]
+    private var binaryGroup: PIFGroupBuilder!
     private let executableTargetProductMap: [ResolvedTarget: ResolvedProduct]
 
     var isRootPackage: Bool { package.manifest.packageKind == .root }
@@ -137,19 +223,20 @@ final class PIFProjectBuilder {
         self.parameters = parameters
         self.diagnostics = diagnostics
         self.fileSystem = fileSystem
-        groupTree = PIFGroupBuilder(path: "")
-        binaryGroup = groupTree.addGroup(path: "/", sourceTree: .absolute, name: "Binaries")
-        targets = []
-        buildConfigurations = []
 
         executableTargetProductMap = Dictionary(uniqueKeysWithValues:
-            package.products
-                .filter { $0.type == .executable }
-                .map { ($0.mainTarget, $0) }
+            package.products.filter { $0.type == .executable }.map { ($0.mainTarget, $0) }
         )
-    }
 
-    func construct() -> PIF.Project {
+        super.init()
+
+        guid = package.pifProjectGUID
+        name = package.name
+        path = package.path
+        projectDirectory = package.path
+        developmentRegion = "en"
+        binaryGroup = groupTree.addGroup(path: "/", sourceTree: .absolute, name: "Binaries")
+
         // Configure the project-wide build settings.  First we set those that are in common between the "Debug" and
         // "Release" configurations, and then we set those that are different.
         var settings = PIF.BuildSettings()
@@ -215,27 +302,6 @@ final class PIFProjectBuilder {
         if binaryGroup.children.isEmpty {
             groupTree.removeChild(binaryGroup)
         }
-
-        let buildConfigurations = self.buildConfigurations.map { builder -> PIF.BuildConfiguration in
-            builder.guid = "\(package.pifProjectGUID)::BUILDCONFIG_\(builder.name)"
-            return builder.construct()
-        }
-
-        // Construct group tree before targets to make sure file references have GUIDs.
-        groupTree.guid = "\(package.pifProjectGUID)::MAINGROUP"
-        let groupTree = self.groupTree.construct() as! PIF.Group
-        let targets = self.targets.map { $0.construct() }
-
-        return PIF.Project(
-            guid: package.pifProjectGUID,
-            name: package.name,
-            path: package.path,
-            projectDirectory: package.path,
-            developmentRegion: "en",
-            buildConfigurations: buildConfigurations,
-            targets: targets,
-            groupTree: groupTree
-        )
     }
 
     private func addTarget(for product: ResolvedProduct) {
@@ -693,40 +759,46 @@ final class PIFProjectBuilder {
             }
         }
     }
+}
 
-    /// Creates and adds a new empty build configuration, i.e. one that does not initially have any build settings.
-    /// The name must not be empty and must not be equal to the name of any existing build configuration in the target.
-    @discardableResult
-    private func addBuildConfiguration(
-        name: String,
-        settings: PIF.BuildSettings = PIF.BuildSettings()
-    ) -> PIFBuildConfigurationBuilder {
-        let builder = PIFBuildConfigurationBuilder(name: name, settings: settings)
-        buildConfigurations.append(builder)
-        return builder
-    }
+final class AggregatePIFProjectBuilder: PIFProjectBuilder {
+    init(projects: [PIFProjectBuilder]) {
+        super.init()
 
-    /// Creates and adds a new empty target, i.e. one that does not initially have any build phases. If provided,
-    /// the ID must be non-empty and unique within the PIF workspace; if not provided, an arbitrary guaranteed-to-be-
-    /// unique identifier will be assigned. The name must not be empty and must not be equal to the name of any existing
-    /// target in the project.
-    @discardableResult
-    private func addTarget(
-        guid: PIF.GUID,
-        name: String,
-        productType: PIF.Target.ProductType,
-        productName: String
-    ) -> PIFTargetBuilder {
-        let target = PIFTargetBuilder(guid: guid, name: name, productType: productType, productName: productName)
-        targets.append(target)
-        return target
-    }
+        guid = "AGGREGATE"
+        name = "Aggregate"
+        path = projects[0].path
+        projectDirectory = projects[0].projectDirectory
+        developmentRegion = "en"
 
-    @discardableResult
-    private func addAggregateTarget(guid: PIF.GUID, name: String) -> PIFAggregateTargetBuilder {
-        let target = PIFAggregateTargetBuilder(guid: guid, name: name)
-        targets.append(target)
-        return target
+        addBuildConfiguration(name: "Debug", settings: PIF.BuildSettings())
+        addBuildConfiguration(name: "Release", settings: PIF.BuildSettings())
+
+        let allExcludingTestsTarget = addAggregateTarget(
+            guid: "ALL-EXCLUDING-TESTS",
+            name: PIFBuilder.allExcludingTestsTargetName
+        )
+
+        allExcludingTestsTarget.addBuildConfiguration(name: "Debug")
+        allExcludingTestsTarget.addBuildConfiguration(name: "Release")
+
+        let allIncludingTestsTarget = addAggregateTarget(
+            guid: "ALL-INCLUDING-TESTS",
+            name: PIFBuilder.allIncludingTestsTargetName
+        )
+
+        allIncludingTestsTarget.addBuildConfiguration(name: "Debug")
+        allIncludingTestsTarget.addBuildConfiguration(name: "Release")
+
+        for case let project as PackagePIFProjectBuilder in projects where project.isRootPackage {
+            for case let target as PIFTargetBuilder in project.targets {
+                if target.productType != .unitTest {
+                    allExcludingTestsTarget.addDependency(toTargetWithGUID: target.guid, linkProduct: false)
+                }
+
+                allIncludingTestsTarget.addDependency(toTargetWithGUID: target.guid, linkProduct: false)
+            }
+        }
     }
 }
 
@@ -857,46 +929,6 @@ class PIFBaseTargetBuilder {
         fatalError("implement in subclass")
     }
 
-    fileprivate func constructBuildConfigurations() -> [PIF.BuildConfiguration] {
-        buildConfigurations.map { builder -> PIF.BuildConfiguration in
-            builder.guid = "\(guid)::BUILDCONFIG_\(builder.name)"
-            return builder.construct()
-        }
-    }
-
-    fileprivate func constructBuildPhases() -> [PIF.BuildPhase] {
-        buildPhases.enumerated().map { kvp in
-            let (index, builder) = kvp
-            builder.guid = "\(guid)::BUILDPHASE_\(index)"
-            return builder.construct()
-        }
-    }
-}
-
-final class PIFAggregateTargetBuilder: PIFBaseTargetBuilder {
-    override func construct() -> PIF.BaseTarget {
-        return PIF.AggregateTarget(
-            guid: guid,
-            name: name,
-            buildConfigurations: constructBuildConfigurations(),
-            buildPhases: constructBuildPhases(),
-            dependencies: dependencies,
-            impartedBuildSettings: impartedBuildSettings
-        )
-    }
-}
-
-final class PIFTargetBuilder: PIFBaseTargetBuilder {
-    let productType: PIF.Target.ProductType
-    let productName: String
-    var productReference: PIF.FileReference? = nil
-
-    public init(guid: PIF.GUID, name: String, productType: PIF.Target.ProductType, productName: String) {
-        self.productType = productType
-        self.productName = productName
-        super.init(guid: guid, name: name)
-    }
-
     /// Adds a "headers" build phase, i.e. one that copies headers into a directory of the product, after suitable
     /// processing.
     @discardableResult
@@ -969,6 +1001,46 @@ final class PIFTargetBuilder: PIFBaseTargetBuilder {
     public func addResourceFile(_ fileReference: PIFFileReferenceBuilder) -> PIFBuildFileBuilder {
         let resourcesPhase = buildPhases.first { $0 is PIFResourcesBuildPhaseBuilder } ?? addResourcesBuildPhase()
         return resourcesPhase.addBuildFile(to: fileReference)
+    }
+
+    fileprivate func constructBuildConfigurations() -> [PIF.BuildConfiguration] {
+        buildConfigurations.map { builder -> PIF.BuildConfiguration in
+            builder.guid = "\(guid)::BUILDCONFIG_\(builder.name)"
+            return builder.construct()
+        }
+    }
+
+    fileprivate func constructBuildPhases() -> [PIF.BuildPhase] {
+        buildPhases.enumerated().map { kvp in
+            let (index, builder) = kvp
+            builder.guid = "\(guid)::BUILDPHASE_\(index)"
+            return builder.construct()
+        }
+    }
+}
+
+final class PIFAggregateTargetBuilder: PIFBaseTargetBuilder {
+    override func construct() -> PIF.BaseTarget {
+        return PIF.AggregateTarget(
+            guid: guid,
+            name: name,
+            buildConfigurations: constructBuildConfigurations(),
+            buildPhases: constructBuildPhases(),
+            dependencies: dependencies,
+            impartedBuildSettings: impartedBuildSettings
+        )
+    }
+}
+
+final class PIFTargetBuilder: PIFBaseTargetBuilder {
+    let productType: PIF.Target.ProductType
+    let productName: String
+    var productReference: PIF.FileReference? = nil
+
+    public init(guid: PIF.GUID, name: String, productType: PIF.Target.ProductType, productName: String) {
+        self.productType = productType
+        self.productName = productName
+        super.init(guid: guid, name: name)
     }
 
     override func construct() -> PIF.BaseTarget {

@@ -1,0 +1,6 @@
+Name: SystemLibrary
+URL: http://127.0.0.1/
+Description: The one and only SystemLibrary
+Version: 1.0.0
+Cflags: -I${pcfiledir}
+Libs: -L${pcfiledir} -lsys

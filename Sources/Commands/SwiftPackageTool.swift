@@ -377,10 +377,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .dumpPIF:
             let graph = try loadPackageGraph(createMultipleTestProducts: true)
-            let buildParameters = try self.buildParameters()
-            let parameters = PIFBuilderParameters(
-                buildEnvironment: buildParameters.buildEnvironment,
-                shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts)
+            let parameters = try PIFBuilderParameters(buildParameters())
             let builder = PIFBuilder(graph: graph, parameters: parameters, diagnostics: diagnostics)
             let pif = try builder.generatePIF()
             print(pif)

@@ -94,6 +94,9 @@ public struct BuildParameters: Encodable {
         BuildEnvironment(platform: currentPlatform, configuration: configuration)
     }
 
+    /// Whether the Xcode build system is used.
+    public var isXcodeBuildSystemEnabled: Bool
+
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
@@ -110,7 +113,8 @@ public struct BuildParameters: Encodable {
         indexStoreMode: IndexStoreMode = .auto,
         enableParseableModuleInterfaces: Bool = false,
         enableTestDiscovery: Bool = false,
-        emitSwiftModuleSeparately: Bool = false
+        emitSwiftModuleSeparately: Bool = false,
+        isXcodeBuildSystemEnabled: Bool = false
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
@@ -128,11 +132,16 @@ public struct BuildParameters: Encodable {
         self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
         self.enableTestDiscovery = enableTestDiscovery
         self.emitSwiftModuleSeparately = emitSwiftModuleSeparately
+        self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
     }
 
     /// The path to the build directory (inside the data directory).
     public var buildPath: AbsolutePath {
-        return dataPath.appending(component: configuration.dirname)
+        if isXcodeBuildSystemEnabled {
+            return dataPath.appending(components: "Products", configuration.dirname.capitalized)
+        } else {
+            return dataPath.appending(component: configuration.dirname)
+        }
     }
 
     /// The path to the index store directory.
@@ -153,6 +162,10 @@ public struct BuildParameters: Encodable {
 
     public var llbuildManifest: AbsolutePath {
         return dataPath.appending(components: "..", configuration.dirname + ".yaml")
+    }
+
+    public var pifManifest: AbsolutePath {
+        return buildPath.appending(components: "manifest.pif")
     }
 
     public var buildDescriptionPath: AbsolutePath {

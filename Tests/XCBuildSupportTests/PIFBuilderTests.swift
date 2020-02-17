@@ -78,7 +78,7 @@ class PIFBuilderTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
 
             let projectNames = pif.workspace.projects.map({ $0.name })
-            XCTAssertEqual(projectNames, ["A", "B"])
+            XCTAssertEqual(projectNames, ["A", "B", "Aggregate"])
             let projectATargetNames = pif.workspace.projects[0].targets.map({ $0.name })
             XCTAssertEqual(projectATargetNames, ["aexe", "alib", "A2", "A3"])
             let targetAExeDependencies = pif.workspace.projects[0].targets[0].dependencies
@@ -91,6 +91,7 @@ class PIFBuilderTests: XCTestCase {
     func testProject() {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/foo/main.swift",
+            "/Foo/Tests/FooTests/tests.swift",
             "/Bar/Sources/BarLib/lib.swift"
         )
 
@@ -107,9 +108,11 @@ class PIFBuilderTests: XCTestCase {
                     packageKind: .root,
                     swiftLanguageVersions: [.v4_2, .v5],
                     targets: [
-                        .init(name: "foo", dependencies: []),
+                        .init(name: "foo"),
+                        .init(name: "FooTests", type: .test),
                     ]),
-            ]
+            ],
+            shouldCreateMultipleTestProducts: true
         )
 
         let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
@@ -125,6 +128,7 @@ class PIFBuilderTests: XCTestCase {
                 XCTAssertEqual(project.developmentRegion, "en")
 
                 project.checkTarget("PACKAGE-PRODUCT:foo")
+                project.checkTarget("PACKAGE-PRODUCT:FooTests")
 
                 project.checkBuildConfiguration("Debug") { configuration in
                     XCTAssertEqual(configuration.guid, "PACKAGE:/Foo::BUILDCONFIG_Debug")
@@ -197,6 +201,18 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.FRAMEWORK_SEARCH_PATHS, for: platform], frameworksSearchPaths)
                         }
                     }
+                }
+            }
+
+            workspace.checkProject("AGGREGATE") { project in
+                project.checkAggregateTarget("ALL-EXCLUDING-TESTS") { target in
+                    XCTAssertEqual(target.name, PIFBuilder.allExcludingTestsTargetName)
+                    XCTAssertEqual(target.dependencies, ["PACKAGE-PRODUCT:foo"])
+                }
+
+                project.checkAggregateTarget("ALL-INCLUDING-TESTS") { target in
+                    XCTAssertEqual(target.name, PIFBuilder.allIncludingTestsTargetName)
+                    XCTAssertEqual(target.dependencies, ["PACKAGE-PRODUCT:foo", "PACKAGE-PRODUCT:FooTests"])
                 }
             }
         }

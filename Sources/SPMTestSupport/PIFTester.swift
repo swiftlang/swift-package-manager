@@ -57,8 +57,8 @@ public final class PIFProjectTester {
     }
 
     public func checkTarget(_ guid: PIF.GUID, file: StaticString = #file, line: UInt = #line, body: ((PIFTargetTester) -> Void)? = nil) {
-        guard let baseTarget = targetMap[guid] else {
-            let guids = targetMap.keys.joined(separator: ", ")
+        guard let baseTarget = baseTarget(withGUID: guid) else {
+            let guids = project.targets.map { $0.guid }.joined(separator: ", ")
             return XCTFail("target \(guid) not found among \(guids)", file: file, line: line)
         }
 
@@ -70,14 +70,14 @@ public final class PIFProjectTester {
     }
 
     public func checkNoTarget(_ guid: PIF.GUID, file: StaticString = #file, line: UInt = #line, body: ((PIFTargetTester) -> Void)? = nil) {
-        if targetMap.keys.contains(guid) {
+        if baseTarget(withGUID: guid) != nil {
             XCTFail("target \(guid) found", file: file, line: line)
         }
     }
 
     public func checkAggregateTarget(_ guid: PIF.GUID, file: StaticString = #file, line: UInt = #line, body: ((PIFAggregateTargetTester) -> Void)? = nil) {
-        guard let baseTarget = targetMap[guid] else {
-            let guids = targetMap.keys.joined(separator: ", ")
+        guard let baseTarget = baseTarget(withGUID: guid) else {
+            let guids = project.targets.map { $0.guid }.joined(separator: ", ")
             return XCTFail("target \(guid) not found among \(guids)", file: file, line: line)
         }
 
@@ -99,6 +99,10 @@ public final class PIFProjectTester {
 
     public func buildConfiguration(withName name: String) -> PIF.BuildConfiguration? {
         return project.buildConfigurations.first { $0.name == name }
+    }
+
+    public func baseTarget(withGUID guid: PIF.GUID) -> PIF.BaseTarget? {
+        return project.targets.first { $0.guid == guid }
     }
 }
 

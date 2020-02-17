@@ -86,5 +86,28 @@ public class ToolOptions {
     /// Emit the Swift module separately from the object files.
     public var emitSwiftModuleSeparately: Bool = false
 
+    /// The build system to use.
+    public var buildSystem: BuildSystemKind = .native
+
     public required init() {}
+}
+
+public enum BuildSystemKind: String, ArgumentKind {
+    case native
+    case xcode
+
+    public init(argument: String) throws {
+        if let kind = BuildSystemKind(rawValue: argument) {
+            self = kind
+        } else {
+            throw ArgumentConversionError.typeMismatch(value: argument, expectedType: BuildSystemKind.self)
+        }
+    }
+
+    public static var completion: ShellCompletion {
+        return .values([
+            (value: "native", description: "Native build system"),
+            (value: "xcode", description: "Xcode build system"),
+        ])
+    }
 }

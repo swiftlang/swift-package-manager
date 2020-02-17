@@ -103,12 +103,12 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
                 buildParameters: buildParameters,
                 useBuildManifestCaching: false,
                 packageGraphLoader: graphLoader,
-                diags: diagnostics,
+                diagnostics: diagnostics,
                 stdoutStream: self.stdoutStream
             )
 
             // Save the instance so it can be cancelled from the int handler.
-            self.buildSystemRef.buildOp = buildOp
+            self.buildSystemRef.buildSystem = buildOp
 
             // Perform build.
             try buildOp.build()

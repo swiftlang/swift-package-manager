@@ -8,6 +8,7 @@
 
 add_library(Commands
   APIDigester.swift
+  BuildSystem.swift
   Completions+bash.swift
   Completions+zsh.swift
   Describe.swift
@@ -24,13 +25,14 @@ add_library(Commands
   SymbolGraphExtract.swift
   WatchmanHelper.swift)
 target_link_libraries(Commands PUBLIC
-  TSCBasic
   Build
   PackageGraph
   SourceControl
+  TSCBasic
   TSCUtility
-  Xcodeproj
-  Workspace)
+  Workspace
+  XCBuildSupport
+  Xcodeproj)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Commands PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
