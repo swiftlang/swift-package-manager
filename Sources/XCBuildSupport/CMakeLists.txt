@@ -9,6 +9,8 @@
 add_library(XCBuildSupport
   PIF.swift
   PIFBuilder.swift
+  XCBuildDelegate.swift
+  XCBuildOutputParser.swift
 )
 target_link_libraries(XCBuildSupport PUBLIC
   Build

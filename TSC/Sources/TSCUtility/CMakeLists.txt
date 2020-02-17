@@ -13,12 +13,15 @@ add_library(TSCUtility
   BuildFlags.swift
   CollectionExtensions.swift
   Diagnostics.swift
+  dlopen.swift
   Downloader.swift
-  FSWatch.swift
   FloatingPointExtensions.swift
+  FSWatch.swift
   Git.swift
   IndexStore.swift
   InterruptHandler.swift
+  JSONMessageStreamingParser.swift
+  misc.swift
   OSLog.swift
   PkgConfig.swift
   Platform.swift
@@ -30,8 +33,7 @@ add_library(TSCUtility
   Verbosity.swift
   Version.swift
   Versioning.swift
-  dlopen.swift
-  misc.swift)
+)
 target_link_libraries(TSCUtility PUBLIC
   TSCBasic)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
