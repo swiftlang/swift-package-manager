@@ -198,11 +198,8 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
         // Load the tools version.
         let toolsVersion = try toolsVersionLoader.load(at: AbsolutePath(identifier.path), fileSystem: fs)
 
-        // Ensure current tools supports this package.
-        guard self.currentToolsVersion >= toolsVersion else {
-            // FIXME: Throw from here
-            fatalError()
-        }
+        // Validate the tools version.
+        try toolsVersion.validateToolsVersion(self.currentToolsVersion, packagePath: identifier.path)
 
         // Load the manifest.
         _manifest = try manifestLoader.load(
