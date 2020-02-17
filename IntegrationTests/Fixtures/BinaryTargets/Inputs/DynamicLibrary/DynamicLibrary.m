@@ -8,4 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-const char* GetSystemLibName();
+#import "DynamicLibrary.h"
+
+@implementation DynamicLibrary
+@end

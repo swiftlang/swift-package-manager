@@ -616,23 +616,4 @@ final class PackageToolTests: XCTestCase {
             }
         }
     }
-
-    // FIXME: Re-enable once we have a better fixture
-    func _testComputeChecksum() {
-        fixture(name: "BinaryTargets") { prefix in
-            let invalid = prefix.appending(component: "MyFwk.xcframework")
-            do {
-                try execute(["compute-checksum", invalid.pathString], packagePath: prefix)
-                XCTFail("expected to fail")
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: unexpected file type; supported extensions are: zip"))
-            } catch {
-                XCTFail("unexpected error: \(error)")
-            }
-
-            let readme = prefix.appending(component: "MyFwk.zip")
-            let (stdout, _) = try execute(["compute-checksum", readme.pathString], packagePath: prefix)
-            XCTAssertEqual(stdout.spm_chomp(), "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158")
-        }
-    }
 }
