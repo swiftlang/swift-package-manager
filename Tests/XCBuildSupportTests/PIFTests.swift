@@ -88,7 +88,8 @@ class PIFTests: XCTestCase {
                                         buildFiles: [
                                             PIF.BuildFile(
                                                 guid: "target-exe-sources-build-file-guid",
-                                                fileGUID: "exe-file-guid"
+                                                fileGUID: "exe-file-guid",
+                                                platformFilters: []
                                             )
                                         ]
                                     ),
@@ -97,13 +98,14 @@ class PIFTests: XCTestCase {
                                         buildFiles: [
                                             PIF.BuildFile(
                                                 guid: "target-exe-frameworks-build-file-guid",
-                                                targetGUID: "target-lib-guid"
+                                                targetGUID: "target-lib-guid",
+                                                platformFilters: []
                                             )
                                         ]
                                     )
                                 ],
                                 dependencies: [
-                                    "target-lib-guid"
+                                    .init(targetGUID: "target-lib-guid")
                                 ],
                                 impartedBuildSettings: PIF.BuildSettings()
                             ),
@@ -138,7 +140,8 @@ class PIFTests: XCTestCase {
                                         buildFiles: [
                                             PIF.BuildFile(
                                                 guid: "target-lib-sources-build-file-guid",
-                                                fileGUID: "lib-file-guid"
+                                                fileGUID: "lib-file-guid",
+                                                platformFilters: []
                                             )
                                         ]
                                     )
@@ -167,8 +170,8 @@ class PIFTests: XCTestCase {
                                 ],
                                 buildPhases: [],
                                 dependencies: [
-                                    "target-lib-guid",
-                                    "target-exe-guid",
+                                    .init(targetGUID: "target-lib-guid"),
+                                    .init(targetGUID: "target-exe-guid"),
                                 ],
                                 impartedBuildSettings: {
                                     var settings = PIF.BuildSettings()
