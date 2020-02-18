@@ -263,9 +263,15 @@ final class XCBuildTests: XCTestCase {
     func testSystemTargets() throws {
         fixture(name: "XCBuild/SystemTargets") { path in
             let fooPath = path.appending(component: "Foo")
-            let env = ["PKG_CONFIG_PATH": path.appending(component: "Inputs").pathString]
             let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let inputsPath = path.appending(component: "Inputs")
 
+            // Because there isn't any one system target that we can depend on for testing purposes, we build our own.
+            let sourcePath = inputsPath.appending(component: "libsys.c")
+            let libraryPath = inputsPath.appending(component: "libsys.a")
+            try sh(clang, "-c", sourcePath, "-o", libraryPath)
+
+            let env = ["PKG_CONFIG_PATH": inputsPath.pathString]
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "foo", env: env)
             let debugPath = binaryPath.appending(component: "Debug")
             XCTAssertFileExists(debugPath.appending(component: "foo"))
@@ -278,7 +284,7 @@ final class XCBuildTests: XCTestCase {
 
     //FIXME: This test randomly succeeds or fails, depending on the order the subtasks are executed in.
     func _testBinaryTargets() throws {
-        fixture(name: "XCBuild/BinaryTargets") { path in
+        try binaryTargetsFixture { path in
             try sh(swiftBuild, "--package-path", path, "-c", "debug", "--build-system", "xcode", "--target", "exe")
         }
     }

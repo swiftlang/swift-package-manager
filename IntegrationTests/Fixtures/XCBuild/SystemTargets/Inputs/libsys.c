@@ -8,4 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-const char* GetSystemLibName();
+const char* GetSystemLibName() {
+	return "SystemLibrary";
+}

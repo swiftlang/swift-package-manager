@@ -34,12 +34,30 @@ let toolchainPath: AbsolutePath = {
     }
 
   #if os(macOS)
-    let swiftcPath = try! AbsolutePath(sh("xcrun", "--find", "swift").stdout)
+    let swiftcPath = try! AbsolutePath(sh("xcrun", "--find", "swift").stdout.spm_chomp())
     let toolchainPath = swiftcPath.parentDirectory.parentDirectory.parentDirectory
     return toolchainPath
   #else
     fatalError("TOOLCHAIN_PATH environment variable required")
   #endif
+}()
+
+let clang: AbsolutePath = {
+    if let environmentPath = ProcessInfo.processInfo.environment["CLANG_PATH"] {
+        return AbsolutePath(environmentPath)
+    }
+
+    let clangPath = toolchainPath.appending(components: "usr", "bin", "clang")
+    return clangPath
+}()
+
+let xcodebuild: AbsolutePath = {
+    #if os(macOS)
+      let xcodebuildPath = try! AbsolutePath(sh("xcrun", "--find", "xcodebuild").stdout.spm_chomp())
+      return xcodebuildPath
+    #else
+      fatalError("should not be used on other platforms than macOS")
+    #endif
 }()
 
 let swift: AbsolutePath = {
@@ -72,7 +90,7 @@ let lldb: AbsolutePath = {
     }
 
     #if os(macOS)
-    let lldbPath = try! AbsolutePath(sh("xcrun", "--find", "lldb").stdout)
+    let lldbPath = try! AbsolutePath(sh("xcrun", "--find", "lldb").stdout.spm_chomp())
     return lldbPath
   #else
     fatalError("LLDB_PATH environment variable required")
@@ -110,6 +128,34 @@ func sh(
     file: StaticString = #file,
     line: UInt = #line
 ) throws -> (stdout: String, stderr: String) {
+    let result = try _sh(arguments, env: env, file: file, line: line)
+    let stdout = try result.utf8Output()
+    let stderr = try result.utf8stderrOutput()
+    XCTAssertEqual(result.exitStatus, .terminated(code: 0), stderr, file: file, line: line)
+    return (stdout, stderr)
+}
+
+@discardableResult
+func shFails(
+    _ arguments: CustomStringConvertible...,
+    env: [String: String] = [:],
+    file: StaticString = #file,
+    line: UInt = #line
+) throws -> (stdout: String, stderr: String) {
+    let result = try _sh(arguments, env: env, file: file, line: line)
+    let stdout = try result.utf8Output()
+    let stderr = try result.utf8stderrOutput()
+    XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), stderr, file: file, line: line)
+    return (stdout, stderr)
+}
+
+@discardableResult
+func _sh(
+    _ arguments: [CustomStringConvertible],
+    env: [String: String] = [:],
+    file: StaticString = #file,
+    line: UInt = #line
+) throws -> ProcessResult {
     var environment = ProcessInfo.processInfo.environment
 
     if let sdkRoot = sdkRoot {
@@ -119,10 +165,7 @@ func sh(
     environment.merge(env, uniquingKeysWith: { $1 })
 
     let result = try Process.popen(arguments: arguments.map { $0.description }, environment: environment)
-    let stdout = try result.utf8Output()
-    let stderr = try result.utf8stderrOutput()
-    XCTAssertEqual(result.exitStatus, .terminated(code: 0), stderr, file: file, line: line)
-    return (stdout, stderr)
+    return result
 }
 
 /// Test-helper function that runs a block of code on a copy of a test fixture
@@ -226,5 +269,46 @@ func initGitRepo(
         }
     } catch {
         XCTFail("\(error)", file: file, line: line)
+    }
+}
+
+func binaryTargetsFixture(_ closure: (AbsolutePath) throws -> Void) throws {
+    fixture(name: "BinaryTargets") { prefix in
+        let inputsPath = prefix.appending(component: "Inputs")
+        let packagePath = prefix.appending(component: "TestBinary")
+
+        // Generating StaticLibrary.xcframework.
+        try withTemporaryDirectory { tmpDir in
+            let subpath = inputsPath.appending(component: "StaticLibrary")
+            let sourcePath = subpath.appending(component: "StaticLibrary.m")
+            let headersPath = subpath.appending(component: "include")
+            let libraryPath = tmpDir.appending(component: "libStaticLibrary.a")
+            try sh(clang, "-c", sourcePath, "-I", headersPath, "-fobjc-arc", "-fmodules", "-o", libraryPath)
+            let xcframeworkPath = packagePath.appending(component: "StaticLibrary.xcframework")
+            try sh(xcodebuild, "-create-xcframework", "-library", libraryPath, "-headers", headersPath, "-output", xcframeworkPath)
+        }
+
+        // Generating DynamicLibrary.xcframework.
+        try withTemporaryDirectory { tmpDir in
+            let subpath = inputsPath.appending(component: "DynamicLibrary")
+            let sourcePath = subpath.appending(component: "DynamicLibrary.m")
+            let headersPath = subpath.appending(component: "include")
+            let libraryPath = tmpDir.appending(component: "libDynamicLibrary.dylib")
+            try sh(clang, sourcePath, "-I", headersPath, "-fobjc-arc", "-fmodules", "-dynamiclib", "-o", libraryPath)
+            let xcframeworkPath = packagePath.appending(component: "DynamicLibrary.xcframework")
+            try sh(xcodebuild, "-create-xcframework", "-library", libraryPath, "-headers", headersPath, "-output", xcframeworkPath)
+        }
+
+        // Generating SwiftFramework.xcframework.
+        try withTemporaryDirectory { tmpDir in
+            let subpath = inputsPath.appending(component: "SwiftFramework")
+            let projectPath = subpath.appending(component: "SwiftFramework.xcodeproj")
+            try sh(xcodebuild, "-project", projectPath, "-scheme", "SwiftFramework", "-derivedDataPath", tmpDir, "COMPILER_INDEX_STORE_ENABLE=NO")
+            let frameworkPath = tmpDir.appending(RelativePath("Build/Products/Debug/SwiftFramework.framework"))
+            let xcframeworkPath = packagePath.appending(component: "SwiftFramework.xcframework")
+            try sh(xcodebuild, "-create-xcframework", "-framework", frameworkPath, "-output", xcframeworkPath)
+        }
+
+        try closure(packagePath)
     }
 }

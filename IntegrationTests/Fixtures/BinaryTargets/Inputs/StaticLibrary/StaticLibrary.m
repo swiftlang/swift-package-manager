@@ -8,4 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-const char* GetSystemLibName();
+#import "StaticLibrary.h"
+
+@implementation StaticLibrary
+@end
