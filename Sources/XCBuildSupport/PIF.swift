@@ -303,6 +303,29 @@ public enum PIF {
         }
     }
 
+    /// Represents a dependency on another target (identified by its PIF GUID).
+    public struct TargetDependency: Encodable {
+        /// Identifier of depended-upon target.
+        public var targetGUID: String
+
+        /// The platform filters for this target dependency.
+        public var platformFilters: [PlatformFilter]
+
+        public init(targetGUID: String, platformFilters: [PlatformFilter] = [])  {
+            self.targetGUID = targetGUID
+            self.platformFilters = platformFilters
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: StringKey.self)
+            try container.encode("\(targetGUID)@\(schemaVersion)", forKey: "guid")
+
+            if !platformFilters.isEmpty {
+                try container.encode(platformFilters, forKey: "platformFilters")
+            }
+        }
+    }
+
     public class BaseTarget: SignedObject {
         class override var type: String { "target" }
 
@@ -310,7 +333,7 @@ public enum PIF {
         public let name: String
         public let buildConfigurations: [BuildConfiguration]
         public let buildPhases: [BuildPhase]
-        public let dependencies: [PIF.GUID]
+        public let dependencies: [TargetDependency]
         public let impartedBuildProperties: ImpartedBuildProperties
 
         fileprivate init(
@@ -318,7 +341,7 @@ public enum PIF {
             name: String,
             buildConfigurations: [BuildConfiguration],
             buildPhases: [BuildPhase],
-            dependencies: [PIF.GUID],
+            dependencies: [TargetDependency],
             impartedBuildSettings: PIF.BuildSettings
         ) {
             self.guid = guid
@@ -336,7 +359,7 @@ public enum PIF {
             name: String,
             buildConfigurations: [BuildConfiguration],
             buildPhases: [BuildPhase],
-            dependencies: [PIF.GUID],
+            dependencies: [TargetDependency],
             impartedBuildSettings: PIF.BuildSettings
         ) {
             super.init(
@@ -358,7 +381,7 @@ public enum PIF {
             try contents.encode(name, forKey: "name")
             try contents.encode(buildConfigurations, forKey: "buildConfigurations")
             try contents.encode(buildPhases, forKey: "buildPhases")
-            try contents.encode(dependencies.map({ ["guid": "\($0)@\(schemaVersion)"] }), forKey: "dependencies")
+            try contents.encode(dependencies, forKey: "dependencies")
             try contents.encode(impartedBuildProperties, forKey: "impartedBuildProperties")
         }
     }
@@ -388,7 +411,7 @@ public enum PIF {
             productName: String,
             buildConfigurations: [BuildConfiguration],
             buildPhases: [BuildPhase],
-            dependencies: [PIF.GUID],
+            dependencies: [TargetDependency],
             impartedBuildSettings: PIF.BuildSettings
         ) {
             self.productType = productType
@@ -411,7 +434,7 @@ public enum PIF {
             var contents = container.nestedContainer(keyedBy: StringKey.self, forKey: "contents")
             try contents.encode("\(guid)@\(schemaVersion)", forKey: "guid")
             try contents.encode(name, forKey: "name")
-            try contents.encode(dependencies.map({ ["guid": "\($0)@\(schemaVersion)"] }), forKey: "dependencies")
+            try contents.encode(dependencies, forKey: "dependencies")
             try contents.encode(buildConfigurations, forKey: "buildConfigurations")
 
             if productType == .packageProduct {
@@ -511,30 +534,36 @@ public enum PIF {
         public let guid: GUID
         public let reference: Reference
         public let headerVisibility: HeaderVisibility? = nil
+        public let platformFilters: [PlatformFilter]
 
-        public init(guid: GUID, file: FileReference) {
+        public init(guid: GUID, file: FileReference, platformFilters: [PlatformFilter]) {
             self.guid = guid
             self.reference = .file(guid: file.guid)
+            self.platformFilters = platformFilters
         }
 
-        public init(guid: GUID, fileGUID: PIF.GUID) {
+        public init(guid: GUID, fileGUID: PIF.GUID, platformFilters: [PlatformFilter]) {
             self.guid = guid
             self.reference = .file(guid: fileGUID)
+            self.platformFilters = platformFilters
         }
 
-        public init(guid: GUID, target: PIF.BaseTarget) {
+        public init(guid: GUID, target: PIF.BaseTarget, platformFilters: [PlatformFilter]) {
             self.guid = guid
             self.reference = .target(guid: target.guid)
+            self.platformFilters = platformFilters
         }
 
-        public init(guid: GUID, targetGUID: PIF.GUID) {
+        public init(guid: GUID, targetGUID: PIF.GUID, platformFilters: [PlatformFilter]) {
             self.guid = guid
             self.reference = .target(guid: targetGUID)
+            self.platformFilters = platformFilters
         }
 
-        public init(guid: GUID, reference: Reference) {
+        public init(guid: GUID, reference: Reference, platformFilters: [PlatformFilter]) {
             self.guid = guid
             self.reference = reference
+            self.platformFilters = platformFilters
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -547,6 +576,24 @@ public enum PIF {
             case .target(let targetGUID):
                 try container.encode("\(targetGUID)@\(schemaVersion)", forKey: "targetReference")
             }
+        }
+    }
+
+    /// Represents a generic platform filter.
+    public struct PlatformFilter: Encodable {
+        /// The name of the platform (`LC_BUILD_VERSION`).
+        ///
+        /// Example: macos, ios, watchos, tvos.
+        public var platform: String
+
+        /// The name of the environment (`LC_BUILD_VERSION`)
+        ///
+        /// Example: simulator, maccatalyst.
+        public var environment: String
+
+        public init(platform: String, environment: String = "") {
+            self.platform = platform
+            self.environment = environment
         }
     }
 

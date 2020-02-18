@@ -82,7 +82,7 @@ class PIFBuilderTests: XCTestCase {
             let projectATargetNames = pif.workspace.projects[0].targets.map({ $0.name })
             XCTAssertEqual(projectATargetNames, ["aexe", "alib", "A2", "A3"])
             let targetAExeDependencies = pif.workspace.projects[0].targets[0].dependencies
-            XCTAssertEqual(targetAExeDependencies, ["PACKAGE-PRODUCT:blib", "PACKAGE-TARGET:A2", "PACKAGE-TARGET:A3"])
+            XCTAssertEqual(targetAExeDependencies.map{ $0.targetGUID }, ["PACKAGE-PRODUCT:blib", "PACKAGE-TARGET:A2", "PACKAGE-TARGET:A3"])
             let projectBTargetNames = pif.workspace.projects[1].targets.map({ $0.name })
             XCTAssertEqual(projectBTargetNames, ["bexe", "blib", "B2"])
         }

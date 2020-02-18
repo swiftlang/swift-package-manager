@@ -652,18 +652,25 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     private func addDependency(to target: ResolvedTarget, in pifTarget: PIFTargetBuilder, linkProduct: Bool) {
         // Only add the binary target as a library when we want to link against the product.
         if let binaryTarget = target.underlyingTarget as? BinaryTarget {
-            pifTarget.addLibrary(binaryGroup.addFileReference(path: binaryTarget.artifactPath.pathString))
+            pifTarget.addLibrary(binaryGroup.addFileReference(path: binaryTarget.artifactPath.pathString), platformFilters: [])
         } else {
             // If this is an executable target, the dependency should be to the PIF target created from the its
             // product, as we don't have PIF targets corresponding to executable targets.
             let targetGUID = executableTargetProductMap[target]?.pifTargetGUID ?? target.pifTargetGUID
             let linkProduct = linkProduct && target.type != .systemModule && target.type != .executable
-            pifTarget.addDependency(toTargetWithGUID: targetGUID, linkProduct: linkProduct)
+            pifTarget.addDependency(
+                toTargetWithGUID: targetGUID,
+                platformFilters: [],
+                linkProduct: linkProduct)
         }
     }
 
     private func addDependency(to product: ResolvedProduct, in pifTarget: PIFTargetBuilder, linkProduct: Bool) {
-        pifTarget.addDependency(toTargetWithGUID: product.pifTargetGUID, linkProduct: linkProduct)
+        pifTarget.addDependency(
+            toTargetWithGUID: product.pifTargetGUID,
+            platformFilters: [],
+            linkProduct: linkProduct
+        )
     }
 
     private func addResourceBundle(for target: ResolvedTarget, in pifTarget: PIFTargetBuilder) -> String? {
@@ -679,7 +686,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             productName: bundleName
         )
 
-        pifTarget.addDependency(toTargetWithGUID: resourcesTarget.guid, linkProduct: false)
+        pifTarget.addDependency(
+            toTargetWithGUID: resourcesTarget.guid,
+            platformFilters: [],
+            linkProduct: false
+        )
 
         var settings = PIF.BuildSettings()
         settings[.TARGET_NAME] = bundleName
@@ -793,10 +804,10 @@ final class AggregatePIFProjectBuilder: PIFProjectBuilder {
         for case let project as PackagePIFProjectBuilder in projects where project.isRootPackage {
             for case let target as PIFTargetBuilder in project.targets {
                 if target.productType != .unitTest {
-                    allExcludingTestsTarget.addDependency(toTargetWithGUID: target.guid, linkProduct: false)
+                    allExcludingTestsTarget.addDependency(toTargetWithGUID: target.guid,  platformFilters: [], linkProduct: false)
                 }
 
-                allIncludingTestsTarget.addDependency(toTargetWithGUID: target.guid, linkProduct: false)
+                allIncludingTestsTarget.addDependency(toTargetWithGUID: target.guid, platformFilters: [], linkProduct: false)
             }
         }
     }
@@ -900,7 +911,7 @@ class PIFBaseTargetBuilder {
     public let name: String
     public fileprivate(set) var buildConfigurations: [PIFBuildConfigurationBuilder]
     public fileprivate(set) var buildPhases: [PIFBuildPhaseBuilder]
-    public fileprivate(set) var dependencies: [PIF.GUID]
+    public fileprivate(set) var dependencies: [PIF.TargetDependency]
     public fileprivate(set) var impartedBuildSettings: PIF.BuildSettings
 
     fileprivate init(guid: PIF.GUID, name: String) {
@@ -967,12 +978,12 @@ class PIFBaseTargetBuilder {
     /// A dependency of one target on another ensures that the other target is built first. If `linkProduct` is
     /// true, the receiver will also be configured to link against the product produced by the other target (this
     /// presumes that the product type is one that can be linked against).
-    func addDependency(toTargetWithGUID targetGUID: String, linkProduct: Bool) {
-        dependencies.append(targetGUID)
+    func addDependency(toTargetWithGUID targetGUID: String, platformFilters: [PIF.PlatformFilter], linkProduct: Bool) {
+        dependencies.append(.init(targetGUID: targetGUID, platformFilters: platformFilters))
         if linkProduct {
             let frameworksPhase = buildPhases.first { $0 is PIFFrameworksBuildPhaseBuilder }
                 ?? addFrameworksBuildPhase()
-            frameworksPhase.addBuildFile(toTargetWithGUID: targetGUID)
+            frameworksPhase.addBuildFile(toTargetWithGUID: targetGUID, platformFilters: platformFilters)
         }
     }
 
@@ -980,27 +991,27 @@ class PIFBaseTargetBuilder {
     @discardableResult
     public func addHeaderFile(_ fileReference: PIFFileReferenceBuilder) -> PIFBuildFileBuilder {
         let headerPhase = buildPhases.first { $0 is PIFHeadersBuildPhaseBuilder } ?? addHeadersBuildPhase()
-        return headerPhase.addBuildFile(to: fileReference)
+        return headerPhase.addBuildFile(to: fileReference, platformFilters: [])
     }
 
     /// Convenience function to add a file reference to the Sources build phase, after creating it if needed.
     @discardableResult
     public func addSourceFile(_ fileReference: PIFFileReferenceBuilder) -> PIFBuildFileBuilder {
         let sourcesPhase = buildPhases.first { $0 is PIFSourcesBuildPhaseBuilder } ?? addSourcesBuildPhase()
-        return sourcesPhase.addBuildFile(to: fileReference)
+        return sourcesPhase.addBuildFile(to: fileReference, platformFilters: [])
     }
 
     /// Convenience function to add a file reference to the Frameworks build phase, after creating it if needed.
     @discardableResult
-    public func addLibrary(_ fileReference: PIFFileReferenceBuilder) -> PIFBuildFileBuilder {
+    public func addLibrary(_ fileReference: PIFFileReferenceBuilder, platformFilters: [PIF.PlatformFilter]) -> PIFBuildFileBuilder {
         let frameworksPhase = buildPhases.first { $0 is PIFFrameworksBuildPhaseBuilder } ?? addFrameworksBuildPhase()
-        return frameworksPhase.addBuildFile(to: fileReference)
+        return frameworksPhase.addBuildFile(to: fileReference, platformFilters: platformFilters)
     }
 
     @discardableResult
     public func addResourceFile(_ fileReference: PIFFileReferenceBuilder) -> PIFBuildFileBuilder {
         let resourcesPhase = buildPhases.first { $0 is PIFResourcesBuildPhaseBuilder } ?? addResourcesBuildPhase()
-        return resourcesPhase.addBuildFile(to: fileReference)
+        return resourcesPhase.addBuildFile(to: fileReference, platformFilters: [])
     }
 
     fileprivate func constructBuildConfigurations() -> [PIF.BuildConfiguration] {
@@ -1071,8 +1082,8 @@ class PIFBuildPhaseBuilder {
     /// - Parameters:
     ///   - file: The builder for the file reference.
     @discardableResult
-    func addBuildFile(to file: PIFFileReferenceBuilder) -> PIFBuildFileBuilder {
-        let builder = PIFBuildFileBuilder(file: file)
+    func addBuildFile(to file: PIFFileReferenceBuilder, platformFilters: [PIF.PlatformFilter]) -> PIFBuildFileBuilder {
+        let builder = PIFBuildFileBuilder(file: file, platformFilters: platformFilters)
         buildFiles.append(builder)
         return builder
     }
@@ -1081,8 +1092,8 @@ class PIFBuildPhaseBuilder {
     /// - Parameters:
     ///   - targetGUID: The GIUD referencing the target.
     @discardableResult
-    func addBuildFile(toTargetWithGUID targetGUID: PIF.GUID) -> PIFBuildFileBuilder {
-        let builder = PIFBuildFileBuilder(targetGUID: targetGUID)
+    func addBuildFile(toTargetWithGUID targetGUID: PIF.GUID, platformFilters: [PIF.PlatformFilter]) -> PIFBuildFileBuilder {
+        let builder = PIFBuildFileBuilder(targetGUID: targetGUID, platformFilters: platformFilters)
         buildFiles.append(builder)
         return builder
     }
@@ -1144,16 +1155,20 @@ final class PIFBuildFileBuilder {
     @DelayedImmutable
     var guid: PIF.GUID
 
-    fileprivate init(file: PIFFileReferenceBuilder) {
+    let platformFilters: [PIF.PlatformFilter]
+
+    fileprivate init(file: PIFFileReferenceBuilder, platformFilters: [PIF.PlatformFilter]) {
         reference = .file(builder: file)
+        self.platformFilters = platformFilters
     }
 
-    fileprivate init(targetGUID: PIF.GUID) {
+    fileprivate init(targetGUID: PIF.GUID, platformFilters: [PIF.PlatformFilter]) {
         reference = .target(guid: targetGUID)
+                self.platformFilters = platformFilters
     }
 
     func construct() -> PIF.BuildFile {
-        return PIF.BuildFile(guid: guid, reference: reference.pifReference)
+        return PIF.BuildFile(guid: guid, reference: reference.pifReference, platformFilters: platformFilters)
     }
 }
 

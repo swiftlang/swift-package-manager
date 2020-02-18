@@ -118,7 +118,7 @@ public class PIFBaseTargetTester {
 
     fileprivate init(baseTarget: PIF.BaseTarget, targetMap: [PIF.GUID: PIF.BaseTarget], fileMap: [PIF.GUID: String]) {
         self.baseTarget = baseTarget
-        dependencies = Set(baseTarget.dependencies.map { targetMap[$0]!.guid })
+        dependencies = Set(baseTarget.dependencies.map { targetMap[$0.targetGUID]!.guid })
 
         let sourcesBuildFiles = baseTarget.buildPhases.first { $0 is PIF.SourcesBuildPhase }?.buildFiles ?? []
         sources = Set(sourcesBuildFiles.map { buildFile -> String in
