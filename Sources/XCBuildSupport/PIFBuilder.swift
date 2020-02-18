@@ -20,18 +20,13 @@ import PackageGraph
 /// The parameters required by `PIFBuilder`.
 public struct PIFBuilderParameters {
 
-    /// The build environment being built for.
-    public let buildEnvironment: BuildEnvironment
-
     /// Whether to create dylibs for dynamic library products.
     public let shouldCreateDylibForDynamicProducts: Bool
 
     /// Creates a `PIFBuilderParameters` instance.
     /// - Parameters:
-    ///   - platform: The build environment being built for.
     ///   - shouldCreateDylibForDynamicProducts: Whether to create dylibs for dynamic library products.
-    public init(buildEnvironment: BuildEnvironment, shouldCreateDylibForDynamicProducts: Bool) {
-        self.buildEnvironment = buildEnvironment
+    public init(shouldCreateDylibForDynamicProducts: Bool) {
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
     }
 }
@@ -343,7 +338,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         addSources(mainTarget.sources, to: pifTarget)
 
-        for dependency in mainTarget.recursivePackageDependencies(satisfying: parameters.buildEnvironment) {
+        let dependencies = try! topologicalSort(mainTarget.dependencies) { $0.packageDependencies }.sorted()
+        for dependency in dependencies {
             addDependency(to: dependency, in: pifTarget, linkProduct: true)
         }
 
@@ -437,15 +433,15 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         // Handle the dependencies of the targets in the product (and link against them, which in the case of a package
         // product, really just means that clients should link against them).
-        let dependencies = product.recursivePackageDependencies(satisfying: parameters.buildEnvironment)
+        let dependencies = product.recursivePackageDependencies()
         for dependency in dependencies {
             switch dependency {
-            case .target(let target, _):
+            case .target(let target, let conditions):
                 if target.type != .systemModule {
-                    addDependency(to: target, in: pifTarget, linkProduct: true)
+                    addDependency(to: target, in: pifTarget, conditions: conditions, linkProduct: true)
                 }
-            case .product(let product, _):
-                addDependency(to: product, in: pifTarget, linkProduct: true)
+            case .product(let product, let conditions):
+                addDependency(to: product, in: pifTarget, conditions: conditions, linkProduct: true)
             }
         }
 
@@ -570,7 +566,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         addSources(target.sources, to: pifTarget)
 
         // Handle the target's dependencies (but don't link against them).
-        for dependency in target.recursivePackageDependencies(satisfying: parameters.buildEnvironment) {
+        let dependencies = try! topologicalSort(target.dependencies) { $0.packageDependencies }.sorted()
+        for dependency in dependencies {
             addDependency(to: dependency, in: pifTarget, linkProduct: false)
         }
 
@@ -640,19 +637,39 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
     }
 
-    private func addDependency(to dependency: ResolvedTarget.Dependency, in pifTarget: PIFTargetBuilder, linkProduct: Bool) {
+    private func addDependency(
+        to dependency: ResolvedTarget.Dependency,
+        in pifTarget: PIFTargetBuilder,
+        linkProduct: Bool
+    ) {
         switch dependency {
-        case .target(let target, _):
-            addDependency(to: target, in: pifTarget, linkProduct: linkProduct)
-        case .product(let product, _):
-            addDependency(to: product, in: pifTarget, linkProduct: linkProduct)
+        case .target(let target, let conditions):
+            addDependency(
+                to: target,
+                in: pifTarget,
+                conditions: conditions,
+                linkProduct: linkProduct
+            )
+        case .product(let product, let conditions):
+            addDependency(
+                to: product,
+                in: pifTarget,
+                conditions: conditions,
+                linkProduct: linkProduct
+            )
         }
     }
 
-    private func addDependency(to target: ResolvedTarget, in pifTarget: PIFTargetBuilder, linkProduct: Bool) {
+    private func addDependency(
+        to target: ResolvedTarget,
+        in pifTarget: PIFTargetBuilder,
+        conditions: [PackageConditionProtocol],
+        linkProduct: Bool
+    ) {
         // Only add the binary target as a library when we want to link against the product.
         if let binaryTarget = target.underlyingTarget as? BinaryTarget {
-            pifTarget.addLibrary(binaryGroup.addFileReference(path: binaryTarget.artifactPath.pathString), platformFilters: [])
+            let ref = binaryGroup.addFileReference(path: binaryTarget.artifactPath.pathString)
+            pifTarget.addLibrary(ref, platformFilters: conditions.toPlatformFilters())
         } else {
             // If this is an executable target, the dependency should be to the PIF target created from the its
             // product, as we don't have PIF targets corresponding to executable targets.
@@ -660,15 +677,20 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             let linkProduct = linkProduct && target.type != .systemModule && target.type != .executable
             pifTarget.addDependency(
                 toTargetWithGUID: targetGUID,
-                platformFilters: [],
+                platformFilters: conditions.toPlatformFilters(),
                 linkProduct: linkProduct)
         }
     }
 
-    private func addDependency(to product: ResolvedProduct, in pifTarget: PIFTargetBuilder, linkProduct: Bool) {
+    private func addDependency(
+        to product: ResolvedProduct,
+        in pifTarget: PIFTargetBuilder,
+        conditions: [PackageConditionProtocol],
+        linkProduct: Bool
+    ) {
         pifTarget.addDependency(
             toTargetWithGUID: product.pifTargetGUID,
-            platformFilters: [],
+            platformFilters: conditions.toPlatformFilters(),
             linkProduct: linkProduct
         )
     }
@@ -1164,7 +1186,7 @@ final class PIFBuildFileBuilder {
 
     fileprivate init(targetGUID: PIF.GUID, platformFilters: [PIF.PlatformFilter]) {
         reference = .target(guid: targetGUID)
-                self.platformFilters = platformFilters
+        self.platformFilters = platformFilters
     }
 
     func construct() -> PIF.BuildFile {
@@ -1209,10 +1231,10 @@ extension ResolvedProduct {
     /// based on their conditions and in a stable order.
     /// - Parameters:
     ///     - environment: The build environment to use to filter dependencies on.
-    public func recursivePackageDependencies(satisfying environment: BuildEnvironment) -> [ResolvedTarget.Dependency] {
+    public func recursivePackageDependencies() -> [ResolvedTarget.Dependency] {
         let initialDependencies = targets.map { ResolvedTarget.Dependency.target($0, conditions: []) }
         return try! topologicalSort(initialDependencies) { dependency in
-            return dependency.packageDependencies.filter { $0.satisfies(environment) }
+            return dependency.packageDependencies
         }.sorted()
     }
 }
@@ -1220,16 +1242,6 @@ extension ResolvedProduct {
 extension ResolvedTarget {
     var pifTargetGUID: PIF.GUID { "PACKAGE-TARGET:\(name)" }
     var pifResourceTargetGUID: PIF.GUID { "PACKAGE-RESOURCE:\(name)" }
-
-    /// Returns the recursive dependencies, limited to the target's package, which satisfy the input build environment,
-    /// based on their conditions and in a stable order.
-    /// - Parameters:
-    ///     - environment: The build environment to use to filter dependencies on.
-    public func recursivePackageDependencies(satisfying environment: BuildEnvironment) -> [ResolvedTarget.Dependency] {
-        return try! topologicalSort(dependencies(satisfying: environment)) { dependency in
-            return dependency.packageDependencies.filter { $0.satisfies(environment) }
-        }.sorted()
-    }
 }
 
 extension Array where Element == ResolvedTarget.Dependency {
@@ -1361,4 +1373,84 @@ public struct DelayedImmutable<Value> {
             _value = newValue
         }
     }
+}
+
+extension Array where Element == PackageConditionProtocol {
+    func toPlatformFilters() -> [PIF.PlatformFilter] {
+        var result: [PIF.PlatformFilter] = []
+        let platformConditions = self.compactMap{ $0 as? PlatformsCondition }.flatMap{ $0.platforms }
+
+        for condition in platformConditions {
+            switch condition {
+            case .macOS:
+                result += PIF.PlatformFilter.macOSFilters
+
+            case .iOS:
+                result += PIF.PlatformFilter.iOSFilters
+
+            case .tvOS:
+                result += PIF.PlatformFilter.tvOSFilters
+
+            case .watchOS:
+                result += PIF.PlatformFilter.watchOSFilters
+
+            case .linux:
+                result += PIF.PlatformFilter.linuxFilters
+
+            case .android:
+                result += PIF.PlatformFilter.androidFilters
+
+            case .windows:
+                result += PIF.PlatformFilter.windowsFilters
+
+            default:
+                assertionFailure("Unhandled platform condition: \(condition)")
+                break
+            }
+        }
+        return result
+    }
+}
+
+extension PIF.PlatformFilter {
+
+    /// macOS platform filters.
+    public static let macOSFilters: [PIF.PlatformFilter] = [.init(platform: "macos")]
+
+    /// iOS platform filters.
+    public static let iOSFilters: [PIF.PlatformFilter] = [
+        .init(platform: "ios"),
+        .init(platform: "ios", environment: "simulator")
+    ]
+
+    /// tvOS platform filters.
+    public static let tvOSFilters: [PIF.PlatformFilter] = [
+        .init(platform: "tvos"),
+        .init(platform: "tvos", environment: "simulator")
+    ]
+
+    /// watchOS platform filters.
+    public static let watchOSFilters: [PIF.PlatformFilter] = [
+        .init(platform: "watchos"),
+        .init(platform: "watchos", environment: "simulator")
+    ]
+
+    /// Windows platform filters.
+    public static let windowsFilters: [PIF.PlatformFilter] = [
+        .init(platform: "windows", environment: "msvc"),
+        .init(platform: "windows", environment: "gnu"),
+    ]
+
+    /// Andriod platform filters.
+    public static let androidFilters: [PIF.PlatformFilter] = [
+        .init(platform: "linux", environment: "android"),
+        .init(platform: "linux", environment: "androideabi"),
+    ]
+
+    /// Common Linux platform filters.
+    public static let linuxFilters: [PIF.PlatformFilter] = {
+        ["", "eabi", "gnu", "gnueabi", "gnueabihf"].map {
+            .init(platform: "linux", environment: $0)
+        }
+    }()
 }

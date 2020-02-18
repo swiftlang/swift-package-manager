@@ -107,7 +107,7 @@ public final class PIFProjectTester {
 }
 
 public class PIFBaseTargetTester {
-    private let baseTarget: PIF.BaseTarget
+    public let baseTarget: PIF.BaseTarget
 
     public var guid: PIF.GUID { baseTarget.guid }
     public var name: String { baseTarget.name }

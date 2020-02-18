@@ -133,7 +133,6 @@ extension BuildConfiguration {
 extension PIFBuilderParameters {
     init(_ buildParameters: BuildParameters) {
         self.init(
-            buildEnvironment: buildParameters.buildEnvironment,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts
         )
     }
