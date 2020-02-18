@@ -899,34 +899,7 @@ public final class ProductBuildDescription {
 
     /// The path to the product binary produced.
     public var binary: AbsolutePath {
-        return buildParameters.buildPath.appending(outname)
-    }
-
-    /// The output name of the product.
-    public var outname: RelativePath {
-        let name = product.name
-
-        switch product.type {
-        case .executable:
-            if buildParameters.triple.isWindows() {
-                return RelativePath("\(name).exe")
-            } else {
-                return RelativePath(name)
-            }
-        case .library(.static):
-            return RelativePath("lib\(name).a")
-        case .library(.dynamic):
-            return RelativePath("lib\(name)\(self.buildParameters.triple.dynamicLibraryExtension)")
-        case .library(.automatic):
-            fatalError()
-        case .test:
-            let base = "\(name).xctest"
-            if buildParameters.triple.isDarwin() {
-                return RelativePath("\(base)/Contents/MacOS/\(name)")
-            } else {
-                return RelativePath(base)
-            }
-        }
+        return buildParameters.binaryPath(for: product)
     }
 
     /// The objects in this product.
@@ -1031,7 +1004,7 @@ public final class ProductBuildDescription {
         case .library(.dynamic):
             args += ["-emit-library"]
             if buildParameters.triple.isDarwin() {
-                let relativePath = "@rpath/\(outname.pathString)"
+                let relativePath = "@rpath/\(buildParameters.binaryRelativePath(for: product).pathString)"
                 args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
             }
         case .executable:

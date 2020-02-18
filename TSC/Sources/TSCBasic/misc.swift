@@ -229,3 +229,14 @@ extension SystemError: CustomStringConvertible {
         }
     }
 }
+
+/// Memoizes a costly computation to a cache variable.
+public func memoize<T>(to cache: inout T?, build: () throws -> T) rethrows -> T {
+    if let value = cache {
+        return value
+    } else {
+        let value = try build()
+        cache = value
+        return value
+    }
+}

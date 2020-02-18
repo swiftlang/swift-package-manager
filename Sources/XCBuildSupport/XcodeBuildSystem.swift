@@ -17,23 +17,48 @@ import SPMBuildCore
 public final class XcodeBuildSystem: BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () throws -> PackageGraph
+    private let isVerbose: Bool
     private let diagnostics: DiagnosticsEngine
     private let xcbuildPath: AbsolutePath
     private var packageGraph: PackageGraph?
+    private var pifBuilder: PIFBuilder?
 
     /// The stdout stream for the build delegate.
     let stdoutStream: OutputByteStream
 
+    public var builtTestProducts: [BuiltTestProduct] {
+        guard let graph = try? getPackageGraph() else {
+            return []
+        }
+
+        var builtProducts: [BuiltTestProduct] = []
+
+        for package in graph.rootPackages {
+            for product in package.products where product.type == .test {
+                let binaryPath = buildParameters.binaryPath(for: product)
+                builtProducts.append(BuiltTestProduct(
+                    packageName: package.name,
+                    productName: product.name,
+                    binaryPath: binaryPath
+                ))
+            }
+        }
+
+        return builtProducts
+    }
+
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () throws -> PackageGraph,
+        isVerbose: Bool,
         diagnostics: DiagnosticsEngine,
         stdoutStream: OutputByteStream
     ) throws {
         self.buildParameters = buildParameters
+        self.packageGraphLoader = packageGraphLoader
+        self.isVerbose = isVerbose
         self.diagnostics = diagnostics
         self.stdoutStream = stdoutStream
-        self.packageGraphLoader = packageGraphLoader
 
         let xcodeSelectOutput = try Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
         let xcodeDirectory = try AbsolutePath(validating: xcodeSelectOutput)
@@ -45,8 +70,7 @@ public final class XcodeBuildSystem: BuildSystem {
     }
 
     public func build(subset: BuildSubset) throws {
-        let graph = try getPackageGraph()
-        let pifBuilder = PIFBuilder(graph: graph, parameters: .init(buildParameters), diagnostics: diagnostics)
+        let pifBuilder = try getPIFBuilder()
         let pif = try pifBuilder.generatePIF()
         try localFileSystem.writeIfChanged(path: buildParameters.pifManifest, bytes: ByteString(encodingAsUTF8: pif))
 
@@ -81,7 +105,6 @@ public final class XcodeBuildSystem: BuildSystem {
 
     /// Returns a new instance of `XCBuildDelegate` for a build operation.
     private func createBuildDelegate() -> XCBuildDelegate {
-        let isVerbose = verbosity != .concise
         let progressAnimation: ProgressAnimationProtocol = isVerbose
             ? MultiLineNinjaProgressAnimation(stream: stdoutStream)
             : NinjaProgressAnimation(stream: stdoutStream)
@@ -93,15 +116,21 @@ public final class XcodeBuildSystem: BuildSystem {
         return delegate
     }
 
+    private func getPIFBuilder() throws -> PIFBuilder {
+        try memoize(to: &pifBuilder) {
+            let graph = try getPackageGraph()
+            let pifBuilder = PIFBuilder(graph: graph, parameters: .init(buildParameters), diagnostics: diagnostics)
+            return pifBuilder
+        }
+    }
+
     /// Returns the package graph using the graph loader closure.
     ///
     /// First access will cache the graph.
     private func getPackageGraph() throws -> PackageGraph {
-        if let packageGraph = packageGraph {
-            return packageGraph
+        try memoize(to: &packageGraph) {
+            try packageGraphLoader()
         }
-        packageGraph = try packageGraphLoader()
-        return packageGraph!
     }
 }
 
