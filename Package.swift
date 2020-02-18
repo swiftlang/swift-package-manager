@@ -114,7 +114,7 @@ let package = Package(
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
-            dependencies: ["PackageModel", "SPMBuildCore", "PackageGraph"]),
+            dependencies: ["SPMBuildCore", "PackageGraph"]),
 
         .target(
             /** Generates Xcode projects */

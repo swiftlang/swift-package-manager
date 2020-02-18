@@ -8,11 +8,11 @@
 @implementation CFooTests
 
 - (void)testFoo {
-    XCTAssertEqual([FooInfo name], @"Foo");
+    XCTAssert([[FooInfo name] isEqualTo:@"Foo"]);
 }
 
 - (void)testBar {
-    XCTAssertEqual([BarInfo name], @"Bar");
+    XCTAssert([[BarInfo name] isEqualTo:@"Bar"]);
 }
 
 @end

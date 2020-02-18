@@ -9,6 +9,7 @@
 add_library(SPMBuildCore
   BuildParameters.swift
   BuildSystem.swift
+  BuiltTestProduct.swift
   Sanitizers.swift
   Toolchain.swift
   Triple.swift)

@@ -27,6 +27,9 @@ public enum BuildSubset {
 /// implementation details between SwiftPM's `BuildOperation` and the XCBuild backed `XCBuildSystem`.
 public protocol BuildSystem {
 
+    /// The test products that this build system will build.
+    var builtTestProducts: [BuiltTestProduct] { get }
+
     /// Builds a subset of the package graph.
     /// - Parameters:
     ///   - subset: The subset of the package graph to build.

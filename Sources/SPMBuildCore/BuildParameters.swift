@@ -198,6 +198,36 @@ public struct BuildParameters: Encodable {
         }
         return .modulewrap
     }
+
+    /// Returns the path to the binary of a product for the current build parameters.
+    public func binaryPath(for product: ResolvedProduct) -> AbsolutePath {
+        return buildPath.appending(binaryRelativePath(for: product))
+    }
+
+    /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
+    public func binaryRelativePath(for product: ResolvedProduct) -> RelativePath {
+        switch product.type {
+        case .executable:
+            if triple.isWindows() {
+                return RelativePath("\(product.name).exe")
+            } else {
+                return RelativePath(product.name)
+            }
+        case .library(.static):
+            return RelativePath("lib\(product.name).a")
+        case .library(.dynamic):
+            return RelativePath("lib\(product.name)\(triple.dynamicLibraryExtension)")
+        case .library(.automatic):
+            fatalError()
+        case .test:
+            let base = "\(product.name).xctest"
+            if triple.isDarwin() {
+                return RelativePath("\(base)/Contents/MacOS/\(product.name)")
+            } else {
+                return RelativePath(base)
+            }
+        }
+    }
 }
 
 /// A shim struct for toolchain so we can encode it without having to write encode(to:) for
