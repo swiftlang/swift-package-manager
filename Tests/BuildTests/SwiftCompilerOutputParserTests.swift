@@ -11,59 +11,19 @@
 import XCTest
 import Build
 
-class MockSwiftCompilerOutputParserDelegate: SwiftCompilerOutputParserDelegate {
-    private var messages: [SwiftCompilerMessage] = []
-    private var error: Error?
-
-    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
-        messages.append(message)
-    }
-
-    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
-        self.error = error
-    }
-
-    func assert(
-        messages: [SwiftCompilerMessage],
-        errorDescription: String?,
-        file: StaticString = #file,
-        line: UInt = #line
-    ) {
-        XCTAssertEqual(messages, self.messages, file: file, line: line)
-        let errorReason = (self.error as? LocalizedError)?.errorDescription ?? error?.localizedDescription
-        XCTAssertEqual(errorDescription, errorReason, file: file, line: line)
-        self.messages = []
-        self.error = nil
-    }
-}
-
 class SwiftCompilerOutputParserTests: XCTestCase {
     func testParse() throws {
         let delegate = MockSwiftCompilerOutputParserDelegate()
         let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
 
-        parser.parse(bytes: "33".utf8)
-        delegate.assert(messages: [], errorDescription: nil)
-
-        parser.parse(bytes: "".utf8)
-        delegate.assert(messages: [], errorDescription: nil)
-
         parser.parse(bytes: """
-            8
+            338
             {
               "kind": "began",
               "name": "compile",
               "inputs": [
                 "test.swift"
               ],
-
-            """.utf8)
-        delegate.assert(messages: [], errorDescription: nil)
-
-        parser.parse(bytes: "".utf8)
-        delegate.assert(messages: [], errorDescription: nil)
-
-        parser.parse(bytes: """
               "outputs": [
                 {
                   "type": "object",
@@ -75,22 +35,6 @@ class SwiftCompilerOutputParserTests: XCTestCase {
               "command_arguments" : ["-frontend", "-c", "-primary-file", "test.swift"]
             }
             117
-
-            """.utf8)
-        delegate.assert(messages: [
-            SwiftCompilerMessage(
-                name: "compile",
-                kind: .began(.init(
-                    pid: 22698,
-                    inputs: ["test.swift"],
-                    outputs: [.init(
-                        type: "object",
-                        path: "/var/folders/yc/rgflx8m11p5d71k1ydy0l_pr0000gn/T/test-77d991.o")],
-                    commandExecutable: "swift",
-                    commandArguments: ["-frontend", "-c", "-primary-file", "test.swift"])))
-        ], errorDescription: nil)
-
-        parser.parse(bytes: """
             {
               "kind": "finished",
               "name": "compile",
@@ -98,17 +42,6 @@ class SwiftCompilerOutputParserTests: XCTestCase {
               "exit-status": 1,
               "output": "error: it failed :-("
             }
-            """.utf8)
-        delegate.assert(messages: [
-            SwiftCompilerMessage(
-                name: "compile",
-                kind: .finished(.init(
-                    pid: 22698,
-                    output: "error: it failed :-(")))
-        ], errorDescription: nil)
-
-        parser.parse(bytes: """
-
             233
             {
               "kind": "skipped",
@@ -142,8 +75,32 @@ class SwiftCompilerOutputParserTests: XCTestCase {
               "command_arguments" : ["-o", "option", "test"]
             }
             119
+            {
+              "kind": "signalled",
+              "name": "link",
+              "pid": 22699,
+              "error-message": "Segmentation fault: 11",
+              "signal": 4
+            }
+
             """.utf8)
+
         delegate.assert(messages: [
+            SwiftCompilerMessage(
+                name: "compile",
+                kind: .began(.init(
+                    pid: 22698,
+                    inputs: ["test.swift"],
+                    outputs: [.init(
+                        type: "object",
+                        path: "/var/folders/yc/rgflx8m11p5d71k1ydy0l_pr0000gn/T/test-77d991.o")],
+                    commandExecutable: "swift",
+                    commandArguments: ["-frontend", "-c", "-primary-file", "test.swift"]))),
+            SwiftCompilerMessage(
+                name: "compile",
+                kind: .finished(.init(
+                    pid: 22698,
+                    output: "error: it failed :-("))),
             SwiftCompilerMessage(
                 name: "compile",
                 kind: .skipped(.init(
@@ -160,21 +117,7 @@ class SwiftCompilerOutputParserTests: XCTestCase {
                         type: "image",
                         path: "test")],
                     commandExecutable: "ld",
-                    commandArguments: ["-o", "option", "test"])))
-        ], errorDescription: nil)
-
-        parser.parse(bytes: """
-
-            {
-              "kind": "signalled",
-              "name": "link",
-              "pid": 22699,
-              "error-message": "Segmentation fault: 11",
-              "signal": 4
-            }
-
-            """.utf8)
-        delegate.assert(messages: [
+                    commandArguments: ["-o", "option", "test"]))),
             SwiftCompilerMessage(
                 name: "link",
                 kind: .signalled(.init(
@@ -183,27 +126,7 @@ class SwiftCompilerOutputParserTests: XCTestCase {
         ], errorDescription: nil)
     }
 
-    func testInvalidMessageSizeBytes() {
-        let delegate = MockSwiftCompilerOutputParserDelegate()
-        let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
-
-        parser.parse(bytes: [65, 66, 200, 67, UInt8(ascii: "\n")])
-        delegate.assert(messages: [], errorDescription: "invalid UTF8 bytes")
-
-        parser.parse(bytes: """
-            119
-            {
-              "kind": "signalled",
-              "name": "link",
-              "pid": 22699,
-              "error-message": "Segmentation fault: 11",
-              "signal": 4
-            }
-            """.utf8)
-        delegate.assert(messages: [], errorDescription: nil)
-    }
-
-    func testInvalidMessageSizeValue() {
+    func testRawTextTransformsIntoUnknown() {
         let delegate = MockSwiftCompilerOutputParserDelegate()
         let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
 
@@ -230,17 +153,9 @@ class SwiftCompilerOutputParserTests: XCTestCase {
         ], errorDescription: nil)
     }
 
-    func testInvalidMessageBytes() {
+    func testSignalledStopsParsing() {
         let delegate = MockSwiftCompilerOutputParserDelegate()
         let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
-
-        parser.parse(bytes: """
-            4
-
-            """.utf8)
-        delegate.assert(messages: [], errorDescription: nil)
-        parser.parse(bytes: [65, 66, 200, 67, UInt8(ascii: "\n")])
-        delegate.assert(messages: [], errorDescription: "unexpected JSON message")
 
         parser.parse(bytes: """
             119
@@ -250,62 +165,49 @@ class SwiftCompilerOutputParserTests: XCTestCase {
               "pid": 22699,
               "error-message": "Segmentation fault: 11",
               "signal": 4
+            }
+            """.utf8)
+        delegate.assert(messages: [
+            SwiftCompilerMessage(name: "link", kind: .signalled(.init(pid: 22699, output: nil)))
+        ], errorDescription: nil)
+
+        parser.parse(bytes: """
+
+            117
+            {
+              "kind": "finished",
+              "name": "compile",
+              "pid": 22698,
+              "exit-status": 1,
+              "output": "error: it failed :-("
             }
             """.utf8)
         delegate.assert(messages: [], errorDescription: nil)
     }
+}
 
-    func testInvalidMessageMissingField() {
-        let delegate = MockSwiftCompilerOutputParserDelegate()
-        let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
+class MockSwiftCompilerOutputParserDelegate: SwiftCompilerOutputParserDelegate {
+    private var messages: [SwiftCompilerMessage] = []
+    private var error: Error?
 
-        parser.parse(bytes: """
-            23
-            {
-              "invalid": "json"
-            }
-            """.utf8)
-        delegate.assert(messages: [], errorDescription: "unexpected JSON message")
-
-        parser.parse(bytes: """
-            119
-            {
-              "kind": "signalled",
-              "name": "link",
-              "pid": 22699,
-              "error-message": "Segmentation fault: 11",
-              "signal": 4
-            }
-            """.utf8)
-        delegate.assert(messages: [], errorDescription: nil)
+    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
+        messages.append(message)
     }
 
-    func testInvalidMessageInvalidValue() {
-        let delegate = MockSwiftCompilerOutputParserDelegate()
-        let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
+    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
+        self.error = error
+    }
 
-        parser.parse(bytes: """
-            23
-            {
-              "kind": "invalid",
-              "name": "link",
-              "pid": 22699,
-              "error-message": "Segmentation fault: 11",
-              "signal": 4
-            }
-            """.utf8)
-        delegate.assert(messages: [], errorDescription: "unexpected JSON message")
-
-        parser.parse(bytes: """
-            119
-            {
-              "kind": "signalled",
-              "name": "link",
-              "pid": 22699,
-              "error-message": "Segmentation fault: 11",
-              "signal": 4
-            }
-            """.utf8)
-        delegate.assert(messages: [], errorDescription: nil)
+    func assert(
+        messages: [SwiftCompilerMessage],
+        errorDescription: String?,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
+        XCTAssertEqual(messages, self.messages, file: file, line: line)
+        let errorReason = (self.error as? LocalizedError)?.errorDescription ?? error?.localizedDescription
+        XCTAssertEqual(errorDescription, errorReason, file: file, line: line)
+        self.messages = []
+        self.error = nil
     }
 }

@@ -9,6 +9,7 @@
 */
 
 import TSCBasic
+import TSCUtility
 import PackageModel
 import PackageGraph
 import Build
@@ -36,13 +37,18 @@ public final class XcodeBuildSystem: BuildSystem {
     private let xcbuildPath: AbsolutePath
     private var packageGraph: PackageGraph?
 
+    /// The stdout stream for the build delegate.
+    let stdoutStream: OutputByteStream
+
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () throws -> PackageGraph,
-        diagnostics: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine,
+        stdoutStream: OutputByteStream
     ) throws {
         self.buildParameters = buildParameters
         self.diagnostics = diagnostics
+        self.stdoutStream = stdoutStream
         self.packageGraphLoader = packageGraphLoader
 
         let xcodeSelectOutput = try Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
@@ -72,16 +78,35 @@ public final class XcodeBuildSystem: BuildSystem {
             subset.pifTargetName
         ]
 
-        let result = try Process.popen(arguments: arguments)
+        let delegate = createBuildDelegate()
+        let redirection: Process.OutputRedirection = .stream(stdout: delegate.parse(bytes:), stderr: { bytes in
+            self.diagnostics.emit(StringError(String(bytes: bytes, encoding: .utf8)!))
+        })
+
+        let process = Process(arguments: arguments, outputRedirection: redirection)
+        try process.launch()
+        let result = try process.waitUntilExit()
 
         guard result.exitStatus == .terminated(code: 0) else {
             throw StringError(try result.utf8Output().spm_chomp())
         }
-
-        try print(result.utf8Output())
     }
 
     public func cancel() {
+    }
+
+    /// Returns a new instance of `XCBuildDelegate` for a build operation.
+    private func createBuildDelegate() -> XCBuildDelegate {
+        let isVerbose = verbosity != .concise
+        let progressAnimation: ProgressAnimationProtocol = isVerbose
+            ? MultiLineNinjaProgressAnimation(stream: stdoutStream)
+            : NinjaProgressAnimation(stream: stdoutStream)
+        let delegate = XCBuildDelegate(
+            diagnostics: diagnostics,
+            outputStream: stdoutStream,
+            progressAnimation: progressAnimation)
+        delegate.isVerbose = isVerbose
+        return delegate
     }
 
     /// Returns the package graph using the graph loader closure.
