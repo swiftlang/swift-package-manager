@@ -19,7 +19,9 @@ import TSCUtility
 import PackageModel
 import PackageGraph
 import SourceControl
+import SPMBuildCore
 import Build
+import XCBuildSupport
 import Workspace
 
 typealias Diagnostic = TSCBasic.Diagnostic

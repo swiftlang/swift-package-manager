@@ -1,34 +1,18 @@
 /*
- This source file is part of the Swift.org open source project
+This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
+Copyright (c) 2020 Apple Inc. and the Swift project authors
+Licensed under Apache License v2.0 with Runtime Library Exception
 
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+See http://swift.org/LICENSE.txt for license information
+See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
 import TSCBasic
 import TSCUtility
 import PackageModel
 import PackageGraph
-import Build
-import XCBuildSupport
-
-/// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
-/// implementation details between SwiftPM's `BuildOperation` and the XCBuild backed `XCBuildSystem`.
-public protocol BuildSystem {
-
-    /// Builds a subset of the package graph.
-    /// - Parameters:
-    ///   - subset: The subset of the package graph to build.
-    func build(subset: BuildSubset) throws
-
-    /// Cancels the currently running operation, if possible.
-    func cancel()
-}
-
-extension BuildOperation: BuildSystem {}
+import SPMBuildCore
 
 public final class XcodeBuildSystem: BuildSystem {
     private let buildParameters: BuildParameters
@@ -131,7 +115,7 @@ extension BuildConfiguration {
 }
 
 extension PIFBuilderParameters {
-    init(_ buildParameters: BuildParameters) {
+    public init(_ buildParameters: BuildParameters) {
         self.init(
             buildEnvironment: buildParameters.buildEnvironment,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts

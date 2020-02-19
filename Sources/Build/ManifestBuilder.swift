@@ -15,6 +15,7 @@ import TSCUtility
 
 import PackageModel
 import PackageGraph
+import SPMBuildCore
 
 public class LLBuildManifestBuilder {
     public enum TargetKind {

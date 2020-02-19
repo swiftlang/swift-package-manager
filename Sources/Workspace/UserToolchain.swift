@@ -9,10 +9,10 @@
  */
 
 import TSCBasic
-import Build
-import PackageLoading
-import protocol Build.Toolchain
 import TSCUtility
+import PackageLoading
+import SPMBuildCore
+import Build
 
 #if os(macOS)
 private let whichArgs: [String] = ["/usr/bin/xcrun", "--find"]

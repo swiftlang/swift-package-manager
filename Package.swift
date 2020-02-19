@@ -105,13 +105,16 @@ let package = Package(
 
         .target(
             /** Builds Modules and Products */
+            name: "SPMBuildCore",
+            dependencies: ["SwiftToolsSupport-auto", "PackageGraph"]),
+        .target(
+            /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["SwiftToolsSupport-auto", "PackageGraph", "LLBuildManifest"]),
-
+            dependencies: ["SwiftToolsSupport-auto", "SPMBuildCore", "PackageGraph", "LLBuildManifest"]),
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
-            dependencies: ["PackageModel", "PackageGraph"]),
+            dependencies: ["PackageModel", "SPMBuildCore", "PackageGraph"]),
 
         .target(
             /** Generates Xcode projects */
