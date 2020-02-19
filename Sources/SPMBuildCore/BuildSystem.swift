@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import PackageGraph
+
 /// An enum representing what subset of the package to build.
 public enum BuildSubset {
     /// Represents the subset of all products and non-test targets.
@@ -29,6 +31,9 @@ public protocol BuildSystem {
 
     /// The test products that this build system will build.
     var builtTestProducts: [BuiltTestProduct] { get }
+
+    /// Returns the package graph used by the build system.
+    func getPackageGraph() throws -> PackageGraph
 
     /// Builds a subset of the package graph.
     /// - Parameters:
