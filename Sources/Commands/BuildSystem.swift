@@ -99,7 +99,7 @@ public final class XcodeBuildSystem: BuildSystem {
     private func createBuildDelegate() -> XCBuildDelegate {
         let isVerbose = verbosity != .concise
         let progressAnimation: ProgressAnimationProtocol = isVerbose
-            ? MultiLineNinjaProgressAnimation(stream: stdoutStream)
+            ? VerboseProgressBar(stream: stdoutStream)
             : NinjaProgressAnimation(stream: stdoutStream)
         let delegate = XCBuildDelegate(
             diagnostics: diagnostics,
