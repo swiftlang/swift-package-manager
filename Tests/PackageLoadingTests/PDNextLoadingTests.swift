@@ -303,8 +303,8 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                     .target(name: "Foo", dependencies: [
                         .target(name: "Biz"),
                         .target(name: "Bar", condition: .when(platforms: [.linux])),
-                        .product(name: "Baz", package: "Baz", condition: .when(configuration: .release)),
-                        .byName(name: "Bar", condition: .when(platforms: [.watchOS, .iOS], configuration: .debug)),
+                        .product(name: "Baz", package: "Baz", condition: .when(platforms: [.macOS])),
+                        .byName(name: "Bar", condition: .when(platforms: [.watchOS, .iOS])),
                     ]),
                     .target(name: "Bar"),
                     .target(name: "Biz"),
@@ -317,8 +317,8 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
 
             XCTAssertEqual(dependencies[0], .target(name: "Biz"))
             XCTAssertEqual(dependencies[1], .target(name: "Bar", condition: .init(platformNames: ["linux"], config: nil)))
-            XCTAssertEqual(dependencies[2], .product(name: "Baz", package: "Baz", condition: .init(platformNames: [], config: "release")))
-            XCTAssertEqual(dependencies[3], .byName(name: "Bar", condition: .init(platformNames: ["watchos", "ios"], config: "debug")))
+            XCTAssertEqual(dependencies[2], .product(name: "Baz", package: "Baz", condition: .init(platformNames: ["macos"])))
+            XCTAssertEqual(dependencies[3], .byName(name: "Bar", condition: .init(platformNames: ["watchos", "ios"])))
         }
     }
 }
