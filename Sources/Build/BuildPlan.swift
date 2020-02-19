@@ -14,6 +14,7 @@ import PackageModel
 import PackageGraph
 import PackageLoading
 import Foundation
+import SPMBuildCore
 
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
@@ -33,6 +34,44 @@ extension BuildParameters {
         }
         return TerminalController.isTTY(stream)
     }()
+
+    /// Extra flags to pass to Swift compiler.
+    public var swiftCompilerFlags: [String] {
+        var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
+        flags += self.flags.swiftCompilerFlags
+        flags += verbosity.ccArgs
+        return flags
+    }
+
+    /// Extra flags to pass to linker.
+    public var linkerFlags: [String] {
+        // Arguments that can be passed directly to the Swift compiler and
+        // doesn't require -Xlinker prefix.
+        //
+        // We do this to avoid sending flags like linker search path at the end
+        // of the search list.
+        let directSwiftLinkerArgs = ["-L"]
+
+        var flags: [String] = []
+        var it = self.flags.linkerFlags.makeIterator()
+        while let flag = it.next() {
+            if directSwiftLinkerArgs.contains(flag) {
+                // `-L <value>` variant.
+                flags.append(flag)
+                guard let nextFlag = it.next() else {
+                    // We expected a flag but don't have one.
+                    continue
+                }
+                flags.append(nextFlag)
+            } else if directSwiftLinkerArgs.contains(where: { flag.hasPrefix($0) }) {
+                // `-L<value>` variant.
+                flags.append(flag)
+            } else {
+                flags += ["-Xlinker", flag]
+            }
+        }
+        return flags
+    }
 
     /// Returns the compiler arguments for the index store, if enabled.
     fileprivate func indexStoreArguments(for target: ResolvedTarget) -> [String] {
@@ -73,17 +112,6 @@ extension BuildParameters {
             args += [triple.tripleString]
         }
         return args
-    }
-
-    /// The current platform we're building for.
-    var currentPlatform: PackageModel.Platform {
-        if self.triple.isDarwin() {
-            return .macOS
-        } else if self.triple.isAndroid() {
-            return .android
-        } else {
-            return .linux
-        }
     }
 
     /// Returns the scoped view of build settings for a given target.

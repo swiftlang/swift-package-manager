@@ -9,19 +9,15 @@
 add_library(Build
   BuildDelegate.swift
   BuildOperation.swift
-  BuildParameters.swift
   BuildPlan.swift
-  BuildOperation.swift
-  Sanitizers.swift
-  SwiftCompilerOutputParser.swift
-  Toolchain.swift
   ManifestBuilder.swift
-  Triple.swift
+  SwiftCompilerOutputParser.swift
   XCFrameworkInfo.swift)
 target_link_libraries(Build PUBLIC
   TSCBasic
   PackageGraph
-  LLBuildManifest)
+  LLBuildManifest
+  SPMBuildCore)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Build PROPERTIES

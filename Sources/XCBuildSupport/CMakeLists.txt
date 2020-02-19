@@ -11,6 +11,7 @@ add_library(XCBuildSupport
   PIFBuilder.swift
   XCBuildDelegate.swift
   XCBuildOutputParser.swift
+  XcodeBuildSystem.swift
 )
 target_link_libraries(XCBuildSupport PUBLIC
   Build

@@ -15,6 +15,7 @@ import PackageModel
 import Dispatch
 import Foundation
 import LLBuildManifest
+import SPMBuildCore
 
 typealias Diagnostic = TSCBasic.Diagnostic
 

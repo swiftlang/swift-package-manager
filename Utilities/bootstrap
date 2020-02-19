@@ -303,7 +303,7 @@ def install(args):
             "TSCUtility", "SourceControl",
             "SPMLLBuild", "LLBuildManifest",
             "PackageModel", "PackageLoading",
-            "PackageGraph", "Build",
+            "PackageGraph", "SPMBuildCore", "Build",
             "Xcodeproj", "Workspace"
         ]
 

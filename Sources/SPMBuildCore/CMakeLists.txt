@@ -6,38 +6,23 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(Commands
-  APIDigester.swift
-  Completions+bash.swift
-  Completions+zsh.swift
-  Describe.swift
-  Error.swift
-  GenerateLinuxMain.swift
-  MultiRootSupport.swift
-  Options.swift
-  show-dependencies.swift
-  SwiftBuildTool.swift
-  SwiftPackageTool.swift
-  SwiftRunTool.swift
-  SwiftTestTool.swift
-  SwiftTool.swift
-  SymbolGraphExtract.swift
-  WatchmanHelper.swift)
-target_link_libraries(Commands PUBLIC
-  Build
-  PackageGraph
-  SourceControl
+add_library(SPMBuildCore
+  BuildParameters.swift
+  BuildSystem.swift
+  Sanitizers.swift
+  Toolchain.swift
+  Triple.swift)
+# NOTE(compnerd) workaround for CMake not setting up include flags yet
+set_target_properties(SPMBuildCore PROPERTIES
+  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
+target_link_libraries(SPMBuildCore PUBLIC
   TSCBasic
   TSCUtility
-  Workspace
-  XCBuildSupport
-  Xcodeproj)
-# NOTE(compnerd) workaround for CMake not setting up include flags yet
-set_target_properties(Commands PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
+  PackageGraph)
+
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-install(TARGETS Commands
+install(TARGETS SPMBuildCore
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)

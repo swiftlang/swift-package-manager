@@ -15,23 +15,10 @@ import PackageGraph
 import PackageModel
 import LLBuildManifest
 import SPMLLBuild
+import SPMBuildCore
 
-/// An enum representing what subset of the package to build.
-public enum BuildSubset {
-    /// Represents the subset of all products and non-test targets.
-    case allExcludingTests
+public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem {
 
-    /// Represents the subset of all products and targets.
-    case allIncludingTests
-
-    /// Represents a specific product.
-    case product(String)
-
-    /// Represents a specific target.
-    case target(String)
-}
-
-public final class BuildOperation: PackageStructureDelegate {
     /// The build parameters.
     public let buildParameters: BuildParameters
 
@@ -45,7 +32,7 @@ public final class BuildOperation: PackageStructureDelegate {
     private var buildDelegate: BuildDelegate?
 
     /// The build system reference.
-    private var buildSystem: BuildSystem?
+    private var buildSystem: llbuildSwift.BuildSystem?
 
     /// If build manifest caching should be enabled.
     public let useBuildManifestCaching: Bool
@@ -197,7 +184,7 @@ public final class BuildOperation: PackageStructureDelegate {
     /// building the package structure target.
     private func createBuildSystem(
         with buildDescription: BuildDescription?
-    ) throws -> BuildSystem {
+    ) throws -> llbuildSwift.BuildSystem {
         // Figure out which progress bar we have to use during the build.
         let isVerbose = verbosity != .concise
         let progressAnimation: ProgressAnimationProtocol = isVerbose
