@@ -74,7 +74,7 @@ private extension Diagnostic.Message {
 }
 
 // FIXME: Move to TSC.
-public final class VerboseProgressBar: ProgressAnimationProtocol {
+public final class VerboseProgressAnimation: ProgressAnimationProtocol {
 
     private let stream: OutputByteStream
 
