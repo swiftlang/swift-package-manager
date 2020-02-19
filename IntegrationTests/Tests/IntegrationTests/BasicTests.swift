@@ -17,7 +17,10 @@ final class BasicTests: XCTestCase {
         XCTAssertMatch(try sh(swift, "--version").stdout, .contains("Swift version"))
     }
 
-    func testExamplePackageDealer() throws {
+    // Disabled because these packages don't use the latest runtime library which doesn't work with self-hosted builds.
+    //
+    // FIXME: We should to use XCTSkip to skip this test instead.
+    func DISABLED_testExamplePackageDealer() throws {
         try withTemporaryDirectory { dir in
             let dealerDir = dir.appending(component: "dealer")
             try sh("git", "clone", "https://github.com/apple/example-package-dealer", dealerDir)
