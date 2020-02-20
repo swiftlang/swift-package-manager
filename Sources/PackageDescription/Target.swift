@@ -37,9 +37,9 @@ public final class Target {
         case productItem(name: String, package: String?)
         case byNameItem(name: String)
       #else
-        case _targetItem(name: String, condition: BuildSettingCondition?)
-        case _productItem(name: String, package: String?, condition: BuildSettingCondition?)
-        case _byNameItem(name: String, condition: BuildSettingCondition?)
+        case _targetItem(name: String, condition: TargetDependencyCondition?)
+        case _productItem(name: String, package: String?, condition: TargetDependencyCondition?)
+        case _byNameItem(name: String, condition: TargetDependencyCondition?)
       #endif
     }
 
@@ -656,7 +656,7 @@ extension Target.Dependency {
     ///   - name: The name of the target.
     ///   - condition: The condition under which the dependency is exercised.
     @available(_PackageDescription, introduced: 999)
-    public static func target(name: String, condition: BuildSettingCondition? = nil) -> Target.Dependency {
+    public static func target(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return ._targetItem(name: name, condition: condition)
     }
 
@@ -670,7 +670,7 @@ extension Target.Dependency {
     public static func product(
         name: String,
         package: String,
-        condition: BuildSettingCondition? = nil
+        condition: TargetDependencyCondition? = nil
     ) -> Target.Dependency {
         return ._productItem(name: name, package: package, condition: condition)
     }
@@ -682,7 +682,7 @@ extension Target.Dependency {
     ///   - name: The name of the dependency, either a target or a product.
     ///   - condition: The condition under which the dependency is exercised.
     @available(_PackageDescription, introduced: 999)
-    public static func byName(name: String, condition: BuildSettingCondition? = nil) -> Target.Dependency {
+    public static func byName(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return ._byNameItem(name: name, condition: condition)
     }
   #endif
@@ -702,5 +702,27 @@ extension Target.Dependency: ExpressibleByStringLiteral {
       #else
         self = ._byNameItem(name: value, condition: nil)
       #endif
+    }
+}
+
+/// A condition that limits the application of a target's dependency.
+public struct TargetDependencyCondition: Encodable {
+
+    private let platforms: [Platform]?
+
+    private init(platforms: [Platform]?) {
+        self.platforms = platforms
+    }
+
+    /// Create a target dependency condition.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable platforms for this target dependency condition.
+    public static func when(
+        platforms: [Platform]? = nil
+    ) -> TargetDependencyCondition {
+        // FIXME: This should be an error, not a precondition.
+        precondition(!(platforms == nil))
+        return TargetDependencyCondition(platforms: platforms)
     }
 }
