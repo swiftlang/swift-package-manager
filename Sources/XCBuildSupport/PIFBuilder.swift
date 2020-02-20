@@ -245,6 +245,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.SDKROOT] = "auto"
         settings[.SDK_VARIANT] = "auto"
         settings[.SKIP_INSTALL] = "YES"
+        let firstTarget = package.targets.first?.underlyingTarget
+        settings[.MACOSX_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .macOS)
+        settings[.IPHONEOS_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .iOS)
+        settings[.TVOS_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .tvOS)
+        settings[.WATCHOS_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .watchOS)
         settings[.DYLIB_INSTALL_NAME_BASE] = "@rpath"
         settings[.USE_HEADERMAP] = "NO"
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
@@ -1252,6 +1257,16 @@ extension Array where Element == ResolvedTarget.Dependency {
 }
 
 extension Target {
+    func deploymentTarget(for platform: PackageModel.Platform) -> String? {
+        if let supportedPlatform = getSupportedPlatform(for: platform) {
+            return supportedPlatform.version.versionString
+        } else if platform.oldestSupportedVersion != .unknown {
+            return platform.oldestSupportedVersion.versionString
+        } else {
+            return nil
+        }
+    }
+
     var isCxx: Bool {
         (self as? ClangTarget)?.isCXX ?? false
     }
