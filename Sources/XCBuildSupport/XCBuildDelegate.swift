@@ -47,7 +47,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
         case .taskStarted(let info):
             queue.async {
                 self.step += 1
-                let text = self.isVerbose ? info.commandLineDisplayString : info.executionDescription
+                let text = self.isVerbose ? info.executionDescription + "\n" + info.commandLineDisplayString : info.executionDescription
                 self.progressAnimation.update(step: self.step, total: self.step, text: text)
             }
         case .taskOutput(let info):
@@ -70,5 +70,28 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
 private extension Diagnostic.Message {
     static func xcbuildOutputParsingError(_ error: String) -> Diagnostic.Message {
         .error("failed parsing XCBuild output: \(error)")
+    }
+}
+
+// FIXME: Move to TSC.
+public final class VerboseProgressAnimation: ProgressAnimationProtocol {
+
+    private let stream: OutputByteStream
+
+    public init(stream: OutputByteStream) {
+        self.stream = stream
+    }
+
+    public func update(step: Int, total: Int, text: String) {
+        stream <<< text <<< "\n"
+        stream.flush()
+    }
+
+    public func complete(success: Bool) {
+        stream <<< "\n"
+        stream.flush()
+    }
+
+    public func clear() {
     }
 }

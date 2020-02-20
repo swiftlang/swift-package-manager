@@ -88,7 +88,7 @@ public final class XcodeBuildSystem: BuildSystem {
         let result = try process.waitUntilExit()
 
         guard result.exitStatus == .terminated(code: 0) else {
-            throw StringError(try result.utf8Output().spm_chomp())
+            throw Diagnostics.fatalError
         }
     }
 
@@ -99,7 +99,7 @@ public final class XcodeBuildSystem: BuildSystem {
     private func createBuildDelegate() -> XCBuildDelegate {
         let isVerbose = verbosity != .concise
         let progressAnimation: ProgressAnimationProtocol = isVerbose
-            ? MultiLineNinjaProgressAnimation(stream: stdoutStream)
+            ? VerboseProgressAnimation(stream: stdoutStream)
             : NinjaProgressAnimation(stream: stdoutStream)
         let delegate = XCBuildDelegate(
             diagnostics: diagnostics,

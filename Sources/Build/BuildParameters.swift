@@ -165,7 +165,7 @@ public struct BuildParameters: Encodable {
     }
 
     public var pifManifest: AbsolutePath {
-        return buildPath.appending(components: "manifest.pif")
+        return dataPath.appending(components: "..", "manifest.pif")
     }
 
     public var buildDescriptionPath: AbsolutePath {

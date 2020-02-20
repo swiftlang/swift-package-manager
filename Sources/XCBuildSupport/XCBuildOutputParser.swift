@@ -21,6 +21,8 @@ public enum XCBuildMessage {
     public struct BuildCompletedInfo {
         public enum Result: String {
             case ok
+            case failed
+            case cancelled
         }
 
         public let result: Result
@@ -82,6 +84,8 @@ public enum XCBuildMessage {
     public struct TaskCompleteInfo {
         public enum Result: String {
             case success
+            case failed
+            case cancelled
         }
 
         let taskID: Int
