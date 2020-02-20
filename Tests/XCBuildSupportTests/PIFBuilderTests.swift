@@ -1980,21 +1980,13 @@ class PIFBuilderTests: XCTestCase {
                     url: "/Foo",
                     v: .vNext,
                     packageKind: .root,
-                    products: [
-                        .init(name: "FooLib1", type: .library(.automatic), targets: ["FooLib1"]),
-                    ],
                     targets: [
                         .init(name: "foo", dependencies: [
                             .target(name: "FooLib1", condition: .init(platformNames: ["macos"])),
-                            .target(name: "FooLib2", condition: .init(config: "debug")),
+                            .target(name: "FooLib2", condition: .init(platformNames: ["ios"])),
                         ]),
-                        .init(name: "FooLib1", dependencies: [
-                            .target(name: "FooLib2", condition: .init(config: "release")),
-                        ]),
+                        .init(name: "FooLib1"),
                         .init(name: "FooLib2"),
-                        .init(name: "FooTests", dependencies: [
-                            .target(name: "FooLib2", condition: .init(platformNames: ["linux"], config: "debug"))
-                        ], type: .test),
                     ]),
             ],
             shouldCreateMultipleTestProducts: true
@@ -2002,66 +1994,36 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(diagnostics)
 
-        do {
-            let builder = PIFBuilder(
-                graph: graph,
-                parameters: .mock(buildEnvironment: .init(platform: .macOS, configuration: .debug)),
-                diagnostics: diagnostics)
-            let pif = builder.construct()
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(),
+            diagnostics: diagnostics)
+        let pif = builder.construct()
 
-            PIFTester(pif) { workspace in
-                workspace.checkProject("PACKAGE:/Foo") { project in
-                    project.checkTarget("PACKAGE-PRODUCT:foo") { target in
-                        XCTAssertEqual(target.dependencies, ["PACKAGE-TARGET:FooLib1", "PACKAGE-TARGET:FooLib2"])
-                        XCTAssertEqual(target.frameworks, ["PACKAGE-TARGET:FooLib1", "PACKAGE-TARGET:FooLib2"])
-                    }
+        let expectedFilters: [PIF.GUID: [PIF.PlatformFilter]] = [
+            "PACKAGE-TARGET:FooLib1": PIF.PlatformFilter.macOSFilters,
+            "PACKAGE-TARGET:FooLib2": PIF.PlatformFilter.iOSFilters,
+        ]
 
-                    project.checkTarget("PACKAGE-PRODUCT:FooLib1") { target in
-                        XCTAssertEqual(target.dependencies, ["PACKAGE-TARGET:FooLib1"])
-                        XCTAssertEqual(target.frameworks, ["PACKAGE-TARGET:FooLib1"])
-                    }
+        PIFTester(pif) { workspace in
+            workspace.checkProject("PACKAGE:/Foo") { project in
+                project.checkTarget("PACKAGE-PRODUCT:foo") { target in
+                    XCTAssertEqual(target.dependencies, ["PACKAGE-TARGET:FooLib1", "PACKAGE-TARGET:FooLib2"])
+                    XCTAssertEqual(target.frameworks, ["PACKAGE-TARGET:FooLib1", "PACKAGE-TARGET:FooLib2"])
 
-                    project.checkTarget("PACKAGE-PRODUCT:FooTests") { target in
-                        XCTAssertEqual(target.dependencies, [])
-                        XCTAssertEqual(target.frameworks, [])
-                    }
+                    let dependencyMap = Dictionary(uniqueKeysWithValues: target.baseTarget.dependencies.map{ ($0.targetGUID, $0.platformFilters) })
+                    XCTAssertEqual(dependencyMap, expectedFilters)
 
-                    project.checkTarget("PACKAGE-TARGET:FooLib1") { target in
-                        XCTAssertEqual(target.dependencies, [])
-                        XCTAssertEqual(target.frameworks, [])
-                    }
-                }
-            }
-        }
-
-        do {
-            let builder = PIFBuilder(
-                graph: graph,
-                parameters: .mock(buildEnvironment: .init(platform: .linux, configuration: .release)),
-                diagnostics: diagnostics)
-            let pif = builder.construct()
-
-            PIFTester(pif) { workspace in
-                workspace.checkProject("PACKAGE:/Foo") { project in
-                    project.checkTarget("PACKAGE-PRODUCT:foo") { target in
-                        XCTAssertEqual(target.dependencies, [])
-                        XCTAssertEqual(target.frameworks, [])
-                    }
-
-                    project.checkTarget("PACKAGE-PRODUCT:FooLib1") { target in
-                        XCTAssertEqual(target.dependencies, ["PACKAGE-TARGET:FooLib1", "PACKAGE-TARGET:FooLib2"])
-                        XCTAssertEqual(target.frameworks, ["PACKAGE-TARGET:FooLib1", "PACKAGE-TARGET:FooLib2"])
-                    }
-
-                    project.checkTarget("PACKAGE-PRODUCT:FooTests") { target in
-                        XCTAssertEqual(target.dependencies, [])
-                        XCTAssertEqual(target.frameworks, [])
-                    }
-
-                    project.checkTarget("PACKAGE-TARGET:FooLib1") { target in
-                        XCTAssertEqual(target.dependencies, ["PACKAGE-TARGET:FooLib2"])
-                        XCTAssertEqual(target.frameworks, [])
-                    }
+                    let frameworksBuildFiles = target.baseTarget.buildPhases.first{ $0 is PIF.FrameworksBuildPhase }?.buildFiles ?? []
+                    let frameworksBuildFilesMap = Dictionary(uniqueKeysWithValues: frameworksBuildFiles.compactMap{ file -> (PIF.GUID, [PIF.PlatformFilter])? in
+                        switch file.reference {
+                        case .target(let guid):
+                            return (guid, file.platformFilters)
+                        case .file:
+                            return nil
+                        }
+                    })
+                    XCTAssertEqual(dependencyMap, frameworksBuildFilesMap)
                 }
             }
         }
@@ -2071,11 +2033,9 @@ class PIFBuilderTests: XCTestCase {
 
 extension PIFBuilderParameters {
     static func mock(
-        buildEnvironment: BuildEnvironment = BuildEnvironment(platform: .macOS, configuration: .debug),
         shouldCreateDylibForDynamicProducts: Bool = false
     ) -> Self {
         PIFBuilderParameters(
-            buildEnvironment: buildEnvironment,
             shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts
         )
     }

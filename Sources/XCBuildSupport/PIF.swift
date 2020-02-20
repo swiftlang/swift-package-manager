@@ -569,6 +569,7 @@ public enum PIF {
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: StringKey.self)
             try container.encode(guid, forKey: "guid")
+            try container.encode(platformFilters, forKey: "platformFilters")
 
             switch self.reference {
             case .file(let fileGUID):
@@ -580,7 +581,7 @@ public enum PIF {
     }
 
     /// Represents a generic platform filter.
-    public struct PlatformFilter: Encodable {
+    public struct PlatformFilter: Encodable, Equatable {
         /// The name of the platform (`LC_BUILD_VERSION`).
         ///
         /// Example: macos, ios, watchos, tvos.
