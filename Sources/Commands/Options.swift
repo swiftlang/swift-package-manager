@@ -89,6 +89,9 @@ public class ToolOptions {
     /// The build system to use.
     public var buildSystem: BuildSystemKind = .native
 
+    /// Extra arguments to pass when using xcbuild.
+    public var xcbuildFlags: [String] = []
+
     public required init() {}
 }
 

@@ -97,12 +97,16 @@ public struct BuildParameters: Encodable {
     /// Whether the Xcode build system is used.
     public var isXcodeBuildSystemEnabled: Bool
 
+    /// Extra arguments to pass when using xcbuild.
+    public var xcbuildFlags: [String]
+
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
         toolchain: Toolchain,
         destinationTriple: Triple? = nil,
         flags: BuildFlags,
+        xcbuildFlags: [String] = [],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
@@ -121,6 +125,7 @@ public struct BuildParameters: Encodable {
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
         self.flags = flags
+        self.xcbuildFlags = xcbuildFlags
         self.toolsVersion = toolsVersion
         self.jobs = jobs
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib

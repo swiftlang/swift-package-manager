@@ -809,8 +809,15 @@ final class AggregatePIFProjectBuilder: PIFProjectBuilder {
         projectDirectory = projects[0].projectDirectory
         developmentRegion = "en"
 
-        addBuildConfiguration(name: "Debug", settings: PIF.BuildSettings())
-        addBuildConfiguration(name: "Release", settings: PIF.BuildSettings())
+        var settings = PIF.BuildSettings()
+        settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
+        settings[.SUPPORTED_PLATFORMS] = ["$(AVAILABLE_PLATFORMS)"]
+        settings[.SDKROOT] = "auto"
+        settings[.SDK_VARIANT] = "auto"
+        settings[.SKIP_INSTALL] = "YES"
+
+        addBuildConfiguration(name: "Debug", settings: settings)
+        addBuildConfiguration(name: "Release", settings: settings)
 
         let allExcludingTestsTarget = addAggregateTarget(
             guid: "ALL-EXCLUDING-TESTS",

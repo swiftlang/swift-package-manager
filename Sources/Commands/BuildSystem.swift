@@ -76,7 +76,7 @@ public final class XcodeBuildSystem: BuildSystem {
             buildParameters.dataPath.pathString,
             "--target",
             subset.pifTargetName
-        ]
+        ] + buildParameters.xcbuildFlags
 
         let delegate = createBuildDelegate()
         let redirection: Process.OutputRedirection = .stream(stdout: delegate.parse(bytes:), stderr: { bytes in
