@@ -69,6 +69,12 @@ public final class XcodeBuildSystem: BuildSystem {
         }
     }
 
+    public func getPackageGraph() throws -> PackageGraph {
+        try memoize(to: &packageGraph) {
+            try packageGraphLoader()
+        }
+    }
+
     public func build(subset: BuildSubset) throws {
         let pifBuilder = try getPIFBuilder()
         let pif = try pifBuilder.generatePIF()
@@ -121,15 +127,6 @@ public final class XcodeBuildSystem: BuildSystem {
             let graph = try getPackageGraph()
             let pifBuilder = PIFBuilder(graph: graph, parameters: .init(buildParameters), diagnostics: diagnostics)
             return pifBuilder
-        }
-    }
-
-    /// Returns the package graph using the graph loader closure.
-    ///
-    /// First access will cache the graph.
-    private func getPackageGraph() throws -> PackageGraph {
-        try memoize(to: &packageGraph) {
-            try packageGraphLoader()
         }
     }
 }
