@@ -313,6 +313,12 @@ public class SwiftTool<Options: ToolOptions> {
                 usage: "Pass flag through to all C++ compiler invocations"),
             to: { $0.buildFlags.cxxCompilerFlags = $1 })
 
+        binder.bindArray(
+            option: parser.add(
+                option: "-Xxcbuild", kind: [String].self, strategy: .oneByOne,
+                usage: "Pass flag through to the Xcode build system invocations"),
+            to: { $0.xcbuildFlags = $1 })
+
         binder.bind(
             option: parser.add(
                 option: "--configuration", shortName: "-c", kind: BuildConfiguration.self,
@@ -757,6 +763,7 @@ public class SwiftTool<Options: ToolOptions> {
                 toolchain: toolchain,
                 destinationTriple: triple,
                 flags: options.buildFlags,
+                xcbuildFlags: options.xcbuildFlags,
                 jobs: options.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
                 sanitizers: options.sanitizers,
