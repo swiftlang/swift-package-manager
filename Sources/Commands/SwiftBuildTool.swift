@@ -8,10 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Build
 import TSCUtility
 import TSCBasic
 import PackageGraph
+import SPMBuildCore
+import Build
 
 /// swift-build tool namespace
 public class SwiftBuildTool: SwiftTool<BuildToolOptions> {

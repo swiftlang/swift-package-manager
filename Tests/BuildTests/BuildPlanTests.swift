@@ -15,7 +15,7 @@ import TSCUtility
 import SPMTestSupport
 import PackageModel
 import PackageLoading
-
+import SPMBuildCore
 import Build
 
 let hostTriple = Resources.default.toolchain.triple

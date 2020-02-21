@@ -1,6 +1,7 @@
 import TSCBasic
-import Build
 import TSCUtility
+import Build
+import SPMBuildCore
 
 public enum DestinationError: Swift.Error {
     /// Couldn't find the Xcode installation.

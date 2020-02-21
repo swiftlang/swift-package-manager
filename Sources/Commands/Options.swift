@@ -10,8 +10,9 @@
 
 import TSCBasic
 import TSCUtility
-import Build
 import PackageModel
+import SPMBuildCore
+import Build
 
 public class ToolOptions {
     /// Custom arguments to pass to C compiler, swift compiler and the linker.

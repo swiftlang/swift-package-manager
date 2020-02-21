@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright 2015 - 2019 Apple Inc. and the Swift project authors
+ Copyright 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -12,7 +12,6 @@ import class Foundation.ProcessInfo
 
 import TSCBasic
 import TSCUtility
-
 import PackageModel
 
 public struct BuildParameters: Encodable {
@@ -32,7 +31,7 @@ public struct BuildParameters: Encodable {
     /// On Darwin, linker can directly take the swiftmodule file path using the
     /// -add_ast_path flag. On other platforms, we convert the swiftmodule into
     /// an object file using Swift's modulewrap tool.
-    enum DebuggingStrategy {
+    public enum DebuggingStrategy {
         case swiftAST
         case modulewrap
     }
@@ -92,6 +91,17 @@ public struct BuildParameters: Encodable {
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
         BuildEnvironment(platform: currentPlatform, configuration: configuration)
+    }
+
+    /// The current platform we're building for.
+    var currentPlatform: PackageModel.Platform {
+        if self.triple.isDarwin() {
+            return .macOS
+        } else if self.triple.isAndroid() {
+            return .android
+        } else {
+            return .linux
+        }
     }
 
     /// Whether the Xcode build system is used.
@@ -177,46 +187,8 @@ public struct BuildParameters: Encodable {
         return buildPath.appending(components: "description.json")
     }
 
-    /// Extra flags to pass to Swift compiler.
-    public var swiftCompilerFlags: [String] {
-        var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
-        flags += self.flags.swiftCompilerFlags
-        flags += verbosity.ccArgs
-        return flags
-    }
-
-    /// Extra flags to pass to linker.
-    public var linkerFlags: [String] {
-        // Arguments that can be passed directly to the Swift compiler and
-        // doesn't require -Xlinker prefix.
-        //
-        // We do this to avoid sending flags like linker search path at the end
-        // of the search list.
-        let directSwiftLinkerArgs = ["-L"]
-
-        var flags: [String] = []
-        var it = self.flags.linkerFlags.makeIterator()
-        while let flag = it.next() {
-            if directSwiftLinkerArgs.contains(flag) {
-                // `-L <value>` variant.
-                flags.append(flag)
-                guard let nextFlag = it.next() else {
-                    // We expected a flag but don't have one.
-                    continue
-                }
-                flags.append(nextFlag)
-            } else if directSwiftLinkerArgs.contains(where: { flag.hasPrefix($0) }) {
-                // `-L<value>` variant.
-                flags.append(flag)
-            } else {
-                flags += ["-Xlinker", flag]
-            }
-        }
-        return flags
-    }
-
     /// The debugging strategy according to the current build parameters.
-    var debuggingStrategy: DebuggingStrategy? {
+    public var debuggingStrategy: DebuggingStrategy? {
         guard configuration == .debug else {
             return nil
         }

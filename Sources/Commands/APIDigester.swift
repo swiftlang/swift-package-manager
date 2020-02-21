@@ -11,6 +11,7 @@
 import TSCBasic
 import TSCUtility
 
+import SPMBuildCore
 import Build
 import PackageGraph
 import PackageModel

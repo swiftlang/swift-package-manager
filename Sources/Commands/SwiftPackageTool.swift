@@ -9,6 +9,7 @@
 */
 
 import TSCBasic
+import SPMBuildCore
 import Build
 import PackageModel
 import PackageLoading
