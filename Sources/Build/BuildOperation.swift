@@ -32,7 +32,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private var buildDelegate: BuildDelegate?
 
     /// The build system reference.
-    private var buildSystem: llbuildSwift.BuildSystem?
+    private var buildSystem: SPMLLBuild.BuildSystem?
 
     /// If build manifest caching should be enabled.
     public let useBuildManifestCaching: Bool
@@ -184,7 +184,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// building the package structure target.
     private func createBuildSystem(
         with buildDescription: BuildDescription?
-    ) throws -> llbuildSwift.BuildSystem {
+    ) throws -> SPMLLBuild.BuildSystem {
         // Figure out which progress bar we have to use during the build.
         let isVerbose = verbosity != .concise
         let progressAnimation: ProgressAnimationProtocol = isVerbose
