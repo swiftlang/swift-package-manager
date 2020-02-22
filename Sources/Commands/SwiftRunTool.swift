@@ -145,9 +145,9 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             let productName = try findProductName(in: buildDescription)
 
             if options.shouldBuildTests {
-                try buildOp.build(buildDescription: buildDescription, subset: .allIncludingTests)
+                try buildOp.build(subset: .allIncludingTests)
             } else if options.shouldBuild {
-                try buildOp.build(buildDescription: buildDescription, subset: .product(productName))
+                try buildOp.build(subset: .product(productName))
             }
 
             let executablePath = try self.buildParameters().buildPath.appending(component: productName)

@@ -166,8 +166,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             print(Versioning.currentVersion.completeDisplayString)
 
         case .listTests:
-            let testProduct = try buildTestsIfNeeded()
-            let testSuites = try getTestSuites(path: testProduct.testBundle)
+            let testProducts = try buildTestsIfNeeded()
+            let testSuites = try getTestSuites(in: testProducts)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
             // Print the tests.
@@ -187,14 +187,15 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             diagnostics.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
           #endif
             let graph = try loadPackageGraph()
-            let testProduct = try buildTestsIfNeeded(graph: graph)
-            let testSuites = try getTestSuites(path: testProduct.testBundle)
-            let generator = LinuxMainGenerator(graph: graph, testSuites: testSuites)
+            let testProducts = try buildTestsIfNeeded()
+            let testSuites = try getTestSuites(in: testProducts)
+            let allTestSuites = testSuites.values.flatMap { $0 }
+            let generator = LinuxMainGenerator(graph: graph, testSuites: allTestSuites)
             try generator.generate()
 
         case .runSerial:
             let toolchain = try getToolchain()
-            let testProduct = try buildTestsIfNeeded()
+            let testProducts = try buildTestsIfNeeded()
             var ranSuccessfully = true
             let buildParameters = try self.buildParameters()
 
@@ -207,7 +208,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             switch options.testCaseSpecifier {
             case .none:
                 let runner = TestRunner(
-                    path: testProduct.testBundle,
+                    bundlePaths: testProducts.map { $0.bundlePath },
                     xctestArg: nil,
                     processSet: processSet,
                     toolchain: toolchain,
@@ -224,7 +225,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 }
 
                 // Find the tests we need to run.
-                let testSuites = try getTestSuites(path: testProduct.testBundle)
+                let testSuites = try getTestSuites(in: testProducts)
                 let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
                 // If there were no matches, emit a warning.
@@ -235,7 +236,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 // Finally, run the tests.
                 for test in tests {
                     let runner = TestRunner(
-                        path: testProduct.testBundle,
+                        bundlePaths: [test.productPath],
                         xctestArg: test.specifier,
                         processSet: processSet,
                         toolchain: toolchain,
@@ -252,13 +253,13 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             }
 
             if options.shouldEnableCodeCoverage {
-                try processCodeCoverage(testProduct)
+                try processCodeCoverage(testProducts)
             }
 
         case .runParallel:
             let toolchain = try getToolchain()
-            let testProduct = try buildTestsIfNeeded()
-            let testSuites = try getTestSuites(path: testProduct.testBundle)
+            let testProducts = try buildTestsIfNeeded()
+            let testSuites = try getTestSuites(in: testProducts)
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
             let buildParameters = try self.buildParameters()
 
@@ -276,7 +277,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
             // Run the tests using the parallel runner.
             let runner = ParallelTestRunner(
-                testPath: testProduct.testBundle,
+                bundlePaths: testProducts.map { $0.bundlePath },
                 processSet: processSet,
                 toolchain: toolchain,
                 xUnitOutput: options.xUnitOutput,
@@ -292,22 +293,24 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             }
 
             if options.shouldEnableCodeCoverage {
-                try processCodeCoverage(testProduct)
+                try processCodeCoverage(testProducts)
             }
         }
     }
 
     /// Processes the code coverage data and emits a json.
-    private func processCodeCoverage(_ testProduct: BuildDescription.BuiltTestProduct) throws {
+    private func processCodeCoverage(_ testProducts: [BuiltTestProduct]) throws {
         // Merge all the profraw files to produce a single profdata file.
         try mergeCodeCovRawDataFiles()
 
         let buildParameters = try self.buildParameters()
-        // Export the codecov data as JSON.
-        let jsonPath = codeCovAsJSONPath(
-            buildParameters: buildParameters,
-            packageName: testProduct.packageName)
-        try exportCodeCovAsJSON(to: jsonPath, testBinary: testProduct.testBinary)
+        for product in testProducts {
+            // Export the codecov data as JSON.
+            let jsonPath = codeCovAsJSONPath(
+                buildParameters: buildParameters,
+                packageName: product.packageName)
+            try exportCodeCovAsJSON(to: jsonPath, testBinary: product.bundlePath)
+        }
     }
 
     /// Merges all profraw profiles in codecoverage directory into default.profdata file.
@@ -353,38 +356,30 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
     /// Builds the "test" target if enabled in options.
     ///
-    /// - Returns: The built test product.
-    private func buildTestsIfNeeded(graph: PackageGraph? = nil) throws -> BuildDescription.BuiltTestProduct {
-        let buildOp = try createBuildOperation()
-        let buildDescription = try buildOp.getBuildDescription()
+    /// - Returns: The paths to the build test products.
+    private func buildTestsIfNeeded() throws -> [BuiltTestProduct] {
+        let buildSystem = try createBuildSystem()
 
         if options.shouldBuildTests {
             let subset = options.testProduct.map(BuildSubset.product) ?? .allIncludingTests
-            try buildOp.build(buildDescription: buildDescription, subset: subset)
+            try buildSystem.build(subset: subset)
         }
 
         // Find the test product.
-        let testProducts = buildDescription.builtTestProducts
-        let testProduct: BuildDescription.BuiltTestProduct
-        switch testProducts.count {
-        case 0:
+        let testProducts = buildSystem.builtTestProducts
+        guard !testProducts.isEmpty else {
             throw TestError.testsExecutableNotFound
+        }
 
-        case 1:
-            testProduct = testProducts[0]
-
-        default:
-            guard let testProductName = options.testProduct else {
-                throw TestError.multipleTestProducts(testProducts.map{ $0.productName })
-            }
+        if let testProductName = options.testProduct {
             guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
                 throw TestError.testsExecutableNotFound
             }
 
-            testProduct = selectedTestProduct
+            return [selectedTestProduct]
+        } else {
+            return testProducts
         }
-
-        return testProduct
     }
 
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<TestToolOptions>) {
@@ -465,6 +460,12 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         fatalError("XCTestHelper binary not found.")
     }
 
+    fileprivate func getTestSuites(in testProducts: [BuiltTestProduct]) throws -> [AbsolutePath: [TestSuite]] {
+        let testSuitesByProduct = try testProducts
+            .map { try ($0.bundlePath, self.getTestSuites(fromTestAt: $0.bundlePath)) }
+        return Dictionary(uniqueKeysWithValues: testSuitesByProduct)
+    }
+
     /// Runs the corresponding tool to get tests JSON and create TestSuite array.
     /// On macOS, we use the swiftpm-xctest-helper tool bundled with swiftpm.
     /// On Linux, XCTest can dump the json using `--dump-tests-json` mode.
@@ -475,7 +476,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     /// - Throws: TestError, SystemError, TSCUtility.Error
     ///
     /// - Returns: Array of TestSuite
-    fileprivate func getTestSuites(path: AbsolutePath) throws -> [TestSuite] {
+    fileprivate func getTestSuites(fromTestAt path: AbsolutePath) throws -> [TestSuite] {
         // Run the correct tool.
       #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
@@ -523,6 +524,9 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
 /// A structure representing an individual unit test.
 struct UnitTest {
+    /// The path to the test product containing the test.
+    let productPath: AbsolutePath
+
     /// The name of the unit test.
     let name: String
 
@@ -540,8 +544,8 @@ struct UnitTest {
 /// Note: Executes the XCTest with inherited environment as it is convenient to pass senstive
 /// information like username, password etc to test cases via environment variables.
 final class TestRunner {
-    /// Path to valid XCTest binary.
-    private let path: AbsolutePath
+    /// Path to valid XCTest binaries.
+    private let bundlePaths: [AbsolutePath]
 
     /// Arguments to pass to XCTest if any.
     private let xctestArg: String?
@@ -561,17 +565,18 @@ final class TestRunner {
     /// Creates an instance of TestRunner.
     ///
     /// - Parameters:
-    ///     - path: Path to valid XCTest binary.
+    ///     - testPaths: Paths to valid XCTest binaries.
     ///     - xctestArg: Arguments to pass to XCTest.
-    init(path: AbsolutePath,
-         xctestArg: String? = nil,
-         processSet: ProcessSet,
-         toolchain: UserToolchain,
-         diagnostics: DiagnosticsEngine,
-         options: ToolOptions,
-         buildParameters: BuildParameters
+    init(
+        bundlePaths: [AbsolutePath],
+        xctestArg: String? = nil,
+        processSet: ProcessSet,
+        toolchain: UserToolchain,
+        diagnostics: DiagnosticsEngine,
+        options: ToolOptions,
+        buildParameters: BuildParameters
     ) {
-        self.path = path
+        self.bundlePaths = bundlePaths
         self.xctestArg = xctestArg
         self.processSet = processSet
         self.toolchain = toolchain
@@ -580,8 +585,33 @@ final class TestRunner {
         self.buildParameters = buildParameters
     }
 
+    /// Executes the tests without printing anything on standard streams.
+    ///
+    /// - Returns: A tuple with first bool member indicating if test execution returned code 0 and second argument
+    ///   containing the output of the execution.
+    public func test() -> (Bool, String) {
+        var success = true
+        var output = ""
+        for path in bundlePaths {
+            let (testSuccess, testOutput) = test(testAt: path)
+            success = success && testSuccess
+            output += testOutput
+        }
+        return (success, output)
+    }
+
+    /// Executes and returns execution status. Prints test output on standard streams.
+    public func test() -> Bool {
+        var success = true
+        for path in bundlePaths {
+            let testSuccess: Bool = test(testAt: path)
+            success = success && testSuccess
+        }
+        return success
+    }
+
     /// Constructs arguments to execute XCTest.
-    private func args() throws -> [String] {
+    private func args(forTestAt testPath: AbsolutePath) throws -> [String] {
         var args: [String] = []
       #if os(macOS)
         guard let xctest = toolchain.xctest else {
@@ -591,9 +621,9 @@ final class TestRunner {
         if let xctestArg = xctestArg {
             args += ["-XCTest", xctestArg]
         }
-        args += [path.pathString]
+        args += [testPath.pathString]
       #else
-        args += [path.description]
+        args += [testPath.description]
         if let xctestArg = xctestArg {
             args += [xctestArg]
         }
@@ -605,14 +635,14 @@ final class TestRunner {
     ///
     /// - Returns: A tuple with first bool member indicating if test execution returned code 0
     ///            and second argument containing the output of the execution.
-    func test() -> (Bool, String) {
+    private func test(testAt testPath: AbsolutePath) -> (Bool, String) {
         var output = ""
         var success = false
         do {
             // FIXME: The environment will be constructed for every test when using the
             // parallel test runner. We should do some kind of caching.
             let env = try constructTestEnvironment(toolchain: toolchain, options: self.options, buildParameters: self.buildParameters)
-            let process = Process(arguments: try args(), environment: env, outputRedirection: .collect, verbose: false)
+            let process = Process(arguments: try args(forTestAt: testPath), environment: env, outputRedirection: .collect, verbose: false)
             try process.launch()
             let result = try process.waitUntilExit()
             output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle() ?? ""
@@ -630,10 +660,10 @@ final class TestRunner {
     }
 
     /// Executes and returns execution status. Prints test output on standard streams.
-    func test() -> Bool {
+    private func test(testAt testPath: AbsolutePath) -> Bool {
         do {
             let env = try constructTestEnvironment(toolchain: toolchain, options: self.options, buildParameters: self.buildParameters)
-            let process = Process(arguments: try args(), environment: env, outputRedirection: .none)
+            let process = Process(arguments: try args(forTestAt: testPath), environment: env, outputRedirection: .none)
             try processSet.add(process)
             try process.launch()
             let result = try process.waitUntilExit()
@@ -664,8 +694,8 @@ final class ParallelTestRunner {
         var success: Bool
     }
 
-    /// Path to XCTest binary.
-    private let testPath: AbsolutePath
+    /// Path to XCTest binaries.
+    private let bundlePaths: [AbsolutePath]
 
     /// The queue containing list of tests to run (producer).
     private let pendingTests = SynchronizedQueue<UnitTest?>()
@@ -700,7 +730,7 @@ final class ParallelTestRunner {
     let diagnostics: DiagnosticsEngine
 
     init(
-        testPath: AbsolutePath,
+        bundlePaths: [AbsolutePath],
         processSet: ProcessSet,
         toolchain: UserToolchain,
         xUnitOutput: AbsolutePath? = nil,
@@ -709,7 +739,7 @@ final class ParallelTestRunner {
         options: ToolOptions,
         buildParameters: BuildParameters
     ) {
-        self.testPath = testPath
+        self.bundlePaths = bundlePaths
         self.processSet = processSet
         self.toolchain = toolchain
         self.xUnitOutput = xUnitOutput
@@ -769,7 +799,7 @@ final class ParallelTestRunner {
                 // Dequeue a specifier and run it till we encounter nil.
                 while let test = self.pendingTests.dequeue() {
                     let testRunner = TestRunner(
-                        path: self.testPath,
+                        bundlePaths: [test.productPath],
                         xctestArg: test.specifier,
                         processSet: self.processSet,
                         toolchain: self.toolchain,
@@ -912,12 +942,20 @@ struct TestSuite {
 }
 
 
-fileprivate extension Sequence where Iterator.Element == TestSuite {
+fileprivate extension Dictionary where Key == AbsolutePath, Value == [TestSuite] {
     /// Returns all the unit tests of the test suites.
     var allTests: [UnitTest] {
-        return flatMap { $0.tests }.flatMap({ testCase in
-            testCase.tests.map{ UnitTest(name: $0, testCase: testCase.name) }
-        })
+        var allTests: [UnitTest] = []
+        for (bundlePath, testSuites) in self {
+            for testSuite in testSuites {
+                for testCase in testSuite.tests {
+                    for test in testCase.tests {
+                        allTests.append(UnitTest(productPath: bundlePath, name: test, testCase: testCase.name))
+                    }
+                }
+            }
+        }
+        return allTests
     }
 
     /// Return tests matching the provided specifier

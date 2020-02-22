@@ -174,27 +174,6 @@ public struct BuildDescription: Codable {
     public typealias CommandName = String
     public typealias TargetName = String
 
-    /// Represents a test product which is built and is present on disk.
-    public struct BuiltTestProduct: Codable {
-        /// The name of the package to which the test binary belongs.
-        public let packageName: String
-
-        /// The test product name.
-        public let productName: String
-
-        /// The path of the test binary.
-        public let testBinary: AbsolutePath
-
-        /// The path of the test bundle.
-        public var testBundle: AbsolutePath {
-            // Go up the folder hierarchy until we find the .xctest bundle.
-            sequence(
-                first: testBinary,
-                next: { $0.isRoot ? nil : $0.parentDirectory }
-            ).first{ $0.basename.hasSuffix(".xctest") }!
-        }
-    }
-
     /// The map of command to target names for Swift targets.
     let swiftTargetMap: [CommandName: TargetName]
 
@@ -234,7 +213,7 @@ public struct BuildDescription: Codable {
             return BuiltTestProduct(
                 packageName: package.name,
                 productName: desc.product.name,
-                testBinary: desc.binary
+                binaryPath: desc.binary
             )
         }
 

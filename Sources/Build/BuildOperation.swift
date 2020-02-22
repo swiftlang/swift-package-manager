@@ -40,8 +40,15 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The build plan that was computed, if any.
     public private(set) var buildPlan: BuildPlan?
 
+    /// The build description resulting from planing.
+    private var buildDescription: BuildDescription?
+
     /// The stdout stream for the build delegate.
     let stdoutStream: OutputByteStream
+
+    public var builtTestProducts: [BuiltTestProduct] {
+        (try? getBuildDescription())?.builtTestProducts ?? []
+    }
 
     public init(
         buildParameters: BuildParameters,
@@ -74,35 +81,26 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// This will try skip build planning if build manifest caching is enabled
     /// and the package structure hasn't changed.
     public func getBuildDescription() throws -> BuildDescription {
-        if useBuildManifestCaching {
-            try buildPackageStructure()
+        try memoize(to: &buildDescription) {
+            if useBuildManifestCaching {
+                try buildPackageStructure()
 
-            // Return the build description that's on disk. We trust the above build to
-            // update the build description when needed.
-            do {
-                return try BuildDescription.load(from: buildParameters.buildDescriptionPath)
-            }
-            catch {
-                // Silently regnerate the build description if we failed to decode (which could happen
-                // because the existing file was created by different version of swiftpm).
-                if !(error is DecodingError) {
-                    diagnostics.emit(
-                        warning:
-                            "failed to load the build description; running build planning\n    \(error)"
-                    )
+                // Return the build description that's on disk. We trust the above build to
+                // update the build description when needed.
+                do {
+                    return try BuildDescription.load(from: buildParameters.buildDescriptionPath)
+                } catch {
+                    // Silently regnerate the build description if we failed to decode (which could happen
+                    // because the existing file was created by different version of swiftpm).
+                    if !(error is DecodingError) {
+                        diagnostics.emit(warning: "failed to load the build description; running build planning: \(error)")
+                    }
                 }
             }
+
+            // We need to perform actual planning if we reach here.
+            return try plan()
         }
-
-        // We need to perform actual planning if we reach here.
-        return try plan()
-    }
-
-    /// Perform a build using the given subset.
-    ///
-    /// This will automatically compute the build description.
-    public func build(subset: BuildSubset = .allExcludingTests) throws {
-        try build(buildDescription: getBuildDescription(), subset: subset)
     }
 
     /// Cancel the active build operation.
@@ -111,9 +109,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Perform a build using the given build description and subset.
-    public func build(buildDescription: BuildDescription, subset: BuildSubset) throws {
+    public func build(subset: BuildSubset) throws {
         // Create the build system.
-        let buildSystem = try createBuildSystem(with: buildDescription)
+        let buildSystem = try createBuildSystem(with: getBuildDescription())
         self.buildSystem = buildSystem
 
         // Perform the build.

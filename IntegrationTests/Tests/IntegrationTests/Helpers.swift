@@ -312,3 +312,7 @@ func binaryTargetsFixture(_ closure: (AbsolutePath) throws -> Void) throws {
         try closure(packagePath)
     }
 }
+
+func XCTSkip() throws {
+    throw XCTSkip()
+}

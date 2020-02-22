@@ -32,7 +32,7 @@ public struct PIFBuilderParameters {
 }
 
 /// PIF object builder for a package graph.
-public struct PIFBuilder {
+public final class PIFBuilder {
 
     /// Name of the PIF target aggregating all targets (excluding tests).
     public static let allExcludingTestsTargetName = "AllExcludingTests"
@@ -51,6 +51,8 @@ public struct PIFBuilder {
 
     /// The file system to read from.
     public let fileSystem: FileSystem
+
+    private var pif: PIF.TopLevelObject?
 
     /// Creates a `PIFBuilder` instance.
     /// - Parameters:
@@ -92,28 +94,30 @@ public struct PIFBuilder {
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     public func construct() -> PIF.TopLevelObject {
-        let rootPackage = graph.rootPackages[0]
+        memoize(to: &pif) {
+            let rootPackage = graph.rootPackages[0]
 
-        let sortedPackages = graph.packages.sorted { $0.name < $1.name }
-        var projects: [PIFProjectBuilder] = sortedPackages.map { package in
-            PackagePIFProjectBuilder(
-                package: package,
-                parameters: parameters,
-                diagnostics: diagnostics,
-                fileSystem: fileSystem
+            let sortedPackages = graph.packages.sorted { $0.name < $1.name }
+            var projects: [PIFProjectBuilder] = sortedPackages.map { package in
+                PackagePIFProjectBuilder(
+                    package: package,
+                    parameters: parameters,
+                    diagnostics: diagnostics,
+                    fileSystem: fileSystem
+                )
+            }
+
+            projects.append(AggregatePIFProjectBuilder(projects: projects))
+
+            let workspace = PIF.Workspace(
+                guid: "Workspace:\(rootPackage.path.pathString)",
+                name: rootPackage.name,
+                path: rootPackage.path,
+                projects: projects.map { $0.construct() }
             )
+
+            return PIF.TopLevelObject(workspace: workspace)
         }
-
-        projects.append(AggregatePIFProjectBuilder(projects: projects))
-
-        let workspace = PIF.Workspace(
-            guid: "Workspace:\(rootPackage.path.pathString)",
-            name: rootPackage.name,
-            path: rootPackage.path,
-            projects: projects.map { $0.construct() }
-        )
-
-        return PIF.TopLevelObject(workspace: workspace)
     }
 }
 

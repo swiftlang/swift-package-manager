@@ -14,8 +14,11 @@ import TSCUtility
 import TSCTestSupport
 
 final class XCBuildTests: XCTestCase {
-  #if os(macOS)
     func testExecutableProducts() throws {
+        #if !os(macOS)
+              try XCTSkip()
+        #endif
+
         fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
             let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
@@ -113,6 +116,10 @@ final class XCBuildTests: XCTestCase {
     }
 
     func testTestProducts() throws {
+        #if !os(macOS)
+            try XCTSkip()
+        #endif
+
         fixture(name: "XCBuild/TestProducts") { path in
             let fooPath = path.appending(component: "Foo")
             let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
@@ -191,6 +198,10 @@ final class XCBuildTests: XCTestCase {
     }
 
     func testLibraryProductsAndTargets() throws {
+        #if !os(macOS)
+            try XCTSkip()
+        #endif
+
         fixture(name: "XCBuild/Libraries") { path in
             let fooPath = path.appending(component: "Foo")
             let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
@@ -261,6 +272,10 @@ final class XCBuildTests: XCTestCase {
     }
 
     func testSystemTargets() throws {
+        #if !os(macOS)
+            try XCTSkip()
+        #endif
+
         fixture(name: "XCBuild/SystemTargets") { path in
             let fooPath = path.appending(component: "Foo")
             let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
@@ -282,11 +297,40 @@ final class XCBuildTests: XCTestCase {
         }
     }
 
-    //FIXME: This test randomly succeeds or fails, depending on the order the subtasks are executed in.
-    func _testBinaryTargets() throws {
+    func testBinaryTargets() throws {
+        //FIXME: This test randomly succeeds or fails, depending on the order the subtasks are executed in.
+        try XCTSkip()
+
         try binaryTargetsFixture { path in
             try sh(swiftBuild, "--package-path", path, "-c", "debug", "--build-system", "xcode", "--target", "exe")
         }
     }
-  #endif
+
+    func testSwiftTest() throws {
+        #if !os(macOS) || Xcode
+            try XCTSkip()
+        #endif
+
+        fixture(name: "XCBuild/TestProducts") { path in
+            let fooPath = path.appending(component: "Foo")
+
+            do {
+                let (_, stderr) = try sh(swiftTest, "--package-path", fooPath, "--build-system", "xcode")
+                XCTAssertMatch(stderr, .contains("Test Suite 'FooTests.xctest'"))
+                XCTAssertMatch(stderr, .contains("Test Suite 'CFooTests.xctest'"))
+            }
+
+            do {
+                let (_, stderr) = try sh(swiftTest, "--package-path", fooPath, "--build-system", "xcode", "--filter", "CFooTests")
+                XCTAssertNoMatch(stderr, .contains("Test Suite 'FooTests.xctest'"))
+                XCTAssertMatch(stderr, .contains("Test Suite 'CFooTests.xctest'"))
+            }
+
+            do {
+                let (stdout, _) = try sh(swiftTest, "--package-path", fooPath, "--build-system", "xcode", "--parallel")
+                XCTAssertMatch(stdout, .contains("Testing FooTests"))
+                XCTAssertMatch(stdout, .contains("Testing CFooTests"))
+            }
+        }
+    }
 }
