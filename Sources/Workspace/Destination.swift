@@ -35,13 +35,13 @@ public struct Destination: Encodable {
     ///  - abi = eabi, gnu, android, macho, elf, etc.
     ///
     /// for more information see //https://clang.llvm.org/docs/CrossCompilation.html
-    public let target: Triple?
+    public var target: Triple?
 
     /// The SDK used to compile for the destination.
-    public let sdk: AbsolutePath
+    public var sdk: AbsolutePath
 
     /// The binDir in the containing the compilers/linker to be used for the compilation.
-    public let binDir: AbsolutePath
+    public var binDir: AbsolutePath
 
     /// Additional flags to be passed to the C compiler.
     public let extraCCFlags: [String]
