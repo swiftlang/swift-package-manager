@@ -43,6 +43,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The build description resulting from planing.
     private var buildDescription: BuildDescription?
 
+    /// The loaded package graph.
+    private var packageGraph: PackageGraph?
+
     /// The stdout stream for the build delegate.
     let stdoutStream: OutputByteStream
 
@@ -64,17 +67,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.stdoutStream = stdoutStream
     }
 
-    /// Returns the package graph using the graph loader closure.
-    ///
-    /// First access will cache the graph.
     public func getPackageGraph() throws -> PackageGraph {
-        if let packageGraph = _packageGraph {
-            return packageGraph
+        try memoize(to: &packageGraph) {
+            try self.packageGraphLoader()
         }
-        _packageGraph = try packageGraphLoader()
-        return _packageGraph!
     }
-    private var _packageGraph: PackageGraph?
 
     /// Compute and return the latest build descroption.
     ///

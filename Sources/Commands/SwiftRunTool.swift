@@ -140,14 +140,13 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
                 return
             }
 
-            let buildOp = try createBuildOperation()
-            let buildDescription = try buildOp.getBuildDescription()
-            let productName = try findProductName(in: buildDescription)
+            let buildSystem = try createBuildSystem()
+            let productName = try findProductName(in: buildSystem.getPackageGraph())
 
             if options.shouldBuildTests {
-                try buildOp.build(subset: .allIncludingTests)
+                try buildSystem.build(subset: .allIncludingTests)
             } else if options.shouldBuild {
-                try buildOp.build(subset: .product(productName))
+                try buildSystem.build(subset: .product(productName))
             }
 
             let executablePath = try self.buildParameters().buildPath.appending(component: productName)
@@ -156,16 +155,20 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
     }
 
     /// Returns the path to the correct executable based on options.
-    private func findProductName(in buildDescription: BuildDescription) throws -> String {
+    private func findProductName(in graph: PackageGraph) throws -> String {
         if let executable = options.executable {
-            guard buildDescription.allExecutables.contains(executable) else {
+            let executableExists = graph.allProducts.contains { $0.type == .executable && $0.name == executable }
+            guard executableExists else {
                 throw RunError.executableNotFound(executable)
             }
             return executable
         }
 
         // If the executable is implicit, search through root products.
-        let rootExecutables = buildDescription.rootExecutables
+        let rootExecutables = graph.rootPackages
+            .flatMap { $0.products }
+            .filter { $0.type == .executable }
+            .map { $0.name }
 
         // Error out if the package contains no executables.
         guard rootExecutables.count > 0 else {

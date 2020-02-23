@@ -186,12 +186,6 @@ public struct BuildDescription: Codable {
     /// The built test products.
     public let builtTestProducts: [BuiltTestProduct]
 
-    /// The list of executable products in the package graph.
-    public let allExecutables: [String]
-
-    /// The list of executable products in the root package.
-    public let rootExecutables: [String]
-
     public init(
         plan: BuildPlan,
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
@@ -216,9 +210,6 @@ public struct BuildDescription: Codable {
                 binaryPath: desc.binary
             )
         }
-
-        self.allExecutables = plan.graph.allProducts.filter{ $0.type == .executable }.map{ $0.name }
-        self.rootExecutables = plan.graph.rootPackages.flatMap{ $0.products }.filter{ $0.type == .executable }.map{ $0.name }
     }
 
     public func write(to path: AbsolutePath) throws {

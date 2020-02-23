@@ -127,7 +127,7 @@ public final class XcodeBuildSystem: BuildSystem {
     /// Returns the package graph using the graph loader closure.
     ///
     /// First access will cache the graph.
-    private func getPackageGraph() throws -> PackageGraph {
+    public func getPackageGraph() throws -> PackageGraph {
         try memoize(to: &packageGraph) {
             try packageGraphLoader()
         }
