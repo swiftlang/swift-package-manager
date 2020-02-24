@@ -54,8 +54,8 @@ public class ToolOptions {
     public var customCompileTriple: Triple?
     /// Path to the compilation destination’s SDK.
     public var customCompileSDK: AbsolutePath?
-    /// Path to the `bin` directory of the compilation destination’s toolchain.
-    public var customCompileToolchainBinDir: AbsolutePath?
+    /// Path to the compilation destination’s toolchain.
+    public var customCompileToolchain: AbsolutePath?
 
     /// If should link the Swift stdlib statically.
     public var shouldLinkStaticSwiftStdlib = false

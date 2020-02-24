@@ -386,8 +386,8 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--sdk", kind: PathArgument.self),
             to: { $0.customCompileSDK = $1.path })
         binder.bind(
-            option: parser.add(option: "--toolchain-bin-dir", kind: PathArgument.self),
-            to: { $0.customCompileToolchainBinDir = $1.path })
+            option: parser.add(option: "--toolchain", kind: PathArgument.self),
+            to: { $0.customCompileToolchain = $1.path })
 
         // FIXME: We need to allow -vv type options for this.
         binder.bind(
@@ -809,8 +809,8 @@ public class SwiftTool<Options: ToolOptions> {
         if let triple = self.options.customCompileTriple {
           destination.target = triple
         }
-        if let binDir = self.options.customCompileToolchainBinDir {
-            destination.binDir = binDir
+        if let binDir = self.options.customCompileToolchain {
+            destination.binDir = binDir.appending(components: "usr", "bin")
         }
         if let sdk = self.options.customCompileSDK {
             destination.sdk = sdk
