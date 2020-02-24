@@ -149,6 +149,118 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testShowDependencies_dotFormat_sr12016() {
+        // Confirm that SR-12016 is resolved.
+        // See https://bugs.swift.org/browse/SR-12016
+        
+        let fileSystem = InMemoryFileSystem(emptyFiles: [
+            "/PackageA/Sources/TargetA/main.swift",
+            "/PackageB/Sources/TargetB/B.swift",
+            "/PackageC/Sources/TargetC/C.swift",
+            "/PackageD/Sources/TargetD/D.swift",
+        ])
+        
+        let manifestA = Manifest.createManifest(
+            name: "PackageA",
+            path: "/PackageA",
+            url: "/PackageA",
+            v: .currentToolsVersion,
+            packageKind: .root,
+            dependencies: [
+                .init(name: "PackageB", url: "/PackageB", requirement: .localPackage),
+                .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
+            ],
+            products: [
+                .init(name: "exe", type: .executable, targets: ["TargetA"])
+            ],
+            targets: [
+                .init(name: "TargetA", dependencies: ["PackageB", "PackageC"])
+            ]
+        )
+        
+        let manifestB = Manifest.createManifest(
+            name: "PackageB",
+            path: "/PackageB",
+            url: "/PackageB",
+            v: .currentToolsVersion,
+            packageKind: .local,
+            dependencies: [
+                .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
+                .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
+            ],
+            products: [
+                .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
+            ],
+            targets: [
+                .init(name: "TargetB", dependencies: ["PackageC", "PackageD"])
+            ]
+        )
+        
+        let manifestC = Manifest.createManifest(
+            name: "PackageC",
+            path: "/PackageC",
+            url: "/PackageC",
+            v: .currentToolsVersion,
+            packageKind: .local,
+            dependencies: [
+                .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
+            ],
+            products: [
+                .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
+            ],
+            targets: [
+                .init(name: "TargetC", dependencies: ["PackageD"])
+            ]
+        )
+        
+        let manifestD = Manifest.createManifest(
+            name: "PackageD",
+            path: "/PackageD",
+            url: "/PackageD",
+            v: .currentToolsVersion,
+            packageKind: .local,
+            products: [
+                .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
+            ],
+            targets: [
+                .init(name: "TargetD")
+            ]
+        )
+        
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
+                                     manifests: [manifestA, manifestB, manifestC, manifestD])
+        XCTAssertNoDiagnostics(diagnostics)
+        
+        let output = BufferedOutputByteStream()
+        dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .dot, on: output)
+        let dotFormat = output.bytes.description
+        
+        var alreadyPutOut: Set<Substring> = []
+        for line in dotFormat.split(whereSeparator: { $0.isNewline }) {
+            if alreadyPutOut.contains(line) {
+                XCTFail("Same line was already put out: \(line)")
+            }
+            alreadyPutOut.insert(line)
+        }
+        
+        let expectedLines: [Substring] = [
+            #""/PackageA" [label="PackageA\n/PackageA\nunspecified"]"#,
+            #""/PackageB" [label="PackageB\n/PackageB\nunspecified"]"#,
+            #""/PackageC" [label="PackageC\n/PackageC\nunspecified"]"#,
+            #""/PackageD" [label="PackageD\n/PackageD\nunspecified"]"#,
+            #""/PackageA" -> "/PackageB""#,
+            #""/PackageA" -> "/PackageC""#,
+            #""/PackageB" -> "/PackageC""#,
+            #""/PackageB" -> "/PackageD""#,
+            #""/PackageC" -> "/PackageD""#,
+        ]
+        for expectedLine in expectedLines {
+            XCTAssertTrue(alreadyPutOut.contains(expectedLine),
+                          "Expected line is not found: \(expectedLine)")
+        }
+    }
+
     func testInitEmpty() throws {
         mktmpdir { tmpPath in
             let fs = localFileSystem
