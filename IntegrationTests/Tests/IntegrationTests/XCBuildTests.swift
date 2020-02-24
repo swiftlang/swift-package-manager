@@ -21,7 +21,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -40,7 +40,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "foo")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -59,7 +59,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "cfoo")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -78,7 +78,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "bar")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -97,7 +97,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "cbar")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -122,7 +122,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/TestProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -141,7 +141,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/TestProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--build-tests")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -160,7 +160,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/TestProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "FooTests")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -179,7 +179,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/TestProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "CFooTests")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -204,7 +204,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/Libraries") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -221,7 +221,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/Libraries") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "FooLib")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -238,7 +238,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/Libraries") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "CFooLib")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -255,7 +255,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/Libraries") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "BarLib")
             let debugPath = binaryPath.appending(component: "Debug")
@@ -278,7 +278,7 @@ final class XCBuildTests: XCTestCase {
 
         fixture(name: "XCBuild/SystemTargets") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "x86_64-apple-macosx", "Products")
+            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
             let inputsPath = path.appending(component: "Inputs")
 
             // Because there isn't any one system target that we can depend on for testing purposes, we build our own.
