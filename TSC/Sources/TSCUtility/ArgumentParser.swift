@@ -128,19 +128,27 @@ public enum Shell: String, StringEnumArgument {
 
 /// Various shell completions modes supplied by ArgumentKind.
 public enum ShellCompletion {
-    /// Offers no completions at all; e.g. for a string identifier.
+    /// Offers no completions at all.
+    ///
+    /// e.g. for a string identifier.
     case none
     
-    /// No specific completions, will offer tool's completions.
+    /// No specific completions.
+    ///
+    /// The tool will provide its own completions.
     case unspecified
     
     /// Offers filename completions.
     case filename
     
-    /// Custom function for generating completions. Must be provided in the script's scope.
+    /// Custom function for generating completions.
+    ///
+    /// Must be provided in the script's scope.
     case function(String)
     
-    /// Offers completions from predefined list. A description can be provided which is shown in some shells, like zsh.
+    /// Offers completions from a predefined list.
+    ///
+    /// A description can be provided which is shown in some shells, like zsh.
     case values([(value: String, description: String)])
 }
 
@@ -180,14 +188,11 @@ extension Int: ArgumentKind {
 
 extension Bool: ArgumentKind {
     public init(argument: String) throws {
-        switch argument {
-        case "true":
-            self = true
-        case "false":
-            self = false
-        default:
+        guard let bool = Bool(argument) else {
             throw ArgumentConversionError.unknown(value: argument)
         }
+
+        self = bool
     }
 
     public static var completion: ShellCompletion = .unspecified
