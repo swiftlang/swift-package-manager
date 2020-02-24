@@ -10,7 +10,7 @@ foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
     add_library(PD${PACKAGE_DESCRIPTION_VERSION}
         BuildSettings.swift
         LanguageStandardSettings.swift
-        Package.swift
+        PackageDescription.swift
         PackageDependency.swift
         PackageRequirement.swift
         Product.swift

@@ -36,7 +36,13 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                            .process("biz.txt", localization: .default),
                            .process("baz.txt", localization: .base),
                        ]
-                   ),
+                    ),
+                    .testTarget(
+                       name: "FooTests",
+                       resources: [
+                           .process("testfixture.txt"),
+                       ]
+                    ),
                ]
             )
             """
@@ -47,6 +53,9 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process, path: "bar.txt"))
             XCTAssertEqual(resources[2], TargetDescription.Resource(rule: .process, path: "biz.txt", localization: .default))
             XCTAssertEqual(resources[3], TargetDescription.Resource(rule: .process, path: "baz.txt", localization: .base))
+
+            let testResources = manifest.targets[1].resources
+            XCTAssertEqual(testResources[0], TargetDescription.Resource(rule: .process, path: "testfixture.txt"))
         }
     }
 
