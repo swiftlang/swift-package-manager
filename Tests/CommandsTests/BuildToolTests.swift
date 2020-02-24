@@ -55,6 +55,7 @@ final class BuildToolTests: XCTestCase {
         fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
             let fullPath = resolveSymlinks(path)
             let targetPath = fullPath.appending(components: ".build", Resources.default.toolchain.triple.tripleString)
+            let xcbuildTargetPath = fullPath.appending(components: ".build", "apple")
             XCTAssertEqual(try execute(["--show-bin-path"], packagePath: fullPath).stdout,
                            "\(targetPath.appending(component: "debug").pathString)\n")
             XCTAssertEqual(try execute(["-c", "release", "--show-bin-path"], packagePath: fullPath).stdout,
@@ -64,8 +65,8 @@ final class BuildToolTests: XCTestCase {
             let xcodeDebugOutput = try execute(["--build-system", "xcode", "--show-bin-path"], packagePath: fullPath).stdout
             let xcodeReleaseOutput = try execute(["--build-system", "xcode", "-c", "release", "--show-bin-path"], packagePath: fullPath).stdout
           #if os(macOS)
-            XCTAssertEqual(xcodeDebugOutput, "\(targetPath.appending(components: "Products", "Debug").pathString)\n")
-            XCTAssertEqual(xcodeReleaseOutput, "\(targetPath.appending(components: "Products", "Release").pathString)\n")
+            XCTAssertEqual(xcodeDebugOutput, "\(xcbuildTargetPath.appending(components: "Products", "Debug").pathString)\n")
+            XCTAssertEqual(xcodeReleaseOutput, "\(xcbuildTargetPath.appending(components: "Products", "Release").pathString)\n")
           #else
             XCTAssertEqual(xcodeDebugOutput, "\(targetPath.appending(component: "debug").pathString)\n")
             XCTAssertEqual(xcodeReleaseOutput, "\(targetPath.appending(component: "release").pathString)\n")
