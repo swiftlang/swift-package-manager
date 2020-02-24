@@ -35,7 +35,8 @@ class ResourcesTests: XCTestCase {
             try executeSwiftBuild(prefix)
 
             let exec = prefix.appending(RelativePath(".build/debug/exe"))
-            let output = try Process.checkNonZeroExit(args: exec.pathString)
+            // Note: <rdar://problem/59738569> Source from LANG and -AppleLanguages on command line for Linux resources
+            let output = try Process.checkNonZeroExit(args: exec.pathString, "-AppleLanguages", "(en_US)")
             XCTAssertEqual(output, """
                 ¡Hola Mundo!
                 Hallo Welt!
