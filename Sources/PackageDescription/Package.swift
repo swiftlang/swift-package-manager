@@ -177,6 +177,14 @@ public final class Package {
   #endif
     private var _platforms: [SupportedPlatform]?
 
+    /// The default localization for resources.
+    @available(_PackageDescription, introduced: 999)
+    public var defaultLocalization: LanguageTag? {
+        get { return _defaultLocalization }
+        set { _defaultLocalization = newValue }
+    }
+    private var _defaultLocalization: LanguageTag?
+
     /// The name to use for C Modules.
     ///
     /// If present, the Swift Package Manager searches for a `<name>.pc` file
@@ -290,7 +298,7 @@ public final class Package {
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
     ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
-    @available(_PackageDescription, introduced: 5)
+    @available(_PackageDescription, introduced: 5, obsoleted: 999)
     public init(
         name: String,
         platforms: [SupportedPlatform]? = nil,
@@ -304,6 +312,46 @@ public final class Package {
         cxxLanguageStandard: CXXLanguageStandard? = nil
     ) {
         self.name = name
+        self._platforms = platforms
+        self.pkgConfig = pkgConfig
+        self.providers = providers
+        self.products = products
+        self.dependencies = dependencies
+        self.targets = targets
+        self.swiftLanguageVersions = swiftLanguageVersions
+        self.cLanguageStandard = cLanguageStandard
+        self.cxxLanguageStandard = cxxLanguageStandard
+        registerExitHandler()
+    }
+
+    /// Initializes and returns a newly allocated package object with the specified parameters
+    ///
+    /// - Parameters:
+    ///     - name: The name of the Swift package.
+    ///     - defaultLocalization: The default localization for resources.
+    ///     - platforms: The list of minimum deployment targets per platform.
+    ///     - products: The list of products that this package vends and that can be run or used by its clients.
+    ///     - dependencies: The list of package dependencies.
+    ///     - targets: The list of targets that are part of this package.
+    ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
+    ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
+    ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
+    @available(_PackageDescription, introduced: 999)
+    public init(
+        name: String,
+        defaultLocalization: LanguageTag? = nil,
+        platforms: [SupportedPlatform]? = nil,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProvider]? = nil,
+        products: [Product] = [],
+        dependencies: [Dependency] = [],
+        targets: [Target] = [],
+        swiftLanguageVersions: [SwiftVersion]? = nil,
+        cLanguageStandard: CLanguageStandard? = nil,
+        cxxLanguageStandard: CXXLanguageStandard? = nil
+    ) {
+        self.name = name
+        self._defaultLocalization = defaultLocalization
         self._platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
@@ -330,6 +378,46 @@ public final class Package {
             dumpPackageAtExit(self, fileNo: fileNo)
         }
     }
+}
+
+/// A wrapper around a [IETF Language Tag](https://en.wikipedia.org/wiki/IETF_language_tag).
+public struct LanguageTag: Hashable {
+
+    /// A IETF language tag.
+    public let tag: String
+
+    /// Creates a `LanguageTag` from its IETF string representation.
+    public init(_ tag: String) {
+        self.tag = tag
+    }
+}
+
+extension LanguageTag: RawRepresentable {
+    public var rawValue: String { tag }
+
+    public init?(rawValue: String) {
+        tag = rawValue
+    }
+}
+
+extension LanguageTag: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        tag = value
+    }
+
+    public init(extendedGraphemeClusterLiteral value: String) {
+        self.init(stringLiteral: value)
+    }
+
+    public init(unicodeScalarLiteral value: String) {
+        self.init(stringLiteral: value)
+    }
+}
+
+extension LanguageTag: CustomStringConvertible {
+
+    /// A textual description of the language tag.
+    public var description: String { tag }
 }
 
 /// The system package providers used in this Swift package.
@@ -375,6 +463,7 @@ public enum SystemPackageProvider {
 extension Package: Encodable {
     private enum CodingKeys: CodingKey {
         case name
+        case defaultLocalization
         case platforms
         case pkgConfig
         case providers
@@ -391,6 +480,9 @@ extension Package: Encodable {
         try container.encode(name, forKey: .name)
 
       #if !PACKAGE_DESCRIPTION_4
+        if let defaultLocalization = _defaultLocalization {
+            try container.encode(defaultLocalization.tag, forKey: .defaultLocalization)
+        }
         if let platforms = self._platforms {
             try container.encode(platforms, forKey: .platforms)
         }

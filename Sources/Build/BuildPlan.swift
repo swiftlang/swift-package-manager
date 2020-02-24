@@ -167,6 +167,15 @@ public enum TargetBuildDescription {
             return target.libraryBinaryPaths
         }
     }
+
+    var resourceBundleInfoPlistPath: AbsolutePath? {
+        switch self {
+        case .swift(let target):
+            return target.resourceBundleInfoPlistPath
+        case .clang(let target):
+            return target.resourceBundleInfoPlistPath
+        }
+    }
 }
 
 /// Target description for a Clang target i.e. C language family target.
@@ -207,6 +216,9 @@ public final class ClangTargetBuildDescription {
     /// Path to the resource accessor header file, if generated.
     public private(set) var resourceAccessorHeaderFile: AbsolutePath?
 
+    /// Path to the resource Info.plist file, if generated.
+    public private(set) var resourceBundleInfoPlistPath: AbsolutePath?
+
     /// The objects in this target.
     public var objects: [AbsolutePath] {
         return compilePaths().map({ $0.object })
@@ -240,7 +252,15 @@ public final class ClangTargetBuildDescription {
             self.moduleMap = try computeModulemapPath()
         }
 
-        try self.generateResourceAccessor()
+        // Do nothing if we're not generating a bundle.
+        if bundlePath != nil {
+            try self.generateResourceAccessor()
+
+            let infoPlistPath = tempsPath.appending(component: "Info.plist")
+            if try generateResourceInfoPlist(for: target, to: infoPlistPath) {
+                resourceBundleInfoPlistPath = infoPlistPath
+            }
+        }
     }
 
     /// An array of tuple containing filename, source, object and dependency path for each of the source in this target.
@@ -494,6 +514,9 @@ public final class SwiftTargetBuildDescription {
         return buildParameters.buildPath.appending(component: target.c99name + ".swiftinterface")
     }
 
+    /// Path to the resource Info.plist file, if generated.
+    public private(set) var resourceBundleInfoPlistPath: AbsolutePath?
+
     /// Paths to the binary libraries the target depends on.
     fileprivate(set) var libraryBinaryPaths: Set<AbsolutePath> = []
 
@@ -539,7 +562,15 @@ public final class SwiftTargetBuildDescription {
             self.moduleMap = try self.generateModuleMap()
         }
 
-        try self.generateResourceAccessor()
+        // Do nothing if we're not generating a bundle.
+        if bundlePath != nil {
+            try self.generateResourceAccessor()
+
+            let infoPlistPath = tempsPath.appending(component: "Info.plist")
+            if try generateResourceInfoPlist(for: target, to: infoPlistPath) {
+                resourceBundleInfoPlistPath = infoPlistPath
+            }
+        }
     }
 
     /// Generate the resource bundle accessor, if appropriate.
@@ -1258,19 +1289,19 @@ public class BuildPlan {
                 }
             }
 
-             switch target.underlyingTarget {
-             case is SwiftTarget:
-                 targetMap[target] = try .swift(SwiftTargetBuildDescription(target: target, buildParameters: buildParameters, fs: fileSystem))
-             case is ClangTarget:
+            switch target.underlyingTarget {
+            case is SwiftTarget:
+                targetMap[target] = try .swift(SwiftTargetBuildDescription(target: target, buildParameters: buildParameters, fs: fileSystem))
+            case is ClangTarget:
                 targetMap[target] = try .clang(ClangTargetBuildDescription(
                     target: target,
                     buildParameters: buildParameters,
                     fileSystem: fileSystem))
-             case is SystemLibraryTarget, is BinaryTarget:
+            case is SystemLibraryTarget, is BinaryTarget:
                  break
-             default:
+            default:
                  fatalError("unhandled \(target.underlyingTarget)")
-             }
+            }
         }
 
         /// Ensure we have at least one buildable target.
@@ -1761,4 +1792,44 @@ extension BuildParameters {
         .map{ $0 + triple.nsbundleExtension }
         .map(buildPath.appending(component:))
     }
+}
+
+extension FileSystem {
+    /// Write bytes to the path if the given contents are different.
+    func writeIfChanged(path: AbsolutePath, bytes: ByteString) throws {
+        try createDirectory(path.parentDirectory, recursive: true)
+
+        // Return if the contents are same.
+        if isFile(path), try readFileContents(path) == bytes {
+            return
+        }
+
+        try writeFileContents(path, bytes: bytes)
+    }
+}
+
+/// Generate the resource bundle Info.plist.
+private func generateResourceInfoPlist(
+    for target: ResolvedTarget,
+    to path: AbsolutePath,
+    fileSystem: FileSystem = localFileSystem
+) throws -> Bool {
+    guard let defaultLocalization = target.underlyingTarget.defaultLocalization else {
+        return false
+    }
+
+    let stream = BufferedOutputByteStream()
+    stream <<< """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleDevelopmentRegion</key>
+            <string>\(defaultLocalization)</string>
+        </dict>
+        </plist>
+        """
+
+    try fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
+    return true
 }

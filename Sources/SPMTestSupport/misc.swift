@@ -147,6 +147,33 @@ public func executeSwiftBuild(
     Xswiftc: [String] = [],
     env: [String: String]? = nil
 ) throws -> (stdout: String, stderr: String) {
+    let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
+    return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env)
+}
+
+@discardableResult
+public func executeSwiftRun(
+    _ packagePath: AbsolutePath,
+    _ executable: String,
+    configuration: Configuration = .Debug,
+    extraArgs: [String] = [],
+    Xcc: [String] = [],
+    Xld: [String] = [],
+    Xswiftc: [String] = [],
+    env: [String: String]? = nil
+) throws -> (stdout: String, stderr: String) {
+    var args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
+    args.append(executable)
+    return try SwiftPMProduct.SwiftRun.execute(args, packagePath: packagePath, env: env)
+}
+
+private func swiftArgs(
+    configuration: Configuration,
+    extraArgs: [String],
+    Xcc: [String],
+    Xld: [String],
+    Xswiftc: [String]
+) -> [String] {
     var args = ["--configuration"]
     switch configuration {
     case .Debug:
@@ -154,12 +181,12 @@ public func executeSwiftBuild(
     case .Release:
         args.append("release")
     }
+
     args += extraArgs
     args += Xcc.flatMap({ ["-Xcc", $0] })
     args += Xld.flatMap({ ["-Xlinker", $0] })
     args += Xswiftc.flatMap({ ["-Xswiftc", $0] })
-
-    return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env)
+    return args
 }
 
 public func loadPackageGraph(

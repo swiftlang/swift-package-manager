@@ -17,6 +17,7 @@ extension ManifestBuilder {
     mutating func build(v4 json: JSON, toolsVersion: ToolsVersion) throws {
         let package = try json.getJSON("package")
         self.name = try package.get(String.self, forKey: "name")
+        self.defaultLocalization = try? package.get(String.self, forKey: "defaultLocalization")
         self.pkgConfig = package.get("pkgConfig")
         self.platforms = try parsePlatforms(package)
         self.swiftLanguageVersions = try parseSwiftLanguageVersion(package)
@@ -122,7 +123,9 @@ extension ManifestBuilder {
             let rawRule = try json.get(String.self, forKey: "rule")
             let rule = TargetDescription.Resource.Rule(rawValue: rawRule)!
             let path = try json.get(String.self, forKey: "path")
-            return .init(rule: rule, path: path)
+            let localizationString = try? json.get(String.self, forKey: "localization")
+            let localization = localizationString.map({ TargetDescription.Resource.Localization(rawValue: $0)! })
+            return .init(rule: rule, path: path, localization: localization)
         }
     }
 
@@ -280,7 +283,7 @@ extension PackageDependencyDescription {
                 // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
                 return AbsolutePath(url, relativeTo: AbsolutePath(baseURL)).pathString
             }
-            
+
             if case .localPackage = requirement {
                 do {
                     return try AbsolutePath(validating: url).pathString

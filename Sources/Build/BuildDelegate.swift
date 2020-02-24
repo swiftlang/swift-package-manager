@@ -309,13 +309,11 @@ final class CopyCommand: CustomLLBuildCommand {
         }
 
         do {
-            let input = tool.inputs[0].name
-            let output = tool.outputs[0].name
-            try localFileSystem.createDirectory(AbsolutePath(output).parentDirectory, recursive: true)
-
-            // FIXME: We should shim this through our FileSystem APIs.
-            try? FileManager.default.removeItem(atPath: output)
-            try FileManager.default.copyItem(atPath: input, toPath: output)
+            let input = AbsolutePath(tool.inputs[0].name)
+            let output = AbsolutePath(tool.outputs[0].name)
+            try localFileSystem.createDirectory(output.parentDirectory, recursive: true)
+            try localFileSystem.removeFileTree(output)
+            try localFileSystem.copy(from: input, to: output)
         } catch {
             // FIXME: Shouldn't use "print" here.
             print("error:", error)
