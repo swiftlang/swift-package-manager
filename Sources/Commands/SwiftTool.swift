@@ -379,6 +379,15 @@ public class SwiftTool<Options: ToolOptions> {
         binder.bind(
             option: parser.add(option: "--destination", kind: PathArgument.self),
             to: { $0.customCompileDestination = $1.path })
+        binder.bind(
+            option: parser.add(option: "--triple", kind: String.self),
+            to: { $0.customCompileTriple = try Triple($1) })
+        binder.bind(
+            option: parser.add(option: "--sdk", kind: PathArgument.self),
+            to: { $0.customCompileSDK = $1.path })
+        binder.bind(
+            option: parser.add(option: "--toolchain", kind: PathArgument.self),
+            to: { $0.customCompileToolchain = $1.path })
 
         // FIXME: We need to allow -vv type options for this.
         binder.bind(
@@ -782,14 +791,31 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Lazily compute the destination toolchain.
     private lazy var _destinationToolchain: Result<UserToolchain, Swift.Error> = {
-        // Create custom toolchain if present.
-        if let customDestination = self.options.customCompileDestination {
-            return Result(catching: {
-                try UserToolchain(destination: Destination(fromFile: customDestination))
-            })
+        var destination: Destination
+        do {
+            // Create custom toolchain if present.
+            if let customDestination = self.options.customCompileDestination {
+                destination = try Destination(fromFile: customDestination)
+            } else {
+                // Otherwise use the host toolchain.
+                destination = try Destination.hostDestination(
+                    originalWorkingDirectory: self.originalWorkingDirectory
+                )
+            }
+        } catch {
+            return .failure(error)
         }
-        // Otherwise use the host toolchain.
-        return self._hostToolchain
+        // Apply any manual overrides.
+        if let triple = self.options.customCompileTriple {
+          destination.target = triple
+        }
+        if let binDir = self.options.customCompileToolchain {
+            destination.binDir = binDir.appending(components: "usr", "bin")
+        }
+        if let sdk = self.options.customCompileSDK {
+            destination.sdk = sdk
+        }
+        return Result(catching: { try UserToolchain(destination: destination) })
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.
