@@ -1895,6 +1895,34 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(diagnostic: "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources", behavior: .error)
         }
     }
+
+    func testXcodeResources() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Foo/Sources/Foo/Foo.xcassets",
+            "/Foo/Sources/Foo/Foo.xib",
+            "/Foo/Sources/Foo/Foo.xcdatamodel"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "Foo",
+            v: .vNext,
+            targets: [
+                TargetDescription(name: "Foo"),
+            ]
+        )
+
+        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), in: fs) { result, diagnostics in
+            result.checkModule("Foo") { result in
+                result.checkSources(sources: ["foo.swift"])
+                result.checkResources(resources: [
+                    "/Foo/Sources/Foo/Foo.xib",
+                    "/Foo/Sources/Foo/Foo.xcdatamodel",
+                    "/Foo/Sources/Foo/Foo.xcassets",
+                ])
+            }
+        }
+    }
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}
@@ -2045,6 +2073,10 @@ final class PackageBuilderTester {
 
         func checkSources(root: String? = nil, paths: String..., file: StaticString = #file, line: UInt = #line) {
             checkSources(root: root, sources: paths, file: file, line: line)
+        }
+
+        func checkResources(resources: [String], file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(Set(resources), Set(self.target.resources.map{ $0.path.pathString }), "unexpected resource files in \(target.name)", file: file, line: line)
         }
 
         func check(targetDependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
