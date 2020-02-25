@@ -66,7 +66,7 @@ public struct TargetSourcesBuilder {
         self.defaultLocalization = defaultLocalization
         self.diags = diags
         self.targetPath = path
-        self.rules = FileRuleDescription.builtinRules + additionalFileRules
+        self.rules = FileRuleDescription.builtinRules
         self.toolsVersion = toolsVersion
         self.fs = fs
         let excludedPaths = target.exclude.map{ path.appending(RelativePath($0)) }
@@ -515,6 +515,33 @@ public struct FileRuleDescription {
         )
     }()
 
+    /// File types related to the interface builder and storyboards.
+    public static var xib: FileRuleDescription = {
+        .init(
+            rule: .processResource,
+            toolsVersion: .vNext,
+            fileTypes: ["nib", "xib", "storyboard"]
+        )
+    }()
+
+    /// File types related to the asset catalog.
+    public static var assetCatalog: FileRuleDescription = {
+        .init(
+            rule: .processResource,
+            toolsVersion: .vNext,
+            fileTypes: ["xcassets"]
+        )
+    }()
+
+    /// File types related to the CoreData.
+    public static var coredata: FileRuleDescription = {
+        .init(
+            rule: .processResource,
+            toolsVersion: .vNext,
+            fileTypes: ["xcdatamodeld", "xcdatamodel", "xcmappingmodel"]
+        )
+    }()
+
     /// List of all the builtin rules.
     public static let builtinRules: [FileRuleDescription] = [
         swift,
@@ -522,6 +549,13 @@ public struct FileRuleDescription {
         asm,
         modulemap,
         header,
+    ] + xcbuildFileTypes
+
+    /// List of file types that requires the Xcode build system.
+    public static let xcbuildFileTypes: [FileRuleDescription] = [
+        xib,
+        assetCatalog,
+        coredata,
     ]
 }
 
