@@ -309,7 +309,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             let jsonPath = codeCovAsJSONPath(
                 buildParameters: buildParameters,
                 packageName: product.packageName)
-            try exportCodeCovAsJSON(to: jsonPath, testBinary: product.bundlePath)
+            try exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath)
         }
     }
 
@@ -351,6 +351,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             testBinary.pathString
         ]
         let result = try Process.popen(arguments: args)
+
+        if result.exitStatus != .terminated(code: 0) {
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            throw StringError("Unable to export code coverage:\n \(output)")
+        }
         try localFileSystem.writeFileContents(path, bytes: ByteString(result.output.get()))
     }
 
