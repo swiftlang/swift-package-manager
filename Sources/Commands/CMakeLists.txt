@@ -33,6 +33,10 @@ target_link_libraries(Commands PUBLIC
   Workspace
   XCBuildSupport
   Xcodeproj)
+if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
+  target_link_libraries(Commands PUBLIC
+    FoundationXML)
+endif()
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Commands PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
