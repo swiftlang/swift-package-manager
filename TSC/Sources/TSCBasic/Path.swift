@@ -9,6 +9,7 @@
 */
 #if os(Windows)
 import Foundation
+import WinSDK
 #endif
 
 /// Represents an absolute file system path, independently of what (or whether
@@ -103,6 +104,16 @@ public struct AbsolutePath: Hashable {
 
     /// Convenience initializer that verifies that the path is absolute.
     public init(validating path: String) throws {
+#if os(Windows)
+        let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
+        defer { fsr.deallocate() }
+
+        let realpath = String(cString: fsr)
+        if realpath.withCString(encodedAs: UTF16.self, PathIsRelativeW) {
+            throw PathValidationError.invalidAbsolutePath(path)
+        }
+        self.init(path)
+#else
         switch path.first {
         case "/":
             self.init(path)
@@ -111,6 +122,7 @@ public struct AbsolutePath: Hashable {
         default:
             throw PathValidationError.invalidAbsolutePath(path)
         }
+#endif
     }
 
     /// Directory component.  An absolute path always has a non-empty directory
@@ -256,12 +268,23 @@ public struct RelativePath: Hashable {
 
     /// Convenience initializer that verifies that the path is relative.
     public init(validating path: String) throws {
+#if os(Windows)
+        let fsr: UnsafePointer<Int8> = path.fileSystemRepresentation
+        defer { fsr.deallocate() }
+
+        let realpath: String = String(cString: fsr)
+        if !realpath.withCString(encodedAs: UTF16.self, PathIsRelativeW) {
+            throw PathValidationError.invalidRelativePath(path)
+        }
+        self.init(path)
+#else
         switch path.first {
         case "/", "~":
             throw PathValidationError.invalidRelativePath(path)
         default:
             self.init(path)
         }
+#endif
     }
 
     /// Directory component.  For a relative path without any path separators,
