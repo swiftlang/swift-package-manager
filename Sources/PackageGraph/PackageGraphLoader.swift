@@ -271,20 +271,26 @@ private func createResolvedPackages(
     })
 
     // Create a map of package builders keyed by the package identity.
-    let packageMap: [String: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary({
-        // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
+    let packageMapByIdentity: [String: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{
         let identity = PackageReference.computeIdentity(packageURL: $0.package.manifest.url)
         return (identity, $0)
-    })
+    }
+    let packageMapByName: [String: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{ ($0.package.name, $0) }
 
     // In the first pass, we wire some basic things.
     for packageBuilder in packageBuilders {
         let package = packageBuilder.package
 
         // Establish the manifest-declared package dependencies.
-        packageBuilder.dependencies = package.manifest.allRequiredDependencies.compactMap({ dependency in
+        packageBuilder.dependencies = package.manifest.allRequiredDependencies.compactMap { dependency in
+            // Use the package name to lookup the dependency. The package name will be present in packages with tools version >= 5.2.
+            if let dependencyName = dependency.explicitName, let resolvedPackage = packageMapByName[dependencyName] {
+                return resolvedPackage
+            }
+
+            // Otherwise, look it up by its identity.
             let url = config.mirroredURL(forURL: dependency.url)
-            let resolvedPackage = packageMap[PackageReference.computeIdentity(packageURL: url)]
+            let resolvedPackage = packageMapByIdentity[PackageReference.computeIdentity(packageURL: url)]
 
             // We check that the explicit package dependency name matches the package name.
             if let resolvedPackage = resolvedPackage,
@@ -300,7 +306,7 @@ private func createResolvedPackages(
             }
 
             return resolvedPackage
-        })
+        }
 
         // Create target builders for each target in the package.
         let targetBuilders = package.targets.map({ ResolvedTargetBuilder(target: $0, diagnostics: diagnostics) })
@@ -403,7 +409,7 @@ private func createResolvedPackages(
                 if let packageName = productRef.package {
                     // Find the declared package and check that it contains
                     // the product we found above.
-                    guard let dependencyPackage = packageMap[packageName.lowercased()], dependencyPackage.products.contains(product) else {
+                    guard let dependencyPackage = packageMapByName[packageName], dependencyPackage.products.contains(product) else {
                         let error = PackageGraphError.productDependencyIncorrectPackage(
                             name: productRef.name, package: packageName)
                         diagnostics.emit(error, location: diagnosticLocation())
