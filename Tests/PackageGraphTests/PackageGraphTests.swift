@@ -632,6 +632,45 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    func testPackageNameValidationInProductTargetDependency() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    url: "/Foo",
+                    v: .v5_2,
+                    packageKind: .root,
+                    dependencies: [
+                        PackageDependencyDescription(name: "UnBar", url: "/Bar", requirement: .branch("master")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: [.product(name: "BarProduct", package: "UnBar")]),
+                    ]),
+                Manifest.createV4Manifest(
+                    name: "UnBar",
+                    path: "/Bar",
+                    url: "/Bar",
+                    packageKind: .remote,
+                    products: [
+                        ProductDescription(name: "BarProduct", targets: ["Bar"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+            ]
+        )
+
+        // Expect no diagnostics.
+        DiagnosticsEngineTester(diagnostics) { _ in }
+    }
+
     func testUnusedDependency() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
