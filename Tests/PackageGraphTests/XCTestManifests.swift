@@ -40,6 +40,7 @@ extension PackageGraphTests {
         ("testInvalidExplicitPackageDependencyName", testInvalidExplicitPackageDependencyName),
         ("testMultipleDuplicateModules", testMultipleDuplicateModules),
         ("testNestedDuplicateModules", testNestedDuplicateModules),
+        ("testPackageNameValidationInProductTargetDependency", testPackageNameValidationInProductTargetDependency),
         ("testProductDependencies", testProductDependencies),
         ("testProductDependencyNotFound", testProductDependencyNotFound),
         ("testProductDependencyNotFoundImprovedDiagnostic", testProductDependencyNotFoundImprovedDiagnostic),
