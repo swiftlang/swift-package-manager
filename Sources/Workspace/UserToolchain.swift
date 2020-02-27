@@ -239,10 +239,9 @@ public final class UserToolchain: Toolchain {
 
         // Use the triple from destination or compute the host triple using swiftc.
         self.triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
-        self.extraSwiftCFlags = (triple.isDarwin()
-                                    ? ["-sdk", destination.sdk.pathString]
-                                    : [])
-                                  + destination.extraSwiftCFlags
+        self.extraSwiftCFlags = [
+            "-sdk", destination.sdk.pathString
+        ] + destination.extraSwiftCFlags
 
         self.extraCCFlags = [
             triple.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
