@@ -546,10 +546,12 @@ public struct PackageDependencyDescription: Equatable, Codable {
 public struct PlatformDescription: Codable, Equatable {
     public let platformName: String
     public let version: String
+    public let options: [String]
 
-    public init(name: String, version: String) {
+    public init(name: String, version: String, options: [String] = []) {
         self.platformName = name
         self.version = version
+        self.options = options
     }
 }
 

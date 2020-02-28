@@ -335,14 +335,47 @@ fileprivate protocol AppleOSVersion {
     init(uncheckedVersion: String)
 }
 
+struct StringError: Error, CustomStringConvertible {
+    var error: String
+
+    init(_ error: String) {
+        self.error = error
+    }
+
+    var description: String { error }
+}
+
 fileprivate extension AppleOSVersion {
+
+    static func validateVersion(_ string: String) throws {
+        let components = string.split(separator: ".", omittingEmptySubsequences: false)
+
+        func error(_ error: String) throws {
+            throw StringError("invalid \(Self.name) version \(string); \(error)")
+        }
+
+        for (idx, component) in components.enumerated() {
+            if component.isEmpty {
+                try error("found an empty component")
+            }
+
+            if idx < 2 {
+                if UInt(component) == nil {
+                    try error("\(component) should be a positive integer")
+                }
+            }
+        }
+
+        if (UInt(components[0]) ?? 0) < Self.minimumMajorVersion {
+            try error("the minimum major version should be \(Self.minimumMajorVersion)")
+        }
+    }
+
     init(string: String) {
-        // Perform a quick validation.
-        let components = string.split(separator: ".", omittingEmptySubsequences: false).map({ UInt($0) })
-        var error = components.compactMap({ $0 }).count != components.count
-        error = error || !(components.count == 2 || components.count == 3) || ((components[0] ?? 0) < Self.minimumMajorVersion)
-        if error {
-            errors.append("invalid \(Self.name) version string: \(string)")
+        do {
+            try Self.validateVersion(string)
+        } catch {
+            errors.append("\(error)")
         }
 
         self.init(uncheckedVersion: string)

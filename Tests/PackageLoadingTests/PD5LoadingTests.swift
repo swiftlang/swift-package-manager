@@ -116,6 +116,28 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testPlatformOptions() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [
+                   .macOS("10.13.option1.option2"), .iOS("12.2.option2"),
+                   .tvOS("12.3.4.option5.option7.option9")
+               ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.platforms, [
+                PlatformDescription(name: "macos", version: "10.13", options: ["option1", "option2"]),
+                PlatformDescription(name: "ios", version: "12.2", options: ["option2"]),
+                PlatformDescription(name: "tvos", version: "12.3.4", options: ["option5", "option7", "option9"]),
+            ])
+        }
+    }
+
     func testPlatforms() throws {
         // Sanity check.
         var stream = BufferedOutputByteStream()
@@ -155,7 +177,13 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
             try loadManifestThrowing(stream.bytes) { _ in }
             XCTFail("Unexpected success")
         } catch ManifestParseError.runtimeManifestErrors(let errors) {
-            XCTAssertEqual(errors, ["invalid macOS version string: -11.2", "invalid iOS version string: 12.x.2", "invalid tvOS version string: 10..2", "invalid watchOS version string: 1.0"])
+            print(errors.joined(separator: "\n"))
+            XCTAssertEqual(errors, [
+                "invalid macOS version -11.2; -11 should be a positive integer",
+                "invalid iOS version 12.x.2; x should be a positive integer",
+                "invalid tvOS version 10..2; found an empty component",
+                "invalid watchOS version 1.0; the minimum major version should be 2",
+            ])
         }
 
         // Duplicates.
