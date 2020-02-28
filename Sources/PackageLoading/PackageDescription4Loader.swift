@@ -68,12 +68,37 @@ extension ManifestBuilder {
         for platformJSON in declaredPlatforms {
             // Parse the version and validate that it can be used in the current
             // manifest version.
-            let version: String = try platformJSON.get("version")
+            let versionString: String = try platformJSON.get("version")
 
             // Get the platform name.
             let platformName: String = try platformJSON.getJSON("platform").get("name")
 
-            let description = PlatformDescription(name: platformName, version: version)
+            let versionComponents = versionString.split(
+                separator: ".",
+                omittingEmptySubsequences: false
+            )
+            var version: [String.SubSequence] = []
+            var options: [String.SubSequence] = []
+
+            for (idx, component) in versionComponents.enumerated() {
+                if idx < 2 {
+                    version.append(component)
+                    continue
+                }
+
+                if idx == 2, UInt(component) != nil {
+                    version.append(component)
+                    continue
+                }
+
+                options.append(component)
+            }
+
+            let description = PlatformDescription(
+                name: platformName,
+                version: version.joined(separator: "."),
+                options: options.map{ String($0) }
+            )
 
             // Check for duplicates.
             if platforms.map({ $0.platformName }).contains(platformName) {

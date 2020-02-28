@@ -115,19 +115,23 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(platforms, [
                 .dictionary([
                     "platformName": .string("macos"),
-                    "version": .string("10.12")
+                    "version": .string("10.12"),
+                    "options": .array([])
                 ]),
                 .dictionary([
                     "platformName": .string("ios"),
-                    "version": .string("10.0")
+                    "version": .string("10.0"),
+                    "options": .array([])
                 ]),
                 .dictionary([
                     "platformName": .string("tvos"),
-                    "version": .string("11.0")
+                    "version": .string("11.0"),
+                    "options": .array([])
                 ]),
                 .dictionary([
                     "platformName": .string("watchos"),
-                    "version": .string("5.0")
+                    "version": .string("5.0"),
+                    "options": .array([])
                 ]),
             ])
         }
