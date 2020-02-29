@@ -352,4 +352,37 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.defaultLocalization, "fr")
         }
     }
+
+    func testTargetPathsValidation() throws {
+        let manifestItemToDiagnosticMap = [
+            "sources: [\"/foo.swift\"]": "invalid relative path '/foo.swift",
+            "resources: [.copy(\"/foo.txt\")]": "invalid relative path '/foo.txt'",
+            "exclude: [\"/foo.md\"]": "invalid relative path '/foo.md",
+        ]
+
+        for (manifestItem, expectedDiag) in manifestItemToDiagnosticMap {
+            let stream = BufferedOutputByteStream()
+            stream <<< """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    targets: [
+                        .target(
+                            name: "Foo",
+                            \(manifestItem)
+                        ),
+                    ]
+                )
+                """
+
+            XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
+                switch error {
+                case let pathError as PathValidationError:
+                    XCTAssertMatch(pathError.description, .contains(expectedDiag))
+                default:
+                    XCTFail("\(error)")
+                }
+            }
+        }
+    }
 }

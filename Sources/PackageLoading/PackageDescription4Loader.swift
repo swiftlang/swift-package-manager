@@ -121,13 +121,19 @@ extension ManifestBuilder {
             .getArray("dependencies")
             .map(TargetDescription.Dependency.init(v4:))
 
+        let sources: [String]? = try? json.get("sources")
+        try sources?.forEach{ _ = try RelativePath(validating: $0) }
+
+        let exclude: [String] = try json.get("exclude")
+        try exclude.forEach{ _ = try RelativePath(validating: $0) }
+
         return TargetDescription(
             name: try json.get("name"),
             dependencies: dependencies,
             path: json.get("path"),
             url: json.get("url"),
-            exclude: try json.get("exclude"),
-            sources: try? json.get("sources"),
+            exclude: exclude,
+            sources: sources,
             resources: try parseResources(json),
             publicHeadersPath: json.get("publicHeadersPath"),
             type: try .init(v4: json.get("type")),
@@ -147,10 +153,10 @@ extension ManifestBuilder {
         return try resourcesJSON.map { json in
             let rawRule = try json.get(String.self, forKey: "rule")
             let rule = TargetDescription.Resource.Rule(rawValue: rawRule)!
-            let path = try json.get(String.self, forKey: "path")
+            let path = try RelativePath(validating: json.get(String.self, forKey: "path"))
             let localizationString = try? json.get(String.self, forKey: "localization")
             let localization = localizationString.map({ TargetDescription.Resource.Localization(rawValue: $0)! })
-            return .init(rule: rule, path: path, localization: localization)
+            return .init(rule: rule, path: path.pathString, localization: localization)
         }
     }
 
