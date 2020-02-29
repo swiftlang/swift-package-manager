@@ -322,7 +322,7 @@ final class XCBuildTests: XCTestCase {
 
             do {
                 let (_, stderr) = try sh(swiftTest, "--package-path", fooPath, "--build-system", "xcode", "--filter", "CFooTests")
-                XCTAssertNoMatch(stderr, .contains("Test Suite 'FooTests.xctest'"))
+                XCTAssertMatch(stderr, .contains("Test Suite 'Selected tests' started"))
                 XCTAssertMatch(stderr, .contains("Test Suite 'CFooTests.xctest'"))
             }
 
