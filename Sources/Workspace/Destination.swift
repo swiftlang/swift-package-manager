@@ -23,7 +23,7 @@ extension DestinationError: CustomStringConvertible {
 }
 
 /// The compilation destination, has information about everything that's required for a certain destination.
-public struct Destination: Encodable {
+public struct Destination: Encodable, Equatable {
 
     /// The clang/LLVM triple describing the target OS and architecture.
     ///

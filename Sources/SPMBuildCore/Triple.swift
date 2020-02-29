@@ -18,7 +18,7 @@ import TSCBasic
 /// @see Destination.target
 /// @see https://github.com/apple/swift-llvm/blob/stable/include/llvm/ADT/Triple.h
 ///
-public struct Triple: Encodable {
+public struct Triple: Encodable, Equatable {
     public let tripleString: String
 
     public let arch: Arch

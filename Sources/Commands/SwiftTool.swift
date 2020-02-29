@@ -797,15 +797,15 @@ public class SwiftTool<Options: ToolOptions> {
     /// Lazily compute the destination toolchain.
     private lazy var _destinationToolchain: Result<UserToolchain, Swift.Error> = {
         var destination: Destination
+        let hostDestination: Destination
         do {
+            hostDestination = try self._hostToolchain.get().destination
             // Create custom toolchain if present.
             if let customDestination = self.options.customCompileDestination {
                 destination = try Destination(fromFile: customDestination)
             } else {
                 // Otherwise use the host toolchain.
-                destination = try Destination.hostDestination(
-                    originalWorkingDirectory: self.originalWorkingDirectory
-                )
+                destination = hostDestination
             }
         } catch {
             return .failure(error)
@@ -820,6 +820,12 @@ public class SwiftTool<Options: ToolOptions> {
         if let sdk = self.options.customCompileSDK {
             destination.sdk = sdk
         }
+
+        // Check if we ended up with the host toolchain.
+        if hostDestination == destination {
+            return self._hostToolchain
+        }
+
         return Result(catching: { try UserToolchain(destination: destination) })
     }()
 
