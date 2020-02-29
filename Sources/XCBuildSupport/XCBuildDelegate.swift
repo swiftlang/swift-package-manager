@@ -17,11 +17,14 @@ public class XCBuildDelegate {
     private let diagnostics: DiagnosticsEngine
     private let outputStream: ThreadSafeOutputByteStream
     private let progressAnimation: ProgressAnimationProtocol
-    private var step: Int = 0
+    private var percentComplete: Int = 0
     private let queue = DispatchQueue(label: "org.swift.swiftpm.xcbuild-delegate")
 
     /// Whether to print more informationr regarding the build.
     public var isVerbose: Bool = false
+
+    /// True if any progress output was emitted.
+    fileprivate var didEmitProgressOutput: Bool = false
 
     public init(
         diagnostics: DiagnosticsEngine,
@@ -46,15 +49,26 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
         switch message {
         case .taskStarted(let info):
             queue.async {
-                self.step += 1
+                self.didEmitProgressOutput = true
                 let text = self.isVerbose ? info.executionDescription + "\n" + info.commandLineDisplayString : info.executionDescription
-                self.progressAnimation.update(step: self.step, total: self.step, text: text)
+                self.progressAnimation.update(step: self.percentComplete, total: 100, text: text)
             }
         case .taskOutput(let info):
             queue.async {
                 self.progressAnimation.clear()
                 self.outputStream <<< info.data
                 self.outputStream.flush()
+            }
+        case .didUpdateProgress(let info):
+            queue.async {
+                let percent = Int(info.percentComplete)
+                self.percentComplete = percent > 0 ? percent : 0
+            }
+        case .buildCompleted(let info):
+            queue.async {
+                if info.result == .ok, self.didEmitProgressOutput {
+                    self.progressAnimation.update(step: 100, total: 100, text: "Build succeeded")
+                }
             }
         default:
             break
