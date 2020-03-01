@@ -4484,7 +4484,7 @@ final class WorkspaceTests: XCTestCase {
     func testAndroidCompilerFlags() throws {
       let target = try Triple("x86_64-unknown-linux-android")
       let sdk = AbsolutePath("/some/path/to/an/SDK.sdk")
-      let toolchainPath = AbsolutePath("/some/path/to/a/toolchain.xctoolchain")
+      let toolchainPath = Resources.default.toolchain.destination.binDir.parentDirectory.parentDirectory
 
       let destination = Destination(
         target: target,
