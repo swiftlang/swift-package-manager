@@ -9,6 +9,7 @@
  */
 
 import Foundation
+import TSCBasic
 
 /// Protocol for the parser delegate to get notified of parsing events.
 public protocol JSONMessageStreamingParserDelegate: class {
@@ -159,7 +160,7 @@ private extension JSONMessageStreamingParser {
         do {
             return try decoder.decode(Message.self, from: data)
         } catch {
-            throw ParsingError(reason: "unexpected JSON message", underlyingError: error)
+            throw ParsingError(reason: "unexpected JSON message: \(ByteString(buffer).cString)", underlyingError: error)
         }
     }
 }

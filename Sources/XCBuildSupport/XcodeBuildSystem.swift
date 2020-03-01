@@ -107,7 +107,7 @@ public final class XcodeBuildSystem: BuildSystem {
     private func createBuildDelegate() -> XCBuildDelegate {
         let progressAnimation: ProgressAnimationProtocol = isVerbose
             ? VerboseProgressAnimation(stream: stdoutStream)
-            : NinjaProgressAnimation(stream: stdoutStream)
+            : MultiLinePercentProgressAnimation(stream: stdoutStream, header: "")
         let delegate = XCBuildDelegate(
             diagnostics: diagnostics,
             outputStream: stdoutStream,
