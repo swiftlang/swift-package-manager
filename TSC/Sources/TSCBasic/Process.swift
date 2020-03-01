@@ -201,11 +201,6 @@ public final class Process: ObjectIdentifierProtocol {
     /// The result of the process execution. Available after process is terminated.
     private var _result: ProcessResult?
 
-  #if os(Windows)
-    private var stdoutData: [UInt8] = []
-    private var stderrData: [UInt8] = []
-  #endif
-
     /// If redirected, stdout result and reference to the thread reading the output.
     private var stdout: (result: Result<[UInt8], Swift.Error>, thread: Thread?) = (.success([]), nil)
 
@@ -304,12 +299,16 @@ public final class Process: ObjectIdentifierProtocol {
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
                 let contents = fh.readDataToEndOfFile()
                 self.outputRedirection.outputClosures?.stdoutClosure([UInt8](contents))
-                self.stdoutData += contents
+                if case .success(let data) = self.stdout.result {
+                    self.stdout.result = .success(data + contents)
+                }
             }
             stderrPipe.fileHandleForReading.readabilityHandler = { (fh : FileHandle) -> Void in
                 let contents = fh.readDataToEndOfFile()
                 self.outputRedirection.outputClosures?.stderrClosure([UInt8](contents))
-                self.stderrData += contents
+                if case .success(let data) = self.stderr.result {
+                    self.stderr.result = .success(data + contents)
+                }
             }
             _process?.standardOutput = stdoutPipe
             _process?.standardError = stderrPipe
