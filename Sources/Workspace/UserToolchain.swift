@@ -248,8 +248,9 @@ public final class UserToolchain: Toolchain {
       #endif
 
         // Use the triple from destination or compute the host triple using swiftc.
-        self.triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
-        self.extraSwiftCFlags = (triple.isDarwin()
+        let triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        self.triple = triple
+        self.extraSwiftCFlags = (triple.isDarwin() || triple.isAndroid()
                                     ? ["-sdk", destination.sdk.pathString]
                                     : [])
                                   + destination.extraSwiftCFlags
