@@ -14,11 +14,10 @@ import PackageLoading
 import SPMBuildCore
 import Build
 
-#if os(macOS)
-private let whichArgs: [String] = ["/usr/bin/xcrun", "--find"]
-#else
-private let whichArgs = ["which"]
+#if !os(macOS)
+import class Foundation.FileManager
 #endif
+
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
 #else
@@ -79,9 +78,26 @@ public final class UserToolchain: Toolchain {
 
         return runtime
     }
+    
+    private static func findProgram(_ name: String, envSearchPaths: [AbsolutePath]) throws -> AbsolutePath {
+#if os(macOS)
+        let foundPath = try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--find", name]).spm_chomp()
+        return try AbsolutePath(validating: foundPath)
+#else
+        let executableName = "\(name)\(hostExecutableSuffix)"
+        
+        for folder in envSearchPaths {
+            let path = folder.appending(component: executableName)
+            if FileManager.default.fileExists(atPath: path.pathString) {
+                return path
+            }
+        }
+        throw InvalidToolchainDiagnostic("Missing tool \(name)")
+#endif
+    }
 
     /// Determines the Swift compiler paths for compilation and manifest parsing.
-    private static func determineSwiftCompilers(binDir: AbsolutePath, lookup: (String) -> AbsolutePath?) throws -> (compile: AbsolutePath, manifest: AbsolutePath) {
+    private static func determineSwiftCompilers(binDir: AbsolutePath, lookup: (String) -> AbsolutePath?, envSearchPaths: [AbsolutePath]) throws -> (compile: AbsolutePath, manifest: AbsolutePath) {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path = path else { return }
             guard localFileSystem.isExecutableFile(path) else {
@@ -108,8 +124,7 @@ public final class UserToolchain: Toolchain {
         } else {
             // Try to lookup swift compiler on the system which is possible when
             // we're built outside of the Swift toolchain.
-            let foundPath = try Process.checkNonZeroExit(arguments: whichArgs + ["swiftc"]).spm_chomp()
-            resolvedBinDirCompiler = try AbsolutePath(validating: foundPath)
+            resolvedBinDirCompiler = try UserToolchain.findProgram("swiftc", envSearchPaths: envSearchPaths)
         }
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
@@ -147,12 +162,7 @@ public final class UserToolchain: Toolchain {
         }
 
         // Otherwise, lookup it up on the system.
-        let arguments = whichArgs + ["clang"]
-        let foundPath = try Process.checkNonZeroExit(arguments: arguments, environment: processEnvironment).spm_chomp()
-        guard !foundPath.isEmpty else {
-            throw InvalidToolchainDiagnostic("could not find clang")
-        }
-        let toolPath = try AbsolutePath(validating: foundPath)
+        let toolPath = try UserToolchain.findProgram("clang", envSearchPaths: envSearchPaths)
         _clangCompiler = toolPath
         return toolPath
     }
@@ -225,7 +235,7 @@ public final class UserToolchain: Toolchain {
         // Get the binDir from destination.
         let binDir = destination.binDir
 
-        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) })
+        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) }, envSearchPaths: searchPaths)
         self.swiftCompiler = swiftCompilers.compile
 
         // We require xctest to exist on macOS.
@@ -268,7 +278,6 @@ public final class UserToolchain: Toolchain {
                 fatalError("Couldn't find any SWIFTPM_PD_LIBS directory: \(pdLibDirEnvStr)")
             }
         }
-
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompilers.manifest,
             libDir: pdLibDir,
