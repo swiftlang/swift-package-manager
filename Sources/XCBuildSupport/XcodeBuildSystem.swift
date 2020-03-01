@@ -60,9 +60,11 @@ public final class XcodeBuildSystem: BuildSystem {
         self.diagnostics = diagnostics
         self.stdoutStream = stdoutStream
 
-        let xcodeSelectOutput = try Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
-        let xcodeDirectory = try AbsolutePath(validating: xcodeSelectOutput)
-        xcbuildPath = xcodeDirectory.appending(RelativePath("../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild"))
+//        let xcodeSelectOutput = try Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
+//        let xcodeDirectory = try AbsolutePath(validating: xcodeSelectOutput)
+//        xcbuildPath = xcodeDirectory.appending(RelativePath("../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild"))
+
+        xcbuildPath = AbsolutePath("/Users/ankit/Library/Developer/Xcode/DerivedData/spmxcb-cyrhwxdidhsbdtavnltyeblcemqg/Build/Products/Debug/xcbuild")
 
         guard localFileSystem.exists(xcbuildPath) else {
             throw StringError("xcbuild executable at '\(xcbuildPath)' does not exist or is not executable")
@@ -107,7 +109,7 @@ public final class XcodeBuildSystem: BuildSystem {
     private func createBuildDelegate() -> XCBuildDelegate {
         let progressAnimation: ProgressAnimationProtocol = isVerbose
             ? VerboseProgressAnimation(stream: stdoutStream)
-            : NinjaProgressAnimation(stream: stdoutStream)
+            : MultiLinePercentProgressAnimation(stream: stdoutStream, header: "")
         let delegate = XCBuildDelegate(
             diagnostics: diagnostics,
             outputStream: stdoutStream,
