@@ -162,7 +162,7 @@ public final class MultiLinePercentProgressAnimation: ProgressAnimationProtocol 
     private var hasDisplayedHeader = false
     private var lastDisplayedText: String? = nil
 
-    public init(stream: OutputByteStream, header: String) {
+    init(stream: OutputByteStream, header: String) {
         self.stream = stream
         self.header = header
     }
@@ -170,7 +170,7 @@ public final class MultiLinePercentProgressAnimation: ProgressAnimationProtocol 
     public func update(step: Int, total: Int, text: String) {
         assert(step <= total)
 
-        if !hasDisplayedHeader, !header.isEmpty {
+        if !hasDisplayedHeader {
             stream <<< header
             stream <<< "\n"
             stream.flush()
