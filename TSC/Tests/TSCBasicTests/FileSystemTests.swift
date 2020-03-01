@@ -161,10 +161,16 @@ class FileSystemTests: XCTestCase {
             let read1 = try fs.readFileContents(filePath1)
             XCTAssertEqual(read1, byteString)
 
+            // Test overwriting file non-atomically
+            XCTAssertNoThrow(try fs.writeFileContents(filePath1, bytes: byteString, atomically: false))
+
             let filePath2 = tmpDirPath.appending(components: "test-data-2.txt")
             XCTAssertNoThrow(try fs.writeFileContents(filePath2, bytes: byteString, atomically: true))
             let read2 = try fs.readFileContents(filePath2)
             XCTAssertEqual(read2, byteString)
+
+            // Test overwriting file atomically
+            XCTAssertNoThrow(try fs.writeFileContents(filePath2, bytes: byteString, atomically: true))
 
             // Check overwrite of a file.
             try! fs.writeFileContents(filePath, bytes: "Hello, new world!")
