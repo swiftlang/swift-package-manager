@@ -41,6 +41,10 @@ public struct Platform: Encodable {
     /// The Android platform
     @available(_PackageDescription, introduced: 5.2)
     public static let android: Platform = Platform(name: "android")
+
+    /// The WASI platform
+    @available(_PackageDescription, introduced: 5.2)
+    public static let wasi: Platform = Platform(name: "wasi")
 }
 
 /// A platform that the Swift package supports.

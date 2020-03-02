@@ -29,7 +29,7 @@ public final class PlatformRegistry {
 
     /// The static list of known platforms.
     private static var _knownPlatforms: [Platform] {
-        return [.macOS, .iOS, .tvOS, .watchOS, .linux, .android]
+        return [.macOS, .iOS, .tvOS, .watchOS, .linux, .android, .wasi]
     }
 }
 
@@ -57,6 +57,8 @@ public struct Platform: Equatable, Hashable {
     public static let linux: Platform = Platform(name: "linux", oldestSupportedVersion: .unknown)
     public static let android: Platform = Platform(name: "android", oldestSupportedVersion: .unknown)
     public static let windows: Platform = Platform(name: "windows", oldestSupportedVersion: .unknown)
+    public static let wasi: Platform = Platform(name: "wasi", oldestSupportedVersion: .unknown)
+
 }
 
 /// Represents a platform version.
