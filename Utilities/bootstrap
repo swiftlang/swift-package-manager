@@ -141,7 +141,7 @@ def parse_global_args(args):
     """Parses and cleans arguments necessary for all actions."""
     args.build_dir = os.path.abspath(args.build_dir)
     args.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    args.tsc_source_dir = os.path.join(args.project_root, "TSC")
+    args.tsc_source_dir = os.path.join(args.project_root, "swift-tools-support-core")
     args.source_root = os.path.join(args.project_root, "Sources")
 
     if platform.system() == 'Darwin':
