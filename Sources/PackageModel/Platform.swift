@@ -116,8 +116,12 @@ public struct SupportedPlatform {
     /// The minimum required version for this platform.
     public let version: PlatformVersion
 
-    public init(platform: Platform, version: PlatformVersion) {
+    /// The options declared by the platform.
+    public let options: [String]
+
+    public init(platform: Platform, version: PlatformVersion, options: [String]) {
         self.platform = platform
         self.version = version
+        self.options = options
     }
 }
