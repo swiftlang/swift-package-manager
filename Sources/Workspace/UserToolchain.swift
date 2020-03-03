@@ -222,6 +222,13 @@ public final class UserToolchain: Toolchain {
         throw InvalidToolchainDiagnostic("could not find swift-api-digester")
     }
 
+    public static func deriveSwiftCFlags(triple: Triple, destination: Destination) -> [String] {
+      return (triple.isDarwin() || triple.isAndroid()
+        ? ["-sdk", destination.sdk.pathString]
+        : [])
+        + destination.extraSwiftCFlags
+    }
+
     public init(destination: Destination, environment: [String: String] = ProcessEnv.vars) throws {
         self.destination = destination
         self.processEnvironment = environment
@@ -248,11 +255,9 @@ public final class UserToolchain: Toolchain {
       #endif
 
         // Use the triple from destination or compute the host triple using swiftc.
-        self.triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
-        self.extraSwiftCFlags = (triple.isDarwin()
-                                    ? ["-sdk", destination.sdk.pathString]
-                                    : [])
-                                  + destination.extraSwiftCFlags
+        let triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        self.triple = triple
+        self.extraSwiftCFlags = UserToolchain.deriveSwiftCFlags(triple: triple, destination: destination)
 
         self.extraCCFlags = [
             triple.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString

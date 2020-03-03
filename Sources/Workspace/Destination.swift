@@ -52,6 +52,23 @@ public struct Destination: Encodable, Equatable {
     /// Additional flags to be passed when compiling with C++.
     public let extraCPPFlags: [String]
 
+    /// Creates a compilation destination with the specified properties.
+    public init(
+      target: Triple? = nil,
+      sdk: AbsolutePath,
+      binDir: AbsolutePath,
+      extraCCFlags: [String] = [],
+      extraSwiftCFlags: [String] = [],
+      extraCPPFlags: [String] = []
+    ) {
+      self.target = target
+      self.sdk = sdk
+      self.binDir = binDir
+      self.extraCCFlags = extraCCFlags
+      self.extraSwiftCFlags = extraSwiftCFlags
+      self.extraCPPFlags = extraCPPFlags
+    }
+
     /// Returns the bin directory for the host.
     ///
     /// - Parameter originalWorkingDirectory: The working directory when the program was launched.
