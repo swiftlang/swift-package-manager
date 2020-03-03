@@ -1507,7 +1507,7 @@ class PackageBuilderTests: XCTestCase {
         var manifest = Manifest.createManifest(
             name: "pkg",
             platforms: [
-                PlatformDescription(name: "macos", version: "10.12"),
+                PlatformDescription(name: "macos", version: "10.12", options: ["option1"]),
             ],
             v: .v5,
             targets: [
@@ -1529,12 +1529,20 @@ class PackageBuilderTests: XCTestCase {
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("foo") { t in
                 t.checkPlatforms(expectedPlatforms)
+                t.checkPlatformOptions(.macOS, options: ["option1"])
+                t.checkPlatformOptions(.iOS, options: [])
+
             }
             package.checkModule("bar") { t in
                 t.checkPlatforms(expectedPlatforms)
+                t.checkPlatformOptions(.macOS, options: ["option1"])
+                t.checkPlatformOptions(.iOS, options: [])
+
             }
             package.checkModule("cbar") { t in
                 t.checkPlatforms(expectedPlatforms)
+                t.checkPlatformOptions(.macOS, options: ["option1"])
+                t.checkPlatformOptions(.iOS, options: [])
             }
         }
 
@@ -2132,6 +2140,11 @@ final class PackageBuilderTester {
         func checkPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
             let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.map({ ($0.platform.name, $0.version.versionString) }))
             XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
+        }
+
+        func checkPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
+            let platform = target.getSupportedPlatform(for: platform)
+            XCTAssertEqual(platform?.options, options, file: file, line: line)
         }
     }
 

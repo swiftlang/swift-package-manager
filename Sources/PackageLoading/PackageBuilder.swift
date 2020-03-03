@@ -848,7 +848,8 @@ public final class PackageBuilder {
 
             let supportedPlatform = SupportedPlatform(
                 platform: platformRegistry.platformByName[platform.platformName]!,
-                version: PlatformVersion(platform.version)
+                version: PlatformVersion(platform.version),
+                options: platform.options
             )
 
             supportedPlatforms.append(supportedPlatform)
@@ -863,7 +864,8 @@ public final class PackageBuilder {
 
             let supportedPlatform = SupportedPlatform(
                 platform: platform,
-                version: platform.oldestSupportedVersion
+                version: platform.oldestSupportedVersion,
+                options: []
             )
 
             supportedPlatforms.append(supportedPlatform)
