@@ -270,6 +270,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                 .append("$(PLATFORM_DIR)/Developer/Library/Frameworks")
         }
 
+        PlatformRegistry.default.knownPlatforms.forEach {
+            guard let platform = PIF.BuildSettings.Platform.from(platform: $0) else { return }
+            guard let supportedPlatform = firstTarget?.getSupportedPlatform(for: $0) else { return }
+            settings[.SPECIALIZATION_SDK_OPTIONS, for: platform] = supportedPlatform.options
+        }
+
         // Disable signing for all the things since there is no way to configure
         // signing information in packages right now.
         settings[.ENTITLEMENTS_REQUIRED] = "NO"
@@ -1479,4 +1485,17 @@ extension PIF.PlatformFilter {
             .init(platform: "linux", environment: $0)
         }
     }()
+}
+
+private extension PIF.BuildSettings.Platform {
+    static func from(platform: PackageModel.Platform) -> PIF.BuildSettings.Platform? {
+        switch platform {
+        case .iOS: return .iOS
+        case .linux: return .linux
+        case .macOS: return .macOS
+        case .tvOS: return .tvOS
+        case .watchOS: return .watchOS
+        default: return nil
+        }
+    }
 }

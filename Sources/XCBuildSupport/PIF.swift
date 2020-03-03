@@ -711,6 +711,7 @@ public enum PIF {
             case OTHER_LDRFLAGS
             case OTHER_SWIFT_FLAGS
             case PRELINK_FLAGS
+            case SPECIALIZATION_SDK_OPTIONS
             case SUPPORTED_PLATFORMS
             case SWIFT_ACTIVE_COMPILATION_CONDITIONS
         }
