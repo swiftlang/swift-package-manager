@@ -137,8 +137,22 @@ public struct PackageReference: JSONMappable, JSONSerializable, Codable, CustomS
 
     /// Compute the default name of a package given its URL.
     public static func computeDefaultName(fromURL url: String) -> String {
+      #if os(Windows)
+        let isSeparator : (Character) -> Bool = { $0 == "/" || $0 == "\\" }
+      #else
+        let isSeparator : (Character) -> Bool = { $0 == "/" }
+      #endif
+       
         // Get the last path component of the URL.
-        var lastComponent = url.split(separator: "/", omittingEmptySubsequences: true).last ?? url[...]
+        // Drop the last character in case it's a trailing slash.
+        var endIndex = url.endIndex
+        if let lastCharacter = url.last, isSeparator(lastCharacter) {
+            endIndex = url.index(before: endIndex)
+        }
+
+        let separatorIndex = url[..<endIndex].lastIndex(where: isSeparator)
+        let startIndex = separatorIndex.map { url.index(after: $0) } ?? url.startIndex
+        var lastComponent = url[startIndex..<endIndex]
 
         // Strip `.git` suffix if present.
         if lastComponent.hasSuffix(".git") {
