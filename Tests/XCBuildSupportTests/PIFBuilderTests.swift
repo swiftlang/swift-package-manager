@@ -191,6 +191,10 @@ class PIFBuilderTests: XCTestCase {
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
                             XCTAssertEqual(settings[.FRAMEWORK_SEARCH_PATHS, for: platform], frameworksSearchPaths)
                         }
+
+                        for platform in PIF.BuildSettings.Platform.allCases {
+                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: platform], [])
+                        }
                     }
                 }
 
@@ -229,6 +233,10 @@ class PIFBuilderTests: XCTestCase {
                         let frameworksSearchPaths = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
                             XCTAssertEqual(settings[.FRAMEWORK_SEARCH_PATHS, for: platform], frameworksSearchPaths)
+                        }
+
+                        for platform in PIF.BuildSettings.Platform.allCases {
+                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: platform], [])
                         }
                     }
                 }
@@ -281,6 +289,10 @@ class PIFBuilderTests: XCTestCase {
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
                             XCTAssertEqual(settings[.FRAMEWORK_SEARCH_PATHS, for: platform], frameworksSearchPaths)
                         }
+
+                        for platform in PIF.BuildSettings.Platform.allCases {
+                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: platform], [])
+                        }
                     }
                 }
 
@@ -319,6 +331,10 @@ class PIFBuilderTests: XCTestCase {
                         let frameworksSearchPaths = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
                             XCTAssertEqual(settings[.FRAMEWORK_SEARCH_PATHS, for: platform], frameworksSearchPaths)
+                        }
+
+                        for platform in PIF.BuildSettings.Platform.allCases {
+                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: platform], [])
                         }
                     }
                 }
@@ -2025,6 +2041,48 @@ class PIFBuilderTests: XCTestCase {
                         }
                     })
                     XCTAssertEqual(dependencyMap, frameworksBuildFilesMap)
+                }
+            }
+        }
+    }
+
+    func testSDKOptions() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/foo/main.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(
+            fs: fs,
+            diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Foo",
+                    platforms: [
+                        PlatformDescription(name: "macos", version: "10.14", options: ["best"]),
+                    ],
+                    path: "/Foo",
+                    url: "/Foo",
+                    v: .vNext,
+                    packageKind: .root,
+                    targets: [
+                        .init(name: "foo", dependencies: []),
+                    ]),
+            ],
+            shouldCreateMultipleTestProducts: true
+        )
+
+        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
+        let pif = builder.construct()
+
+        XCTAssertNoDiagnostics(diagnostics)
+
+        PIFTester(pif) { workspace in
+            workspace.checkProject("PACKAGE:/Foo") { project in
+                project.checkBuildConfiguration("Debug") { configuration in
+                    configuration.checkBuildSettings { settings in
+                        XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: .macOS], ["best"])
+                    }
                 }
             }
         }
