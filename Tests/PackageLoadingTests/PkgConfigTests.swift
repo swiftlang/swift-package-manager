@@ -45,6 +45,7 @@ class PkgConfigTests: XCTestCase {
                 providers: [
                     .brew(["libFoo"]),
                     .apt(["libFoo-dev"]),
+                    .yum(["libFoo-devel"])
                 ]
             )
             let result = pkgConfigArgs(for: target, diagnostics: diagnostics)!
@@ -56,6 +57,8 @@ class PkgConfigTests: XCTestCase {
                 XCTAssertEqual(names, ["libFoo"])
             case .apt(let names)?:
                 XCTAssertEqual(names, ["libFoo-dev"])
+            case .yum(let names)?:
+                XCTAssertEqual(names, ["libFoo-devel"])
             case nil:
                 XCTFail("Expected a provider here")
             }

@@ -103,6 +103,8 @@ extension SystemPackageProviderDescription {
             return "    brew install \(packages.joined(separator: " "))\n"
         case .apt(let packages):
             return "    apt-get install \(packages.joined(separator: " "))\n"
+        case .yum(let packages):
+            return "    yum install \(packages.joined(separator: " "))\n"
         }
     }
 
@@ -119,6 +121,10 @@ extension SystemPackageProviderDescription {
                 return true
             }
             if case .android = platform {
+                return true
+            }
+        case .yum:
+            if case .linux(.fedora) = platform {
                 return true
             }
         }
@@ -148,6 +154,8 @@ extension SystemPackageProviderDescription {
             }
             return packages.map({ AbsolutePath(brewPrefix).appending(components: "opt", $0, "lib", "pkgconfig") })
         case .apt:
+            return []
+        case .yum:
             return []
         }
     }
