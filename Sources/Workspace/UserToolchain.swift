@@ -223,10 +223,14 @@ public final class UserToolchain: Toolchain {
     }
 
     public static func deriveSwiftCFlags(triple: Triple, destination: Destination) -> [String] {
-      return (triple.isDarwin() || triple.isAndroid()
+      var flags = (triple.isDarwin() || triple.isAndroid()
         ? ["-sdk", destination.sdk.pathString]
         : [])
-        + destination.extraSwiftCFlags
+      if triple.isAndroid() {
+        let resourceDirectory = destination.sdk.appending(components: "usr", "lib", "swift")
+        flags += ["-resource-dir", resourceDirectory.pathString]
+      }
+      return flags + destination.extraSwiftCFlags
     }
 
     public init(destination: Destination, environment: [String: String] = ProcessEnv.vars) throws {

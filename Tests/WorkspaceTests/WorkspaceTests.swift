@@ -4493,8 +4493,10 @@ final class WorkspaceTests: XCTestCase {
       )
 
       XCTAssertEqual(UserToolchain.deriveSwiftCFlags(triple: target, destination: destination), [
-        // Needed when cross‐compiling for Android. 2020‐03‐01
-        "-sdk", sdk.pathString
+        // Needed when cross‐compiling for Android.
+        // Dates indicate when it was last verified that a flag was needed.
+        "-sdk", sdk.pathString, // 2020‐03‐01
+        "-resource-dir", "\(sdk.pathString)/usr/lib/swift" // 2020‐03‐05
       ])
     }
 }
